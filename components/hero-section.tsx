@@ -5,7 +5,8 @@ import { ArrowRight } from "lucide-react"
 export function HeroSection() {
   return (
     // Matches navbar gradient for seamless integration
-    <section className="relative  bg-gradient-to-r from-purple-50/95 to-blue-50/95 pt-20 pb-32">
+    <section className="relative  bg-gradient-to-br from-slate-100 via-blue-100 to-indigo-100
+ pt-20 pb-32">
       <div className="container px-4">
         <div className="mx-auto max-w-4xl">
           

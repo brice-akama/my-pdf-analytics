@@ -7,22 +7,72 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
+import { useRouter } from "next/navigation"
+import { supabase } from '@/lib/supabaseClient'
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
+  const [loading, setLoading] = useState(false)
+ const [error, setError] = useState<string | null>(null)
+ const router = useRouter()
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Handle login logic here
-    console.log({ email, password, rememberMe })
+  
+    
+  
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setError(null)
+  setLoading(true)
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password: password
+    })
+
+    if (error) {
+      setError(error.message) // Supabase returns friendly errors like "Invalid login credentials"
+      return
+    }
+
+    if (!data.session) {
+      setError('Login failed: no session returned')
+      return
+    }
+
+    // Optionally, store "remember me" session
+    if (rememberMe) {
+      localStorage.setItem('supabase_session', JSON.stringify(data.session))
+    }
+
+    // Login successful, redirect
+    router.push('/dashboard')
+
+  } catch (err) {
+    console.error('Login error', err)
+    setError('Network error, please try again.')
+  } finally {
+    setLoading(false)
   }
+}
 
+  
   const handleGoogleSignIn = () => {
-    // Handle Google sign in
-    console.log("Google sign in")
+    // create a short state token to mitigate CSRF and remember it for verification server-side
+    const state = Math.random().toString(36).slice(2)
+    sessionStorage.setItem('oauth_state', state)
+
+    // tell the backend where to send the user after full OAuth flow
+    const next = encodeURIComponent('/dashboard')
+
+    // backend should validate `state` and perform the redirect to `next`
+    window.location.href = `/api/auth/google?mode=login&next=${next}&state=${state}`
   }
+
 
   return (
     <div className="min-h-screen flex">
@@ -200,9 +250,11 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            <Button type="submit" className="w-full h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-              Sign in
-            </Button>
+            
+            <Button type="submit" disabled={loading} className="w-full h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+            {loading ? "Signing in..." : "Sign in"}
+          </Button>
+{error && <div className="mt-2 text-sm text-red-600">{error}</div>}
           </form>
 
           <div className="mt-6 text-center text-sm">

@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Sparkles, Bell, Clock, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect } from "react"
 
 // Industry options for step 2
 const industries = [
@@ -51,6 +52,7 @@ export default function OnboardingFlow() {
   const [selectedIndustry, setSelectedIndustry] = useState<string>('')
   const [selectedCompanySize, setSelectedCompanySize] = useState<string>('')
   const [selectedUseCases, setSelectedUseCases] = useState<string[]>([])
+  const searchParams = useSearchParams()
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -58,6 +60,9 @@ export default function OnboardingFlow() {
     email: '',
     password: ''
   })
+
+  const [loading, setLoading] = useState(false)
+ const [signupError, setSignupError] = useState<string | null>(null)
 
   // Calculate trial dates dynamically
   const trialInfo = useMemo(() => {
@@ -104,20 +109,115 @@ export default function OnboardingFlow() {
     )
   }
 
- // ...existing code...
-  const handleUseCaseNext = () => {
-    if (selectedUseCases.length > 0) {
-      // Complete onboarding
-      console.log('Onboarding complete:', { formData, selectedIndustry, selectedCompanySize, selectedUseCases })
-      // Frontend-only redirect to dashboard (backend logic can be added later)
-      router.push('/dashboard')
-    }
-  }
+
+
 // ...existing code...
+  // If OAuth returns the user with ?step=4 (or any step), pick 
+  useEffect(() => {
+  const handle = async () => {
+    try {
+      // 1️⃣ Respect explicit ?step= query
+      const s = searchParams?.get("step");
+      if (s) {
+        const n = parseInt(s, 10);
+        if (!isNaN(n) && n >= 1 && n <= 4) {
+          setStep(n);
+        }
+      }
+
+      // 2️⃣ Verify OAuth state (anti-CSRF)
+      const stateParam = searchParams?.get("state");
+      if (stateParam) {
+        const saved = sessionStorage.getItem("oauth_state");
+        if (!saved || stateParam !== saved) {
+          setSignupError("OAuth verification failed (state mismatch). Please try again.");
+          return;
+        }
+        sessionStorage.removeItem("oauth_state");
+      }
+
+      // 3️⃣ Decode Google profile data (if present)
+      const profileB64 = searchParams?.get("profile");
+      const oauthProcessed = sessionStorage.getItem("oauth_processed");
+      if (profileB64 && !oauthProcessed) {
+        try {
+          const profileJson = JSON.parse(atob(profileB64));
+
+          // Prefill fields for the user
+          setFormData(prev => ({
+            ...prev,
+            firstName: profileJson.firstName || prev.firstName,
+            companyName: profileJson.companyName || prev.companyName,
+            email: profileJson.email || prev.email,
+            password: "" // no password for Google users
+          }));
+
+          // Move user to step 2 (instead of 4)
+          setStep(2);
+
+          // Mark processed so it won’t re-run
+          sessionStorage.setItem("oauth_processed", "1");
+        } catch (err) {
+          console.error("Invalid OAuth profile:", err);
+          setSignupError("Invalid OAuth profile data");
+        }
+      }
+    } catch (e) {
+      console.error("OAuth handling error:", e);
+    }
+  };
+  handle();
+}, [searchParams]);
 
   const handleGoogleSignUp = () => {
-    console.log('Google sign up clicked')
+    const state = Math.random().toString(36).slice(2)
+    sessionStorage.setItem('oauth_state', state)
+
+    // Ask the backend to redirect back to signup with step=4 after OAuth completes
+    const next = encodeURIComponent('/signup?step=2')
+    window.location.href = `/api/auth/google?mode=signup&next=${next}&state=${state}`
   }
+
+ 
+
+  const handleUseCaseNext = async () => {
+    if (selectedUseCases.length === 0) return
+    setSignupError(null)
+    setLoading(true)
+    try {
+      const payload = {
+        firstName: formData.firstName,
+        companyName: formData.companyName,
+        email: formData.email,
+        password: formData.password,
+        industry: selectedIndustry,
+        companySize: selectedCompanySize,
+        useCases: selectedUseCases
+      }
+
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setSignupError(data?.error || "Signup failed")
+        setLoading(false)
+        return
+      }
+
+      // Optionally: you can auto-login, show a success toast, etc.
+      router.push("/dashboard")
+    } catch (err) {
+      console.error("Signup request failed", err)
+      setSignupError("Network error. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+ 
 
   // Progress calculation
   const progress = (step / 4) * 100
@@ -125,7 +225,7 @@ export default function OnboardingFlow() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">
       <div className="w-full max-w-6xl">
-        
+        {signupError && <div className="mb-4 text-sm text-red-600">{signupError}</div>}
         {/* Progress Bar */}
         {step > 1 && (
           <div className="mb-6">
@@ -470,12 +570,12 @@ export default function OnboardingFlow() {
                     </div>
                   </div>
 
-                  <Button
+<Button
                     onClick={handleUseCaseNext}
-                    disabled={selectedUseCases.length === 0}
+                    disabled={selectedUseCases.length === 0 || loading}
                     className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Continue
+                    {loading ? "Creating account..." : "Continue"}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>

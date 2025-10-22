@@ -19,7 +19,8 @@ export function Navbar() {
   const isLoggedIn = false;
 
   return (
-    <header className="sticky top-0 z-[100] w-full border-b border-purple-100/50 bg-gradient-to-r from-purple-50/95 to-blue-50/95 backdrop-blur supports-[backdrop-filter]:bg-purple-50/80">
+    <header className="sticky top-0 z-[100] w-full border-b  bg-gradient-to-br from-slate-100 via-blue-100 to-indigo-100
+">
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <div className="flex items-center gap-6">
