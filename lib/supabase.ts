@@ -8,7 +8,7 @@ export const supabase = createClientComponentClient()
 // Server-side Supabase client with service role (for API routes)
 // ONLY use in API routes - NEVER expose service role key to client!
 export const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!, // This has full database access
   {
     auth: {

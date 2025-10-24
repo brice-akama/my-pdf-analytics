@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,14 +46,13 @@ import {
   X
 } from "lucide-react"
 
-// Mock user data
-const mockUser = {
-  email: "drivecoreatto@gmail.com",
-  firstName: "Drive",
-  lastName: "Core",
-  companyName: "My Company",
-  profileImage: null,
-  plan: "Advanced User Access"
+type UserType = {
+  email: string
+  first_name: string
+  last_name: string
+  company_name: string
+  profile_image: string | null
+  plan?: string
 }
 
 const getInitials = (email: string) => {
@@ -80,6 +80,7 @@ export default function DashboardPage() {
   const [activePage, setActivePage] = useState<PageType>('content-library')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const [user, setUser] = useState<UserType | null>(null);
 
   const handleSidebarItemClick = (pageId: PageType) => {
     setActivePage(pageId)
@@ -129,6 +130,49 @@ export default function DashboardPage() {
       color: "from-orange-500 to-orange-600"
     }
   ]
+
+   useEffect(() => {
+  const fetchUser = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      console.warn("No token found in localStorage");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/auth/me", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Failed to fetch user:", errorText);
+        return;
+      }
+
+      const data = await res.json();
+      console.log("User data received:", data);
+
+      if (data.success && data.user) {
+        // Map the API response to match UserType interface
+        setUser({
+          email: data.user.email,
+          first_name: data.user.profile.firstName,
+          last_name: data.user.profile.lastName,
+          company_name: data.user.profile.companyName,
+          profile_image: data.user.profile.avatarUrl || null,
+          plan: data.user.profile.plan || "Free Plan"
+        });
+      }
+    } catch (error) {
+      console.error("Fetch error:", error);
+    }
+  };
+
+  fetchUser();
+}, []);
 
   // Render different content based on active page
   const renderContent = () => {
@@ -328,15 +372,15 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 <div className="p-4 border rounded-lg">
                   <h3 className="font-semibold text-slate-900 mb-1">Email</h3>
-                  <p className="text-slate-600">{mockUser.email}</p>
+                  <p className="text-slate-600">{user?.email}</p>
                 </div>
                 <div className="p-4 border rounded-lg">
                   <h3 className="font-semibold text-slate-900 mb-1">Plan</h3>
-                  <p className="text-slate-600">{mockUser.plan}</p>
+                  <p className="text-slate-600">{user?.plan}</p>
                 </div>
                 <div className="p-4 border rounded-lg">
                   <h3 className="font-semibold text-slate-900 mb-1">Company</h3>
-                  <p className="text-slate-600">{mockUser.companyName}</p>
+                  <p className="text-slate-600">{user?.company_name}</p>
                 </div>
               </div>
             </div>
@@ -424,62 +468,114 @@ export default function DashboardPage() {
             </Button>
 
             {/* User Profile with Email */}
+            {/* User Profile with Email */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 hover:bg-slate-50 rounded-lg p-2 transition-colors">
-                  <div className="text-right hidden lg:block">
-                    <div className="text-sm font-semibold text-slate-900">{mockUser.companyName}</div>
-                    <div className="text-xs text-slate-600">{mockUser.email}</div>
-                  </div>
-                  <div className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(mockUser.email)} flex items-center justify-center text-white font-semibold text-lg shadow-md`}>
-                    {mockUser.profileImage ? (
-                      <Image src={mockUser.profileImage} alt="Profile" width={40} height={40} className="rounded-full object-cover" />
-                    ) : (
-                      getInitials(mockUser.email)
-                    )}
-                  </div>
-                </button>
+               <button className="flex items-center gap-3 hover:bg-slate-50 rounded-lg p-2 transition-colors">
+  <div className="text-right hidden lg:block">
+    <div className="text-sm font-semibold text-slate-900">{user?.company_name}</div>
+    <div className="text-xs text-slate-600">{user?.email}</div>
+  </div>
+  <div
+    className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md`}
+  >
+    {user?.profile_image ? (
+      <Image
+        src={user.profile_image}
+        alt="Profile"
+        width={40}
+        height={40}
+        className="rounded-full object-cover"
+      />
+    ) : (
+      getInitials(user?.email || "")
+    )}
+  </div>
+</button>
+
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuLabel>
-                  <div className="flex items-center gap-3">
-                    <div className={`h-12 w-12 rounded-full bg-gradient-to-br ${getAvatarColor(mockUser.email)} flex items-center justify-center text-white font-semibold text-xl`}>
-                      {getInitials(mockUser.email)}
-                    </div>
-                    <div>
-                      <div className="font-semibold">{mockUser.firstName} {mockUser.lastName}</div>
-                      <div className="text-xs text-slate-500 font-normal">{mockUser.email}</div>
-                    </div>
+              <DropdownMenuContent align="end" className="w-72">
+                <div className="px-4 py-3 bg-slate-50">
+                  <div className="font-semibold text-slate-900 text-base">
+                    {user?.company_name || "My Company"}
                   </div>
-                </DropdownMenuLabel>
+                  <div className="text-sm text-slate-600 mt-0.5">
+                    Advanced Data Rooms
+                  </div>
+                </div>
+                <DropdownMenuSeparator className="my-0" />
+                <div className="px-4 py-3 bg-white">
+                  <div className="font-medium text-slate-900">
+                    {user?.first_name} {user?.last_name}
+                  </div>
+                  <div className="text-sm text-slate-600">{user?.email}</div>
+                </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <UserCircle className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Bell className="mr-2 h-4 w-4" />
-                  <span>Notifications</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <span>Switch Company</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <span>Team</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <span>Billing</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <span>Resources</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <span>Help</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <span>Feedback</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <span>Earn Credit</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <span>Integrations</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <span>Contact Us</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-2">
+                  <Button className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-slate-900 font-semibold">
+                    ⚡ Upgrade
+                  </Button>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
 
           {/* Mobile User Avatar */}
-          <div className="md:hidden ml-auto">
-            <div className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(mockUser.email)} flex items-center justify-center text-white font-semibold text-lg shadow-md`}>
-              {getInitials(mockUser.email)}
-            </div>
-          </div>
+         <div className="md:hidden ml-auto">
+  <div
+    className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md`}
+  >
+    {user?.profile_image ? (
+      <Image
+        src={user.profile_image}
+        alt="Profile"
+        width={40}
+        height={40}
+        className="rounded-full object-cover"
+      />
+    ) : (
+      getInitials(user?.email || "")
+    )}
+  </div>
+</div>
+
         </div>
       </header>
 
@@ -547,15 +643,21 @@ export default function DashboardPage() {
 
           {/* User Info in Mobile Menu */}
           <div className="border-t p-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`h-12 w-12 rounded-full bg-gradient-to-br ${getAvatarColor(mockUser.email)} flex items-center justify-center text-white font-semibold text-xl`}>
-                {getInitials(mockUser.email)}
-              </div>
-              <div>
-                <div className="font-semibold text-slate-900">{mockUser.firstName} {mockUser.lastName}</div>
-                <div className="text-sm text-slate-600">{mockUser.email}</div>
-              </div>
-            </div>
+  <div className="flex items-center gap-3 mb-4">
+    <div
+      className={`h-12 w-12 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-xl`}
+    >
+      {getInitials(user?.email || "")}
+    </div>
+    <div>
+      <div className="font-semibold text-slate-900">
+        {user?.first_name} {user?.last_name}
+      </div>
+      <div className="text-sm text-slate-600">{user?.email}</div>
+    </div>
+  </div>
+
+
             <Button variant="outline" className="w-full mb-2">
               <Settings className="mr-2 h-4 w-4" />
               Settings

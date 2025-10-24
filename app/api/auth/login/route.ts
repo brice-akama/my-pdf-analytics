@@ -1,217 +1,137 @@
 // app/api/auth/login/route.ts
-import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+
+import { NextRequest, NextResponse } from 'next/server';
+import { dbPromise } from '../../lib/mongodb';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import {
   sanitizeInput,
   isValidEmail,
   getClientIP,
   getUserAgent,
   checkRateLimit
-} from '@/lib/security'
+} from '@/lib/security';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get client info
-    const clientIP = getClientIP(request)
-    const userAgent = getUserAgent(request)
-    
-    // Parse request body
-    const body = await request.json().catch(() => null)
-    
+    // 🔒 Ensure JWT_SECRET is set
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      console.error('JWT_SECRET is not configured');
+      return NextResponse.json(
+        { error: 'Server misconfiguration', code: 'MISSING_JWT_SECRET' },
+        { status: 500 }
+      );
+    }
+
+    const db = await dbPromise;
+    const users = db.collection('users');
+    const auditLog = db.collection('audit_log');
+
+    const clientIP = getClientIP(request);
+    const userAgent = getUserAgent(request);
+
+    // Rate limiting
+    const rateLimitExceeded = await Promise.resolve(checkRateLimit(`login:${clientIP}`, 5, 3600000));
+    if (rateLimitExceeded) {
+      return NextResponse.json(
+        { error: 'Too many login attempts', code: 'RATE_LIMIT_EXCEEDED' },
+        { status: 429 }
+      );
+    }
+
+    const body = await request.json().catch(() => null);
     if (!body) {
       return NextResponse.json(
         { error: 'Invalid request body', code: 'INVALID_REQUEST' },
         { status: 400 }
-      )
+      );
     }
-    
-    const { email, password } = body
-    
-    // Sanitize inputs
-    const sanitizedEmail = sanitizeInput(email || '').toLowerCase()
-    
-    // Validate email format
-    if (!isValidEmail(sanitizedEmail)) {
+
+    const { email, password } = body;
+    const sanitizedEmail = sanitizeInput(email || '').toLowerCase();
+
+    if (!sanitizedEmail || !isValidEmail(sanitizedEmail)) {
       return NextResponse.json(
-        { error: 'Invalid email address', code: 'INVALID_EMAIL' },
+        { error: 'Invalid email', code: 'INVALID_EMAIL' },
         { status: 400 }
-      )
+      );
     }
-    
-    // Check if password provided
-    if (!password || typeof password !== 'string') {
+    if (!password) {
       return NextResponse.json(
         { error: 'Password is required', code: 'MISSING_PASSWORD' },
         { status: 400 }
-      )
+      );
     }
-    
-    // ==========================================
-    // SECURITY CHECK 1: Check if user is blocked
-    // ==========================================
-    const { data: blockedUser } = await supabaseAdmin
-      .from('blocked_users')
-      .select('*')
-      .eq('email', sanitizedEmail)
-      .single()
-    
-    if (blockedUser && new Date(blockedUser.blocked_until) > new Date()) {
-      const hoursLeft = Math.ceil(
-        (new Date(blockedUser.blocked_until).getTime() - Date.now()) / (1000 * 60 * 60)
-      )
-      
+
+    const user = await users.findOne({ email: sanitizedEmail });
+    if (!user) {
+      // ⚠️ Don't reveal if email exists — but you're already returning generic error (good!)
       return NextResponse.json(
-        {
-          error: `Account temporarily locked due to multiple failed login attempts. Please try again in ${hoursLeft} hour(s).`,
-          code: 'ACCOUNT_LOCKED',
-          blockedUntil: blockedUser.blocked_until
-        },
-        { status: 403 }
-      )
-    }
-    
-    // ==========================================
-    // SECURITY CHECK 2: Rate limiting per IP
-    // ==========================================
-    if (checkRateLimit(`login:${clientIP}`, 10, 60000)) {
-      return NextResponse.json(
-        {
-          error: 'Too many login attempts from this IP. Please try again later.',
-          code: 'RATE_LIMIT_EXCEEDED'
-        },
-        { status: 429 }
-      )
-    }
-    
-    // ==========================================
-    // SECURITY CHECK 3: Count recent failed attempts
-    // ==========================================
-    const { data: recentAttempts } = await supabaseAdmin
-      .from('login_attempts')
-      .select('*')
-      .eq('email', sanitizedEmail)
-      .eq('success', false)
-      .gte('attempt_time', new Date(Date.now() - 3600000).toISOString()) // Last hour
-    
-    const failedCount = recentAttempts?.length || 0
-    
-    if (failedCount >= 3) {
-      // Block user for 10 hours
-      await supabaseAdmin.from('blocked_users').upsert({
-        email: sanitizedEmail,
-        blocked_until: new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString(),
-        ip_address: clientIP,
-        attempt_count: failedCount,
-        reason: 'Too many failed login attempts'
-      })
-      
-      return NextResponse.json(
-        {
-          error: 'Account locked due to multiple failed login attempts. Please try again in 10 hours.',
-          code: 'ACCOUNT_LOCKED'
-        },
-        { status: 403 }
-      )
-    }
-    
-    // ==========================================
-    // ATTEMPT LOGIN
-    // ==========================================
-    const { data: authData, error: authError } = await supabaseAdmin.auth.signInWithPassword({
-      email: sanitizedEmail,
-      password: password
-    })
-    
-    // ==========================================
-    // LOG LOGIN ATTEMPT
-    // ==========================================
-    const loginAttemptData = {
-      email: sanitizedEmail,
-      ip_address: clientIP,
-      user_agent: userAgent,
-      success: !authError,
-      attempt_time: new Date().toISOString()
-    }
-    
-    await supabaseAdmin.from('login_attempts').insert(loginAttemptData)
-    
-    // ==========================================
-    // HANDLE LOGIN FAILURE
-    // ==========================================
-    if (authError) {
-      const remainingAttempts = 3 - (failedCount + 1)
-      
-      return NextResponse.json(
-        {
-          error: 'Invalid email or password',
-          code: 'INVALID_CREDENTIALS',
-          remainingAttempts: Math.max(0, remainingAttempts),
-          warning: remainingAttempts === 0 
-            ? 'Your account will be locked after one more failed attempt'
-            : remainingAttempts === 1
-            ? 'Warning: Only 1 attempt remaining before account lock'
-            : null
-        },
+        { error: 'Invalid email or password', code: 'INVALID_CREDENTIALS' },
         { status: 401 }
-      )
+      );
     }
-    
-    // ==========================================
-    // LOGIN SUCCESSFUL
-    // ==========================================
-    
-    // Clear any previous blocks
-    await supabaseAdmin
-      .from('blocked_users')
-      .delete()
-      .eq('email', sanitizedEmail)
-    
-    // Log successful login in audit log
-    await supabaseAdmin.from('audit_log').insert({
-      user_id: authData.user.id,
+
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isPasswordValid) {
+      await auditLog.insertOne({
+        user_id: user._id,
+        action: 'failed_login',
+        ip_address: clientIP,
+        user_agent: userAgent,
+        metadata: { email: sanitizedEmail },
+        created_at: new Date(),
+      });
+      return NextResponse.json(
+        { error: 'Invalid email or password', code: 'INVALID_CREDENTIALS' },
+        { status: 401 }
+      );
+    }
+
+    // ✅ Generate JWT token
+    const token = jwt.sign(
+      { userId: user._id.toString(), email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // ✅ Audit successful login
+    await auditLog.insertOne({
+      user_id: user._id,
       action: 'login',
       ip_address: clientIP,
       user_agent: userAgent,
-      metadata: {
-        email: sanitizedEmail,
-        login_time: new Date().toISOString()
-      }
-    })
-    
-    // Get user profile
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single()
-    
-    // Return success response
+      metadata: { email: sanitizedEmail },
+      created_at: new Date(),
+    });
+
+    // ✅ Return token + user (include profile for consistency with signup)
     return NextResponse.json(
       {
         success: true,
         message: 'Login successful',
+        token,
         user: {
-          id: authData.user.id,
-          email: authData.user.email,
-          profile: profile
+          id: user._id.toString(),
+          email: user.email,
+          full_name: user.profile?.fullName || '',
+          provider: user.provider,
+          profile: {
+            firstName: user.profile?.firstName || '',
+            lastName: user.profile?.lastName || '',
+            companyName: user.profile?.companyName || '',
+            avatarUrl: user.profile?.avatarUrl || null,
+          },
         },
-        session: {
-          access_token: authData.session.access_token,
-          refresh_token: authData.session.refresh_token,
-          expires_at: authData.session.expires_at
-        }
       },
       { status: 200 }
-    )
-    
+    );
   } catch (error) {
-    console.error('Login error:', error)
+    console.error('Login error:', error);
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        code: 'INTERNAL_ERROR'
-      },
+      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
       { status: 500 }
-    )
+    );
   }
 }

@@ -1,6 +1,10 @@
 // app/api/auth/signup/route.ts
-import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+
+import { NextRequest, NextResponse } from 'next/server';
+import { dbPromise } from '../../lib/mongodb';
+import { ObjectId } from 'mongodb';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import {
   sanitizeInput,
   isValidEmail,
@@ -9,192 +13,136 @@ import {
   getClientIP,
   getUserAgent,
   checkRateLimit
-} from '@/lib/security'
+} from '@/lib/security';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get client info
-    const clientIP = getClientIP(request)
-    const userAgent = getUserAgent(request)
-    
-    // Rate limiting: Max 3 signup attempts per IP per hour
-    if (checkRateLimit(`signup:${clientIP}`, 3, 3600000)) {
+    const db = await dbPromise;
+    const users = db.collection('users');
+    const profiles = db.collection('profiles');
+    const auditLog = db.collection('audit_log');
+
+    // Ensure indexes
+    await Promise.all([
+      users.createIndex({ email: 1 }, { unique: true }),
+      profiles.createIndex({ email: 1 }, { unique: true }),
+      profiles.createIndex({ user_id: 1 }, { unique: true })
+    ]);
+
+    const clientIP = getClientIP(request);
+    const userAgent = getUserAgent(request);
+
+    // Rate limiting
+    const rateLimitExceeded = await Promise.resolve(checkRateLimit(`signup:${clientIP}`, 3, 3600000));
+    if (rateLimitExceeded) {
       return NextResponse.json(
-        { 
-          error: 'Too many signup attempts. Please try again later.',
-          code: 'RATE_LIMIT_EXCEEDED'
-        },
+        { error: 'Too many signup attempts', code: 'RATE_LIMIT_EXCEEDED' },
         { status: 429 }
-      )
+      );
     }
-    
-    // Parse and validate request body
-    const body = await request.json().catch(() => null)
+
+    const body = await request.json().catch(() => null);
     if (!body) {
       return NextResponse.json(
         { error: 'Invalid request body', code: 'INVALID_REQUEST' },
         { status: 400 }
-      )
+      );
     }
 
-    // Extract all fields (support both regular signup and Google OAuth)
-    const { firstName, lastName, companyName, email, password, avatar, full_name } = body
+    const { firstName, lastName, companyName, email, password, avatar, full_name } = body;
 
-    // Sanitize inputs
-    const sanitizedFirstName = sanitizeInput(firstName || full_name?.split(' ')[0] || '')
-    const sanitizedLastName = sanitizeInput(lastName || full_name?.split(' ').slice(1).join(' ') || '')
-    const sanitizedCompanyName = sanitizeInput(companyName || '')
-    const sanitizedEmail = sanitizeInput(email || '').toLowerCase()
-    const sanitizedAvatar = sanitizeInput(avatar || '')
+    const sanitizedFirstName = sanitizeInput(firstName || (full_name?.split(' ')[0] ?? ''));
+    const sanitizedLastName = sanitizeInput(lastName || (full_name?.split(' ').slice(1).join(' ') ?? ''));
+    const sanitizedCompanyName = sanitizeInput(companyName || '');
+    const sanitizedEmail = sanitizeInput(email || '').toLowerCase();
+    const sanitizedAvatar = sanitizeInput(avatar || '');
 
-    // DETAILED VALIDATION - Check each field individually
-    const missingFields: string[] = []
-    const invalidFields: { field: string; reason: string }[] = []
+    const isOAuthSignup = !!sanitizedAvatar || !!full_name;
+    const missingFields: string[] = [];
+    const invalidFields: { field: string; reason: string }[] = [];
 
-    // Check firstName
-    if (!sanitizedFirstName) {
-      missingFields.push('firstName')
-    } else if (!isValidName(sanitizedFirstName)) {
-      invalidFields.push({
-        field: 'firstName',
-        reason: 'Invalid first name. Use only letters, spaces, and hyphens (1-100 characters)'
-      })
-    }
+    if (!sanitizedFirstName) missingFields.push('firstName');
+    else if (!isValidName(sanitizedFirstName)) invalidFields.push({ field: 'firstName', reason: 'Invalid first name' });
 
-    // Check email
-    if (!sanitizedEmail) {
-      missingFields.push('email')
-    } else if (!isValidEmail(sanitizedEmail)) {
-      invalidFields.push({
-        field: 'email',
-        reason: 'Invalid email address format'
-      })
-    }
+    if (!sanitizedEmail) missingFields.push('email');
+    else if (!isValidEmail(sanitizedEmail)) invalidFields.push({ field: 'email', reason: 'Invalid email address' });
 
-    // Check password (only required for regular signup, not OAuth)
-    const isOAuthSignup = !!avatar || !!full_name
     if (!isOAuthSignup) {
-      if (!password) {
-        missingFields.push('password')
-      } else if (!isValidPassword(password)) {
-        invalidFields.push({
-          field: 'password',
-          reason: 'Password must be at least 8 characters with uppercase, lowercase, and number'
-        })
-      }
+      if (!password) missingFields.push('password');
+      else if (!isValidPassword(password)) invalidFields.push({ field: 'password', reason: 'Password too weak' });
     }
 
-    // Check lastName (optional but validate if provided)
-    if (sanitizedLastName && !isValidName(sanitizedLastName)) {
-      invalidFields.push({
-        field: 'lastName',
-        reason: 'Invalid last name. Use only letters, spaces, and hyphens (1-100 characters)'
-      })
-    }
+    if (sanitizedLastName && !isValidName(sanitizedLastName)) invalidFields.push({ field: 'lastName', reason: 'Invalid last name' });
+    if (sanitizedCompanyName && !isValidName(sanitizedCompanyName)) invalidFields.push({ field: 'companyName', reason: 'Invalid company name' });
 
-    // Check companyName (optional but validate if provided)
-    if (sanitizedCompanyName && !isValidName(sanitizedCompanyName)) {
-      invalidFields.push({
-        field: 'companyName',
-        reason: 'Invalid company name. Use only letters, spaces, and hyphens (1-100 characters)'
-      })
-    }
-
-    // Return missing fields error
-    if (missingFields.length > 0) {
+    if (missingFields.length) {
       return NextResponse.json(
-        { 
-          error: 'Missing required fields',
-          code: 'MISSING_FIELDS',
-          missingFields,
-          details: `Please provide: ${missingFields.join(', ')}`
-        },
+        { error: 'Missing required fields', code: 'MISSING_FIELDS', missingFields },
         { status: 400 }
-      )
+      );
+    }
+    if (invalidFields.length) {
+      return NextResponse.json(
+        { error: 'Invalid field values', code: 'INVALID_FIELDS', invalidFields },
+        { status: 400 }
+      );
     }
 
-    // Return invalid fields error
-    if (invalidFields.length > 0) {
+    const fullName = `${sanitizedFirstName}${sanitizedLastName ? ' ' + sanitizedLastName : ''}`.trim();
+    const existingProfile = await profiles.findOne({ email: sanitizedEmail });
+    if (existingProfile) {
       return NextResponse.json(
-        { 
-          error: 'Invalid field values',
-          code: 'INVALID_FIELDS',
-          invalidFields
-        },
-        { status: 400 }
-      )
-    }
-    
-    // Check if email already exists
-    const { data: existingUser } = await supabaseAdmin
-      .from('profiles')
-      .select('email')
-      .eq('email', sanitizedEmail)
-      .single()
-    
-    if (existingUser) {
-      return NextResponse.json(
-        { 
-          error: 'An account with this email already exists',
-          code: 'EMAIL_EXISTS'
-        },
+        { error: 'Email already exists', code: 'EMAIL_EXISTS' },
         { status: 409 }
-      )
+      );
     }
-    
-    // Build full name
-    const fullName = `${sanitizedFirstName}${sanitizedLastName ? ' ' + sanitizedLastName : ''}`.trim()
 
-    // Create user in Supabase Auth
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    const randomPassword = Math.random().toString(36).slice(-16);
+    const passwordToHash = isOAuthSignup ? randomPassword : password;
+    const passwordHash = await bcrypt.hash(passwordToHash, 10);
+    const now = new Date();
+
+    const userDoc = {
       email: sanitizedEmail,
-      password: password || Math.random().toString(36).slice(-16), // Random password for OAuth users
-      email_confirm: true, // Auto-confirm (⚠️ Use with caution in production)
-      user_metadata: {
-        first_name: sanitizedFirstName,
-        last_name: sanitizedLastName || null,
-        full_name: fullName,
-        company_name: sanitizedCompanyName || null,
-        avatar_url: sanitizedAvatar || null
-      }
-    })
-    
-    if (authError) {
-      // Log error server-side only (don't expose details to client)
-      console.error('Signup error:', {
-        message: authError.message,
-        status: authError.status,
-        email: sanitizedEmail,
-        timestamp: new Date().toISOString()
-      })
-      
-      // Return generic error to client (security best practice)
-      return NextResponse.json(
-        { 
-          error: 'Failed to create account. Please try again.',
-          code: 'SIGNUP_FAILED'
-        },
-        { status: 500 }
-      )
-    }
-    
-    // Create profile in database
-    try {
-      await supabaseAdmin.from('profiles').upsert({
-        id: authData.user.id,
-        email: sanitizedEmail,
-        full_name: fullName,
-        avatar_url: sanitizedAvatar || null,
-        company_name: sanitizedCompanyName || null,
-        created_at: new Date().toISOString()
-      }, { onConflict: 'id' })
-    } catch (upsertErr) {
-      console.error('Failed to create profile:', upsertErr)
-    }
+      passwordHash,
+      provider: isOAuthSignup ? 'google' : 'local',
+      profile: {
+        firstName: sanitizedFirstName,
+        lastName: sanitizedLastName || null,
+        fullName,
+        companyName: sanitizedCompanyName || null,
+        avatarUrl: sanitizedAvatar || null,
+      },
+      email_verified: isOAuthSignup ? true : false,
+      created_at: now,
+      updated_at: now,
+    };
 
-    // Log successful signup in audit log
-    await supabaseAdmin.from('audit_log').insert({
-      user_id: authData.user.id,
+    const insertResult = await users.insertOne(userDoc);
+    const insertedUserId = insertResult.insertedId.toString();
+
+    // ✅ Create profile
+    const profileDoc = {
+      _id: new ObjectId(insertedUserId),
+      user_id: insertedUserId,
+      email: sanitizedEmail,
+      full_name: fullName,
+      first_name: sanitizedFirstName,
+      last_name: sanitizedLastName || null,
+      avatar_url: sanitizedAvatar || null,
+      company_name: sanitizedCompanyName || null,
+      created_at: now,
+    };
+
+    await profiles.updateOne(
+      { user_id: insertedUserId },
+      { $set: profileDoc },
+      { upsert: true }
+    );
+
+    // ✅ Audit log
+    await auditLog.insertOne({
+      user_id: insertedUserId,
       action: 'signup',
       ip_address: clientIP,
       user_agent: userAgent,
@@ -203,39 +151,44 @@ export async function POST(request: NextRequest) {
         first_name: sanitizedFirstName,
         last_name: sanitizedLastName || null,
         company_name: sanitizedCompanyName || null,
-        signup_method: isOAuthSignup ? 'oauth' : 'email'
-      }
-    })
-    
-    // Return success response
+        signup_method: isOAuthSignup ? 'oauth' : 'email',
+      },
+      created_at: now,
+    });
+
+    // ✅ Generate JWT token (fixed expiresIn type)
+    const token = jwt.sign(
+      { userId: insertedUserId, email: sanitizedEmail },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' } // ✅ Safe, valid string literal
+    );
+
+    // ✅ Final success response with token
     return NextResponse.json(
       {
         success: true,
         message: 'Account created successfully',
+        token,
         user: {
-          id: authData.user.id,
-          email: authData.user.email,
-          full_name: fullName
-        }
+          id: insertedUserId,
+          email: sanitizedEmail,
+          full_name: fullName,
+          provider: userDoc.provider,
+          profile: {
+            firstName: sanitizedFirstName,
+            lastName: sanitizedLastName || null,
+            companyName: sanitizedCompanyName || null,
+            avatarUrl: sanitizedAvatar || null,
+          },
+        },
       },
       { status: 201 }
-    )
-    
+    );
   } catch (error) {
-    // Log error server-side only
-    console.error('Signup error:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      timestamp: new Date().toISOString()
-    })
-    
-    // Return generic error to client
+    console.error('Signup error:', error);
     return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        code: 'INTERNAL_ERROR'
-      },
+      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
       { status: 500 }
-    )
+    );
   }
 }

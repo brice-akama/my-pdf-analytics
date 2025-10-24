@@ -181,42 +181,50 @@ export default function OnboardingFlow() {
  
 
   const handleUseCaseNext = async () => {
-    if (selectedUseCases.length === 0) return
-    setSignupError(null)
-    setLoading(true)
-    try {
-      const payload = {
-        firstName: formData.firstName,
-        companyName: formData.companyName,
-        email: formData.email,
-        password: formData.password,
-        industry: selectedIndustry,
-        companySize: selectedCompanySize,
-        useCases: selectedUseCases
-      }
-
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setSignupError(data?.error || "Signup failed")
-        setLoading(false)
-        return
-      }
-
-      // Optionally: you can auto-login, show a success toast, etc.
-      router.push("/dashboard")
-    } catch (err) {
-      console.error("Signup request failed", err)
-      setSignupError("Network error. Please try again.")
-    } finally {
-      setLoading(false)
+  if (selectedUseCases.length === 0) return
+  setSignupError(null)
+  setLoading(true)
+  try {
+    const payload = {
+      firstName: formData.firstName,
+      companyName: formData.companyName,
+      email: formData.email,
+      password: formData.password,
+      industry: selectedIndustry,
+      companySize: selectedCompanySize,
+      useCases: selectedUseCases
     }
-  }
 
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      setSignupError(data?.error || "Signup failed")
+      setLoading(false)
+      return
+    }
+
+    // ✅ CRITICAL: Save the token to localStorage
+    if (data.token) {
+      localStorage.setItem("token", data.token)
+    } else {
+      // If your API doesn't return a token on signup, you may need to auto-login
+      // or adjust your backend to include it.
+      console.warn("No token returned from signup")
+    }
+
+    // Now redirect — dashboard will find the token
+    router.push("/dashboard")
+  } catch (err) {
+    console.error("Signup request failed", err)
+    setSignupError("Network error. Please try again.")
+  } finally {
+    setLoading(false)
+  }
+}
  
 
   // Progress calculation

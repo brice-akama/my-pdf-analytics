@@ -24,42 +24,41 @@ export default function LoginPage() {
   
 
 const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setError(null)
-  setLoading(true)
+  e.preventDefault();
+  setError(null);
+  setLoading(true);
 
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password: password
-    })
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        password,
+      }),
+    });
 
-    if (error) {
-      setError(error.message) // Supabase returns friendly errors like "Invalid login credentials"
-      return
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data?.error || "Invalid email or password");
+      return;
     }
 
-    if (!data.session) {
-      setError('Login failed: no session returned')
-      return
+    // ✅ Save token under "token" to match dashboard
+    if (data.token) {
+      localStorage.setItem("token", data.token);
     }
 
-    // Optionally, store "remember me" session
-    if (rememberMe) {
-      localStorage.setItem('supabase_session', JSON.stringify(data.session))
-    }
-
-    // Login successful, redirect
-    router.push('/dashboard')
-
+    // Redirect to dashboard
+    router.push("/dashboard");
   } catch (err) {
-    console.error('Login error', err)
-    setError('Network error, please try again.')
+    console.error("Login error", err);
+    setError("Network error. Please try again.");
   } finally {
-    setLoading(false)
+    setLoading(false);
   }
-}
-
+};
   
   const handleGoogleSignIn = () => {
     // create a short state token to mitigate CSRF and remember it for verification server-side
