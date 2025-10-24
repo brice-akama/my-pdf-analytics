@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useRouter } from "next/navigation"
 
 import {
   DropdownMenu,
@@ -43,6 +44,9 @@ import {
   TrendingUp,
   Activity,
   Menu,
+   CheckCircle2,
+  AlertCircle,
+  Loader2,
   X
 } from "lucide-react"
 
@@ -55,8 +59,37 @@ type UserType = {
   plan?: string
 }
 
+type DocumentType = {
+  _id: string
+  filename: string
+  size: number
+  numPages: number
+  createdAt: string
+}
+
+type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
+
 const getInitials = (email: string) => {
   return email.charAt(0).toUpperCase()
+}
+
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+const formatTimeAgo = (dateString: string) => {
+  const date = new Date(dateString)
+  const now = new Date()
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+  
+  if (seconds < 60) return 'Just now'
+  if (seconds < 3600) return Math.floor(seconds / 60) + ' min ago'
+  if (seconds < 86400) return Math.floor(seconds / 3600) + ' hours ago'
+  if (seconds < 604800) return Math.floor(seconds / 86400) + ' days ago'
+  
+  return date.toLocaleDateString()
 }
 
 const getAvatarColor = (email: string) => {
@@ -81,6 +114,12 @@ export default function DashboardPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [user, setUser] = useState<UserType | null>(null);
+  const [documents, setDocuments] = useState<DocumentType[]>([])
+const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
+const [uploadMessage, setUploadMessage] = useState('')
+const [isDragging, setIsDragging] = useState(false)
+const fileInputRef = useRef<HTMLInputElement>(null)
+const router = useRouter()
 
   const handleSidebarItemClick = (pageId: PageType) => {
     setActivePage(pageId)
@@ -174,6 +213,116 @@ export default function DashboardPage() {
   fetchUser();
 }, []);
 
+// Fetch documents
+const fetchDocuments = async () => {
+  const token = localStorage.getItem("token")
+  if (!token) return
+
+  try {
+    const res = await fetch("/api/documents", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        setDocuments(data.documents)
+      }
+    }
+  } catch (error) {
+    console.error("Failed to fetch documents:", error)
+  }
+}
+
+useEffect(() => {
+  fetchDocuments()
+  // Refresh every 30 seconds to update "time ago"
+  const interval = setInterval(fetchDocuments, 30000)
+  return () => clearInterval(interval)
+}, [])
+
+// Handle file upload
+const handleFileUpload = async (file: File) => {
+  if (!file) return
+  
+  if (file.type !== 'application/pdf') {
+    setUploadStatus('error')
+    setUploadMessage('Please upload a PDF file')
+    setTimeout(() => setUploadStatus('idle'), 3000)
+    return
+  }
+
+  setUploadStatus('uploading')
+  setUploadMessage('Uploading your document...')
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    const token = localStorage.getItem("token")
+    const res = await fetch("/api/upload", {
+      method: 'POST',
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: formData,
+    })
+
+    const data = await res.json()
+
+    if (res.ok && data.success) {
+      setUploadStatus('success')
+      setUploadMessage(`Successfully uploaded ${file.name}`)
+      // Refresh documents list
+      fetchDocuments()
+      // Reset after 3 seconds
+      setTimeout(() => {
+        setUploadStatus('idle')
+        setUploadMessage('')
+      }, 3000)
+    } else {
+      setUploadStatus('error')
+      setUploadMessage(data.error || 'Upload failed')
+      setTimeout(() => setUploadStatus('idle'), 3000)
+    }
+  } catch (error) {
+    console.error('Upload error:', error)
+    setUploadStatus('error')
+    setUploadMessage('Upload failed. Please try again.')
+    setTimeout(() => setUploadStatus('idle'), 3000)
+  }
+}
+
+// Drag and drop handlers
+const handleDragOver = (e: React.DragEvent) => {
+  e.preventDefault()
+  setIsDragging(true)
+}
+
+const handleDragLeave = (e: React.DragEvent) => {
+  e.preventDefault()
+  setIsDragging(false)
+}
+
+const handleDrop = (e: React.DragEvent) => {
+  e.preventDefault()
+  setIsDragging(false)
+  
+  const files = e.dataTransfer.files
+  if (files.length > 0) {
+    handleFileUpload(files[0])
+  }
+}
+
+const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const files = e.target.files
+  if (files && files.length > 0) {
+    handleFileUpload(files[0])
+  }
+}
+
   // Render different content based on active page
   const renderContent = () => {
     switch (activePage) {
@@ -243,10 +392,20 @@ export default function DashboardPage() {
                   <Share2 className="h-4 w-4" />
                   Share
                 </Button>
-                <Button className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                  <Upload className="h-4 w-4" />
-                  Upload
-                </Button>
+                <Button 
+  className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+  onClick={() => fileInputRef.current?.click()}
+>
+  <Upload className="h-4 w-4" />
+  Upload
+</Button>
+<input
+  ref={fileInputRef}
+  type="file"
+  accept="application/pdf"
+  onChange={handleFileInputChange}
+  className="hidden"
+/>
               </div>
             </div>
 
@@ -269,6 +428,25 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
+              {/* Upload Status Message */}
+{uploadStatus !== 'idle' && (
+  <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
+    uploadStatus === 'success' ? 'bg-green-50 border border-green-200' :
+    uploadStatus === 'error' ? 'bg-red-50 border border-red-200' :
+    'bg-blue-50 border border-blue-200'
+  }`}>
+    {uploadStatus === 'uploading' && <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />}
+    {uploadStatus === 'success' && <CheckCircle2 className="h-5 w-5 text-green-600" />}
+    {uploadStatus === 'error' && <AlertCircle className="h-5 w-5 text-red-600" />}
+    <span className={`font-medium ${
+      uploadStatus === 'success' ? 'text-green-900' :
+      uploadStatus === 'error' ? 'text-red-900' :
+      'text-blue-900'
+    }`}>
+      {uploadMessage}
+    </span>
+  </div>
+)}
             </div>
 
             <div className="mb-8">
@@ -278,15 +456,82 @@ export default function DashboardPage() {
                     <Upload className="h-8 w-8 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-lg font-semibold text-slate-900 mb-1">Drop files here to upload</p>
-                    <p className="text-sm text-slate-500">or click to browse</p>
+                   <div 
+  className={`bg-white rounded-lg border-2 border-dashed p-12 text-center transition-all cursor-pointer group ${
+    isDragging 
+      ? 'border-purple-500 bg-purple-50' 
+      : 'border-slate-300 hover:border-purple-400 hover:bg-purple-50/30'
+  }`}
+  onDragOver={handleDragOver}
+  onDragLeave={handleDragLeave}
+  onDrop={handleDrop}
+  onClick={() => fileInputRef.current?.click()}
+>
+  <div className="flex flex-col items-center gap-4">
+    <div className={`h-16 w-16 rounded-full flex items-center justify-center transition-colors ${
+      isDragging ? 'bg-purple-200' : 'bg-purple-100 group-hover:bg-purple-200'
+    }`}>
+      <Upload className="h-8 w-8 text-purple-600" />
+    </div>
+    <div>
+      <p className="text-lg font-semibold text-slate-900 mb-1">
+        {isDragging ? 'Drop your PDF here' : 'Drop files here to upload'}
+      </p>
+      <p className="text-sm text-slate-500">or click to browse (PDF only)</p>
+    </div>
+    <Button variant="outline" className="mt-2">Upload PDF</Button>
+  </div>
+</div>
                   </div>
-                  <Button variant="outline" className="mt-2">Upload</Button>
-                </div>
+                  </div>
               </div>
             </div>
 
             <div>
+              {/* Documents List */}
+{documents.length > 0 && (
+  <div className="mb-8">
+    <h2 className="text-xl font-semibold text-slate-900 mb-4">Your Documents</h2>
+    <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+      <div className="divide-y">
+        {documents.map((doc) => (
+          <div 
+    key={doc._id} 
+    className="p-4 hover:bg-slate-50 transition-colors cursor-pointer"
+    onClick={() => router.push(`/documents/${doc._id}`)}
+  >
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                <FileText className="h-6 w-6 text-red-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-slate-900 truncate">{doc.filename}</h3>
+                <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                  <span>{doc.numPages} pages</span>
+                  <span>•</span>
+                  <span>{formatFileSize(doc.size)}</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatTimeAgo(doc.createdAt)}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm">
+                  <BarChart3 className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
               <h2 className="text-xl font-semibold text-slate-900 mb-6">5 ways to get the most out of DocMetrics</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {quickActions.map((action, index) => (
