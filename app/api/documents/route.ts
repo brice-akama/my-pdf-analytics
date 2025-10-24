@@ -1,5 +1,4 @@
 // app/api/documents/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
@@ -14,46 +13,19 @@ export async function GET(request: NextRequest) {
     }
 
     const db = await dbPromise;
-    const documentsCollection = db.collection('documents');
-
-    // 🔢 Pagination (optional but recommended for scalability)
-    const { searchParams } = new URL(request.url);
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10'))); // max 100 per page
-    const skip = (page - 1) * limit;
-
-    // 📦 Project only necessary fields (improve perf + security)
-    const projection = {
-      _id: 1,
-      filename: 1,
-      numPages: 1,
-      size: 1,
-      createdAt: 1,
-      plan: 1,
-      mimeType: 1, // optional: remove if frontend doesn't need it
-    };
-
-    // 📂 Fetch user's documents
-    const documents = await documentsCollection
-      .find({ userId: user.id })
-      .project(projection)
+    
+    // Fetch documents but exclude fileData field for performance
+    const documents = await db.collection('documents')
+      .find(
+        { userId: user.id },
+        { projection: { fileData: 0 } } // Exclude fileData from list
+      )
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
       .toArray();
-
-    // 🔢 Get total count (for frontend pagination UI)
-    const total = await documentsCollection.countDocuments({ userId: user.id });
-
+    
     return NextResponse.json({
       success: true,
-      documents,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      documents: documents
     });
     
   } catch (error) {

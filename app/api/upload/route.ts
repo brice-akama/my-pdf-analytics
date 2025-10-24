@@ -1,8 +1,17 @@
 // app/api/upload/route.ts
-// app/api/upload/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
+
+async function estimatePdfPages(buffer: Buffer): Promise<number> {
+  try {
+    const pdfString = buffer.toString('binary');
+    const matches = pdfString.match(/\/Type[\s]*\/Page[^s]/g);
+    return matches ? matches.length : 1;
+  } catch {
+    return 1;
+  }
+}
 
 export const maxDuration = 60;
 
@@ -27,11 +36,18 @@ export async function POST(request: NextRequest) {
     
     console.log('📄 Processing PDF:', file.name, 'Size:', buffer.length);
 
-    // Basic PDF page count estimation (not 100% accurate but works)
+    // Check file size (max 10MB for base64 storage)
+    if (buffer.length > 10 * 1024 * 1024) {
+      return NextResponse.json({ 
+        error: 'File too large. Maximum size is 10MB' 
+      }, { status: 400 });
+    }
+
     const pageCount = await estimatePdfPages(buffer);
 
     const db = await dbPromise;
     
+    // Store file as base64 string directly in document
     const doc = {
       userId: user.id,
       plan: user.plan,
@@ -39,6 +55,7 @@ export async function POST(request: NextRequest) {
       mimeType: file.type,
       size: buffer.length,
       numPages: pageCount,
+      fileData: buffer.toString('base64'), // Store as base64
       textPreview: '',
       createdAt: new Date(),
     };
@@ -59,17 +76,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       error: 'Failed to process PDF. Please try again.' 
     }, { status: 500 });
-  }
-}
-
-// Simple PDF page count estimation
-async function estimatePdfPages(buffer: Buffer): Promise<number> {
-  try {
-    const pdfString = buffer.toString('binary');
-    // Count /Type /Page occurrences (basic method)
-    const matches = pdfString.match(/\/Type[\s]*\/Page[^s]/g);
-    return matches ? matches.length : 1;
-  } catch {
-    return 1; // Default to 1 page if counting fails
   }
 }
