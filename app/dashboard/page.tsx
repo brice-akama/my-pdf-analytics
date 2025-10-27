@@ -104,6 +104,39 @@ type DocumentType = {
   size: number
   numPages: number
   createdAt: string
+  sharedAt?: string
+  sharedBy?: {
+    name: string
+    email: string
+    avatar: string | null
+  }
+  permissions?: {
+    canView: boolean
+    canDownload: boolean
+    canEdit: boolean
+    canShare: boolean
+  }
+}
+
+type FolderType = {
+  _id: string
+  name: string
+  description: string
+  itemCount: number
+  createdAt: string
+  sharedAt?: string
+  sharedBy?: {
+    name: string
+    email: string
+    avatar: string | null
+  }
+  permissions?: {
+    canView: boolean
+    canDownload: boolean
+    canEdit: boolean
+    canShare: boolean
+  }
+  color: string
 }
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
@@ -202,6 +235,17 @@ const [agreements, setAgreements] = useState<AgreementType[]>([])
 const [fileRequests, setFileRequests] = useState<FileRequestType[]>([])
 const [showUploadAgreementDialog, setShowUploadAgreementDialog] = useState(false)
 const [showCreateFileRequestDialog, setShowCreateFileRequestDialog] = useState(false)
+const [showShareDialog, setShowShareDialog] = useState(false)
+const [selectedDocumentToShare, setSelectedDocumentToShare] = useState<string | null>(null)
+const [shareEmails, setShareEmails] = useState('')
+const [shareMessage, setShareMessage] = useState('')
+const [sharedFolders, setSharedFolders] = useState<FolderType[]>([])
+const [sharePermissions, setSharePermissions] = useState({
+  canView: true,
+  canDownload: true,
+  canEdit: false,
+  canShare: false
+})
 
   const handleSidebarItemClick = (pageId: PageType) => {
     setActivePage(pageId)
@@ -217,6 +261,62 @@ const [showCreateFileRequestDialog, setShowCreateFileRequestDialog] = useState(f
     case 'share': return <Share2 className="h-4 w-4 text-orange-500" />
     case 'comment': return <Mail className="h-4 w-4 text-pink-500" />
     default: return <Bell className="h-4 w-4 text-slate-500" />
+  }
+}
+
+
+// Handle document sharing
+const handleShareDocument = async () => {
+  if (!selectedDocumentToShare || !shareEmails.trim()) {
+    alert('Please enter at least one email address')
+    return
+  }
+
+  const emails = shareEmails
+    .split(',')
+    .map(email => email.trim())
+    .filter(email => email.length > 0)
+
+  if (emails.length === 0) {
+    alert('Please enter valid email addresses')
+    return
+  }
+
+  try {
+    const token = localStorage.getItem("token")
+    const res = await fetch(`/api/documents/${selectedDocumentToShare}/share-with-user`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        emails,
+        permissions: sharePermissions,
+        message: shareMessage.trim() || undefined
+      }),
+    })
+
+    const data = await res.json()
+
+    if (res.ok && data.success) {
+      alert(`Document shared successfully with ${data.sharedWith.length} user(s)!`)
+      setShowShareDialog(false)
+      setShareEmails('')
+      setShareMessage('')
+      setSelectedDocumentToShare(null)
+      setSharePermissions({
+        canView: true,
+        canDownload: true,
+        canEdit: false,
+        canShare: false
+      })
+    } else {
+      alert(data.error || 'Failed to share document')
+    }
+  } catch (error) {
+    console.error('Share error:', error)
+    alert('Failed to share document. Please try again.')
   }
 }
 
@@ -1501,10 +1601,21 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           </nav>
 
           <div className="border-t p-4">
-            <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors">
-              <Share2 className="h-5 w-5" />
-              <span>Shared with me</span>
-            </button>
+            {documents.map((doc) => (
+  <button
+    key={doc._id}
+    onClick={(e) => {
+      e.stopPropagation()
+      setSelectedDocumentToShare(doc._id)
+      setShowShareDialog(true)
+    }}
+    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+  >
+    <Share2 className="h-5 w-5" />
+    <span>Share document</span>
+  </button>
+))}
+
           </div>
         </aside>
 
@@ -2532,6 +2643,134 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         >
           <Send className="mr-2 h-4 w-4" />
           Create & Send Request
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+{/* Share Document Dialog */}
+<Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>Share Document</DialogTitle>
+      <DialogDescription>
+        Share this document with others via email
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Email addresses (comma-separated)</Label>
+        <Textarea
+          placeholder="john@example.com, jane@company.com"
+          rows={3}
+          value={shareEmails}
+          onChange={(e) => setShareEmails(e.target.value)}
+        />
+        <p className="text-xs text-slate-500">
+          Recipients will receive an email with a secure link to view this document
+        </p>
+      </div>
+      
+      <div className="space-y-2">
+        <Label>Message (optional)</Label>
+        <Textarea
+          placeholder="Add a personal message..."
+          rows={3}
+          value={shareMessage}
+          onChange={(e) => setShareMessage(e.target.value)}
+        />
+      </div>
+      
+      <div className="border rounded-lg p-4 space-y-3">
+        <Label className="text-sm font-semibold">Permissions</Label>
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-900">Can view</p>
+            <p className="text-xs text-slate-500">Recipients can view the document</p>
+          </div>
+          <Switch
+            checked={sharePermissions.canView}
+            onCheckedChange={(checked) =>
+              setSharePermissions({ ...sharePermissions, canView: checked })
+            }
+            disabled
+          />
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-900">Can download</p>
+            <p className="text-xs text-slate-500">Recipients can download the document</p>
+          </div>
+          <Switch
+            checked={sharePermissions.canDownload}
+            onCheckedChange={(checked) =>
+              setSharePermissions({ ...sharePermissions, canDownload: checked })
+            }
+          />
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-900">Can edit</p>
+            <p className="text-xs text-slate-500">Recipients can make changes</p>
+          </div>
+          <Switch
+            checked={sharePermissions.canEdit}
+            onCheckedChange={(checked) =>
+              setSharePermissions({ ...sharePermissions, canEdit: checked })
+            }
+          />
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-900">Can share</p>
+            <p className="text-xs text-slate-500">Recipients can share with others</p>
+          </div>
+          <Switch
+            checked={sharePermissions.canShare}
+            onCheckedChange={(checked) =>
+              setSharePermissions({ ...sharePermissions, canShare: checked })
+            }
+          />
+        </div>
+      </div>
+      
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex gap-3">
+          <Share2 className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-blue-900 mb-1">
+              Email notifications will be sent
+            </p>
+            <p className="text-xs text-blue-700">
+              Recipients will receive an email with a secure link and your optional message. 
+              You'll be notified when they view the document.
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex gap-2 justify-end pt-4">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowShareDialog(false)
+            setShareEmails('')
+            setShareMessage('')
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleShareDocument}
+          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+        >
+          <Send className="mr-2 h-4 w-4" />
+          Share Document
         </Button>
       </div>
     </div>

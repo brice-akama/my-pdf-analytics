@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       mimeType: file.type,
       size: buffer.length,
       numPages: pageCount,
+      sharedWith: [],
       fileData: buffer.toString('base64'), // Store as base64
       textPreview: '',
       createdAt: new Date(),
