@@ -84,6 +84,8 @@ import {
   AlertCircle,
   Loader2,
   Sparkles,
+  MoreVertical,  
+  Send,
   X
 } from "lucide-react"
 
@@ -105,6 +107,28 @@ type DocumentType = {
 }
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
+
+type AgreementType = {
+  _id: string
+  title: string
+  type: string
+  signedCount: number
+  totalSigners: number
+  status: string
+  createdAt: string
+  expiresAt: string | null
+}
+
+type FileRequestType = {
+  _id: string
+  title: string
+  description: string
+  filesReceived: number
+  totalFiles: number
+  status: string
+  dueDate: string
+  createdAt: string
+}
 
 const getInitials = (email: string) => {
   return email.charAt(0).toUpperCase()
@@ -174,6 +198,10 @@ const [notificationsOpen, setNotificationsOpen] = useState(false)
 const [showEarnCreditDialog, setShowEarnCreditDialog] = useState(false)
 const [referralEmail, setReferralEmail] = useState('')
 const [copiedLink, setCopiedLink] = useState(false)
+const [agreements, setAgreements] = useState<AgreementType[]>([])
+const [fileRequests, setFileRequests] = useState<FileRequestType[]>([])
+const [showUploadAgreementDialog, setShowUploadAgreementDialog] = useState(false)
+const [showCreateFileRequestDialog, setShowCreateFileRequestDialog] = useState(false)
 
   const handleSidebarItemClick = (pageId: PageType) => {
     setActivePage(pageId)
@@ -246,6 +274,171 @@ useEffect(() => {
   return () => clearInterval(interval)
 }, [])
 
+useEffect(() => {
+  fetchDocuments()
+  fetchAgreements()
+  fetchFileRequests()
+  const interval = setInterval(() => {
+    fetchDocuments()
+    fetchAgreements()
+    fetchFileRequests()
+  }, 30000)
+  return () => clearInterval(interval)
+}, [])
+
+// Agreements Section Component
+const AgreementsSection = () => {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Agreements</h1>
+          <p className="text-slate-600">Manage NDAs and signature requests</p>
+        </div>
+        <Button 
+          onClick={() => setShowUploadAgreementDialog(true)}
+          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+        >
+          <Plus className="h-4 w-4" />
+          Upload Agreement
+        </Button>
+      </div>
+
+      {agreements.length === 0 ? (
+        <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
+          <div className="h-24 w-24 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-6">
+            <FileSignature className="h-12 w-12 text-purple-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">Need to protect sensitive content?</h3>
+          <p className="text-slate-600 max-w-2xl mx-auto mb-6">
+            Set up a legally-binding agreement that viewers must sign before accessing your content. 
+            You can upload an NDA or any other gating document.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button 
+              onClick={() => setShowUploadAgreementDialog(true)}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              Upload Agreement
+            </Button>
+            <Button variant="outline">Use Template</Button>
+            <Button variant="outline">Download Template</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {agreements.map((agreement) => (
+            <div key={agreement._id} className="bg-white rounded-lg border shadow-sm p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-4 flex-1">
+                  <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <FileSignature className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-slate-900 mb-1">{agreement.title}</h3>
+                    <div className="flex items-center gap-4 text-sm text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <Users className="h-4 w-4" />
+                        {agreement.signedCount}/{agreement.totalSigners} signed
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {formatTimeAgo(agreement.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// File Requests Section Component
+const FileRequestsSection = () => {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">File Requests</h1>
+          <p className="text-slate-600">Collect files from anyone securely</p>
+        </div>
+        <Button 
+          onClick={() => setShowCreateFileRequestDialog(true)}
+          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+        >
+          <Plus className="h-4 w-4" />
+          Create Request
+        </Button>
+      </div>
+
+      {fileRequests.length === 0 ? (
+        <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
+          <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-6">
+            <Inbox className="h-12 w-12 text-blue-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">Need to receive files from someone?</h3>
+          <p className="text-slate-600 max-w-2xl mx-auto mb-6">
+            Request files from anyone — whether they have a DocMetrics account or not.
+          </p>
+          <Button 
+            onClick={() => setShowCreateFileRequestDialog(true)}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          >
+            Create File Request
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {fileRequests.map((request) => (
+            <div key={request._id} className="bg-white rounded-lg border shadow-sm p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-4 flex-1">
+                  <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <Inbox className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-slate-900 mb-1">{request.title}</h3>
+                    <div className="flex items-center gap-4 text-sm text-slate-500">
+                      <span>{request.filesReceived}/{request.totalFiles} files received</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        Due {formatTimeAgo(request.dueDate)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
   const sidebarItems = [
     { id: 'dashboard' as PageType, icon: LayoutDashboard, label: 'Dashboard', badge: null },
     { id: 'content-library' as PageType, icon: Folder, label: 'Content library', badge: null },
@@ -255,6 +448,52 @@ useEffect(() => {
     { id: 'contacts' as PageType, icon: Users, label: 'Contacts', badge: null },
     { id: 'accounts' as PageType, icon: UserCircle, label: 'Accounts', badge: null },
   ]
+
+  // Fetch agreements
+const fetchAgreements = async () => {
+  const token = localStorage.getItem("token")
+  if (!token) return
+
+  try {
+    const res = await fetch("/api/agreements", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        setAgreements(data.agreements)
+      }
+    }
+  } catch (error) {
+    console.error("Failed to fetch agreements:", error)
+  }
+}
+
+// Fetch file requests
+const fetchFileRequests = async () => {
+  const token = localStorage.getItem("token")
+  if (!token) return
+
+  try {
+    const res = await fetch("/api/file-requests", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        setFileRequests(data.fileRequests)
+      }
+    }
+  } catch (error) {
+    console.error("Failed to fetch file requests:", error)
+  }
+}
 
   // Handle logout
 const handleLogout = () => {
@@ -776,35 +1015,11 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     </div>
   )
 
-      case 'agreements':
-        return (
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-6">Agreements</h1>
-            <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
-              <FileSignature className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">No agreements yet</h3>
-              <p className="text-slate-600 mb-6">Send documents for eSignature</p>
-              <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                Request Signature
-              </Button>
-            </div>
-          </div>
-        )
+     case 'agreements':
+  return <AgreementsSection />
 
-      case 'file-requests':
-        return (
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-6">File Requests</h1>
-            <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
-              <Inbox className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">No file requests yet</h3>
-              <p className="text-slate-600 mb-6">Request files from clients or team members</p>
-              <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                Create Request
-              </Button>
-            </div>
-          </div>
-        )
+     case 'file-requests':
+  return <FileRequestsSection />
 
       case 'contacts':
         return (
@@ -2043,6 +2258,280 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           }}
         >
           Check out the status of your referrals here
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Upload Agreement Dialog */}
+<Dialog open={showUploadAgreementDialog} onOpenChange={setShowUploadAgreementDialog}>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>Upload Agreement</DialogTitle>
+      <DialogDescription>Upload an NDA or other legal document that viewers must sign</DialogDescription>
+    </DialogHeader>
+    
+    <Tabs defaultValue="upload" className="w-full">
+      <TabsList className="grid w-full grid-cols-3">
+        <TabsTrigger value="upload">Upload</TabsTrigger>
+        <TabsTrigger value="template">Use Template</TabsTrigger>
+        <TabsTrigger value="create">Create New</TabsTrigger>
+      </TabsList>
+      
+      <TabsContent value="upload" className="space-y-4 mt-4">
+        <div
+          className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer"
+          onClick={() => document.getElementById('agreement-file-input')?.click()}
+        >
+          <Upload className="h-12 w-12 text-purple-600 mx-auto mb-4" />
+          <p className="text-lg font-semibold text-slate-900 mb-2">Drop your agreement here</p>
+          <p className="text-sm text-slate-500 mb-4">or click to browse (PDF only)</p>
+          <Button variant="outline">Select File</Button>
+        </div>
+        <input
+          id="agreement-file-input"
+          type="file"
+          accept="application/pdf"
+          className="hidden"
+          onChange={async (e) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            
+            const formData = new FormData()
+            formData.append('file', file)
+            formData.append('type', 'agreement')
+            
+            try {
+              const token = localStorage.getItem("token")
+              const res = await fetch("/api/agreements/upload", {
+                method: 'POST',
+                headers: { "Authorization": `Bearer ${token}` },
+                body: formData,
+              })
+              
+              if (res.ok) {
+                const data = await res.json()
+                alert('Agreement uploaded successfully!')
+                setShowUploadAgreementDialog(false)
+                // Refresh agreements list
+                fetchAgreements()
+              }
+            } catch (error) {
+              console.error('Upload error:', error)
+              alert('Failed to upload agreement')
+            }
+          }}
+        />
+        
+        <div className="space-y-2">
+          <Label>Agreement Title</Label>
+          <Input placeholder="e.g., Mutual NDA - Client Name" />
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Signers (comma-separated emails)</Label>
+          <Textarea 
+            placeholder="john@example.com, jane@company.com"
+            rows={3}
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Message (optional)</Label>
+          <Textarea 
+            placeholder="Please review and sign this NDA before accessing our materials..."
+            rows={3}
+          />
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Switch id="require-signature" />
+          <Label htmlFor="require-signature" className="text-sm font-normal">
+            Require signature before document access
+          </Label>
+        </div>
+        
+        <div className="flex gap-2 justify-end pt-4">
+          <Button variant="outline" onClick={() => setShowUploadAgreementDialog(false)}>
+            Cancel
+          </Button>
+          <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+            <Send className="mr-2 h-4 w-4" />
+            Send for Signature
+          </Button>
+        </div>
+      </TabsContent>
+      
+      <TabsContent value="template" className="space-y-4 mt-4">
+        <div className="grid md:grid-cols-2 gap-4">
+          {[
+            { name: 'Mutual NDA', desc: 'Two-way confidentiality agreement', icon: '🤝' },
+            { name: 'Unilateral NDA', desc: 'One-way confidentiality agreement', icon: '🔒' },
+            { name: 'Service Agreement', desc: 'Professional services contract', icon: '📋' },
+            { name: 'Partnership Agreement', desc: 'Business partnership terms', icon: '🤝' },
+          ].map((template) => (
+            <div key={template.name} className="border rounded-lg p-6 hover:border-purple-500 hover:bg-purple-50/30 transition-all cursor-pointer">
+              <div className="text-4xl mb-3">{template.icon}</div>
+              <h4 className="font-semibold text-slate-900 mb-1">{template.name}</h4>
+              <p className="text-sm text-slate-600 mb-4">{template.desc}</p>
+              <Button size="sm" variant="outline" className="w-full">Use Template</Button>
+            </div>
+          ))}
+        </div>
+      </TabsContent>
+      
+      <TabsContent value="create" className="space-y-4 mt-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+          <Sparkles className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+          <h4 className="font-semibold text-slate-900 mb-2">AI-Powered Agreement Builder</h4>
+          <p className="text-sm text-slate-600 mb-4">Coming soon! Create custom agreements with AI assistance</p>
+          <Button disabled variant="outline">Available in Pro Plan</Button>
+        </div>
+      </TabsContent>
+    </Tabs>
+  </DialogContent>
+</Dialog>
+
+{/* Create File Request Dialog */}
+<Dialog open={showCreateFileRequestDialog} onOpenChange={setShowCreateFileRequestDialog}>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>Create File Request</DialogTitle>
+      <DialogDescription>Request files from clients, partners, or team members</DialogDescription>
+    </DialogHeader>
+    
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Request Title</Label>
+        <Input placeholder="e.g., Client Onboarding Documents" />
+      </div>
+      
+      <div className="space-y-2">
+        <Label>Description</Label>
+        <Textarea 
+          placeholder="What files do you need? Include any specific requirements..."
+          rows={4}
+        />
+      </div>
+      
+      <div className="space-y-2">
+        <Label>Recipients (comma-separated emails)</Label>
+        <Textarea 
+          placeholder="client@company.com, partner@business.com"
+          rows={2}
+        />
+      </div>
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Due Date</Label>
+          <Input type="date" />
+        </div>
+        
+        <div className="space-y-2">
+          <Label>Expected Files</Label>
+          <Input type="number" placeholder="Number of files" defaultValue={1} />
+        </div>
+      </div>
+      
+      <div className="space-y-3">
+        <Label>Requested Files</Label>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Input placeholder="e.g., Driver's License" className="flex-1" />
+            <Button variant="outline" size="sm">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Input placeholder="e.g., Proof of Address" className="flex-1" />
+            <Button variant="outline" size="sm">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <Button variant="ghost" size="sm" className="w-full">
+          <Plus className="mr-2 h-4 w-4" />
+          Add Another File Type
+        </Button>
+      </div>
+      
+      <div className="border-t pt-4 space-y-3">
+        <div className="flex items-center space-x-2">
+          <Switch id="require-account" />
+          <Label htmlFor="require-account" className="text-sm font-normal">
+            Recipients must have DocMetrics account
+          </Label>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Switch id="send-reminders" defaultChecked />
+          <Label htmlFor="send-reminders" className="text-sm font-normal">
+            Send automatic reminders
+          </Label>
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Switch id="allow-multiple" />
+          <Label htmlFor="allow-multiple" className="text-sm font-normal">
+            Allow multiple file uploads per type
+          </Label>
+        </div>
+      </div>
+      
+      <div className="bg-slate-50 border rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <Inbox className="h-5 w-5 text-slate-600 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-slate-900 mb-1">How it works</p>
+            <ul className="text-xs text-slate-600 space-y-1">
+              <li>• Recipients receive an email with a secure upload link</li>
+              <li>• They can upload files without creating an account (unless required)</li>
+              <li>• You'll get notified when files are uploaded</li>
+              <li>• All files are encrypted and stored securely</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex gap-2 justify-end pt-4">
+        <Button variant="outline" onClick={() => setShowCreateFileRequestDialog(false)}>
+          Cancel
+        </Button>
+        <Button 
+          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          onClick={async () => {
+            try {
+              const token = localStorage.getItem("token")
+              const res = await fetch("/api/file-requests", {
+                method: 'POST',
+                headers: {
+                  "Authorization": `Bearer ${token}`,
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  title: "New File Request",
+                  description: "Please upload the requested files",
+                  recipients: [],
+                  dueDate: new Date(),
+                  expectedFiles: 1
+                })
+              })
+              
+              if (res.ok) {
+                alert('File request created successfully!')
+                setShowCreateFileRequestDialog(false)
+                fetchFileRequests()
+              }
+            } catch (error) {
+              console.error('Create error:', error)
+              alert('Failed to create file request')
+            }
+          }}
+        >
+          <Send className="mr-2 h-4 w-4" />
+          Create & Send Request
         </Button>
       </div>
     </div>
