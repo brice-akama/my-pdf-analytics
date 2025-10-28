@@ -23,6 +23,15 @@ const industries = [
   'Other'
 ]
 
+interface SignupFormData {
+  firstName: string;
+  lastName?: string;      // optional
+  companyName: string;
+  email: string;
+  password: string;
+  avatar?: string;        // optional
+}
+
 // Company size options for step 3
 const companySizes = [
   { value: '1', label: 'Just me', icon: '👤' },
@@ -54,12 +63,12 @@ export default function OnboardingFlow() {
   const [selectedUseCases, setSelectedUseCases] = useState<string[]>([])
   const searchParams = useSearchParams()
   
-  const [formData, setFormData] = useState({
-    firstName: '',
-    companyName: '',
-    email: '',
-    password: ''
-  })
+  const [formData, setFormData] = useState<SignupFormData>({
+  firstName: "",
+  companyName: "",
+  email: "",
+  password: "",
+});
 
   const [loading, setLoading] = useState(false)
  const [signupError, setSignupError] = useState<string | null>(null)
@@ -185,15 +194,18 @@ export default function OnboardingFlow() {
   setSignupError(null)
   setLoading(true)
   try {
-    const payload = {
-      firstName: formData.firstName,
-      companyName: formData.companyName,
-      email: formData.email,
-      password: formData.password,
-      industry: selectedIndustry,
-      companySize: selectedCompanySize,
-      useCases: selectedUseCases
-    }
+const payload = {
+  firstName: formData.firstName,
+  companyName: formData.companyName,
+  email: formData.email,
+  password: formData.password, // may be empty for Google users
+  avatar: formData.avatar || "", // 👈 new
+  full_name: `${formData.firstName} ${formData.lastName || ""}`, // 👈 new
+  industry: selectedIndustry,
+  companySize: selectedCompanySize,
+  useCases: selectedUseCases
+};
+
 
     const res = await fetch("/api/auth/signup", {
       method: "POST",

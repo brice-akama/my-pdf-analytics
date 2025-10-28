@@ -1,5 +1,4 @@
 // app/api/auth/signup/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../../lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -22,7 +21,6 @@ export async function POST(request: NextRequest) {
     const profiles = db.collection('profiles');
     const auditLog = db.collection('audit_log');
 
-    // Ensure indexes
     await Promise.all([
       users.createIndex({ email: 1 }, { unique: true }),
       profiles.createIndex({ email: 1 }, { unique: true }),
@@ -32,23 +30,18 @@ export async function POST(request: NextRequest) {
     const clientIP = getClientIP(request);
     const userAgent = getUserAgent(request);
 
-    // Rate limiting
+    // Rate limit
     const rateLimitExceeded = await Promise.resolve(checkRateLimit(`signup:${clientIP}`, 3, 3600000));
     if (rateLimitExceeded) {
-      return NextResponse.json(
-        { error: 'Too many signup attempts', code: 'RATE_LIMIT_EXCEEDED' },
-        { status: 429 }
-      );
+      return NextResponse.json({ error: 'Too many signup attempts' }, { status: 429 });
     }
 
     const body = await request.json().catch(() => null);
     if (!body) {
-      return NextResponse.json(
-        { error: 'Invalid request body', code: 'INVALID_REQUEST' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
+    // ✅ Accept Google payload too
     const { firstName, lastName, companyName, email, password, avatar, full_name } = body;
 
     const sanitizedFirstName = sanitizeInput(firstName || (full_name?.split(' ')[0] ?? ''));
@@ -57,7 +50,9 @@ export async function POST(request: NextRequest) {
     const sanitizedEmail = sanitizeInput(email || '').toLowerCase();
     const sanitizedAvatar = sanitizeInput(avatar || '');
 
-    const isOAuthSignup = !!sanitizedAvatar || !!full_name;
+    // ✅ Smarter OAuth detection — assume OAuth if there's no password or we have avatar/full_name
+    const isOAuthSignup = !password || !!sanitizedAvatar || !!full_name;
+
     const missingFields: string[] = [];
     const invalidFields: { field: string; reason: string }[] = [];
 
@@ -67,36 +62,27 @@ export async function POST(request: NextRequest) {
     if (!sanitizedEmail) missingFields.push('email');
     else if (!isValidEmail(sanitizedEmail)) invalidFields.push({ field: 'email', reason: 'Invalid email address' });
 
+    // ✅ Skip password check if Google signup
     if (!isOAuthSignup) {
       if (!password) missingFields.push('password');
       else if (!isValidPassword(password)) invalidFields.push({ field: 'password', reason: 'Password too weak' });
     }
 
-    if (sanitizedLastName && !isValidName(sanitizedLastName)) invalidFields.push({ field: 'lastName', reason: 'Invalid last name' });
-    if (sanitizedCompanyName && !isValidName(sanitizedCompanyName)) invalidFields.push({ field: 'companyName', reason: 'Invalid company name' });
-
     if (missingFields.length) {
-      return NextResponse.json(
-        { error: 'Missing required fields', code: 'MISSING_FIELDS', missingFields },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields', missingFields }, { status: 400 });
     }
+
     if (invalidFields.length) {
-      return NextResponse.json(
-        { error: 'Invalid field values', code: 'INVALID_FIELDS', invalidFields },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid field values', invalidFields }, { status: 400 });
     }
 
     const fullName = `${sanitizedFirstName}${sanitizedLastName ? ' ' + sanitizedLastName : ''}`.trim();
     const existingProfile = await profiles.findOne({ email: sanitizedEmail });
     if (existingProfile) {
-      return NextResponse.json(
-        { error: 'Email already exists', code: 'EMAIL_EXISTS' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'Email already exists' }, { status: 409 });
     }
 
+    // ✅ Random password for OAuth users
     const randomPassword = Math.random().toString(36).slice(-16);
     const passwordToHash = isOAuthSignup ? randomPassword : password;
     const passwordHash = await bcrypt.hash(passwordToHash, 10);
@@ -111,17 +97,16 @@ export async function POST(request: NextRequest) {
         lastName: sanitizedLastName || null,
         fullName,
         companyName: sanitizedCompanyName || null,
-        avatarUrl: sanitizedAvatar || null,
+        avatarUrl: sanitizedAvatar || null
       },
       email_verified: isOAuthSignup ? true : false,
       created_at: now,
-      updated_at: now,
+      updated_at: now
     };
 
     const insertResult = await users.insertOne(userDoc);
     const insertedUserId = insertResult.insertedId.toString();
 
-    // ✅ Create profile
     const profileDoc = {
       _id: new ObjectId(insertedUserId),
       user_id: insertedUserId,
@@ -131,16 +116,11 @@ export async function POST(request: NextRequest) {
       last_name: sanitizedLastName || null,
       avatar_url: sanitizedAvatar || null,
       company_name: sanitizedCompanyName || null,
-      created_at: now,
+      created_at: now
     };
 
-    await profiles.updateOne(
-      { user_id: insertedUserId },
-      { $set: profileDoc },
-      { upsert: true }
-    );
+    await profiles.updateOne({ user_id: insertedUserId }, { $set: profileDoc }, { upsert: true });
 
-    // ✅ Audit log
     await auditLog.insertOne({
       user_id: insertedUserId,
       action: 'signup',
@@ -148,47 +128,31 @@ export async function POST(request: NextRequest) {
       user_agent: userAgent,
       metadata: {
         email: sanitizedEmail,
-        first_name: sanitizedFirstName,
-        last_name: sanitizedLastName || null,
-        company_name: sanitizedCompanyName || null,
-        signup_method: isOAuthSignup ? 'oauth' : 'email',
+        signup_method: isOAuthSignup ? 'oauth' : 'email'
       },
-      created_at: now,
+      created_at: now
     });
 
-    // ✅ Generate JWT token (fixed expiresIn type)
     const token = jwt.sign(
       { userId: insertedUserId, email: sanitizedEmail },
       process.env.JWT_SECRET!,
-      { expiresIn: '7d' } // ✅ Safe, valid string literal
+      { expiresIn: '7d' }
     );
 
-    // ✅ Final success response with token
-    return NextResponse.json(
-      {
-        success: true,
-        message: 'Account created successfully',
-        token,
-        user: {
-          id: insertedUserId,
-          email: sanitizedEmail,
-          full_name: fullName,
-          provider: userDoc.provider,
-          profile: {
-            firstName: sanitizedFirstName,
-            lastName: sanitizedLastName || null,
-            companyName: sanitizedCompanyName || null,
-            avatarUrl: sanitizedAvatar || null,
-          },
-        },
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({
+      success: true,
+      message: 'Account created successfully',
+      token,
+      user: {
+        id: insertedUserId,
+        email: sanitizedEmail,
+        full_name: fullName,
+        provider: userDoc.provider,
+        profile: userDoc.profile
+      }
+    });
   } catch (error) {
     console.error('Signup error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

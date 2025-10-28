@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
-import { supabase } from '@/lib/supabaseClient'
+
 
 
 export default function LoginPage() {
@@ -61,16 +61,15 @@ const handleSubmit = async (e: React.FormEvent) => {
 };
   
   const handleGoogleSignIn = () => {
-    // create a short state token to mitigate CSRF and remember it for verification server-side
-    const state = Math.random().toString(36).slice(2)
-    sessionStorage.setItem('oauth_state', state)
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem("oauth_state", state);
 
-    // tell the backend where to send the user after full OAuth flow
-    const next = encodeURIComponent('/dashboard')
+  // ❌ remove encodeURIComponent
+  const next = "/dashboard";
 
-    // backend should validate `state` and perform the redirect to `next`
-    window.location.href = `/api/auth/google?mode=login&next=${next}&state=${state}`
-  }
+  window.location.href = `/api/auth/google?mode=login&next=${next}&state=${state}`;
+};
+
 
 
   return (

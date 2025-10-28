@@ -204,6 +204,12 @@ type PageType = 'dashboard' | 'content-library' | 'spaces' | 'agreements' | 'fil
 type NotificationType = 'view' | 'download' | 'signature' | 'share' | 'comment' | 'system'
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
+
+  
+
+  
   const [searchQuery, setSearchQuery] = useState("")
   const [activePage, setActivePage] = useState<PageType>('content-library')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -214,7 +220,6 @@ const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
 const [uploadMessage, setUploadMessage] = useState('')
 const [isDragging, setIsDragging] = useState(false)
 const fileInputRef = useRef<HTMLInputElement>(null)
-const router = useRouter()
 const [showSettingsDialog, setShowSettingsDialog] = useState(false)
 const [showBillingDialog, setShowBillingDialog] = useState(false)
 const [showTeamDialog, setShowTeamDialog] = useState(false)
@@ -263,6 +268,15 @@ const [sharePermissions, setSharePermissions] = useState({
     default: return <Bell className="h-4 w-4 text-slate-500" />
   }
 }
+
+useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      router.replace("/login");
+    } else {
+      setIsChecking(false);
+    }
+  }, [router]);
 
 
 // Handle document sharing
@@ -386,6 +400,8 @@ useEffect(() => {
   return () => clearInterval(interval)
 }, [])
 
+
+
 // Agreements Section Component
 const AgreementsSection = () => {
   return (
@@ -467,6 +483,8 @@ const AgreementsSection = () => {
     </div>
   )
 }
+
+
 
 // File Requests Section Component
 const FileRequestsSection = () => {
