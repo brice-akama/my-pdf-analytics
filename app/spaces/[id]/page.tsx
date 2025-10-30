@@ -959,7 +959,7 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
       
       {/* Recent Files Dialog */}
 <Dialog open={showRecentFiles} onOpenChange={setShowRecentFiles}>
-  <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+  <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-white">
     <DialogHeader>
       <DialogTitle>Recent Files</DialogTitle>
       <DialogDescription>
@@ -1005,7 +1005,7 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
 
 {/* Add Contact Dialog */}
 <Dialog open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
-  <DialogContent className="max-w-md">
+  <DialogContent className="max-w-md bg-white">
     <DialogHeader>
       <DialogTitle>Add Contact to Space</DialogTitle>
       <DialogDescription>
@@ -1072,7 +1072,7 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
 
 {/* Create Folder Dialog */}
 <Dialog open={showCreateFolderDialog} onOpenChange={setShowCreateFolderDialog}>
-  <DialogContent className="max-w-md">
+  <DialogContent className="max-w-md bg-white">
     <DialogHeader>
       <DialogTitle>Create New Folder</DialogTitle>
       <DialogDescription>
@@ -1130,7 +1130,7 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
 
       {/* Upload Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl bg-white">
           <DialogHeader>
             <DialogTitle>Upload Documents</DialogTitle>
             <DialogDescription>

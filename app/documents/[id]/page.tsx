@@ -628,7 +628,7 @@ const openCreateLinkDialog = () => {
 
       {/* Delete Confirmation Dialog */}
 <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-  <DialogContent className="max-w-md">
+  <DialogContent className="max-w-md bg-white">
     <DialogHeader>
       <DialogTitle>Delete Document</DialogTitle>
     </DialogHeader>
@@ -1213,7 +1213,7 @@ const openCreateLinkDialog = () => {
       </Dialog>
       {/* Create Share Link Dialog */}
 <Dialog open={showCreateLinkDialog} onOpenChange={setShowCreateLinkDialog}>
-  <DialogContent className="max-w-2xl">
+  <DialogContent className="max-w-2xl bg-white">
     <DialogHeader>
       <DialogTitle className="text-xl">Create a shareable link</DialogTitle>
     </DialogHeader>
@@ -1413,218 +1413,10 @@ const openCreateLinkDialog = () => {
     )}
   </DialogContent>
 </Dialog>
-{/* Create Share Link Dialog - IMPROVED DESIGN */}
-<Dialog open={showCreateLinkDialog} onOpenChange={setShowCreateLinkDialog}>
-  <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle className="text-lg font-semibold">Create shareable link</DialogTitle>
-    </DialogHeader>
-    
-    {!generatedLink ? (
-      <div className="space-y-4">
-        {/* Link Settings */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between py-2">
-            <div className="flex-1">
-              <Label className="text-sm font-medium">Require email to view</Label>
-              <p className="text-xs text-slate-500">Viewers must enter email before accessing</p>
-            </div>
-            <Switch
-              checked={linkSettings.requireEmail}
-              onCheckedChange={(checked) => 
-                setLinkSettings({ ...linkSettings, requireEmail: checked })
-              }
-            />
-          </div>
 
-          <div className="flex items-center justify-between py-2">
-            <div className="flex-1">
-              <Label className="text-sm font-medium">Allow download</Label>
-              <p className="text-xs text-slate-500">Let viewers download the PDF</p>
-            </div>
-            <Switch
-              checked={linkSettings.allowDownload}
-              onCheckedChange={(checked) => 
-                setLinkSettings({ ...linkSettings, allowDownload: checked })
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between py-2">
-            <div className="flex-1">
-              <Label className="text-sm font-medium">Notify on view</Label>
-              <p className="text-xs text-slate-500">Get email when someone views</p>
-            </div>
-            <Switch
-              checked={linkSettings.notifyOnView}
-              onCheckedChange={(checked) => 
-                setLinkSettings({ ...linkSettings, notifyOnView: checked })
-              }
-            />
-          </div>
-
-          <div className="space-y-1.5 pt-2">
-            <Label htmlFor="expires" className="text-sm font-medium">Link expires in</Label>
-            <select
-              id="expires"
-              value={linkSettings.expiresIn}
-              onChange={(e) => 
-                setLinkSettings({ ...linkSettings, expiresIn: e.target.value })
-              }
-              className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="7">7 days</option>
-              <option value="30">30 days</option>
-              <option value="90">90 days</option>
-              <option value="never">Never</option>
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-sm font-medium">Password (optional)</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter password"
-              value={linkSettings.password}
-              onChange={(e) => 
-                setLinkSettings({ ...linkSettings, password: e.target.value })
-              }
-              className="text-sm"
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2 justify-end pt-3 border-t">
-          <Button
-            variant="outline"
-            onClick={() => setShowCreateLinkDialog(false)}
-            className="text-sm"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleCreateLink}
-            disabled={isGeneratingLink}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-sm"
-          >
-            {isGeneratingLink ? (
-              <>
-                <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full mr-2" />
-                Creating...
-              </>
-            ) : (
-              'Create Link'
-            )}
-          </Button>
-        </div>
-      </div>
-    ) : (
-      <div className="space-y-4">
-        {/* Link Generated Success */}
-        <div className="text-center py-4">
-          <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-            <Check className="h-6 w-6 text-green-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-1">
-            Link created!
-          </h3>
-          <p className="text-sm text-slate-600">
-            Share this link to give others access
-          </p>
-        </div>
-
-        {/* Generated Link */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Shareable Link</Label>
-          <div className="flex gap-2">
-            <Input
-              value={generatedLink}
-              readOnly
-              className="font-mono text-xs bg-slate-50"
-            />
-            <Button
-              onClick={handleCopyLink}
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-            >
-              {linkCopied ? (
-                <>
-                  <Check className="h-3.5 w-3.5" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="h-3.5 w-3.5" />
-                  Copy
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Link Settings Summary */}
-        <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-          <h4 className="font-medium text-xs text-slate-900 mb-2">Settings:</h4>
-          <ul className="text-xs text-slate-600 space-y-0.5">
-            {linkSettings.requireEmail && <li>✓ Email required</li>}
-            {linkSettings.allowDownload && <li>✓ Download enabled</li>}
-            {linkSettings.notifyOnView && <li>✓ Notifications on</li>}
-            {linkSettings.password && <li>✓ Password protected</li>}
-            <li>✓ Expires: {linkSettings.expiresIn === 'never' ? 'Never' : `${linkSettings.expiresIn} days`}</li>
-          </ul>
-        </div>
-
-        {/* Social Share Buttons */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Share via</Label>
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() => window.open(`mailto:?subject=${encodeURIComponent(doc.filename)}&body=${encodeURIComponent('View: ' + generatedLink)}`)}
-            >
-              <Mail className="h-3.5 w-3.5 mr-1.5" />
-              Email
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check this out: ' + generatedLink)}`)}
-            >
-              <Share2 className="h-3.5 w-3.5 mr-1.5" />
-              Twitter
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(generatedLink)}`)}
-            >
-              <Share2 className="h-3.5 w-3.5 mr-1.5" />
-              LinkedIn
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex justify-end pt-3 border-t">
-          <Button
-            onClick={() => setShowCreateLinkDialog(false)}
-            className="text-sm"
-          >
-            Done
-          </Button>
-        </div>
-      </div>
-    )}
-  </DialogContent>
-</Dialog>
 {/* Request Signature Dialog - IMPROVED DESIGN */}
 <Dialog open={showSignatureDialog} onOpenChange={setShowSignatureDialog}>
-  <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+  <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto bg-white">
     <DialogHeader>
       <DialogTitle className="text-lg font-semibold">Request eSignature</DialogTitle>
     </DialogHeader>

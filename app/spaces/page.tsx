@@ -505,7 +505,7 @@ export default function SpacesPage() {
 
       {/* Create Space Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-white">
           <DialogHeader>
             <DialogTitle>Create New Space</DialogTitle>
             <DialogDescription>

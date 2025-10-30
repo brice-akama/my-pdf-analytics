@@ -1,3 +1,5 @@
+"use client"
+
 import React, { JSX } from "react";
 import { BarChart3, Eye, Clock, MousePointerClick, Download, Users, TrendingUp, Activity, Map, Share2, Bell, Target, Zap, PieChart, LineChart, Calendar, Filter, FileText, CheckCircle2 } from "lucide-react";
 

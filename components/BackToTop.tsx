@@ -34,7 +34,7 @@ const BackToTop = () => {
   return (
 <button
   onClick={scrollToTop}
-  className="fixed bottom-20 right-4 z-50 p-2 bg-gradient-to-br from-slate-100 via-blue-100 to-indigo-100 text-white rounded-full shadow-md  transition"
+  className="fixed bottom-20 right-4 z-50 p-2 bg-blue-800 from-slate-100 via-blue-100 to-indigo-100 text-white rounded-full shadow-md  transition"
   aria-label="Back to Top"
 >
   <MdArrowUpward className="h-6 w-6" />

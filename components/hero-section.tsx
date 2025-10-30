@@ -15,9 +15,10 @@ export function HeroSection() {
   Know When Your
   <br className="hidden md:block" /> {/* Hide on mobile, show on md+ */}
   <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-    PDFs Are Opened
+    Documents Are Opened
   </span>
 </h1>
+
 
           {/* Subtitle */}
           <p className="mb-10 text-lg text-gray-600 sm:text-xl md:text-2xl max-w-2xl text-left md:text-center md:mx-auto">

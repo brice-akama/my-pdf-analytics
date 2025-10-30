@@ -1646,7 +1646,7 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       </div>
       {/* Settings Dialog */}
 <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-  <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+  <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white">
     <DialogHeader>
       <DialogTitle>Settings</DialogTitle>
       <DialogDescription>Manage your account settings and preferences</DialogDescription>
@@ -1979,7 +1979,7 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 </Dialog>
 {/* Team Dialog */}
 <Dialog open={showTeamDialog} onOpenChange={setShowTeamDialog}>
-  <DialogContent className="max-w-2xl">
+  <DialogContent className="max-w-2xl bg-white">
     <DialogHeader>
       <DialogTitle>Team Members</DialogTitle>
       <DialogDescription>Invite and manage team members</DialogDescription>
@@ -2062,7 +2062,7 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
 {/* Help Dialog */}
 <Dialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
-  <DialogContent className="max-w-xl">
+  <DialogContent className="max-w-xl bg-white">
     <DialogHeader>
       <DialogTitle>Help & Support</DialogTitle>
       <DialogDescription>Get help with DocMetrics</DialogDescription>
@@ -2094,7 +2094,7 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
 {/* Feedback Dialog */}
 <Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
-  <DialogContent className="max-w-xl">
+  <DialogContent className="max-w-xl bg-white">
     <DialogHeader>
       <DialogTitle>Send Feedback</DialogTitle>
       <DialogDescription>Help us improve DocMetrics</DialogDescription>
@@ -2128,13 +2128,13 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
 {/* Integrations Dialog */}
 <Dialog  open={showIntegrationsDialog} onOpenChange={setShowIntegrationsDialog}>
-  <DialogContent className="max-w-3xl bg-whie">
+  <DialogContent className="max-w-3xl bg-white">
     <DialogHeader>
       <DialogTitle >Integrations</DialogTitle>
       <DialogDescription>Connect DocMetrics with your favorite tools</DialogDescription>
     </DialogHeader>
     
-    <div className="grid md:grid-cols-2 gap-4 bg-white">
+    <div className="grid md:grid-cols-2 gap-4">
       {[
         { name: 'Slack', desc: 'Get notifications in Slack', icon: '💬', connected: false },
         { name: 'Google Drive', desc: 'Import from Google Drive', icon: '📁', connected: false },
@@ -2233,7 +2233,7 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 </Dialog>
 {/* Switch Company Dialog */}
 <Dialog open={showSwitchCompanyDialog} onOpenChange={setShowSwitchCompanyDialog}>
-  <DialogContent className="max-w-md">
+  <DialogContent className="max-w-md bg-white">
     <DialogHeader>
       <DialogTitle>Switch Company</DialogTitle>
       <DialogDescription>Select a company to switch to</DialogDescription>
@@ -2395,7 +2395,7 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
 {/* Upload Agreement Dialog */}
 <Dialog open={showUploadAgreementDialog} onOpenChange={setShowUploadAgreementDialog}>
-  <DialogContent className="max-w-2xl">
+  <DialogContent className="max-w-2xl bg-white">
     <DialogHeader>
       <DialogTitle>Upload Agreement</DialogTitle>
       <DialogDescription>Upload an NDA or other legal document that viewers must sign</DialogDescription>
@@ -2524,7 +2524,7 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
 {/* Create File Request Dialog */}
 <Dialog open={showCreateFileRequestDialog} onOpenChange={setShowCreateFileRequestDialog}>
-  <DialogContent className="max-w-2xl">
+  <DialogContent className="max-w-2xl bg-white">
     <DialogHeader>
       <DialogTitle>Create File Request</DialogTitle>
       <DialogDescription>Request files from clients, partners, or team members</DialogDescription>
@@ -2668,7 +2668,7 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 </Dialog>
 {/* Share Document Dialog */}
 <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-  <DialogContent className="max-w-2xl">
+  <DialogContent className="max-w-2xl bg-white">
     <DialogHeader>
       <DialogTitle>Share Document</DialogTitle>
       <DialogDescription>
