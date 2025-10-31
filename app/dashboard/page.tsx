@@ -2397,7 +2397,3734 @@ const TemplatesSection = () => {
     </div>
   ),
   htmlTemplate: `<!-- Full HTML -->`
-}
+},
+
+{
+  id: 'quotation-001',
+  name: 'Quotation/Estimate',
+  description: 'Professional price quote for services or products',
+  category: 'invoices',
+  popular: false,
+  fields: ['Quote #', 'Valid Until', 'Items', 'Pricing', 'Terms'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="flex justify-between items-start mb-8 pb-6 border-b-3 border-orange-600">
+        <div>
+          <div className="w-20 h-20 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center text-white text-3xl font-bold mb-3">
+            Q
+          </div>
+          <div className="text-lg font-bold text-slate-900">[Company.Name]</div>
+          <div className="text-[8px] text-slate-600 mt-1 space-y-0.5">
+            <div>[Company.Address]</div>
+            <div>[Company.City], [Company.State] [Company.Zip]</div>
+            <div className="mt-1">[Company.Email]</div>
+            <div>[Company.Phone]</div>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-4xl font-bold text-orange-600 mb-3">QUOTATION</div>
+          <div className="bg-orange-100 px-4 py-2 rounded-lg mb-2">
+            <div className="text-[7px] text-orange-700 font-semibold">QUOTE NUMBER</div>
+            <div className="text-lg font-bold text-slate-900">[Quote.Number]</div>
+          </div>
+          <div className="text-[8px] text-slate-600 space-y-1">
+            <div><strong>Date:</strong> [Quote.Date]</div>
+            <div><strong>Valid Until:</strong> <span className="bg-yellow-100 px-2 font-bold">[Valid.Until]</span></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quote For Section */}
+      <div className="mb-6">
+        <div className="text-sm font-bold text-orange-600 mb-3 border-l-4 border-orange-500 pl-3">QUOTE FOR:</div>
+        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-200 rounded-xl p-5">
+          <div className="grid grid-cols-2 gap-4 text-[8px]">
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Company/Name:</div>
+              <div className="font-bold text-slate-900 text-sm">[Client.Name]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Contact Person:</div>
+              <div className="font-bold text-slate-900">[Client.Contact]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Email:</div>
+              <div className="text-slate-900">[Client.Email]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Phone:</div>
+              <div className="text-slate-900">[Client.Phone]</div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-slate-600 font-semibold mb-1">Address:</div>
+              <div className="text-slate-900">[Client.Address]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Items/Services Table */}
+      <div className="mb-6">
+        <div className="text-sm font-bold text-slate-900 mb-3">ITEMS / SERVICES</div>
+        <table className="w-full text-[8px] border-collapse">
+          <thead>
+            <tr className="bg-gradient-to-r from-orange-600 to-red-600 text-white">
+              <th className="text-left p-3 font-semibold border border-orange-700">#</th>
+              <th className="text-left p-3 font-semibold border border-orange-700">DESCRIPTION</th>
+              <th className="text-center p-3 font-semibold border border-orange-700 w-16">QTY</th>
+              <th className="text-right p-3 font-semibold border border-orange-700 w-24">UNIT PRICE</th>
+              <th className="text-right p-3 font-semibold border border-orange-700 w-24">AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-slate-200 hover:bg-orange-50">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">1</td>
+              <td className="p-3 border border-slate-200">
+                <div className="font-semibold text-slate-900 mb-1">[Item.1.Name]</div>
+                <div className="text-[7px] text-slate-600">[Item.1.Description]</div>
+              </td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">[Item.1.Qty]</td>
+              <td className="p-3 border border-slate-200 text-right text-slate-900">$[Item.1.Price]</td>
+              <td className="p-3 border border-slate-200 text-right font-bold text-slate-900">$[Item.1.Amount]</td>
+            </tr>
+            <tr className="border-b border-slate-200 hover:bg-orange-50">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">2</td>
+              <td className="p-3 border border-slate-200">
+                <div className="font-semibold text-slate-900 mb-1">[Item.2.Name]</div>
+                <div className="text-[7px] text-slate-600">[Item.2.Description]</div>
+              </td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">[Item.2.Qty]</td>
+              <td className="p-3 border border-slate-200 text-right text-slate-900">$[Item.2.Price]</td>
+              <td className="p-3 border border-slate-200 text-right font-bold text-slate-900">$[Item.2.Amount]</td>
+            </tr>
+            <tr className="border-b border-slate-200 hover:bg-orange-50">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">3</td>
+              <td className="p-3 border border-slate-200">
+                <div className="font-semibold text-slate-900 mb-1">[Item.3.Name]</div>
+                <div className="text-[7px] text-slate-600">[Item.3.Description]</div>
+              </td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">[Item.3.Qty]</td>
+              <td className="p-3 border border-slate-200 text-right text-slate-900">$[Item.3.Price]</td>
+              <td className="p-3 border border-slate-200 text-right font-bold text-slate-900">$[Item.3.Amount]</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Totals Section */}
+      <div className="flex justify-end mb-6">
+        <div className="w-80">
+          <div className="space-y-2 text-[8px]">
+            <div className="flex justify-between py-2 border-b border-slate-200">
+              <span className="text-slate-600 font-semibold">Subtotal:</span>
+              <span className="font-bold text-slate-900">$[Subtotal]</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-200">
+              <span className="text-slate-600 font-semibold">Discount ([Discount.Percent]%):</span>
+              <span className="font-bold text-green-600">-$[Discount.Amount]</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-200">
+              <span className="text-slate-600 font-semibold">Tax ([Tax.Rate]%):</span>
+              <span className="font-bold text-slate-900">$[Tax.Amount]</span>
+            </div>
+            <div className="bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg p-4 flex justify-between items-center mt-3">
+              <span className="text-sm font-bold">TOTAL AMOUNT:</span>
+              <span className="text-2xl font-bold">${["total_amount"]}</span>
+            </div>
+          </div>   
+        </div>
+      </div>
+
+      {/* Terms & Conditions */}
+      <div className="mb-6">
+        <div className="text-sm font-bold text-slate-900 mb-3 border-l-4 border-orange-500 pl-3">TERMS & CONDITIONS</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+          <ul className="text-[8px] text-slate-700 space-y-2 leading-relaxed">
+            <li className="flex gap-2">
+              <span className="text-orange-600 font-bold">•</span>
+              <span><strong>Validity:</strong> This quotation is valid until [Valid.Until]. After this date, prices may be subject to change.</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-orange-600 font-bold">•</span>
+              <span><strong>Payment Terms:</strong> 50% deposit required upon acceptance, balance due upon completion.</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-orange-600 font-bold">•</span>
+              <span><strong>Delivery Time:</strong> Estimated delivery/completion time is [Delivery.Time] from order confirmation.</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-orange-600 font-bold">•</span>
+              <span><strong>Acceptance:</strong> To accept this quotation, please sign and return a copy or reply via email.</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-orange-600 font-bold">•</span>
+              <span><strong>Cancellation:</strong> Cancellations must be made in writing. Deposits are non-refundable.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="mb-6">
+        <div className="text-sm font-bold text-slate-900 mb-3 border-l-4 border-orange-500 pl-3">ADDITIONAL NOTES</div>
+        <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            [Additional.Notes] - Any special conditions, warranty information, or additional details about the products/services being quoted.
+          </div>
+        </div>
+      </div>
+
+      {/* Acceptance Section */}
+      <div className="border-t-2 border-orange-600 pt-6">
+        <div className="text-sm font-bold text-slate-900 mb-4">QUOTATION ACCEPTANCE</div>
+        <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-5">
+          <div className="text-[8px] text-slate-700 mb-4">
+            I hereby accept the above quotation and agree to the terms and conditions stated.
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <div className="text-[7px] text-slate-600 mb-2">Client Signature:</div>
+              <div className="border-b-2 border-slate-400 pb-1 mb-3 h-8"></div>
+              <div className="text-[7px] text-slate-600">Print Name: _______________________</div>
+            </div>
+            <div>
+              <div className="text-[7px] text-slate-600 mb-2">Date:</div>
+              <div className="border-b-2 border-slate-400 pb-1 mb-3 h-8"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+        <div className="font-semibold mb-1">Thank you for considering our services!</div>
+        <div>Questions? Contact us at [Company.Email] or [Company.Phone]</div>
+        <div className="mt-2">Quote #[Quote.Number] | Valid Until [Valid.Until]</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!-- Full HTML -->`
+},
+
+{
+  id: 'employment-contract-001',
+  name: 'Employment Contract',
+  description: 'Standard employment agreement template',
+  category: 'contracts',
+  popular: false,
+  fields: ['Employee Info', 'Position', 'Salary', 'Benefits', 'Terms'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Times New Roman, serif' }}>
+      {/* Header */}
+      <div className="text-center mb-8 pb-6 border-b-4 border-double border-slate-900">
+        <div className="text-4xl font-bold text-slate-900 mb-3">EMPLOYMENT CONTRACT</div>
+        <div className="text-[8px] text-slate-600">Full-Time Employment Agreement</div>
+        <div className="mt-3 inline-block bg-slate-900 text-white px-4 py-2 rounded text-[8px] font-bold">
+          CONTRACT #[Contract.Number]
+        </div>
+      </div>
+
+      {/* Agreement Statement */}
+      <div className="bg-slate-50 border-l-4 border-slate-900 p-4 mb-6 rounded-r-lg">
+        <div className="text-[8px] text-slate-700 leading-relaxed">
+          This Employment Contract ("Agreement") is made effective as of <span className="bg-yellow-100 px-2 font-bold">[Start.Date]</span> by and between:
+        </div>
+      </div>
+
+      {/* Parties */}
+      <div className="mb-8">
+        <div className="text-lg font-bold text-slate-900 mb-4">PARTIES</div>
+        
+        <div className="bg-slate-100 border-2 border-slate-300 rounded-lg p-5 mb-4">
+          <div className="text-sm font-bold text-slate-900 mb-3">EMPLOYER</div>
+          <div className="grid grid-cols-2 gap-3 text-[8px]">
+            <div>
+              <div className="text-slate-600 font-semibold">Company Name:</div>
+              <div className="font-bold text-slate-900">[Employer.Company]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold">Business Type:</div>
+              <div className="text-slate-900">[Employer.BusinessType]</div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-slate-600 font-semibold">Address:</div>
+              <div className="text-slate-900">[Employer.Address]</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-5">
+          <div className="text-sm font-bold text-blue-900 mb-3">EMPLOYEE</div>
+          <div className="grid grid-cols-2 gap-3 text-[8px]">
+            <div>
+              <div className="text-slate-600 font-semibold">Full Name:</div>
+              <div className="font-bold text-slate-900">[Employee.FullName]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold">Date of Birth:</div>
+              <div className="text-slate-900">[Employee.DOB]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold">Email:</div>
+              <div className="text-slate-900">[Employee.Email]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold">Phone:</div>
+              <div className="text-slate-900">[Employee.Phone]</div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-slate-600 font-semibold">Address:</div>
+              <div className="text-slate-900">[Employee.Address]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold">SSN/ID:</div>
+              <div className="text-slate-900">[Employee.SSN]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold">Emergency Contact:</div>
+              <div className="text-slate-900">[Employee.EmergencyContact]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Position Details */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-b-2 border-slate-900 pb-2">1. POSITION AND DUTIES</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-3">
+            <div>
+              <strong>1.1 Job Title:</strong> The Employee is hired as <span className="bg-yellow-100 px-2 font-bold">[Job.Title]</span>.
+            </div>
+            <div>
+              <strong>1.2 Department:</strong> [Department.Name]
+            </div>
+            <div>
+              <strong>1.3 Reporting To:</strong> The Employee will report directly to [Supervisor.Name], [Supervisor.Title].
+            </div>
+            <div>
+              <strong>1.4 Job Responsibilities:</strong>
+              <ul className="ml-4 mt-2 space-y-1">
+                <li>• [Responsibility.1]</li>
+                <li>• [Responsibility.2]</li>
+                <li>• [Responsibility.3]</li>
+                <li>• [Responsibility.4]</li>
+                <li>• Other duties as assigned by management</li>
+              </ul>
+            </div>
+            <div>
+              <strong>1.5 Work Location:</strong> [Work.Location]
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Compensation */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-b-2 border-slate-900 pb-2">2. COMPENSATION</div>
+        <div className="bg-green-50 border-2 border-green-300 rounded-lg p-5">
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-3">
+            <div className="flex justify-between items-center py-3 border-b border-green-200">
+              <span className="font-semibold">Base Salary:</span>
+              <span className="text-xl font-bold text-green-700">${"[annual_salary]"}</span>
+            </div>  
+            <div>
+              <strong>2.1 Payment Frequency:</strong> Salary will be paid [Payment.Frequency] (bi-weekly/monthly).
+            </div>
+            <div>
+              <strong>2.2 Payment Method:</strong> Direct deposit to the Employee's designated bank account.
+            </div>
+            <div>
+              <strong>2.3 Overtime:</strong> [Overtime.Policy]
+            </div>
+            <div>
+              <strong>2.4 Salary Review:</strong> Salary will be reviewed annually on [Review.Date] based on performance.
+            </div>
+            <div>
+              <strong>2.5 Bonus/Commission:</strong> [Bonus.Structure]
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Benefits */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-b-2 border-slate-900 pb-2">3. BENEFITS</div>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+            <div className="font-semibold mb-2">The Employee is entitled to the following benefits:</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white p-3 rounded border border-blue-200">
+                <div className="font-bold text-blue-900 mb-1">🏥 Health Insurance</div>
+                <div className="text-[7px]">[Health.Insurance.Details]</div>
+              </div>
+              <div className="bg-white p-3 rounded border border-blue-200">
+                <div className="font-bold text-blue-900 mb-1">🦷 Dental Insurance</div>
+                <div className="text-[7px]">[Dental.Insurance.Details]</div>
+              </div>
+              <div className="bg-white p-3 rounded border border-blue-200">
+                <div className="font-bold text-blue-900 mb-1">👓 Vision Insurance</div>
+                <div className="text-[7px]">[Vision.Insurance.Details]</div>
+              </div>
+              <div className="bg-white p-3 rounded border border-blue-200">
+                <div className="font-bold text-blue-900 mb-1">💰 401(k) Plan</div>
+                <div className="text-[7px]">[401k.Details]</div>
+              </div>
+              <div className="bg-white p-3 rounded border border-blue-200">
+                <div className="font-bold text-blue-900 mb-1">🏖️ Paid Time Off</div>
+                <div className="text-[7px]">[PTO.Days] days per year</div>
+              </div>
+              <div className="bg-white p-3 rounded border border-blue-200">
+                <div className="font-bold text-blue-900 mb-1">🤒 Sick Leave</div>
+                <div className="text-[7px]">[Sick.Days] days per year</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Work Schedule */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-b-2 border-slate-900 pb-2">4. WORK SCHEDULE</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div><strong>4.1 Work Hours:</strong> [Work.Hours] hours per week</div>
+          <div><strong>4.2 Schedule:</strong> [Work.Schedule] (e.g., Monday-Friday, 9:00 AM - 5:00 PM)</div>
+          <div><strong>4.3 Breaks:</strong> [Break.Policy]</div>
+          <div><strong>4.4 Remote Work:</strong> [Remote.Work.Policy]</div>
+        </div>
+      </div>
+
+      {/* Term and Termination */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-b-2 border-slate-900 pb-2">5. TERM AND TERMINATION</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 text-[8px] text-slate-700 leading-relaxed space-y-3">
+          <div>
+            <strong>5.1 Employment Type:</strong> This is a [Employment.Type] (permanent/contract) position.
+          </div>
+          <div>
+            <strong>5.2 Probation Period:</strong> The first [Probation.Period] days/months shall be a probationary period.
+          </div>
+          <div>
+            <strong>5.3 At-Will Employment:</strong> This is an at-will employment relationship. Either party may terminate this Agreement at any time with [Notice.Period] days written notice.
+          </div>
+          <div>
+            <strong>5.4 Termination for Cause:</strong> The Employer may terminate immediately for misconduct, breach of policy, or poor performance.
+          </div>
+          <div>
+            <strong>5.5 Severance:</strong> [Severance.Terms]
+          </div>
+        </div>
+      </div>
+
+      {/* Confidentiality */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-b-2 border-slate-900 pb-2">6. CONFIDENTIALITY AND NON-COMPETE</div>
+        <div className="bg-red-50 border-2 border-red-200 rounded-lg p-5 text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div><strong>6.1</strong> Employee agrees to maintain confidentiality of all proprietary information.</div>
+          <div><strong>6.2</strong> Employee shall not compete with the Employer during employment and for [NonCompete.Period] after termination.</div>
+          <div><strong>6.3</strong> Employee shall not solicit clients or employees for [NonSolicit.Period] after termination.</div>
+        </div>
+      </div>
+
+      {/* Other Provisions */}
+      <div className="mb-8">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-b-2 border-slate-900 pb-2">7. OTHER PROVISIONS</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div><strong>7.1 Governing Law:</strong> This Agreement shall be governed by the laws of [Jurisdiction].</div>
+          <div><strong>7.2 Entire Agreement:</strong> This Agreement constitutes the entire agreement between the parties.</div>
+          <div><strong>7.3 Amendments:</strong> Any changes must be made in writing and signed by both parties.</div>
+          <div><strong>7.4 Background Check:</strong> Employment is contingent upon successful background check and drug screening.</div>
+        </div>
+      </div>
+
+      {/* Signatures */}
+      <div className="border-t-4 border-slate-900 pt-6">
+        <div className="text-lg font-bold text-slate-900 mb-6">SIGNATURES</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <div className="border-t-2 border-slate-900 pt-3 mb-3">
+              <div className="text-[8px] text-slate-600 font-semibold">EMPLOYER</div>
+            </div>
+            <div className="text-[8px] space-y-2">
+              <div className="font-bold text-slate-900">[Employer.Company]</div>
+              <div className="text-slate-600">By: [Employer.Representative]</div>
+              <div className="text-slate-600">Title: [Employer.Title]</div>
+              <div className="mt-3 pt-3 border-t border-slate-300">
+                <div className="text-slate-600">Signature: _______________________</div>
+              </div>
+              <div className="text-slate-600">Date: _______________________</div>
+            </div>
+          </div>
+          <div>
+            <div className="border-t-2 border-slate-900 pt-3 mb-3">
+              <div className="text-[8px] text-slate-600 font-semibold">EMPLOYEE</div>
+            </div>
+            <div className="text-[8px] space-y-2">
+              <div className="font-bold text-slate-900">[Employee.FullName]</div>
+              <div className="text-slate-600">SSN/ID: [Employee.SSN]</div>
+              <div className="mt-3 pt-3 border-t border-slate-300">
+                <div className="text-slate-600">Signature: _______________________</div>
+              </div>
+              <div className="text-slate-600">Date: _______________________</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+        <div>Contract #[Contract.Number] | Page 1 of 1</div>
+        <div className="mt-1">This is a legally binding employment contract</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!-- Full HTML -->`
+},
+
+
+{
+  id: 'bank-loan-proposal-001',
+  name: 'Bank Loan Proposal',
+  description: 'Professional business loan application proposal',
+  category: 'proposals',
+  popular: true,
+  fields: ['Business Name', 'Loan Amount', 'Purpose', 'Financial Data', 'Collateral'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="text-center mb-8 pb-6 border-b-4 border-green-700">
+        <div className="text-4xl font-bold text-green-700 mb-3">BUSINESS LOAN PROPOSAL</div>
+        <div className="text-[8px] text-slate-600">Formal Application for Business Financing</div>
+        <div className="mt-3 inline-block bg-green-100 text-green-700 px-4 py-2 rounded-full text-[8px] font-bold">
+          💼 PROPOSAL ID: [Proposal.ID]
+        </div>
+      </div>
+
+      {/* Submission Date */}
+      <div className="bg-green-50 border-l-4 border-green-600 p-4 mb-6 rounded-r-lg">
+        <div className="text-[8px] text-slate-700 leading-relaxed">
+          <strong>Date of Submission:</strong> <span className="bg-yellow-100 px-2 font-bold">[Submission.Date]</span>
+        </div>
+      </div>
+
+      {/* Applicant Information */}
+      <div className="mb-8">
+        <div className="text-lg font-bold text-slate-900 mb-4 border-l-4 border-green-600 pl-3">APPLICANT INFORMATION</div>
+        
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-6">
+          <div className="grid grid-cols-2 gap-4 text-[8px]">
+            <div className="col-span-2">
+              <div className="text-green-700 font-bold mb-2 text-sm">Business Details</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Legal Business Name:</div>
+              <div className="text-slate-900 font-bold">[Business.LegalName]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Trade Name (DBA):</div>
+              <div className="text-slate-900 font-bold">[Business.TradeName]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Business Type:</div>
+              <div className="text-slate-900">[Business.Type]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Tax ID/EIN:</div>
+              <div className="text-slate-900">[Business.TaxID]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Date Established:</div>
+              <div className="text-slate-900">[Business.EstablishedDate]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Years in Business:</div>
+              <div className="text-slate-900">[Business.YearsInBusiness]</div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-slate-600 font-semibold mb-1">Business Address:</div>
+              <div className="text-slate-900">[Business.Address]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Phone:</div>
+              <div className="text-slate-900">[Business.Phone]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Email:</div>
+              <div className="text-slate-900">[Business.Email]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Website:</div>
+              <div className="text-slate-900">[Business.Website]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Industry:</div>
+              <div className="text-slate-900">[Business.Industry]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Number of Employees:</div>
+              <div className="text-slate-900">[Business.Employees]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Annual Revenue:</div>
+              <div className="text-slate-900 font-bold">${"[Annual.Revenue]"}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Owner/Principal Information */}
+      <div className="mb-8">
+        <div className="text-lg font-bold text-slate-900 mb-4 border-l-4 border-green-600 pl-3">OWNER/PRINCIPAL INFORMATION</div>
+        
+        <div className="bg-slate-50 border-2 border-slate-300 rounded-xl p-5">
+          <div className="grid grid-cols-2 gap-4 text-[8px]">
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Full Name:</div>
+              <div className="text-slate-900 font-bold">[Owner.FullName]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Title/Position:</div>
+              <div className="text-slate-900">[Owner.Title]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Ownership Percentage:</div>
+              <div className="text-slate-900">[Owner.Percentage]%</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">SSN/Tax ID:</div>
+              <div className="text-slate-900">[Owner.SSN]</div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-slate-600 font-semibold mb-1">Home Address:</div>
+              <div className="text-slate-900">[Owner.Address]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Phone:</div>
+              <div className="text-slate-900">[Owner.Phone]</div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Email:</div>
+              <div className="text-slate-900">[Owner.Email]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Loan Request Summary */}
+      <div className="mb-8">
+        <div className="text-lg font-bold text-slate-900 mb-4 border-l-4 border-green-600 pl-3">LOAN REQUEST SUMMARY</div>
+        
+        <div className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl p-8 text-white text-center shadow-xl mb-4">
+          <div className="text-[10px] opacity-90 font-semibold mb-3">REQUESTED LOAN AMOUNT</div>
+          <div className="text-6xl font-bold mb-4">${"[Loan.Amount]"}</div>
+          <div className="text-[8px] opacity-80">United States Dollar (USD)</div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 text-center">
+            <div className="text-[7px] text-green-700 font-bold mb-2">LOAN TYPE</div>
+            <div className="font-bold text-slate-900">[Loan.Type]</div>
+          </div>
+          <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 text-center">
+            <div className="text-[7px] text-green-700 font-bold mb-2">LOAN TERM</div>
+            <div className="font-bold text-slate-900">[Loan.Term]</div>
+          </div>
+          <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 text-center">
+            <div className="text-[7px] text-green-700 font-bold mb-2">PREFERRED RATE</div>
+            <div className="font-bold text-slate-900">[Interest.Rate]%</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Purpose of Loan */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">PURPOSE OF LOAN</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+          <div className="text-[8px] text-slate-700 leading-relaxed mb-4">
+            <strong>Primary Purpose:</strong> [Loan.Purpose.Primary]
+          </div>
+          <div className="bg-white border-l-4 border-green-500 p-4 rounded-r-lg">
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              [Loan.Purpose.Detailed.Description]
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Use of Funds Breakdown */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">USE OF FUNDS BREAKDOWN</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+          <div className="space-y-2 text-[8px]">
+            <div className="flex justify-between py-2 border-b border-slate-300 bg-white px-3 rounded">
+              <span className="font-semibold text-slate-700">[UseOfFunds.Category1]</span>
+              <span className="font-bold text-slate-900">${"[UseOfFunds.Amount1]"}</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-300 bg-white px-3 rounded">
+              <span className="font-semibold text-slate-700">[UseOfFunds.Category2]</span>
+              <span className="font-bold text-slate-900">${"[UseOfFunds.Amount2]"}</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-300 bg-white px-3 rounded">
+              <span className="font-semibold text-slate-700">[UseOfFunds.Category3]</span>
+              <span className="font-bold text-slate-900">${"[UseOfFunds.Amount3]"}</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-300 bg-white px-3 rounded">
+              <span className="font-semibold text-slate-700">[UseOfFunds.Category4]</span>
+              <span className="font-bold text-slate-900">${"[UseOfFunds.Amount4]"}</span>
+            </div>
+            <div className="flex justify-between py-3 bg-green-100 px-3 rounded font-bold text-green-900">
+              <span>TOTAL</span>
+              <span>${"[Loan.Amount]"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Business Overview */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">BUSINESS OVERVIEW</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-3">
+            <div>
+              <strong className="text-green-700">Company Description:</strong><br/>
+              [Business.Description]
+            </div>
+            <div>
+              <strong className="text-green-700">Products/Services:</strong><br/>
+              [Business.Products.Services]
+            </div>
+            <div>
+              <strong className="text-green-700">Target Market:</strong><br/>
+              [Business.Target.Market]
+            </div>
+            <div>
+              <strong className="text-green-700">Competitive Advantages:</strong><br/>
+              [Business.Competitive.Advantages]
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Financial Information */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">FINANCIAL INFORMATION</div>
+        
+        {/* Current Year */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-5 mb-4">
+          <div className="text-sm font-bold text-green-800 mb-3">Current Year ([Current.Year])</div>
+          <div className="grid grid-cols-3 gap-4 text-[8px]">
+            <div className="bg-white rounded-lg p-3 border border-green-200">
+              <div className="text-slate-600 font-semibold mb-1">Gross Revenue</div>
+              <div className="text-lg font-bold text-slate-900">${"[Current.Revenue]"}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-green-200">
+              <div className="text-slate-600 font-semibold mb-1">Operating Expenses</div>
+              <div className="text-lg font-bold text-slate-900">${"[Current.Expenses]"}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-green-200">
+              <div className="text-slate-600 font-semibold mb-1">Net Profit</div>
+              <div className="text-lg font-bold text-green-700">${"[Current.NetProfit]"}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Previous Year */}
+        <div className="bg-slate-50 border border-slate-300 rounded-lg p-5 mb-4">
+          <div className="text-sm font-bold text-slate-800 mb-3">Previous Year ([Previous.Year])</div>
+          <div className="grid grid-cols-3 gap-4 text-[8px]">
+            <div className="bg-white rounded-lg p-3 border border-slate-200">
+              <div className="text-slate-600 font-semibold mb-1">Gross Revenue</div>
+              <div className="text-lg font-bold text-slate-900">${"[Previous.Revenue]"}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-slate-200">
+              <div className="text-slate-600 font-semibold mb-1">Operating Expenses</div>
+              <div className="text-lg font-bold text-slate-900">${"[Previous.Expenses]"}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-slate-200">
+              <div className="text-slate-600 font-semibold mb-1">Net Profit</div>
+              <div className="text-lg font-bold text-green-700">${"[Previous.NetProfit]"}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Balance Sheet Snapshot */}
+        <div className="bg-slate-50 border border-slate-300 rounded-lg p-5">
+          <div className="text-sm font-bold text-slate-800 mb-3">Balance Sheet Snapshot</div>
+          <div className="grid grid-cols-2 gap-4 text-[8px]">
+            <div>
+              <div className="space-y-2">
+                <div className="flex justify-between py-2 border-b border-slate-300">
+                  <span className="text-slate-600">Total Assets:</span>
+                  <span className="font-bold text-slate-900">${"[Total.Assets]"}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-slate-300">
+                  <span className="text-slate-600">Current Assets:</span>
+                  <span className="font-bold text-slate-900">${"[Current.Assets]"}</span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-slate-600">Fixed Assets:</span>
+                  <span className="font-bold text-slate-900">${"[Fixed.Assets]"}</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div className="space-y-2">
+                <div className="flex justify-between py-2 border-b border-slate-300">
+                  <span className="text-slate-600">Total Liabilities:</span>
+                  <span className="font-bold text-slate-900">${"[Total.Liabilities]"}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-slate-300">
+                  <span className="text-slate-600">Current Liabilities:</span>
+                  <span className="font-bold text-slate-900">${"[Current.Liabilities]"}</span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-slate-600">Owner's Equity:</span>
+                  <span className="font-bold text-green-700">${"[Owners.Equity]"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Existing Debt */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">EXISTING DEBT OBLIGATIONS</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+          <div className="space-y-2 text-[8px]">
+            <div className="bg-white border border-slate-200 rounded p-3">
+              <div className="flex justify-between mb-2">
+                <span className="font-bold text-slate-900">[Debt.1.Creditor]</span>
+                <span className="font-bold text-slate-900">${"[Debt.1.Balance]"}</span>
+              </div>
+              <div className="flex justify-between text-[7px] text-slate-600">
+                <span>Monthly Payment: ${"[Debt.1.Payment]"}</span>
+                <span>Rate: [Debt.1.Rate]%</span>
+              </div>
+            </div>
+            <div className="bg-white border border-slate-200 rounded p-3">
+              <div className="flex justify-between mb-2">
+                <span className="font-bold text-slate-900">[Debt.2.Creditor]</span>
+                <span className="font-bold text-slate-900">${"[Debt.2.Balance]"}</span>
+              </div>
+              <div className="flex justify-between text-[7px] text-slate-600">
+                <span>Monthly Payment: ${"[Debt.2.Payment]"}</span>
+                <span>Rate: [Debt.2.Rate]%</span>
+              </div>
+            </div>
+            <div className="flex justify-between py-3 bg-green-100 px-3 rounded font-bold text-green-900 mt-2">
+              <span>TOTAL EXISTING DEBT</span>
+              <span>${"[Total.Existing.Debt]"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Collateral */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">COLLATERAL OFFERED</div>
+        <div className="bg-green-50 border-2 border-green-300 rounded-lg p-5">
+          <div className="space-y-3 text-[8px]">
+            <div className="bg-white rounded-lg p-4 border border-green-200">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-slate-600 font-semibold mb-1">Collateral Type:</div>
+                  <div className="text-slate-900 font-bold">[Collateral.1.Type]</div>
+                </div>
+                <div>
+                  <div className="text-slate-600 font-semibold mb-1">Estimated Value:</div>
+                  <div className="text-green-700 font-bold">${"[Collateral.1.Value]"}</div>
+                </div>
+                <div className="col-span-2">
+                  <div className="text-slate-600 font-semibold mb-1">Description:</div>
+                  <div className="text-slate-900">[Collateral.1.Description]</div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-green-200">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-slate-600 font-semibold mb-1">Collateral Type:</div>
+                  <div className="text-slate-900 font-bold">[Collateral.2.Type]</div>
+                </div>
+                <div>
+                  <div className="text-slate-600 font-semibold mb-1">Estimated Value:</div>
+                  <div className="text-green-700 font-bold">${"[Collateral.2.Value]"}</div>
+                </div>
+                <div className="col-span-2">
+                  <div className="text-slate-600 font-semibold mb-1">Description:</div>
+                  <div className="text-slate-900">[Collateral.2.Description]</div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-between py-3 bg-green-600 text-white px-4 rounded font-bold">
+              <span>TOTAL COLLATERAL VALUE</span>
+              <span>${"[Total.Collateral.Value]"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Repayment Plan */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">PROPOSED REPAYMENT PLAN</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+          <div className="grid grid-cols-3 gap-4 mb-4 text-center">
+            <div className="bg-white rounded-lg p-3 border border-slate-200">
+              <div className="text-[7px] text-slate-600 font-bold mb-1">MONTHLY PAYMENT</div>
+              <div className="text-xl font-bold text-green-700">${"[Monthly.Payment]"}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-slate-200">
+              <div className="text-[7px] text-slate-600 font-bold mb-1">TOTAL INTEREST</div>
+              <div className="text-xl font-bold text-slate-900">${"[Total.Interest]"}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-slate-200">
+              <div className="text-[7px] text-slate-600 font-bold mb-1">TOTAL REPAYMENT</div>
+              <div className="text-xl font-bold text-slate-900">${"[Total.Repayment]"}</div>
+            </div>
+          </div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            <strong>Repayment Source:</strong> [Repayment.Source.Description]
+          </div>
+        </div>
+      </div>
+
+      {/* Financial Projections */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">FINANCIAL PROJECTIONS (Post-Loan)</div>
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-5">
+          <div className="grid grid-cols-3 gap-4 text-[8px] text-center">
+            <div>
+              <div className="font-bold text-green-700 mb-2">Year 1</div>
+              <div className="bg-white rounded-lg p-3 border border-green-200">
+                <div className="text-slate-600 text-[7px] mb-1">Projected Revenue</div>
+                <div className="font-bold text-slate-900">${"[Projection.Year1.Revenue]"}</div>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-green-200 mt-2">
+                <div className="text-slate-600 text-[7px] mb-1">Projected Profit</div>
+                <div className="font-bold text-green-700">${"[Projection.Year1.Profit]"}</div>
+              </div>
+            </div>
+            <div>
+              <div className="font-bold text-green-700 mb-2">Year 2</div>
+              <div className="bg-white rounded-lg p-3 border border-green-200">
+                <div className="text-slate-600 text-[7px] mb-1">Projected Revenue</div>
+                <div className="font-bold text-slate-900">${"[Projection.Year2.Revenue]"}</div>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-green-200 mt-2">
+                <div className="text-slate-600 text-[7px] mb-1">Projected Profit</div>
+                <div className="font-bold text-green-700">${"[Projection.Year2.Profit]"}</div>
+              </div>
+            </div>
+            <div>
+              <div className="font-bold text-green-700 mb-2">Year 3</div>
+              <div className="bg-white rounded-lg p-3 border border-green-200">
+                <div className="text-slate-600 text-[7px] mb-1">Projected Revenue</div>
+                <div className="font-bold text-slate-900">${"[Projection.Year3.Revenue]"}</div>
+              </div>
+              <div className="bg-white rounded-lg p-3 border border-green-200 mt-2">
+                <div className="text-slate-600 text-[7px] mb-1">Projected Profit</div>
+                <div className="font-bold text-green-700">${"[Projection.Year3.Profit]"}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Supporting Documents */}
+      <div className="mb-6">
+        <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">SUPPORTING DOCUMENTS ATTACHED</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+          <div className="grid grid-cols-2 gap-2 text-[8px]">
+            <div className="flex items-center gap-2 bg-white p-2 rounded border border-slate-200">
+              <span className="text-green-600 font-bold">✓</span>
+              <span>Business Tax Returns (Last 3 Years)</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white p-2 rounded border border-slate-200">
+              <span className="text-green-600 font-bold">✓</span>
+              <span>Personal Tax Returns (Last 2 Years)</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white p-2 rounded border border-slate-200">
+              <span className="text-green-600 font-bold">✓</span>
+              <span>Profit & Loss Statements</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white p-2 rounded border border-slate-200">
+              <span className="text-green-600 font-bold">✓</span>
+              <span>Balance Sheets</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white p-2 rounded border border-slate-200">
+              <span className="text-green-600 font-bold">✓</span>
+              <span>Bank Statements (Last 6 Months)</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white p-2 rounded border border-slate-200">
+              <span className="text-green-600 font-bold">✓</span>
+              <span>Business Plan</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white p-2 rounded border border-slate-200">
+              <span className="text-green-600 font-bold">✓</span>
+              <span>Credit Reports (Business & Personal)</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white p-2 rounded border border-slate-200">
+              <span className="text-green-600 font-bold">✓</span>
+              <span>Collateral Documentation</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white p-2 rounded border border-slate-200">
+              <span className="text-green-600 font-bold">✓</span>
+              <span>Business Licenses & Permits</span>
+            </div>
+             <div className="flex items-center gap-2 bg-white p-2 rounded border border-slate-200">
+             <span className="text-green-600 font-bold">✓</span>
+<span>Accounts Receivable/Payable</span>
+</div>
+</div>
+</div>
+</div>
+{/* Management Team */}
+  <div className="mb-6">
+    <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">MANAGEMENT TEAM</div>
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+      <div className="space-y-3 text-[8px]">
+        <div className="bg-white rounded-lg p-4 border border-slate-200">
+          <div className="font-bold text-slate-900 mb-1">[Manager.1.Name] - [Manager.1.Title]</div>
+          <div className="text-slate-700 leading-relaxed">[Manager.1.Experience]</div>
+        </div>
+        <div className="bg-white rounded-lg p-4 border border-slate-200">
+          <div className="font-bold text-slate-900 mb-1">[Manager.2.Name] - [Manager.2.Title]</div>
+          <div className="text-slate-700 leading-relaxed">[Manager.2.Experience]</div>
+        </div>
+        <div className="bg-white rounded-lg p-4 border border-slate-200">
+          <div className="font-bold text-slate-900 mb-1">[Manager.3.Name] - [Manager.3.Title]</div>
+          <div className="text-slate-700 leading-relaxed">[Manager.3.Experience]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* References */}
+  <div className="mb-6">
+    <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">BUSINESS REFERENCES</div>
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+      <div className="grid grid-cols-2 gap-4 text-[8px]">
+        <div className="bg-white rounded-lg p-3 border border-slate-200">
+          <div className="font-bold text-slate-900 mb-2">Reference 1</div>
+          <div className="space-y-1 text-slate-700">
+            <div><strong>Name:</strong> [Reference.1.Name]</div>
+            <div><strong>Company:</strong> [Reference.1.Company]</div>
+            <div><strong>Phone:</strong> [Reference.1.Phone]</div>
+            <div><strong>Relationship:</strong> [Reference.1.Relationship]</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg p-3 border border-slate-200">
+          <div className="font-bold text-slate-900 mb-2">Reference 2</div>
+          <div className="space-y-1 text-slate-700">
+            <div><strong>Name:</strong> [Reference.2.Name]</div>
+            <div><strong>Company:</strong> [Reference.2.Company]</div>
+            <div><strong>Phone:</strong> [Reference.2.Phone]</div>
+            <div><strong>Relationship:</strong> [Reference.2.Relationship]</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg p-3 border border-slate-200">
+          <div className="font-bold text-slate-900 mb-2">Reference 3</div>
+          <div className="space-y-1 text-slate-700">
+            <div><strong>Name:</strong> [Reference.3.Name]</div>
+            <div><strong>Company:</strong> [Reference.3.Company]</div>
+            <div><strong>Phone:</strong> [Reference.3.Phone]</div>
+            <div><strong>Relationship:</strong> [Reference.3.Relationship]</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg p-3 border border-slate-200">
+          <div className="font-bold text-slate-900 mb-2">Banking Reference</div>
+          <div className="space-y-1 text-slate-700">
+            <div><strong>Bank:</strong> [Bank.Name]</div>
+            <div><strong>Branch:</strong> [Bank.Branch]</div>
+            <div><strong>Account Type:</strong> [Bank.AccountType]</div>
+            <div><strong>Years with Bank:</strong> [Bank.Years]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Impact Statement */}
+  <div className="mb-6">
+    <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">IMPACT STATEMENT</div>
+    <div className="bg-green-50 border-2 border-green-300 rounded-lg p-5">
+      <div className="text-[8px] text-slate-700 leading-relaxed">
+        <strong className="text-green-800 text-sm">How This Loan Will Help Our Business:</strong>
+        <div className="mt-3 space-y-2">
+          <div className="bg-white rounded p-3 border border-green-200">
+            [Impact.Statement.Paragraph1]
+          </div>
+          <div className="bg-white rounded p-3 border border-green-200">
+            [Impact.Statement.Paragraph2]
+          </div>
+          <div className="bg-white rounded p-3 border border-green-200">
+            <strong>Expected Outcomes:</strong> [Expected.Outcomes]
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Risk Assessment */}
+  <div className="mb-8">
+    <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">RISK ASSESSMENT & MITIGATION</div>
+    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-5">
+      <div className="text-[8px] text-slate-700 leading-relaxed space-y-3">
+        <div>
+          <strong className="text-yellow-800">Identified Risks:</strong><br/>
+          [Identified.Risks.Description]
+        </div>
+        <div>
+          <strong className="text-yellow-800">Mitigation Strategies:</strong><br/>
+          [Mitigation.Strategies.Description]
+        </div>
+        <div>
+          <strong className="text-yellow-800">Contingency Plans:</strong><br/>
+          [Contingency.Plans.Description]
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Declaration */}
+  <div className="mb-8">
+    <div className="text-lg font-bold text-slate-900 mb-3 border-l-4 border-green-600 pl-3">DECLARATION</div>
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+      <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+        <p>I/We hereby declare that:</p>
+        <ul className="ml-4 space-y-1">
+          <li>• All information provided in this loan proposal is true, accurate, and complete to the best of my/our knowledge</li>
+          <li>• I/We understand that any false or misleading information may result in denial of the loan application or legal action</li>
+          <li>• I/We authorize the bank to verify all information provided and to obtain credit reports as necessary</li>
+          <li>• I/We agree to provide any additional documentation or information requested by the bank</li>
+          <li>• I/We understand that submission of this proposal does not guarantee loan approval</li>
+          <li>• I/We have read and understood all terms and conditions associated with the loan application process</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  {/* Signatures */}
+  <div className="border-t-4 border-green-700 pt-6">
+    <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-6">
+      <div className="text-[8px] text-blue-900 leading-relaxed">
+        <strong>📋 APPLICANT CERTIFICATION:</strong> By signing below, I/we certify that all information provided in this loan proposal is accurate and complete. I/We understand that this information will be used to evaluate my/our creditworthiness and ability to repay the requested loan.
+      </div>
+    </div>
+
+    <div className="text-lg font-bold text-slate-900 mb-6">APPLICANT SIGNATURE(S)</div>
+    <div className="grid grid-cols-2 gap-6">
+      <div>
+        <div className="border-t-3 border-green-700 pt-3 mb-3">
+          <div className="text-[8px] text-slate-600 font-semibold">PRIMARY APPLICANT</div>
+        </div>
+        <div className="text-[8px] space-y-2">
+          <div className="font-bold text-slate-900">[Owner.FullName]</div>
+          <div className="text-slate-600">Title: [Owner.Title]</div>
+          <div className="text-slate-600">Business: [Business.LegalName]</div>
+          <div className="mt-3 pt-3 border-t border-slate-300">
+            <div className="text-slate-600">Signature: _______________________</div>
+          </div>
+          <div className="text-slate-600">Date: _______________________</div>
+          <div className="text-slate-600">SSN: [Owner.SSN]</div>
+        </div>
+      </div>
+      <div>
+        <div className="border-t-3 border-green-700 pt-3 mb-3">
+          <div className="text-[8px] text-slate-600 font-semibold">CO-APPLICANT (If Applicable)</div>
+        </div>
+        <div className="text-[8px] space-y-2">
+          <div className="font-bold text-slate-900">[CoApplicant.FullName]</div>
+          <div className="text-slate-600">Title: [CoApplicant.Title]</div>
+          <div className="text-slate-600">Ownership: [CoApplicant.Percentage]%</div>
+          <div className="mt-3 pt-3 border-t border-slate-300">
+            <div className="text-slate-600">Signature: _______________________</div>
+          </div>
+          <div className="text-slate-600">Date: _______________________</div>
+          <div className="text-slate-600">SSN: [CoApplicant.SSN]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Bank Use Only Section */}
+  <div className="mt-8 border-t-2 border-slate-300 pt-6">
+    <div className="bg-slate-100 border-2 border-slate-400 rounded-lg p-5">
+      <div className="text-sm font-bold text-slate-900 mb-4">FOR BANK USE ONLY</div>
+      <div className="grid grid-cols-2 gap-4 text-[8px]">
+        <div>
+          <div className="text-slate-600 mb-1">Application Received By:</div>
+          <div className="border-b border-slate-400 pb-1">_________________________</div>
+        </div>
+        <div>
+          <div className="text-slate-600 mb-1">Date Received:</div>
+          <div className="border-b border-slate-400 pb-1">_________________________</div>
+        </div>
+        <div>
+          <div className="text-slate-600 mb-1">Loan Officer Assigned:</div>
+          <div className="border-b border-slate-400 pb-1">_________________________</div>
+        </div>
+        <div>
+          <div className="text-slate-600 mb-1">Application Number:</div>
+          <div className="border-b border-slate-400 pb-1">_________________________</div>
+        </div>
+        <div className="col-span-2">
+          <div className="text-slate-600 mb-1">Initial Comments:</div>
+          <div className="border border-slate-400 rounded p-2 h-16 bg-white"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Footer */}
+  <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+    <div className="font-semibold mb-1">💼 Business Loan Proposal</div>
+    <div>Proposal ID: [Proposal.ID] | Submitted: [Submission.Date]</div>
+    <div className="mt-2 text-green-600">Building Success Through Strategic Financing</div>
+    <div className="mt-2">Page 1 of 1 | Confidential Document</div>
+  </div>
+</div>
+
+ ),
+  htmlTemplate: `<!-- Full HTML -->`
+},
+
+{
+  id: 'business-proposal-001',
+  name: 'Elite Business Proposal',
+  description: 'Premium business proposal with ROI metrics and phased approach',
+  category: 'proposals',
+  popular: true,
+  fields: ['Client Info', 'Project Details', 'Phases', 'Investment', 'ROI', 'Team'],
+  previewComponent: (
+    <div className="w-full h-full bg-gradient-to-br from-slate-50 via-white to-slate-50 overflow-auto">
+      {/* Premium Cover Page */}
+      <div className="relative min-h-screen flex flex-col justify-between p-16 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-white overflow-hidden">
+        {/* Elegant Background Pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+            backgroundSize: '40px 40px'
+          }}></div>
+        </div>
+        {/* Decorative Corner Elements */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-indigo-500/20 to-transparent rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-purple-500/20 to-transparent rounded-full blur-3xl"></div>
+        {/* Header */}
+        <div className="relative z-10">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-20 h-20 bg-gradient-to-br from-indigo-400 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl">
+              <span className="text-3xl font-bold">YC</span>
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-indigo-300 tracking-widest uppercase">Your Company</div>
+              <div className="text-xs text-slate-400 mt-1">Excellence in Innovation</div>
+            </div>
+          </div>
+        </div>
+        {/* Main Title */}
+        <div className="relative z-10 flex-1 flex flex-col justify-center max-w-4xl">
+          <div className="inline-block mb-6">
+            <div className="text-xs font-bold text-indigo-300 tracking-widest uppercase mb-2 flex items-center gap-2">
+              <div className="w-12 h-px bg-gradient-to-r from-indigo-400 to-transparent"></div>
+              Business Proposal
+            </div>
+          </div>
+          <h1 className="text-7xl font-bold mb-8 leading-tight">
+            Strategic Partnership
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300">
+              Proposal
+            </span>
+          </h1>
+          <p className="text-xl text-slate-300 leading-relaxed max-w-2xl mb-12">
+            A comprehensive solution designed to transform your business operations, 
+            accelerate growth, and deliver measurable results through innovative strategies 
+            and proven methodologies.
+          </p>
+          {/* Key Stats Bar */}
+          <div className="grid grid-cols-3 gap-8 mb-12">
+            <div className="backdrop-blur-sm bg-white/5 rounded-2xl p-6 border border-white/10">
+              <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">
+                [Project.Duration]
+              </div>
+              <div className="text-sm text-slate-400 mt-2">Project Timeline</div>
+            </div>
+            <div className="backdrop-blur-sm bg-white/5 rounded-2xl p-6 border border-white/10">
+              <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-pink-300">
+                [ROI.Target]%
+              </div>
+              <div className="text-sm text-slate-400 mt-2">Expected ROI</div>
+            </div>
+            <div className="backdrop-blur-sm bg-white/5 rounded-2xl p-6 border border-white/10">
+              <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-300 to-rose-300">
+                [Team.Size]
+              </div>
+              <div className="text-sm text-slate-400 mt-2">Expert Team Members</div>
+            </div>
+          </div>
+        </div>
+        {/* Footer Info */}
+        <div className="relative z-10 flex justify-between items-end border-t border-white/10 pt-8">
+          <div>
+            <div className="text-xs text-slate-400 mb-2">PREPARED FOR</div>
+            <div className="text-2xl font-bold">[Client.Company]</div>
+            <div className="text-sm text-slate-400 mt-1">[Client.ContactName] • [Client.Title]</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-slate-400 mb-2">PROPOSAL DATE</div>
+            <div className="text-lg font-semibold">[Proposal.Date]</div>
+            <div className="text-xs text-slate-400 mt-1">Valid until: [Expiry.Date]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Executive Summary */}
+      <div className="max-w-6xl mx-auto px-16 py-20">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-indigo-600"></div>
+            <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+            <div className="w-4 h-4 rounded-full bg-indigo-400"></div>
+          </div>
+          <h2 className="text-4xl font-bold text-slate-900">Executive Summary</h2>
+        </div>
+        <div className="grid grid-cols-3 gap-8 mb-12">
+          <div className="col-span-2 space-y-6 text-slate-700 leading-relaxed">
+            <p className="text-lg">
+              In today's rapidly evolving business landscape, <span className="font-semibold text-slate-900">[Client.Company]</span> stands 
+              at a critical juncture. This proposal outlines a strategic framework designed to address your 
+              organization's unique challenges while capitalizing on emerging opportunities in the marketplace.
+            </p>
+            <p>
+              Our comprehensive analysis reveals significant potential for operational optimization, market 
+              expansion, and revenue growth. Through a combination of innovative technology solutions, strategic 
+              consulting, and hands-on implementation support, we propose a transformation initiative that will 
+              position your organization for sustained competitive advantage.
+            </p>
+            <p>
+              This proposal encompasses a <span className="font-semibold">[Project.Duration]</span> engagement, 
+              delivering tangible results through a phased approach that minimizes disruption while maximizing value 
+              creation. Our proven methodologies have consistently delivered <span className="font-semibold text-indigo-600">[Success.Rate]%</span> success 
+              rates across similar engagements.
+            </p>
+          </div>
+          {/* Quick Stats Card */}
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-3xl p-8 border-2 border-indigo-100">
+            <div className="text-sm font-bold text-indigo-900 mb-6 uppercase tracking-wider">At a Glance</div>
+            <div className="space-y-5">
+              <div>
+                <div className="text-xs text-slate-600 mb-1">Investment Range</div>
+                <div className="text-2xl font-bold text-slate-900">[Budget.Range]</div>
+              </div>
+              <div className="border-t border-indigo-200 pt-5">
+                <div className="text-xs text-slate-600 mb-1">Delivery Timeline</div>
+                <div className="text-2xl font-bold text-slate-900">[Weeks.Duration] weeks</div>
+              </div>
+              <div className="border-t border-indigo-200 pt-5">
+                <div className="text-xs text-slate-600 mb-1">Key Deliverables</div>
+                <div className="text-2xl font-bold text-slate-900">[Deliverables.Count]</div>
+              </div>
+              <div className="border-t border-indigo-200 pt-5">
+                <div className="text-xs text-slate-600 mb-1">Success Guarantee</div>
+                <div className="text-lg font-bold text-indigo-600">✓ Performance-based</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Value Proposition Highlights */}
+        <div className="bg-slate-900 rounded-3xl p-12 text-white">
+          <h3 className="text-2xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">
+            Why Partner With Us?
+          </h3>
+          <div className="grid grid-cols-2 gap-8">
+            <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">🎯</span>
+              </div>
+              <div>
+                <div className="font-bold text-lg mb-2">Proven Track Record</div>
+                <div className="text-sm text-slate-400">Over [Years.Experience] years delivering exceptional results for Fortune 500 companies and innovative startups alike.</div>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">⚡</span>
+              </div>
+              <div>
+                <div className="font-bold text-lg mb-2">Rapid Implementation</div>
+                <div className="text-sm text-slate-400">Our agile methodology ensures quick wins while building towards long-term sustainable transformation.</div>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">💎</span>
+              </div>
+              <div>
+                <div className="font-bold text-lg mb-2">Premium Quality</div>
+                <div className="text-sm text-slate-400">White-glove service with dedicated account management and 24/7 support throughout engagement.</div>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">📈</span>
+              </div>
+              <div>
+                <div className="font-bold text-lg mb-2">Measurable Results</div>
+                <div className="text-sm text-slate-400">Data-driven approach with clear KPIs, regular reporting, and performance guarantees tied to outcomes.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Current Situation Analysis */}
+      <div className="bg-gradient-to-br from-slate-50 to-slate-100 py-20">
+        <div className="max-w-6xl mx-auto px-16">
+          <div className="flex items-center gap-4 mb-12">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+              <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+              <div className="w-4 h-4 rounded-full bg-purple-400"></div>
+            </div>
+            <h2 className="text-4xl font-bold text-slate-900">Current Situation Analysis</h2>
+          </div>
+          {/* Challenge Cards */}
+          <div className="grid grid-cols-2 gap-6 mb-12">
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-200">
+              <div className="w-14 h-14 bg-red-100 rounded-xl flex items-center justify-center mb-6">
+                <span className="text-3xl">⚠️</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-4">Key Challenges Identified</h3>
+              <ul className="space-y-3 text-slate-700">
+                <li className="flex items-start gap-3">
+                  <span className="text-red-500 mt-1">●</span>
+                  <span>[Challenge.One] - impacting operational efficiency and customer satisfaction</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-red-500 mt-1">●</span>
+                  <span>[Challenge.Two] - resulting in revenue leakage and competitive disadvantage</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-red-500 mt-1">●</span>
+                  <span>[Challenge.Three] - creating bottlenecks in scalability and growth potential</span>
+                </li>
+              </ul>
+            </div>
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-200">
+              <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-6">
+                <span className="text-3xl">🎯</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-4">Strategic Opportunities</h3>
+              <ul className="space-y-3 text-slate-700">
+                <li className="flex items-start gap-3">
+                  <span className="text-green-500 mt-1">●</span>
+                  <span>[Opportunity.One] - potential for [X]% improvement in key metrics</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-green-500 mt-1">●</span>
+                  <span>[Opportunity.Two] - untapped market segment worth $[Market.Size]M</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-green-500 mt-1">●</span>
+                  <span>[Opportunity.Three] - technology leverage for competitive differentiation</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          {/* Market Context */}
+          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-12 text-white">
+            <h3 className="text-2xl font-bold mb-6">Market Context & Industry Trends</h3>
+            <div className="grid grid-cols-3 gap-8">
+              <div>
+                <div className="text-5xl font-bold mb-2">[Growth.Rate]%</div>
+                <div className="text-sm text-indigo-200">Market CAGR</div>
+                <div className="text-xs text-indigo-300 mt-2">Industry growth trajectory indicates significant opportunity</div>
+              </div>
+              <div className="border-l border-white/20 pl-8">
+                <div className="text-5xl font-bold mb-2">$[Market.Size]B</div>
+                <div className="text-sm text-indigo-200">Total Addressable Market</div>
+                <div className="text-xs text-indigo-300 mt-2">Expanding market with room for multiple players</div>
+              </div>
+              <div className="border-l border-white/20 pl-8">
+                <div className="text-5xl font-bold mb-2">[Competition.Level]</div>
+                <div className="text-sm text-indigo-200">Competitive Intensity</div>
+                <div className="text-xs text-indigo-300 mt-2">Strategic positioning is critical for success</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Proposed Solution */}
+      <div className="max-w-6xl mx-auto px-16 py-20">
+        <div className="flex items-center gap-4 mb-12">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-indigo-600"></div>
+            <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+            <div className="w-4 h-4 rounded-full bg-indigo-400"></div>
+          </div>
+          <h2 className="text-4xl font-bold text-slate-900">Our Proposed Solution</h2>
+        </div>
+        {/* Solution Overview */}
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-12 mb-12 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-indigo-500/20 to-transparent rounded-full blur-3xl"></div>
+          <div className="relative z-10">
+            <h3 className="text-3xl font-bold mb-6">Integrated Transformation Framework</h3>
+            <p className="text-lg text-slate-300 leading-relaxed max-w-4xl">
+              Our solution combines cutting-edge technology, strategic consulting, and operational excellence to deliver 
+              a comprehensive transformation that addresses your immediate needs while building long-term competitive advantage. 
+              This three-phased approach ensures rapid value delivery with minimal business disruption.
+            </p>
+          </div>
+        </div>
+        {/* Phase Cards */}
+        <div className="space-y-8">
+          {/* Phase 1 */}
+          <div className="bg-white rounded-2xl shadow-xl border-2 border-indigo-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-8 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <span className="text-3xl font-bold">01</span>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white">Discovery & Strategy</h3>
+                  <div className="text-sm text-indigo-100 mt-1">Weeks 1-[Phase1.Duration] • Foundation Phase</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-indigo-100">Investment</div>
+                <div className="text-2xl font-bold text-white">[Phase1.Cost]</div>
+              </div>
+            </div>
+            <div className="p-8">
+              <div className="grid grid-cols-2 gap-8">
+                <div>
+                  <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span className="text-indigo-600">📋</span> Key Activities
+                  </h4>
+                  <ul className="space-y-2 text-slate-700 text-sm">
+                    <li className="flex items-start gap-2">
+                      <span className="text-indigo-500 mt-1">▸</span>
+                      <span>Comprehensive business process analysis and documentation</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-indigo-500 mt-1">▸</span>
+                      <span>Stakeholder interviews and requirements gathering sessions</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-indigo-500 mt-1">▸</span>
+                      <span>Technology stack audit and infrastructure assessment</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-indigo-500 mt-1">▸</span>
+                      <span>Competitive analysis and market positioning study</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-indigo-500 mt-1">▸</span>
+                      <span>Development of strategic roadmap and success metrics</span>
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span className="text-green-600">✓</span> Deliverables
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <div className="font-semibold text-slate-900 mb-1">Strategic Assessment Report</div>
+                      <div className="text-xs text-slate-600">Handoff to ongoing support team with SLAs</div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <div className="font-semibold text-slate-900 mb-1">Implementation Roadmap</div>
+                      <div className="text-xs text-slate-600">Detailed timeline with milestones and dependencies</div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <div className="font-semibold text-slate-900 mb-1">Success Metrics Framework</div>
+                      <div className="text-xs text-slate-600">KPI dashboard and measurement methodology</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Phase 2 */}
+          <div className="bg-white rounded-2xl shadow-xl border-2 border-purple-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-500 to-pink-600 px-8 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <span className="text-3xl font-bold">02</span>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white">Implementation & Development</h3>
+                  <div className="text-sm text-purple-100 mt-1">Weeks [Phase2.Start]-[Phase2.End] • Execution Phase</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-purple-100">Investment</div>
+                <div className="text-2xl font-bold text-white">[Phase2.Cost]</div>
+              </div>
+            </div>
+            <div className="p-8">
+              <div className="grid grid-cols-2 gap-8">
+                <div>
+                  <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span className="text-purple-600">⚙️</span> Key Activities
+                  </h4>
+                  <ul className="space-y-2 text-slate-700 text-sm">
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-500 mt-1">▸</span>
+                      <span>Solution architecture design and technical specifications</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-500 mt-1">▸</span>
+                      <span>Agile development sprints with bi-weekly demos</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-500 mt-1">▸</span>
+                      <span>Integration with existing systems and data migration</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-500 mt-1">▸</span>
+                      <span>User experience design and interface development</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-500 mt-1">▸</span>
+                      <span>Quality assurance testing and security audits</span>
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span className="text-green-600">✓</span> Deliverables
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <div className="font-semibold text-slate-900 mb-1">Fully Functional Solution</div>
+                      <div className="text-xs text-slate-600">Production-ready platform with all core features</div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <div className="font-semibold text-slate-900 mb-1">Technical Documentation</div>
+                      <div className="text-xs text-slate-600">Complete system architecture and API documentation</div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <div className="font-semibold text-slate-900 mb-1">Training Materials</div>
+                      <div className="text-xs text-slate-600">User guides, video tutorials, and admin manuals</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Phase 3 */}
+          <div className="bg-white rounded-2xl shadow-xl border-2 border-pink-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-pink-500 to-rose-600 px-8 py-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <span className="text-3xl font-bold">03</span>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white">Launch & Optimization</h3>
+                  <div className="text-sm text-pink-100 mt-1">Weeks [Phase3.Start]-[Phase3.End] • Deployment Phase</div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-pink-100">Investment</div>
+                <div className="text-2xl font-bold text-white">[Phase3.Cost]</div>
+              </div>
+            </div>
+            <div className="p-8">
+              <div className="grid grid-cols-2 gap-8">
+                <div>
+                  <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span className="text-pink-600">🚀</span> Key Activities
+                  </h4>
+                  <ul className="space-y-2 text-slate-700 text-sm">
+                    <li className="flex items-start gap-2">
+                      <span className="text-pink-500 mt-1">▸</span>
+                      <span>Staged rollout with pilot user groups and feedback loops</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-pink-500 mt-1">▸</span>
+                      <span>Comprehensive user training and change management</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-pink-500 mt-1">▸</span>
+                      <span>Performance monitoring and optimization tuning</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-pink-500 mt-1">▸</span>
+                      <span>Post-launch support and rapid issue resolution</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-pink-500 mt-1">▸</span>
+                      <span>Success metrics tracking and executive reporting</span>
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span className="text-green-600">✓</span> Deliverables
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <div className="font-semibold text-slate-900 mb-1">Production Launch</div>
+                      <div className="text-xs text-slate-600">Full system deployment with monitoring</div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <div className="font-semibold text-slate-900 mb-1">Performance Report</div>
+                      <div className="text-xs text-slate-600">30-day metrics analysis and optimization recommendations</div>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                      <div className="font-semibold text-slate-900 mb-1">Support Transition</div>
+                      <div className="text-xs text-slate-600">Handoff to ongoing support team with SLAs</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Investment Breakdown */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 py-20">
+        <div className="max-w-6xl mx-auto px-16">
+          <div className="flex items-center gap-4 mb-12">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-indigo-400"></div>
+              <div className="w-3 h-3 rounded-full bg-indigo-300"></div>
+              <div className="w-4 h-4 rounded-full bg-indigo-200"></div>
+            </div>
+            <h2 className="text-4xl font-bold text-white">Investment Structure</h2>
+          </div>
+          {/* Pricing Tiers */}
+          <div className="grid grid-cols-3 gap-6 mb-12">
+            {/* Essential Package */}
+            <div className="bg-white/5 backdrop-blur-sm rounded-3xl border-2 border-white/10 p-8 hover:border-indigo-400/50 transition-all duration-300">
+              <div className="text-sm font-bold text-indigo-300 uppercase tracking-wider mb-4">Essential</div>
+              <div className="text-5xl font-bold text-white mb-2">[Essential.Price]</div>
+              <div className="text-sm text-slate-400 mb-8">Perfect for focused initiatives</div>
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-start gap-3 text-sm text-slate-300">
+                  <span className="text-indigo-400">✓</span>
+                  <span>Phase 1 & 2 Implementation</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm text-slate-300">
+                  <span className="text-indigo-400">✓</span>
+                  <span>Core features and integrations</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm text-slate-300">
+                  <span className="text-indigo-400">✓</span>
+                  <span>[Essential.Support] support</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm text-slate-300">
+                  <span className="text-indigo-400">✓</span>
+                  <span>Standard documentation</span>
+                </li>
+              </ul>
+              <button className="w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-3 rounded-xl transition-all duration-300">
+                Select Essential
+              </button>
+            </div>
+            {/* Professional Package - Highlighted */}
+            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl border-2 border-indigo-400 p-8 transform scale-105 shadow-2xl relative">
+              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-yellow-400 text-slate-900 px-6 py-1 rounded-full text-xs font-bold">
+                RECOMMENDED
+              </div>
+              <div className="text-sm font-bold text-indigo-200 uppercase tracking-wider mb-4">Professional</div>
+              <div className="text-5xl font-bold text-white mb-2">[Professional.Price]</div>
+              <div className="text-sm text-indigo-200 mb-8">Complete transformation package</div>
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-start gap-3 text-sm text-white">
+                  <span className="text-yellow-300">✓</span>
+                  <span>All 3 Phases Complete</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm text-white">
+                  <span className="text-yellow-300">✓</span>
+                  <span>Advanced features & customization</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm text-white">
+                  <span className="text-yellow-300">✓</span>
+                  <span>[Professional.Support] support</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm text-white">
+                  <span className="text-yellow-300">✓</span>
+                  <span>Dedicated account manager</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm text-white">
+                  <span className="text-yellow-300">✓</span>
+                  <span>Performance guarantee</span>
+                </li>
+              </ul>
+              <button className="w-full bg-white text-indigo-700 hover:bg-indigo-50 font-bold py-3 rounded-xl transition-all duration-300 shadow-lg">
+                Select Professional
+              </button>
+            </div>
+            {/* Enterprise Package */}
+            <div className="bg-white/5 backdrop-blur-sm rounded-3xl border-2 border-white/10 p-8 hover:border-purple-400/50 transition-all duration-300">
+              <div className="text-sm font-bold text-purple-300 uppercase tracking-wider mb-4">Enterprise</div>
+              <div className="text-5xl font-bold text-white mb-2">[Enterprise.Price]</div>
+              <div className="text-sm text-slate-400 mb-8">Maximum value & flexibility</div>
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-start gap-3 text-sm text-slate-300">
+                  <span className="text-purple-400">✓</span>
+                  <span>Everything in Professional</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm text-slate-300">
+                  <span className="text-purple-400">✓</span>
+                  <span>White-glove concierge service</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm text-slate-300">
+                  <span className="text-purple-400">✓</span>
+                  <span>24/7 priority support</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm text-slate-300">
+                  <span className="text-purple-400">✓</span>
+                  <span>Custom integrations & APIs</span>
+                </li>
+                <li className="flex items-start gap-3 text-sm text-slate-300">
+                  <span className="text-purple-400">✓</span>
+                  <span>Quarterly strategic reviews</span>
+                </li>
+              </ul>
+              <button className="w-full bg-white/10 hover:bg-white/20 text-white font-semibold py-3 rounded-xl transition-all duration-300">
+                Select Enterprise
+              </button>
+            </div>
+          </div>
+          {/* Payment Terms */}
+          <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-8">
+            <h3 className="text-xl font-bold text-white mb-6">Flexible Payment Options</h3>
+            <div className="grid grid-cols-3 gap-8">
+              <div>
+                <div className="text-sm text-slate-400 mb-2">Payment Schedule</div>
+                <div className="text-lg font-semibold text-white">[Payment.Schedule]</div>
+                <div className="text-xs text-slate-500 mt-1">Milestone-based payments</div>
+              </div>
+              <div className="border-l border-white/10 pl-8">
+                <div className="text-sm text-slate-400 mb-2">Financing Available</div>
+                <div className="text-lg font-semibold text-white">Yes, [Financing.Terms]</div>
+                <div className="text-xs text-slate-500 mt-1">Subject to credit approval</div>
+              </div>
+              <div className="border-l border-white/10 pl-8">
+                <div className="text-sm text-slate-400 mb-2">Early Payment Discount</div>
+                <div className="text-lg font-semibold text-white">[Discount.Percent]% off</div>
+                <div className="text-xs text-slate-500 mt-1">If paid in full upfront</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Expected Outcomes & ROI */}
+      <div className="max-w-6xl mx-auto px-16 py-20">
+        <div className="flex items-center gap-4 mb-12">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-green-600"></div>
+            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            <div className="w-4 h-4 rounded-full bg-green-400"></div>
+          </div>
+          <h2 className="text-4xl font-bold text-slate-900">Expected Outcomes & ROI</h2>
+        </div>
+        {/* ROI Timeline */}
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl p-12 border-2 border-green-200 mb-12">
+          <h3 className="text-2xl font-bold text-slate-900 mb-8 text-center">Projected Return on Investment</h3>
+          <div className="grid grid-cols-4 gap-6">
+            <div className="text-center">
+              <div className="text-sm text-slate-600 mb-2">Month 3</div>
+              <div className="text-4xl font-bold text-green-600 mb-2">[ROI.Month3]%</div>
+              <div className="text-xs text-slate-500">Quick wins realized</div>
+            </div>
+            <div className="text-center border-l-2 border-green-200">
+              <div className="text-sm text-slate-600 mb-2">Month 6</div>
+              <div className="text-4xl font-bold text-green-600 mb-2">[ROI.Month6]%</div>
+              <div className="text-xs text-slate-500">Full implementation</div>
+            </div>
+            <div className="text-center border-l-2 border-green-200">
+              <div className="text-sm text-slate-600 mb-2">Month 12</div>
+              <div className="text-4xl font-bold text-green-600 mb-2">[ROI.Month12]%</div>
+              <div className="text-xs text-slate-500">Optimization phase</div>
+            </div>
+            <div className="text-center border-l-2 border-green-200">
+              <div className="text-sm text-slate-600 mb-2">Month 24</div>
+              <div className="text-4xl font-bold text-green-600 mb-2">[ROI.Month24]%</div>
+              <div className="text-xs text-slate-500">Sustained growth</div>
+            </div>
+          </div>
+        </div>
+        {/* Key Metrics Improvement */}
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-white rounded-2xl p-8 shadow-lg border-2 border-slate-100">
+            <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+              <span className="text-3xl">📊</span> Operational Metrics
+            </h3>
+            <div className="space-y-5">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-slate-600">Efficiency Improvement</span>
+                  <span className="text-lg font-bold text-green-600">+[Efficiency.Improvement]%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full" style={{width: '85%'}}></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-slate-600">Cost Reduction</span>
+                  <span className="text-lg font-bold text-green-600">-[Cost.Reduction]%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full" style={{width: '70%'}}></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-slate-600">Processing Speed</span>
+                  <span className="text-lg font-bold text-green-600">+[Speed.Increase]%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full" style={{width: '90%'}}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-lg border-2 border-slate-100">
+            <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+              <span className="text-3xl">💰</span> Business Impact
+            </h3>
+            <div className="space-y-5">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-slate-600">Revenue Growth</span>
+                  <span className="text-lg font-bold text-indigo-600">+[Revenue.Growth]%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full" style={{width: '75%'}}></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-slate-600">Customer Satisfaction</span>
+                  <span className="text-lg font-bold text-indigo-600">+[CSAT.Improvement]%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full" style={{width: '80%'}}></div>
+                </div>
+              </div>
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-slate-600">Market Share</span>
+                  <span className="text-lg font-bold text-indigo-600">+[Market.Share]%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full" style={{width: '65%'}}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Team & Expertise */}
+      <div className="bg-gradient-to-br from-slate-50 to-slate-100 py-20">
+        <div className="max-w-6xl mx-auto px-16">
+          <div className="flex items-center gap-4 mb-12">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-indigo-600"></div>
+              <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+              <div className="w-4 h-4 rounded-full bg-indigo-400"></div>
+            </div>
+            <h2 className="text-4xl font-bold text-slate-900">Your Dedicated Team</h2>
+          </div>
+          <div className="grid grid-cols-3 gap-6 mb-12">
+            {/* Team Member 1 */}
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-200 text-center">
+              <div className="w-24 h-24 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">
+                [PM.Initials]
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-1">[Project.Manager]</h3>
+              <div className="text-sm text-indigo-600 font-semibold mb-3">Project Manager</div>
+              <div className="text-xs text-slate-600 leading-relaxed">
+                [PM.Years]+ years leading enterprise transformations. MBA from [PM.School]. Certified PMP and Agile practitioner.
+              </div>
+            </div>
+            {/* Team Member 2 */}
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-200 text-center">
+              <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">
+                [TA.Initials]
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-1">[Technical.Architect]</h3>
+              <div className="text-sm text-purple-600 font-semibold mb-3">Technical Architect</div>
+              <div className="text-xs text-slate-600 leading-relaxed">
+                [TA.Years]+ years in solution architecture. Former [TA.Company] engineer. Expert in cloud-native systems.
+              </div>
+            </div>
+            {/* Team Member 3 */}
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-200 text-center">
+              <div className="w-24 h-24 bg-gradient-to-br from-pink-500 to-rose-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">
+                [BA.Initials]
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-1">[Business.Analyst]</h3>
+              <div className="text-sm text-pink-600 font-semibold mb-3">Business Analyst</div>
+              <div className="text-xs text-slate-600 leading-relaxed">
+                [BA.Years]+ years in business transformation. Industry expert in [BA.Industry]. Data-driven strategist.
+              </div>
+            </div>
+          </div>
+          {/* Company Credentials */}
+          <div className="bg-white rounded-3xl p-12 shadow-xl border-2 border-slate-200">
+            <h3 className="text-2xl font-bold text-slate-900 mb-8 text-center">Why We're Qualified</h3>
+            <div className="grid grid-cols-4 gap-8">
+              <div className="text-center">
+                <div className="text-5xl font-bold text-indigo-600 mb-2">[Projects.Completed]+</div>
+                <div className="text-sm text-slate-600">Projects Delivered</div>
+              </div>
+              <div className="text-center border-l-2 border-slate-200">
+                <div className="text-5xl font-bold text-purple-600 mb-2">[Client.Satisfaction]%</div>
+                <div className="text-sm text-slate-600">Client Satisfaction</div>
+              </div>
+              <div className="text-center border-l-2 border-slate-200">
+                <div className="text-5xl font-bold text-pink-600 mb-2">[Industry.Awards]</div>
+                <div className="text-sm text-slate-600">Industry Awards</div>
+              </div>
+              <div className="text-center border-l-2 border-slate-200">
+                <div className="text-5xl font-bold text-rose-600 mb-2">[Years.Business]</div>
+                <div className="text-sm text-slate-600">Years in Business</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Risk Mitigation */}
+      <div className="max-w-6xl mx-auto px-16 py-20">
+        <div className="flex items-center gap-4 mb-12">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-amber-600"></div>
+            <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+            <div className="w-4 h-4 rounded-full bg-amber-400"></div>
+          </div>
+          <h2 className="text-4xl font-bold text-slate-900">Risk Mitigation & Guarantees</h2>
+        </div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-white rounded-2xl p-8 shadow-lg border-2 border-amber-100">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                <span className="text-2xl">🛡️</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Our Guarantees</h3>
+            </div>
+            <ul className="space-y-4 text-sm text-slate-700">
+              <li className="flex items-start gap-3">
+                <span className="text-green-500 font-bold mt-1">✓</span>
+                <div>
+                  <div className="font-semibold text-slate-900">Performance Guarantee</div>
+                  <div className="text-xs text-slate-600 mt-1">If we don't meet agreed KPIs within [Guarantee.Period], we'll work for free until we do</div>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-green-500 font-bold mt-1">✓</span>
+                <div>
+                  <div className="font-semibold text-slate-900">On-Time Delivery</div>
+                  <div className="text-xs text-slate-600 mt-1">[Penalty.Percent]% monthly fee reduction for each week past deadline</div>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-green-500 font-bold mt-1">✓</span>
+                <div>
+                  <div className="font-semibold text-slate-900">Quality Assurance</div>
+                  <div className="text-xs text-slate-600 mt-1">Unlimited bug fixes for [Warranty.Period] post-launch</div>
+                </div>
+              </li>
+            </ul>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-lg border-2 border-red-100">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
+                <span className="text-2xl">⚠️</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">Risk Management</h3>
+            </div>
+            <ul className="space-y-4 text-sm text-slate-700">
+              <li className="flex items-start gap-3">
+                <span className="text-amber-500 font-bold mt-1">▸</span>
+                <div>
+                  <div className="font-semibold text-slate-900">Agile Methodology</div>
+                  <div className="text-xs text-slate-600 mt-1">Bi-weekly sprints allow for rapid course correction and continuous feedback</div>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-amber-500 font-bold mt-1">▸</span>
+                <div>
+                  <div className="font-semibold text-slate-900">Phased Investment</div>
+                  <div className="text-xs text-slate-600 mt-1">Milestone-based payments minimize financial exposure</div>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-amber-500 font-bold mt-1">▸</span>
+                <div>
+                  <div className="font-semibold text-slate-900">Change Management</div>
+                  <div className="text-xs text-slate-600 mt-1">Dedicated support for user adoption and organizational transition</div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Next Steps & Call to Action */}
+      <div className="bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 py-20 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+            backgroundSize: '30px 30px'
+          }}></div>
+        </div>
+        <div className="max-w-6xl mx-auto px-16 relative z-10">
+          <div className="text-center mb-12">
+            <h2 className="text-5xl font-bold text-white mb-6">Let's Get Started</h2>
+            <p className="text-xl text-slate-300 max-w-3xl mx-auto">
+              Ready to transform your business? Here's how we'll move forward together.
+            </p>
+          </div>
+          {/* Next Steps Timeline */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-12 border border-white/20 mb-12">
+            <div className="grid grid-cols-4 gap-8">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4">1</div>
+                <div className="text-white font-bold mb-2">Initial Meeting</div>
+                <div className="text-sm text-slate-300">Schedule a consultation call within 48 hours</div>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4">2</div>
+                <div className="text-white font-bold mb-2">Deep Dive</div>
+                <div className="text-sm text-slate-300">Detailed needs assessment and Q&A session</div>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-pink-500 rounded-full flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4">3</div>
+                <div className="text-white font-bold mb-2">Finalize Terms</div>
+                <div className="text-sm text-slate-300">Contract signing and payment setup</div>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-rose-500 rounded-full flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4">4</div>
+                <div className="text-white font-bold mb-2">Project Kickoff</div>
+                <div className="text-sm text-slate-300">Begin Phase 1 immediately</div>
+              </div>
+            </div>
+          </div>
+          {/* Contact CTA */}
+          <div className="grid grid-cols-2 gap-8">
+            <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-8 text-center">
+              <div className="text-5xl mb-4">📞</div>
+              <div className="text-white font-bold text-xl mb-2">Schedule a Call</div>
+              <div className="text-indigo-200 text-sm mb-6">Speak with our team within 24 hours</div>
+              <button className="bg-white text-indigo-700 font-bold py-3 px-8 rounded-xl hover:bg-indigo-50 transition-all duration-300">
+                Book Your Consultation
+              </button>
+            </div>
+            <div className="bg-gradient-to-br from-purple-600 to-pink-700 rounded-2xl p-8 text-center">
+              <div className="text-5xl mb-4">✉️</div>
+              <div className="text-white font-bold text-xl mb-2">Send Questions</div>
+              <div className="text-purple-200 text-sm mb-6">Get answers to your specific needs</div>
+              <button className="bg-white text-purple-700 font-bold py-3 px-8 rounded-xl hover:bg-purple-50 transition-all duration-300">
+                Contact Us
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer with Terms */}
+      <div className="max-w-6xl mx-auto px-16 py-16">
+        <div className="border-t-2 border-slate-200 pt-12">
+          <div className="grid grid-cols-2 gap-12 mb-12">
+            <div>
+              <h3 className="text-xl font-bold text-slate-900 mb-4">Terms & Conditions</h3>
+              <div className="text-sm text-slate-600 leading-relaxed space-y-2">
+                <p>• This proposal is valid for [Validity.Days] days from the date above</p>
+                <p>• Pricing is subject to change after expiration date</p>
+                <p>• Work begins upon signed contract and initial payment</p>
+                <p>• All deliverables remain our property until final payment</p>
+                <p>• Client responsible for providing timely feedback and approvals</p>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900 mb-4">Contact Information</h3>
+              <div className="text-sm text-slate-700 space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-indigo-600">📧</span>
+                  <span>[Your.Email]</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-indigo-600">📱</span>
+                  <span>[Your.Phone]</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-indigo-600">🌐</span>
+                  <span>[Your.Website]</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-indigo-600">📍</span>
+                  <span>[Your.Address]</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Signature Section */}
+          <div className="bg-slate-50 rounded-2xl p-12 border-2 border-slate-200">
+            <h3 className="text-2xl font-bold text-slate-900 mb-8 text-center">Acceptance & Authorization</h3>
+            <div className="grid grid-cols-2 gap-12 mb-8">
+              <div>
+                <div className="mb-6">
+                  <div className="text-sm text-slate-600 font-semibold mb-2">Client Name</div>
+                  <div className="border-b-2 border-slate-300 pb-2 text-slate-900">[Client.ContactName]</div>
+                </div>
+                <div className="mb-6">
+                  <div className="text-sm text-slate-600 font-semibold mb-2">Title</div>
+                  <div className="border-b-2 border-slate-300 pb-2 text-slate-900">[Client.Title]</div>
+                </div>
+                <div className="mb-6">
+                  <div className="text-sm text-slate-600 font-semibold mb-2">Company</div>
+                  <div className="border-b-2 border-slate-300 pb-2 text-slate-900">[Client.Company]</div>
+                </div>
+              </div>
+              <div>
+                <div className="mb-6">
+                  <div className="text-sm text-slate-600 font-semibold mb-2">Signature</div>
+                  <div className="border-b-2 border-slate-900 pb-8"></div>
+                </div>
+                <div className="mb-6">
+                  <div className="text-sm text-slate-600 font-semibold mb-2">Date</div>
+                  <div className="border-b-2 border-slate-300 pb-2"></div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-6">
+              <div className="flex items-start gap-4">
+                <div className="text-3xl">✓</div>
+                <div className="text-sm text-slate-700 leading-relaxed">
+                  <strong className="text-slate-900">By signing above, you acknowledge that:</strong> You have read and 
+                  understood this proposal, you agree to the terms and conditions outlined, you have the authority to 
+                  enter into this agreement on behalf of [Client.Company], and you authorize commencement of work as 
+                  described upon receipt of signed contract and initial payment.
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Final Footer */}
+          <div className="mt-12 text-center">
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-indigo-400 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <span className="text-2xl font-bold text-white">YC</span>
+              </div>
+            </div>
+            <div className="text-sm font-semibold text-slate-700 mb-1">[Your.Company.Name]</div>
+            <div className="text-xs text-slate-500">Excellence in Innovation Since [Founded.Year]</div>
+            <div className="mt-6 pt-6 border-t border-slate-200">
+              <div className="text-xs text-slate-400">
+                Proposal ID: [Proposal.ID] | Document Version [Version.Number] | Confidential & Proprietary
+              </div>
+              <div className="text-xs text-slate-400 mt-2">
+                © {new Date().getFullYear()} [Your.Company.Name]. All rights reserved.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!-- Full HTML will be generated from this component -->`
+},
+
+{
+  id: 'project-proposal-002',
+  name: 'Creative Project Proposal',
+  description: 'Modern proposal for creative projects',
+  category: 'proposals',
+  popular: false,
+  fields: ['Project', 'Timeline', 'Budget', 'Team', 'Vision'],
+  previewComponent: (
+    <div className="w-full h-full bg-black text-white text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Hero Section */}
+      <div className="relative bg-gradient-to-br from-purple-900 via-pink-800 to-orange-700 p-12 min-h-[45%] flex flex-col justify-center">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 via-pink-500 to-yellow-500"></div>
+        <div className="text-[10px] text-cyan-400 font-bold mb-2 tracking-wider">CREATIVE PROPOSAL</div>
+        <div className="text-5xl font-bold mb-4 leading-tight">[Project.Name]</div>
+        <div className="text-lg text-pink-300 mb-6">[Project.Tagline]</div>
+        <div className="flex gap-6 text-[8px]">
+          <div>
+            <div className="text-slate-400">Client</div>
+            <div className="font-bold">[Client.Name]</div>
+          </div>
+          <div>
+            <div className="text-slate-400">Date</div>
+            <div className="font-bold">[Proposal.Date]</div>
+          </div>
+          <div>
+            <div className="text-slate-400">Proposal #</div>
+            <div className="font-bold">[Proposal.Number]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-8">
+        {/* Vision */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold mb-4 bg-gradient-to-r from-cyan-400 to-pink-500 bg-clip-text text-transparent">THE VISION</div>
+          <div className="bg-slate-900 border-l-4 border-cyan-400 p-5 rounded-r-lg">
+            <div className="text-[8px] text-slate-300 leading-relaxed">
+              [Project.Vision.Description] - A comprehensive explanation of the creative vision, artistic direction, and the transformative impact this project will have on the target audience.
+            </div>
+          </div>
+        </div>
+
+        {/* Project Phases */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold mb-4 bg-gradient-to-r from-pink-400 to-orange-500 bg-clip-text text-transparent">PROJECT PHASES</div>
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-cyan-900/50 to-transparent border border-cyan-700 rounded-lg p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center text-xl font-bold">1</div>
+                <div className="flex-1">
+                  <div className="text-sm font-bold text-cyan-400">Discovery & Research</div>
+                  <div className="text-[7px] text-slate-400">Week 1-2</div>
+                </div>
+              </div>
+              <div className="text-[8px] text-slate-300">[Phase.1.Description]</div>
+            </div>
+
+            <div className="bg-gradient-to-r from-pink-900/50 to-transparent border border-pink-700 rounded-lg p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-lg flex items-center justify-center text-xl font-bold">2</div>
+                <div className="flex-1">
+                  <div className="text-sm font-bold text-pink-400">Concept Development</div>
+                  <div className="text-[7px] text-slate-400">Week 3-5</div>
+                </div>
+              </div>
+              <div className="text-[8px] text-slate-300">[Phase.2.Description]</div>
+            </div>
+
+            <div className="bg-gradient-to-r from-orange-900/50 to-transparent border border-orange-700 rounded-lg p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center text-xl font-bold">3</div>
+                <div className="flex-1">
+                  <div className="text-sm font-bold text-orange-400">Production & Execution</div>
+                  <div className="text-[7px] text-slate-400">Week 6-10</div>
+                </div>
+              </div>
+              <div className="text-[8px] text-slate-300">[Phase.3.Description]</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Deliverables */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">DELIVERABLES</div>
+          <div className="grid grid-cols-2 gap-4">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="bg-slate-900 border border-slate-700 rounded-lg p-4 hover:border-cyan-500 transition-all">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-pink-500 rounded flex items-center justify-center text-sm font-bold">{i}</div>
+                  <div className="text-[8px] font-bold">[Deliverable.{i}.Title]</div>
+                </div>
+                <div className="text-[7px] text-slate-400">[Deliverable.{i}.Description]</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Investment */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold mb-4 bg-gradient-to-r from-green-400 to-cyan-500 bg-clip-text text-transparent">INVESTMENT</div>
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-cyan-500 rounded-xl p-8 text-center">
+            <div className="text-[10px] text-cyan-400 font-semibold mb-3">TOTAL PROJECT BUDGET</div>
+            <div className="text-6xl font-bold mb-4 bg-gradient-to-r from-cyan-400 via-pink-500 to-yellow-500 bg-clip-text text-transparent">
+                 ${"[total_budget]"}
+            </div>
+            <div className="text-[8px] text-slate-400 mb-6">[Payment.Schedule.Summary]</div>
+            <div className="grid grid-cols-3 gap-4 text-[8px]">
+              <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                <div className="text-slate-400 mb-1">Deposit</div>
+                <div className="text-lg font-bold text-cyan-400">[Deposit.%]%</div>
+              </div>
+              <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                <div className="text-slate-400 mb-1">Milestone</div>
+                <div className="text-lg font-bold text-pink-400">[Milestone.%]%</div>
+              </div>
+              <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                <div className="text-slate-400 mb-1">Final</div>
+                <div className="text-lg font-bold text-yellow-400">[Final.%]%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Team */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">THE TEAM</div>
+          <div className="grid grid-cols-3 gap-4">
+            {[1,2,3].map((i) => (
+              <div key={i} className="text-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full mx-auto mb-3 flex items-center justify-center text-3xl">
+                  👤
+                </div>
+                <div className="text-[8px] font-bold text-white">[Team.Member.{i}.Name]</div>
+                <div className="text-[7px] text-cyan-400">[Team.Member.{i}.Role]</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="bg-gradient-to-r from-cyan-600 via-pink-600 to-orange-600 rounded-xl p-8 text-center">
+          <div className="text-2xl font-bold mb-3">LET'S CREATE MAGIC TOGETHER</div>
+          <div className="text-[8px] mb-5 max-w-2xl mx-auto">
+            Ready to bring this vision to life? Let's collaborate and create something extraordinary that will captivate and inspire your audience.
+          </div>
+          <div className="text-[8px]">
+            <div className="font-bold">[Company.Name]</div>
+            <div className="mt-1">[Company.Email] | [Company.Phone]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="bg-slate-950 p-4 text-center text-[7px] text-slate-500 border-t border-slate-800">
+        <div>Proposal #[Proposal.Number] | Confidential</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!-- Full HTML -->`
+},
+
+
+{
+  id: 'monthly-report-001',
+  name: 'Monthly Report',
+  description: 'Business performance and analytics report',
+  category: 'reports',
+  popular: false,
+  fields: ['Period', 'Metrics', 'Charts', 'Analysis', 'Recommendations'],
+  previewComponent: (
+    <div className="w-full h-full bg-white text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Cover Page */}
+      <div className="bg-gradient-to-br from-indigo-700 via-purple-700 to-pink-600 text-white p-10 min-h-[40%] flex flex-col justify-center">
+        <div className="text-[10px] opacity-90 mb-2">MONTHLY BUSINESS REPORT</div>
+        <div className="text-5xl font-bold mb-4">[Report.Month]</div>
+        <div className="text-2xl font-semibold mb-6">[Report.Year]</div>
+        <div className="w-32 h-1 bg-white mb-6 opacity-80"></div>
+        <div className="text-[9px] opacity-90 space-y-1">
+          <div>Prepared by: [Prepared.By]</div>
+          <div>Department: [Department.Name]</div>
+          <div>Report Date: [Report.Date]</div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-8">
+        {/* Executive Summary */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">EXECUTIVE SUMMARY</div>
+          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-600 p-5 rounded-r-lg">
+            <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+              <p>
+                This report provides a comprehensive overview of business performance for <strong>[Report.Month] [Report.Year]</strong>. Key highlights include:
+              </p>
+              <ul className="ml-4 space-y-1">
+                <li>• [Highlight.1]</li>
+                <li>• [Highlight.2]</li>
+                <li>• [Highlight.3]</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Key Performance Indicators */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">KEY PERFORMANCE INDICATORS</div>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-5 shadow-lg">
+              <div className="text-[8px] opacity-90 mb-2">REVENUE</div>
+              <div className="text-3xl font-bold mb-1">${"[revenue]"}</div>
+              <div className="text-[7px] opacity-80 flex items-center gap-1">
+                <span className="text-green-300">↑ 12.5%</span> vs last month
+              </div>  
+            </div>
+
+            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-5 shadow-lg">
+              <div className="text-[8px] opacity-90 mb-2">PROFIT</div>
+              <div className="text-3xl font-bold mb-1"> ${"[profit]"}</div>
+              <div className="text-[7px] opacity-80 flex items-center gap-1">
+                <span className="text-green-300">↑ 8.3%</span> vs last month
+              </div> 
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-5 shadow-lg">
+              <div className="text-[8px] opacity-90 mb-2">CUSTOMERS</div>
+              <div className="text-3xl font-bold mb-1">[Customer.Count]</div>
+              <div className="text-[7px] opacity-80 flex items-center gap-1">
+                <span className="text-green-300">↑ 15.2%</span> vs last month
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-5 shadow-lg">
+              <div className="text-[8px] opacity-90 mb-2">GROWTH RATE</div>
+              <div className="text-3xl font-bold mb-1">[Growth.Rate]%</div>
+              <div className="text-[7px] opacity-80 flex items-center gap-1">
+                <span className="text-green-300">↑ 3.1%</span> vs last month
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Revenue Analysis */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">REVENUE ANALYSIS</div>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+            <div className="mb-4">
+              <div className="text-[8px] font-semibold text-slate-900 mb-3">Monthly Revenue Trend</div>
+              <div className="h-32 bg-white border border-slate-200 rounded-lg flex items-end justify-around p-3 gap-1">
+                <div className="flex flex-col items-center gap-1 flex-1">
+                  <div className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t" style={{height: '60%'}}></div>
+                  <div className="text-[6px] text-slate-600">Jan</div>
+                </div>
+                <div className="flex flex-col items-center gap-1 flex-1">
+                  <div className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t" style={{height: '75%'}}></div>
+                  <div className="text-[6px] text-slate-600">Feb</div>
+                </div>
+                <div className="flex flex-col items-center gap-1 flex-1">
+                  <div className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t" style={{height: '85%'}}></div>
+                  <div className="text-[6px] text-slate-600">Mar</div>
+                </div>
+                <div className="flex flex-col items-center gap-1 flex-1">
+                  <div className="w-full bg-gradient-to-t from-indigo-600 to-indigo-500 rounded-t" style={{height: '95%'}}></div>
+                  <div className="text-[6px] font-bold text-indigo-600">This</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 text-[8px]">
+              <div className="bg-white border border-slate-200 rounded-lg p-3">
+                <div className="text-slate-600 mb-1">Product Sales</div>
+                <div className="text-xl font-bold text-slate-900">$[Product.Revenue]</div>
+                <div className="text-[7px] text-green-600 mt-1">↑ 14.2%</div>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-lg p-3">
+                <div className="text-slate-600 mb-1">Service Revenue</div>
+                <div className="text-xl font-bold text-slate-900">$[Service.Revenue]</div>
+                <div className="text-[7px] text-green-600 mt-1">↑ 9.8%</div>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-lg p-3">
+                <div className="text-slate-600 mb-1">Recurring Revenue</div>
+                <div className="text-xl font-bold text-slate-900">$[Recurring.Revenue]</div>
+                <div className="text-[7px] text-green-600 mt-1">↑ 18.5%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Customer Insights */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">CUSTOMER INSIGHTS</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-5">
+              <div className="text-[8px] font-semibold text-purple-900 mb-3">Customer Acquisition</div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">New Customers:</span>
+                  <span className="text-lg font-bold text-purple-700">[New.Customers]</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">Churn Rate:</span>
+                  <span className="text-lg font-bold text-slate-900">[Churn.Rate]%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">Retention Rate:</span>
+                  <span className="text-lg font-bold text-green-600">[Retention.Rate]%</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-xl p-5">
+              <div className="text-[8px] font-semibold text-blue-900 mb-3">Customer Satisfaction</div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">NPS Score:</span>
+                  <span className="text-lg font-bold text-blue-700">[NPS.Score]</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">CSAT Score:</span>
+                  <span className="text-lg font-bold text-slate-900">[CSAT.Score]%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">Support Tickets:</span>
+                  <span className="text-lg font-bold text-slate-900">[Support.Tickets]</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Departmental Performance */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">DEPARTMENTAL PERFORMANCE</div>
+          <div className="space-y-3">
+            <div className="bg-white border-2 border-slate-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <span className="text-xl">💼</span>
+                  </div>
+                  <div>
+                    <div className="text-[8px] font-bold text-slate-900">Sales Department</div>
+                    <div className="text-[7px] text-slate-600">Target Achievement: <strong className="text-green-600">125%</strong></div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-slate-900">$[Sales.Revenue]</div>
+                  <div className="text-[7px] text-green-600">↑ 25% vs target</div>
+                </div>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2">
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full" style={{width: '125%', maxWidth: '100%'}}></div>
+              </div>
+            </div>
+
+            <div className="bg-white border-2 border-slate-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <span className="text-xl">📢</span>
+                  </div>
+                  <div>
+                    <div className="text-[8px] font-bold text-slate-900">Marketing Department</div>
+                    <div className="text-[7px] text-slate-600">Target Achievement: <strong className="text-green-600">110%</strong></div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-slate-900">[Marketing.Leads]</div>
+                  <div className="text-[7px] text-green-600">↑ 10% vs target</div>
+                </div>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2">
+                <div className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full" style={{width: '110%', maxWidth: '100%'}}></div>
+              </div>
+            </div>
+
+            <div className="bg-white border-2 border-slate-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <span className="text-xl">🛠️</span>
+                  </div>
+                  <div>
+                    <div className="text-[8px] font-bold text-slate-900">Operations Department</div>
+                    <div className="text-[7px] text-slate-600">Efficiency Score: <strong className="text-blue-600">95%</strong></div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-slate-900">[Operations.Score]</div>
+                  <div className="text-[7px] text-blue-600">↑ 5% improvement</div>
+                </div>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2">
+                <div className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full" style={{width: '95%'}}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Challenges & Opportunities */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">CHALLENGES & OPPORTUNITIES</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
+              <div className="text-[8px] font-bold text-red-900 mb-3 flex items-center gap-2">
+                <span className="text-lg">⚠️</span> CHALLENGES
+              </div>
+              <ul className="text-[8px] text-slate-700 space-y-2">
+                <li className="flex gap-2">
+                  <span className="text-red-600">•</span>
+                  <span>[Challenge.1]</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-red-600">•</span>
+                  <span>[Challenge.2]</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-red-600">•</span>
+                  <span>[Challenge.3]</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-5">
+              <div className="text-[8px] font-bold text-green-900 mb-3 flex items-center gap-2">
+                <span className="text-lg">💡</span> OPPORTUNITIES
+              </div>
+              <ul className="text-[8px] text-slate-700 space-y-2">
+                <li className="flex gap-2">
+                  <span className="text-green-600">•</span>
+                  <span>[Opportunity.1]</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-green-600">•</span>
+                  <span>[Opportunity.2]</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-green-600">•</span>
+                  <span>[Opportunity.3]</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Recommendations */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">RECOMMENDATIONS</div>
+          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-5">
+            <div className="text-[8px] text-slate-700 leading-relaxed space-y-3">
+              <div>
+                <strong className="text-indigo-900">1. Short-term Actions (0-30 days):</strong>
+                <ul className="ml-4 mt-1 space-y-1">
+                  <li>• [Short.Term.Action.1]</li>
+                  <li>• [Short.Term.Action.2]</li>
+                  <li>• [Short.Term.Action.3]</li>
+                </ul>
+              </div>
+              <div>
+                <strong className="text-indigo-900">2. Medium-term Initiatives (1-3 months):</strong>
+                <ul className="ml-4 mt-1 space-y-1">
+                  <li>• [Medium.Term.Action.1]</li>
+                  <li>• [Medium.Term.Action.2]</li>
+                </ul>
+              </div>
+              <div>
+                <strong className="text-indigo-900">3. Long-term Strategy (3-12 months):</strong>
+                <ul className="ml-4 mt-1 space-y-1">
+                  <li>• [Long.Term.Action.1]</li>
+                  <li>• [Long.Term.Action.2]</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Conclusion */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl p-6 text-center">
+          <div className="text-lg font-bold mb-2">OVERALL PERFORMANCE</div>
+          <div className="text-4xl font-bold mb-2">EXCELLENT</div>
+          <div className="text-[8px] opacity-90">Based on all key metrics and departmental performance</div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="bg-slate-100 p-4 text-center text-[7px] text-slate-600 border-t">
+        <div className="font-semibold mb-1">CONFIDENTIAL - INTERNAL USE ONLY</div>
+        <div>[Company.Name] | Monthly Business Report</div>
+        <div className="mt-1">Report Period: [Report.Month] [Report.Year] | Generated: [Generated.Date]</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!-- Full HTML -->`
+},
+
+{
+  id: 'purchase-order-001',
+  name: 'Purchase Order',
+  description: 'Official purchase order for goods/services',
+  category: 'invoices',
+  popular: true,
+  fields: ['PO Number', 'Vendor Info', 'Items', 'Delivery Date', 'Terms'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="flex justify-between items-start mb-8 pb-6 border-b-3 border-blue-600">
+        <div>
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center text-white text-3xl font-bold mb-3">
+            PO
+          </div>
+          <div className="text-lg font-bold text-slate-900">[Company.Name]</div>
+          <div className="text-[8px] text-slate-600 mt-1 space-y-0.5">
+            <div>[Company.Address]</div>
+            <div>[Company.City], [Company.State] [Company.Zip]</div>
+            <div className="mt-1">[Company.Email]</div>
+            <div>[Company.Phone]</div>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-4xl font-bold text-blue-600 mb-3">PURCHASE ORDER</div>
+          <div className="bg-blue-100 px-4 py-2 rounded-lg mb-2">
+            <div className="text-[7px] text-blue-700 font-semibold">PO NUMBER</div>
+            <div className="text-lg font-bold text-slate-900">[PO.Number]</div>
+          </div>
+          <div className="text-[8px] text-slate-600 space-y-1">
+            <div><strong>Date:</strong> [PO.Date]</div>
+            <div><strong>Required By:</strong> <span className="bg-yellow-100 px-2 font-bold">[Delivery.Date]</span></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Vendor & Bill To */}
+      <div className="grid grid-cols-2 gap-6 mb-8">
+        <div>
+          <div className="text-sm font-bold text-blue-600 mb-3 border-l-4 border-blue-500 pl-3">VENDOR</div>
+          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-5">
+            <div className="grid grid-cols-1 gap-2 text-[8px]">
+              <div className="font-bold text-slate-900 text-sm">[Vendor.Name]</div>
+              <div className="text-slate-900">[Vendor.Address]</div>
+              <div className="text-slate-900">[Vendor.City], [Vendor.State] [Vendor.Zip]</div>
+              <div className="text-slate-900 mt-2"><strong>Email:</strong> [Vendor.Email]</div>
+              <div className="text-slate-900"><strong>Phone:</strong> [Vendor.Phone]</div>
+              <div className="text-slate-900"><strong>Account #:</strong> [Vendor.AccountNumber]</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div className="text-sm font-bold text-slate-900 mb-3 border-l-4 border-slate-500 pl-3">BILL TO / SHIP TO</div>
+          <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-5">
+            <div className="grid grid-cols-1 gap-2 text-[8px]">
+              <div className="font-bold text-slate-900 text-sm">[Company.Name]</div>
+              <div className="text-slate-900">[Shipping.Address]</div>
+              <div className="text-slate-900">[Shipping.City], [Shipping.State] [Shipping.Zip]</div>
+              <div className="text-slate-900 mt-2"><strong>Attn:</strong> [Shipping.Contact]</div>
+              <div className="text-slate-900"><strong>Phone:</strong> [Shipping.Phone]</div>
+              <div className="text-slate-900"><strong>PO Contact:</strong> [PO.ContactName]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Items Table */}
+      <div className="mb-8">
+        <div className="text-sm font-bold text-slate-900 mb-3">ORDERED ITEMS</div>
+        <table className="w-full text-[8px] border-collapse">
+          <thead>
+            <tr className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white">
+              <th className="text-left p-3 font-semibold border border-blue-700">#</th>
+              <th className="text-left p-3 font-semibold border border-blue-700">DESCRIPTION</th>
+              <th className="text-center p-3 font-semibold border border-blue-700 w-16">QTY</th>
+              <th className="text-center p-3 font-semibold border border-blue-700 w-16">UNIT</th>
+              <th className="text-right p-3 font-semibold border border-blue-700 w-20">UNIT PRICE</th>
+              <th className="text-right p-3 font-semibold border border-blue-700 w-20">AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-slate-200 hover:bg-blue-50">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">1</td>
+              <td className="p-3 border border-slate-200">
+                <div className="font-semibold text-slate-900 mb-1">[Item.1.Name]</div>
+                <div className="text-[7px] text-slate-600">[Item.1.Description]</div>
+              </td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">[Item.1.Qty]</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">[Item.1.Unit]</td>
+              <td className="p-3 border border-slate-200 text-right text-slate-900">$[Item.1.Price]</td>
+              <td className="p-3 border border-slate-200 text-right font-bold text-slate-900">$[Item.1.Amount]</td>
+            </tr>
+            <tr className="border-b border-slate-200 hover:bg-blue-50">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">2</td>
+              <td className="p-3 border border-slate-200">
+                <div className="font-semibold text-slate-900 mb-1">[Item.2.Name]</div>
+                <div className="text-[7px] text-slate-600">[Item.2.Description]</div>
+              </td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">[Item.2.Qty]</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">[Item.2.Unit]</td>
+              <td className="p-3 border border-slate-200 text-right text-slate-900">$[Item.2.Price]</td>
+              <td className="p-3 border border-slate-200 text-right font-bold text-slate-900">$[Item.2.Amount]</td>
+            </tr>
+            <tr className="border-b border-slate-200 hover:bg-blue-50">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">3</td>
+              <td className="p-3 border border-slate-200">
+                <div className="font-semibold text-slate-900 mb-1">[Item.3.Name]</div>
+                <div className="text-[7px] text-slate-600">[Item.3.Description]</div>
+              </td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">[Item.3.Qty]</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">[Item.3.Unit]</td>
+              <td className="p-3 border border-slate-200 text-right text-slate-900">$[Item.3.Price]</td>
+              <td className="p-3 border border-slate-200 text-right font-bold text-slate-900">$[Item.3.Amount]</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Totals */}
+      <div className="flex justify-end mb-8">
+        <div className="w-80">
+          <div className="space-y-2 text-[8px]">
+            <div className="flex justify-between py-2 border-b border-slate-200">
+              <span className="text-slate-600 font-semibold">Subtotal:</span>
+              <span className="font-bold text-slate-900">$[Subtotal]</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-200">
+              <span className="text-slate-600 font-semibold">Shipping & Handling:</span>
+              <span className="font-bold text-slate-900">$[Shipping.Cost]</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-200">
+              <span className="text-slate-600 font-semibold">Discount ([Discount.Percent]%):</span>
+              <span className="font-bold text-green-600">-$[Discount.Amount]</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-200">
+              <span className="text-slate-600 font-semibold">Tax ([Tax.Rate]%):</span>
+              <span className="font-bold text-slate-900">$[Tax.Amount]</span>
+            </div>
+            <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg p-4 flex justify-between items-center mt-3">
+              <span className="text-sm font-bold">TOTAL DUE:</span>
+              <span className="text-2xl font-bold">${"[total_amount]"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Terms & Notes */}
+      <div className="grid grid-cols-2 gap-6 mb-8">
+        <div>
+          <div className="text-sm font-bold text-slate-900 mb-3 border-l-4 border-blue-500 pl-3">TERMS & CONDITIONS</div>
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+            <ul className="text-[8px] text-slate-700 space-y-2 leading-relaxed">
+              <li className="flex gap-2">
+                <span className="text-blue-600 font-bold">•</span>
+                <span><strong>Payment Terms:</strong> Net [Payment.Terms] days from invoice date.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-blue-600 font-bold">•</span>
+                <span><strong>Late Payments:</strong> Subject to [Late.Fee]% monthly interest.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-blue-600 font-bold">•</span>
+                <span><strong>Delivery:</strong> Must be received by [Delivery.Date]. Late deliveries may be rejected.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-blue-600 font-bold">•</span>
+                <span><strong>Inspection:</strong> Goods subject to quality inspection within 5 business days of receipt.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-blue-600 font-bold">•</span>
+                <span><strong>Cancellation:</strong> PO may be canceled without penalty if vendor fails to meet delivery schedule.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <div className="text-sm font-bold text-slate-900 mb-3 border-l-4 border-amber-500 pl-3">ADDITIONAL NOTES</div>
+          <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-5">
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              [Additional.Notes] – Special instructions, packaging requirements, compliance certifications, or reference numbers (e.g., project code: [Project.Code]).
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Authorization */}
+      <div className="border-t-2 border-blue-600 pt-6">
+        <div className="text-sm font-bold text-slate-900 mb-4">AUTHORIZED SIGNATURE</div>
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-5">
+          <div className="text-[8px] text-slate-700 mb-4">
+            This purchase order is legally binding upon acceptance by the vendor. By signing below, the vendor agrees to all terms and conditions stated herein.
+          </div>
+          <div className="grid grid-cols-3 gap-6">
+            <div>
+              <div className="text-[7px] text-slate-600 mb-2">Vendor Signature:</div>
+              <div className="border-b-2 border-slate-400 pb-1 mb-3 h-8"></div>
+              <div className="text-[7px] text-slate-600">Name: _______________________</div>
+            </div>
+            <div>
+              <div className="text-[7px] text-slate-600 mb-2">Date:</div>
+              <div className="border-b-2 border-slate-400 pb-1 mb-3 h-8"></div>
+            </div>
+            <div>
+              <div className="text-[7px] text-slate-600 mb-2">Company Stamp:</div>
+              <div className="border-2 border-dashed border-slate-400 rounded w-full h-12 flex items-center justify-center text-[7px] text-slate-400">
+                [Official Stamp]
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+        <div className="font-semibold mb-1">Thank you for your partnership!</div>
+        <div>Questions? Contact [PO.ContactName] at [Company.Email] or [Company.Phone]</div>
+        <div className="mt-2">PO #[PO.Number] | Issued [PO.Date] | Required by [Delivery.Date]</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!-- Full HTML will be generated from this component -->`
+},
+
+{
+  id: 'professional-resume-001',
+  name: 'Professional Resume',
+  description: 'Modern professional resume template',
+  category: 'resumes',
+  popular: true,
+  fields: ['Full Name', 'Contact Info', 'Experience', 'Education', 'Skills'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header Section */}
+      <div className="text-center mb-6 pb-6 border-b-4 border-blue-600">
+        <div className="text-5xl font-bold text-slate-900 mb-2">[Full.Name]</div>
+        <div className="text-lg text-blue-600 font-semibold mb-3">[Professional.Title]</div>
+        <div className="flex justify-center gap-4 text-[8px] text-slate-600 flex-wrap">
+          <div className="flex items-center gap-1">
+            <span className="font-bold">📧</span>
+            <span>[Email.Address]</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="font-bold">📱</span>
+            <span>[Phone.Number]</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="font-bold">📍</span>
+            <span>[City], [State/Country]</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="font-bold">💼</span>
+            <span>[LinkedIn.URL]</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="font-bold">🌐</span>
+            <span>[Portfolio.Website]</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Professional Summary */}
+      <div className="mb-6">
+        <div className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b-2 border-blue-600">PROFESSIONAL SUMMARY</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed">
+          [Professional.Summary.Paragraph] - A results-driven professional with [Years.Experience]+ years of experience in [Industry/Field]. Proven track record of [Key.Achievement.1], [Key.Achievement.2], and [Key.Achievement.3]. Seeking to leverage expertise in [Core.Skill.1] and [Core.Skill.2] to contribute to [Target.Company.Type]'s success.
+        </div>
+      </div>
+
+      {/* Core Competencies */}
+      <div className="mb-6">
+        <div className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b-2 border-blue-600">CORE COMPETENCIES</div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-blue-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="text-[8px] font-semibold text-slate-900">[Competency.1]</div>
+          </div>
+          <div className="bg-blue-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="text-[8px] font-semibold text-slate-900">[Competency.2]</div>
+          </div>
+          <div className="bg-blue-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="text-[8px] font-semibold text-slate-900">[Competency.3]</div>
+          </div>
+          <div className="bg-blue-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="text-[8px] font-semibold text-slate-900">[Competency.4]</div>
+          </div>
+          <div className="bg-blue-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="text-[8px] font-semibold text-slate-900">[Competency.5]</div>
+          </div>
+          <div className="bg-blue-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="text-[8px] font-semibold text-slate-900">[Competency.6]</div>
+          </div>
+          <div className="bg-blue-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="text-[8px] font-semibold text-slate-900">[Competency.7]</div>
+          </div>
+          <div className="bg-blue-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="text-[8px] font-semibold text-slate-900">[Competency.8]</div>
+          </div>
+          <div className="bg-blue-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="text-[8px] font-semibold text-slate-900">[Competency.9]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Professional Experience */}
+      <div className="mb-6">
+        <div className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b-2 border-blue-600">PROFESSIONAL EXPERIENCE</div>
+        
+        {/* Job 1 */}
+        <div className="mb-5">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <div className="text-sm font-bold text-slate-900">[Job.Title.1]</div>
+              <div className="text-[8px] text-blue-600 font-semibold">[Company.Name.1] | [Company.Location.1]</div>
+            </div>
+            <div className="text-[8px] text-slate-600 font-semibold">[Start.Date.1] – [End.Date.1]</div>
+          </div>
+          <ul className="ml-4 space-y-1 text-[8px] text-slate-700 leading-relaxed">
+            <li>• [Achievement.1.1] - Quantifiable result showing impact (e.g., "Increased sales by 35% through strategic marketing initiatives")</li>
+            <li>• [Achievement.1.2] - Specific responsibility with measurable outcome</li>
+            <li>• [Achievement.1.3] - Leadership or collaboration example</li>
+            <li>• [Achievement.1.4] - Technical skill or process improvement</li>
+            <li>• [Achievement.1.5] - Recognition or special project completion</li>
+          </ul>
+        </div>
+
+        {/* Job 2 */}
+        <div className="mb-5">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <div className="text-sm font-bold text-slate-900">[Job.Title.2]</div>
+              <div className="text-[8px] text-blue-600 font-semibold">[Company.Name.2] | [Company.Location.2]</div>
+            </div>
+            <div className="text-[8px] text-slate-600 font-semibold">[Start.Date.2] – [End.Date.2]</div>
+          </div>
+          <ul className="ml-4 space-y-1 text-[8px] text-slate-700 leading-relaxed">
+            <li>• [Achievement.2.1] - Key accomplishment with metrics</li>
+            <li>• [Achievement.2.2] - Process improvement or innovation</li>
+            <li>• [Achievement.2.3] - Team leadership or mentoring experience</li>
+            <li>• [Achievement.2.4] - Project management or strategic initiative</li>
+            <li>• [Achievement.2.5] - Client relationship or stakeholder management</li>
+          </ul>
+        </div>
+
+        {/* Job 3 */}
+        <div className="mb-5">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <div className="text-sm font-bold text-slate-900">[Job.Title.3]</div>
+              <div className="text-[8px] text-blue-600 font-semibold">[Company.Name.3] | [Company.Location.3]</div>
+            </div>
+            <div className="text-[8px] text-slate-600 font-semibold">[Start.Date.3] – [End.Date.3]</div>
+          </div>
+          <ul className="ml-4 space-y-1 text-[8px] text-slate-700 leading-relaxed">
+            <li>• [Achievement.3.1] - Demonstrated skill or accomplishment</li>
+            <li>• [Achievement.3.2] - Contribution to team or company goals</li>
+            <li>• [Achievement.3.3] - Technical proficiency or specialized knowledge</li>
+            <li>• [Achievement.3.4] - Problem-solving or analytical capability</li>
+          </ul>
+        </div>
+
+        {/* Job 4 */}
+        <div className="mb-5">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <div className="text-sm font-bold text-slate-900">[Job.Title.4]</div>
+              <div className="text-[8px] text-blue-600 font-semibold">[Company.Name.4] | [Company.Location.4]</div>
+            </div>
+            <div className="text-[8px] text-slate-600 font-semibold">[Start.Date.4] – [End.Date.4]</div>
+          </div>
+          <ul className="ml-4 space-y-1 text-[8px] text-slate-700 leading-relaxed">
+            <li>• [Achievement.4.1] - Early career responsibility or learning</li>
+            <li>• [Achievement.4.2] - Foundation building experience</li>
+            <li>• [Achievement.4.3] - Key skill development or certification earned</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Education */}
+      <div className="mb-6">
+        <div className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b-2 border-blue-600">EDUCATION</div>
+        
+        <div className="mb-3">
+          <div className="flex justify-between items-start mb-1">
+            <div>
+              <div className="text-sm font-bold text-slate-900">[Degree.1] in [Major.1]</div>
+              <div className="text-[8px] text-blue-600 font-semibold">[University.Name.1] | [University.Location.1]</div>
+            </div>
+            <div className="text-[8px] text-slate-600 font-semibold">[Graduation.Date.1]</div>
+          </div>
+          <div className="text-[8px] text-slate-700">
+            <span className="font-semibold">GPA:</span> [GPA.1] | <span className="font-semibold">Honors:</span> [Honors.1]
+          </div>
+          <div className="text-[8px] text-slate-700">
+            <span className="font-semibold">Relevant Coursework:</span> [Coursework.1]
+          </div>
+        </div>
+
+        <div className="mb-3">
+          <div className="flex justify-between items-start mb-1">
+            <div>
+              <div className="text-sm font-bold text-slate-900">[Degree.2] in [Major.2]</div>
+              <div className="text-[8px] text-blue-600 font-semibold">[University.Name.2] | [University.Location.2]</div>
+            </div>
+            <div className="text-[8px] text-slate-600 font-semibold">[Graduation.Date.2]</div>
+          </div>
+          <div className="text-[8px] text-slate-700">
+            <span className="font-semibold">Relevant Coursework:</span> [Coursework.2]
+          </div>
+        </div>
+      </div>
+
+      {/* Certifications */}
+      <div className="mb-6">
+        <div className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b-2 border-blue-600">CERTIFICATIONS & LICENSES</div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-slate-50 border-l-4 border-blue-600 p-3 rounded-r">
+            <div className="text-[8px] font-bold text-slate-900">[Certification.1.Name]</div>
+            <div className="text-[7px] text-slate-600">[Issuing.Organization.1] | [Issue.Date.1]</div>
+            <div className="text-[7px] text-slate-600">ID: [Certification.ID.1]</div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-600 p-3 rounded-r">
+            <div className="text-[8px] font-bold text-slate-900">[Certification.2.Name]</div>
+            <div className="text-[7px] text-slate-600">[Issuing.Organization.2] | [Issue.Date.2]</div>
+            <div className="text-[7px] text-slate-600">ID: [Certification.ID.2]</div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-600 p-3 rounded-r">
+            <div className="text-[8px] font-bold text-slate-900">[Certification.3.Name]</div>
+            <div className="text-[7px] text-slate-600">[Issuing.Organization.3] | [Issue.Date.3]</div>
+            <div className="text-[7px] text-slate-600">ID: [Certification.ID.3]</div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-600 p-3 rounded-r">
+            <div className="text-[8px] font-bold text-slate-900">[Certification.4.Name]</div>
+            <div className="text-[7px] text-slate-600">[Issuing.Organization.4] | [Issue.Date.4]</div>
+            <div className="text-[7px] text-slate-600">ID: [Certification.ID.4]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Technical Skills */}
+      <div className="mb-6">
+        <div className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b-2 border-blue-600">TECHNICAL SKILLS</div>
+        <div className="grid grid-cols-2 gap-4 text-[8px]">
+          <div>
+            <div className="font-bold text-slate-900 mb-2">Programming & Development</div>
+            <div className="text-slate-700 leading-relaxed">[Programming.Languages] | [Frameworks] | [Development.Tools]</div>
+          </div>
+          <div>
+            <div className="font-bold text-slate-900 mb-2">Software & Applications</div>
+            <div className="text-slate-700 leading-relaxed">[Software.List] | [Design.Tools] | [Productivity.Tools]</div>
+          </div>
+          <div>
+            <div className="font-bold text-slate-900 mb-2">Databases & Cloud</div>
+            <div className="text-slate-700 leading-relaxed">[Database.Systems] | [Cloud.Platforms] | [DevOps.Tools]</div>
+          </div>
+          <div>
+            <div className="font-bold text-slate-900 mb-2">Specialized Skills</div>
+            <div className="text-slate-700 leading-relaxed">[Data.Analysis] | [Project.Management] | [Domain.Expertise]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Projects & Achievements */}
+      <div className="mb-6">
+        <div className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b-2 border-blue-600">KEY PROJECTS & ACHIEVEMENTS</div>
+        
+        <div className="space-y-3">
+          <div className="bg-blue-50 border-l-4 border-blue-600 p-3 rounded-r">
+            <div className="font-bold text-slate-900 text-[8px] mb-1">[Project.1.Name]</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              [Project.1.Description] - Impact: [Project.1.Impact]
+            </div>
+            <div className="text-[7px] text-blue-600 mt-1">
+              <strong>Technologies:</strong> [Project.1.Technologies]
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border-l-4 border-blue-600 p-3 rounded-r">
+            <div className="font-bold text-slate-900 text-[8px] mb-1">[Project.2.Name]</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              [Project.2.Description] - Impact: [Project.2.Impact]
+            </div>
+            <div className="text-[7px] text-blue-600 mt-1">
+              <strong>Technologies:</strong> [Project.2.Technologies]
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border-l-4 border-blue-600 p-3 rounded-r">
+            <div className="font-bold text-slate-900 text-[8px] mb-1">[Project.3.Name]</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              [Project.3.Description] - Impact: [Project.3.Impact]
+            </div>
+            <div className="text-[7px] text-blue-600 mt-1">
+              <strong>Technologies:</strong> [Project.3.Technologies]
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Awards & Recognition */}
+      <div className="mb-6">
+        <div className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b-2 border-blue-600">AWARDS & RECOGNITION</div>
+        <div className="grid grid-cols-2 gap-3 text-[8px]">
+          <div className="flex items-start gap-2">
+            <span className="text-yellow-500 text-lg">🏆</span>
+            <div>
+              <div className="font-bold text-slate-900">[Award.1.Name]</div>
+              <div className="text-slate-600">[Award.1.Organization] | [Award.1.Year]</div>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-yellow-500 text-lg">🏆</span>
+            <div>
+              <div className="font-bold text-slate-900">[Award.2.Name]</div>
+              <div className="text-slate-600">[Award.2.Organization] | [Award.2.Year]</div>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-yellow-500 text-lg">🏆</span>
+            <div>
+              <div className="font-bold text-slate-900">[Award.3.Name]</div>
+              <div className="text-slate-600">[Award.3.Organization] | [Award.3.Year]</div>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-yellow-500 text-lg">🏆</span>
+            <div>
+              <div className="font-bold text-slate-900">[Award.4.Name]</div>
+              <div className="text-slate-600">[Award.4.Organization] | [Award.4.Year]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Professional Affiliations */}
+      <div className="mb-6">
+        <div className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b-2 border-blue-600">PROFESSIONAL AFFILIATIONS</div>
+        <div className="grid grid-cols-2 gap-2 text-[8px]">
+          <div className="bg-slate-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="font-semibold text-slate-900">[Association.1.Name]</div>
+            <div className="text-slate-600">[Association.1.Role] | [Association.1.Years]</div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="font-semibold text-slate-900">[Association.2.Name]</div>
+            <div className="text-slate-600">[Association.2.Role] | [Association.2.Years]</div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="font-semibold text-slate-900">[Association.3.Name]</div>
+            <div className="text-slate-600">[Association.3.Role] | [Association.3.Years]</div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-600 px-3 py-2">
+            <div className="font-semibold text-slate-900">[Association.4.Name]</div>
+            <div className="text-slate-600">[Association.4.Role] | [Association.4.Years]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Languages */}
+      <div className="mb-6">
+        <div className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b-2 border-blue-600">LANGUAGES</div>
+        <div className="grid grid-cols-4 gap-3 text-[8px] text-center">
+          <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+            <div className="font-bold text-slate-900">[Language.1]</div>
+            <div className="text-slate-600">[Proficiency.1]</div>
+          </div>
+          <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+            <div className="font-bold text-slate-900">[Language.2]</div>
+            <div className="text-slate-600">[Proficiency.2]</div>
+          </div>
+          <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+            <div className="font-bold text-slate-900">[Language.3]</div>
+            <div className="text-slate-600">[Proficiency.3]</div>
+          </div>
+          <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+            <div className="font-bold text-slate-900">[Language.4]</div>
+            <div className="text-slate-600">[Proficiency.4]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Volunteer Experience */}
+      <div className="mb-6">
+        <div className="text-xl font-bold text-blue-600 mb-3 pb-2 border-b-2 border-blue-600">VOLUNTEER EXPERIENCE</div>
+        <div className="space-y-3 text-[8px]">
+          <div>
+            <div className="flex justify-between items-start mb-1">
+              <div className="font-bold text-slate-900">[Volunteer.Role.1] - [Organization.1]</div>
+              <div className="text-slate-600">[Volunteer.Dates.1]</div>
+            </div>
+            <div className="text-slate-700 leading-relaxed">[Volunteer.Description.1]</div>
+          </div>
+          <div>
+            <div className="flex justify-between items-start mb-1">
+              <div className="font-bold text-slate-900">[Volunteer.Role.2] - [Organization.2]</div>
+              <div className="text-slate-600">[Volunteer.Dates.2]</div>
+            </div>
+            <div className="text-slate-700 leading-relaxed">[Volunteer.Description.2]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+        <div>References available upon request</div>
+        <div className="mt-1">Last Updated: [Last.Updated.Date]</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!-- Full HTML -->`
+},
+{
+  id: 'professional-cover-letter-001',
+  name: 'Professional Cover Letter',
+  description: 'Modern professional cover letter template',
+  category: 'resumes',
+  popular: true,
+  fields: ['Your Info', 'Company Info', 'Position', 'Opening', 'Body', 'Closing'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Georgia, serif' }}>
+      {/* Your Information Header */}
+      <div className="text-right mb-8">
+        <div className="text-lg font-bold text-slate-900">[Your.Full.Name]</div>
+        <div className="text-[8px] text-slate-600">[Your.Address]</div>
+        <div className="text-[8px] text-slate-600">[Your.City], [Your.State] [Your.ZipCode]</div>
+        <div className="text-[8px] text-slate-600">[Your.Phone.Number]</div>
+        <div className="text-[8px] text-blue-600">[Your.Email.Address]</div>
+        <div className="text-[8px] text-blue-600">[Your.LinkedIn.URL]</div>
+      </div>
+
+      {/* Date */}
+      <div className="mb-6 text-[8px] text-slate-700">
+        [Current.Date]
+      </div>
+
+      {/* Recipient Information */}
+      <div className="mb-6">
+        <div className="text-[8px] text-slate-700 leading-relaxed">
+          <div className="font-bold">[Hiring.Manager.Name]</div>
+          <div>[Hiring.Manager.Title]</div>
+          <div className="font-bold">[Company.Name]</div>
+          <div>[Company.Address]</div>
+          <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+        </div>
+      </div>
+
+      {/* Salutation */}
+      <div className="mb-4 text-[8px] text-slate-700">
+        Dear [Hiring.Manager.Name] / Dear Hiring Manager,
+      </div>
+
+      {/* Opening Paragraph */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed text-justify">
+        I am writing to express my strong interest in the <span className="font-bold">[Position.Title]</span> position at <span className="font-bold">[Company.Name]</span>, as advertised on <span className="font-bold">[Job.Posting.Source]</span>. With <span className="font-bold">[Years.Of.Experience]</span> years of experience in <span className="font-bold">[Your.Industry/Field]</span> and a proven track record of <span className="font-bold">[Key.Achievement.Area]</span>, I am excited about the opportunity to contribute to your team's success and help <span className="font-bold">[Company.Name]</span> achieve its goals.
+      </div>
+
+      {/* Body Paragraph 1 - Your Qualifications */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed text-justify">
+        In my current role as <span className="font-bold">[Current.Job.Title]</span> at <span className="font-bold">[Current.Company.Name]</span>, I have successfully <span className="font-bold">[Major.Achievement.1]</span>, resulting in <span className="font-bold">[Quantifiable.Result.1]</span>. Additionally, I led <span className="font-bold">[Project.Or.Initiative]</span>, which <span className="font-bold">[Positive.Outcome]</span>. My expertise in <span className="font-bold">[Core.Skill.1]</span>, <span className="font-bold">[Core.Skill.2]</span>, and <span className="font-bold">[Core.Skill.3]</span> has enabled me to consistently deliver exceptional results and exceed performance targets.
+      </div>
+
+      {/* Body Paragraph 2 - Why This Company */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed text-justify">
+        What particularly attracts me to <span className="font-bold">[Company.Name]</span> is your <span className="font-bold">[Company.Quality.Or.Value]</span> and commitment to <span className="font-bold">[Company.Mission.Or.Goal]</span>. I am especially impressed by <span className="font-bold">[Specific.Company.Achievement.Or.Initiative]</span>, and I believe my background in <span className="font-bold">[Relevant.Experience.Area]</span> aligns perfectly with your organization's vision. I am confident that my experience with <span className="font-bold">[Relevant.Skill.Or.Tool]</span> and passion for <span className="font-bold">[Industry.Or.Field]</span> would make me a valuable addition to your team.
+      </div>
+
+      {/* Body Paragraph 3 - Additional Value */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed text-justify">
+        Beyond my technical capabilities, I bring strong <span className="font-bold">[Soft.Skill.1]</span> and <span className="font-bold">[Soft.Skill.2]</span> skills that have proven invaluable in <span className="font-bold">[Situation.Or.Context]</span>. My ability to <span className="font-bold">[Key.Ability]</span> has consistently resulted in <span className="font-bold">[Positive.Outcome.Or.Recognition]</span>. I am also <span className="font-bold">[Certification.Or.Qualification]</span>, which further strengthens my capability to excel in this role and contribute immediately to <span className="font-bold">[Company.Name]</span>'s objectives.
+      </div>
+
+      {/* Closing Paragraph */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed text-justify">
+        I am enthusiastic about the possibility of bringing my unique blend of skills, experience, and passion to the <span className="font-bold">[Position.Title]</span> role at <span className="font-bold">[Company.Name]</span>. I would welcome the opportunity to discuss how my background and qualifications align with your team's needs. Thank you for considering my application. I look forward to the possibility of speaking with you soon about how I can contribute to your continued success.
+      </div>
+
+      {/* Sign-off */}
+      <div className="mt-6 text-[8px] text-slate-700">
+        <div className="mb-12">Sincerely,</div>
+        <div className="font-bold text-slate-900">[Your.Full.Name]</div>
+      </div>
+
+      {/* Enclosure */}
+      <div className="mt-6 text-[7px] text-slate-500">
+        Enclosure: Resume
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!-- Full HTML -->`
+},
+
+{
+  id: 'modern-cover-letter-001',
+  name: 'Modern Cover Letter',
+  description: 'Contemporary cover letter with visual design',
+  category: 'resumes',
+  popular: true,
+  fields: ['Your Info', 'Company Info', 'Position', 'Skills', 'Achievements'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header with Color Bar */}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-lg mb-6">
+        <div className="text-3xl font-bold mb-2">[Your.Full.Name]</div>
+        <div className="text-sm mb-3">[Your.Professional.Title]</div>
+        <div className="flex gap-4 text-[8px] flex-wrap">
+          <div className="flex items-center gap-1">
+            <span>📧</span>
+            <span>[Your.Email]</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span>📱</span>
+            <span>[Your.Phone]</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span>📍</span>
+            <span>[Your.City], [Your.State]</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span>💼</span>
+            <span>[Your.LinkedIn]</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Date and Recipient */}
+      <div className="mb-6">
+        <div className="text-[8px] text-slate-600 mb-4">[Current.Date]</div>
+        <div className="bg-slate-50 border-l-4 border-indigo-600 p-4 rounded-r">
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            <div className="font-bold text-slate-900">[Hiring.Manager.Name]</div>
+            <div>[Hiring.Manager.Title]</div>
+            <div className="font-bold text-indigo-600 mt-1">[Company.Name]</div>
+            <div>[Company.Address]</div>
+            <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Subject Line */}
+      <div className="mb-4">
+        <div className="bg-indigo-100 border-l-4 border-indigo-600 p-3 rounded-r">
+          <div className="text-[8px] font-bold text-indigo-900">
+            RE: Application for [Position.Title]
+          </div>
+        </div>
+      </div>
+
+      {/* Greeting */}
+      <div className="mb-4 text-[8px] text-slate-700">
+        Dear [Hiring.Manager.Name],
+      </div>
+
+      {/* Opening - Hook */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        When I discovered that <span className="font-bold text-indigo-600">[Company.Name]</span> was seeking a <span className="font-bold">[Position.Title]</span>, I knew I had to apply. As a passionate <span className="font-bold">[Your.Profession]</span> with <span className="font-bold">[Years.Experience]</span> years of experience driving <span className="font-bold">[Key.Result.Area]</span>, I am excited about the opportunity to bring my unique blend of skills and enthusiasm to your innovative team.
+      </div>
+
+      {/* Why You Section */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-lg p-4">
+          <div className="text-sm font-bold text-indigo-700 mb-2">🎯 WHY I'M THE RIGHT FIT</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            My track record speaks for itself: I've <span className="font-bold">[Major.Achievement.1.With.Numbers]</span>, <span className="font-bold">[Major.Achievement.2.With.Numbers]</span>, and <span className="font-bold">[Major.Achievement.3.With.Numbers]</span>. At <span className="font-bold">[Current.Company]</span>, I currently lead <span className="font-bold">[Current.Responsibility]</span>, where I've implemented <span className="font-bold">[Innovation.Or.Improvement]</span> that resulted in <span className="font-bold">[Quantifiable.Impact]</span>.
+          </div>
+        </div>
+      </div>
+
+      {/* Key Skills Highlight */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2">💼 KEY STRENGTHS I BRING</div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white border-l-4 border-indigo-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-indigo-700 mb-1">[Strength.1.Title]</div>
+            <div className="text-[7px] text-slate-600">[Strength.1.Brief.Example]</div>
+          </div>
+          <div className="bg-white border-l-4 border-purple-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-purple-700 mb-1">[Strength.2.Title]</div>
+            <div className="text-[7px] text-slate-600">[Strength.2.Brief.Example]</div>
+          </div>
+          <div className="bg-white border-l-4 border-indigo-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-indigo-700 mb-1">[Strength.3.Title]</div>
+            <div className="text-[7px] text-slate-600">[Strength.3.Brief.Example]</div>
+          </div>
+          <div className="bg-white border-l-4 border-purple-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-purple-700 mb-1">[Strength.4.Title]</div>
+            <div className="text-[7px] text-slate-600">[Strength.4.Brief.Example]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Why This Company */}
+      <div className="mb-4">
+        <div className="bg-purple-50 border-l-4 border-purple-600 p-4 rounded-r">
+          <div className="text-sm font-bold text-purple-700 mb-2">🌟 WHY [Company.Name]?</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            I've been following <span className="font-bold text-purple-600">[Company.Name]</span>'s journey, particularly impressed by <span className="font-bold">[Specific.Company.Achievement]</span>. Your commitment to <span className="font-bold">[Company.Value.Or.Mission]</span> resonates deeply with my professional values. I'm especially excited about <span className="font-bold">[Specific.Project.Or.Initiative]</span> and believe my expertise in <span className="font-bold">[Relevant.Skill]</span> could contribute significantly to this effort.
+          </div>
+        </div>
+      </div>
+
+      {/* Achievement Spotlight */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2">🏆 ACHIEVEMENT SPOTLIGHT</div>
+        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-lg p-4">
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            One accomplishment I'm particularly proud of: <span className="font-bold">[Detailed.Achievement.Story]</span>. This experience taught me <span className="font-bold">[Key.Lesson]</span> and demonstrated my ability to <span className="font-bold">[Key.Capability]</span> — skills directly applicable to the <span className="font-bold">[Position.Title]</span> role.
+          </div>
+        </div>
+      </div>
+
+      {/* What I'll Bring */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        In the <span className="font-bold text-indigo-600">[Position.Title]</span> role, I'm ready to hit the ground running. From day one, I'll bring <span className="font-bold">[Immediate.Contribution.1]</span>, <span className="font-bold">[Immediate.Contribution.2]</span>, and a proven ability to <span className="font-bold">[Key.Ability.Related.To.Role]</span>. My collaborative approach and passion for <span className="font-bold">[Industry.Or.Field]</span> will enable me to integrate seamlessly with your team while driving meaningful results.
+      </div>
+
+      {/* Call to Action */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 rounded-lg text-center">
+          <div className="text-sm font-bold mb-2">LET'S CONNECT!</div>
+          <div className="text-[8px] leading-relaxed">
+            I would love the opportunity to discuss how my experience and passion align with <span className="font-bold">[Company.Name]</span>'s goals. I'm available for a conversation at your earliest convenience and can be reached at <span className="font-bold">[Your.Phone]</span> or <span className="font-bold">[Your.Email]</span>.
+          </div>
+        </div>
+      </div>
+
+      {/* Closing */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        Thank you for considering my application. I'm genuinely excited about the possibility of contributing to <span className="font-bold text-indigo-600">[Company.Name]</span>'s continued success and look forward to hearing from you.
+      </div>
+
+      {/* Signature */}
+      <div className="mt-6 text-[8px] text-slate-700">
+        <div className="mb-8">Best regards,</div>
+        <div className="font-bold text-slate-900 text-sm">[Your.Full.Name]</div>
+        <div className="text-slate-600">[Your.Professional.Title]</div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-6 text-center">
+        <div className="inline-block bg-slate-100 px-4 py-2 rounded-full text-[7px] text-slate-600">
+          📎 Resume & Portfolio Attached
+        </div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!-- Full HTML -->`
+},
+
+{
+  id: 'career-change-cover-letter-001',
+  name: 'Career Change Cover Letter',
+  description: 'Cover letter for transitioning to new industry',
+  category: 'resumes',
+  popular: false,
+  fields: ['Current Career', 'Target Career', 'Transferable Skills', 'Motivation'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="border-b-4 border-teal-600 pb-4 mb-6">
+        <div className="text-2xl font-bold text-slate-900 mb-1">[Your.Full.Name]</div>
+        <div className="text-[8px] text-slate-600 flex gap-3 flex-wrap">
+          <span>[Your.Address], [Your.City], [Your.State] [Your.Zip]</span>
+          <span>•</span>
+          <span>[Your.Phone]</span>
+          <span>•</span>
+          <span className="text-teal-600">[Your.Email]</span>
+          <span>•</span>
+          <span className="text-teal-600">[Your.LinkedIn]</span>
+        </div>
+      </div>
+
+      {/* Date */}
+      <div className="mb-4 text-[8px] text-slate-700">[Current.Date]</div>
+
+      {/* Recipient */}
+      <div className="mb-6 text-[8px] text-slate-700 leading-relaxed">
+        <div className="font-bold">[Hiring.Manager.Name]</div>
+        <div>[Hiring.Manager.Title]</div>
+        <div className="font-bold text-teal-700">[Company.Name]</div>
+        <div>[Company.Address]</div>
+        <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+      </div>
+
+      {/* Subject */}
+      <div className="mb-4">
+        <div className="bg-teal-50 border-l-4 border-teal-600 p-3 rounded-r">
+          <div className="text-[8px] font-bold text-teal-900">
+            Subject: Application for [Position.Title] - Bringing [Years.Experience] Years of Proven Results to [New.Industry]
+          </div>
+        </div>
+      </div>
+
+      {/* Salutation */}
+      <div className="mb-4 text-[8px] text-slate-700">
+        Dear [Hiring.Manager.Name],
+      </div>
+
+      {/* Opening - Address the Career Change */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I am writing to express my enthusiastic interest in the <span className="font-bold">[Position.Title]</span> position at <span className="font-bold text-teal-600">[Company.Name]</span>. While my background is in <span className="font-bold">[Current.Industry]</span>, I am making a strategic transition to <span className="font-bold">[Target.Industry]</span> — a move driven by my passion for <span className="font-bold">[Passion.Area]</span> and aligned with my long-term career aspirations. My <span className="font-bold">[Years.Experience]</span> years of experience have equipped me with transferable skills that directly apply to this role and will enable me to make an immediate impact.
+      </div>
+
+      {/* Why Career Change */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border-2 border-teal-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-teal-700 mb-2">🎯 WHY THIS CAREER TRANSITION</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            My decision to transition from <span className="font-bold">[Current.Industry]</span> to <span className="font-bold">[Target.Industry]</span> stems from <span className="font-bold">[Motivation.1]</span> and <span className="font-bold">[Motivation.2]</span>. Over the past <span className="font-bold">[Timeframe]</span>, I have <span className="font-bold">[Preparation.Steps.Taken]</span>, including <span className="font-bold">[Courses.Or.Certifications]</span>, <span className="font-bold">[Projects.Or.Volunteering]</span>, and <span className="font-bold">[Networking.Or.Research]</span>. This isn't a impulsive decision — it's a calculated move based on thorough preparation and genuine passion.
+          </div>
+        </div>
+      </div>
+
+      {/* Transferable Skills */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2">🔄 TRANSFERABLE SKILLS & RELEVANT EXPERIENCE</div>
+        <div className="space-y-2">
+          <div className="bg-white border-l-4 border-teal-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-teal-700 mb-1">[Skill.1] (From [Current.Industry] to [Target.Industry])</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              In my role as <span className="font-bold">[Current.Job.Title]</span>, I <span className="font-bold">[Achievement.With.Skill.1]</span>. This directly translates to <span className="font-bold">[How.It.Applies.To.New.Role]</span>.
+            </div>
+          </div>
+          <div className="bg-white border-l-4 border-cyan-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-cyan-700 mb-1">[Skill.2] (Proven Track Record)</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              I successfully <span className="font-bold">[Achievement.With.Skill.2]</span>, demonstrating my ability to <span className="font-bold">[Capability.Relevant.To.New.Role]</span>, which is essential for <span className="font-bold">[Target.Industry]</span>.
+            </div>
+          </div>
+          <div className="bg-white border-l-4 border-teal-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-teal-700 mb-1">[Skill.3] (Universal Value)</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              My experience in <span className="font-bold">[Specific.Area]</span> has honed my <span className="font-bold">[Skill.Description]</span>, which I understand is critical for success in the <span className="font-bold">[Position.Title]</span> role.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Relevant Accomplishments */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        Despite coming from a different industry, my accomplishments demonstrate capabilities directly applicable to your needs. I've <span className="font-bold">[Quantifiable.Achievement.1]</span>, <span className="font-bold">[Quantifiable.Achievement.2]</span>, and <span className="font-bold">[Quantifiable.Achievement.3]</span>. These results showcase my ability to <span className="font-bold">[Key.Ability.1]</span>, <span className="font-bold">[Key.Ability.2]</span>, and <span className="font-bold">[Key.Ability.3]</span> — skills that transcend industry boundaries and are essential for the <span className="font-bold">[Position.Title]</span> position.
+      </div>
+
+      {/* Preparation & Commitment */}
+      <div className="mb-4">
+        <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-yellow-800 mb-2">📚 PREPARATION & COMMITMENT TO SUCCESS</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            To ensure a successful transition, I have proactively <span className="font-bold">[Preparation.Action.1]</span>, completed <span className="font-bold">[Certification.Or.Course]</span>, and gained hands-on experience through <span className="font-bold">[Project.Or.Volunteer.Work]</span>. I've also <span className="font-bold">[Networking.Or.Industry.Research]</span> to deepen my understanding of <span className="font-bold">[Target.Industry]</span>. This groundwork demonstrates my commitment and ensures I can contribute effectively from day one.
+          </div>
+        </div>
+      </div>
+
+      {/* Why This Company */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        <span className="font-bold text-teal-600">[Company.Name]</span> stands out to me because of <span className="font-bold">[Company.Unique.Quality]</span> and your innovative approach to <span className="font-bold">[Company.Focus.Area]</span>. I'm particularly impressed by <span className="font-bold">[Specific.Company.Initiative.Or.Value]</span>, which aligns perfectly with my professional philosophy. I believe my fresh perspective from <span className="font-bold">[Current.Industry]</span>, combined with my transferable skills and genuine enthusiasm, would bring unique value to your team.
+      </div>
+
+      {/* What You Offer */}
+      <div className="mb-4">
+        <div className="bg-teal-50 border-l-4 border-teal-600 p-4 rounded-r">
+          <div className="text-sm font-bold text-teal-700 mb-2">💡 WHAT I BRING TO THE TABLE</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+            <div>• <span className="font-bold">Fresh Perspective:</span> Cross-industry insights that can drive innovation and creative problem-solving</div>
+            <div>• <span className="font-bold">Proven Results:</span> Track record of [Key.Result.Area] with measurable outcomes</div>
+            <div>• <span className="font-bold">Adaptability:</span> Demonstrated ability to learn quickly and excel in new environments</div>
+            <div>• <span className="font-bold">Transferable Expertise:</span> [Years.Experience] years of applicable skills in [Skill.Area.1], [Skill.Area.2], and [Skill.Area.3]</div>
+            <div>• <span className="font-bold">Genuine Passion:</span> Authentic enthusiasm for [Target.Industry] backed by concrete preparation</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Closing */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I am confident that my unique combination of <span className="font-bold">[Current.Industry]</span> experience and passion for <span className="font-bold">[Target.Industry]</span> makes me an excellent fit for the <span className="font-bold">[Position.Title]</span> role. I would welcome the opportunity to discuss how my background and fresh perspective can contribute to <span className="font-bold text-teal-600">[Company.Name]</span>'s continued success. Thank you for considering my application, and I look forward to the possibility of speaking with you soon.
+      </div>
+
+      {/* Signature */}
+      <div className="mt-6 text-[8px] text-slate-700">
+        <div className="mb-10">Sincerely,</div>
+        <div className="font-bold text-slate-900 text-sm">[Your.Full.Name]</div>
+      </div>
+
+      {/* Enclosure */}
+      <div className="mt-6">
+        <div className="bg-slate-100 border-l-4 border-slate-400 p-2 rounded-r text-[7px] text-slate-600">
+          Enclosures: Resume, Portfolio (if applicable), Certifications
+        </div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!-- Full HTML -->`
+},
+
   // Continue with more templates...
 ]
   const filteredTemplates = templates.filter(template => {
