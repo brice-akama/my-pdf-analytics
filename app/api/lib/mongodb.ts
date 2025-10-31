@@ -1,5 +1,5 @@
 // lib/mongodb.ts
-import 'server-only';
+
 import { MongoClient, Db } from 'mongodb';
 
 const uri = process.env.MONGODB_URI || '';
