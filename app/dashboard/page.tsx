@@ -4802,339 +4802,6 @@ const TemplatesSection = () => {
   htmlTemplate: `<!-- Full HTML -->`
 },
 
-
-{
-  id: 'monthly-report-001',
-  name: 'Monthly Report',
-  description: 'Business performance and analytics report',
-  category: 'reports',
-  popular: false,
-  fields: ['Period', 'Metrics', 'Charts', 'Analysis', 'Recommendations'],
-  previewComponent: (
-    <div className="w-full h-full bg-white text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
-      {/* Cover Page */}
-      <div className="bg-gradient-to-br from-indigo-700 via-purple-700 to-pink-600 text-white p-10 min-h-[40%] flex flex-col justify-center">
-        <div className="text-[10px] opacity-90 mb-2">MONTHLY BUSINESS REPORT</div>
-        <div className="text-5xl font-bold mb-4">[Report.Month]</div>
-        <div className="text-2xl font-semibold mb-6">[Report.Year]</div>
-        <div className="w-32 h-1 bg-white mb-6 opacity-80"></div>
-        <div className="text-[9px] opacity-90 space-y-1">
-          <div>Prepared by: [Prepared.By]</div>
-          <div>Department: [Department.Name]</div>
-          <div>Report Date: [Report.Date]</div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-8">
-        {/* Executive Summary */}
-        <div className="mb-8">
-          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">EXECUTIVE SUMMARY</div>
-          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-600 p-5 rounded-r-lg">
-            <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
-              <p>
-                This report provides a comprehensive overview of business performance for <strong>[Report.Month] [Report.Year]</strong>. Key highlights include:
-              </p>
-              <ul className="ml-4 space-y-1">
-                <li>• [Highlight.1]</li>
-                <li>• [Highlight.2]</li>
-                <li>• [Highlight.3]</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Key Performance Indicators */}
-        <div className="mb-8">
-          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">KEY PERFORMANCE INDICATORS</div>
-          <div className="grid grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-5 shadow-lg">
-              <div className="text-[8px] opacity-90 mb-2">REVENUE</div>
-              <div className="text-3xl font-bold mb-1">${"[revenue]"}</div>
-              <div className="text-[7px] opacity-80 flex items-center gap-1">
-                <span className="text-green-300">↑ 12.5%</span> vs last month
-              </div>  
-            </div>
-
-            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-5 shadow-lg">
-              <div className="text-[8px] opacity-90 mb-2">PROFIT</div>
-              <div className="text-3xl font-bold mb-1"> ${"[profit]"}</div>
-              <div className="text-[7px] opacity-80 flex items-center gap-1">
-                <span className="text-green-300">↑ 8.3%</span> vs last month
-              </div> 
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-5 shadow-lg">
-              <div className="text-[8px] opacity-90 mb-2">CUSTOMERS</div>
-              <div className="text-3xl font-bold mb-1">[Customer.Count]</div>
-              <div className="text-[7px] opacity-80 flex items-center gap-1">
-                <span className="text-green-300">↑ 15.2%</span> vs last month
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-5 shadow-lg">
-              <div className="text-[8px] opacity-90 mb-2">GROWTH RATE</div>
-              <div className="text-3xl font-bold mb-1">[Growth.Rate]%</div>
-              <div className="text-[7px] opacity-80 flex items-center gap-1">
-                <span className="text-green-300">↑ 3.1%</span> vs last month
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Revenue Analysis */}
-        <div className="mb-8">
-          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">REVENUE ANALYSIS</div>
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-            <div className="mb-4">
-              <div className="text-[8px] font-semibold text-slate-900 mb-3">Monthly Revenue Trend</div>
-              <div className="h-32 bg-white border border-slate-200 rounded-lg flex items-end justify-around p-3 gap-1">
-                <div className="flex flex-col items-center gap-1 flex-1">
-                  <div className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t" style={{height: '60%'}}></div>
-                  <div className="text-[6px] text-slate-600">Jan</div>
-                </div>
-                <div className="flex flex-col items-center gap-1 flex-1">
-                  <div className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t" style={{height: '75%'}}></div>
-                  <div className="text-[6px] text-slate-600">Feb</div>
-                </div>
-                <div className="flex flex-col items-center gap-1 flex-1">
-                  <div className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t" style={{height: '85%'}}></div>
-                  <div className="text-[6px] text-slate-600">Mar</div>
-                </div>
-                <div className="flex flex-col items-center gap-1 flex-1">
-                  <div className="w-full bg-gradient-to-t from-indigo-600 to-indigo-500 rounded-t" style={{height: '95%'}}></div>
-                  <div className="text-[6px] font-bold text-indigo-600">This</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 text-[8px]">
-              <div className="bg-white border border-slate-200 rounded-lg p-3">
-                <div className="text-slate-600 mb-1">Product Sales</div>
-                <div className="text-xl font-bold text-slate-900">$[Product.Revenue]</div>
-                <div className="text-[7px] text-green-600 mt-1">↑ 14.2%</div>
-              </div>
-              <div className="bg-white border border-slate-200 rounded-lg p-3">
-                <div className="text-slate-600 mb-1">Service Revenue</div>
-                <div className="text-xl font-bold text-slate-900">$[Service.Revenue]</div>
-                <div className="text-[7px] text-green-600 mt-1">↑ 9.8%</div>
-              </div>
-              <div className="bg-white border border-slate-200 rounded-lg p-3">
-                <div className="text-slate-600 mb-1">Recurring Revenue</div>
-                <div className="text-xl font-bold text-slate-900">$[Recurring.Revenue]</div>
-                <div className="text-[7px] text-green-600 mt-1">↑ 18.5%</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Customer Insights */}
-        <div className="mb-8">
-          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">CUSTOMER INSIGHTS</div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-5">
-              <div className="text-[8px] font-semibold text-purple-900 mb-3">Customer Acquisition</div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-[8px] text-slate-700">New Customers:</span>
-                  <span className="text-lg font-bold text-purple-700">[New.Customers]</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[8px] text-slate-700">Churn Rate:</span>
-                  <span className="text-lg font-bold text-slate-900">[Churn.Rate]%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[8px] text-slate-700">Retention Rate:</span>
-                  <span className="text-lg font-bold text-green-600">[Retention.Rate]%</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-xl p-5">
-              <div className="text-[8px] font-semibold text-blue-900 mb-3">Customer Satisfaction</div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-[8px] text-slate-700">NPS Score:</span>
-                  <span className="text-lg font-bold text-blue-700">[NPS.Score]</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[8px] text-slate-700">CSAT Score:</span>
-                  <span className="text-lg font-bold text-slate-900">[CSAT.Score]%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-[8px] text-slate-700">Support Tickets:</span>
-                  <span className="text-lg font-bold text-slate-900">[Support.Tickets]</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Departmental Performance */}
-        <div className="mb-8">
-          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">DEPARTMENTAL PERFORMANCE</div>
-          <div className="space-y-3">
-            <div className="bg-white border-2 border-slate-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <span className="text-xl">💼</span>
-                  </div>
-                  <div>
-                    <div className="text-[8px] font-bold text-slate-900">Sales Department</div>
-                    <div className="text-[7px] text-slate-600">Target Achievement: <strong className="text-green-600">125%</strong></div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl font-bold text-slate-900">$[Sales.Revenue]</div>
-                  <div className="text-[7px] text-green-600">↑ 25% vs target</div>
-                </div>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-2">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full" style={{width: '125%', maxWidth: '100%'}}></div>
-              </div>
-            </div>
-
-            <div className="bg-white border-2 border-slate-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <span className="text-xl">📢</span>
-                  </div>
-                  <div>
-                    <div className="text-[8px] font-bold text-slate-900">Marketing Department</div>
-                    <div className="text-[7px] text-slate-600">Target Achievement: <strong className="text-green-600">110%</strong></div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl font-bold text-slate-900">[Marketing.Leads]</div>
-                  <div className="text-[7px] text-green-600">↑ 10% vs target</div>
-                </div>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-2">
-                <div className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full" style={{width: '110%', maxWidth: '100%'}}></div>
-              </div>
-            </div>
-
-            <div className="bg-white border-2 border-slate-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <span className="text-xl">🛠️</span>
-                  </div>
-                  <div>
-                    <div className="text-[8px] font-bold text-slate-900">Operations Department</div>
-                    <div className="text-[7px] text-slate-600">Efficiency Score: <strong className="text-blue-600">95%</strong></div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl font-bold text-slate-900">[Operations.Score]</div>
-                  <div className="text-[7px] text-blue-600">↑ 5% improvement</div>
-                </div>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-2">
-                <div className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full" style={{width: '95%'}}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Challenges & Opportunities */}
-        <div className="mb-8">
-          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">CHALLENGES & OPPORTUNITIES</div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
-              <div className="text-[8px] font-bold text-red-900 mb-3 flex items-center gap-2">
-                <span className="text-lg">⚠️</span> CHALLENGES
-              </div>
-              <ul className="text-[8px] text-slate-700 space-y-2">
-                <li className="flex gap-2">
-                  <span className="text-red-600">•</span>
-                  <span>[Challenge.1]</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-red-600">•</span>
-                  <span>[Challenge.2]</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-red-600">•</span>
-                  <span>[Challenge.3]</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-5">
-              <div className="text-[8px] font-bold text-green-900 mb-3 flex items-center gap-2">
-                <span className="text-lg">💡</span> OPPORTUNITIES
-              </div>
-              <ul className="text-[8px] text-slate-700 space-y-2">
-                <li className="flex gap-2">
-                  <span className="text-green-600">•</span>
-                  <span>[Opportunity.1]</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-green-600">•</span>
-                  <span>[Opportunity.2]</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-green-600">•</span>
-                  <span>[Opportunity.3]</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Recommendations */}
-        <div className="mb-8">
-          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">RECOMMENDATIONS</div>
-          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-5">
-            <div className="text-[8px] text-slate-700 leading-relaxed space-y-3">
-              <div>
-                <strong className="text-indigo-900">1. Short-term Actions (0-30 days):</strong>
-                <ul className="ml-4 mt-1 space-y-1">
-                  <li>• [Short.Term.Action.1]</li>
-                  <li>• [Short.Term.Action.2]</li>
-                  <li>• [Short.Term.Action.3]</li>
-                </ul>
-              </div>
-              <div>
-                <strong className="text-indigo-900">2. Medium-term Initiatives (1-3 months):</strong>
-                <ul className="ml-4 mt-1 space-y-1">
-                  <li>• [Medium.Term.Action.1]</li>
-                  <li>• [Medium.Term.Action.2]</li>
-                </ul>
-              </div>
-              <div>
-                <strong className="text-indigo-900">3. Long-term Strategy (3-12 months):</strong>
-                <ul className="ml-4 mt-1 space-y-1">
-                  <li>• [Long.Term.Action.1]</li>
-                  <li>• [Long.Term.Action.2]</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Conclusion */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl p-6 text-center">
-          <div className="text-lg font-bold mb-2">OVERALL PERFORMANCE</div>
-          <div className="text-4xl font-bold mb-2">EXCELLENT</div>
-          <div className="text-[8px] opacity-90">Based on all key metrics and departmental performance</div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="bg-slate-100 p-4 text-center text-[7px] text-slate-600 border-t">
-        <div className="font-semibold mb-1">CONFIDENTIAL - INTERNAL USE ONLY</div>
-        <div>[Company.Name] | Monthly Business Report</div>
-        <div className="mt-1">Report Period: [Report.Month] [Report.Year] | Generated: [Generated.Date]</div>
-      </div>
-    </div>
-  ),
-  htmlTemplate: `<!-- Full HTML -->`
-},
-
 {
   id: 'purchase-order-001',
   name: 'Purchase Order',
@@ -5355,7 +5022,581 @@ const TemplatesSection = () => {
       </div>
     </div>
   ),
-  htmlTemplate: `<!-- Full HTML will be generated from this component -->`
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purchase Order</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 3px solid #2563eb;
+    }
+    .company-info {
+      max-width: 200px;
+    }
+    .company-logo {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(to bottom right, #3b82f6, #06b6d4);
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.75rem;
+      font-weight: bold;
+      margin-bottom: 0.75rem;
+    }
+    .company-name {
+      font-size: 1.125rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .company-details {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.2;
+    }
+    .po-title {
+      font-size: 1.75rem;
+      font-weight: bold;
+      color: #2563eb;
+      margin-bottom: 0.75rem;
+      text-align: right;
+    }
+    .po-number-box {
+      background-color: #dbeafe;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+    .po-number-label {
+      font-size: 0.65rem;
+      color: #1e40af;
+      font-weight: 600;
+      margin-bottom: 0.125rem;
+    }
+    .po-number {
+      font-size: 1.125rem;
+      font-weight: bold;
+      color: #1e293b;
+    }
+    .po-dates {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.2;
+    }
+    .delivery-date {
+      background-color: #fef3c7;
+      padding: 0.125rem 0.5rem;
+      border-radius: 0.25rem;
+      font-weight: bold;
+      color: #92400e;
+    }
+
+    /* Vendor and Bill To Sections */
+    .vendor-bill-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .section-header {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #2563eb;
+      margin-bottom: 0.75rem;
+      padding-left: 0.75rem;
+      border-left: 4px solid #2563eb;
+    }
+    .vendor-section {
+      background: linear-gradient(to right, #dbeafe, #bfdbfe);
+      border: 2px solid #bfdbfe;
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+    }
+    .bill-section {
+      background-color: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+    }
+    .vendor-name {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .vendor-details {
+      font-size: 0.7rem;
+      color: #1e293b;
+      line-height: 1.2;
+    }
+    .vendor-detail-label {
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    /* Items Table */
+    .items-section {
+      margin-bottom: 2rem;
+    }
+    .items-header {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.75rem;
+    }
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.7rem;
+    }
+    .items-table th {
+      background: linear-gradient(to right, #2563eb, #06b6d4);
+      color: white;
+      padding: 0.5rem;
+      text-align: left;
+      font-weight: 600;
+      border: 1px solid #1e40af;
+    }
+    .items-table th:last-child,
+    .items-table th:nth-last-child(2) {
+      text-align: right;
+    }
+    .items-table th:nth-child(3),
+    .items-table th:nth-child(4) {
+      text-align: center;
+      width: 40px;
+    }
+    .items-table td {
+      padding: 0.5rem;
+      border: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    .items-table td:last-child,
+    .items-table td:nth-last-child(2) {
+      text-align: right;
+    }
+    .items-table td:nth-child(3),
+    .items-table td:nth-child(4) {
+      text-align: center;
+    }
+    .items-table tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .items-table tr:hover {
+      background-color: #dbeafe;
+    }
+    .item-number {
+      font-weight: bold;
+      color: #1e293b;
+    }
+    .item-name {
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 0.125rem;
+    }
+    .item-description {
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+    .item-amount {
+      font-weight: bold;
+      color: #1e293b;
+    }
+
+    /* Totals Section */
+    .totals-section {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 2rem;
+    }
+    .totals-box {
+      width: 320px;
+    }
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 0.7rem;
+    }
+    .total-label {
+      color: #64748b;
+      font-weight: 600;
+    }
+    .total-value {
+      font-weight: bold;
+      color: #1e293b;
+    }
+    .total-discount {
+      color: #10b981;
+    }
+    .grand-total {
+      background: linear-gradient(to right, #2563eb, #06b6d4);
+      color: white;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      margin-top: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .grand-total-label {
+      font-size: 0.875rem;
+      font-weight: bold;
+    }
+    .grand-total-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    /* Terms and Notes */
+    .terms-notes-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .terms-section {
+      border-left: 4px solid #2563eb;
+      padding-left: 0.75rem;
+    }
+    .notes-section {
+      border-left: 4px solid #f59e0b;
+      padding-left: 0.75rem;
+    }
+    .section-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+    }
+    .notes-box {
+      background-color: #fef3c7;
+      border: 2px solid #fde68a;
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+    }
+    .terms-list {
+      list-style: none;
+      padding-left: 0;
+    }
+    .terms-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .terms-bullet {
+      color: #2563eb;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+    .notes-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* Authorization Section */
+    .authorization-section {
+      border-top: 2px solid #2563eb;
+      padding-top: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .authorization-header {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 1rem;
+    }
+    .authorization-box {
+      background-color: #dbeafe;
+      border: 2px solid #bfdbfe;
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+    }
+    .authorization-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+      line-height: 1.4;
+    }
+    .signature-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+    .signature-field {
+      text-align: center;
+    }
+    .signature-label {
+      font-size: 0.65rem;
+      color: #64748b;
+      margin-bottom: 0.5rem;
+    }
+    .signature-line {
+      border-bottom: 2px solid #cbd5e1;
+      height: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    .stamp-box {
+      border: 2px dashed #cbd5e1;
+      border-radius: 0.25rem;
+      height: 3rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #cbd5e1;
+      font-size: 0.65rem;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+    .footer-bold {
+      font-weight: 600;
+      color: #1e293b;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="company-info">
+      <div class="company-logo">PO</div>
+      <div class="company-name">[Company.Name]</div>
+      <div class="company-details">
+        <div>[Company.Address]</div>
+        <div>[Company.City], [Company.State] [Company.Zip]</div>
+        <div class="mt-1">[Company.Email]</div>
+        <div>[Company.Phone]</div>
+      </div>
+    </div>
+    <div>
+      <div class="po-title">PURCHASE ORDER</div>
+      <div class="po-number-box">
+        <div class="po-number-label">PO NUMBER</div>
+        <div class="po-number">[PO.Number]</div>
+      </div>
+      <div class="po-dates">
+        <div><strong>Date:</strong> [PO.Date]</div>
+        <div><strong>Required By:</strong> <span class="delivery-date">[Delivery.Date]</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vendor and Bill To -->
+  <div class="vendor-bill-section">
+    <div>
+      <div class="section-header">VENDOR</div>
+      <div class="vendor-section">
+        <div class="vendor-name">[Vendor.Name]</div>
+        <div class="vendor-details">
+          <div>[Vendor.Address]</div>
+          <div>[Vendor.City], [Vendor.State] [Vendor.Zip]</div>
+          <div class="mt-2"><span class="vendor-detail-label">Email:</span> [Vendor.Email]</div>
+          <div><span class="vendor-detail-label">Phone:</span> [Vendor.Phone]</div>
+          <div><span class="vendor-detail-label">Account #:</span> [Vendor.AccountNumber]</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="section-header" style="border-left-color: #64748b;">BILL TO / SHIP TO</div>
+      <div class="bill-section">
+        <div class="vendor-name">[Company.Name]</div>
+        <div class="vendor-details">
+          <div>[Shipping.Address]</div>
+          <div>[Shipping.City], [Shipping.State] [Shipping.Zip]</div>
+          <div class="mt-2"><span class="vendor-detail-label">Attn:</span> [Shipping.Contact]</div>
+          <div><span class="vendor-detail-label">Phone:</span> [Shipping.Phone]</div>
+          <div><span class="vendor-detail-label">PO Contact:</span> [PO.ContactName]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <div class="items-section">
+    <div class="items-header">ORDERED ITEMS</div>
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>DESCRIPTION</th>
+          <th>QTY</th>
+          <th>UNIT</th>
+          <th>UNIT PRICE</th>
+          <th>AMOUNT</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="item-number">1</td>
+          <td>
+            <div class="item-name">[Item.1.Name]</div>
+            <div class="item-description">[Item.1.Description]</div>
+          </td>
+          <td class="text-center">[Item.1.Qty]</td>
+          <td class="text-center">[Item.1.Unit]</td>
+          <td class="text-right">$[Item.1.Price]</td>
+          <td class="text-right item-amount">$[Item.1.Amount]</td>
+        </tr>
+        <tr>
+          <td class="item-number">2</td>
+          <td>
+            <div class="item-name">[Item.2.Name]</div>
+            <div class="item-description">[Item.2.Description]</div>
+          </td>
+          <td class="text-center">[Item.2.Qty]</td>
+          <td class="text-center">[Item.2.Unit]</td>
+          <td class="text-right">$[Item.2.Price]</td>
+          <td class="text-right item-amount">$[Item.2.Amount]</td>
+        </tr>
+        <tr>
+          <td class="item-number">3</td>
+          <td>
+            <div class="item-name">[Item.3.Name]</div>
+            <div class="item-description">[Item.3.Description]</div>
+          </td>
+          <td class="text-center">[Item.3.Qty]</td>
+          <td class="text-center">[Item.3.Unit]</td>
+          <td class="text-right">$[Item.3.Price]</td>
+          <td class="text-right item-amount">$[Item.3.Amount]</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Totals -->
+  <div class="totals-section">
+    <div class="totals-box">
+      <div class="total-row">
+        <span class="total-label">Subtotal:</span>
+        <span class="total-value">$[Subtotal]</span>
+      </div>
+      <div class="total-row">
+        <span class="total-label">Shipping & Handling:</span>
+        <span class="total-value">$[Shipping.Cost]</span>
+      </div>
+      <div class="total-row">
+        <span class="total-label">Discount ([Discount.Percent]%):</span>
+        <span class="total-value total-discount">-$[Discount.Amount]</span>
+      </div>
+      <div class="total-row">
+        <span class="total-label">Tax ([Tax.Rate]%):</span>
+        <span class="total-value">$[Tax.Amount]</span>
+      </div>
+      <div class="grand-total">
+        <span class="grand-total-label">TOTAL DUE:</span>
+        <span class="grand-total-value">${"[total_amount]"}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terms and Notes -->
+  <div class="terms-notes-section">
+    <div class="terms-section">
+      <div class="section-header">TERMS & CONDITIONS</div>
+      <div class="section-box">
+        <ul class="terms-list">
+          <li class="terms-item">
+            <span class="terms-bullet">•</span>
+            <span><strong>Payment Terms:</strong> Net [Payment.Terms] days from invoice date.</span>
+          </li>
+          <li class="terms-item">
+            <span class="terms-bullet">•</span>
+            <span><strong>Late Payments:</strong> Subject to [Late.Fee]% monthly interest.</span>
+          </li>
+          <li class="terms-item">
+            <span class="terms-bullet">•</span>
+            <span><strong>Delivery:</strong> Must be received by [Delivery.Date]. Late deliveries may be rejected.</span>
+          </li>
+          <li class="terms-item">
+            <span class="terms-bullet">•</span>
+            <span><strong>Inspection:</strong> Goods subject to quality inspection within 5 business days of receipt.</span>
+          </li>
+          <li class="terms-item">
+            <span class="terms-bullet">•</span>
+            <span><strong>Cancellation:</strong> PO may be canceled without penalty if vendor fails to meet delivery schedule.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <div class="notes-section">
+      <div class="section-header" style="border-left-color: #f59e0b;">ADDITIONAL NOTES</div>
+      <div class="notes-box">
+        <div class="notes-text">
+          [Additional.Notes] – Special instructions, packaging requirements, compliance certifications, or reference numbers (e.g., project code: [Project.Code]).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Authorization -->
+  <div class="authorization-section">
+    <div class="authorization-header">AUTHORIZED SIGNATURE</div>
+    <div class="authorization-box">
+      <div class="authorization-text">
+        This purchase order is legally binding upon acceptance by the vendor. By signing below, the vendor agrees to all terms and conditions stated herein.
+      </div>
+      <div class="signature-section">
+        <div class="signature-field">
+          <div class="signature-label">Vendor Signature:</div>
+          <div class="signature-line"></div>
+          <div class="signature-label">Name: _______________________</div>
+        </div>
+        <div class="signature-field">
+          <div class="signature-label">Date:</div>
+          <div class="signature-line"></div>
+        </div>
+        <div class="signature-field">
+          <div class="signature-label">Company Stamp:</div>
+          <div class="stamp-box">[Official Stamp]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-bold">Thank you for your partnership!</div>
+    <div>Questions? Contact [PO.ContactName] at [Company.Email] or [Company.Phone]</div>
+    <div class="mt-2">PO #[PO.Number] | Issued [PO.Date] | Required by [Delivery.Date]</div>
+  </div>
+</body>
+</html>
+`
 },
 
 {
@@ -5741,7 +5982,701 @@ const TemplatesSection = () => {
       </div>
     </div>
   ),
-  htmlTemplate: `<!-- Full HTML -->`
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Professional Resume</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 4px solid #2563eb;
+    }
+    .name {
+      font-size: 2.25rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .title {
+      font-size: 1.125rem;
+      color: #2563eb;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    .contact-info {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    /* Section Headers */
+    .section-header {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: #2563eb;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #2563eb;
+    }
+
+    /* Core Competencies */
+    .competencies-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .competency-item {
+      background-color: #dbeafe;
+      border-left: 4px solid #2563eb;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    /* Experience Items */
+    .experience-item {
+      margin-bottom: 1.5rem;
+    }
+    .experience-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.5rem;
+    }
+    .experience-title {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+    }
+    .experience-company {
+      font-size: 0.7rem;
+      color: #2563eb;
+      font-weight: 600;
+    }
+    .experience-dates {
+      font-size: 0.7rem;
+      color: #64748b;
+      font-weight: 600;
+    }
+    .experience-details {
+      margin-left: 1rem;
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+    .experience-bullet {
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .experience-bullet::before {
+      content: "•";
+      color: #2563eb;
+      font-weight: bold;
+    }
+
+    /* Education Items */
+    .education-item {
+      margin-bottom: 1rem;
+    }
+    .education-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.25rem;
+    }
+    .education-degree {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+    }
+    .education-school {
+      font-size: 0.7rem;
+      color: #2563eb;
+      font-weight: 600;
+    }
+    .education-dates {
+      font-size: 0.7rem;
+      color: #64748b;
+      font-weight: 600;
+    }
+    .education-details {
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    /* Certifications Grid */
+    .certifications-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+    .certification-item {
+      background-color: #f8fafc;
+      border-left: 4px solid #2563eb;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+    .certification-name {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .certification-details {
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+
+    /* Technical Skills */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .skills-category {
+      margin-bottom: 0.5rem;
+    }
+    .skills-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .skills-list {
+      font-size: 0.65rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* Projects */
+    .project-item {
+      background-color: #dbeafe;
+      border-left: 4px solid #2563eb;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 0.75rem;
+    }
+    .project-name {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .project-description {
+      font-size: 0.65rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 0.25rem;
+    }
+    .project-tech {
+      font-size: 0.65rem;
+      color: #2563eb;
+      font-weight: 600;
+    }
+
+    /* Awards Grid */
+    .awards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+    .award-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+    }
+    .award-icon {
+      color: #eab308;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+    .award-details h4 {
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.125rem;
+    }
+    .award-details p {
+      color: #64748b;
+      font-size: 0.65rem;
+    }
+
+    /* Affiliations Grid */
+    .affiliations-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+    .affiliation-item {
+      background-color: #f8fafc;
+      border-left: 4px solid #2563eb;
+      padding: 0.5rem 0.75rem;
+    }
+    .affiliation-name {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 0.125rem;
+    }
+    .affiliation-details {
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+
+    /* Languages Grid */
+    .languages-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75rem;
+    }
+    .language-item {
+      background-color: #dbeafe;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      border: 1px solid #bfdbfe;
+      text-align: center;
+    }
+    .language-name {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 0.125rem;
+    }
+    .language-proficiency {
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+
+    /* Volunteer Experience */
+    .volunteer-item {
+      margin-bottom: 1rem;
+    }
+    .volunteer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.25rem;
+    }
+    .volunteer-role {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #1e293b;
+    }
+    .volunteer-dates {
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+    .volunteer-description {
+      font-size: 0.65rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="name">[Full.Name]</div>
+    <div class="title">[Professional.Title]</div>
+    <div class="contact-info">
+      <div class="contact-item">
+        <span>📧</span>
+        <span>[Email.Address]</span>
+      </div>
+      <div class="contact-item">
+        <span>📱</span>
+        <span>[Phone.Number]</span>
+      </div>
+      <div class="contact-item">
+        <span>📍</span>
+        <span>[City], [State/Country]</span>
+      </div>
+      <div class="contact-item">
+        <span>💼</span>
+        <span>[LinkedIn.URL]</span>
+      </div>
+      <div class="contact-item">
+        <span>🌐</span>
+        <span>[Portfolio.Website]</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Professional Summary -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">PROFESSIONAL SUMMARY</div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+      [Professional.Summary.Paragraph] - A results-driven professional with [Years.Experience]+ years of experience in [Industry/Field]. Proven track record of [Key.Achievement.1], [Key.Achievement.2], and [Key.Achievement.3]. Seeking to leverage expertise in [Core.Skill.1] and [Core.Skill.2] to contribute to [Target.Company.Type]'s success.
+    </div>
+  </div>
+
+  <!-- Core Competencies -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">CORE COMPETENCIES</div>
+    <div class="competencies-grid">
+      <div class="competency-item">[Competency.1]</div>
+      <div class="competency-item">[Competency.2]</div>
+      <div class="competency-item">[Competency.3]</div>
+      <div class="competency-item">[Competency.4]</div>
+      <div class="competency-item">[Competency.5]</div>
+      <div class="competency-item">[Competency.6]</div>
+      <div class="competency-item">[Competency.7]</div>
+      <div class="competency-item">[Competency.8]</div>
+      <div class="competency-item">[Competency.9]</div>
+    </div>
+  </div>
+
+  <!-- Professional Experience -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">PROFESSIONAL EXPERIENCE</div>
+
+    <!-- Job 1 -->
+    <div class="experience-item">
+      <div class="experience-header">
+        <div>
+          <div class="experience-title">[Job.Title.1]</div>
+          <div class="experience-company">[Company.Name.1] | [Company.Location.1]</div>
+        </div>
+        <div class="experience-dates">[Start.Date.1] – [End.Date.1]</div>
+      </div>
+      <div class="experience-details">
+        <div class="experience-bullet">[Achievement.1.1] - Quantifiable result showing impact (e.g., "Increased sales by 35% through strategic marketing initiatives")</div>
+        <div class="experience-bullet">[Achievement.1.2] - Specific responsibility with measurable outcome</div>
+        <div class="experience-bullet">[Achievement.1.3] - Leadership or collaboration example</div>
+        <div class="experience-bullet">[Achievement.1.4] - Technical skill or process improvement</div>
+        <div class="experience-bullet">[Achievement.1.5] - Recognition or special project completion</div>
+      </div>
+    </div>
+
+    <!-- Job 2 -->
+    <div class="experience-item">
+      <div class="experience-header">
+        <div>
+          <div class="experience-title">[Job.Title.2]</div>
+          <div class="experience-company">[Company.Name.2] | [Company.Location.2]</div>
+        </div>
+        <div class="experience-dates">[Start.Date.2] – [End.Date.2]</div>
+      </div>
+      <div class="experience-details">
+        <div class="experience-bullet">[Achievement.2.1] - Key accomplishment with metrics</div>
+        <div class="experience-bullet">[Achievement.2.2] - Process improvement or innovation</div>
+        <div class="experience-bullet">[Achievement.2.3] - Team leadership or mentoring experience</div>
+        <div class="experience-bullet">[Achievement.2.4] - Project management or strategic initiative</div>
+        <div class="experience-bullet">[Achievement.2.5] - Client relationship or stakeholder management</div>
+      </div>
+    </div>
+
+    <!-- Job 3 -->
+    <div class="experience-item">
+      <div class="experience-header">
+        <div>
+          <div class="experience-title">[Job.Title.3]</div>
+          <div class="experience-company">[Company.Name.3] | [Company.Location.3]</div>
+        </div>
+        <div class="experience-dates">[Start.Date.3] – [End.Date.3]</div>
+      </div>
+      <div class="experience-details">
+        <div class="experience-bullet">[Achievement.3.1] - Demonstrated skill or accomplishment</div>
+        <div class="experience-bullet">[Achievement.3.2] - Contribution to team or company goals</div>
+        <div class="experience-bullet">[Achievement.3.3] - Technical proficiency or specialized knowledge</div>
+        <div class="experience-bullet">[Achievement.3.4] - Problem-solving or analytical capability</div>
+      </div>
+    </div>
+
+    <!-- Job 4 -->
+    <div class="experience-item">
+      <div class="experience-header">
+        <div>
+          <div class="experience-title">[Job.Title.4]</div>
+          <div class="experience-company">[Company.Name.4] | [Company.Location.4]</div>
+        </div>
+        <div class="experience-dates">[Start.Date.4] – [End.Date.4]</div>
+      </div>
+      <div class="experience-details">
+        <div class="experience-bullet">[Achievement.4.1] - Early career responsibility or learning</div>
+        <div class="experience-bullet">[Achievement.4.2] - Foundation building experience</div>
+        <div class="experience-bullet">[Achievement.4.3] - Key skill development or certification earned</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Education -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">EDUCATION</div>
+
+    <div class="education-item">
+      <div class="education-header">
+        <div>
+          <div class="education-degree">[Degree.1] in [Major.1]</div>
+          <div class="education-school">[University.Name.1] | [University.Location.1]</div>
+        </div>
+        <div class="education-dates">[Graduation.Date.1]</div>
+      </div>
+      <div class="education-details">
+        <div><span style="font-weight: 600;">GPA:</span> [GPA.1] | <span style="font-weight: 600;">Honors:</span> [Honors.1]</div>
+        <div><span style="font-weight: 600;">Relevant Coursework:</span> [Coursework.1]</div>
+      </div>
+    </div>
+
+    <div class="education-item">
+      <div class="education-header">
+        <div>
+          <div class="education-degree">[Degree.2] in [Major.2]</div>
+          <div class="education-school">[University.Name.2] | [University.Location.2]</div>
+        </div>
+        <div class="education-dates">[Graduation.Date.2]</div>
+      </div>
+      <div class="education-details">
+        <div><span style="font-weight: 600;">Relevant Coursework:</span> [Coursework.2]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Certifications -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">CERTIFICATIONS & LICENSES</div>
+    <div class="certifications-grid">
+      <div class="certification-item">
+        <div class="certification-name">[Certification.1.Name]</div>
+        <div class="certification-details">
+          <div>[Issuing.Organization.1] | [Issue.Date.1]</div>
+          <div>ID: [Certification.ID.1]</div>
+        </div>
+      </div>
+      <div class="certification-item">
+        <div class="certification-name">[Certification.2.Name]</div>
+        <div class="certification-details">
+          <div>[Issuing.Organization.2] | [Issue.Date.2]</div>
+          <div>ID: [Certification.ID.2]</div>
+        </div>
+      </div>
+      <div class="certification-item">
+        <div class="certification-name">[Certification.3.Name]</div>
+        <div class="certification-details">
+          <div>[Issuing.Organization.3] | [Issue.Date.3]</div>
+          <div>ID: [Certification.ID.3]</div>
+        </div>
+      </div>
+      <div class="certification-item">
+        <div class="certification-name">[Certification.4.Name]</div>
+        <div class="certification-details">
+          <div>[Issuing.Organization.4] | [Issue.Date.4]</div>
+          <div>ID: [Certification.ID.4]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Technical Skills -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">TECHNICAL SKILLS</div>
+    <div class="skills-grid">
+      <div class="skills-category">
+        <div class="skills-title">Programming & Development</div>
+        <div class="skills-list">[Programming.Languages] | [Frameworks] | [Development.Tools]</div>
+      </div>
+      <div class="skills-category">
+        <div class="skills-title">Software & Applications</div>
+        <div class="skills-list">[Software.List] | [Design.Tools] | [Productivity.Tools]</div>
+      </div>
+      <div class="skills-category">
+        <div class="skills-title">Databases & Cloud</div>
+        <div class="skills-list">[Database.Systems] | [Cloud.Platforms] | [DevOps.Tools]</div>
+      </div>
+      <div class="skills-category">
+        <div class="skills-title">Specialized Skills</div>
+        <div class="skills-list">[Data.Analysis] | [Project.Management] | [Domain.Expertise]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Projects -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">KEY PROJECTS & ACHIEVEMENTS</div>
+
+    <div class="project-item">
+      <div class="project-name">[Project.1.Name]</div>
+      <div class="project-description">
+        [Project.1.Description] - Impact: [Project.1.Impact]
+      </div>
+      <div class="project-tech">
+        <strong>Technologies:</strong> [Project.1.Technologies]
+      </div>
+    </div>
+
+    <div class="project-item">
+      <div class="project-name">[Project.2.Name]</div>
+      <div class="project-description">
+        [Project.2.Description] - Impact: [Project.2.Impact]
+      </div>
+      <div class="project-tech">
+        <strong>Technologies:</strong> [Project.2.Technologies]
+      </div>
+    </div>
+
+    <div class="project-item">
+      <div class="project-name">[Project.3.Name]</div>
+      <div class="project-description">
+        [Project.3.Description] - Impact: [Project.3.Impact]
+      </div>
+      <div class="project-tech">
+        <strong>Technologies:</strong> [Project.3.Technologies]
+      </div>
+    </div>
+  </div>
+
+  <!-- Awards -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">AWARDS & RECOGNITION</div>
+    <div class="awards-grid">
+      <div class="award-item">
+        <div class="award-icon">🏆</div>
+        <div class="award-details">
+          <h4>[Award.1.Name]</h4>
+          <p>[Award.1.Organization] | [Award.1.Year]</p>
+        </div>
+      </div>
+      <div class="award-item">
+        <div class="award-icon">🏆</div>
+        <div class="award-details">
+          <h4>[Award.2.Name]</h4>
+          <p>[Award.2.Organization] | [Award.2.Year]</p>
+        </div>
+      </div>
+      <div class="award-item">
+        <div class="award-icon">🏆</div>
+        <div class="award-details">
+          <h4>[Award.3.Name]</h4>
+          <p>[Award.3.Organization] | [Award.3.Year]</p>
+        </div>
+      </div>
+      <div class="award-item">
+        <div class="award-icon">🏆</div>
+        <div class="award-details">
+          <h4>[Award.4.Name]</h4>
+          <p>[Award.4.Organization] | [Award.4.Year]</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Professional Affiliations -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">PROFESSIONAL AFFILIATIONS</div>
+    <div class="affiliations-grid">
+      <div class="affiliation-item">
+        <div class="affiliation-name">[Association.1.Name]</div>
+        <div class="affiliation-details">[Association.1.Role] | [Association.1.Years]</div>
+      </div>
+      <div class="affiliation-item">
+        <div class="affiliation-name">[Association.2.Name]</div>
+        <div class="affiliation-details">[Association.2.Role] | [Association.2.Years]</div>
+      </div>
+      <div class="affiliation-item">
+        <div class="affiliation-name">[Association.3.Name]</div>
+        <div class="affiliation-details">[Association.3.Role] | [Association.3.Years]</div>
+      </div>
+      <div class="affiliation-item">
+        <div class="affiliation-name">[Association.4.Name]</div>
+        <div class="affiliation-details">[Association.4.Role] | [Association.4.Years]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Languages -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">LANGUAGES</div>
+    <div class="languages-grid">
+      <div class="language-item">
+        <div class="language-name">[Language.1]</div>
+        <div class="language-proficiency">[Proficiency.1]</div>
+      </div>
+      <div class="language-item">
+        <div class="language-name">[Language.2]</div>
+        <div class="language-proficiency">[Proficiency.2]</div>
+      </div>
+      <div class="language-item">
+        <div class="language-name">[Language.3]</div>
+        <div class="language-proficiency">[Proficiency.3]</div>
+      </div>
+      <div class="language-item">
+        <div class="language-name">[Language.4]</div>
+        <div class="language-proficiency">[Proficiency.4]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Volunteer Experience -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">VOLUNTEER EXPERIENCE</div>
+
+    <div class="volunteer-item">
+      <div class="volunteer-header">
+        <div class="volunteer-role">[Volunteer.Role.1] - [Organization.1]</div>
+        <div class="volunteer-dates">[Volunteer.Dates.1]</div>
+      </div>
+      <div class="volunteer-description">
+        [Volunteer.Description.1]
+      </div>
+    </div>
+
+    <div class="volunteer-item">
+      <div class="volunteer-header">
+        <div class="volunteer-role">[Volunteer.Role.2] - [Organization.2]</div>
+        <div class="volunteer-dates">[Volunteer.Dates.2]</div>
+      </div>
+      <div class="volunteer-description">
+        [Volunteer.Description.2]
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div>References available upon request</div>
+    <div style="margin-top: 0.25rem;">Last Updated: [Last.Updated.Date]</div>
+  </div>
+</body>
+</html>
+`
 },
 {
   id: 'professional-cover-letter-001',
@@ -5820,7 +6755,174 @@ const TemplatesSection = () => {
       </div>
     </div>
   ),
-  htmlTemplate: `<!-- Full HTML -->`
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Professional Cover Letter</title>
+  <style>
+    body {
+      font-family: Georgia, serif;
+      line-height: 1.6;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Your Information */
+    .your-info {
+      text-align: right;
+      margin-bottom: 2rem;
+    }
+    .your-name {
+      font-size: 1.125rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .your-details {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* Date */
+    .date {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Recipient Information */
+    .recipient-info {
+      margin-bottom: 1.5rem;
+    }
+    .recipient-name {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.125rem;
+    }
+    .recipient-details {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+    .company-name {
+      font-weight: bold;
+      color: #1e293b;
+    }
+
+    /* Salutation */
+    .salutation {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+
+    /* Content Text */
+    .content-text {
+      font-size: 0.75rem;
+      color: #333;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+      text-align: justify;
+    }
+
+    /* Signature */
+    .signature {
+      margin-top: 2rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .signature-name {
+      font-size: 1rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-top: 3rem;
+    }
+
+    /* Enclosure */
+    .enclosure {
+      font-size: 0.65rem;
+      color: #64748b;
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Your Information -->
+  <div class="your-info">
+    <div class="your-name">[Your.Full.Name]</div>
+    <div class="your-details">
+      <div>[Your.Address]</div>
+      <div>[Your.City], [Your.State] [Your.ZipCode]</div>
+      <div>[Your.Phone.Number]</div>
+      <div style="color: #2563eb;">[Your.Email.Address]</div>
+      <div style="color: #2563eb;">[Your.LinkedIn.URL]</div>
+    </div>
+  </div>
+
+  <!-- Date -->
+  <div class="date">[Current.Date]</div>
+
+  <!-- Recipient Information -->
+  <div class="recipient-info">
+    <div class="recipient-details">
+      <div class="recipient-name">[Hiring.Manager.Name]</div>
+      <div>[Hiring.Manager.Title]</div>
+      <div class="company-name">[Company.Name]</div>
+      <div>[Company.Address]</div>
+      <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+    </div>
+  </div>
+
+  <!-- Salutation -->
+  <div class="salutation">
+    Dear [Hiring.Manager.Name] / Dear Hiring Manager,
+  </div>
+
+  <!-- Opening Paragraph -->
+  <div class="content-text">
+    I am writing to express my strong interest in the <span style="font-weight: bold;">[Position.Title]</span> position at <span style="font-weight: bold;">[Company.Name]</span>, as advertised on <span style="font-weight: bold;">[Job.Posting.Source]</span>. With <span style="font-weight: bold;">[Years.Of.Experience]</span> years of experience in <span style="font-weight: bold;">[Your.Industry/Field]</span> and a proven track record of <span style="font-weight: bold;">[Key.Achievement.Area]</span>, I am excited about the opportunity to contribute to your team's success and help <span style="font-weight: bold;">[Company.Name]</span> achieve its goals.
+  </div>
+
+  <!-- Body Paragraph 1 - Your Qualifications -->
+  <div class="content-text">
+    In my current role as <span style="font-weight: bold;">[Current.Job.Title]</span> at <span style="font-weight: bold;">[Current.Company.Name]</span>, I have successfully <span style="font-weight: bold;">[Major.Achievement.1]</span>, resulting in <span style="font-weight: bold;">[Quantifiable.Result.1]</span>. Additionally, I led <span style="font-weight: bold;">[Project.Or.Initiative]</span>, which <span style="font-weight: bold;">[Positive.Outcome]</span>. My expertise in <span style="font-weight: bold;">[Core.Skill.1]</span>, <span style="font-weight: bold;">[Core.Skill.2]</span>, and <span style="font-weight: bold;">[Core.Skill.3]</span> has enabled me to consistently deliver exceptional results and exceed performance targets.
+  </div>
+
+  <!-- Body Paragraph 2 - Why This Company -->
+  <div class="content-text">
+    What particularly attracts me to <span style="font-weight: bold;">[Company.Name]</span> is your <span style="font-weight: bold;">[Company.Quality.Or.Value]</span> and commitment to <span style="font-weight: bold;">[Company.Mission.Or.Goal]</span>. I am especially impressed by <span style="font-weight: bold;">[Specific.Company.Achievement.Or.Initiative]</span>, and I believe my background in <span style="font-weight: bold;">[Relevant.Experience.Area]</span> aligns perfectly with your organization's vision. I am confident that my experience with <span style="font-weight: bold;">[Relevant.Skill.Or.Tool]</span> and passion for <span style="font-weight: bold;">[Industry.Or.Field]</span> would make me a valuable addition to your team.
+  </div>
+
+  <!-- Body Paragraph 3 - Additional Value -->
+  <div class="content-text">
+    Beyond my technical capabilities, I bring strong <span style="font-weight: bold;">[Soft.Skill.1]</span> and <span style="font-weight: bold;">[Soft.Skill.2]</span> skills that have proven invaluable in <span style="font-weight: bold;">[Situation.Or.Context]</span>. My ability to <span style="font-weight: bold;">[Key.Ability]</span> has consistently resulted in <span style="font-weight: bold;">[Positive.Outcome.Or.Recognition]</span>. I am also <span style="font-weight: bold;">[Certification.Or.Qualification]</span>, which further strengthens my capability to excel in this role and contribute immediately to <span style="font-weight: bold;">[Company.Name]</span>'s objectives.
+  </div>
+
+  <!-- Closing Paragraph -->
+  <div class="content-text">
+    I am enthusiastic about the possibility of bringing my unique blend of skills, experience, and passion to the <span style="font-weight: bold;">[Position.Title]</span> role at <span style="font-weight: bold;">[Company.Name]</span>. I would welcome the opportunity to discuss how my background and qualifications align with your team's needs. Thank you for considering my application. I look forward to the possibility of speaking with you soon about how I can contribute to your continued success.
+  </div>
+
+  <!-- Signature -->
+  <div class="signature">
+    <div>Sincerely,</div>
+    <div class="signature-name">[Your.Full.Name]</div>
+  </div>
+
+  <!-- Enclosure -->
+  <div class="enclosure">
+    Enclosure: Resume
+  </div>
+</body>
+</html>
+`
 },
 
 {
@@ -5977,7 +7079,4828 @@ const TemplatesSection = () => {
       </div>
     </div>
   ),
-  htmlTemplate: `<!-- Full HTML -->`
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modern Cover Letter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      background: linear-gradient(to right, #4f46e5, #7c3aed);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .name {
+      font-size: 1.8rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    .title {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .contact-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.7rem;
+    }
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    /* Date */
+    .date {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+
+    /* Recipient Box */
+    .recipient-box {
+      background-color: #f8fafc;
+      border-left: 4px solid #4f46e5;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1.5rem;
+    }
+    .recipient-name {
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .company-name {
+      font-weight: bold;
+      color: #4f46e5;
+      margin: 0.25rem 0;
+    }
+    .recipient-details {
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    /* Subject Box */
+    .subject-box {
+      background-color: #e0e7ff;
+      border-left: 4px solid #4f46e5;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #1e3a8a;
+    }
+
+    /* Content Text */
+    .content-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+
+    /* Section Headers */
+    .section-header {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Highlight Boxes */
+    .highlight-box {
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.7rem;
+      line-height: 1.4;
+    }
+    .why-fit-box {
+      background: linear-gradient(to right, #e0e7ff, #c7d2fe);
+      border: 2px solid #c7d2fe;
+    }
+    .why-company-box {
+      background-color: #e9d5ff;
+      border-left: 4px solid #7c3aed;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+    .achievement-box {
+      background: linear-gradient(to right, #fef3c7, #fde68a);
+      border: 2px solid #f59e0b;
+      border-radius: 0.5rem;
+    }
+
+    /* Skills Grid */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .skill-box {
+      background-color: #fff;
+      border-left: 4px solid #4f46e5;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .skill-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #4f46e5;
+      margin-bottom: 0.25rem;
+    }
+    .skill-description {
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+
+    /* Call to Action Box */
+    .cta-box {
+      background: linear-gradient(to right, #4f46e5, #7c3aed);
+      color: white;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .cta-title {
+      font-size: 0.875rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    .cta-text {
+      font-size: 0.7rem;
+      line-height: 1.4;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 1.5rem;
+    }
+    .footer-badge {
+      display: inline-block;
+      background-color: #f8fafc;
+      padding: 0.5rem 1rem;
+      border-radius: 1rem;
+      font-size: 0.65rem;
+      color: #64748b;
+      border: 1px solid #e2e8f0;
+    }
+
+    /* Signature */
+    .signature {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .signature-name {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="name">[Your.Full.Name]</div>
+    <div class="title">[Your.Professional.Title]</div>
+    <div class="contact-info">
+      <div class="contact-item">
+        <span>📧</span>
+        <span>[Your.Email]</span>
+      </div>
+      <div class="contact-item">
+        <span>📱</span>
+        <span>[Your.Phone]</span>
+      </div>
+      <div class="contact-item">
+        <span>📍</span>
+        <span>[Your.City], [Your.State]</span>
+      </div>
+      <div class="contact-item">
+        <span>💼</span>
+        <span>[Your.LinkedIn]</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Date -->
+  <div class="date">[Current.Date]</div>
+
+  <!-- Recipient -->
+  <div class="recipient-box">
+    <div class="recipient-name">[Hiring.Manager.Name]</div>
+    <div class="recipient-details">[Hiring.Manager.Title]</div>
+    <div class="company-name">[Company.Name]</div>
+    <div class="recipient-details">[Company.Address]</div>
+    <div class="recipient-details">[Company.City], [Company.State] [Company.ZipCode]</div>
+  </div>
+
+  <!-- Subject -->
+  <div class="subject-box">
+    RE: Application for [Position.Title]
+  </div>
+
+  <!-- Salutation -->
+  <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 1rem;">
+    Dear [Hiring.Manager.Name],
+  </div>
+
+  <!-- Opening -->
+  <div class="content-text">
+    When I discovered that <span style="font-weight: bold; color: #4f46e5;">[Company.Name]</span> was seeking a <span style="font-weight: bold;">[Position.Title]</span>, I knew I had to apply. As a passionate <span style="font-weight: bold;">[Your.Profession]</span> with <span style="font-weight: bold;">[Years.Experience]</span> years of experience driving <span style="font-weight: bold;">[Key.Result.Area]</span>, I am excited about the opportunity to bring my unique blend of skills and enthusiasm to your innovative team.
+  </div>
+
+  <!-- Why You're the Right Fit -->
+  <div class="highlight-box why-fit-box">
+    <div class="section-header">
+      🎯 WHY I'M THE RIGHT FIT
+    </div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+      My track record speaks for itself: I've <span style="font-weight: bold;">[Major.Achievement.1.With.Numbers]</span>, <span style="font-weight: bold;">[Major.Achievement.2.With.Numbers]</span>, and <span style="font-weight: bold;">[Major.Achievement.3.With.Numbers]</span>. At <span style="font-weight: bold;">[Current.Company]</span>, I currently lead <span style="font-weight: bold;">[Current.Responsibility]</span>, where I've implemented <span style="font-weight: bold;">[Innovation.Or.Improvement]</span> that resulted in <span style="font-weight: bold;">[Quantifiable.Impact]</span>.
+    </div>
+  </div>
+
+  <!-- Key Strengths -->
+  <div class="section-header">💼 KEY STRENGTHS I BRING</div>
+  <div class="skills-grid">
+    <div class="skill-box">
+      <div class="skill-title">[Strength.1.Title]</div>
+      <div class="skill-description">[Strength.1.Brief.Example]</div>
+    </div>
+    <div class="skill-box" style="border-left-color: #7c3aed;">
+      <div class="skill-title" style="color: #7c3aed;">[Strength.2.Title]</div>
+      <div class="skill-description">[Strength.2.Brief.Example]</div>
+    </div>
+    <div class="skill-box">
+      <div class="skill-title">[Strength.3.Title]</div>
+      <div class="skill-description">[Strength.3.Brief.Example]</div>
+    </div>
+    <div class="skill-box" style="border-left-color: #7c3aed;">
+      <div class="skill-title" style="color: #7c3aed;">[Strength.4.Title]</div>
+      <div class="skill-description">[Strength.4.Brief.Example]</div>
+    </div>
+  </div>
+
+  <!-- Why This Company -->
+  <div class="why-company-box">
+    <div class="section-header">
+      🌟 WHY [Company.Name]?
+    </div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+      I've been following <span style="font-weight: bold; color: #7c3aed;">[Company.Name]</span>'s journey, particularly impressed by <span style="font-weight: bold;">[Specific.Company.Achievement]</span>. Your commitment to <span style="font-weight: bold;">[Company.Value.Or.Mission]</span> resonates deeply with my professional values. I'm especially excited about <span style="font-weight: bold;">[Specific.Project.Or.Initiative]</span> and believe my expertise in <span style="font-weight: bold;">[Relevant.Skill]</span> could contribute significantly to this effort.
+    </div>
+  </div>
+
+  <!-- Achievement Spotlight -->
+  <div class="achievement-box">
+    <div class="section-header">
+      🏆 ACHIEVEMENT SPOTLIGHT
+    </div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+      One accomplishment I'm particularly proud of: <span style="font-weight: bold;">[Detailed.Achievement.Story]</span>. This experience taught me <span style="font-weight: bold;">[Key.Lesson]</span> and demonstrated my ability to <span style="font-weight: bold;">[Key.Capability]</span> — skills directly applicable to the <span style="font-weight: bold;">[Position.Title]</span> role.
+    </div>
+  </div>
+
+  <!-- What You'll Bring -->
+  <div class="content-text">
+    In the <span style="font-weight: bold; color: #4f46e5;">[Position.Title]</span> role, I'm ready to hit the ground running. From day one, I'll bring <span style="font-weight: bold;">[Immediate.Contribution.1]</span>, <span style="font-weight: bold;">[Immediate.Contribution.2]</span>, and a proven ability to <span style="font-weight: bold;">[Key.Ability.Related.To.Role]</span>. My collaborative approach and passion for <span style="font-weight: bold;">[Industry.Or.Field]</span> will enable me to integrate seamlessly with your team while driving meaningful results.
+  </div>
+
+  <!-- Call to Action -->
+  <div class="cta-box">
+    <div class="cta-title">LET'S CONNECT!</div>
+    <div class="cta-text">
+      I would love the opportunity to discuss how my experience and passion align with <span style="font-weight: bold;">[Company.Name]</span>'s goals. I'm available for a conversation at your earliest convenience and can be reached at <span style="font-weight: bold;">[Your.Phone]</span> or <span style="font-weight: bold;">[Your.Email]</span>.
+    </div>
+  </div>
+
+  <!-- Closing -->
+  <div class="content-text">
+    Thank you for considering my application. I'm genuinely excited about the possibility of contributing to <span style="font-weight: bold; color: #4f46e5;">[Company.Name]</span>'s continued success and look forward to hearing from you.
+  </div>
+
+  <!-- Signature -->
+  <div class="signature">
+    <div>Best regards,</div>
+    <div class="signature-name">[Your.Full.Name]</div>
+    <div style="font-size: 0.7rem; color: #64748b;">[Your.Professional.Title]</div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-badge">
+      📎 Resume & Portfolio Attached
+    </div>
+  </div>
+</body>
+</html>
+`
+},
+
+{
+id: 'resignation-letter-immediate-001',
+name: 'Immediate Resignation Letter',
+description: 'Resignation letter without notice period (emergency situations)',
+category: 'resumes',
+popular: false,
+fields: ['Effective Date', 'Brief Reason', 'Circumstances', 'Apology'],
+previewComponent: (
+<div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+{/* Header */}
+<div className="border-b-4 border-red-600 pb-4 mb-6">
+<div className="text-2xl font-bold text-slate-900 mb-1">[Your.Full.Name]</div>
+<div className="text-sm text-slate-700 mb-2">[Your.Current.Position]</div>
+<div className="text-[8px] text-slate-600 flex gap-3 flex-wrap">
+<span>📧 [Your.Email]</span>
+<span>📱 [Your.Phone]</span>
+<span>🏢 [Department.Name]</span>
+</div>
+</div>
+  {/* Date */}
+  <div className="mb-4 text-[8px] text-slate-700">[Current.Date]</div>
+
+  {/* Recipient */}
+  <div className="mb-6 text-[8px] text-slate-700 leading-relaxed">
+    <div className="font-bold">[Manager.Name]</div>
+    <div>[Manager.Title]</div>
+    <div className="font-bold">[Company.Name]</div>
+    <div>[Company.Address]</div>
+    <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+  </div>
+
+  {/* Subject - Urgent */}
+  <div className="mb-4">
+    <div className="bg-red-100 border-l-4 border-red-600 p-3 rounded-r">
+      <div className="text-[8px] font-bold text-red-900">
+        Re: Immediate Resignation - [Your.Full.Name] - Effective [Effective.Date]
+      </div>
+    </div>
+  </div>
+
+  {/* Greeting */}
+  <div className="mb-4 text-[8px] text-slate-700">
+    Dear [Manager.Name],
+  </div>
+
+  {/* Opening - Clear Statement */}
+  <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+    I am writing to inform you of my immediate resignation from my position as <span className="font-bold">[Your.Current.Position]</span> at <span className="font-bold">[Company.Name]</span>, effective <span className="font-bold bg-red-100 px-1">[Effective.Date: today / immediately]</span>. I understand this does not provide the standard notice period, and I sincerely apologize for any inconvenience this may cause.
+  </div>
+
+  {/* Urgent Notice Box */}
+  <div className="mb-4">
+    <div className="bg-gradient-to-r from-red-100 to-orange-100 border-2 border-red-400 rounded-lg p-4 text-center">
+      <div className="text-[10px] text-red-800 font-bold mb-2">⚠️ IMMEDIATE RESIGNATION NOTICE</div>
+      <div className="text-2xl font-bold text-red-700 mb-2">Effective: [Effective.Date]</div>
+      <div className="text-[7px] text-red-700">Unable to provide standard notice period due to unforeseen circumstances</div>
+    </div>
+  </div>
+
+  {/* Reason (Brief & General) */}
+  <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+    This decision is due to <span className="font-bold">[Brief.General.Reason: unforeseen personal circumstances / a family emergency / urgent health matters / circumstances beyond my control]</span> that require my immediate attention and make it impossible for me to continue in my current role.
+  </div>
+
+  {/* Acceptable Reasons (Choose One) */}
+  <div className="mb-4 bg-slate-50 border-l-4 border-slate-400 p-3 rounded-r">
+    <div className="text-[7px] text-slate-600 italic">
+      <strong>Sample Reasons (Use ONE - Keep Vague):</strong>
+      <div className="mt-1 space-y-1">
+        <div>• "Due to an urgent family emergency requiring my immediate and full attention..."</div>
+        <div>• "Due to unforeseen personal health circumstances that require immediate care..."</div>
+        <div>• "Due to a sudden family medical situation requiring my presence..."</div>
+        <div>• "Due to circumstances beyond my control that have arisen unexpectedly..."</div>
+        <div>• "Due to a personal crisis that requires my immediate focus..."</div>
+        <div><strong>Note:</strong> You are NOT required to provide detailed medical or personal information</div>
+      </div>
+    </div>
+  </div>
+
+  {/* Apology & Acknowledgment */}
+  <div className="mb-4">
+    <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4">
+      <div className="text-sm font-bold text-yellow-800 mb-2">🙏 SINCERE APOLOGY</div>
+      <div className="text-[8px] text-slate-700 leading-relaxed">
+        I deeply regret that I am unable to provide the customary <span className="font-bold">[Standard.Notice.Period]</span> notice period. I understand this creates challenges for the team and the organization, and I sincerely apologize for any disruption this causes. This decision was not made lightly, and I would have provided proper notice if circumstances had allowed.
+      </div>
+    </div>
+  </div>
+
+  {/* Limited Transition Assistance */}
+  <div className="mb-4">
+    <div className="text-sm font-bold text-slate-900 mb-2 border-b-2 border-slate-300 pb-1">📋 TRANSITION ASSISTANCE (To the Extent Possible)</div>
+    <div className="text-[8px] text-slate-700 leading-relaxed">
+      While I am unable to work a notice period, I will do my best to assist with the transition:
+      
+      <div className="mt-2 bg-white border border-slate-200 rounded-lg p-3">
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-orange-600 font-bold flex-shrink-0">◆</span>
+            <div>I have prepared <span className="font-bold">[brief notes / a basic summary]</span> of my current projects and their status</div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-orange-600 font-bold flex-shrink-0">◆</span>
+            <div>Critical contact information for <span className="font-bold">[Key.Clients.Or.Vendors]</span> is documented in <span className="font-bold">[Location]</span></div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-orange-600 font-bold flex-shrink-0">◆</span>
+            <div>Important files are located in <span className="font-bold">[File.Location.Or.System]</span></div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-orange-600 font-bold flex-shrink-0">◆</span>
+            <div>I am available for <span className="font-bold">[brief phone/email questions]</span> over the next <span className="font-bold">[few days/week]</span> if absolutely necessary at <span className="font-bold">[Your.Personal.Email]</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Gratitude (Even in Difficult Circumstances) */}
+  <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+    Despite the circumstances of my departure, I want to express my gratitude for the opportunities I had during my time at <span className="font-bold">[Company.Name]</span>. I learned <span className="font-bold">[Something.Positive]</span> and appreciated working with <span className="font-bold">[Team.Or.Colleagues]</span>.
+  </div>
+
+  {/* Company Property Return */}
+  <div className="mb-4">
+    <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r">
+      <div className="text-sm font-bold text-blue-700 mb-2">🔑 COMPANY PROPERTY</div>
+      <div className="text-[8px] text-slate-700 leading-relaxed">
+        I will return all company property including:
+        <div className="mt-2 grid grid-cols-2 gap-2 text-[7px]">
+          <div>☐ Laptop/Computer</div>
+          <div>☐ Office Keys/Access Cards</div>
+          <div>☐ Company Phone</div>
+          <div>☐ Documents/Files</div>
+          <div>☐ [Other.Equipment]</div>
+          <div>☐ [Other.Property]</div>
+        </div>
+        <div className="mt-2">
+          Please advise on the preferred method for returning these items: <span className="font-bold">[in person / by mail / via courier]</span>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Final Matters */}
+  <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+    Please send information regarding final paycheck, accrued time off, benefits continuation (COBRA), and any other administrative matters to <span className="font-bold">[Your.Personal.Email]</span> or <span className="font-bold">[Your.Mailing.Address]</span>.
+  </div>
+
+  {/* Contact Information */}
+  <div className="mb-4">
+    <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
+      <div className="text-sm font-bold text-green-700 mb-2">📞 CONTACT INFORMATION</div>
+      <div className="text-[8px] text-slate-700">
+        After [Effective.Date], please reach me at:
+        <div className="mt-2 bg-white rounded-lg p-3 border border-green-200">
+          <div className="space-y-1">
+            <div><span className="font-bold">Personal Email:</span> [Your.Personal.Email]</div>
+            <div><span className="font-bold">Phone:</span> [Your.Personal.Phone]</div>
+            <div><span className="font-bold">Mailing Address:</span> [Your.Personal.Address]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Closing - Professional Despite Circumstances */}
+  <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+    I sincerely apologize once again for the abrupt nature of this resignation and any difficulties it creates. I wish <span className="font-bold">[Company.Name]</span> and the team continued success.
+  </div>
+
+  {/* Signature */}
+  <div className="mt-6 text-[8px] text-slate-700">
+    <div className="mb-10">Respectfully,</div>
+    <div className="font-bold text-slate-900 text-sm">[Your.Full.Name]</div>
+    <div className="text-slate-600">[Your.Current.Position]</div>
+    <div className="text-slate-600 mt-2">
+      <div>Personal Email: [Your.Personal.Email]</div>
+      <div>Phone: [Your.Personal.Phone]</div>
+    </div>
+  </div>
+
+  {/* CC Line */}
+  <div className="mt-6 text-[7px] text-slate-500">
+    cc: [HR.Department] / [HR.Director.Name]
+  </div>
+
+  {/* Important Notice */}
+  <div className="mt-8 bg-red-50 border-2 border-red-400 rounded-lg p-4">
+    <div className="text-[8px] font-bold text-red-900 mb-2">⚠️ IMPORTANT - IMMEDIATE RESIGNATION CONSIDERATIONS:</div>
+    <div className="text-[7px] text-slate-700 leading-relaxed space-y-1">
+      <div>• <strong>Legal Review:</strong> Check your employment contract for consequences of not providing notice</div>
+      <div>• <strong>Potential Penalties:</strong> Some contracts may include forfeit of final pay, bonuses, or benefits</div>
+      <div>• <strong>Reference Impact:</strong> Leaving without notice may affect future references</div>
+      <div>• <strong>Industry Reputation:</strong> Consider how this may impact your professional reputation</div>
+      <div>• <strong>Bridge Burning:</strong> Use immediate resignation only when absolutely necessary</div>
+      <div>• <strong>Document Everything:</strong> Keep copies of all communications</div>
+      <div>• <strong>Valid Reasons:</strong> Only use for genuine emergencies (health, family crisis, unsafe work environment)</div>
+      <div>• <strong>Consider Alternatives:</strong> Paid leave, FMLA, or negotiated early departure may be options</div>
+    </div>
+  </div>
+</div>
+),
+htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Immediate Resignation Letter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      border-bottom: 4px solid #dc2626;
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .title {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-bottom: 0.75rem;
+    }
+    .contact-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    /* Date */
+    .date {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+
+    /* Recipient */
+    .recipient {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1.5rem;
+      line-height: 1.4;
+    }
+    .company-name {
+      font-weight: bold;
+      color: #1e293b;
+    }
+
+    /* Subject Box */
+    .subject-box {
+      background-color: #fee2e2;
+      border-left: 4px solid #dc2626;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #7f1d1d;
+    }
+
+    /* Content Text */
+    .content-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+
+    /* Urgent Notice Box */
+    .urgent-notice {
+      background: linear-gradient(to right, #fee2e2, #fecaca);
+      border: 2px solid #f87171;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+    .urgent-title {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #991b1b;
+      margin-bottom: 0.5rem;
+    }
+    .urgent-date {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #b91c1c;
+      margin-bottom: 0.5rem;
+    }
+    .urgent-note {
+      font-size: 0.65rem;
+      color: #991b1b;
+    }
+
+    /* Apology Box */
+    .apology-box {
+      background-color: #fef3c7;
+      border: 2px solid #f59e0b;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .apology-title {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #92400e;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Transition Box */
+    .transition-box {
+      border-bottom: 2px solid #cbd5e1;
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .transition-title {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .transition-list {
+      background-color: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    .transition-item {
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .transition-bullet {
+      color: #ea580c;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    /* Company Property Box */
+    .property-box {
+      background-color: #dbeafe;
+      border-left: 4px solid #1e40af;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1.5rem;
+    }
+    .property-title {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #1e40af;
+      margin-bottom: 0.5rem;
+    }
+    .property-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .property-item {
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+
+    /* Contact Box */
+    .contact-box {
+      background-color: #dcfce7;
+      border: 2px solid #bbf7d0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .contact-title {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #166534;
+      margin-bottom: 0.5rem;
+    }
+    .contact-details {
+      background-color: #fff;
+      border: 1px solid #bbf7d0;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    .contact-item {
+      margin-bottom: 0.25rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    /* Alternative Reasons Box */
+    .alternative-box {
+      background-color: #f8fafc;
+      border-left: 4px solid #cbd5e1;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1.5rem;
+      font-size: 0.65rem;
+      color: #64748b;
+      font-style: italic;
+    }
+    .alternative-item {
+      margin-top: 0.25rem;
+    }
+
+    /* Important Notice Box */
+    .important-notice {
+      background-color: #fee2e2;
+      border: 2px solid #f87171;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 2rem;
+    }
+    .notice-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #7f1d1d;
+      margin-bottom: 0.5rem;
+    }
+    .notice-list {
+      font-size: 0.65rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+    .notice-item {
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .notice-item::before {
+      content: "•";
+      color: #dc2626;
+      font-weight: bold;
+    }
+
+    /* Signature */
+    .signature {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .signature-name {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-top: 2rem;
+    }
+    .signature-details {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-top: 0.5rem;
+    }
+
+    /* CC Line */
+    .cc-line {
+      font-size: 0.65rem;
+      color: #64748b;
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="name">[Your.Full.Name]</div>
+    <div class="title">[Your.Current.Position]</div>
+    <div class="contact-info">
+      <span>📧 [Your.Email]</span>
+      <span>📱 [Your.Phone]</span>
+      <span>🏢 [Department.Name]</span>
+    </div>
+  </div>
+
+  <!-- Date -->
+  <div class="date">[Current.Date]</div>
+
+  <!-- Recipient -->
+  <div class="recipient">
+    <div class="manager-name" style="font-weight: bold;">[Manager.Name]</div>
+    <div>[Manager.Title]</div>
+    <div class="company-name">[Company.Name]</div>
+    <div>[Company.Address]</div>
+    <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+  </div>
+
+  <!-- Subject -->
+  <div class="subject-box">
+    Re: Immediate Resignation - [Your.Full.Name] - Effective [Effective.Date]
+  </div>
+
+  <!-- Salutation -->
+  <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 1rem;">
+    Dear [Manager.Name],
+  </div>
+
+  <!-- Opening -->
+  <div class="content-text">
+    I am writing to inform you of my immediate resignation from my position as <span style="font-weight: bold;">[Your.Current.Position]</span> at <span style="font-weight: bold;">[Company.Name]</span>, effective <span style="font-weight: bold; background-color: #fee2e2; padding: 0 0.25rem;">[Effective.Date: today / immediately]</span>. I understand this does not provide the standard notice period, and I sincerely apologize for any inconvenience this may cause.
+  </div>
+
+  <!-- Urgent Notice Box -->
+  <div class="urgent-notice">
+    <div class="urgent-title">⚠️ IMMEDIATE RESIGNATION NOTICE</div>
+    <div class="urgent-date">Effective: [Effective.Date]</div>
+    <div class="urgent-note">Unable to provide standard notice period due to unforeseen circumstances</div>
+  </div>
+
+  <!-- Reason -->
+  <div class="content-text">
+    This decision is due to <span style="font-weight: bold;">[Brief.General.Reason: unforeseen personal circumstances / a family emergency / urgent health matters / circumstances beyond my control]</span> that require my immediate attention and make it impossible for me to continue in my current role.
+  </div>
+
+  <!-- Alternative Reasons -->
+  <div class="alternative-box">
+    <div><strong>Sample Reasons (Use ONE - Keep Vague):</strong></div>
+    <div class="alternative-item">• "Due to an urgent family emergency requiring my immediate and full attention..."</div>
+    <div class="alternative-item">• "Due to unforeseen personal health circumstances that require immediate care..."</div>
+    <div class="alternative-item">• "Due to a sudden family medical situation requiring my presence..."</div>
+    <div class="alternative-item">• "Due to circumstances beyond my control that have arisen unexpectedly..."</div>
+    <div class="alternative-item">• "Due to a personal crisis that requires my immediate focus..."</div>
+    <div class="alternative-item"><strong>Note:</strong> You are NOT required to provide detailed medical or personal information</div>
+  </div>
+
+  <!-- Apology -->
+  <div class="apology-box">
+    <div class="apology-title">🙏 SINCERE APOLOGY</div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+      I deeply regret that I am unable to provide the customary <span style="font-weight: bold;">[Standard.Notice.Period]</span> notice period. I understand this creates challenges for the team and the organization, and I sincerely apologize for any disruption this causes. This decision was not made lightly, and I would have provided proper notice if circumstances had allowed.
+    </div>
+  </div>
+
+  <!-- Limited Transition Assistance -->
+  <div class="transition-box">
+    <div class="transition-title">📋 TRANSITION ASSISTANCE (To the Extent Possible)</div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+      While I am unable to work a notice period, I will do my best to assist with the transition:
+      <div class="transition-list">
+        <div class="transition-item">
+          <div class="transition-bullet">◆</div>
+          <div>I have prepared <span style="font-weight: bold;">[brief notes / a basic summary]</span> of my current projects and their status</div>
+        </div>
+        <div class="transition-item">
+          <div class="transition-bullet">◆</div>
+          <div>Critical contact information for <span style="font-weight: bold;">[Key.Clients.Or.Vendors]</span> is documented in <span style="font-weight: bold;">[Location]</span></div>
+        </div>
+        <div class="transition-item">
+          <div class="transition-bullet">◆</div>
+          <div>Important files are located in <span style="font-weight: bold;">[File.Location.Or.System]</span></div>
+        </div>
+        <div class="transition-item">
+          <div class="transition-bullet">◆</div>
+          <div>I am available for <span style="font-weight: bold;">[brief phone/email questions]</span> over the next <span style="font-weight: bold;">[few days/week]</span> if absolutely necessary at <span style="font-weight: bold;">[Your.Personal.Email]</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gratitude -->
+  <div class="content-text">
+    Despite the circumstances of my departure, I want to express my gratitude for the opportunities I had during my time at <span style="font-weight: bold;">[Company.Name]</span>. I learned <span style="font-weight: bold;">[Something.Positive]</span> and appreciated working with <span style="font-weight: bold;">[Team.Or.Colleagues]</span>.
+  </div>
+
+  <!-- Company Property -->
+  <div class="property-box">
+    <div class="property-title">🔑 COMPANY PROPERTY</div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+      I will return all company property including:
+      <div class="property-grid">
+        <div class="property-item">☐ Laptop/Computer</div>
+        <div class="property-item">☐ Office Keys/Access Cards</div>
+        <div class="property-item">☐ Company Phone</div>
+        <div class="property-item">☐ Documents/Files</div>
+        <div class="property-item">☐ [Other.Equipment]</div>
+        <div class="property-item">☐ [Other.Property]</div>
+      </div>
+      <div style="margin-top: 0.5rem;">
+        Please advise on the preferred method for returning these items: <span style="font-weight: bold;">[in person / by mail / via courier]</span>.
+      </div>
+    </div>
+  </div>
+
+  <!-- Final Matters -->
+  <div class="content-text">
+    Please send information regarding final paycheck, accrued time off, benefits continuation (COBRA), and any other administrative matters to <span style="font-weight: bold;">[Your.Personal.Email]</span> or <span style="font-weight: bold;">[Your.Mailing.Address]</span>.
+  </div>
+
+  <!-- Contact Information -->
+  <div class="contact-box">
+    <div class="contact-title">📞 CONTACT INFORMATION</div>
+    <div style="font-size: 0.7rem; color: #64748b;">
+      After [Effective.Date], please reach me at:
+      <div class="contact-details">
+        <div class="contact-item"><span style="font-weight: bold;">Personal Email:</span> [Your.Personal.Email]</div>
+        <div class="contact-item"><span style="font-weight: bold;">Phone:</span> [Your.Personal.Phone]</div>
+        <div class="contact-item"><span style="font-weight: bold;">Mailing Address:</span> [Your.Personal.Address]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Closing -->
+  <div class="content-text">
+    I sincerely apologize once again for the abrupt nature of this resignation and any difficulties it creates. I wish <span style="font-weight: bold;">[Company.Name]</span> and the team continued success.
+  </div>
+
+  <!-- Signature -->
+  <div class="signature">
+    <div>Respectfully,</div>
+    <div class="signature-name">[Your.Full.Name]</div>
+    <div class="signature-details">
+      <div>[Your.Current.Position]</div>
+      <div style="margin-top: 0.5rem;">
+        <div>Personal Email: [Your.Personal.Email]</div>
+        <div>Phone: [Your.Personal.Phone]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CC Line -->
+  <div class="cc-line">
+    cc: [HR.Department] / [HR.Director.Name]
+  </div>
+
+  <!-- Important Notice -->
+  <div class="important-notice">
+    <div class="notice-title">⚠️ IMPORTANT - IMMEDIATE RESIGNATION CONSIDERATIONS:</div>
+    <div class="notice-list">
+      <div class="notice-item">Legal Review: Check your employment contract for consequences of not providing notice</div>
+      <div class="notice-item">Potential Penalties: Some contracts may include forfeit of final pay, bonuses, or benefits</div>
+      <div class="notice-item">Reference Impact: Leaving without notice may affect future references</div>
+      <div class="notice-item">Industry Reputation: Consider how this may impact your professional reputation</div>
+      <div class="notice-item">Bridge Burning: Use immediate resignation only when absolutely necessary</div>
+      <div class="notice-item">Document Everything: Keep copies of all communications</div>
+      <div class="notice-item">Valid Reasons: Only use for genuine emergencies (health, family crisis, unsafe work environment)</div>
+      <div class="notice-item">Consider Alternatives: Paid leave, FMLA, or negotiated early departure may be options</div>
+    </div>
+  </div>
+</body>
+</html>
+`
+},
+
+{
+  id: 'resignation-letter-001',
+  name: 'Professional Resignation Letter',
+  description: 'Formal resignation letter with notice period',
+  category: 'resumes',
+  popular: true,
+  fields: ['Last Day', 'Notice Period', 'Reason', 'Gratitude', 'Transition'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="border-b-4 border-slate-700 pb-4 mb-6">
+        <div className="text-2xl font-bold text-slate-900 mb-1">[Your.Full.Name]</div>
+        <div className="text-sm text-slate-700 mb-2">[Your.Current.Position]</div>
+        <div className="text-[8px] text-slate-600 flex gap-3 flex-wrap">
+          <span>📧 [Your.Work.Email]</span>
+          <span>📱 [Your.Phone]</span>
+          <span>🏢 [Department.Name]</span>
+        </div>
+      </div>
+
+      {/* Date */}
+      <div className="mb-4 text-[8px] text-slate-700">[Current.Date]</div>
+
+      {/* Recipient */}
+      <div className="mb-6 text-[8px] text-slate-700 leading-relaxed">
+        <div className="font-bold">[Manager.Name]</div>
+        <div>[Manager.Title]</div>
+        <div className="font-bold">[Company.Name]</div>
+        <div>[Company.Address]</div>
+        <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+      </div>
+
+      {/* Subject */}
+      <div className="mb-4">
+        <div className="bg-slate-100 border-l-4 border-slate-700 p-3 rounded-r">
+          <div className="text-[8px] font-bold text-slate-900">
+            Re: Resignation - [Your.Full.Name]
+          </div>
+        </div>
+      </div>
+
+      {/* Greeting */}
+      <div className="mb-4 text-[8px] text-slate-700">
+        Dear [Manager.Name],
+      </div>
+
+      {/* Opening - Clear Statement of Resignation */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I am writing to formally notify you of my resignation from my position as <span className="font-bold">[Your.Current.Position]</span> at <span className="font-bold">[Company.Name]</span>. Per my employment contract and company policy, I am providing <span className="font-bold">[Notice.Period: two weeks / 30 days]</span> notice. My last day of work will be <span className="font-bold bg-yellow-100 px-1">[Last.Working.Day]</span>.
+      </div>
+
+      {/* Notice Period Box */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-slate-100 to-slate-50 border-2 border-slate-300 rounded-lg p-4 text-center">
+          <div className="text-[7px] text-slate-600 font-bold mb-2">OFFICIAL NOTICE</div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <div className="text-[7px] text-slate-600 mb-1">Resignation Date</div>
+              <div className="text-sm font-bold text-slate-900">[Current.Date]</div>
+            </div>
+            <div className="border-x border-slate-300">
+              <div className="text-[7px] text-slate-600 mb-1">Notice Period</div>
+              <div className="text-sm font-bold text-slate-900">[Notice.Period]</div>
+            </div>
+            <div>
+              <div className="text-[7px] text-slate-600 mb-1">Last Working Day</div>
+              <div className="text-sm font-bold text-red-700">[Last.Working.Day]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Reason (Optional - Keep Brief and Positive) */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        This decision was not made lightly. After careful consideration, I have accepted a position that will allow me to <span className="font-bold">[Brief.Positive.Reason: further my career development / pursue new challenges / relocate for family reasons / explore a different industry]</span>. While I'm excited about this new opportunity, I want to ensure a smooth transition and maintain the positive relationships I've built here.
+      </div>
+
+      {/* Alternative Reasons (Choose One) */}
+      <div className="mb-4 bg-slate-50 border-l-4 border-slate-400 p-3 rounded-r">
+        <div className="text-[7px] text-slate-600 italic">
+          <strong>Alternative Reason Examples (Use ONE):</strong>
+          <div className="mt-1 space-y-1">
+            <div>• "I have decided to pursue an advanced degree in [Field] to further my professional development."</div>
+            <div>• "I have accepted a position that offers new challenges and opportunities for growth in [Area]."</div>
+            <div>• "Due to personal/family circumstances, I need to [relocate/take time off/change my work situation]."</div>
+            <div>• "After much reflection, I've decided to transition into [New.Industry.Or.Role]."</div>
+            <div>• "I've been presented with an opportunity that aligns more closely with my long-term career goals."</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Gratitude & Positive Reflection */}
+      <div className="mb-4">
+        <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-blue-700 mb-2">🙏 GRATITUDE & APPRECIATION</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            I want to express my sincere gratitude for the opportunities I've had during my time at <span className="font-bold">[Company.Name]</span>. Over the past <span className="font-bold">[Years/Months.At.Company]</span>, I have:
+            
+            <div className="mt-2 space-y-1">
+              <div>• Developed valuable skills in <span className="font-bold">[Skill.Area.1]</span> and <span className="font-bold">[Skill.Area.2]</span></div>
+              <div>• Had the privilege of working on <span className="font-bold">[Notable.Project.Or.Achievement]</span></div>
+              <div>• Learned from exceptional colleagues and mentors, particularly <span className="font-bold">[Mentor.Or.Team.Member]</span></div>
+              <div>• Grown professionally through <span className="font-bold">[Training.Opportunity.Or.Experience]</span></div>
+              <div>• Built lasting relationships with talented professionals</div>
+            </div>
+            
+            <div className="mt-2">
+              These experiences have been invaluable to my professional growth, and I will carry the lessons learned here throughout my career.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Transition Commitment */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2 border-b-2 border-slate-300 pb-1">🔄 COMMITMENT TO SMOOTH TRANSITION</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed">
+          I am fully committed to ensuring a seamless transition during my remaining time. To facilitate this, I will:
+          
+          <div className="mt-2 bg-white border border-slate-200 rounded-lg p-3">
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <span className="text-green-600 font-bold flex-shrink-0">✓</span>
+                <div><span className="font-bold">Document Current Projects:</span> Complete comprehensive documentation of all ongoing projects, including <span className="font-bold">[Project.1]</span>, <span className="font-bold">[Project.2]</span>, and <span className="font-bold">[Project.3]</span></div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-green-600 font-bold flex-shrink-0">✓</span>
+                <div><span className="font-bold">Knowledge Transfer:</span> Provide detailed handover notes and conduct training sessions with <span className="font-bold">[Successor.Or.Team.Member]</span></div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-green-600 font-bold flex-shrink-0">✓</span>
+                <div><span className="font-bold">Client/Stakeholder Communication:</span> Assist in transitioning relationships with key clients/stakeholders including <span className="font-bold">[Key.Contact.1]</span> and <span className="font-bold">[Key.Contact.2]</span></div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-green-600 font-bold flex-shrink-0">✓</span>
+                <div><span className="font-bold">Complete Pending Tasks:</span> Finalize <span className="font-bold">[Specific.Deliverable]</span> and bring <span className="font-bold">[Project.Name]</span> to a logical stopping point</div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-green-600 font-bold flex-shrink-0">✓</span>
+                <div><span className="font-bold">Train Replacement:</span> Spend time training my replacement or designated team member(s) on critical responsibilities</div>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-green-600 font-bold flex-shrink-0">✓</span>
+                <div><span className="font-bold">Organize Files:</span> Ensure all files, passwords, and resources are properly organized and accessible</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Availability During Notice Period */}
+      <div className="mb-4">
+        <div className="bg-green-50 border-l-4 border-green-600 p-4 rounded-r">
+          <div className="text-sm font-bold text-green-700 mb-2">📅 MY AVAILABILITY</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            During my notice period, I will be fully available and committed to my responsibilities. I'm happy to:
+            <div className="mt-2 space-y-1">
+              <div>• Work my regular hours through [Last.Working.Day]</div>
+              <div>• Attend any necessary transition meetings</div>
+              <div>• Be available for questions after my departure (within reason) via <span className="font-bold">[Personal.Email]</span></div>
+              <div>• Assist with recruitment/interviews for my replacement if needed</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Administrative Items */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2">📋 ADMINISTRATIVE MATTERS</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            Please let me know the process for:
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="bg-white rounded p-2 border border-slate-200 text-[7px]">
+                ✓ Return of company property (laptop, keys, access cards, etc.)
+              </div>
+              <div className="bg-white rounded p-2 border border-slate-200 text-[7px]">
+                ✓ Final paycheck and accrued vacation/PTO payout
+              </div>
+              <div className="bg-white rounded p-2 border border-slate-200 text-[7px]">
+                ✓ Benefits continuation (COBRA, 401k rollover, etc.)
+              </div>
+              <div className="bg-white rounded p-2 border border-slate-200 text-[7px]">
+                ✓ Exit interview scheduling
+              </div>
+              <div className="bg-white rounded p-2 border border-slate-200 text-[7px]">
+                ✓ Reference letters or recommendations
+              </div>
+              <div className="bg-white rounded p-2 border border-slate-200 text-[7px]">
+                ✓ Final paperwork and documentation
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Future Connection */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I hope to maintain our professional relationship going forward. Please feel free to reach me at <span className="font-bold">[Your.Personal.Email]</span> or <span className="font-bold">[Your.Personal.Phone]</span> after my departure. I would be happy to stay connected via LinkedIn and wish the team continued success.
+</div>
+{/* Offer to Help */}
+  <div className="mb-4">
+    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+      <div className="text-sm font-bold text-yellow-800 mb-2">🤝 CONTINUED SUPPORT</div>
+      <div className="text-[8px] text-slate-700 leading-relaxed">
+        Even after my last day, I'm willing to be available (within reasonable limits) to answer questions or provide clarification during the transition period. You can reach me at <span className="font-bold">[Your.Personal.Email]</span> if any urgent matters arise.
+      </div>
+    </div>
+  </div>
+
+  {/* Closing - Positive & Professional */}
+  <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+    Thank you again for the opportunities, guidance, and support you've provided during my tenure at <span className="font-bold">[Company.Name]</span>. I have truly enjoyed being part of the team and am grateful for the professional relationships I've developed. I wish you and the entire <span className="font-bold">[Department.Or.Team.Name]</span> team all the best in your future endeavors.
+  </div>
+
+  {/* Signature */}
+  <div className="mt-6 text-[8px] text-slate-700">
+    <div className="mb-10">Respectfully,</div>
+    <div className="font-bold text-slate-900 text-sm">[Your.Full.Name]</div>
+    <div className="text-slate-600">[Your.Current.Position]</div>
+    <div className="text-slate-600 mt-2">
+      <div>Work Email: [Your.Work.Email]</div>
+      <div>Personal Email: [Your.Personal.Email]</div>
+      <div>Phone: [Your.Phone]</div>
+    </div>
+  </div>
+
+  {/* CC Line (if applicable) */}
+  <div className="mt-6 text-[7px] text-slate-500">
+    cc: [HR.Department] / [HR.Director.Name]
+  </div>
+
+  {/* Tips Section (Remove before sending) */}
+  <div className="mt-8 bg-slate-100 border-2 border-slate-400 rounded-lg p-4">
+    <div className="text-[8px] font-bold text-slate-900 mb-2">💡 RESIGNATION LETTER TIPS (Remove this section before sending):</div>
+    <div className="text-[7px] text-slate-600 leading-relaxed space-y-1">
+      <div>• <strong>Keep It Brief & Positive:</strong> No need to elaborate on reasons or air grievances</div>
+      <div>• <strong>Be Clear on Dates:</strong> Specify exact last working day to avoid confusion</div>
+      <div>• <strong>Don't Burn Bridges:</strong> You may need references or cross paths professionally later</div>
+      <div>• <strong>Submit in Person First:</strong> Tell your manager face-to-face before submitting letter if possible</div>
+      <div>• <strong>Deliver to HR:</strong> Submit copy to HR department as well as your manager</div>
+      <div>• <strong>Check Your Contract:</strong> Verify required notice period and any restrictions (non-compete, etc.)</div>
+      <div>• <strong>No Negotiation Points:</strong> This is not the place to discuss counter-offers or complaints</div>
+      <div>• <strong>Professional Tone Always:</strong> Even if leaving due to negative circumstances</div>
+      <div>• <strong>Keep a Copy:</strong> Save a copy for your records</div>
+      <div>• <strong>Follow Up:</strong> Confirm receipt and discuss transition plan with manager</div>
+    </div>
+  </div>
+
+  {/* Checklist */}
+  <div className="mt-4 bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+    <div className="text-[8px] font-bold text-blue-900 mb-2">✅ PRE-SUBMISSION CHECKLIST:</div>
+    <div className="text-[7px] text-slate-700 leading-relaxed space-y-1">
+      <div>☐ Have you calculated the correct notice period per your contract?</div>
+      <div>☐ Is your last working day clearly stated?</div>
+      <div>☐ Have you checked your employee handbook for resignation procedures?</div>
+      <div>☐ Do you have your personal email/phone for future contact?</div>
+      <div>☐ Have you removed any negative comments or complaints?</div>
+      <div>☐ Is the tone positive and professional throughout?</div>
+      <div>☐ Have you mentioned your commitment to transition?</div>
+      <div>☐ Did you proofread for any errors?</div>
+      <div>☐ Will you deliver this in person to your manager first?</div>
+      <div>☐ Have you prepared to answer questions about your decision?</div>
+    </div>
+  </div>
+</div>
+),
+htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Professional Resignation Letter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      border-bottom: 4px solid #475569;
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .title {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-bottom: 0.75rem;
+    }
+    .contact-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    /* Date */
+    .date {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+
+    /* Recipient */
+    .recipient {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1.5rem;
+      line-height: 1.4;
+    }
+    .company-name {
+      font-weight: bold;
+      color: #1e293b;
+    }
+
+    /* Subject Box */
+    .subject-box {
+      background-color: #f1f5f9;
+      border-left: 4px solid #475569;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #1e293b;
+    }
+
+    /* Content Text */
+    .content-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+
+    /* Notice Period Box */
+    .notice-box {
+      background: linear-gradient(to right, #f1f5f9, #e2e8f0);
+      border: 2px solid #cbd5e1;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+    .notice-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+    .notice-item {
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+    .notice-value {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-top: 0.25rem;
+    }
+    .last-day {
+      color: #dc2626;
+    }
+
+    /* Gratitude Box */
+    .gratitude-box {
+      background-color: #dbeafe;
+      border: 2px solid #93c5fd;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .gratitude-list {
+      margin-top: 0.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+    .gratitude-item {
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .gratitude-item::before {
+      content: "•";
+      color: #1e40af;
+      font-weight: bold;
+    }
+
+    /* Transition Box */
+    .transition-box {
+      border-bottom: 2px solid #cbd5e1;
+      padding-bottom: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .transition-title {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .transition-list {
+      background-color: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    .transition-item {
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .transition-check {
+      color: #16a34a;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    /* Availability Box */
+    .availability-box {
+      background-color: #dcfce7;
+      border-left: 4px solid #16a34a;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1.5rem;
+    }
+    .availability-list {
+      margin-top: 0.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+    .availability-item {
+      margin-bottom: 0.25rem;
+    }
+
+    /* Admin Box */
+    .admin-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .admin-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .admin-item {
+      background-color: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.25rem;
+      padding: 0.5rem;
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+
+    /* Support Box */
+    .support-box {
+      background-color: #fef3c7;
+      border: 2px solid #fde68a;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Section Headers */
+    .section-header {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid #cbd5e1;
+      padding-bottom: 0.25rem;
+    }
+
+    /* Alternative Reasons Box */
+    .alternative-box {
+      background-color: #f8fafc;
+      border-left: 4px solid #cbd5e1;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1.5rem;
+      font-size: 0.65rem;
+      color: #64748b;
+      font-style: italic;
+    }
+    .alternative-item {
+      margin-top: 0.25rem;
+    }
+
+    /* Tips Section */
+    .tips-section {
+      background-color: #f8fafc;
+      border: 2px solid #cbd5e1;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 2rem;
+    }
+    .tips-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .tips-list {
+      font-size: 0.65rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+    .tip-item {
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .tip-item::before {
+      content: "•";
+      color: #1e40af;
+      font-weight: bold;
+    }
+
+    /* Checklist */
+    .checklist {
+      background-color: #dbeafe;
+      border: 2px solid #93c5fd;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 1.5rem;
+    }
+    .checklist-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #1e40af;
+      margin-bottom: 0.5rem;
+    }
+    .checklist-item {
+      margin-bottom: 0.25rem;
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+
+    /* Signature */
+    .signature {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .signature-name {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-top: 2rem;
+    }
+    .signature-details {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-top: 0.5rem;
+    }
+
+    /* CC Line */
+    .cc-line {
+      font-size: 0.65rem;
+      color: #64748b;
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="name">[Your.Full.Name]</div>
+    <div class="title">[Your.Current.Position]</div>
+    <div class="contact-info">
+      <span>📧 [Your.Work.Email]</span>
+      <span>📱 [Your.Phone]</span>
+      <span>🏢 [Department.Name]</span>
+    </div>
+  </div>
+
+  <!-- Date -->
+  <div class="date">[Current.Date]</div>
+
+  <!-- Recipient -->
+  <div class="recipient">
+    <div class="manager-name" style="font-weight: bold;">[Manager.Name]</div>
+    <div>[Manager.Title]</div>
+    <div class="company-name">[Company.Name]</div>
+    <div>[Company.Address]</div>
+    <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+  </div>
+
+  <!-- Subject -->
+  <div class="subject-box">
+    Re: Resignation - [Your.Full.Name]
+  </div>
+
+  <!-- Salutation -->
+  <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 1rem;">
+    Dear [Manager.Name],
+  </div>
+
+  <!-- Opening -->
+  <div class="content-text">
+    I am writing to formally notify you of my resignation from my position as <span style="font-weight: bold;">[Your.Current.Position]</span> at <span style="font-weight: bold;">[Company.Name]</span>. Per my employment contract and company policy, I am providing <span style="font-weight: bold;">[Notice.Period: two weeks / 30 days]</span> notice. My last day of work will be <span style="font-weight: bold; background-color: #fef3c7; padding: 0 0.25rem;">[Last.Working.Day]</span>.
+  </div>
+
+  <!-- Notice Period Box -->
+  <div class="notice-box">
+    <div style="font-size: 0.65rem; color: #64748b; font-weight: bold; margin-bottom: 0.5rem;">OFFICIAL NOTICE</div>
+    <div class="notice-grid">
+      <div>
+        <div class="notice-item">Resignation Date</div>
+        <div class="notice-value">[Current.Date]</div>
+      </div>
+      <div class="border-x border-slate-300 px-2">
+        <div class="notice-item">Notice Period</div>
+        <div class="notice-value">[Notice.Period]</div>
+      </div>
+      <div>
+        <div class="notice-item">Last Working Day</div>
+        <div class="notice-value last-day">[Last.Working.Day]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reason -->
+  <div class="content-text">
+    This decision was not made lightly. After careful consideration, I have accepted a position that will allow me to <span style="font-weight: bold;">[Brief.Positive.Reason: further my career development / pursue new challenges / relocate for family reasons / explore a different industry]</span>. While I'm excited about this new opportunity, I want to ensure a smooth transition and maintain the positive relationships I've built here.
+  </div>
+
+  <!-- Alternative Reasons -->
+  <div class="alternative-box">
+    <div><strong>Alternative Reason Examples (Use ONE):</strong></div>
+    <div class="alternative-item">• "I have decided to pursue an advanced degree in [Field] to further my professional development."</div>
+    <div class="alternative-item">• "I have accepted a position that offers new challenges and opportunities for growth in [Area]."</div>
+    <div class="alternative-item">• "Due to personal/family circumstances, I need to [relocate/take time off/change my work situation]."</div>
+    <div class="alternative-item">• "After much reflection, I've decided to transition into [New.Industry.Or.Role]."</div>
+    <div class="alternative-item">• "I've been presented with an opportunity that aligns more closely with my long-term career goals."</div>
+  </div>
+
+  <!-- Gratitude Section -->
+  <div class="gratitude-box">
+    <div class="section-header">🙏 GRATITUDE & APPRECIATION</div>
+    <div class="gratitude-list">
+      <div>I want to express my sincere gratitude for the opportunities I've had during my time at <span style="font-weight: bold;">[Company.Name]</span>. Over the past <span style="font-weight: bold;">[Years/Months.At.Company]</span>, I have:</div>
+      <div class="gratitude-item">Developed valuable skills in <span style="font-weight: bold;">[Skill.Area.1]</span> and <span style="font-weight: bold;">[Skill.Area.2]</span></div>
+      <div class="gratitude-item">Had the privilege of working on <span style="font-weight: bold;">[Notable.Project.Or.Achievement]</span></div>
+      <div class="gratitude-item">Learned from exceptional colleagues and mentors, particularly <span style="font-weight: bold;">[Mentor.Or.Team.Member]</span></div>
+      <div class="gratitude-item">Grown professionally through <span style="font-weight: bold;">[Training.Opportunity.Or.Experience]</span></div>
+      <div class="gratitude-item">Built lasting relationships with talented professionals</div>
+      <div style="margin-top: 0.5rem;">These experiences have been invaluable to my professional growth, and I will carry the lessons learned here throughout my career.</div>
+    </div>
+  </div>
+
+  <!-- Transition Commitment -->
+  <div class="transition-box">
+    <div class="transition-title">🔄 COMMITMENT TO SMOOTH TRANSITION</div>
+    <div class="content-text">
+      I am fully committed to ensuring a seamless transition during my remaining time. To facilitate this, I will:
+    </div>
+    <div class="transition-list">
+      <div class="transition-item">
+        <div class="transition-check">✓</div>
+        <div><span style="font-weight: bold;">Document Current Projects:</span> Complete comprehensive documentation of all ongoing projects, including <span style="font-weight: bold;">[Project.1]</span>, <span style="font-weight: bold;">[Project.2]</span>, and <span style="font-weight: bold;">[Project.3]</span></div>
+      </div>
+      <div class="transition-item">
+        <div class="transition-check">✓</div>
+        <div><span style="font-weight: bold;">Knowledge Transfer:</span> Provide detailed handover notes and conduct training sessions with <span style="font-weight: bold;">[Successor.Or.Team.Member]</span></div>
+      </div>
+      <div class="transition-item">
+        <div class="transition-check">✓</div>
+        <div><span style="font-weight: bold;">Client/Stakeholder Communication:</span> Assist in transitioning relationships with key clients/stakeholders including <span style="font-weight: bold;">[Key.Contact.1]</span> and <span style="font-weight: bold;">[Key.Contact.2]</span></div>
+      </div>
+      <div class="transition-item">
+        <div class="transition-check">✓</div>
+        <div><span style="font-weight: bold;">Complete Pending Tasks:</span> Finalize <span style="font-weight: bold;">[Specific.Deliverable]</span> and bring <span style="font-weight: bold;">[Project.Name]</span> to a logical stopping point</div>
+      </div>
+      <div class="transition-item">
+        <div class="transition-check">✓</div>
+        <div><span style="font-weight: bold;">Train Replacement:</span> Spend time training my replacement or designated team member(s) on critical responsibilities</div>
+      </div>
+      <div class="transition-item">
+        <div class="transition-check">✓</div>
+        <div><span style="font-weight: bold;">Organize Files:</span> Ensure all files, passwords, and resources are properly organized and accessible</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Availability -->
+  <div class="availability-box">
+    <div class="section-header">📅 MY AVAILABILITY</div>
+    <div class="availability-list">
+      <div>During my notice period, I will be fully available and committed to my responsibilities. I'm happy to:</div>
+      <div class="availability-item">• Work my regular hours through [Last.Working.Day]</div>
+      <div class="availability-item">• Attend any necessary transition meetings</div>
+      <div class="availability-item">• Be available for questions after my departure (within reason) via <span style="font-weight: bold;">[Personal.Email]</span></div>
+      <div class="availability-item">• Assist with recruitment/interviews for my replacement if needed</div>
+    </div>
+  </div>
+
+  <!-- Administrative Items -->
+  <div class="admin-box">
+    <div class="section-header">📋 ADMINISTRATIVE MATTERS</div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+      <div>Please let me know the process for:</div>
+      <div class="admin-grid">
+        <div class="admin-item">✓ Return of company property (laptop, keys, access cards, etc.)</div>
+        <div class="admin-item">✓ Final paycheck and accrued vacation/PTO payout</div>
+        <div class="admin-item">✓ Benefits continuation (COBRA, 401k rollover, etc.)</div>
+        <div class="admin-item">✓ Exit interview scheduling</div>
+        <div class="admin-item">✓ Reference letters or recommendations</div>
+        <div class="admin-item">✓ Final paperwork and documentation</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Future Connection -->
+  <div class="content-text">
+    I hope to maintain our professional relationship going forward. Please feel free to reach me at <span style="font-weight: bold;">[Your.Personal.Email]</span> or <span style="font-weight: bold;">[Your.Personal.Phone]</span> after my departure. I would be happy to stay connected via LinkedIn and wish the team continued success.
+  </div>
+
+  <!-- Support Box -->
+  <div class="support-box">
+    <div class="section-header">🤝 CONTINUED SUPPORT</div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+      Even after my last day, I'm willing to be available (within reasonable limits) to answer questions or provide clarification during the transition period. You can reach me at <span style="font-weight: bold;">[Your.Personal.Email]</span> if any urgent matters arise.
+    </div>
+  </div>
+
+  <!-- Closing -->
+  <div class="content-text">
+    Thank you again for the opportunities, guidance, and support you've provided during my tenure at <span style="font-weight: bold;">[Company.Name]</span>. I have truly enjoyed being part of the team and am grateful for the professional relationships I've developed. I wish you and the entire <span style="font-weight: bold;">[Department.Or.Team.Name]</span> team all the best in your future endeavors.
+  </div>
+
+  <!-- Signature -->
+  <div class="signature">
+    <div>Respectfully,</div>
+    <div class="signature-name">[Your.Full.Name]</div>
+    <div class="signature-details">
+      <div>[Your.Current.Position]</div>
+      <div style="margin-top: 0.5rem;">
+        <div>Work Email: [Your.Work.Email]</div>
+        <div>Personal Email: [Your.Personal.Email]</div>
+        <div>Phone: [Your.Phone]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CC Line -->
+  <div class="cc-line">
+    cc: [HR.Department] / [HR.Director.Name]
+  </div>
+
+  <!-- Tips Section -->
+  <div class="tips-section">
+    <div class="tips-title">💡 RESIGNATION LETTER TIPS (Remove this section before sending):</div>
+    <div class="tips-list">
+      <div class="tip-item">Keep It Brief & Positive: No need to elaborate on reasons or air grievances</div>
+      <div class="tip-item">Be Clear on Dates: Specify exact last working day to avoid confusion</div>
+      <div class="tip-item">Don't Burn Bridges: You may need references or cross paths professionally later</div>
+      <div class="tip-item">Submit in Person First: Tell your manager face-to-face before submitting letter if possible</div>
+      <div class="tip-item">Deliver to HR: Submit copy to HR department as well as your manager</div>
+      <div class="tip-item">Check Your Contract: Verify required notice period and any restrictions (non-compete, etc.)</div>
+      <div class="tip-item">No Negotiation Points: This is not the place to discuss counter-offers or complaints</div>
+      <div class="tip-item">Professional Tone Always: Even if leaving due to negative circumstances</div>
+      <div class="tip-item">Keep a Copy: Save a copy for your records</div>
+      <div class="tip-item">Follow Up: Confirm receipt and discuss transition plan with manager</div>
+    </div>
+  </div>
+
+  <!-- Checklist -->
+  <div class="checklist">
+    <div class="checklist-title">✅ PRE-SUBMISSION CHECKLIST:</div>
+    <div class="tips-list">
+      <div class="checklist-item">☐ Have you calculated the correct notice period per your contract?</div>
+      <div class="checklist-item">☐ Is your last working day clearly stated?</div>
+      <div class="checklist-item">☐ Have you checked your employee handbook for resignation procedures?</div>
+      <div class="checklist-item">☐ Do you have your personal email/phone for future contact?</div>
+      <div class="checklist-item">☐ Have you removed any negative comments or complaints?</div>
+      <div class="checklist-item">☐ Is the tone positive and professional throughout?</div>
+      <div class="checklist-item">☐ Have you mentioned your commitment to transition?</div>
+      <div class="checklist-item">☐ Did you proofread for any errors?</div>
+      <div class="checklist-item">☐ Will you deliver this in person to your manager first?</div>
+      <div class="checklist-item">☐ Have you prepared to answer questions about your decision?</div>
+    </div>
+  </div>
+</body>
+</html>
+`
+},
+
+{
+  id: 'salary-negotiation-letter-001',
+  name: 'Salary Negotiation Letter',
+  description: 'Professional salary negotiation and counter-offer letter',
+  category: 'resumes',
+  popular: true,
+  fields: ['Current Offer', 'Desired Salary', 'Justification', 'Market Research', 'Value Proposition'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="border-b-4 border-green-600 pb-4 mb-6">
+        <div className="text-2xl font-bold text-slate-900 mb-1">[Your.Full.Name]</div>
+        <div className="text-sm text-green-700 mb-2">[Your.Professional.Title]</div>
+        <div className="text-[8px] text-slate-600 flex gap-3 flex-wrap">
+          <span>📧 [Your.Email]</span>
+          <span>📱 [Your.Phone]</span>
+          <span>📍 [Your.City], [Your.State]</span>
+          <span>💼 [Your.LinkedIn]</span>
+        </div>
+      </div>
+
+      {/* Date */}
+      <div className="mb-4 text-[8px] text-slate-700">[Current.Date]</div>
+
+      {/* Recipient */}
+      <div className="mb-6 text-[8px] text-slate-700 leading-relaxed">
+        <div className="font-bold">[Hiring.Manager.Name]</div>
+        <div>[Hiring.Manager.Title]</div>
+        <div className="font-bold text-green-700">[Company.Name]</div>
+        <div>[Company.Address]</div>
+        <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+      </div>
+
+      {/* Subject */}
+      <div className="mb-4">
+        <div className="bg-green-50 border-l-4 border-green-600 p-3 rounded-r">
+          <div className="text-[8px] font-bold text-green-900">
+            Re: [Position.Title] Offer - Salary Discussion
+          </div>
+        </div>
+      </div>
+
+      {/* Greeting */}
+      <div className="mb-4 text-[8px] text-slate-700">
+        Dear [Hiring.Manager.Name],
+      </div>
+
+      {/* Opening - Express Gratitude & Enthusiasm */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        Thank you so much for extending the offer for the <span className="font-bold text-green-600">[Position.Title]</span> position at <span className="font-bold text-green-600">[Company.Name]</span>. I am genuinely excited about the opportunity to join your team and contribute to <span className="font-bold">[Specific.Company.Goal.Or.Project]</span>. After our conversations, I am confident this role aligns perfectly with my skills and career aspirations, and I'm enthusiastic about the value I can bring to your organization.
+      </div>
+
+      {/* Acknowledge the Offer */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-green-700 mb-2">📋 OFFER ACKNOWLEDGMENT</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            I have thoroughly reviewed the offer details you provided:
+            <div className="mt-2 bg-white rounded-lg p-3 border border-green-200">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="font-bold">Position:</span> [Position.Title]
+                </div>
+                <div>
+                  <span className="font-bold">Start Date:</span> [Proposed.Start.Date]
+                </div>
+                <div>
+                  <span className="font-bold">Base Salary:</span> ${"[Offered.Salary]"}/year
+                </div>
+                <div>
+                  <span className="font-bold">Benefits:</span> [Benefits.Summary]
+                </div>
+              </div>
+            </div>
+            <div className="mt-2">
+              I am grateful for this generous offer and appreciate the time invested in the interview process.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Transition to Negotiation */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        After careful consideration of the role's responsibilities, my qualifications, and current market conditions, I would like to discuss the compensation package. I believe a salary adjustment would better reflect the value I bring and align with industry standards for this position.
+      </div>
+
+      {/* Your Counter-Offer */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl p-6 text-white text-center shadow-xl">
+          <div className="text-[10px] opacity-90 font-semibold mb-2">PROPOSED SALARY</div>
+          <div className="text-5xl font-bold mb-3">${"[Desired.Salary]"}</div>
+          <div className="text-[8px] opacity-80">Annual Base Salary</div>
+          <div className="mt-3 text-[7px] opacity-90">
+            (Current Offer: ${"[Offered.Salary]"} | Difference: ${"[Difference]"})
+          </div>
+        </div>
+      </div>
+
+      {/* Justification - Your Value Proposition */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2 border-b-2 border-green-600 pb-1">💼 VALUE PROPOSITION & JUSTIFICATION</div>
+        <div className="space-y-3">
+          <div className="bg-white border-l-4 border-green-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-green-700 mb-1">Relevant Experience & Expertise</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              I bring <span className="font-bold">[Years.Experience]</span> years of specialized experience in <span className="font-bold">[Your.Expertise.Area]</span>, including <span className="font-bold">[Key.Skill.1]</span>, <span className="font-bold">[Key.Skill.2]</span>, and <span className="font-bold">[Key.Skill.3]</span>. My track record includes <span className="font-bold">[Quantifiable.Achievement.1]</span> and <span className="font-bold">[Quantifiable.Achievement.2]</span>, demonstrating my ability to deliver results that directly align with this role's objectives.
+            </div>
+          </div>
+
+          <div className="bg-white border-l-4 border-emerald-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-emerald-700 mb-1">Immediate Impact & Contributions</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              From day one, I can contribute <span className="font-bold">[Immediate.Value.1]</span>, <span className="font-bold">[Immediate.Value.2]</span>, and <span className="font-bold">[Immediate.Value.3]</span>. My existing relationships with <span className="font-bold">[Relevant.Connections.Or.Clients]</span> and deep knowledge of <span className="font-bold">[Specialized.Area]</span> will enable me to hit the ground running and minimize ramp-up time.
+            </div>
+          </div>
+
+          <div className="bg-white border-l-4 border-green-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-green-700 mb-1">Advanced Skills & Certifications</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              I hold <span className="font-bold">[Certification.1]</span> and <span className="font-bold">[Certification.2]</span>, which are highly relevant to this role. Additionally, my proficiency in <span className="font-bold">[Specialized.Tool.Or.Methodology]</span> and <span className="font-bold">[Another.Skill]</span> positions me to excel in the responsibilities outlined for this position.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Market Research Data */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2 border-b-2 border-green-600 pb-1">📊 MARKET RESEARCH & INDUSTRY STANDARDS</div>
+        <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            Based on my research using <span className="font-bold">[Source.1: e.g., Glassdoor, Salary.com, PayScale]</span>, <span className="font-bold">[Source.2]</span>, and <span className="font-bold">[Source.3]</span>, the market rate for a <span className="font-bold">[Position.Title]</span> with my level of experience in <span className="font-bold">[Geographic.Market]</span> typically ranges from <span className="font-bold">${"[Market.Range.Low]"}</span> to <span className="font-bold">${"[Market.Range.High]"}</span>.
+            
+            <div className="mt-3 bg-white rounded-lg p-3 border border-blue-200">
+              <div className="font-bold text-blue-900 mb-2 text-[8px]">Comparable Positions:</div>
+              <div className="space-y-1 text-[7px]">
+                <div>• <span className="font-bold">[Company.1]</span> - Similar role: ${"[Salary.1]"} (Source: [Source])</div>
+                <div>• <span className="font-bold">[Company.2]</span> - Similar role: ${"[Salary.2]"} (Source: [Source])</div>
+                <div>• <span className="font-bold">[Company.3]</span> - Similar role: ${"[Salary.3]"} (Source: [Source])</div>
+                <div className="mt-2 pt-2 border-t border-blue-200">
+                  <strong>Average Market Rate:</strong> ${"[Average.Market.Rate]"}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-2">
+              My proposed salary of <span className="font-bold">${"[Desired.Salary]"}</span> falls within this range and reflects my specialized skills and the value I bring to <span className="font-bold text-green-700">[Company.Name]</span>.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Considerations */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2">💡 ADDITIONAL CONSIDERATIONS</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+            <div>
+              <span className="font-bold">Current Compensation:</span> My current total compensation is <span className="font-bold">${"[Current.Total.Comp]"}</span> (including base salary, bonus, and benefits). To make this transition financially viable, the proposed adjustment is important.
+            </div>
+            <div>
+              <span className="font-bold">Cost of Living:</span> Given [Geographic.Consideration: relocation to a higher cost-of-living area / local market conditions], the adjusted salary would ensure financial stability and allow me to fully focus on delivering results.
+            </div>
+            <div>
+              <span className="font-bold">Role Scope:</span> Based on our discussions, the position involves <span className="font-bold">[Additional.Responsibility.1]</span> and <span className="font-bold">[Additional.Responsibility.2]</span>, which extend beyond the typical scope for this role and warrant additional compensation consideration.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Flexibility & Alternative Options */}
+      <div className="mb-4">
+        <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-yellow-800 mb-2">🤝 FLEXIBILITY & ALTERNATIVE COMPENSATION</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            <div className="mb-2">I understand budget constraints exist, and I'm open to exploring alternative compensation structures:</div>
+            <div className="space-y-1">
+              <div>• <span className="font-bold">Performance Bonus:</span> Structure with ${"[Bonus.Amount]"} tied to [Specific.Metrics]</div>
+              <div>• <span className="font-bold">Signing Bonus:</span> One-time ${"[Signing.Bonus]"} to bridge the gap</div>
+              <div>• <span className="font-bold">Equity/Stock Options:</span> [Number] options vesting over [Timeframe]</div>
+              <div>• <span className="font-bold">Accelerated Review:</span> Salary review at [Timeframe: 6 months] instead of annual</div>
+              <div>• <span className="font-bold">Additional Benefits:</span> [Extra.Vacation.Days], [Professional.Development.Budget], [Remote.Work.Flexibility]</div>
+              <div>• <span className="font-bold">Relocation Assistance:</span> ${"[Relocation.Amount]"} for moving expenses (if applicable)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Reiterate Enthusiasm */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I want to emphasize my strong interest in this position and my commitment to contributing to <span className="font-bold text-green-600">[Company.Name]</span>'s success. This negotiation is about ensuring a compensation package that reflects the mutual value of our partnership. I'm confident we can reach an agreement that works for both parties.
+      </div>
+
+      {/* Next Steps */}
+      <div className="mb-4">
+        <div className="bg-green-50 border-l-4 border-green-600 p-4 rounded-r">
+          <div className="text-sm font-bold text-green-700 mb-2">📅 NEXT STEPS</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            I would appreciate the opportunity to discuss this further at your earliest convenience. I'm available for a call <span className="font-bold">[Your.Availability: this week, any afternoon, etc.]</span> and am happy to work around your schedule. I'm optimistic we can find a mutually beneficial solution that allows me to join your team with enthusiasm and focus.
+          </div>
+        </div>
+      </div>
+
+      {/* Closing - Professional & Positive */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        Thank you for considering my request and for the time you've invested in this process. I truly appreciate your understanding and look forward to working together to finalize the details so I can begin contributing to <span className="font-bold text-green-600">[Company.Name]</span>'s continued success.
+      </div>
+
+      {/* Signature */}
+      <div className="mt-6 text-[8px] text-slate-700">
+        <div className="mb-10">Sincerely,</div>
+        <div className="font-bold text-slate-900 text-sm">[Your.Full.Name]</div>
+        <div className="text-slate-600">[Your.Phone] | [Your.Email]</div>
+      </div>
+
+      {/* Tips Section (Remove before sending) */}
+      <div className="mt-8 bg-green-50 border-2 border-green-400 rounded-lg p-4">
+        <div className="text-[8px] font-bold text-green-900 mb-2">💡 NEGOTIATION TIPS (Remove this section before sending):</div>
+        <div className="text-[7px] text-slate-600 leading-relaxed space-y-1">
+          <div>• <strong>Always Show Enthusiasm:</strong> Make it clear you want the job</div>
+          <div>• <strong>Be Specific:</strong> Use exact numbers, not ranges</div>
+          <div>• <strong>Provide Evidence:</strong> Back up your request with market data</div>
+          <div>• <strong>Focus on Value:</strong> Emphasize what you bring, not what you need</div>
+          <div>• <strong>Stay Professional:</strong> Keep emotion out of it - this is business</div>
+          <div>• <strong>Timing Matters:</strong> Negotiate after receiving written offer, before accepting</div>
+          <div>• <strong>Consider Total Package:</strong> Don't focus only on base salary</div>
+          <div>• <strong>Be Prepared to Walk:</strong> Know your minimum acceptable offer</div>
+          <div>• <strong>Don't Apologize:</strong> Negotiating is expected and professional</div>
+          <div>• <strong>Get Everything in Writing:</strong> Once agreed, request written confirmation</div>
+        </div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Salary Negotiation Letter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      border-bottom: 4px solid #059669;
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .title {
+      font-size: 0.875rem;
+      color: #059669;
+      margin-bottom: 0.75rem;
+    }
+    .contact-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    /* Date */
+    .date {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+
+    /* Recipient */
+    .recipient {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1.5rem;
+      line-height: 1.4;
+    }
+    .company-name {
+      font-weight: bold;
+      color: #059669;
+    }
+
+    /* Subject Box */
+    .subject-box {
+      background-color: #d1fae5;
+      border-left: 4px solid #059669;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #04473d;
+    }
+
+    /* Content Text */
+    .content-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+
+    /* Salary Box */
+    .salary-box {
+      background: linear-gradient(to bottom right, #059669, #047857);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      text-align: center;
+      color: white;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .salary-amount {
+      font-size: 2.5rem;
+      font-weight: bold;
+      margin: 0.5rem 0;
+    }
+    .salary-label {
+      font-size: 0.8rem;
+      opacity: 0.9;
+      margin-bottom: 0.25rem;
+    }
+    .salary-details {
+      font-size: 0.65rem;
+      opacity: 0.8;
+      margin-top: 0.5rem;
+    }
+
+    /* Section Headers */
+    .section-header {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid #059669;
+      padding-bottom: 0.25rem;
+    }
+
+    /* Value Proposition Boxes */
+    .value-box {
+      background-color: #fff;
+      border-left: 4px solid #059669;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 0.75rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .value-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #059669;
+      margin-bottom: 0.25rem;
+    }
+    .value-description {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* Market Research Box */
+    .market-box {
+      background-color: #dbeafe;
+      border: 2px solid #93c5fd;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .market-data {
+      background-color: #fff;
+      border: 1px solid #93c5fd;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      margin-top: 0.5rem;
+      font-size: 0.65rem;
+    }
+    .market-item {
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .market-item::before {
+      content: "•";
+      color: #1e40af;
+      font-weight: bold;
+    }
+
+    /* Considerations Box */
+    .considerations-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .consideration-item {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Flexibility Box */
+    .flexibility-box {
+      background-color: #fef3c7;
+      border: 2px solid #fde68a;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .flexibility-item {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .flexibility-item::before {
+      content: "•";
+      color: #92400e;
+      font-weight: bold;
+    }
+
+    /* Next Steps Box */
+    .next-steps-box {
+      background-color: #d1fae5;
+      border-left: 4px solid #059669;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Offer Details Box */
+    .offer-details {
+      background-color: #fff;
+      border: 1px solid #d1fae5;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    .offer-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      font-size: 0.7rem;
+    }
+
+    /* Tips Section */
+    .tips-section {
+      background-color: #d1fae5;
+      border: 2px solid #a7f3d0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 2rem;
+      font-size: 0.7rem;
+    }
+    .tips-title {
+      font-weight: bold;
+      color: #04473d;
+      margin-bottom: 0.5rem;
+    }
+    .tip-item {
+      color: #64748b;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .tip-item::before {
+      content: "•";
+      color: #059669;
+      font-weight: bold;
+    }
+
+    /* Signature */
+    .signature {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .signature-name {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="name">[Your.Full.Name]</div>
+    <div class="title">[Your.Professional.Title]</div>
+    <div class="contact-info">
+      <span>📧 [Your.Email]</span>
+      <span>📱 [Your.Phone]</span>
+      <span>📍 [Your.City], [Your.State]</span>
+      <span>💼 [Your.LinkedIn]</span>
+    </div>
+  </div>
+
+  <!-- Date -->
+  <div class="date">[Current.Date]</div>
+
+  <!-- Recipient -->
+  <div class="recipient">
+    <div class="manager-name" style="font-weight: bold;">[Hiring.Manager.Name]</div>
+    <div>[Hiring.Manager.Title]</div>
+    <div class="company-name">[Company.Name]</div>
+    <div>[Company.Address]</div>
+    <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+  </div>
+
+  <!-- Subject -->
+  <div class="subject-box">
+    Re: [Position.Title] Offer - Salary Discussion
+  </div>
+
+  <!-- Salutation -->
+  <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 1rem;">
+    Dear [Hiring.Manager.Name],
+  </div>
+
+  <!-- Opening -->
+  <div class="content-text">
+    Thank you so much for extending the offer for the <span style="font-weight: bold; color: #059669;">[Position.Title]</span> position at <span style="font-weight: bold; color: #059669;">[Company.Name]</span>. I am genuinely excited about the opportunity to join your team and contribute to <span style="font-weight: bold;">[Specific.Company.Goal.Or.Project]</span>. After our conversations, I am confident this role aligns perfectly with my skills and career aspirations, and I'm enthusiastic about the value I can bring to your organization.
+  </div>
+
+  <!-- Offer Acknowledgment -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">📋 OFFER ACKNOWLEDGMENT</div>
+    <div style="background: linear-gradient(to right, #d1fae5, #a7f3d0); border: 2px solid #a7f3d0; border-radius: 0.5rem; padding: 1rem;">
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        I have thoroughly reviewed the offer details you provided:
+        <div class="offer-details">
+          <div class="offer-grid">
+            <div>
+              <span style="font-weight: bold;">Position:</span> [Position.Title]
+            </div>
+            <div>
+              <span style="font-weight: bold;">Start Date:</span> [Proposed.Start.Date]
+            </div>
+            <div>
+              <span style="font-weight: bold;">Base Salary:</span> ${"[Offered.Salary]"}<span style="font-size: 0.6rem;">/year</span>
+            </div>
+            <div>
+              <span style="font-weight: bold;">Benefits:</span> [Benefits.Summary]
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 0.5rem;">
+          I am grateful for this generous offer and appreciate the time invested in the interview process.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transition to Negotiation -->
+  <div class="content-text">
+    After careful consideration of the role's responsibilities, my qualifications, and current market conditions, I would like to discuss the compensation package. I believe a salary adjustment would better reflect the value I bring and align with industry standards for this position.
+  </div>
+
+  <!-- Proposed Salary -->
+  <div class="salary-box">
+    <div class="salary-label">PROPOSED SALARY</div>
+    <div class="salary-amount">${"[Desired.Salary]"}</div>
+    <div class="salary-label">Annual Base Salary</div>
+    <div class="salary-details">
+      (Current Offer: ${"[Offered.Salary]"} | Difference: ${"[Difference]"})
+    </div>
+  </div>
+
+  <!-- Value Proposition -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">💼 VALUE PROPOSITION & JUSTIFICATION</div>
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <div class="value-box">
+        <div class="value-title">Relevant Experience & Expertise</div>
+        <div class="value-description">
+          I bring <span style="font-weight: bold;">[Years.Experience]</span> years of specialized experience in <span style="font-weight: bold;">[Your.Expertise.Area]</span>, including <span style="font-weight: bold;">[Key.Skill.1]</span>, <span style="font-weight: bold;">[Key.Skill.2]</span>, and <span style="font-weight: bold;">[Key.Skill.3]</span>. My track record includes <span style="font-weight: bold;">[Quantifiable.Achievement.1]</span> and <span style="font-weight: bold;">[Quantifiable.Achievement.2]</span>, demonstrating my ability to deliver results that directly align with this role's objectives.
+        </div>
+      </div>
+      <div class="value-box" style="border-left-color: #047857;">
+        <div class="value-title" style="color: #047857;">Immediate Impact & Contributions</div>
+        <div class="value-description">
+          From day one, I can contribute <span style="font-weight: bold;">[Immediate.Value.1]</span>, <span style="font-weight: bold;">[Immediate.Value.2]</span>, and <span style="font-weight: bold;">[Immediate.Value.3]</span>. My existing relationships with <span style="font-weight: bold;">[Relevant.Connections.Or.Clients]</span> and deep knowledge of <span style="font-weight: bold;">[Specialized.Area]</span> will enable me to hit the ground running and minimize ramp-up time.
+        </div>
+      </div>
+      <div class="value-box">
+        <div class="value-title">Advanced Skills & Certifications</div>
+        <div class="value-description">
+          I hold <span style="font-weight: bold;">[Certification.1]</span> and <span style="font-weight: bold;">[Certification.2]</span>, which are highly relevant to this role. Additionally, my proficiency in <span style="font-weight: bold;">[Specialized.Tool.Or.Methodology]</span> and <span style="font-weight: bold;">[Another.Skill]</span> positions me to excel in the responsibilities outlined for this position.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Market Research -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">📊 MARKET RESEARCH & INDUSTRY STANDARDS</div>
+    <div class="market-box">
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        Based on my research using <span style="font-weight: bold;">[Source.1: e.g., Glassdoor, Salary.com, PayScale]</span>, <span style="font-weight: bold;">[Source.2]</span>, and <span style="font-weight: bold;">[Source.3]</span>, the market rate for a <span style="font-weight: bold;">[Position.Title]</span> with my level of experience in <span style="font-weight: bold;">[Geographic.Market]</span> typically ranges from <span style="font-weight: bold;">${"[Market.Range.Low]"}</span> to <span style="font-weight: bold;">${"[Market.Range.High]"}</span>.
+
+        <div class="market-data">
+          <div style="font-weight: bold; color: #1e40af; margin-bottom: 0.25rem;">Comparable Positions:</div>
+          <div style="font-size: 0.65rem;">
+            <div class="market-item"><span style="font-weight: bold;">[Company.1]</span> - Similar role: ${"[Salary.1]"} (Source: [Source])</div>
+            <div class="market-item"><span style="font-weight: bold;">[Company.2]</span> - Similar role: ${"[Salary.2]"} (Source: [Source])</div>
+            <div class="market-item"><span style="font-weight: bold;">[Company.3]</span> - Similar role: ${"[Salary.3]"} (Source: [Source])</div>
+            <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #e2e8f0;">
+              <strong>Average Market Rate:</strong> ${"[Average.Market.Rate]"}
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 0.75rem;">
+          My proposed salary of <span style="font-weight: bold;">${"[Desired.Salary]"}</span> falls within this range and reflects my specialized skills and the value I bring to <span style="font-weight: bold; color: #059669;">[Company.Name]</span>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Additional Considerations -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-header">💡 ADDITIONAL CONSIDERATIONS</div>
+    <div class="considerations-box">
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        <div class="consideration-item">
+          <span style="font-weight: bold;">Current Compensation:</span> My current total compensation is <span style="font-weight: bold;">${"[Current.Total.Comp]"}</span> (including base salary, bonus, and benefits). To make this transition financially viable, the proposed adjustment is important.
+        </div>
+        <div class="consideration-item">
+          <span style="font-weight: bold;">Cost of Living:</span> Given [Geographic.Consideration: relocation to a higher cost-of-living area / local market conditions], the adjusted salary would ensure financial stability and allow me to fully focus on delivering results.
+        </div>
+        <div class="consideration-item">
+          <span style="font-weight: bold;">Role Scope:</span> Based on our discussions, the position involves <span style="font-weight: bold;">[Additional.Responsibility.1]</span> and <span style="font-weight: bold;">[Additional.Responsibility.2]</span>, which extend beyond the typical scope for this role and warrant additional compensation consideration.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flexibility -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="flexibility-box">
+      <div class="section-header" style="color: #92400e;">🤝 FLEXIBILITY & ALTERNATIVE COMPENSATION</div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        <div style="margin-bottom: 0.5rem;">I understand budget constraints exist, and I'm open to exploring alternative compensation structures:</div>
+        <div style="margin-top: 0.5rem;">
+          <div class="flexibility-item">Performance Bonus: Structure with ${"[Bonus.Amount]"} tied to [Specific.Metrics]</div>
+          <div class="flexibility-item">Signing Bonus: One-time ${"[Signing.Bonus]"} to bridge the gap</div>
+          <div class="flexibility-item">Equity/Stock Options: [Number] options vesting over [Timeframe]</div>
+          <div class="flexibility-item">Accelerated Review: Salary review at [Timeframe: 6 months] instead of annual</div>
+          <div class="flexibility-item">Additional Benefits: [Extra.Vacation.Days], [Professional.Development.Budget], [Remote.Work.Flexibility]</div>
+          <div class="flexibility-item">Relocation Assistance: ${"[Relocation.Amount]"} for moving expenses (if applicable)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reiterate Enthusiasm -->
+  <div class="content-text">
+    I want to emphasize my strong interest in this position and my commitment to contributing to <span style="font-weight: bold; color: #059669;">[Company.Name]</span>'s success. This negotiation is about ensuring a compensation package that reflects the mutual value of our partnership. I'm confident we can reach an agreement that works for both parties.
+  </div>
+
+  <!-- Next Steps -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="next-steps-box">
+      <div class="section-header">📅 NEXT STEPS</div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        I would appreciate the opportunity to discuss this further at your earliest convenience. I'm available for a call <span style="font-weight: bold;">[Your.Availability: this week, any afternoon, etc.]</span> and am happy to work around your schedule. I'm optimistic we can find a mutually beneficial solution that allows me to join your team with enthusiasm and focus.
+      </div>
+    </div>
+  </div>
+
+  <!-- Closing -->
+  <div class="content-text">
+    Thank you for considering my request and for the time you've invested in this process. I truly appreciate your understanding and look forward to working together to finalize the details so I can begin contributing to <span style="font-weight: bold; color: #059669;">[Company.Name]</span>'s continued success.
+  </div>
+
+  <!-- Signature -->
+  <div class="signature">
+    <div>Sincerely,</div>
+    <div class="signature-name">[Your.Full.Name]</div>
+    <div style="font-size: 0.7rem; color: #64748b;">[Your.Phone] | [Your.Email]</div>
+  </div>
+
+  <!-- Tips Section -->
+  <div class="tips-section">
+    <div class="tips-title">💡 NEGOTIATION TIPS (Remove this section before sending):</div>
+    <div style="font-size: 0.65rem; color: #64748b; line-height: 1.4;">
+      <div class="tip-item">Always Show Enthusiasm: Make it clear you want the job</div>
+      <div class="tip-item">Be Specific: Use exact numbers, not ranges</div>
+      <div class="tip-item">Provide Evidence: Back up your request with market data</div>
+      <div class="tip-item">Focus on Value: Emphasize what you bring, not what you need</div>
+      <div class="tip-item">Stay Professional: Keep emotion out of it - this is business</div>
+      <div class="tip-item">Timing Matters: Negotiate after receiving written offer, before accepting</div>
+      <div class="tip-item">Consider Total Package: Don't focus only on base salary</div>
+      <div class="tip-item">Be Prepared to Walk: Know your minimum acceptable offer</div>
+      <div class="tip-item">Don't Apologize: Negotiating is expected and professional</div>
+      <div class="tip-item">Get Everything in Writing: Once agreed, request written confirmation</div>
+    </div>
+  </div>
+</body>
+</html>
+`
+},
+
+
+{
+  id: 'entry-level-cover-letter-001',
+  name: 'Entry-Level Cover Letter',
+  description: 'Cover letter for recent graduates and early career',
+  category: 'resumes',
+  popular: true,
+  fields: ['Education', 'Internships', 'Skills', 'Enthusiasm', 'Willingness to Learn'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white p-5 rounded-lg mb-6">
+        <div className="text-2xl font-bold mb-1">[Your.Full.Name]</div>
+        <div className="text-sm mb-2">[Your.Degree] Graduate | [Graduation.Year]</div>
+        <div className="flex gap-3 text-[8px] flex-wrap">
+          <span>📧 [Your.Email]</span>
+          <span>📱 [Your.Phone]</span>
+          <span>📍 [Your.City], [Your.State]</span>
+          <span>💼 [Your.LinkedIn]</span>
+        </div>
+      </div>
+
+      {/* Date */}
+      <div className="mb-4 text-[8px] text-slate-700">[Current.Date]</div>
+
+      {/* Recipient */}
+      <div className="mb-6 text-[8px] text-slate-700 leading-relaxed">
+        <div className="font-bold">[Hiring.Manager.Name]</div>
+        <div>[Hiring.Manager.Title]</div>
+        <div className="font-bold text-emerald-700">[Company.Name]</div>
+        <div>[Company.Address]</div>
+        <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+      </div>
+
+      {/* Subject */}
+      <div className="mb-4">
+        <div className="bg-emerald-50 border-l-4 border-emerald-600 p-3 rounded-r">
+          <div className="text-[8px] font-bold text-emerald-900">
+            Re: [Position.Title] - Eager [Your.Major] Graduate Ready to Contribute & Grow
+          </div>
+        </div>
+      </div>
+
+      {/* Greeting */}
+      <div className="mb-4 text-[8px] text-slate-700">
+        Dear [Hiring.Manager.Name],
+      </div>
+
+      {/* Opening - Show Enthusiasm */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        As a recent <span className="font-bold">[Your.Degree]</span> graduate from <span className="font-bold">[Your.University]</span> with a passion for <span className="font-bold">[Your.Field]</span>, I was thrilled to discover the <span className="font-bold text-emerald-600">[Position.Title]</span> opening at <span className="font-bold text-emerald-600">[Company.Name]</span>. While I am at the beginning of my professional journey, I bring fresh perspectives, strong academic foundations, proven eagerness to learn, and genuine enthusiasm that I believe will make me a valuable addition to your team.
+      </div>
+
+      {/* Education Highlight */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-emerald-700 mb-2">🎓 EDUCATIONAL FOUNDATION</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            I graduated <span className="font-bold">[Honors.Or.Distinction]</span> from <span className="font-bold">[Your.University]</span> with a <span className="font-bold">[GPA]</span> GPA, specializing in <span className="font-bold">[Your.Major/Concentration]</span>. My coursework in <span className="font-bold">[Relevant.Course.1]</span>, <span className="font-bold">[Relevant.Course.2]</span>, and <span className="font-bold">[Relevant.Course.3]</span> provided me with a solid theoretical foundation in <span className="font-bold">[Relevant.Skills.Area]</span>, which directly applies to the requirements of the <span className="font-bold">[Position.Title]</span> role.
+          </div>
+        </div>
+      </div>
+
+      {/* Relevant Experience */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2">💼 RELEVANT EXPERIENCE & PROJECTS</div>
+        <div className="space-y-2">
+          <div className="bg-white border-l-4 border-emerald-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-emerald-700 mb-1">[Internship.Or.Experience.1.Title] at [Company.Or.Organization]</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              During my <span className="font-bold">[Duration]</span> at <span className="font-bold">[Organization]</span>, I <span className="font-bold">[Key.Responsibility.Or.Achievement]</span>, which resulted in <span className="font-bold">[Outcome.Or.Learning]</span>. This experience taught me <span className="font-bold">[Key.Skill.Learned]</span> and gave me practical exposure to <span className="font-bold">[Relevant.Area]</span>.
+            </div>
+          </div>
+          <div className="bg-white border-l-4 border-teal-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-teal-700 mb-1">[Project.Or.Experience.2.Title]</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              As part of my <span className="font-bold">[Academic.Or.Extracurricular.Context]</span>, I <span className="font-bold">[Project.Description.And.Role]</span>. This project enhanced my skills in <span className="font-bold">[Skills.Developed]</span> and demonstrated my ability to <span className="font-bold">[Key.Capability]</span>.
+            </div>
+          </div>
+          <div className="bg-white border-l-4 border-emerald-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-emerald-700 mb-1">[Leadership.Or.Volunteer.Experience]</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              Through my involvement in <span className="font-bold">[Organization.Or.Activity]</span>, I developed <span className="font-bold">[Soft.Skills]</span> and learned <span className="font-bold">[Key.Lesson.Or.Capability]</span>, skills that will be invaluable in the <span className="font-bold">[Position.Title]</span> role.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Skills & Competencies */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2">🚀 SKILLS & COMPETENCIES</div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+            <div className="font-bold text-[8px] text-emerald-700 mb-1">Technical Skills</div>
+            <div className="text-[7px] text-slate-600">[Technical.Skill.1], [Technical.Skill.2], [Technical.Skill.3], [Technical.Skill.4]</div>
+          </div>
+          <div className="bg-teal-50 rounded-lg p-3 border border-teal-200">
+            <div className="font-bold text-[8px] text-teal-700 mb-1">Software Proficiency</div>
+            <div className="text-[7px] text-slate-600">[Software.1], [Software.2], [Software.3], [Software.4]</div>
+          </div>
+          <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+            <div className="font-bold text-[8px] text-emerald-700 mb-1">Soft Skills</div>
+            <div className="text-[7px] text-slate-600">[Soft.Skill.1], [Soft.Skill.2], [Soft.Skill.3], [Soft.Skill.4]</div>
+          </div>
+          <div className="bg-teal-50 rounded-lg p-3 border border-teal-200">
+            <div className="font-bold text-[8px] text-teal-700 mb-1">Languages</div>
+            <div className="text-[7px] text-slate-600">[Language.1] ([Proficiency.1]), [Language.2] ([Proficiency.2])</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Why This Company */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        What draws me to <span className="font-bold text-emerald-600">[Company.Name]</span> is your <span className="font-bold">[Company.Quality.Or.Reputation]</span> and commitment to <span className="font-bold">[Company.Value.Or.Mission]</span>. I've been following <span className="font-bold">[Specific.Company.News.Or.Initiative]</span> and am inspired by your approach to <span className="font-bold">[Specific.Area]</span>. As someone starting their career, I'm seeking an organization where I can grow, contribute, and learn from industry leaders — and <span className="font-bold">[Company.Name]</span> represents exactly that opportunity.
+      </div>
+
+      {/* What You Bring */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border-2 border-teal-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-teal-700 mb-2">✨ WHAT I BRING AS AN ENTRY-LEVEL CANDIDATE</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-1">
+            <div>• <span className="font-bold">Fresh Perspective:</span> Up-to-date knowledge of current trends, technologies, and best practices from recent education</div>
+            <div>• <span className="font-bold">Strong Work Ethic:</span> Demonstrated through [Academic.Achievement] and [Other.Achievement]</div>
+            <div>• <span className="font-bold">Eagerness to Learn:</span> Quick learner who actively seeks feedback and embraces challenges</div>
+            <div>• <span className="font-bold">Adaptability:</span> Comfortable with change and able to thrive in dynamic environments</div>
+            <div>• <span className="font-bold">Team Player:</span> Collaborative mindset developed through [Group.Projects.Or.Team.Experience]</div>
+            <div>• <span className="font-bold">Tech-Savvy:</span> Digital native proficient in [Modern.Tools.And.Platforms]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Learning & Growth Mindset */}
+      <div className="mb-4">
+        <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-r">
+          <div className="text-sm font-bold text-yellow-800 mb-2">📚 COMMITMENT TO CONTINUOUS LEARNING</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            I understand that as an entry-level professional, I have much to learn. I'm committed to professional development and have already begun <span className="font-bold">[Self.Learning.Initiative]</span>, including <span className="font-bold">[Online.Courses.Or.Certifications]</span>. I'm excited about the opportunity to learn from experienced professionals at <span className="font-bold text-emerald-600">[Company.Name]</span> and to grow alongside your team while making meaningful contributions from day one.
+          </div>
+        </div>
+      </div>
+
+      {/* How You'll Contribute */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        While I may be early in my career, I'm ready to make an immediate impact. I can contribute <span className="font-bold">[Immediate.Contribution.1]</span>, assist with <span className="font-bold">[Immediate.Contribution.2]</span>, and support <span className="font-bold">[Immediate.Contribution.3]</span>. My academic projects have prepared me to <span className="font-bold">[Relevant.Capability]</span>, and I'm eager to apply these skills in a professional setting while continuing to develop my expertise.
+      </div>
+
+      {/* Closing with Enthusiasm */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I am genuinely excited about the opportunity to begin my career with <span className="font-bold text-emerald-600">[Company.Name]</span> as a <span className="font-bold">[Position.Title]</span>. I'm confident that my education, skills, enthusiasm, and willingness to learn make me a strong candidate for this position. I would welcome the opportunity to discuss how I can contribute to your team's success while growing professionally. Thank you for considering my application, and I look forward to the possibility of speaking with you soon.
+      </div>
+
+      {/* Signature */}
+      <div className="mt-6 text-[8px] text-slate-700">
+        <div className="mb-10">Enthusiastically yours,</div>
+        <div className="font-bold text-slate-900 text-sm">[Your.Full.Name]</div>
+        <div className="text-slate-600">[Your.Phone] | [Your.Email]</div>
+      </div>
+
+      {/* Enclosure */}
+      <div className="mt-6">
+        <div className="bg-emerald-50 border-l-4 border-emerald-500 p-2 rounded-r text-[7px] text-emerald-800">
+          📎 Attachments: Resume, Academic Transcripts, Portfolio/Projects (if applicable)
+        </div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entry-Level Cover Letter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      background: linear-gradient(to right, #10b981, #059669);
+      color: white;
+      padding: 1.25rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 0.25rem;
+    }
+    .degree {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .contact-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.7rem;
+    }
+
+    /* Date */
+    .date {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+
+    /* Recipient */
+    .recipient {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1.5rem;
+      line-height: 1.4;
+    }
+    .company-name {
+      font-weight: bold;
+      color: #04473d;
+    }
+    .manager-name {
+      font-weight: bold;
+    }
+
+    /* Subject Box */
+    .subject-box {
+      background-color: #d1fae5;
+      border-left: 4px solid #059669;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #04473d;
+    }
+
+    /* Section Headers */
+    .section-header {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Content Text */
+    .content-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+
+    /* Highlight Boxes */
+    .highlight-box {
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      line-height: 1.4;
+    }
+    .education-box {
+      background: linear-gradient(to right, #d1fae5, #a7f3d0);
+      border: 2px solid #a7f3d0;
+    }
+    .what-i-bring {
+      background: linear-gradient(to right, #a7f3d0, #6ee7b7);
+      border: 2px solid #3b82f6;
+    }
+    .learning-goals {
+      background-color: #fef3c7;
+      border-left: 4px solid #d97706;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+
+    /* Experience Boxes */
+    .experience-box {
+      background-color: #fff;
+      border-left: 4px solid #059669;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .experience-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #059669;
+      margin-bottom: 0.25rem;
+    }
+    .experience-description {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* Skills Grid */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .skill-box {
+      background-color: #d1fae5;
+      border: 1px solid #a7f3d0;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      font-size: 0.7rem;
+    }
+    .skill-title {
+      font-weight: bold;
+      color: #059669;
+      margin-bottom: 0.25rem;
+    }
+    .skill-list {
+      color: #64748b;
+      font-size: 0.65rem;
+    }
+
+    /* List Items */
+    .list-item {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .list-item::before {
+      content: "•";
+      color: #059669;
+      font-weight: bold;
+    }
+
+    /* Signature */
+    .signature {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .signature-name {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-top: 2rem;
+    }
+
+    /* Enclosure */
+    .enclosure {
+      background-color: #d1fae5;
+      border-left: 4px solid #059669;
+      padding: 0.5rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-top: 1.5rem;
+      font-size: 0.65rem;
+      color: #04473d;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="name">[Your.Full.Name]</div>
+    <div class="degree">[Your.Degree] Graduate | [Graduation.Year]</div>
+    <div class="contact-info">
+      <span>📧 [Your.Email]</span>
+      <span>📱 [Your.Phone]</span>
+      <span>📍 [Your.City], [Your.State]</span>
+      <span>💼 [Your.LinkedIn]</span>
+    </div>
+  </div>
+
+  <!-- Date -->
+  <div class="date">[Current.Date]</div>
+
+  <!-- Recipient -->
+  <div class="recipient">
+    <div class="manager-name">[Hiring.Manager.Name]</div>
+    <div>[Hiring.Manager.Title]</div>
+    <div class="company-name">[Company.Name]</div>
+    <div>[Company.Address]</div>
+    <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+  </div>
+
+  <!-- Subject -->
+  <div class="subject-box">
+    Re: [Position.Title] - Eager [Your.Major] Graduate Ready to Contribute & Grow
+  </div>
+
+  <!-- Salutation -->
+  <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 1rem;">
+    Dear [Hiring.Manager.Name],
+  </div>
+
+  <!-- Opening -->
+  <div class="content-text">
+    As a recent <span style="font-weight: bold;">[Your.Degree]</span> graduate from <span style="font-weight: bold;">[Your.University]</span> with a passion for <span style="font-weight: bold;">[Your.Field]</span>, I was thrilled to discover the <span style="font-weight: bold; color: #059669;">[Position.Title]</span> opening at <span style="font-weight: bold; color: #059669;">[Company.Name]</span>. While I am at the beginning of my professional journey, I bring fresh perspectives, strong academic foundations, proven eagerness to learn, and genuine enthusiasm that I believe will make me a valuable addition to your team.
+  </div>
+
+  <!-- Education Highlight -->
+  <div style="margin-bottom: 1rem;">
+    <div class="highlight-box education-box">
+      <div class="section-header">
+        🎓 EDUCATIONAL FOUNDATION
+      </div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        I graduated <span style="font-weight: bold;">[Honors.Or.Distinction]</span> from <span style="font-weight: bold;">[Your.University]</span> with a <span style="font-weight: bold;">[GPA]</span> GPA, specializing in <span style="font-weight: bold;">[Your.Major/Concentration]</span>. My coursework in <span style="font-weight: bold;">[Relevant.Course.1]</span>, <span style="font-weight: bold;">[Relevant.Course.2]</span>, and <span style="font-weight: bold;">[Relevant.Course.3]</span> provided me with a solid theoretical foundation in <span style="font-weight: bold;">[Relevant.Skills.Area]</span>, which directly applies to the requirements of the <span style="font-weight: bold;">[Position.Title]</span> role.
+      </div>
+    </div>
+  </div>
+
+  <!-- Relevant Experience -->
+  <div style="margin-bottom: 1rem;">
+    <div class="section-header">
+      💼 RELEVANT EXPERIENCE & PROJECTS
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+      <div class="experience-box">
+        <div class="experience-title">[Internship.Or.Experience.1.Title] at [Company.Or.Organization]</div>
+        <div class="experience-description">
+          During my <span style="font-weight: bold;">[Duration]</span> at <span style="font-weight: bold;">[Organization]</span>, I <span style="font-weight: bold;">[Key.Responsibility.Or.Achievement]</span>, which resulted in <span style="font-weight: bold;">[Outcome.Or.Learning]</span>. This experience taught me <span style="font-weight: bold;">[Key.Skill.Learned]</span> and gave me practical exposure to <span style="font-weight: bold;">[Relevant.Area]</span>.
+        </div>
+      </div>
+      <div class="experience-box" style="border-left-color: #0891b2;">
+        <div class="experience-title" style="color: #085f63;">[Project.Or.Experience.2.Title]</div>
+        <div class="experience-description">
+          As part of my <span style="font-weight: bold;">[Academic.Or.Extracurricular.Context]</span>, I <span style="font-weight: bold;">[Project.Description.And.Role]</span>. This project enhanced my skills in <span style="font-weight: bold;">[Skills.Developed]</span> and demonstrated my ability to <span style="font-weight: bold;">[Key.Capability]</span>.
+        </div>
+      </div>
+      <div class="experience-box">
+        <div class="experience-title">[Leadership.Or.Volunteer.Experience]</div>
+        <div class="experience-description">
+          Through my involvement in <span style="font-weight: bold;">[Organization.Or.Activity]</span>, I developed <span style="font-weight: bold;">[Soft.Skills]</span> and learned <span style="font-weight: bold;">[Key.Lesson.Or.Capability]</span>, skills that will be invaluable in the <span style="font-weight: bold;">[Position.Title]</span> role.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skills & Competencies -->
+  <div style="margin-bottom: 1rem;">
+    <div class="section-header">
+      🚀 SKILLS & COMPETENCIES
+    </div>
+    <div class="skills-grid">
+      <div class="skill-box">
+        <div class="skill-title">Technical Skills</div>
+        <div class="skill-list">[Technical.Skill.1], [Technical.Skill.2], [Technical.Skill.3], [Technical.Skill.4]</div>
+      </div>
+      <div class="skill-box" style="background-color: #a7f3d0;">
+        <div class="skill-title" style="color: #085f63;">Software Proficiency</div>
+        <div class="skill-list">[Software.1], [Software.2], [Software.3], [Software.4]</div>
+      </div>
+      <div class="skill-box">
+        <div class="skill-title">Soft Skills</div>
+        <div class="skill-list">[Soft.Skill.1], [Soft.Skill.2], [Soft.Skill.3], [Soft.Skill.4]</div>
+      </div>
+      <div class="skill-box" style="background-color: #a7f3d0;">
+        <div class="skill-title" style="color: #085f63;">Languages</div>
+        <div class="skill-list">[Language.1] ([Proficiency.1]), [Language.2] ([Proficiency.2])</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Why This Company -->
+  <div class="content-text">
+    What draws me to <span style="font-weight: bold; color: #059669;">[Company.Name]</span> is your <span style="font-weight: bold;">[Company.Quality.Or.Reputation]</span> and commitment to <span style="font-weight: bold;">[Company.Value.Or.Mission]</span>. I've been following <span style="font-weight: bold;">[Specific.Company.News.Or.Initiative]</span> and am inspired by your approach to <span style="font-weight: bold;">[Specific.Area]</span>. As someone starting their career, I'm seeking an organization where I can grow, contribute, and learn from industry leaders — and <span style="font-weight: bold;">[Company.Name]</span> represents exactly that opportunity.
+  </div>
+
+  <!-- What You Bring -->
+  <div style="margin-bottom: 1rem;">
+    <div class="highlight-box what-i-bring">
+      <div class="section-header">
+        ✨ WHAT I BRING AS AN ENTRY-LEVEL CANDIDATE
+      </div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4; margin-top: 0.5rem;">
+        <div class="list-item">Fresh Perspective: Up-to-date knowledge of current trends, technologies, and best practices from recent education</div>
+        <div class="list-item">Strong Work Ethic: Demonstrated through [Academic.Achievement] and [Other.Achievement]</div>
+        <div class="list-item">Eagerness to Learn: Quick learner who actively seeks feedback and embraces challenges</div>
+        <div class="list-item">Adaptability: Comfortable with change and able to thrive in dynamic environments</div>
+        <div class="list-item">Team Player: Collaborative mindset developed through [Group.Projects.Or.Team.Experience]</div>
+        <div class="list-item">Tech-Savvy: Digital native proficient in [Modern.Tools.And.Platforms]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Learning & Growth Mindset -->
+  <div style="margin-bottom: 1rem;">
+    <div class="highlight-box learning-goals">
+      <div class="section-header" style="color: #92400e;">
+        📚 COMMITMENT TO CONTINUOUS LEARNING
+      </div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        I understand that as an entry-level professional, I have much to learn. I'm committed to professional development and have already begun <span style="font-weight: bold;">[Self.Learning.Initiative]</span>, including <span style="font-weight: bold;">[Online.Courses.Or.Certifications]</span>. I'm excited about the opportunity to learn from experienced professionals at <span style="font-weight: bold; color: #059669;">[Company.Name]</span> and to grow alongside your team while making meaningful contributions from day one.
+      </div>
+    </div>
+  </div>
+
+  <!-- How You'll Contribute -->
+  <div class="content-text">
+    While I may be early in my career, I'm ready to make an immediate impact. I can contribute <span style="font-weight: bold;">[Immediate.Contribution.1]</span>, assist with <span style="font-weight: bold;">[Immediate.Contribution.2]</span>, and support <span style="font-weight: bold;">[Immediate.Contribution.3]</span>. My academic projects have prepared me to <span style="font-weight: bold;">[Relevant.Capability]</span>, and I'm eager to apply these skills in a professional setting while continuing to develop my expertise.
+  </div>
+
+  <!-- Closing -->
+  <div class="content-text">
+    I am genuinely excited about the opportunity to begin my career with <span style="font-weight: bold; color: #059669;">[Company.Name]</span> as a <span style="font-weight: bold;">[Position.Title]</span>. I'm confident that my education, skills, enthusiasm, and willingness to learn make me a strong candidate for this position. I would welcome the opportunity to discuss how I can contribute to your team's success while growing professionally. Thank you for considering my application, and I look forward to the possibility of speaking with you soon.
+  </div>
+
+  <!-- Signature -->
+  <div class="signature">
+    <div>Enthusiastically yours,</div>
+    <div class="signature-name">[Your.Full.Name]</div>
+    <div style="font-size: 0.7rem; color: #64748b;">[Your.Phone] | [Your.Email]</div>
+  </div>
+
+  <!-- Enclosure -->
+  <div class="enclosure">
+    📎 Attachments: Resume, Academic Transcripts, Portfolio/Projects (if applicable)
+  </div>
+</body>
+</html>
+`
+},
+
+{
+  id: 'executive-cover-letter-001',
+  name: 'Executive Cover Letter',
+  description: 'Cover letter for senior leadership positions',
+  category: 'resumes',
+  popular: false,
+  fields: ['Leadership', 'Strategic Vision', 'Track Record', 'Industry Impact'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Georgia, serif' }}>
+      {/* Letterhead */}
+      <div className="border-b-4 border-slate-800 pb-4 mb-6">
+        <div className="text-3xl font-bold text-slate-900 mb-1">[Your.Full.Name]</div>
+        <div className="text-sm text-slate-700 mb-2">[Your.Executive.Title]</div>
+        <div className="text-[8px] text-slate-600 flex gap-3 flex-wrap">
+          <span>[Your.City], [Your.State]</span>
+          <span>•</span>
+          <span>[Your.Phone]</span>
+          <span>•</span>
+          <span>[Your.Email]</span>
+          <span>•</span>
+          <span>[Your.LinkedIn]</span>
+        </div>
+      </div>
+
+      {/* Date */}
+      <div className="mb-6 text-[8px] text-slate-700">[Current.Date]</div>
+
+      {/* Recipient - Board/CEO Level */}
+      <div className="mb-6 text-[8px] text-slate-700 leading-relaxed">
+        <div className="font-bold">[Board.Chair.Or.CEO.Name]</div>
+        <div>[Their.Title]</div>
+        <div className="font-bold text-slate-900">[Company.Name]</div>
+        <div>[Company.Address]</div>
+        <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+      </div>
+
+      {/* Salutation */}
+      <div className="mb-4 text-[8px] text-slate-700">
+        Dear [Board.Chair.Or.CEO.Name],
+      </div>
+
+      {/* Opening - Executive Summary Style */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed text-justify">
+        As a proven executive leader with <span className="font-bold">[Years.Experience]</span> years of progressive leadership experience driving <span className="font-bold">[Key.Result.Area]</span>, I am writing to express my interest in the <span className="font-bold">[Executive.Position.Title]</span> role at <span className="font-bold">[Company.Name]</span>. Throughout my career, I have consistently delivered transformational results, including <span className="font-bold">[Major.Achievement.With.Numbers]</span>, while building high-performing teams and establishing strategic partnerships that create sustainable competitive advantages.
+      </div>
+
+      {/* Leadership Track Record */}
+      <div className="mb-4">
+        <div className="bg-slate-50 border-l-4 border-slate-800 p-4 rounded-r">
+          <div className="text-sm font-bold text-slate-900 mb-3">LEADERSHIP TRACK RECORD</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+            <div>
+              <span className="font-bold">At [Current.Or.Recent.Company]</span> ([Current.Title], [Years]): Transformed operations by <span className="font-bold">[Transformation.Description]</span>, resulting in <span className="font-bold">[Financial.Impact]</span> in revenue growth and <span className="font-bold">[Efficiency.Improvement]</span>% operational efficiency improvement. Led a team of <span className="font-bold">[Team.Size]</span> across <span className="font-bold">[Geographic.Scope]</span>.
+            </div>
+            <div>
+              <span className="font-bold">At [Previous.Company.1]</span> ([Previous.Title.1], [Years]): Spearheaded <span className="font-bold">[Strategic.Initiative]</span> that <span className="font-bold">[Major.Result]</span>. Successfully managed <span className="font-bold">[Budget.Size]</span> budget while achieving <span className="font-bold">[Performance.Metric]</span>.
+            </div>
+            <div>
+              <span className="font-bold">At [Previous.Company.2]</span> ([Previous.Title.2], [Years]): Architected and executed <span className="font-bold">[Strategic.Change]</span>, positioning the organization for <span className="font-bold">[Long.Term.Benefit]</span> and achieving <span className="font-bold">[Measurable.Outcome]</span>.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Strategic Capabilities */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2 border-b-2 border-slate-300 pb-1">CORE STRATEGIC CAPABILITIES</div>
+        <div className="grid grid-cols-2 gap-3 text-[8px]">
+          <div className="bg-slate-50 border-l-4 border-slate-700 p-3 rounded-r">
+            <div className="font-bold text-slate-900 mb-1">Strategic Vision & Planning</div>
+            <div className="text-slate-700 text-[7px]">[Specific.Example.Of.Strategy.Development]</div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-slate-700 p-3 rounded-r">
+            <div className="font-bold text-slate-900 mb-1">P&L Management</div>
+            <div className="text-slate-700 text-[7px]">[Financial.Responsibility.Details]</div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-slate-700 p-3 rounded-r">
+            <div className="font-bold text-slate-900 mb-1">Organizational Transformation</div>
+            <div className="text-slate-700 text-[7px]">[Change.Management.Example]</div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-slate-700 p-3 rounded-r">
+            <div className="font-bold text-slate-900 mb-1">Stakeholder Relations</div>
+            <div className="text-slate-700 text-[7px]">[Board.Investor.Partner.Engagement]</div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-slate-700 p-3 rounded-r">
+            <div className="font-bold text-slate-900 mb-1">Talent Development</div>
+            <div className="text-slate-700 text-[7px]">[Leadership.Pipeline.Building]</div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-slate-700 p-3 rounded-r">
+            <div className="font-bold text-slate-900 mb-1">Market Expansion</div>
+            <div className="text-slate-700 text-[7px]">[Growth.Initiative.Results]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Value Proposition */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed text-justify">
+        Understanding <span className="font-bold">[Company.Name]</span>'s current position in <span className="font-bold">[Market.Or.Industry]</span> and your strategic objectives around <span className="font-bold">[Known.Company.Priority]</span>, I am confident I can drive measurable impact in several key areas. My experience successfully navigating <span className="font-bold">[Relevant.Challenge.Or.Situation]</span> positions me uniquely to help <span className="font-bold">[Company.Name]</span> achieve <span className="font-bold">[Specific.Goal]</span> while strengthening <span className="font-bold">[Operational.Area]</span>.
+      </div>
+
+      {/* Key Differentiators */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-slate-100 to-slate-50 border-2 border-slate-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-slate-900 mb-3">KEY DIFFERENTIATORS</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+            <div>
+              <span className="font-bold">Proven Change Agent:</span> Successfully led <span className="font-bold">[Number]</span> major organizational transformations, including <span className="font-bold">[Specific.Example]</span>, achieving <span className="font-bold">[Result]</span> while maintaining employee engagement scores above <span className="font-bold">[Percentage]</span>%.
+            </div>
+            <div>
+              <span className="font-bold">Financial Acumen:</span> Managed P&Ls ranging from <span className="font-bold">[Range]</span>, consistently delivering <span className="font-bold">[Performance.Metric]</span> and achieving <span className="font-bold">[ROI.Or.EBITDA.Improvement]</span>.
+            </div>
+            <div>
+              <span className="font-bold">Industry Expertise:</span> Deep understanding of <span className="font-bold">[Industry.Specifics]</span> with established relationships across <span className="font-bold">[Key.Stakeholder.Groups]</span> and recognized thought leadership through <span className="font-bold">[Publications.Speaking.Boards]</span>.
+            </div>
+            <div>
+              <span className="font-bold">Global Perspective:</span> International experience across <span className="font-bold">[Geographic.Markets]</span>, leading cross-cultural teams and navigating complex regulatory environments.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Strategic Vision for Role */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed text-justify">
+        In the <span className="font-bold">[Executive.Position.Title]</span> role, my immediate priorities would include: <span className="font-bold">[Priority.1]</span> to accelerate <span className="font-bold">[Outcome.1]</span>; <span className="font-bold">[Priority.2]</span> to strengthen <span className="font-bold">[Outcome.2]</span>; and <span className="font-bold">[Priority.3]</span> to position the organization for <span className="font-bold">[Long.Term.Vision]</span>. My 90-day plan would focus on stakeholder alignment, quick wins that demonstrate value, and establishing the strategic framework for sustainable long-term growth.
+      </div>
+
+      {/* Why This Opportunity */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed text-justify">
+        <span className="font-bold">[Company.Name]</span> represents an exceptional opportunity to leverage my experience in a context where I can make significant impact. Your <span className="font-bold">[Company.Quality]</span>, combined with the challenges and opportunities in <span className="font-bold">[Specific.Market.Or.Situation]</span>, align perfectly with my expertise and career aspirations. I am particularly drawn to <span className="font-bold">[Specific.Aspect.Of.Role.Or.Company]</span> and believe this is the ideal setting for me to contribute at the highest level.
+      </div>
+
+      {/* Board & Advisory Experience (if applicable) */}
+      <div className="mb-4">
+        <div className="bg-slate-50 border border-slate-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-slate-900 mb-2">BOARD & ADVISORY ROLES</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            <span className="font-bold">[Board.Position.1]</span> - [Organization.1] ([Years])<br/>
+            <span className="font-bold">[Board.Position.2]</span> - [Organization.2] ([Years])<br/>
+            <span className="font-bold">[Advisory.Role]</span> - [Organization.3] ([Years])
+          </div>
+        </div>
+      </div>
+
+      {/* Education & Credentials */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2">EDUCATION & CREDENTIALS</div>
+        <div className="text-[8px] text-slate-700">
+          <div className="mb-1"><span className="font-bold">[Degree]</span>, [University] | [Additional.Credentials]</div>
+          <div><span className="font-bold">Executive Education:</span> [Executive.Programs] ([Institutions])</div>
+        </div>
+      </div>
+
+      {/* Closing */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed text-justify">
+        I am confident that my strategic vision, proven track record, and leadership capabilities make me an ideal candidate for the <span className="font-bold">[Executive.Position.Title]</span> position. I would welcome the opportunity to discuss how my experience aligns with <span className="font-bold">[Company.Name]</span>'s strategic priorities and how I can contribute to your continued success and growth. Thank you for your consideration, and I look forward to our conversation.
+      </div>
+
+      {/* Formal Signature */}
+      <div className="mt-8 text-[8px] text-slate-700">
+        <div className="mb-12">Respectfully,</div>
+        <div className="font-bold text-slate-900 text-lg">[Your.Full.Name]</div>
+        <div className="text-slate-600 mt-1">[Your.Executive.Title]</div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-3">
+        References and detailed performance metrics available upon request
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Executive Cover Letter</title>
+  <style>
+    body {
+      font-family: Georgia, serif;
+      line-height: 1.6;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      border-bottom: 4px solid #1e293b;
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .title {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-bottom: 0.75rem;
+    }
+    .contact-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    /* Date */
+    .date {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Recipient */
+    .recipient {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+    .company-name {
+      font-weight: bold;
+      color: #1e293b;
+    }
+
+    /* Content Text */
+    .content-text {
+      font-size: 0.8rem;
+      color: #333;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+      text-align: justify;
+    }
+
+    /* Section Headers */
+    .section-header {
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.75rem;
+      border-bottom: 2px solid #cbd5e1;
+      padding-bottom: 0.25rem;
+    }
+
+    /* Leadership Box */
+    .leadership-box {
+      background-color: #f8fafc;
+      border-left: 4px solid #1e293b;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1.5rem;
+    }
+    .leadership-item {
+      font-size: 0.8rem;
+      color: #333;
+      line-height: 1.6;
+      margin-bottom: 0.75rem;
+    }
+    .company-name-bold {
+      font-weight: bold;
+    }
+
+    /* Capabilities Grid */
+    .capabilities-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .capability-box {
+      background-color: #f8fafc;
+      border-left: 4px solid #1e293b;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+    .capability-title {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .capability-detail {
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    /* Differentiators Box */
+    .differentiators-box {
+      background: linear-gradient(to right, #f8fafc, #f1f5f9);
+      border: 2px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .differentiator-item {
+      font-size: 0.8rem;
+      color: #333;
+      line-height: 1.6;
+      margin-bottom: 0.75rem;
+    }
+
+    /* Board Experience */
+    .board-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .board-item {
+      font-size: 0.8rem;
+      color: #333;
+      line-height: 1.6;
+      margin-bottom: 0.25rem;
+    }
+
+    /* Education */
+    .education-section {
+      margin-bottom: 1.5rem;
+    }
+    .education-item {
+      font-size: 0.8rem;
+      color: #333;
+      line-height: 1.6;
+      margin-bottom: 0.25rem;
+    }
+
+    /* Signature */
+    .signature {
+      margin-top: 2rem;
+      font-size: 0.8rem;
+      color: #333;
+    }
+    .signature-name {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-top: 3rem;
+      margin-bottom: 0.5rem;
+    }
+    .signature-title {
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="name">[Your.Full.Name]</div>
+    <div class="title">[Your.Executive.Title]</div>
+    <div class="contact-info">
+      <span>[Your.City], [Your.State]</span>
+      <span>•</span>
+      <span>[Your.Phone]</span>
+      <span>•</span>
+      <span>[Your.Email]</span>
+      <span>•</span>
+      <span>[Your.LinkedIn]</span>
+    </div>
+  </div>
+
+  <!-- Date -->
+  <div class="date">[Current.Date]</div>
+
+  <!-- Recipient -->
+  <div class="recipient">
+    <div class="manager-name" style="font-weight: bold;">[Board.Chair.Or.CEO.Name]</div>
+    <div>[Their.Title]</div>
+    <div class="company-name">[Company.Name]</div>
+    <div>[Company.Address]</div>
+    <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+  </div>
+
+  <!-- Salutation -->
+  <div style="font-size: 0.8rem; color: #333; margin-bottom: 1rem;">
+    Dear [Board.Chair.Or.CEO.Name],
+  </div>
+
+  <!-- Opening -->
+  <div class="content-text">
+    As a proven executive leader with <span style="font-weight: bold;">[Years.Experience]</span> years of progressive leadership experience driving <span style="font-weight: bold;">[Key.Result.Area]</span>, I am writing to express my interest in the <span style="font-weight: bold;">[Executive.Position.Title]</span> role at <span style="font-weight: bold;">[Company.Name]</span>. Throughout my career, I have consistently delivered transformational results, including <span style="font-weight: bold;">[Major.Achievement.With.Numbers]</span>, while building high-performing teams and establishing strategic partnerships that create sustainable competitive advantages.
+  </div>
+
+  <!-- Leadership Track Record -->
+  <div class="leadership-box">
+    <div class="section-header">LEADERSHIP TRACK RECORD</div>
+    <div style="font-size: 0.8rem; color: #333; line-height: 1.6;">
+      <div class="leadership-item">
+        <span class="company-name-bold">At [Current.Or.Recent.Company]</span> (<span style="font-weight: bold;">[Current.Title]</span>, [Years]): Transformed operations by <span style="font-weight: bold;">[Transformation.Description]</span>, resulting in <span style="font-weight: bold;">[Financial.Impact]</span> in revenue growth and <span style="font-weight: bold;">[Efficiency.Improvement]</span>% operational efficiency improvement. Led a team of <span style="font-weight: bold;">[Team.Size]</span> across <span style="font-weight: bold;">[Geographic.Scope]</span>.
+      </div>
+      <div class="leadership-item">
+        <span class="company-name-bold">At [Previous.Company.1]</span> (<span style="font-weight: bold;">[Previous.Title.1]</span>, [Years]): Spearheaded <span style="font-weight: bold;">[Strategic.Initiative]</span> that <span style="font-weight: bold;">[Major.Result]</span>. Successfully managed <span style="font-weight: bold;">[Budget.Size]</span> budget while achieving <span style="font-weight: bold;">[Performance.Metric]</span>.
+      </div>
+      <div class="leadership-item">
+        <span class="company-name-bold">At [Previous.Company.2]</span> (<span style="font-weight: bold;">[Previous.Title.2]</span>, [Years]): Architected and executed <span style="font-weight: bold;">[Strategic.Change]</span>, positioning the organization for <span style="font-weight: bold;">[Long.Term.Benefit]</span> and achieving <span style="font-weight: bold;">[Measurable.Outcome]</span>.
+      </div>
+    </div>
+  </div>
+
+  <!-- Strategic Capabilities -->
+  <div class="section-header">CORE STRATEGIC CAPABILITIES</div>
+  <div class="capabilities-grid">
+    <div class="capability-box">
+      <div class="capability-title">Strategic Vision & Planning</div>
+      <div class="capability-detail">[Specific.Example.Of.Strategy.Development]</div>
+    </div>
+    <div class="capability-box">
+      <div class="capability-title">P&L Management</div>
+      <div class="capability-detail">[Financial.Responsibility.Details]</div>
+    </div>
+    <div class="capability-box">
+      <div class="capability-title">Organizational Transformation</div>
+      <div class="capability-detail">[Change.Management.Example]</div>
+    </div>
+    <div class="capability-box">
+      <div class="capability-title">Stakeholder Relations</div>
+      <div class="capability-detail">[Board.Investor.Partner.Engagement]</div>
+    </div>
+    <div class="capability-box">
+      <div class="capability-title">Talent Development</div>
+      <div class="capability-detail">[Leadership.Pipeline.Building]</div>
+    </div>
+    <div class="capability-box">
+      <div class="capability-title">Market Expansion</div>
+      <div class="capability-detail">[Growth.Initiative.Results]</div>
+    </div>
+  </div>
+
+  <!-- Value Proposition -->
+  <div class="content-text">
+    Understanding <span style="font-weight: bold;">[Company.Name]</span>'s current position in <span style="font-weight: bold;">[Market.Or.Industry]</span> and your strategic objectives around <span style="font-weight: bold;">[Known.Company.Priority]</span>, I am confident I can drive measurable impact in several key areas. My experience successfully navigating <span style="font-weight: bold;">[Relevant.Challenge.Or.Situation]</span> positions me uniquely to help <span style="font-weight: bold;">[Company.Name]</span> achieve <span style="font-weight: bold;">[Specific.Goal]</span> while strengthening <span style="font-weight: bold;">[Operational.Area]</span>.
+  </div>
+
+  <!-- Key Differentiators -->
+  <div class="differentiators-box">
+    <div class="section-header">KEY DIFFERENTIATORS</div>
+    <div style="font-size: 0.8rem; color: #333; line-height: 1.6;">
+      <div class="differentiator-item">
+        <span style="font-weight: bold;">Proven Change Agent:</span> Successfully led <span style="font-weight: bold;">[Number]</span> major organizational transformations, including <span style="font-weight: bold;">[Specific.Example]</span>, achieving <span style="font-weight: bold;">[Result]</span> while maintaining employee engagement scores above <span style="font-weight: bold;">[Percentage]</span>%.
+      </div>
+      <div class="differentiator-item">
+        <span style="font-weight: bold;">Financial Acumen:</span> Managed P&Ls ranging from <span style="font-weight: bold;">[Range]</span>, consistently delivering <span style="font-weight: bold;">[Performance.Metric]</span> and achieving <span style="font-weight: bold;">[ROI.Or.EBITDA.Improvement]</span>.
+      </div>
+      <div class="differentiator-item">
+        <span style="font-weight: bold;">Industry Expertise:</span> Deep understanding of <span style="font-weight: bold;">[Industry.Specifics]</span> with established relationships across <span style="font-weight: bold;">[Key.Stakeholder.Groups]</span> and recognized thought leadership through <span style="font-weight: bold;">[Publications.Speaking.Boards]</span>.
+      </div>
+      <div class="differentiator-item">
+        <span style="font-weight: bold;">Global Perspective:</span> International experience across <span style="font-weight: bold;">[Geographic.Markets]</span>, leading cross-cultural teams and navigating complex regulatory environments.
+      </div>
+    </div>
+  </div>
+
+  <!-- Strategic Vision -->
+  <div class="content-text">
+    In the <span style="font-weight: bold;">[Executive.Position.Title]</span> role, my immediate priorities would include: <span style="font-weight: bold;">[Priority.1]</span> to accelerate <span style="font-weight: bold;">[Outcome.1]</span>; <span style="font-weight: bold;">[Priority.2]</span> to strengthen <span style="font-weight: bold;">[Outcome.2]</span>; and <span style="font-weight: bold;">[Priority.3]</span> to position the organization for <span style="font-weight: bold;">[Long.Term.Vision]</span>. My 90-day plan would focus on stakeholder alignment, quick wins that demonstrate value, and establishing the strategic framework for sustainable long-term growth.
+  </div>
+
+  <!-- Why This Opportunity -->
+  <div class="content-text">
+    <span style="font-weight: bold;">[Company.Name]</span> represents an exceptional opportunity to leverage my experience in a context where I can make significant impact. Your <span style="font-weight: bold;">[Company.Quality]</span>, combined with the challenges and opportunities in <span style="font-weight: bold;">[Specific.Market.Or.Situation]</span>, align perfectly with my expertise and career aspirations. I am particularly drawn to <span style="font-weight: bold;">[Specific.Aspect.Of.Role.Or.Company]</span> and believe this is the ideal setting for me to contribute at the highest level.
+  </div>
+
+  <!-- Board Experience -->
+  <div class="board-box">
+    <div class="section-header">BOARD & ADVISORY ROLES</div>
+    <div style="font-size: 0.8rem; color: #333; line-height: 1.6;">
+      <div class="board-item">
+        <span style="font-weight: bold;">[Board.Position.1]</span> - [Organization.1] ([Years])
+      </div>
+      <div class="board-item">
+        <span style="font-weight: bold;">[Board.Position.2]</span> - [Organization.2] ([Years])
+      </div>
+      <div class="board-item">
+        <span style="font-weight: bold;">[Advisory.Role]</span> - [Organization.3] ([Years])
+      </div>
+    </div>
+  </div>
+
+  <!-- Education -->
+  <div class="education-section">
+    <div class="section-header">EDUCATION & CREDENTIALS</div>
+    <div style="font-size: 0.8rem; color: #333; line-height: 1.6;">
+      <div class="education-item">
+        <span style="font-weight: bold;">[Degree]</span>, [University] | [Additional.Credentials]
+      </div>
+      <div class="education-item">
+        <span style="font-weight: bold;">Executive Education:</span> [Executive.Programs] ([Institutions])
+      </div>
+    </div>
+  </div>
+
+  <!-- Closing -->
+  <div class="content-text">
+    I am confident that my strategic vision, proven track record, and leadership capabilities make me an ideal candidate for the <span style="font-weight: bold;">[Executive.Position.Title]</span> position. I would welcome the opportunity to discuss how my experience aligns with <span style="font-weight: bold;">[Company.Name]</span>'s strategic priorities and how I can contribute to your continued success and growth. Thank you for your consideration, and I look forward to our conversation.
+  </div>
+
+  <!-- Signature -->
+  <div class="signature">
+    <div>Respectfully,</div>
+    <div class="signature-name">[Your.Full.Name]</div>
+    <div class="signature-title">[Your.Executive.Title]</div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    References and detailed performance metrics available upon request
+  </div>
+</body>
+</html>
+`
+},
+
+{
+  id: 'internship-cover-letter-001',
+  name: 'Internship Cover Letter',
+  description: 'Cover letter for internship applications',
+  category: 'resumes',
+  popular: true,
+  fields: ['University', 'Major', 'Relevant Coursework', 'Career Goals', 'Availability'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white p-5 rounded-lg mb-6">
+        <div className="text-2xl font-bold mb-1">[Your.Full.Name]</div>
+        <div className="text-sm mb-2">[Your.Major] Student | [University.Name]</div>
+        <div className="flex gap-3 text-[8px] flex-wrap">
+          <span>📧 [Your.Email]</span>
+          <span>📱 [Your.Phone]</span>
+          <span>📍 [Your.City], [Your.State]</span>
+          <span>💼 [Your.LinkedIn]</span>
+          <span>🎓 Expected Graduation: [Grad.Date]</span>
+        </div>
+      </div>
+
+      {/* Date */}
+      <div className="mb-4 text-[8px] text-slate-700">[Current.Date]</div>
+
+      {/* Recipient */}
+      <div className="mb-6 text-[8px] text-slate-700 leading-relaxed">
+        <div className="font-bold">[Internship.Coordinator.Name]</div>
+        <div>[Their.Title]</div>
+        <div className="font-bold text-orange-700">[Company.Name]</div>
+        <div>[Company.Address]</div>
+        <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+      </div>
+
+      {/* Subject */}
+      <div className="mb-4">
+        <div className="bg-orange-50 border-l-4 border-orange-600 p-3 rounded-r">
+          <div className="text-[8px] font-bold text-orange-900">
+            Re: [Internship.Position.Title] - [Season/Term] [Year] Internship Application
+          </div>
+        </div>
+      </div>
+
+      {/* Greeting */}
+      <div className="mb-4 text-[8px] text-slate-700">
+        Dear [Internship.Coordinator.Name],
+      </div>
+
+      {/* Opening - Show Enthusiasm & Context */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I am writing to apply for the <span className="font-bold text-orange-600">[Internship.Position.Title]</span> internship at <span className="font-bold text-orange-600">[Company.Name]</span> for <span className="font-bold">[Season/Term]</span> <span className="font-bold">[Year]</span>. As a <span className="font-bold">[Year.In.School]</span> <span className="font-bold">[Your.Major]</span> student at <span className="font-bold">[University.Name]</span> with a strong interest in <span className="font-bold">[Career.Interest.Area]</span>, I am eager to gain hands-on experience and contribute to your team while developing practical skills that complement my academic foundation.
+      </div>
+
+      {/* Academic Background */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-orange-700 mb-2">🎓 ACADEMIC BACKGROUND</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            I am currently pursuing a <span className="font-bold">[Degree.Type]</span> in <span className="font-bold">[Your.Major]</span> at <span className="font-bold">[University.Name]</span> with a current GPA of <span className="font-bold">[Your.GPA]</span>. My coursework has provided me with a strong foundation in <span className="font-bold">[Core.Area.1]</span> and <span className="font-bold">[Core.Area.2]</span>. Relevant courses include:
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="bg-white rounded p-2 border border-orange-200">
+                <span className="font-bold">✓</span> [Relevant.Course.1]
+              </div>
+              <div className="bg-white rounded p-2 border border-orange-200">
+                <span className="font-bold">✓</span> [Relevant.Course.2]
+              </div>
+              <div className="bg-white rounded p-2 border border-orange-200">
+                <span className="font-bold">✓</span> [Relevant.Course.3]
+              </div>
+              <div className="bg-white rounded p-2 border border-orange-200">
+                <span className="font-bold">✓</span> [Relevant.Course.4]
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Relevant Experience & Projects */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2">💼 RELEVANT EXPERIENCE & PROJECTS</div>
+        <div className="space-y-2">
+          <div className="bg-white border-l-4 border-orange-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-orange-700 mb-1">[Academic.Project.Or.Experience.1]</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              <span className="font-bold">[Context]:</span> [Project.Description] where I <span className="font-bold">[Your.Role.And.Contribution]</span>. This experience taught me <span className="font-bold">[Skills.Learned]</span> and demonstrated my ability to <span className="font-bold">[Key.Capability]</span>.
+            </div>
+          </div>
+          <div className="bg-white border-l-4 border-amber-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-amber-700 mb-1">[Campus.Activity.Or.Leadership]</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              As <span className="font-bold">[Your.Role]</span> in <span className="font-bold">[Organization]</span>, I <span className="font-bold">[Responsibility.Or.Achievement]</span>. This role developed my <span className="font-bold">[Soft.Skills]</span> and <span className="font-bold">[Other.Skills]</span>.
+            </div>
+          </div>
+          <div className="bg-white border-l-4 border-orange-600 p-3 rounded-r shadow-sm">
+            <div className="font-bold text-[8px] text-orange-700 mb-1">[Part.Time.Work.Or.Volunteer]</div>
+            <div className="text-[8px] text-slate-700 leading-relaxed">
+              Through my work/volunteer experience at <span className="font-bold">[Organization]</span>, I gained practical exposure to <span className="font-bold">[Relevant.Area]</span> and learned <span className="font-bold">[Professional.Skill]</span>.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Skills & Technical Proficiencies */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2">🛠️ SKILLS & TECHNICAL PROFICIENCIES</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+          <div className="grid grid-cols-2 gap-3 text-[8px]">
+            <div>
+              <div className="font-bold text-orange-700 mb-1">Technical Skills</div>
+              <div className="text-slate-700">[Skill.1] • [Skill.2] • [Skill.3] • [Skill.4]</div>
+            </div>
+            <div>
+              <div className="font-bold text-orange-700 mb-1">Software/Tools</div>
+              <div className="text-slate-700">[Tool.1] • [Tool.2] • [Tool.3] • [Tool.4]</div>
+            </div>
+            <div>
+              <div className="font-bold text-orange-700 mb-1">Professional Skills</div>
+              <div className="text-slate-700">[Soft.Skill.1] • [Soft.Skill.2] • [Soft.Skill.3]</div>
+            </div>
+            <div>
+              <div className="font-bold text-orange-700 mb-1">Languages</div>
+              <div className="text-slate-700">[Language.1] • [Language.2]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Why This Company & Internship */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I am particularly drawn to <span className="font-bold text-orange-600">[Company.Name]</span> because of your <span className="font-bold">[Company.Quality.Or.Reputation]</span> and innovative work in <span className="font-bold">[Specific.Area]</span>. I recently learned about <span className="font-bold">[Specific.Company.Project.Or.Initiative]</span> and was impressed by <span className="font-bold">[What.Impressed.You]</span>. This internship represents an ideal opportunity to apply my classroom knowledge in a real-world setting while learning from industry professionals at a company that <span className="font-bold">[Company.Value.That.Resonates]</span>.
+      </div>
+
+      {/* What You'll Bring */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-amber-700 mb-2">✨ WHAT I BRING AS AN INTERN</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-1">
+            <div>• <span className="font-bold">Strong Academic Foundation:</span> Solid theoretical knowledge ready to be applied practically</div>
+            <div>• <span className="font-bold">Quick Learner:</span> Eager to absorb new information and adapt to your team's workflow</div>
+            <div>• <span className="font-bold">Fresh Perspective:</span> Current knowledge of latest trends, tools, and methodologies from recent coursework</div>
+            <div>• <span className="font-bold">Dedicated Work Ethic:</span> Proven through academic success and extracurricular commitments</div>
+            <div>• <span className="font-bold">Team Collaboration:</span> Experience working on group projects and cross-functional teams</div>
+            <div>• <span className="font-bold">Genuine Enthusiasm:</span> Passionate about [Industry/Field] and eager to contribute meaningfully</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Learning Goals */}
+      <div className="mb-4">
+        <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r">
+          <div className="text-sm font-bold text-blue-700 mb-2">🎯 MY LEARNING GOALS FOR THIS INTERNSHIP</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-1">
+            <div>• Gain practical experience in <span className="font-bold">[Specific.Area.1]</span> and <span className="font-bold">[Specific.Area.2]</span></div>
+            <div>• Develop professional skills in <span className="font-bold">[Skill.Area]</span> under mentorship of experienced professionals</div>
+            <div>• Understand the day-to-day operations of <span className="font-bold">[Department.Or.Function]</span> in a professional environment</div>
+            <div>• Contribute to meaningful projects while building my professional network</div>
+            <div>• Apply classroom theory to real-world challenges and learn industry best practices</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Availability & Logistics */}
+      <div className="mb-4">
+        <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-green-700 mb-2">📅 AVAILABILITY & LOGISTICS</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="font-bold">Start Date:</span> Available from [Start.Date]
+              </div>
+              <div>
+                <span className="font-bold">End Date:</span> Through [End.Date]
+              </div>
+              <div>
+                <span className="font-bold">Hours/Week:</span> [Hours] hours per week ([Full.Time.Or.Part.Time])
+              </div>
+              <div>
+                <span className="font-bold">Schedule:</span> Flexible / [Specific.Days]
+              </div>
+              <div className="col-span-2">
+                <span className="font-bold">Location:</span> Available for [On.Site/Remote/Hybrid] work
+              </div>
+              <div className="col-span-2">
+                <span className="font-bold">Academic Credit:</span> [Seeking.Credit.Or.Not] (Course: [Course.Number] if applicable)
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* How You'll Contribute */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        While I am seeking to learn, I am also committed to adding value to your team. I can assist with <span className="font-bold">[Specific.Task.1]</span>, support <span className="font-bold">[Specific.Task.2]</span>, and contribute to <span className="font-bold">[Specific.Task.3]</span>. My proficiency in <span className="font-bold">[Relevant.Skill.Or.Tool]</span> and my strong <span className="font-bold">[Soft.Skill]</span> will enable me to integrate quickly and make meaningful contributions from the start of the internship.
+      </div>
+
+      {/* Closing */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I am genuinely excited about the opportunity to intern with <span className="font-bold text-orange-600">[Company.Name]</span> and believe this experience would be invaluable to my professional development. I would welcome the chance to discuss how I can contribute to your team while growing my skills. Thank you for considering my application, and I look forward to the possibility of speaking with you.
+      </div>
+
+      {/* Signature */}
+      <div className="mt-6 text-[8px] text-slate-700">
+        <div className="mb-10">Sincerely,</div>
+        <div className="font-bold text-slate-900 text-sm">[Your.Full.Name]</div>
+        <div className="text-slate-600">[Your.Major], [University.Name]</div>
+        <div className="text-slate-600">[Your.Phone] | [Your.Email]</div>
+      </div>
+
+      {/* Enclosure */}
+      <div className="mt-6">
+        <div className="bg-orange-50 border-l-4 border-orange-500 p-2 rounded-r text-[7px] text-orange-800">
+          📎 Attachments: Resume, Academic Transcript, Portfolio/Writing Samples (if applicable)
+        </div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Internship Cover Letter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      background: linear-gradient(to right, #f97316, #ea580c);
+      color: white;
+      padding: 1.25rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    .major {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .contact-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.7rem;
+    }
+
+    /* Date */
+    .date {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+
+    /* Recipient */
+    .recipient {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1.5rem;
+      line-height: 1.4;
+    }
+    .company-name {
+      font-weight: bold;
+      color: #9a3412;
+    }
+    .manager-name {
+      font-weight: bold;
+    }
+
+    /* Subject Box */
+    .subject-box {
+      background-color: #fed7aa;
+      border-left: 4px solid #9a3412;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #7c2d12;
+    }
+
+    /* Section Headers */
+    .section-header {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Content Text */
+    .content-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+
+    /* Highlight Boxes */
+    .highlight-box {
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      line-height: 1.4;
+    }
+    .academic-background {
+      background: linear-gradient(to right, #fed7aa, #fecaca);
+      border: 2px solid #fca5a5;
+    }
+    .what-i-bring {
+      background: linear-gradient(to right, #fef3c7, #fde68a);
+      border: 2px solid #f59e0b;
+    }
+    .learning-goals {
+      background-color: #dbeafe;
+      border-left: 4px solid #1e40af;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+    .availability {
+      background-color: #dcfce7;
+      border: 2px solid #bbf7d0;
+      border-radius: 0.5rem;
+    }
+
+    /* Skill Boxes */
+    .skill-box {
+      background-color: #fff;
+      border-left: 4px solid #9a3412;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .skill-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #9a3412;
+      margin-bottom: 0.25rem;
+    }
+    .skill-description {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* Course Boxes */
+    .course-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .course-box {
+      background-color: #fff;
+      border: 1px solid #fed7aa;
+      border-radius: 0.25rem;
+      padding: 0.5rem;
+      font-size: 0.7rem;
+    }
+
+    /* List Items */
+    .list-item {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .list-item::before {
+      content: "•";
+      color: #9a3412;
+      font-weight: bold;
+    }
+
+    /* Skills Grid */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    .skills-column h4 {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #9a3412;
+      margin-bottom: 0.25rem;
+    }
+    .skills-list {
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    /* Signature */
+    .signature {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .signature-name {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-top: 2rem;
+    }
+
+    /* Enclosure */
+    .enclosure {
+      background-color: #fed7aa;
+      border-left: 4px solid #f97316;
+      padding: 0.5rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-top: 1.5rem;
+      font-size: 0.65rem;
+      color: #9a3412;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="name">[Your.Full.Name]</div>
+    <div class="major">[Your.Major] Student | [University.Name]</div>
+    <div class="contact-info">
+      <span>📧 [Your.Email]</span>
+      <span>📱 [Your.Phone]</span>
+      <span>📍 [Your.City], [Your.State]</span>
+      <span>💼 [Your.LinkedIn]</span>
+      <span>🎓 Expected Graduation: [Grad.Date]</span>
+    </div>
+  </div>
+
+  <!-- Date -->
+  <div class="date">[Current.Date]</div>
+
+  <!-- Recipient -->
+  <div class="recipient">
+    <div class="manager-name">[Internship.Coordinator.Name]</div>
+    <div>[Their.Title]</div>
+    <div class="company-name">[Company.Name]</div>
+    <div>[Company.Address]</div>
+    <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+  </div>
+
+  <!-- Subject -->
+  <div class="subject-box">
+    Re: [Internship.Position.Title] - [Season/Term] [Year] Internship Application
+  </div>
+
+  <!-- Salutation -->
+  <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 1rem;">
+    Dear [Internship.Coordinator.Name],
+  </div>
+
+  <!-- Opening -->
+  <div class="content-text">
+    I am writing to apply for the <span style="font-weight: bold; color: #9a3412;">[Internship.Position.Title]</span> internship at <span style="font-weight: bold; color: #9a3412;">[Company.Name]</span> for <span style="font-weight: bold;">[Season/Term]</span> <span style="font-weight: bold;">[Year]</span>. As a <span style="font-weight: bold;">[Year.In.School]</span> <span style="font-weight: bold;">[Your.Major]</span> student at <span style="font-weight: bold;">[University.Name]</span> with a strong interest in <span style="font-weight: bold;">[Career.Interest.Area]</span>, I am eager to gain hands-on experience and contribute to your team while developing practical skills that complement my academic foundation.
+  </div>
+
+  <!-- Academic Background -->
+  <div style="margin-bottom: 1rem;">
+    <div class="section-header">
+      🎓 ACADEMIC BACKGROUND
+    </div>
+    <div class="highlight-box academic-background">
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        I am currently pursuing a <span style="font-weight: bold;">[Degree.Type]</span> in <span style="font-weight: bold;">[Your.Major]</span> at <span style="font-weight: bold;">[University.Name]</span> with a current GPA of <span style="font-weight: bold;">[Your.GPA]</span>. My coursework has provided me with a strong foundation in <span style="font-weight: bold;">[Core.Area.1]</span> and <span style="font-weight: bold;">[Core.Area.2]</span>. Relevant courses include:
+        <div class="course-grid">
+          <div class="course-box">
+            <span style="font-weight: bold;">✓</span> [Relevant.Course.1]
+          </div>
+          <div class="course-box">
+            <span style="font-weight: bold;">✓</span> [Relevant.Course.2]
+          </div>
+          <div class="course-box">
+            <span style="font-weight: bold;">✓</span> [Relevant.Course.3]
+          </div>
+          <div class="course-box">
+            <span style="font-weight: bold;">✓</span> [Relevant.Course.4]
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Relevant Experience -->
+  <div style="margin-bottom: 1rem;">
+    <div class="section-header">
+      💼 RELEVANT EXPERIENCE & PROJECTS
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+      <div class="skill-box">
+        <div class="skill-title">[Academic.Project.Or.Experience.1]</div>
+        <div class="skill-description">
+          <span style="font-weight: bold;">[Context]:</span> [Project.Description] where I <span style="font-weight: bold;">[Your.Role.And.Contribution]</span>. This experience taught me <span style="font-weight: bold;">[Skills.Learned]</span> and demonstrated my ability to <span style="font-weight: bold;">[Key.Capability]</span>.
+        </div>
+      </div>
+      <div class="skill-box" style="border-left-color: #ea580c;">
+        <div class="skill-title" style="color: #ea580c;">[Campus.Activity.Or.Leadership]</div>
+        <div class="skill-description">
+          As <span style="font-weight: bold;">[Your.Role]</span> in <span style="font-weight: bold;">[Organization]</span>, I <span style="font-weight: bold;">[Responsibility.Or.Achievement]</span>. This role developed my <span style="font-weight: bold;">[Soft.Skills]</span> and <span style="font-weight: bold;">[Other.Skills]</span>.
+        </div>
+      </div>
+      <div class="skill-box">
+        <div class="skill-title">[Part.Time.Work.Or.Volunteer]</div>
+        <div class="skill-description">
+          Through my work/volunteer experience at <span style="font-weight: bold;">[Organization]</span>, I gained practical exposure to <span style="font-weight: bold;">[Relevant.Area]</span> and learned <span style="font-weight: bold;">[Professional.Skill]</span>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skills Section -->
+  <div style="margin-bottom: 1rem;">
+    <div class="section-header">
+      🛠️ SKILLS & TECHNICAL PROFICIENCIES
+    </div>
+    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem;">
+      <div class="skills-grid">
+        <div>
+          <div class="skills-column">
+            <h4>Technical Skills</h4>
+            <div class="skills-list">[Skill.1] • [Skill.2] • [Skill.3] • [Skill.4]</div>
+          </div>
+        </div>
+        <div>
+          <div class="skills-column">
+            <h4>Software/Tools</h4>
+            <div class="skills-list">[Tool.1] • [Tool.2] • [Tool.3] • [Tool.4]</div>
+          </div>
+        </div>
+        <div>
+          <div class="skills-column">
+            <h4>Professional Skills</h4>
+            <div class="skills-list">[Soft.Skill.1] • [Soft.Skill.2] • [Soft.Skill.3]</div>
+          </div>
+        </div>
+        <div>
+          <div class="skills-column">
+            <h4>Languages</h4>
+            <div class="skills-list">[Language.1] • [Language.2]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Why This Company -->
+  <div class="content-text">
+    I am particularly drawn to <span style="font-weight: bold; color: #9a3412;">[Company.Name]</span> because of your <span style="font-weight: bold;">[Company.Quality.Or.Reputation]</span> and innovative work in <span style="font-weight: bold;">[Specific.Area]</span>. I recently learned about <span style="font-weight: bold;">[Specific.Company.Project.Or.Initiative]</span> and was impressed by <span style="font-weight: bold;">[What.Impressed.You]</span>. This internship represents an ideal opportunity to apply my classroom knowledge in a real-world setting while learning from industry professionals at a company that <span style="font-weight: bold;">[Company.Value.That.Resonates]</span>.
+  </div>
+
+  <!-- What You Bring -->
+  <div style="margin-bottom: 1rem;">
+    <div class="highlight-box what-i-bring">
+      <div class="section-header" style="color: #92400e;">
+        ✨ WHAT I BRING AS AN INTERN
+      </div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4; margin-top: 0.5rem;">
+        <div class="list-item">Strong Academic Foundation: Solid theoretical knowledge ready to be applied practically</div>
+        <div class="list-item">Quick Learner: Eager to absorb new information and adapt to your team's workflow</div>
+        <div class="list-item">Fresh Perspective: Current knowledge of latest trends, tools, and methodologies from recent coursework</div>
+        <div class="list-item">Dedicated Work Ethic: Proven through academic success and extracurricular commitments</div>
+        <div class="list-item">Team Collaboration: Experience working on group projects and cross-functional teams</div>
+        <div class="list-item">Genuine Enthusiasm: Passionate about [Industry/Field] and eager to contribute meaningfully</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Learning Goals -->
+  <div style="margin-bottom: 1rem;">
+    <div class="highlight-box learning-goals">
+      <div class="section-header">
+        🎯 MY LEARNING GOALS FOR THIS INTERNSHIP
+      </div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4; margin-top: 0.5rem;">
+        <div class="list-item">Gain practical experience in <span style="font-weight: bold;">[Specific.Area.1]</span> and <span style="font-weight: bold;">[Specific.Area.2]</span></div>
+        <div class="list-item">Develop professional skills in <span style="font-weight: bold;">[Skill.Area]</span> under mentorship of experienced professionals</div>
+        <div class="list-item">Understand the day-to-day operations of <span style="font-weight: bold;">[Department.Or.Function]</span> in a professional environment</div>
+        <div class="list-item">Contribute to meaningful projects while building my professional network</div>
+        <div class="list-item">Apply classroom theory to real-world challenges and learn industry best practices</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Availability -->
+  <div style="margin-bottom: 1rem;">
+    <div class="highlight-box availability">
+      <div class="section-header" style="color: #059669;">
+        📅 AVAILABILITY & LOGISTICS
+      </div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.5rem;">
+          <div>
+            <span style="font-weight: bold;">Start Date:</span> Available from [Start.Date]
+          </div>
+          <div>
+            <span style="font-weight: bold;">End Date:</span> Through [End.Date]
+          </div>
+          <div>
+            <span style="font-weight: bold;">Hours/Week:</span> [Hours] hours per week ([Full.Time.Or.Part.Time])
+          </div>
+          <div>
+            <span style="font-weight: bold;">Schedule:</span> Flexible / [Specific.Days]
+          </div>
+          <div style="grid-column: span 2;">
+            <span style="font-weight: bold;">Location:</span> Available for [On.Site/Remote/Hybrid] work
+          </div>
+          <div style="grid-column: span 2;">
+            <span style="font-weight: bold;">Academic Credit:</span> [Seeking.Credit.Or.Not] (Course: [Course.Number] if applicable)
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- How You'll Contribute -->
+  <div class="content-text">
+    While I am seeking to learn, I am also committed to adding value to your team. I can assist with <span style="font-weight: bold;">[Specific.Task.1]</span>, support <span style="font-weight: bold;">[Specific.Task.2]</span>, and contribute to <span style="font-weight: bold;">[Specific.Task.3]</span>. My proficiency in <span style="font-weight: bold;">[Relevant.Skill.Or.Tool]</span> and my strong <span style="font-weight: bold;">[Soft.Skill]</span> will enable me to integrate quickly and make meaningful contributions from the start of the internship.
+  </div>
+
+  <!-- Closing -->
+  <div class="content-text">
+    I am genuinely excited about the opportunity to intern with <span style="font-weight: bold; color: #9a3412;">[Company.Name]</span> and believe this experience would be invaluable to my professional development. I would welcome the chance to discuss how I can contribute to your team while growing my skills. Thank you for considering my application, and I look forward to the possibility of speaking with you.
+  </div>
+
+  <!-- Signature -->
+  <div class="signature">
+    <div>Sincerely,</div>
+    <div class="signature-name">[Your.Full.Name]</div>
+    <div style="font-size: 0.7rem; color: #64748b;">[Your.Major], [University.Name]</div>
+    <div style="font-size: 0.7rem; color: #64748b;">[Your.Phone] | [Your.Email]</div>
+  </div>
+
+  <!-- Enclosure -->
+  <div class="enclosure">
+    📎 Attachments: Resume, Academic Transcript, Portfolio/Writing Samples (if applicable)
+  </div>
+</body>
+</html>
+`
+},
+
+{
+  id: 'networking-cover-letter-001',
+  name: 'Networking Letter',
+  description: 'Professional networking and informational interview request',
+  category: 'resumes',
+  popular: false,
+  fields: ['Contact Info', 'Connection Point', 'Request', 'Value Exchange'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="border-b-4 border-violet-600 pb-4 mb-6">
+        <div className="text-2xl font-bold text-slate-900 mb-1">[Your.Full.Name]</div>
+        <div className="text-sm text-violet-700 mb-2">[Your.Current.Title.Or.Role]</div>
+        <div className="text-[8px] text-slate-600 flex gap-3 flex-wrap">
+          <span>📧 [Your.Email]</span>
+          <span>📱 [Your.Phone]</span>
+          <span>📍 [Your.City], [Your.State]</span>
+          <span>💼 [Your.LinkedIn]</span>
+        </div>
+      </div>
+
+      {/* Date */}
+      <div className="mb-4 text-[8px] text-slate-700">[Current.Date]</div>
+
+      {/* Recipient */}
+      <div className="mb-6 text-[8px] text-slate-700 leading-relaxed">
+        <div className="font-bold">[Contact.Person.Name]</div>
+        <div>[Their.Title]</div>
+        <div className="font-bold text-violet-700">[Their.Company]</div>
+        <div>[Company.Address] (if sending physically)</div>
+        <div>[Contact.Person.Email] (if sending digitally)</div>
+      </div>
+
+      {/* Subject (for email) */}
+      <div className="mb-4">
+        <div className="bg-violet-50 border-l-4 border-violet-600 p-3 rounded-r">
+          <div className="text-[8px] font-bold text-violet-900">
+            Subject: Request for Informational Interview - [Brief.Context.Or.Referral]
+          </div>
+        </div>
+      </div>
+
+      {/* Greeting */}
+      <div className="mb-4 text-[8px] text-slate-700">
+        Dear [Contact.Person.Name],
+      </div>
+
+      {/* Opening - Establish Connection */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        <span className="font-bold">[How.You.Found.Them]:</span> I hope this message finds you well. <span className="font-bold">[Mutual.Connection.Name]</span> suggested I reach out to you, as they thought your experience in <span className="font-bold">[Their.Expertise.Area]</span> would be invaluable to me as I <span className="font-bold">[Your.Current.Situation: explore career opportunities / transition into the field / expand my network in the industry]</span>.
+      </div>
+      
+      {/* Alternative Opening (if no mutual connection) */}
+      <div className="mb-4 bg-slate-50 border-l-4 border-slate-400 p-3 rounded-r">
+        <div className="text-[7px] text-slate-600 italic">
+          <strong>Alternative (No Mutual Connection):</strong> I discovered your profile on LinkedIn while researching leaders in [Industry/Field], and I was particularly impressed by [Specific.Achievement.Or.Article.Or.Project]. Your career trajectory from [Point.A] to [Point.B] resonates with my own professional aspirations.
+        </div>
+      </div>
+
+      {/* Who You Are */}
+      <div className="mb-4">
+        <div className="bg-gradient-to-r from-violet-50 to-purple-50 border-2 border-violet-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-violet-700 mb-2">👤 A BIT ABOUT ME</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            I am currently <span className="font-bold">[Your.Current.Role.Or.Status]</span> at <span className="font-bold">[Your.Organization.Or.University]</span>, where I focus on <span className="font-bold">[Your.Work.Or.Study.Area]</span>. My background includes <span className="font-bold">[Brief.Experience.Summary]</span>, and I have a particular interest in <span className="font-bold">[Specific.Interest.Area]</span>. I'm currently <span className="font-bold">[Your.Goal: exploring opportunities in X / seeking to learn more about Y / building connections in Z]</span>.
+          </div>
+        </div>
+      </div>
+
+      {/* Why You're Reaching Out */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I am reaching out because I genuinely admire <span className="font-bold">[Specific.Thing.About.Them.1]</span> and <span className="font-bold">[Specific.Thing.About.Them.2]</span>. Your insights on <span className="font-bold">[Topic.They.Know.About]</span> would be incredibly valuable as I <span className="font-bold">[Your.Specific.Goal]</span>. I'm particularly interested in learning about <span className="font-bold">[Specific.Question.Area.1]</span> and <span className="font-bold">[Specific.Question.Area.2]</span> based on your experience at <span className="font-bold">[Their.Current.Or.Previous.Company]</span>.
+      </div>
+
+      {/* The Ask - Informational Interview */}
+      <div className="mb-4">
+        <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-blue-700 mb-2">☕ MY REQUEST</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            I would greatly appreciate the opportunity to have a brief <span className="font-bold">20-30 minute informational conversation</span> with you — either over coffee, via phone call, or video chat, whichever is most convenient for you. I'm respectful of your time and would work around your schedule. This is <span className="font-bold">not a job inquiry</span>; I'm simply seeking advice and insights from someone whose career path I admire.
+          </div>
+        </div>
+      </div>
+
+      {/* Specific Questions/Topics */}
+      <div className="mb-4">
+        <div className="text-sm font-bold text-slate-900 mb-2">💬 TOPICS I'D LOVE TO DISCUSS</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+          <div className="text-[8px] text-slate-700 leading-relaxed space-y-1">
+            <div>• Your career journey and how you got into <span className="font-bold">[Their.Field]</span></div>
+            <div>• Key skills and experiences that have been most valuable in your role</div>
+            <div>• Current trends and challenges in <span className="font-bold">[Industry.Or.Field]</span></div>
+            <div>• Advice for someone looking to <span className="font-bold">[Your.Goal]</span></div>
+            <div>• Your perspective on <span className="font-bold">[Specific.Topic.Or.Question]</span></div>
+            <div>• Any recommendations for resources, connections, or next steps</div>
+          </div>
+        </div>
+      </div>
+
+      {/* What You Bring (Value Exchange) */}
+      <div className="mb-4">
+        <div className="bg-violet-50 border-l-4 border-violet-600 p-4 rounded-r">
+          <div className="text-sm font-bold text-violet-700 mb-2">🤝 WHAT I BRING TO THE CONVERSATION</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            While I'm seeking your guidance, I'd also be happy to share insights on <span className="font-bold">[Your.Area.Of.Knowledge.1]</span> or <span className="font-bold">[Your.Area.Of.Knowledge.2]</span> if that would be of interest. I believe in mutual value exchange and am always looking for ways to be helpful to my network. Additionally, if there's anything I can assist you with — whether it's <span className="font-bold">[Specific.Skill.Or.Help.You.Can.Offer]</span> — I'd be glad to help.
+          </div>
+        </div>
+      </div>
+
+      {/* Your Interest in Their Work */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I've been following your work, particularly <span className="font-bold">[Specific.Project.Article.Or.Achievement]</span>, and found <span className="font-bold">[What.You.Found.Interesting.Or.Valuable]</span>. Your perspective on <span className="font-bold">[Specific.Topic]</span> really resonated with me because <span className="font-bold">[Personal.Connection.Or.Experience]</span>. This is exactly why I believe a conversation with you would be so valuable.
+      </div>
+
+      {/* Flexibility & Availability */}
+      <div className="mb-4">
+        <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
+          <div className="text-sm font-bold text-green-700 mb-2">📅 FLEXIBLE & RESPECTFUL OF YOUR TIME</div>
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            <div className="mb-2">I'm completely flexible and happy to work around your schedule. Some options:</div>
+            <div className="space-y-1">
+              <div>• <span className="font-bold">Coffee/Lunch:</span> I'd be happy to meet in person if you're in [Location]</div>
+              <div>• <span className="font-bold">Phone Call:</span> A quick 20-minute call at your convenience</div>
+              <div>• <span className="font-bold">Video Chat:</span> Zoom, Teams, or any platform you prefer</div>
+              <div>• <span className="font-bold">Email Exchange:</span> If a conversation isn't possible, I'd appreciate any brief advice you could share</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* No Pressure Approach */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        I completely understand if your schedule doesn't allow for a meeting right now. If that's the case, I'd still be grateful for any brief advice you could share via email, or even a recommendation of others in your network who might be willing to speak with me. I'm also happy to follow up at a later time if that works better for you.
+      </div>
+
+      {/* How You'll Follow Up */}
+      <div className="mb-4">
+        <div className="bg-yellow-50 border-l-4 border-yellow-500 p-3 rounded-r">
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            <span className="font-bold">Next Steps:</span> I'll follow up with a brief email in <span className="font-bold">[Timeframe: about a week / 10 days]</span> if I haven't heard back, but please don't feel obligated to respond if this doesn't align with your schedule or interests.
+          </div>
+        </div>
+      </div>
+
+      {/* Closing - Gratitude */}
+      <div className="mb-4 text-[8px] text-slate-700 leading-relaxed">
+        Thank you so much for considering my request. I genuinely appreciate your time and any guidance you're able to provide. Connecting with professionals like yourself is invaluable as I navigate <span className="font-bold">[Your.Career.Stage.Or.Goal]</span>, and I'm grateful for any insights you might share.
+      </div>
+
+      {/* Signature */}
+      <div className="mt-6 text-[8px] text-slate-700">
+        <div className="mb-10">Warmly,</div>
+        <div className="font-bold text-slate-900 text-sm">[Your.Full.Name]</div>
+        <div className="text-slate-600">[Your.Current.Title.Or.Role]</div>
+        <div className="text-slate-600">[Your.Phone] | [Your.Email]</div>
+        <div className="text-violet-600">[Your.LinkedIn.Profile]</div>
+      </div>
+
+      {/* P.S. (Optional but Effective) */}
+      <div className="mt-6">
+        <div className="bg-slate-50 border border-slate-300 rounded-lg p-3">
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            <span className="font-bold">P.S.</span> [Optional: Reference something specific and recent about them - recent post, article, promotion, company news, etc. This shows genuine interest and that you've done your homework]
+          </div>
+        </div>
+      </div>
+
+      {/* Tips Section */}
+      <div className="mt-6 bg-violet-50 border-2 border-violet-300 rounded-lg p-4">
+        <div className="text-[8px] font-bold text-violet-900 mb-2">💡 NETWORKING TIPS (Remove before sending):</div>
+        <div className="text-[7px] text-slate-600 leading-relaxed space-y-1">
+          <div>• <strong>Personalize:</strong> Always reference something specific about them</div>
+          <div>• <strong>Be Brief:</strong> Respect their time - keep it concise</div>
+          <div>• <strong>No Job Asks:</strong> Make it clear you're seeking advice, not a job</div>
+          <div>• <strong>Mutual Connection:</strong> Always mention if someone referred you</div>
+          <div>• <strong>Value Exchange:</strong> Think about what you can offer them</div>
+          <div>• <strong>Follow Through:</strong> If they agree to meet, be prepared with good questions</div>
+          <div>• <strong>Thank You Note:</strong> Always send a thank you after the conversation</div>
+        </div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Networking Letter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      border-bottom: 4px solid #7c3aed;
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .title {
+      font-size: 0.875rem;
+      color: #7c3aed;
+      margin-bottom: 0.75rem;
+    }
+    .contact-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+
+    /* Date */
+    .date {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+
+    /* Recipient */
+    .recipient {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1.5rem;
+      line-height: 1.4;
+    }
+    .company-name {
+      font-weight: bold;
+      color: #7c3aed;
+    }
+    .manager-name {
+      font-weight: bold;
+    }
+
+    /* Subject Box */
+    .subject-box {
+      background-color: #e9d5ff;
+      border-left: 4px solid #7c3aed;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #581c87;
+    }
+
+    /* Section Headers */
+    .section-header {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Content Text */
+    .content-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+
+    /* Highlight Boxes */
+    .highlight-box {
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      line-height: 1.4;
+    }
+    .about-me {
+      background: linear-gradient(to right, #e9d5ff, #ddd6fe);
+      border: 2px solid #c4b5fd;
+    }
+    .my-request {
+      background-color: #dbeafe;
+      border: 2px solid #93c5fd;
+    }
+    .topics {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+    .value-exchange {
+      background-color: #e9d5ff;
+      border-left: 4px solid #7c3aed;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+    .flexibility {
+      background-color: #dcfce7;
+      border: 2px solid #bbf7d0;
+      border-radius: 0.5rem;
+    }
+    .follow-up {
+      background-color: #fef3c7;
+      border-left: 4px solid #d97706;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+
+    /* Alternative Opening */
+    .alternative-opening {
+      background-color: #f8fafc;
+      border-left: 4px solid #cbd5e1;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1rem;
+      font-size: 0.65rem;
+      color: #64748b;
+      font-style: italic;
+    }
+
+    /* List Items */
+    .list-item {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .list-item::before {
+      content: "•";
+      color: #7c3aed;
+      font-weight: bold;
+    }
+
+    /* Signature */
+    .signature {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .signature-name {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-top: 2rem;
+    }
+
+    /* Tips Section */
+    .tips-section {
+      background-color: #e9d5ff;
+      border: 2px solid #c4b5fd;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 1.5rem;
+    }
+    .tips-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #581c87;
+      margin-bottom: 0.5rem;
+    }
+    .tips-list {
+      font-size: 0.65rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+    .tips-list div {
+      margin-bottom: 0.25rem;
+    }
+
+    /* PS Section */
+    .ps-section {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="name">[Your.Full.Name]</div>
+    <div class="title">[Your.Current.Title.Or.Role]</div>
+    <div class="contact-info">
+      <span>📧 [Your.Email]</span>
+      <span>📱 [Your.Phone]</span>
+      <span>📍 [Your.City], [Your.State]</span>
+      <span>💼 [Your.LinkedIn]</span>
+    </div>
+  </div>
+
+  <!-- Date -->
+  <div class="date">[Current.Date]</div>
+
+  <!-- Recipient -->
+  <div class="recipient">
+    <div class="manager-name">[Contact.Person.Name]</div>
+    <div>[Their.Title]</div>
+    <div class="company-name">[Their.Company]</div>
+    <div>[Company.Address] (if sending physically)</div>
+    <div>[Contact.Person.Email] (if sending digitally)</div>
+  </div>
+
+  <!-- Subject -->
+  <div class="subject-box">
+    Subject: Request for Informational Interview - [Brief.Context.Or.Referral]
+  </div>
+
+  <!-- Salutation -->
+  <div style="font-size: 0.7rem; color: #64748b; margin-bottom: 1rem;">
+    Dear [Contact.Person.Name],
+  </div>
+
+  <!-- Opening -->
+  <div class="content-text">
+    <span style="font-weight: bold;">[How.You.Found.Them]:</span> I hope this message finds you well. <span style="font-weight: bold;">[Mutual.Connection.Name]</span> suggested I reach out to you, as they thought your experience in <span style="font-weight: bold;">[Their.Expertise.Area]</span> would be invaluable to me as I <span style="font-weight: bold;">[Your.Current.Situation: explore career opportunities / transition into the field / expand my network in the industry]</span>.
+  </div>
+
+  <!-- Alternative Opening -->
+  <div class="alternative-opening">
+    <strong>Alternative (No Mutual Connection):</strong> I discovered your profile on LinkedIn while researching leaders in [Industry/Field], and I was particularly impressed by [Specific.Achievement.Or.Article.Or.Project]. Your career trajectory from [Point.A] to [Point.B] resonates with my own professional aspirations.
+  </div>
+
+  <!-- About Me -->
+  <div style="margin-bottom: 1rem;">
+    <div class="highlight-box about-me">
+      <div class="section-header">
+        👤 A BIT ABOUT ME
+      </div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        I am currently <span style="font-weight: bold;">[Your.Current.Role.Or.Status]</span> at <span style="font-weight: bold;">[Your.Organization.Or.University]</span>, where I focus on <span style="font-weight: bold;">[Your.Work.Or.Study.Area]</span>. My background includes <span style="font-weight: bold;">[Brief.Experience.Summary]</span>, and I have a particular interest in <span style="font-weight: bold;">[Specific.Interest.Area]</span>. I'm currently <span style="font-weight: bold;">[Your.Goal: exploring opportunities in X / seeking to learn more about Y / building connections in Z]</span>.
+      </div>
+    </div>
+  </div>
+
+  <!-- Why Reaching Out -->
+  <div class="content-text">
+    I am reaching out because I genuinely admire <span style="font-weight: bold;">[Specific.Thing.About.Them.1]</span> and <span style="font-weight: bold;">[Specific.Thing.About.Them.2]</span>. Your insights on <span style="font-weight: bold;">[Topic.They.Know.About]</span> would be incredibly valuable as I <span style="font-weight: bold;">[Your.Specific.Goal]</span>. I'm particularly interested in learning about <span style="font-weight: bold;">[Specific.Question.Area.1]</span> and <span style="font-weight: bold;">[Specific.Question.Area.2]</span> based on your experience at <span style="font-weight: bold;">[Their.Current.Or.Previous.Company]</span>.
+  </div>
+
+  <!-- My Request -->
+  <div style="margin-bottom: 1rem;">
+    <div class="highlight-box my-request">
+      <div class="section-header" style="color: #1e40af;">
+        ☕ MY REQUEST
+      </div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        I would greatly appreciate the opportunity to have a brief <span style="font-weight: bold;">20-30 minute informational conversation</span> with you — either over coffee, via phone call, or video chat, whichever is most convenient for you. I'm respectful of your time and would work around your schedule. This is <span style="font-weight: bold;">not a job inquiry</span>; I'm simply seeking advice and insights from someone whose career path I admire.
+      </div>
+    </div>
+  </div>
+
+  <!-- Topics to Discuss -->
+  <div style="margin-bottom: 1rem;">
+    <div class="section-header">
+      💬 TOPICS I'D LOVE TO DISCUSS
+    </div>
+    <div class="highlight-box topics">
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        <div class="list-item">Your career journey and how you got into <span style="font-weight: bold;">[Their.Field]</span></div>
+        <div class="list-item">Key skills and experiences that have been most valuable in your role</div>
+        <div class="list-item">Current trends and challenges in <span style="font-weight: bold;">[Industry.Or.Field]</span></div>
+        <div class="list-item">Advice for someone looking to <span style="font-weight: bold;">[Your.Goal]</span></div>
+        <div class="list-item">Your perspective on <span style="font-weight: bold;">[Specific.Topic.Or.Question]</span></div>
+        <div class="list-item">Any recommendations for resources, connections, or next steps</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Value Exchange -->
+  <div style="margin-bottom: 1rem;">
+    <div class="highlight-box value-exchange">
+      <div class="section-header">
+        🤝 WHAT I BRING TO THE CONVERSATION
+      </div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        While I'm seeking your guidance, I'd also be happy to share insights on <span style="font-weight: bold;">[Your.Area.Of.Knowledge.1]</span> or <span style="font-weight: bold;">[Your.Area.Of.Knowledge.2]</span> if that would be of interest. I believe in mutual value exchange and am always looking for ways to be helpful to my network. Additionally, if there's anything I can assist you with — whether it's <span style="font-weight: bold;">[Specific.Skill.Or.Help.You.Can.Offer]</span> — I'd be glad to help.
+      </div>
+    </div>
+  </div>
+
+  <!-- Interest in Their Work -->
+  <div class="content-text">
+    I've been following your work, particularly <span style="font-weight: bold;">[Specific.Project.Article.Or.Achievement]</span>, and found <span style="font-weight: bold;">[What.You.Found.Interesting.Or.Valuable]</span>. Your perspective on <span style="font-weight: bold;">[Specific.Topic]</span> really resonated with me because <span style="font-weight: bold;">[Personal.Connection.Or.Experience]</span>. This is exactly why I believe a conversation with you would be so valuable.
+  </div>
+
+  <!-- Flexibility -->
+  <div style="margin-bottom: 1rem;">
+    <div class="highlight-box flexibility">
+      <div class="section-header" style="color: #059669;">
+        📅 FLEXIBLE & RESPECTFUL OF YOUR TIME
+      </div>
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        <div style="margin-bottom: 0.5rem;">I'm completely flexible and happy to work around your schedule. Some options:</div>
+        <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+          <div class="list-item">Coffee/Lunch: I'd be happy to meet in person if you're in [Location]</div>
+          <div class="list-item">Phone Call: A quick 20-minute call at your convenience</div>
+          <div class="list-item">Video Chat: Zoom, Teams, or any platform you prefer</div>
+          <div class="list-item">Email Exchange: If a conversation isn't possible, I'd appreciate any brief advice you could share</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Pressure -->
+  <div class="content-text">
+    I completely understand if your schedule doesn't allow for a meeting right now. If that's the case, I'd still be grateful for any brief advice you could share via email, or even a recommendation of others in your network who might be willing to speak with me. I'm also happy to follow up at a later time if that works better for you.
+  </div>
+
+  <!-- Follow Up -->
+  <div style="margin-bottom: 1rem;">
+    <div class="highlight-box follow-up">
+      <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+        <span style="font-weight: bold;">Next Steps:</span> I'll follow up with a brief email in <span style="font-weight: bold;">[Timeframe: about a week / 10 days]</span> if I haven't heard back, but please don't feel obligated to respond if this doesn't align with your schedule or interests.
+      </div>
+    </div>
+  </div>
+
+  <!-- Closing -->
+  <div class="content-text">
+    Thank you so much for considering my request. I genuinely appreciate your time and any guidance you're able to provide. Connecting with professionals like yourself is invaluable as I navigate <span style="font-weight: bold;">[Your.Career.Stage.Or.Goal]</span>, and I'm grateful for any insights you might share.
+  </div>
+
+  <!-- Signature -->
+  <div class="signature">
+    <div>Warmly,</div>
+    <div class="signature-name">[Your.Full.Name]</div>
+    <div style="font-size: 0.7rem; color: #64748b;">[Your.Current.Title.Or.Role]</div>
+    <div style="font-size: 0.7rem; color: #64748b;">[Your.Phone] | [Your.Email]</div>
+    <div style="font-size: 0.7rem; color: #7c3aed;">[Your.LinkedIn.Profile]</div>
+  </div>
+
+  <!-- PS Section -->
+  <div class="ps-section">
+    <div style="font-weight: bold;">P.S.</div> [Optional: Reference something specific and recent about them - recent post, article, promotion, company news, etc. This shows genuine interest and that you've done your homework]
+  </div>
+
+  <!-- Tips Section -->
+  <div class="tips-section">
+    <div class="tips-title">💡 NETWORKING TIPS (Remove before sending):</div>
+    <div class="tips-list">
+      <div>• <strong>Personalize:</strong> Always reference something specific about them</div>
+      <div>• <strong>Be Brief:</strong> Respect their time - keep it concise</div>
+      <div>• <strong>No Job Asks:</strong> Make it clear you're seeking advice, not a job</div>
+      <div>• <strong>Mutual Connection:</strong> Always mention if someone referred you</div>
+      <div>• <strong>Value Exchange:</strong> Think about what you can offer them</div>
+      <div>• <strong>Follow Through:</strong> If they agree to meet, be prepared with good questions</div>
+      <div>• <strong>Thank You Note:</strong> Always send a thank you after the conversation</div>
+    </div>
+  </div>
+</body>
+</html>
+`
 },
 
 {
@@ -6122,8 +12045,4224 @@ const TemplatesSection = () => {
       </div>
     </div>
   ),
-  htmlTemplate: `<!-- Full HTML -->`
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Career Change Cover Letter</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      border-bottom: 4px solid #0d9488;
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .contact-info {
+      font-size: 0.7rem;
+      color: #64748b;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .contact-info span {
+      display: flex;
+      align-items: center;
+    }
+    .contact-info .separator {
+      font-weight: bold;
+    }
+    .email, .linkedin {
+      color: #0d9488;
+    }
+
+    /* Date */
+    .date {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+
+    /* Recipient */
+    .recipient {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1.5rem;
+      line-height: 1.4;
+    }
+    .recipient .company-name {
+      font-weight: bold;
+      color: #0f766e;
+    }
+    .recipient .manager-name {
+      font-weight: bold;
+    }
+
+    /* Subject Box */
+    .subject-box {
+      background-color: #d1fae5;
+      border-left: 4px solid #0d9488;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #04473d;
+    }
+
+    /* Salutation */
+    .salutation {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+
+    /* Section Headers */
+    .section-header {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Content Text */
+    .content-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+
+    /* Highlight Boxes */
+    .highlight-box {
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.7rem;
+      line-height: 1.4;
+    }
+    .why-transition {
+      background: linear-gradient(to right, #d1fae5, #a7f3d0);
+      border: 2px solid #a7f3d0;
+    }
+    .preparation {
+      background-color: #fef3c7;
+      border: 2px solid #fde68a;
+    }
+    .what-i-bring {
+      background-color: #d1fae5;
+      border-left: 4px solid #0d9488;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+
+    /* Skill Boxes */
+    .skill-box {
+      background-color: #fff;
+      border-left: 4px solid #0d9488;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .skill-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #0f766e;
+      margin-bottom: 0.25rem;
+    }
+    .skill-description {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* List Items */
+    .list-item {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .list-item::before {
+      content: "•";
+      color: #0d9488;
+      font-weight: bold;
+    }
+
+    /* Signature */
+    .signature {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .signature-name {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-top: 2rem;
+    }
+
+    /* Enclosure */
+    .enclosure {
+      background-color: #f1f5f9;
+      border-left: 4px solid #cbd5e1;
+      padding: 0.5rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-top: 1.5rem;
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="name">[Your.Full.Name]</div>
+    <div class="contact-info">
+      <span>[Your.Address], [Your.City], [Your.State] [Your.Zip]</span>
+      <span class="separator">•</span>
+      <span>[Your.Phone]</span>
+      <span class="separator">•</span>
+      <span class="email">[Your.Email]</span>
+      <span class="separator">•</span>
+      <span class="linkedin">[Your.LinkedIn]</span>
+    </div>
+  </div>
+
+  <!-- Date -->
+  <div class="date">[Current.Date]</div>
+
+  <!-- Recipient -->
+  <div class="recipient">
+    <div class="manager-name">[Hiring.Manager.Name]</div>
+    <div>[Hiring.Manager.Title]</div>
+    <div class="company-name">[Company.Name]</div>
+    <div>[Company.Address]</div>
+    <div>[Company.City], [Company.State] [Company.ZipCode]</div>
+  </div>
+
+  <!-- Subject -->
+  <div class="subject-box">
+    Subject: Application for [Position.Title] - Bringing [Years.Experience] Years of Proven Results to [New.Industry]
+  </div>
+
+  <!-- Salutation -->
+  <div class="salutation">Dear [Hiring.Manager.Name],</div>
+
+  <!-- Opening -->
+  <div class="content-text">
+    I am writing to express my enthusiastic interest in the <span style="font-weight: bold;">[Position.Title]</span> position at <span style="font-weight: bold; color: #0d9488;">[Company.Name]</span>. While my background is in <span style="font-weight: bold;">[Current.Industry]</span>, I am making a strategic transition to <span style="font-weight: bold;">[Target.Industry]</span> — a move driven by my passion for <span style="font-weight: bold;">[Passion.Area]</span> and aligned with my long-term career aspirations. My <span style="font-weight: bold;">[Years.Experience]</span> years of experience have equipped me with transferable skills that directly apply to this role and will enable me to make an immediate impact.
+  </div>
+
+  <!-- Why Career Change -->
+  <div class="highlight-box why-transition">
+    <div class="section-header">
+      🎯 WHY THIS CAREER TRANSITION
+    </div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+      My decision to transition from <span style="font-weight: bold;">[Current.Industry]</span> to <span style="font-weight: bold;">[Target.Industry]</span> stems from <span style="font-weight: bold;">[Motivation.1]</span> and <span style="font-weight: bold;">[Motivation.2]</span>. Over the past <span style="font-weight: bold;">[Timeframe]</span>, I have <span style="font-weight: bold;">[Preparation.Steps.Taken]</span>, including <span style="font-weight: bold;">[Courses.Or.Certifications]</span>, <span style="font-weight: bold;">[Projects.Or.Volunteering]</span>, and <span style="font-weight: bold;">[Networking.Or.Research]</span>. This isn't a impulsive decision — it's a calculated move based on thorough preparation and genuine passion.
+    </div>
+  </div>
+
+  <!-- Transferable Skills -->
+  <div class="section-header">🔄 TRANSFERABLE SKILLS & RELEVANT EXPERIENCE</div>
+  <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+    <div class="skill-box">
+      <div class="skill-title">[Skill.1] (From [Current.Industry] to [Target.Industry])</div>
+      <div class="skill-description">
+        In my role as <span style="font-weight: bold;">[Current.Job.Title]</span>, I <span style="font-weight: bold;">[Achievement.With.Skill.1]</span>. This directly translates to <span style="font-weight: bold;">[How.It.Applies.To.New.Role]</span>.
+      </div>
+    </div>
+    <div class="skill-box" style="border-left-color: #0891b2;">
+      <div class="skill-title" style="color: #085f63;">[Skill.2] (Proven Track Record)</div>
+      <div class="skill-description">
+        I successfully <span style="font-weight: bold;">[Achievement.With.Skill.2]</span>, demonstrating my ability to <span style="font-weight: bold;">[Capability.Relevant.To.New.Role]</span>, which is essential for <span style="font-weight: bold;">[Target.Industry]</span>.
+      </div>
+    </div>
+    <div class="skill-box">
+      <div class="skill-title">[Skill.3] (Universal Value)</div>
+      <div class="skill-description">
+        My experience in <span style="font-weight: bold;">[Specific.Area]</span> has honed my <span style="font-weight: bold;">[Skill.Description]</span>, which I understand is critical for success in the <span style="font-weight: bold;">[Position.Title]</span> role.
+      </div>
+    </div>
+  </div>
+
+  <!-- Relevant Accomplishments -->
+  <div class="content-text">
+    Despite coming from a different industry, my accomplishments demonstrate capabilities directly applicable to your needs. I've <span style="font-weight: bold;">[Quantifiable.Achievement.1]</span>, <span style="font-weight: bold;">[Quantifiable.Achievement.2]</span>, and <span style="font-weight: bold;">[Quantifiable.Achievement.3]</span>. These results showcase my ability to <span style="font-weight: bold;">[Key.Ability.1]</span>, <span style="font-weight: bold;">[Key.Ability.2]</span>, and <span style="font-weight: bold;">[Key.Ability.3]</span> — skills that transcend industry boundaries and are essential for the <span style="font-weight: bold;">[Position.Title]</span> position.
+  </div>
+
+  <!-- Preparation & Commitment -->
+  <div class="highlight-box preparation">
+    <div class="section-header" style="color: #92400e;">
+      📚 PREPARATION & COMMITMENT TO SUCCESS
+    </div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4;">
+      To ensure a successful transition, I have proactively <span style="font-weight: bold;">[Preparation.Action.1]</span>, completed <span style="font-weight: bold;">[Certification.Or.Course]</span>, and gained hands-on experience through <span style="font-weight: bold;">[Project.Or.Volunteer.Work]</span>. I've also <span style="font-weight: bold;">[Networking.Or.Industry.Research]</span> to deepen my understanding of <span style="font-weight: bold;">[Target.Industry]</span>. This groundwork demonstrates my commitment and ensures I can contribute effectively from day one.
+    </div>
+  </div>
+
+  <!-- Why This Company -->
+  <div class="content-text">
+    <span style="font-weight: bold; color: #0d9488;">[Company.Name]</span> stands out to me because of <span style="font-weight: bold;">[Company.Unique.Quality]</span> and your innovative approach to <span style="font-weight: bold;">[Company.Focus.Area]</span>. I'm particularly impressed by <span style="font-weight: bold;">[Specific.Company.Initiative.Or.Value]</span>, which aligns perfectly with my professional philosophy. I believe my fresh perspective from <span style="font-weight: bold;">[Current.Industry]</span>, combined with my transferable skills and genuine enthusiasm, would bring unique value to your team.
+  </div>
+
+  <!-- What You Bring -->
+  <div class="highlight-box what-i-bring">
+    <div class="section-header">
+      💡 WHAT I BRING TO THE TABLE
+    </div>
+    <div style="font-size: 0.7rem; color: #64748b; line-height: 1.4; margin-top: 0.5rem;">
+      <div class="list-item">Fresh Perspective: Cross-industry insights that can drive innovation and creative problem-solving</div>
+      <div class="list-item">Proven Results: Track record of [Key.Result.Area] with measurable outcomes</div>
+      <div class="list-item">Adaptability: Demonstrated ability to learn quickly and excel in new environments</div>
+      <div class="list-item">Transferable Expertise: [Years.Experience] years of applicable skills in [Skill.Area.1], [Skill.Area.2], and [Skill.Area.3]</div>
+      <div class="list-item">Genuine Passion: Authentic enthusiasm for [Target.Industry] backed by concrete preparation</div>
+    </div>
+  </div>
+
+  <!-- Closing -->
+  <div class="content-text">
+    I am confident that my unique combination of <span style="font-weight: bold;">[Current.Industry]</span> experience and passion for <span style="font-weight: bold;">[Target.Industry]</span> makes me an excellent fit for the <span style="font-weight: bold;">[Position.Title]</span> role. I would welcome the opportunity to discuss how my background and fresh perspective can contribute to <span style="font-weight: bold; color: #0d9488;">[Company.Name]</span>'s continued success. Thank you for considering my application, and I look forward to the possibility of speaking with you soon.
+  </div>
+
+  <!-- Signature -->
+  <div class="signature">
+    <div>Sincerely,</div>
+    <div class="signature-name">[Your.Full.Name]</div>
+  </div>
+
+  <!-- Enclosure -->
+  <div class="enclosure">
+    Enclosures: Resume, Portfolio (if applicable), Certifications
+  </div>
+</body>
+</html>
+`
 },
+{
+  id: 'legal-agreement-001',
+  name: 'Professional Legal Agreement',
+  description: 'Modern, legally robust, and visually polished agreement template for business and professional use',
+  category: 'legal',
+  popular: true,
+  fields: [
+    'Agreement Title',
+    'Agreement Number',
+    'Effective Date',
+    'Party 1 Name',
+    'Party 1 Address',
+    'Party 1 Contact',
+    'Party 1 Representative',
+    'Party 2 Name',
+    'Party 2 Address',
+    'Party 2 Contact',
+    'Party 2 Representative',
+    'Agreement Purpose',
+    'Term Start Date',
+    'Term End Date',
+    'Confidentiality Period',
+    'Payment Amount',
+    'Payment Schedule',
+    'Governing Law',
+    'Dispute Resolution Method',
+    'Signatory 1 Name',
+    'Signatory 1 Title',
+    'Signatory 2 Name',
+    'Signatory 2 Title'
+  ],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header Section */}
+      <div className="text-center mb-8 pb-6 border-b-4 border-blue-800">
+        <div className="text-4xl font-bold text-slate-900 mb-2">[Agreement.Title]</div>
+        <div className="text-lg text-blue-800 font-semibold mb-3">Agreement Number: [Agreement.Number]</div>
+        <div className="text-sm text-slate-600">Effective Date: [Effective.Date]</div>
+      </div>
+
+      {/* Parties Section */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">PARTIES</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Party 1</div>
+            <div className="text-[8px] text-slate-700">
+              <div><strong>Name:</strong> [Party1.Name]</div>
+              <div><strong>Address:</strong> [Party1.Address]</div>
+              <div><strong>Contact:</strong> [Party1.Contact]</div>
+              <div><strong>Representative:</strong> [Party1.Representative]</div>
+            </div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Party 2</div>
+            <div className="text-[8px] text-slate-700">
+              <div><strong>Name:</strong> [Party2.Name]</div>
+              <div><strong>Address:</strong> [Party2.Address]</div>
+              <div><strong>Contact:</strong> [Party2.Contact]</div>
+              <div><strong>Representative:</strong> [Party2.Representative]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recitals Section */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">RECITALS</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div>WHEREAS, [Party1.Name] is engaged in the business of [Party1.Business];</div>
+          <div>WHEREAS, [Party2.Name] is engaged in the business of [Party2.Business];</div>
+          <div>WHEREAS, the Parties desire to enter into this Agreement for the purpose of [Agreement.Purpose];</div>
+          <div>NOW, THEREFORE, in consideration of the mutual covenants and agreements herein contained, the Parties agree as follows:</div>
+        </div>
+      </div>
+
+      {/* Term & Termination */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">TERM & TERMINATION</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div><strong>1. Term:</strong> This Agreement shall commence on [Term.Start.Date] and continue until [Term.End.Date], unless terminated earlier as provided herein.</div>
+          <div><strong>2. Termination for Cause:</strong> Either Party may terminate this Agreement immediately upon written notice if the other Party materially breaches any term and fails to cure such breach within [Cure.Period] days of written notice.</div>
+          <div><strong>3. Termination for Convenience:</strong> Either Party may terminate this Agreement with [Notice.Period] days written notice.</div>
+          <div><strong>4. Effect of Termination:</strong> Upon termination, all obligations shall cease except for those expressly surviving termination, including confidentiality and indemnification.</div>
+        </div>
+      </div>
+
+      {/* Confidentiality */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">CONFIDENTIALITY</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div><strong>1. Definition:</strong> "Confidential Information" means all non-public information disclosed by one Party to the other, whether oral, written, or electronic.</div>
+          <div><strong>2. Obligations:</strong> The receiving Party shall maintain the confidentiality of all Confidential Information and use it solely for the purpose of this Agreement.</div>
+          <div><strong>3. Exclusions:</strong> Confidential Information does not include information that is or becomes publicly available through no fault of the receiving Party.</div>
+          <div><strong>4. Term:</strong> The confidentiality obligations shall survive termination of this Agreement for [Confidentiality.Period] years.</div>
+        </div>
+      </div>
+
+      {/* Payment Terms */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">PAYMENT TERMS</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div><strong>1. Fees:</strong> [Party2.Name] shall pay [Party1.Name] the sum of [Payment.Amount] for the services rendered, as detailed in Exhibit A.</div>
+          <div><strong>2. Payment Schedule:</strong> Payment shall be made as follows: [Payment.Schedule]</div>
+          <div><strong>3. Late Fees:</strong> Late payments shall incur a [Late.Fee]% monthly interest charge.</div>
+          <div><strong>4. Invoicing:</strong> Invoices shall be submitted [Invoicing.Frequency] and are due within [Payment.Term] days of receipt.</div>
+        </div>
+      </div>
+
+      {/* Governing Law */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">GOVERNING LAW & DISPUTE RESOLUTION</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div><strong>1. Governing Law:</strong> This Agreement shall be governed by and construed in accordance with the laws of [Governing.Law].</div>
+          <div><strong>2. Dispute Resolution:</strong> Any dispute arising out of or relating to this Agreement shall be resolved by [Dispute.Resolution.Method] in [Jurisdiction].</div>
+        </div>
+      </div>
+
+      {/* Signatures */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">SIGNATURES</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">[Party1.Name]</div>
+            <div className="text-[8px] text-slate-700">
+              <div><strong>Name:</strong> [Signatory1.Name]</div>
+              <div><strong>Title:</strong> [Signatory1.Title]</div>
+              <div><strong>Date:</strong> [Signatory1.Date]</div>
+              <div className="mt-4 border-t border-slate-300 pt-2"><strong>Signature:</strong> ________________________</div>
+            </div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">[Party2.Name]</div>
+            <div className="text-[8px] text-slate-700">
+              <div><strong>Name:</strong> [Signatory2.Name]</div>
+              <div><strong>Title:</strong> [Signatory2.Title]</div>
+              <div><strong>Date:</strong> [Signatory2.Date]</div>
+              <div className="mt-4 border-t border-slate-300 pt-2"><strong>Signature:</strong> ________________________</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+        <div>This document is legally binding and should be reviewed by legal counsel before signing.</div>
+        <div className="mt-1">Last Updated: [Last.Updated.Date]</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `
+   <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>[Agreement.Title]</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 4px solid #1e40af;
+    }
+    .header-title {
+      font-size: 2.25rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.75rem;
+    }
+    .header-subtitle {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1e40af;
+      margin-bottom: 0.75rem;
+    }
+    .header-details {
+      font-size: 0.875rem;
+      color: #64748b;
+    }
+
+    /* Section Styles */
+    .section {
+      margin-bottom: 2rem;
+    }
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: #1e40af;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #1e40af;
+    }
+
+    /* Party Boxes */
+    .party-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .party-box {
+      background-color: #f8fafc;
+      border-left: 4px solid #1e40af;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+    .party-title {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .party-details {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+    .party-details div {
+      margin-bottom: 0.25rem;
+    }
+
+    /* Content Styles */
+    .content-text {
+      font-size: 0.75rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+    .content-list {
+      font-size: 0.75rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Signature Section */
+    .signature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .signature-box {
+      background-color: #f8fafc;
+      border-left: 4px solid #1e40af;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+    .signature-title {
+      font-size: 0.875rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .signature-details {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+    .signature-details div {
+      margin-bottom: 0.25rem;
+    }
+    .signature-line {
+      border-top: 1px solid #cbd5e1;
+      margin-top: 1rem;
+      padding-top: 0.5rem;
+      text-align: center;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header Section -->
+  <div class="header">
+    <div class="header-title">[Agreement.Title]</div>
+    <div class="header-subtitle">Agreement Number: [Agreement.Number]</div>
+    <div class="header-details">Effective Date: [Effective.Date]</div>
+  </div>
+
+  <!-- Parties Section -->
+  <div class="section">
+    <div class="section-title">PARTIES</div>
+    <div class="party-grid">
+      <div class="party-box">
+        <div class="party-title">Party 1</div>
+        <div class="party-details">
+          <div><strong>Name:</strong> [Party1.Name]</div>
+          <div><strong>Address:</strong> [Party1.Address]</div>
+          <div><strong>Contact:</strong> [Party1.Contact]</div>
+          <div><strong>Representative:</strong> [Party1.Representative]</div>
+        </div>
+      </div>
+      <div class="party-box">
+        <div class="party-title">Party 2</div>
+        <div class="party-details">
+          <div><strong>Name:</strong> [Party2.Name]</div>
+          <div><strong>Address:</strong> [Party2.Address]</div>
+          <div><strong>Contact:</strong> [Party2.Contact]</div>
+          <div><strong>Representative:</strong> [Party2.Representative]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recitals Section -->
+  <div class="section">
+    <div class="section-title">RECITALS</div>
+    <div class="content-text">
+      <div>WHEREAS, [Party1.Name] is engaged in the business of [Party1.Business];</div>
+      <div>WHEREAS, [Party2.Name] is engaged in the business of [Party2.Business];</div>
+      <div>WHEREAS, the Parties desire to enter into this Agreement for the purpose of [Agreement.Purpose];</div>
+      <div>NOW, THEREFORE, in consideration of the mutual covenants and agreements herein contained, the Parties agree as follows:</div>
+    </div>
+  </div>
+
+  <!-- Term & Termination -->
+  <div class="section">
+    <div class="section-title">TERM & TERMINATION</div>
+    <div class="content-text">
+      <div><strong>1. Term:</strong> This Agreement shall commence on [Term.Start.Date] and continue until [Term.End.Date], unless terminated earlier as provided herein.</div>
+      <div><strong>2. Termination for Cause:</strong> Either Party may terminate this Agreement immediately upon written notice if the other Party materially breaches any term and fails to cure such breach within [Cure.Period] days of written notice.</div>
+      <div><strong>3. Termination for Convenience:</strong> Either Party may terminate this Agreement with [Notice.Period] days written notice.</div>
+      <div><strong>4. Effect of Termination:</strong> Upon termination, all obligations shall cease except for those expressly surviving termination, including confidentiality and indemnification.</div>
+    </div>
+  </div>
+
+  <!-- Confidentiality -->
+  <div class="section">
+    <div class="section-title">CONFIDENTIALITY</div>
+    <div class="content-text">
+      <div><strong>1. Definition:</strong> "Confidential Information" means all non-public information disclosed by one Party to the other, whether oral, written, or electronic.</div>
+      <div><strong>2. Obligations:</strong> The receiving Party shall maintain the confidentiality of all Confidential Information and use it solely for the purpose of this Agreement.</div>
+      <div><strong>3. Exclusions:</strong> Confidential Information does not include information that is or becomes publicly available through no fault of the receiving Party.</div>
+      <div><strong>4. Term:</strong> The confidentiality obligations shall survive termination of this Agreement for [Confidentiality.Period] years.</div>
+    </div>
+  </div>
+
+  <!-- Payment Terms -->
+  <div class="section">
+    <div class="section-title">PAYMENT TERMS</div>
+    <div class="content-text">
+      <div><strong>1. Fees:</strong> [Party2.Name] shall pay [Party1.Name] the sum of [Payment.Amount] for the services rendered, as detailed in Exhibit A.</div>
+      <div><strong>2. Payment Schedule:</strong> Payment shall be made as follows: [Payment.Schedule]</div>
+      <div><strong>3. Late Fees:</strong> Late payments shall incur a [Late.Fee]% monthly interest charge.</div>
+      <div><strong>4. Invoicing:</strong> Invoices shall be submitted [Invoicing.Frequency] and are due within [Payment.Term] days of receipt.</div>
+    </div>
+  </div>
+
+  <!-- Governing Law -->
+  <div class="section">
+    <div class="section-title">GOVERNING LAW & DISPUTE RESOLUTION</div>
+    <div class="content-text">
+      <div><strong>1. Governing Law:</strong> This Agreement shall be governed by and construed in accordance with the laws of [Governing.Law].</div>
+      <div><strong>2. Dispute Resolution:</strong> Any dispute arising out of or relating to this Agreement shall be resolved by [Dispute.Resolution.Method] in [Jurisdiction].</div>
+    </div>
+  </div>
+
+  <!-- Signatures -->
+  <div class="section">
+    <div class="section-title">SIGNATURES</div>
+    <div class="signature-grid">
+      <div class="signature-box">
+        <div class="signature-title">[Party1.Name]</div>
+        <div class="signature-details">
+          <div><strong>Name:</strong> [Signatory1.Name]</div>
+          <div><strong>Title:</strong> [Signatory1.Title]</div>
+          <div><strong>Date:</strong> [Signatory1.Date]</div>
+          <div class="signature-line">
+            <strong>Signature:</strong> ________________________
+          </div>
+        </div>
+      </div>
+      <div class="signature-box">
+        <div class="signature-title">[Party2.Name]</div>
+        <div class="signature-details">
+          <div><strong>Name:</strong> [Signatory2.Name]</div>
+          <div><strong>Title:</strong> [Signatory2.Title]</div>
+          <div><strong>Date:</strong> [Signatory2.Date]</div>
+          <div class="signature-line">
+            <strong>Signature:</strong> ________________________
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div>This document is legally binding and should be reviewed by legal counsel before signing.</div>
+    <div style="margin-top: 0.25rem;">Last Updated: [Last.Updated.Date]</div>
+  </div>
+</body>
+</html>
+
+  `
+}, 
+
+{
+  id: 'statement-of-work-001',
+  name: 'Professional Statement of Work',
+  description: 'Modern, detailed, and visually polished SOW template for projects, services, and deliverables',
+  category: 'legal',
+  popular: true,
+  fields: [
+    'Project Title',
+    'Project Number',
+    'Effective Date',
+    'Client Name',
+    'Client Contact',
+    'Vendor Name',
+    'Vendor Contact',
+    'Project Manager',
+    'Project Overview',
+    'Project Objectives',
+    'Scope of Work',
+    'Deliverables',
+    'Timeline',
+    'Milestones',
+    'Assumptions',
+    'Dependencies',
+    'Acceptance Criteria',
+    'Payment Terms',
+    'Confidentiality',
+    'Termination Clause',
+    'Signatory 1 Name',
+    'Signatory 1 Title',
+    'Signatory 2 Name',
+    'Signatory 2 Title'
+  ],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header Section */}
+      <div className="text-center mb-8 pb-6 border-b-4 border-blue-800">
+        <div className="text-4xl font-bold text-slate-900 mb-2">STATEMENT OF WORK</div>
+        <div className="text-lg text-blue-800 font-semibold mb-3">Project: [Project.Title]</div>
+        <div className="text-sm text-slate-600">Project Number: [Project.Number] | Effective Date: [Effective.Date]</div>
+      </div>
+
+      {/* Parties Section */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">PARTIES</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Client</div>
+            <div className="text-[8px] text-slate-700">
+              <div><strong>Name:</strong> [Client.Name]</div>
+              <div><strong>Contact:</strong> [Client.Contact]</div>
+              <div><strong>Address:</strong> [Client.Address]</div>
+            </div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Vendor</div>
+            <div className="text-[8px] text-slate-700">
+              <div><strong>Name:</strong> [Vendor.Name]</div>
+              <div><strong>Contact:</strong> [Vendor.Contact]</div>
+              <div><strong>Address:</strong> [Vendor.Address]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Project Overview */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">PROJECT OVERVIEW</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div><strong>Project Manager:</strong> [Project.Manager]</div>
+          <div><strong>Overview:</strong> [Project.Overview]</div>
+          <div><strong>Objectives:</strong> [Project.Objectives]</div>
+        </div>
+      </div>
+
+      {/* Scope of Work */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">SCOPE OF WORK</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div>[Scope.of.Work]</div>
+        </div>
+      </div>
+
+      {/* Deliverables */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">DELIVERABLES</div>
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="bg-blue-50 border-l-4 border-blue-800 p-3 rounded-r">
+              <div className="font-bold text-slate-900 text-[8px] mb-1">Deliverable {i+1}: [Deliverable.{i+1}.Name]</div>
+              <div className="text-[8px] text-slate-700 leading-relaxed">
+                <div><strong>Description:</strong> [Deliverable.{i+1}.Description]</div>
+                <div><strong>Due Date:</strong> [Deliverable.{i+1}.DueDate]</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Timeline & Milestones */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">TIMELINE & MILESTONES</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div><strong>Project Start Date:</strong> [Timeline.Start.Date]</div>
+          <div><strong>Project End Date:</strong> [Timeline.End.Date]</div>
+          <div className="mt-2">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="mb-2">
+                <div className="font-bold">Milestone {i+1}: [Milestone.{i+1}.Name]</div>
+                <div><strong>Description:</strong> [Milestone.{i+1}.Description]</div>
+                <div><strong>Due Date:</strong> [Milestone.{i+1}.DueDate]</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Assumptions & Dependencies */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">ASSUMPTIONS & DEPENDENCIES</div>
+        <div className="grid grid-cols-2 gap-4 text-[8px]">
+          <div>
+            <div className="font-bold text-slate-900 mb-2">Assumptions</div>
+            <div className="text-slate-700 leading-relaxed space-y-1">
+              {[...Array(3)].map((_, i) => (
+                <div key={i}>• [Assumption.{i+1}]</div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="font-bold text-slate-900 mb-2">Dependencies</div>
+            <div className="text-slate-700 leading-relaxed space-y-1">
+              {[...Array(3)].map((_, i) => (
+                <div key={i}>• [Dependency.{i+1}]</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Acceptance Criteria */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">ACCEPTANCE CRITERIA</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          {[...Array(4)].map((_, i) => (
+            <div key={i}>• [Acceptance.Criteria.{i+1}]</div>
+          ))}
+        </div>
+      </div>
+
+      {/* Payment Terms */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">PAYMENT TERMS</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div><strong>Total Project Fee:</strong> [Payment.Total.Fee]</div>
+          <div><strong>Payment Schedule:</strong> [Payment.Schedule]</div>
+          <div><strong>Invoicing:</strong> [Invoicing.Details]</div>
+          <div><strong>Late Fees:</strong> [Late.Fee.Details]</div>
+        </div>
+      </div>
+
+      {/* Confidentiality */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">CONFIDENTIALITY</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div>[Confidentiality.Clauses]</div>
+        </div>
+      </div>
+
+      {/* Termination Clause */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">TERMINATION CLAUSE</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+          <div>[Termination.Clauses]</div>
+        </div>
+      </div>
+
+      {/* Signatures */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">SIGNATURES</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Client</div>
+            <div className="text-[8px] text-slate-700">
+              <div><strong>Name:</strong> [Signatory1.Name]</div>
+              <div><strong>Title:</strong> [Signatory1.Title]</div>
+              <div><strong>Date:</strong> [Signatory1.Date]</div>
+              <div className="mt-4 border-t border-slate-300 pt-2"><strong>Signature:</strong> ________________________</div>
+            </div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Vendor</div>
+            <div className="text-[8px] text-slate-700">
+              <div><strong>Name:</strong> [Signatory2.Name]</div>
+              <div><strong>Title:</strong> [Signatory2.Title]</div>
+              <div><strong>Date:</strong> [Signatory2.Date]</div>
+              <div className="mt-4 border-t border-slate-300 pt-2"><strong>Signature:</strong> ________________________</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+        <div>This document is legally binding and should be reviewed by legal counsel before signing.</div>
+        <div className="mt-1">Last Updated: [Last.Updated.Date]</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Statement of Work: [Project.Title]</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+    }
+
+    /* Header Styles */
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 4px solid #1e40af;
+    }
+    .header-title {
+      font-size: 2.25rem; /* text-4xl */
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.75rem;
+    }
+    .header-subtitle {
+      font-size: 1.125rem; /* text-lg */
+      font-weight: 600;
+      color: #1e40af;
+      margin-bottom: 0.75rem;
+    }
+    .header-details {
+      font-size: 0.875rem; /* text-sm */
+      color: #64748b;
+    }
+
+    /* Section Styles */
+    .section {
+      margin-bottom: 2rem;
+    }
+    .section-title {
+      font-size: 1.25rem; /* text-xl */
+      font-weight: bold;
+      color: #1e40af;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #1e40af;
+    }
+
+    /* Party Boxes */
+    .party-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .party-box {
+      background-color: #f8fafc;
+      border-left: 4px solid #1e40af;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+    .party-title {
+      font-size: 0.875rem; /* text-sm */
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .party-details {
+      font-size: 0.75rem; /* text-[8px] */
+      color: #64748b;
+    }
+    .party-details div {
+      margin-bottom: 0.25rem;
+    }
+
+    /* Deliverables and Milestones */
+    .deliverable-box {
+      background-color: #f0f9ff; /* bg-blue-50 */
+      border-left: 4px solid #1e40af;
+      padding: 0.75rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin-bottom: 0.75rem;
+    }
+    .deliverable-title {
+      font-size: 0.75rem; /* text-[8px] */
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .deliverable-details {
+      font-size: 0.75rem; /* text-[8px] */
+      color: #64748b;
+    }
+    .deliverable-details div {
+      margin-bottom: 0.25rem;
+    }
+
+    /* Milestone Styles */
+    .milestone {
+      margin-bottom: 0.75rem;
+    }
+    .milestone-title {
+      font-size: 0.75rem; /* text-[8px] */
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .milestone-details {
+      font-size: 0.75rem; /* text-[8px] */
+      color: #64748b;
+    }
+    .milestone-details div {
+      margin-bottom: 0.25rem;
+    }
+
+    /* Assumptions and Dependencies */
+    .assumptions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .assumptions-column h4 {
+      font-size: 0.75rem; /* text-[8px] */
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .assumptions-list {
+      font-size: 0.75rem; /* text-[8px] */
+      color: #64748b;
+    }
+    .assumptions-list div {
+      margin-bottom: 0.25rem;
+    }
+
+    /* Acceptance Criteria */
+    .acceptance-list {
+      font-size: 0.75rem; /* text-[8px] */
+      color: #64748b;
+      margin-bottom: 1.5rem;
+    }
+    .acceptance-list div {
+      margin-bottom: 0.25rem;
+    }
+
+    /* Payment Terms */
+    .payment-details {
+      font-size: 0.75rem; /* text-[8px] */
+      color: #64748b;
+      margin-bottom: 1.5rem;
+    }
+    .payment-details div {
+      margin-bottom: 0.5rem;
+    }
+
+    /* Signature Section */
+    .signature-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .signature-box {
+      background-color: #f8fafc;
+      border-left: 4px solid #1e40af;
+      padding: 1rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+    .signature-title {
+      font-size: 0.875rem; /* text-sm */
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .signature-details {
+      font-size: 0.75rem; /* text-[8px] */
+      color: #64748b;
+    }
+    .signature-details div {
+      margin-bottom: 0.25rem;
+    }
+    .signature-line {
+      border-top: 1px solid #cbd5e1;
+      margin-top: 0.75rem;
+      padding-top: 0.5rem;
+      text-align: center;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.65rem; /* text-[7px] */
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header Section -->
+  <div class="header">
+    <div class="header-title">STATEMENT OF WORK</div>
+    <div class="header-subtitle">Project: [Project.Title]</div>
+    <div class="header-details">Project Number: [Project.Number] | Effective Date: [Effective.Date]</div>
+  </div>
+
+  <!-- Parties Section -->
+  <div class="section">
+    <div class="section-title">PARTIES</div>
+    <div class="party-grid">
+      <div class="party-box">
+        <div class="party-title">Client</div>
+        <div class="party-details">
+          <div><strong>Name:</strong> [Client.Name]</div>
+          <div><strong>Contact:</strong> [Client.Contact]</div>
+          <div><strong>Address:</strong> [Client.Address]</div>
+        </div>
+      </div>
+      <div class="party-box">
+        <div class="party-title">Vendor</div>
+        <div class="party-details">
+          <div><strong>Name:</strong> [Vendor.Name]</div>
+          <div><strong>Contact:</strong> [Vendor.Contact]</div>
+          <div><strong>Address:</strong> [Vendor.Address]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Project Overview -->
+  <div class="section">
+    <div class="section-title">PROJECT OVERVIEW</div>
+    <div style="font-size: 0.75rem; color: #64748b; line-height: 1.4;">
+      <div><strong>Project Manager:</strong> [Project.Manager]</div>
+      <div><strong>Overview:</strong> [Project.Overview]</div>
+      <div><strong>Objectives:</strong> [Project.Objectives]</div>
+    </div>
+  </div>
+
+  <!-- Scope of Work -->
+  <div class="section">
+    <div class="section-title">SCOPE OF WORK</div>
+    <div style="font-size: 0.75rem; color: #64748b; line-height: 1.4;">
+      [Scope.of.Work]
+    </div>
+  </div>
+
+  <!-- Deliverables -->
+  <div class="section">
+    <div class="section-title">DELIVERABLES</div>
+    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <div class="deliverable-box">
+        <div class="deliverable-title">Deliverable 1: [Deliverable.1.Name]</div>
+        <div class="deliverable-details">
+          <div><strong>Description:</strong> [Deliverable.1.Description]</div>
+          <div><strong>Due Date:</strong> [Deliverable.1.DueDate]</div>
+        </div>
+      </div>
+      <div class="deliverable-box">
+        <div class="deliverable-title">Deliverable 2: [Deliverable.2.Name]</div>
+        <div class="deliverable-details">
+          <div><strong>Description:</strong> [Deliverable.2.Description]</div>
+          <div><strong>Due Date:</strong> [Deliverable.2.DueDate]</div>
+        </div>
+      </div>
+      <div class="deliverable-box">
+        <div class="deliverable-title">Deliverable 3: [Deliverable.3.Name]</div>
+        <div class="deliverable-details">
+          <div><strong>Description:</strong> [Deliverable.3.Description]</div>
+          <div><strong>Due Date:</strong> [Deliverable.3.DueDate]</div>
+        </div>
+      </div>
+      <div class="deliverable-box">
+        <div class="deliverable-title">Deliverable 4: [Deliverable.4.Name]</div>
+        <div class="deliverable-details">
+          <div><strong>Description:</strong> [Deliverable.4.Description]</div>
+          <div><strong>Due Date:</strong> [Deliverable.4.DueDate]</div>
+        </div>
+      </div>
+      <div class="deliverable-box">
+        <div class="deliverable-title">Deliverable 5: [Deliverable.5.Name]</div>
+        <div class="deliverable-details">
+          <div><strong>Description:</strong> [Deliverable.5.Description]</div>
+          <div><strong>Due Date:</strong> [Deliverable.5.DueDate]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline & Milestones -->
+  <div class="section">
+    <div class="section-title">TIMELINE & MILESTONES</div>
+    <div style="font-size: 0.75rem; color: #64748b; line-height: 1.4;">
+      <div><strong>Project Start Date:</strong> [Timeline.Start.Date]</div>
+      <div><strong>Project End Date:</strong> [Timeline.End.Date]</div>
+      <div style="margin-top: 0.75rem;">
+        <div class="milestone">
+          <div class="milestone-title">Milestone 1: [Milestone.1.Name]</div>
+          <div class="milestone-details">
+            <div><strong>Description:</strong> [Milestone.1.Description]</div>
+            <div><strong>Due Date:</strong> [Milestone.1.DueDate]</div>
+          </div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-title">Milestone 2: [Milestone.2.Name]</div>
+          <div class="milestone-details">
+            <div><strong>Description:</strong> [Milestone.2.Description]</div>
+            <div><strong>Due Date:</strong> [Milestone.2.DueDate]</div>
+          </div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-title">Milestone 3: [Milestone.3.Name]</div>
+          <div class="milestone-details">
+            <div><strong>Description:</strong> [Milestone.3.Description]</div>
+            <div><strong>Due Date:</strong> [Milestone.3.DueDate]</div>
+          </div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-title">Milestone 4: [Milestone.4.Name]</div>
+          <div class="milestone-details">
+            <div><strong>Description:</strong> [Milestone.4.Description]</div>
+            <div><strong>Due Date:</strong> [Milestone.4.DueDate]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assumptions & Dependencies -->
+  <div class="section">
+    <div class="section-title">ASSUMPTIONS & DEPENDENCIES</div>
+    <div class="assumptions-grid">
+      <div>
+        <h4>Assumptions</h4>
+        <div class="assumptions-list">
+          <div>• [Assumption.1]</div>
+          <div>• [Assumption.2]</div>
+          <div>• [Assumption.3]</div>
+        </div>
+      </div>
+      <div>
+        <h4>Dependencies</h4>
+        <div class="assumptions-list">
+          <div>• [Dependency.1]</div>
+          <div>• [Dependency.2]</div>
+          <div>• [Dependency.3]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Acceptance Criteria -->
+  <div class="section">
+    <div class="section-title">ACCEPTANCE CRITERIA</div>
+    <div class="acceptance-list">
+      <div>• [Acceptance.Criteria.1]</div>
+      <div>• [Acceptance.Criteria.2]</div>
+      <div>• [Acceptance.Criteria.3]</div>
+      <div>• [Acceptance.Criteria.4]</div>
+    </div>
+  </div>
+
+  <!-- Payment Terms -->
+  <div class="section">
+    <div class="section-title">PAYMENT TERMS</div>
+    <div class="payment-details">
+      <div><strong>Total Project Fee:</strong> [Payment.Total.Fee]</div>
+      <div><strong>Payment Schedule:</strong> [Payment.Schedule]</div>
+      <div><strong>Invoicing:</strong> [Invoicing.Details]</div>
+      <div><strong>Late Fees:</strong> [Late.Fee.Details]</div>
+    </div>
+  </div>
+
+  <!-- Confidentiality -->
+  <div class="section">
+    <div class="section-title">CONFIDENTIALITY</div>
+    <div style="font-size: 0.75rem; color: #64748b; line-height: 1.4;">
+      [Confidentiality.Clauses]
+    </div>
+  </div>
+
+  <!-- Termination Clause -->
+  <div class="section">
+    <div class="section-title">TERMINATION CLAUSE</div>
+    <div style="font-size: 0.75rem; color: #64748b; line-height: 1.4;">
+      [Termination.Clauses]
+    </div>
+  </div>
+
+  <!-- Signatures -->
+  <div class="section">
+    <div class="section-title">SIGNATURES</div>
+    <div class="signature-grid">
+      <div class="signature-box">
+        <div class="signature-title">Client</div>
+        <div class="signature-details">
+          <div><strong>Name:</strong> [Signatory1.Name]</div>
+          <div><strong>Title:</strong> [Signatory1.Title]</div>
+          <div><strong>Date:</strong> [Signatory1.Date]</div>
+          <div class="signature-line">
+            <strong>Signature:</strong> ________________________
+          </div>
+        </div>
+      </div>
+      <div class="signature-box">
+        <div class="signature-title">Vendor</div>
+        <div class="signature-details">
+          <div><strong>Name:</strong> [Signatory2.Name]</div>
+          <div><strong>Title:</strong> [Signatory2.Title]</div>
+          <div><strong>Date:</strong> [Signatory2.Date]</div>
+          <div class="signature-line">
+            <strong>Signature:</strong> ________________________
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div>This document is legally binding and should be reviewed by legal counsel before signing.</div>
+    <div style="margin-top: 0.25rem;">Last Updated: [Last.Updated.Date]</div>
+  </div>
+</body>
+</html>
+
+  `
+},
+
+{
+  id: 'credit-note-001',
+  name: 'Credit Note',
+  description: 'Credit memo for refunds or adjustments',
+  category: 'invoices',
+  popular: false,
+  fields: ['Credit Note #', 'Original Invoice', 'Reason', 'Amount'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="flex justify-between items-start mb-8 pb-6 border-b-3 border-green-600">
+        <div>
+          <div className="w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center text-white text-3xl font-bold mb-3">
+            CR
+          </div>
+          <div className="text-lg font-bold text-slate-900">[Company.Name]</div>
+          <div className="text-[8px] text-slate-600 mt-2 space-y-0.5">
+            <div>[Company.Address]</div>
+            <div>[Company.City], [Company.State] [Company.Zip]</div>
+            <div className="mt-2">
+              <div>Email: [Company.Email]</div>
+              <div>Phone: [Company.Phone]</div>
+            </div>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-4xl font-bold text-green-600 mb-3">CREDIT NOTE</div>
+          <div className="bg-green-100 px-4 py-3 rounded-lg mb-3">
+            <div className="text-[7px] text-green-700 font-semibold mb-1">CREDIT NOTE #</div>
+            <div className="text-xl font-bold text-slate-900">[CreditNote.Number]</div>
+          </div>
+          <div className="text-[8px] text-slate-600 space-y-1">
+            <div><strong>Date Issued:</strong> [CreditNote.Date]</div>
+            <div><strong>Original Invoice:</strong> <span className="font-bold text-slate-900">[Original.Invoice.Number]</span></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Customer Info */}
+      <div className="mb-6">
+        <div className="text-sm font-bold text-green-600 mb-3 border-l-4 border-green-500 pl-3">CREDIT ISSUED TO:</div>
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-5">
+          <div className="text-[8px] space-y-2">
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Customer Name:</div>
+              <div className="font-bold text-slate-900 text-sm">[Customer.Name]</div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-slate-600 font-semibold mb-1">Email:</div>
+                <div className="text-slate-900">[Customer.Email]</div>
+              </div>
+              <div>
+                <div className="text-slate-600 font-semibold mb-1">Phone:</div>
+                <div className="text-slate-900">[Customer.Phone]</div>
+              </div>
+            </div>
+            <div>
+              <div className="text-slate-600 font-semibold mb-1">Address:</div>
+              <div className="text-slate-900">[Customer.Address]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Reason for Credit */}
+      <div className="mb-6">
+        <div className="text-sm font-bold text-slate-900 mb-3 border-l-4 border-green-500 pl-3">REASON FOR CREDIT</div>
+        <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            <strong>Reason:</strong> [Credit.Reason]
+            <div className="mt-2">[Credit.Detailed.Explanation]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Credit Items */}
+      <div className="mb-6">
+        <div className="text-sm font-bold text-slate-900 mb-3">CREDIT DETAILS</div>
+        <table className="w-full text-[8px] border-collapse">
+          <thead>
+            <tr className="bg-gradient-to-r from-green-600 to-emerald-600 text-white">
+              <th className="text-left p-3 font-semibold border border-green-700">DESCRIPTION</th>
+              <th className="text-center p-3 font-semibold border border-green-700 w-16">QTY</th>
+              <th className="text-right p-3 font-semibold border border-green-700 w-24">UNIT PRICE</th>
+              <th className="text-right p-3 font-semibold border border-green-700 w-24">CREDIT AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-slate-200 hover:bg-green-50">
+              <td className="p-3 border border-slate-200">
+                <div className="font-semibold text-slate-900 mb-1">[Item.1.Description]</div>
+                <div className="text-[7px] text-slate-600">[Item.1.Details]</div>
+              </td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900 font-bold">[Item.1.Qty]</td>
+              <td className="p-3 border border-slate-200 text-right text-slate-900">$[Item.1.Price]</td>
+              <td className="p-3 border border-slate-200 text-right font-bold text-green-600">-$[Item.1.Amount]</td>
+            </tr>
+            <tr className="border-b border-slate-200 hover:bg-green-50">
+              <td className="p-3 border border-slate-200">
+                <div className="font-semibold text-slate-900 mb-1">[Item.2.Description]</div>
+                <div className="text-[7px] text-slate-600">[Item.2.Details]</div>
+              </td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900 font-bold">[Item.2.Qty]</td>
+              <td className="p-3 border border-slate-200 text-right text-slate-900">$[Item.2.Price]</td>
+              <td className="p-3 border border-slate-200 text-right font-bold text-green-600">-$[Item.2.Amount]</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Credit Totals */}
+      <div className="flex justify-end mb-8">
+        <div className="w-80">
+          <div className="space-y-2 text-[8px]">
+            <div className="flex justify-between py-2 border-b border-slate-200">
+              <span className="text-slate-600 font-semibold">Subtotal Credit:</span>
+              <span className="font-bold text-green-600">-$[Subtotal.Credit]</span>
+            </div>
+            <div className="flex justify-between py-2 border-b border-slate-200">
+              <span className="text-slate-600 font-semibold">Tax Adjustment:</span>
+              <span className="font-bold text-green-600">-$[Tax.Credit]</span>
+            </div>
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg p-4 flex justify-between items-center mt-3">
+              <span className="text-sm font-bold">TOTAL CREDIT:</span>
+              <span className="text-3xl font-bold">-${"[total_credit]"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* How Credit Will Be Applied */}
+      <div className="mb-6">
+        <div className="text-sm font-bold text-slate-900 mb-3 border-l-4 border-green-500 pl-3">CREDIT APPLICATION</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+          <div className="text-[8px] text-slate-700 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">✓</div>
+              <div><strong>Application Method:</strong> [Credit.Application.Method]</div>
+            </div>
+            <div className="ml-8 leading-relaxed">
+              [Credit.Application.Details] - Explanation of how this credit will be applied to the customer's account, whether it will be refunded, applied to future purchases, or handled in another way.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="mb-6">
+        <div className="text-sm font-bold text-slate-900 mb-3 border-l-4 border-green-500 pl-3">ADDITIONAL NOTES</div>
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+          <div className="text-[8px] text-slate-700 leading-relaxed">
+            [Additional.Notes] - Any additional information regarding this credit note, including customer service contact information or next steps.
+          </div>
+        </div>
+      </div>
+
+      {/* Authorization */}
+      <div className="border-t-2 border-green-600 pt-6">
+        <div className="text-sm font-bold text-slate-900 mb-4">AUTHORIZATION</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <div className="text-[7px] text-slate-600 mb-2">Authorized By:</div>
+            <div className="border-b-2 border-slate-400 pb-2 mb-3 h-8"></div>
+            <div className="text-[8px] space-y-1">
+              <div className="font-bold text-slate-900">[Authorized.By.Name]</div>
+              <div className="text-slate-600">Title: [Authorized.By.Title]</div>
+              <div className="text-slate-600">Date: _____________</div>
+            </div>
+          </div>
+          <div>
+            <div className="text-[7px] text-slate-600 mb-2">Customer Acknowledgment:</div>
+            <div className="border-b-2 border-slate-400 pb-2 mb-3 h-8"></div>
+            <div className="text-[8px] space-y-1">
+              <div className="text-slate-600">Signature: _____________</div>
+              <div className="text-slate-600">Date: _____________</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+        <div className="font-semibold mb-1 text-green-600">CREDIT NOTE - RETAIN FOR YOUR RECORDS</div>
+        <div>This credit note supersedes charges on Invoice #[Original.Invoice.Number]</div>
+        <div className="mt-2">Credit Note #[CreditNote.Number] | Questions? Contact [Company.Email]</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Credit Note #[CreditNote.Number]</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #f8fafc;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 3px solid #059669;
+    }
+    .logo-box {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(to bottom right, #059669, #047857);
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.8rem;
+      font-weight: bold;
+      margin-bottom: 0.75rem;
+    }
+    .company-info {
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .company-name {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .credit-title {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #059669;
+      margin-bottom: 0.75rem;
+    }
+    .credit-number {
+      background: #dcfce7;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .credit-number-label {
+      font-size: 0.65rem;
+      color: #059669;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    .credit-number-value {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #1e293b;
+    }
+    .credit-dates {
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .section-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #059669;
+      margin-bottom: 0.75rem;
+      border-left: 4px solid #10b981;
+      padding-left: 0.75rem;
+    }
+    .customer-info {
+      background: linear-gradient(to right, #dcfce7, #bbf7d0);
+      border: 2px solid #bbf7d0;
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .customer-name {
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.75rem;
+    }
+    .customer-details {
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .reason-box {
+      background: #fef3c7;
+      border: 2px solid #fde68a;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .reason-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1.5rem;
+      font-size: 0.7rem;
+    }
+    th {
+      background: linear-gradient(to right, #059669, #047857);
+      color: white;
+      padding: 0.75rem;
+      text-align: left;
+      font-weight: 600;
+      border: 1px solid #047857;
+    }
+    th:not(:first-child) {
+      text-align: center;
+    }
+    th:last-child {
+      text-align: right;
+    }
+    td {
+      padding: 0.75rem;
+      border: 1px solid #e2e8f0;
+      text-align: left;
+    }
+    td:not(:first-child) {
+      text-align: center;
+    }
+    td:last-child {
+      text-align: right;
+      font-weight: bold;
+      color: #059669;
+    }
+    tr:nth-child(even) {
+      background: #f0fdf4;
+    }
+    .item-description {
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .item-details {
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+    .totals-section {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 1.5rem;
+    }
+    .totals-box {
+      width: 200px;
+    }
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 0.7rem;
+    }
+    .total-label {
+      color: #64748b;
+      font-weight: 600;
+    }
+    .total-value {
+      color: #059669;
+      font-weight: bold;
+    }
+    .grand-total {
+      background: linear-gradient(to right, #059669, #047857);
+      color: white;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.75rem;
+    }
+    .grand-total-label {
+      font-size: 0.85rem;
+      font-weight: bold;
+    }
+    .grand-total-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    .credit-application {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .application-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.75rem;
+    }
+    .application-method {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .checkmark {
+      width: 24px;
+      height: 24px;
+      background: #059669;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+    .application-details {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+      margin-left: 1.75rem;
+    }
+    .notes-box {
+      background: #dbeafe;
+      border: 2px solid #bfdbfe;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .notes-text {
+      font-size: 0.7rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+    .authorization {
+      border-top: 2px solid #059669;
+      padding-top: 1.5rem;
+    }
+    .authorization-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 1rem;
+    }
+    .signature-section {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+    }
+    .signature-box {
+      padding-bottom: 0.5rem;
+    }
+    .signature-label {
+      font-size: 0.65rem;
+      color: #64748b;
+      margin-bottom: 0.5rem;
+    }
+    .signature-line {
+      border-bottom: 2px solid #cbd5e1;
+      height: 2rem;
+      margin-bottom: 0.75rem;
+    }
+    .signature-details {
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+    .footer-title {
+      font-weight: bold;
+      color: #059669;
+      margin-bottom: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="logo-box">CR</div>
+      <div class="company-name">[Company.Name]</div>
+      <div class="company-info">
+        <div>[Company.Address]</div>
+        <div>[Company.City], [Company.State] [Company.Zip]</div>
+        <div style="margin-top: 0.5rem;">
+          <div>Email: [Company.Email]</div>
+          <div>Phone: [Company.Phone]</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align: right;">
+      <div class="credit-title">CREDIT NOTE</div>
+      <div class="credit-number">
+        <div class="credit-number-label">CREDIT NOTE #</div>
+        <div class="credit-number-value">[CreditNote.Number]</div>
+      </div>
+      <div class="credit-dates">
+        <div><strong>Date Issued:</strong> [CreditNote.Date]</div>
+        <div><strong>Original Invoice:</strong> <span style="font-weight: bold; color: #1e293b;">[Original.Invoice.Number]</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Info -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-title">CREDIT ISSUED TO:</div>
+    <div class="customer-info">
+      <div>
+        <div style="font-size: 0.7rem; color: #64748b; font-weight: 600; margin-bottom: 0.25rem;">Customer Name:</div>
+        <div class="customer-name">[Customer.Name]</div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin: 0.75rem 0;">
+        <div>
+          <div style="font-size: 0.7rem; color: #64748b; font-weight: 600; margin-bottom: 0.25rem;">Email:</div>
+          <div style="font-size: 0.7rem; color: #1e293b;">[Customer.Email]</div>
+        </div>
+        <div>
+          <div style="font-size: 0.7rem; color: #64748b; font-weight: 600; margin-bottom: 0.25rem;">Phone:</div>
+          <div style="font-size: 0.7rem; color: #1e293b;">[Customer.Phone]</div>
+        </div>
+      </div>
+      <div style="margin-top: 0.5rem;">
+        <div style="font-size: 0.7rem; color: #64748b; font-weight: 600; margin-bottom: 0.25rem;">Address:</div>
+        <div style="font-size: 0.7rem; color: #1e293b;">[Customer.Address]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reason for Credit -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-title">REASON FOR CREDIT</div>
+    <div class="reason-box">
+      <div class="reason-text">
+        <strong>Reason:</strong> [Credit.Reason]
+        <div style="margin-top: 0.5rem;">[Credit.Detailed.Explanation]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Credit Items -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-title" style="color: #1e293b; border-color: #10b981;">CREDIT DETAILS</div>
+    <table>
+      <thead>
+        <tr>
+          <th>DESCRIPTION</th>
+          <th style="width: 60px;">QTY</th>
+          <th style="width: 90px;">UNIT PRICE</th>
+          <th style="width: 90px;">CREDIT AMOUNT</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="item-description">[Item.1.Description]</div>
+            <div class="item-details">[Item.1.Details]</div>
+          </td>
+          <td style="font-weight: bold;">[Item.1.Qty]</td>
+          <td>$[Item.1.Price]</td>
+          <td>-$[Item.1.Amount]</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="item-description">[Item.2.Description]</div>
+            <div class="item-details">[Item.2.Details]</div>
+          </td>
+          <td style="font-weight: bold;">[Item.2.Qty]</td>
+          <td>$[Item.2.Price]</td>
+          <td>-$[Item.2.Amount]</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Credit Totals -->
+  <div class="totals-section">
+    <div class="totals-box">
+      <div class="total-row">
+        <span class="total-label">Subtotal Credit:</span>
+        <span class="total-value">-$[Subtotal.Credit]</span>
+      </div>
+      <div class="total-row">
+        <span class="total-label">Tax Adjustment:</span>
+        <span class="total-value">-$[Tax.Credit]</span>
+      </div>
+      <div class="grand-total">
+        <span class="grand-total-label">TOTAL CREDIT:</span>
+        <span class="grand-total-value">-${"[total_credit]"}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- How Credit Will Be Applied -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-title">CREDIT APPLICATION</div>
+    <div class="credit-application">
+      <div class="application-method">
+        <div class="checkmark">✓</div>
+        <div><strong>Application Method:</strong> [Credit.Application.Method]</div>
+      </div>
+      <div class="application-details">
+        [Credit.Application.Details] - Explanation of how this credit will be applied to the customer's account, whether it will be refunded, applied to future purchases, or handled in another way.
+      </div>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div style="margin-bottom: 1.5rem;">
+    <div class="section-title">ADDITIONAL NOTES</div>
+    <div class="notes-box">
+      <div class="notes-text">
+        [Additional.Notes] - Any additional information regarding this credit note, including customer service contact information or next steps.
+      </div>
+    </div>
+  </div>
+
+  <!-- Authorization -->
+  <div class="authorization">
+    <div class="authorization-title">AUTHORIZATION</div>
+    <div class="signature-section">
+      <div class="signature-box">
+        <div class="signature-label">Authorized By:</div>
+        <div class="signature-line"></div>
+        <div class="signature-details">
+          <div style="font-weight: bold; color: #1e293b;">[Authorized.By.Name]</div>
+          <div>Title: [Authorized.By.Title]</div>
+          <div>Date: _____________</div>
+        </div>
+      </div>
+      <div class="signature-box">
+        <div class="signature-label">Customer Acknowledgment:</div>
+        <div class="signature-line"></div>
+        <div class="signature-details">
+          <div>Signature: _____________</div>
+          <div>Date: _____________</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-title">CREDIT NOTE - RETAIN FOR YOUR RECORDS</div>
+    <div>This credit note supersedes charges on Invoice #[Original.Invoice.Number]</div>
+    <div style="margin-top: 0.5rem;">Credit Note #[CreditNote.Number] | Questions? Contact [Company.Email]</div>
+  </div>
+</body>
+</html>
+`
+},
+
+{
+  id: 'timesheet-001',
+  name: 'Employee Timesheet',
+  description: 'Weekly timesheet for tracking work hours',
+  category: 'reports',
+  popular: false,
+  fields: ['Employee', 'Period', 'Hours', 'Tasks', 'Approval'],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white p-6 rounded-xl mb-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <div className="text-3xl font-bold mb-2">EMPLOYEE TIMESHEET</div>
+            <div className="text-[8px] opacity-80">Weekly Time Record</div>
+          </div>
+          <div className="text-right">
+            <div className="bg-white/20 px-4 py-2 rounded-lg">
+              <div className="text-[7px] opacity-80">Timesheet #</div>
+              <div className="text-lg font-bold">[Timesheet.Number]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Employee & Period Info */}
+      <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-5">
+          <div className="text-sm font-bold text-slate-900 mb-3">EMPLOYEE INFORMATION</div>
+          <div className="text-[8px] space-y-2">
+            <div className="flex">
+              <span className="w-24 text-slate-600 font-semibold">Name:</span>
+              <span className="font-bold text-slate-900">[Employee.FullName]</span>
+            </div>
+            <div className="flex">
+              <span className="w-24 text-slate-600 font-semibold">Employee ID:</span>
+              <span className="text-slate-900">[Employee.ID]</span>
+            </div>
+            <div className="flex">
+              <span className="w-24 text-slate-600 font-semibold">Department:</span>
+              <span className="text-slate-900">[Department.Name]</span>
+            </div>
+            <div className="flex">
+              <span className="w-24 text-slate-600 font-semibold">Position:</span>
+              <span className="text-slate-900">[Job.Title]</span>
+            </div>
+            <div className="flex">
+              <span className="w-24 text-slate-600 font-semibold">Supervisor:</span>
+              <span className="text-slate-900">[Supervisor.Name]</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-5">
+          <div className="text-sm font-bold text-blue-900 mb-3">PAY PERIOD</div>
+          <div className="text-[8px] space-y-2">
+            <div className="flex">
+              <span className="w-24 text-slate-600 font-semibold">Week Ending:</span>
+              <span className="font-bold text-slate-900">[Week.Ending.Date]</span>
+            </div>
+            <div className="flex">
+              <span className="w-24 text-slate-600 font-semibold">Period:</span>
+              <span className="text-slate-900">[Pay.Period.Start] - [Pay.Period.End]</span>
+            </div>
+            <div className="flex">
+              <span className="w-24 text-slate-600 font-semibold">Hourly Rate:</span>
+              <span className="text-slate-900">$[Hourly.Rate]/hour</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Time Log Table */}
+      <div className="mb-6">
+        <div className="text-sm font-bold text-slate-900 mb-3">TIME LOG</div>
+        <table className="w-full text-[8px] border-collapse">
+          <thead>
+            <tr className="bg-slate-800 text-white">
+              <th className="text-left p-3 font-semibold border border-slate-700">DATE</th>
+              <th className="text-left p-3 font-semibold border border-slate-700">DAY</th>
+              <th className="text-center p-3 font-semibold border border-slate-700 w-20">TIME IN</th>
+              <th className="text-center p-3 font-semibold border border-slate-700 w-20">TIME OUT</th>
+              <th className="text-center p-3 font-semibold border border-slate-700 w-20">BREAK</th>
+              <th className="text-center p-3 font-semibold border border-slate-700 w-20">HOURS</th>
+              <th className="text-left p-3 font-semibold border border-slate-700">NOTES</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-slate-200 hover:bg-slate-50">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">[Date.1]</td>
+              <td className="p-3 border border-slate-200 text-slate-700">Monday</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">9:00 AM</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">5:00 PM</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-600">1.0h</td>
+              <td className="p-3 border border-slate-200 text-center font-bold text-blue-600">7.0</td>
+              <td className="p-3 border border-slate-200 text-slate-600 text-[7px]">[Notes.1]</td>
+            </tr>
+            <tr className="border-b border-slate-200 hover:bg-slate-50">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">[Date.2]</td>
+              <td className="p-3 border border-slate-200 text-slate-700">Tuesday</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">9:00 AM</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">5:00 PM</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-600">1.0h</td>
+              <td className="p-3 border border-slate-200 text-center font-bold text-blue-600">7.0</td>
+              <td className="p-3 border border-slate-200 text-slate-600 text-[7px]">[Notes.2]</td>
+            </tr>
+            <tr className="border-b border-slate-200 hover:bg-slate-50">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">[Date.3]</td>
+              <td className="p-3 border border-slate-200 text-slate-700">Wednesday</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">9:00 AM</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">5:00 PM</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-600">1.0h</td>
+              <td className="p-3 border border-slate-200 text-center font-bold text-blue-600">7.0</td>
+              <td className="p-3 border border-slate-200 text-slate-600 text-[7px]">[Notes.3]</td>
+            </tr>
+            <tr className="border-b border-slate-200 hover:bg-slate-50">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">[Date.4]</td>
+              <td className="p-3 border border-slate-200 text-slate-700">Thursday</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">9:00 AM</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">5:00 PM</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-600">1.0h</td>
+              <td className="p-3 border border-slate-200 text-center font-bold text-blue-600">7.0</td>
+              <td className="p-3 border border-slate-200 text-slate-600 text-[7px]">[Notes.4]</td>
+            </tr>
+            <tr className="border-b border-slate-200 hover:bg-slate-50">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">[Date.5]</td>
+              <td className="p-3 border border-slate-200 text-slate-700">Friday</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">9:00 AM</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-900">5:00 PM</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-600">1.0h</td>
+              <td className="p-3 border border-slate-200 text-center font-bold text-blue-600">7.0</td>
+              <td className="p-3 border border-slate-200 text-slate-600 text-[7px]">[Notes.5]</td>
+            </tr>
+            <tr className="bg-slate-100 border-b-2 border-slate-300">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">[Date.6]</td>
+              <td className="p-3 border border-slate-200 text-slate-700 font-semibold">Saturday</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-400">-</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-400">-</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-400">-</td>
+              <td className="p-3 border border-slate-200 text-center font-bold text-slate-400">0.0</td>
+              <td className="p-3 border border-slate-200 text-slate-600 text-[7px]">Day Off</td>
+            </tr>
+            <tr className="bg-slate-100">
+              <td className="p-3 border border-slate-200 font-bold text-slate-900">[Date.7]</td>
+              <td className="p-3 border border-slate-200 text-slate-700 font-semibold">Sunday</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-400">-</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-400">-</td>
+              <td className="p-3 border border-slate-200 text-center text-slate-400">-</td>
+              <td className="p-3 border border-slate-200 text-center font-bold text-slate-400">0.0</td>
+              <td className="p-3 border border-slate-200 text-slate-600 text-[7px]">Day Off</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Hours Summary */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-5 text-center">
+          <div className="text-[8px] opacity-90 mb-2">REGULAR HOURS</div>
+          <div className="text-4xl font-bold mb-1">[Regular.Hours]</div>
+          <div className="text-[7px] opacity-80">@ $[Hourly.Rate]/hr</div>
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-5 text-center">
+          <div className="text-[8px] opacity-90 mb-2">OVERTIME HOURS</div>
+          <div className="text-4xl font-bold mb-1">[Overtime.Hours]</div>
+          <div className="text-[7px] opacity-80">@ $[Overtime.Rate]/hr</div>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-5 text-center">
+          <div className="text-[8px] opacity-90 mb-2">TOTAL GROSS PAY</div>
+          <div className="text-4xl font-bold">${"[gross_pay]"}</div>
+        </div>
+      </div>
+
+      {/* Additional Details */}
+      <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+          <div className="text-[8px] font-bold text-slate-900 mb-3">LEAVE/ABSENCES</div>
+          <div className="space-y-2 text-[8px]">
+            <div className="flex justify-between py-1 border-b border-slate-200">
+              <span className="text-slate-600">Sick Leave Used:</span>
+              <span className="font-bold text-slate-900">[Sick.Hours] hours</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-200">
+              <span className="text-slate-600">Vacation Used:</span>
+              <span className="font-bold text-slate-900">[Vacation.Hours] hours</span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-slate-600">Personal Time:</span>
+              <span className="font-bold text-slate-900">[Personal.Hours] hours</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
+          <div className="text-[8px] font-bold text-blue-900 mb-3">PROJECT/TASK BREAKDOWN</div>
+          <div className="space-y-2 text-[8px]">
+            <div className="flex justify-between py-1 border-b border-blue-200">
+              <span className="text-slate-700">[Project.1.Name]:</span>
+              <span className="font-bold text-slate-900">[Project.1.Hours]h</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-blue-200">
+              <span className="text-slate-700">[Project.2.Name]:</span>
+              <span className="font-bold text-slate-900">[Project.2.Hours]h</span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-slate-700">[Project.3.Name]:</span>
+              <span className="font-bold text-slate-900">[Project.3.Hours]h</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Comments */}
+      <div className="mb-6">
+        <div className="text-sm font-bold text-slate-900 mb-3">EMPLOYEE COMMENTS</div>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 min-h-[60px]">
+          <div className="text-[8px] text-slate-600 italic">[Employee.Comments]</div>
+        </div>
+      </div>
+
+      {/* Signatures */}
+      <div className="border-t-3 border-slate-800 pt-6">
+        <div className="text-sm font-bold text-slate-900 mb-6">CERTIFICATIONS</div>
+        <div className="grid grid-cols-2 gap-8">
+          <div>
+            <div className="bg-slate-50 border-2 border-slate-300 rounded-lg p-4">
+              <div className="text-[8px] font-bold text-slate-900 mb-3">EMPLOYEE CERTIFICATION</div>
+              <div className="text-[7px] text-slate-600 mb-4 leading-relaxed">
+                I certify that the hours worked as shown on this timesheet are true and accurate to the best of my knowledge.
+              </div>
+              <div className="border-t-2 border-slate-400 pt-3 mb-2">
+                <div className="text-[7px] text-slate-600">Employee Signature</div>
+              </div>
+              <div className="flex justify-between text-[8px] mt-3">
+                <div>
+                  <div className="text-slate-600">Name: [Employee.FullName]</div>
+                </div>
+                <div>
+                  <div className="text-slate-600">Date: _____________</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+              <div className="text-[8px] font-bold text-blue-900 mb-3">SUPERVISOR APPROVAL</div>
+              <div className="text-[7px] text-slate-600 mb-4 leading-relaxed">
+                I have reviewed this timesheet and approve the hours worked as recorded above.
+              </div>
+              <div className="border-t-2 border-blue-400 pt-3 mb-2">
+                <div className="text-[7px] text-slate-600">Supervisor Signature</div>
+              </div>
+              <div className="flex justify-between text-[8px] mt-3">
+                <div>
+                  <div className="text-slate-600">Name: [Supervisor.Name]</div>
+                </div>
+                <div>
+                  <div className="text-slate-600">Date: _____________</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+        <div className="font-semibold mb-1">CONFIDENTIAL EMPLOYEE RECORD</div>
+        <div>Submit completed timesheet to HR/Payroll by [Submission.Deadline]</div>
+        <div className="mt-2">Timesheet #[Timesheet.Number] | [Company.Name] Payroll Department</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Timesheet #[Timesheet.Number]</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #f8fafc;
+    }
+    .header {
+      background: linear-gradient(to right, #1e293b, #334155);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    .header-title {
+      font-size: 1.8rem;
+      font-weight: bold;
+      margin-bottom: 0.3rem;
+    }
+    .header-subtitle {
+      font-size: 0.7rem;
+      opacity: 0.8;
+    }
+    .timesheet-number {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      text-align: center;
+    }
+    .timesheet-number-label {
+      font-size: 0.7rem;
+      opacity: 0.8;
+    }
+    .timesheet-number-value {
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .info-box {
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+    }
+    .employee-info {
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+    }
+    .pay-period-info {
+      background: #f0f9ff;
+      border: 2px solid #93c5fd;
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+    }
+    .info-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-bottom: 0.75rem;
+      color: #1e3a8a;
+    }
+    .pay-period-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-bottom: 0.75rem;
+      color: #084298;
+    }
+    .info-row {
+      display: flex;
+      margin-bottom: 0.5rem;
+      font-size: 0.75rem;
+    }
+    .info-label {
+      width: 80px;
+      color: #64748b;
+      font-weight: 600;
+    }
+    .info-value {
+      color: #1e293b;
+    }
+    .section-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.75rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 1.5rem;
+      font-size: 0.7rem;
+    }
+    th {
+      background: #1e293b;
+      color: white;
+      padding: 0.75rem;
+      text-align: left;
+      font-weight: 600;
+    }
+    th:not(:first-child) {
+      text-align: center;
+    }
+    th:last-child {
+      text-align: left;
+    }
+    td {
+      padding: 0.5rem;
+      border: 1px solid #e2e8f0;
+      text-align: left;
+    }
+    td:not(:first-child) {
+      text-align: center;
+    }
+    td:last-child {
+      text-align: left;
+    }
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    tr:nth-child(6), tr:nth-child(7) {
+      background: #f1f5f9;
+    }
+    .hours-cell {
+      font-weight: bold;
+      color: #0891b2;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .summary-card {
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      text-align: center;
+      color: white;
+    }
+    .regular-hours {
+      background: linear-gradient(to bottom right, #3b82f6, #2563eb);
+    }
+    .overtime-hours {
+      background: linear-gradient(to bottom right, #f97316, #ea580c);
+    }
+    .total-pay {
+      background: linear-gradient(to bottom right, #10b981, #059669);
+    }
+    .summary-label {
+      font-size: 0.7rem;
+      opacity: 0.9;
+      margin-bottom: 0.5rem;
+    }
+    .summary-value {
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 0.25rem;
+    }
+    .summary-rate {
+      font-size: 0.7rem;
+      opacity: 0.8;
+    }
+    .leave-section {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+    }
+    .leave-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.75rem;
+    }
+    .leave-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 0.7rem;
+    }
+    .leave-row:last-child {
+      border-bottom: none;
+    }
+    .leave-label {
+      color: #64748b;
+    }
+    .leave-value {
+      font-weight: bold;
+      color: #1e293b;
+    }
+    .comments-section {
+      margin-bottom: 1.5rem;
+    }
+    .comments-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      min-height: 60px;
+      font-size: 0.7rem;
+      color: #64748b;
+      font-style: italic;
+    }
+    .certification-section {
+      border-top: 3px solid #1e293b;
+      padding-top: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .certification-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 1rem;
+    }
+    .signature-box {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2rem;
+    }
+    .employee-signature, .supervisor-signature {
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 1rem;
+    }
+    .supervisor-signature {
+      background: #f0f9ff;
+      border-color: #93c5fd;
+    }
+    .signature-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      margin-bottom: 0.75rem;
+    }
+    .employee-signature-title {
+      color: #1e293b;
+    }
+    .supervisor-signature-title {
+      color: #084298;
+    }
+    .signature-text {
+      font-size: 0.65rem;
+      color: #64748b;
+      margin-bottom: 0.75rem;
+      line-height: 1.3;
+    }
+    .signature-line {
+      border-top: 2px solid #cbd5e1;
+      padding-top: 0.5rem;
+      margin: 1rem 0;
+      text-align: center;
+    }
+    .signature-label {
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+    .signature-details {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.75rem;
+      font-size: 0.7rem;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.65rem;
+      color: #64748b;
+    }
+    .footer-title {
+      font-weight: bold;
+      margin-bottom: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header Section -->
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="header-title">EMPLOYEE TIMESHEET</div>
+        <div class="header-subtitle">Weekly Time Record</div>
+      </div>
+      <div class="timesheet-number">
+        <div class="timesheet-number-label">Timesheet #</div>
+        <div class="timesheet-number-value">[Timesheet.Number]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Employee & Period Info -->
+  <div class="grid-2">
+    <div class="employee-info">
+      <div class="info-title">EMPLOYEE INFORMATION</div>
+      <div style="font-size: 0.75rem; color: #334155;">
+        <div class="info-row">
+          <span class="info-label">Name:</span>
+          <span class="info-value" style="font-weight: bold;">[Employee.FullName]</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Employee ID:</span>
+          <span class="info-value">[Employee.ID]</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Department:</span>
+          <span class="info-value">[Department.Name]</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Position:</span>
+          <span class="info-value">[Job.Title]</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Supervisor:</span>
+          <span class="info-value">[Supervisor.Name]</span>
+        </div>
+      </div>
+    </div>
+    <div class="pay-period-info">
+      <div class="pay-period-title">PAY PERIOD</div>
+      <div style="font-size: 0.75rem; color: #1e3a8a;">
+        <div class="info-row">
+          <span class="info-label">Week Ending:</span>
+          <span class="info-value" style="font-weight: bold;">[Week.Ending.Date]</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Period:</span>
+          <span class="info-value">[Pay.Period.Start] - [Pay.Period.End]</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Hourly Rate:</span>
+          <span class="info-value">$[Hourly.Rate]/hour</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Time Log Table -->
+  <div class="section-title">TIME LOG</div>
+  <table>
+    <thead>
+      <tr>
+        <th>DATE</th>
+        <th>DAY</th>
+        <th style="width: 80px;">TIME IN</th>
+        <th style="width: 80px;">TIME OUT</th>
+        <th style="width: 80px;">BREAK</th>
+        <th style="width: 80px;">HOURS</th>
+        <th>NOTES</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="font-weight: bold;">[Date.1]</td>
+        <td>Monday</td>
+        <td>9:00 AM</td>
+        <td>5:00 PM</td>
+        <td>1.0h</td>
+        <td class="hours-cell">7.0</td>
+        <td style="font-size: 0.65rem; color: #64748b;">[Notes.1]</td>
+      </tr>
+      <tr>
+        <td style="font-weight: bold;">[Date.2]</td>
+        <td>Tuesday</td>
+        <td>9:00 AM</td>
+        <td>5:00 PM</td>
+        <td>1.0h</td>
+        <td class="hours-cell">7.0</td>
+        <td style="font-size: 0.65rem; color: #64748b;">[Notes.2]</td>
+      </tr>
+      <tr>
+        <td style="font-weight: bold;">[Date.3]</td>
+        <td>Wednesday</td>
+        <td>9:00 AM</td>
+        <td>5:00 PM</td>
+        <td>1.0h</td>
+        <td class="hours-cell">7.0</td>
+        <td style="font-size: 0.65rem; color: #64748b;">[Notes.3]</td>
+      </tr>
+      <tr>
+        <td style="font-weight: bold;">[Date.4]</td>
+        <td>Thursday</td>
+        <td>9:00 AM</td>
+        <td>5:00 PM</td>
+        <td>1.0h</td>
+        <td class="hours-cell">7.0</td>
+        <td style="font-size: 0.65rem; color: #64748b;">[Notes.4]</td>
+      </tr>
+      <tr>
+        <td style="font-weight: bold;">[Date.5]</td>
+        <td>Friday</td>
+        <td>9:00 AM</td>
+        <td>5:00 PM</td>
+        <td>1.0h</td>
+        <td class="hours-cell">7.0</td>
+        <td style="font-size: 0.65rem; color: #64748b;">[Notes.5]</td>
+      </tr>
+      <tr style="background-color: #f1f5f9;">
+        <td style="font-weight: bold;">[Date.6]</td>
+        <td style="font-weight: 600;">Saturday</td>
+        <td style="color: #9ca3af;">-</td>
+        <td style="color: #9ca3af;">-</td>
+        <td style="color: #9ca3af;">-</td>
+        <td class="hours-cell" style="color: #9ca3af;">0.0</td>
+        <td style="font-size: 0.65rem; color: #64748b;">Day Off</td>
+      </tr>
+      <tr style="background-color: #f1f5f9;">
+        <td style="font-weight: bold;">[Date.7]</td>
+        <td style="font-weight: 600;">Sunday</td>
+        <td style="color: #9ca3af;">-</td>
+        <td style="color: #9ca3af;">-</td>
+        <td style="color: #9ca3af;">-</td>
+        <td class="hours-cell" style="color: #9ca3af;">0.0</td>
+        <td style="font-size: 0.65rem; color: #64748b;">Day Off</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Hours Summary -->
+  <div class="summary-grid">
+    <div class="summary-card regular-hours">
+      <div class="summary-label">REGULAR HOURS</div>
+      <div class="summary-value">[Regular.Hours]</div>
+      <div class="summary-rate">@ $[Hourly.Rate]/hr</div>
+    </div>
+    <div class="summary-card overtime-hours">
+      <div class="summary-label">OVERTIME HOURS</div>
+      <div class="summary-value">[Overtime.Hours]</div>
+      <div class="summary-rate">@ $[Overtime.Rate]/hr</div>
+    </div>
+    <div class="summary-card total-pay">
+      <div class="summary-label">TOTAL GROSS PAY</div>
+      <div class="summary-value">${"[gross_pay]"}</div>
+    </div>
+  </div>
+
+  <!-- Additional Details -->
+  <div class="grid-2">
+    <div class="leave-section">
+      <div class="leave-title">LEAVE/ABSENCES</div>
+      <div style="font-size: 0.7rem;">
+        <div class="leave-row">
+          <span class="leave-label">Sick Leave Used:</span>
+          <span class="leave-value">[Sick.Hours] hours</span>
+        </div>
+        <div class="leave-row">
+          <span class="leave-label">Vacation Used:</span>
+          <span class="leave-value">[Vacation.Hours] hours</span>
+        </div>
+        <div class="leave-row">
+          <span class="leave-label">Personal Time:</span>
+          <span class="leave-value">[Personal.Hours] hours</span>
+        </div>
+      </div>
+    </div>
+    <div class="leave-section" style="background: #f0f9ff; border-color: #93c5fd;">
+      <div class="leave-title" style="color: #084298;">PROJECT/TASK BREAKDOWN</div>
+      <div style="font-size: 0.7rem;">
+        <div class="leave-row">
+          <span class="leave-label">[Project.1.Name]:</span>
+          <span class="leave-value">[Project.1.Hours]h</span>
+        </div>
+        <div class="leave-row">
+          <span class="leave-label">[Project.2.Name]:</span>
+          <span class="leave-value">[Project.2.Hours]h</span>
+        </div>
+        <div class="leave-row">
+          <span class="leave-label">[Project.3.Name]:</span>
+          <span class="leave-value">[Project.3.Hours]h</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comments -->
+  <div class="comments-section">
+    <div class="section-title">EMPLOYEE COMMENTS</div>
+    <div class="comments-box">
+      [Employee.Comments]
+    </div>
+  </div>
+
+  <!-- Signatures -->
+  <div class="certification-section">
+    <div class="certification-title">CERTIFICATIONS</div>
+    <div class="signature-box">
+      <div class="employee-signature">
+        <div class="signature-title employee-signature-title">EMPLOYEE CERTIFICATION</div>
+        <div class="signature-text">
+          I certify that the hours worked as shown on this timesheet are true and accurate to the best of my knowledge.
+        </div>
+        <div class="signature-line">
+          <div class="signature-label">Employee Signature</div>
+        </div>
+        <div class="signature-details">
+          <div>
+            <div class="info-label">Name:</div>
+            <div style="font-weight: bold;">[Employee.FullName]</div>
+          </div>
+          <div>
+            <div class="info-label">Date:</div>
+            <div>_____________</div>
+          </div>
+        </div>
+      </div>
+      <div class="supervisor-signature">
+        <div class="signature-title supervisor-signature-title">SUPERVISOR APPROVAL</div>
+        <div class="signature-text">
+          I have reviewed this timesheet and approve the hours worked as recorded above.
+        </div>
+        <div class="signature-line">
+          <div class="signature-label">Supervisor Signature</div>
+        </div>
+        <div class="signature-details">
+          <div>
+            <div class="info-label">Name:</div>
+            <div style="font-weight: bold;">[Supervisor.Name]</div>
+          </div>
+          <div>
+            <div class="info-label">Date:</div>
+            <div>_____________</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-title">CONFIDENTIAL EMPLOYEE RECORD</div>
+    <div>Submit completed timesheet to HR/Payroll by [Submission.Deadline]</div>
+    <div style="margin-top: 0.5rem;">Timesheet #[Timesheet.Number] | [Company.Name] Payroll Department</div>
+  </div>
+</body>
+</html>
+`
+}, 
+{
+  id: 'meeting-minutes-001',
+  name: 'Professional Meeting Minutes',
+  description: 'Clean, structured, and professional template for recording meeting minutes',
+  category: 'business',
+  popular: true,
+  fields: [
+    'Meeting Title',
+    'Meeting Date',
+    'Meeting Time',
+    'Meeting Location',
+    'Meeting Organizer',
+    'Minute Taker',
+    'Attendees',
+    'Agenda Items',
+    'Discussion Points',
+    'Action Items',
+    'Next Meeting Date',
+    'Approved By'
+  ],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header Section */}
+      <div className="text-center mb-8 pb-6 border-b-4 border-blue-800">
+        <div className="text-3xl font-bold text-slate-900 mb-2">MEETING MINUTES</div>
+        <div className="text-lg text-blue-800 font-semibold mb-3">[Meeting.Title]</div>
+        <div className="text-sm text-slate-600">
+          <strong>Date:</strong> [Meeting.Date] |
+          <strong> Time:</strong> [Meeting.Time] |
+          <strong> Location:</strong> [Meeting.Location]
+        </div>
+      </div>
+
+      {/* Meeting Details */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">MEETING DETAILS</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Organizer</div>
+            <div className="text-[8px] text-slate-700">
+              <div>[Meeting.Organizer]</div>
+            </div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Minute Taker</div>
+            <div className="text-[8px] text-slate-700">
+              <div>[Minute.Taker]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Attendees */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">ATENDEES</div>
+        <div className="grid grid-cols-3 gap-2">
+          {[...Array(9)].map((_, i) => (
+            <div key={i} className="bg-blue-50 border-l-4 border-blue-800 px-3 py-2">
+              <div className="text-[8px] font-semibold text-slate-900">[Attendee.{i+1}]</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Agenda Items */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">AGENDA ITEMS</div>
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="bg-blue-50 border-l-4 border-blue-800 p-3 rounded-r">
+              <div className="font-bold text-slate-900 text-[8px] mb-1">[Agenda.Item.{i+1}.Title]</div>
+              <div className="text-[8px] text-slate-700 leading-relaxed">
+                <div><strong>Discussion:</strong> [Agenda.Item.{i+1}.Discussion]</div>
+                <div><strong>Action Items:</strong> [Agenda.Item.{i+1}.ActionItems]</div>
+                <div><strong>Owner:</strong> [Agenda.Item.{i+1}.Owner]</div>
+                <div><strong>Deadline:</strong> [Agenda.Item.{i+1}.Deadline]</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Next Meeting */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">NEXT MEETING</div>
+        <div className="text-[8px] text-slate-700 leading-relaxed">
+          <div><strong>Date:</strong> [Next.Meeting.Date]</div>
+          <div><strong>Agenda:</strong> [Next.Meeting.Agenda]</div>
+        </div>
+      </div>
+
+      {/* Approval */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">APPROVAL</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Prepared By</div>
+            <div className="text-[8px] text-slate-700">
+              <div>[Prepared.By]</div>
+              <div className="mt-4 border-t border-slate-300 pt-2"><strong>Signature:</strong> ________________________</div>
+            </div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Approved By</div>
+            <div className="text-[8px] text-slate-700">
+              <div>[Approved.By]</div>
+              <div className="mt-4 border-t border-slate-300 pt-2"><strong>Signature:</strong> ________________________</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+        <div>Confidential - For internal use only</div>
+        <div className="mt-1">Last Updated: [Last.Updated.Date]</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meeting Minutes: [Meeting.Title]</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+      border-bottom: 4px solid #1e40af;
+      padding-bottom: 1.5rem;
+    }
+    .header h1 {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #1e3a8a;
+      margin-bottom: 0.5rem;
+    }
+    .header h2 {
+      font-size: 1.1rem;
+      color: #1e40af;
+      margin-bottom: 0.5rem;
+    }
+    .header p {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+    .section {
+      margin-bottom: 2rem;
+    }
+    .section-title {
+      color: #1e40af;
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid #1e40af;
+      padding-bottom: 0.5rem;
+    }
+    .detail-box {
+      background: #f8fafc;
+      border-left: 4px solid #1e40af;
+      padding: 1rem;
+    }
+    .detail-box h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+      color: #1e3a8a;
+    }
+    .detail-box p {
+      font-size: 0.8rem;
+      margin: 0.2rem 0;
+    }
+    .attendee-box {
+      background: #f0f9ff;
+      border-left: 4px solid #1e40af;
+      padding: 0.5rem;
+      margin: 0.25rem;
+      text-align: center;
+      font-size: 0.8rem;
+    }
+    .agenda-box {
+      background: #f0f9ff;
+      border-left: 4px solid #1e40af;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .agenda-box h4 {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+      color: #1e3a8a;
+    }
+    .agenda-box p {
+      font-size: 0.8rem;
+      margin: 0.2rem 0;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .signature-line {
+      border-top: 1px solid #e2e8f0;
+      padding-top: 0.5rem;
+      margin-top: 1rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header Section -->
+  <div class="header">
+    <h1>MEETING MINUTES</h1>
+    <h2>[Meeting.Title]</h2>
+    <p>
+      <strong>Date:</strong> [Meeting.Date] |
+      <strong>Time:</strong> [Meeting.Time] |
+      <strong>Location:</strong> [Meeting.Location]
+    </p>
+  </div>
+
+  <!-- Meeting Details -->
+  <div class="section">
+    <div class="section-title">MEETING DETAILS</div>
+    <div class="grid-2">
+      <div class="detail-box">
+        <h3>Organizer</h3>
+        <p>[Meeting.Organizer]</p>
+      </div>
+      <div class="detail-box">
+        <h3>Minute Taker</h3>
+        <p>[Minute.Taker]</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attendees -->
+  <div class="section">
+    <div class="section-title">ATENDEES</div>
+    <div class="grid-3">
+      <div class="attendee-box">[Attendee.1]</div>
+      <div class="attendee-box">[Attendee.2]</div>
+      <div class="attendee-box">[Attendee.3]</div>
+      <div class="attendee-box">[Attendee.4]</div>
+      <div class="attendee-box">[Attendee.5]</div>
+      <div class="attendee-box">[Attendee.6]</div>
+      <div class="attendee-box">[Attendee.7]</div>
+      <div class="attendee-box">[Attendee.8]</div>
+      <div class="attendee-box">[Attendee.9]</div>
+    </div>
+  </div>
+
+  <!-- Agenda Items -->
+  <div class="section">
+    <div class="section-title">AGENDA ITEMS</div>
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+      <div class="agenda-box">
+        <h4>[Agenda.Item.1.Title]</h4>
+        <p><strong>Discussion:</strong> [Agenda.Item.1.Discussion]</p>
+        <p><strong>Action Items:</strong> [Agenda.Item.1.ActionItems]</p>
+        <p><strong>Owner:</strong> [Agenda.Item.1.Owner]</p>
+        <p><strong>Deadline:</strong> [Agenda.Item.1.Deadline]</p>
+      </div>
+      <div class="agenda-box">
+        <h4>[Agenda.Item.2.Title]</h4>
+        <p><strong>Discussion:</strong> [Agenda.Item.2.Discussion]</p>
+        <p><strong>Action Items:</strong> [Agenda.Item.2.ActionItems]</p>
+        <p><strong>Owner:</strong> [Agenda.Item.2.Owner]</p>
+        <p><strong>Deadline:</strong> [Agenda.Item.2.Deadline]</p>
+      </div>
+      <div class="agenda-box">
+        <h4>[Agenda.Item.3.Title]</h4>
+        <p><strong>Discussion:</strong> [Agenda.Item.3.Discussion]</p>
+        <p><strong>Action Items:</strong> [Agenda.Item.3.ActionItems]</p>
+        <p><strong>Owner:</strong> [Agenda.Item.3.Owner]</p>
+        <p><strong>Deadline:</strong> [Agenda.Item.3.Deadline]</p>
+      </div>
+      <div class="agenda-box">
+        <h4>[Agenda.Item.4.Title]</h4>
+        <p><strong>Discussion:</strong> [Agenda.Item.4.Discussion]</p>
+        <p><strong>Action Items:</strong> [Agenda.Item.4.ActionItems]</p>
+        <p><strong>Owner:</strong> [Agenda.Item.4.Owner]</p>
+        <p><strong>Deadline:</strong> [Agenda.Item.4.Deadline]</p>
+      </div>
+      <div class="agenda-box">
+        <h4>[Agenda.Item.5.Title]</h4>
+        <p><strong>Discussion:</strong> [Agenda.Item.5.Discussion]</p>
+        <p><strong>Action Items:</strong> [Agenda.Item.5.ActionItems]</p>
+        <p><strong>Owner:</strong> [Agenda.Item.5.Owner]</p>
+        <p><strong>Deadline:</strong> [Agenda.Item.5.Deadline]</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Next Meeting -->
+  <div class="section">
+    <div class="section-title">NEXT MEETING</div>
+    <div class="detail-box">
+      <p><strong>Date:</strong> [Next.Meeting.Date]</p>
+      <p><strong>Agenda:</strong> [Next.Meeting.Agenda]</p>
+    </div>
+  </div>
+
+  <!-- Approval -->
+  <div class="section">
+    <div class="section-title">APPROVAL</div>
+    <div class="grid-2">
+      <div class="detail-box">
+        <h3>Prepared By</h3>
+        <p>[Prepared.By]</p>
+        <div class="signature-line">
+          <strong>Signature:</strong> ________________________
+        </div>
+      </div>
+      <div class="detail-box">
+        <h3>Approved By</h3>
+        <p>[Approved.By]</p>
+        <div class="signature-line">
+          <strong>Signature:</strong> ________________________
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>Confidential - For internal use only</p>
+    <p>Last Updated: [Last.Updated.Date]</p>
+  </div>
+</body>
+</html>
+
+  `
+},
+{
+  id: 'certificate-001',
+  name: 'Professional Certificate',
+  description: 'Elegant and professional certificate template for awards, achievements, and completions',
+  category: 'education',
+  popular: true,
+  fields: [
+    'Certificate Title',
+    'Recipient Name',
+    'Course/Program Name',
+    'Issuer Name',
+    'Issuer Logo',
+    'Issue Date',
+    'Certificate ID',
+    'Instructor/Signer Name',
+    'Instructor/Signer Title',
+    'Additional Notes'
+  ],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Certificate Border and Background */}
+      <div className="relative border-4 border-blue-800 p-8 bg-gradient-to-b from-blue-50 to-white">
+        {/* Issuer Logo (Optional) */}
+        <div className="flex justify-center mb-4">
+          <img src="[Issuer.Logo]" alt="[Issuer.Name] Logo" className="h-16" />
+        </div>
+
+        {/* Certificate Title */}
+        <div className="text-center mb-6">
+          <div className="text-4xl font-bold text-blue-800 mb-2">CERTIFICATE OF [Certificate.Title]</div>
+        </div>
+
+        {/* Main Content */}
+        <div className="text-center mb-8">
+          <div className="text-2xl font-bold text-slate-900 mb-4">This is to certify that</div>
+          <div className="text-3xl font-bold text-blue-800 mb-6 border-b-2 border-blue-800 pb-2 inline-block">[Recipient.Name]</div>
+          <div className="text-xl text-slate-700 mb-4">has successfully completed the</div>
+          <div className="text-2xl font-bold text-slate-900 mb-6">[Course/Program.Name]</div>
+        </div>
+
+        {/* Details */}
+        <div className="text-center mb-8">
+          <div className="text-sm text-slate-700 mb-2">Issued by: <strong>[Issuer.Name]</strong></div>
+          <div className="text-sm text-slate-700 mb-2">Date: <strong>[Issue.Date]</strong></div>
+          <div className="text-sm text-slate-700 mb-2">Certificate ID: <strong>[Certificate.ID]</strong></div>
+        </div>
+
+        {/* Signatures */}
+        <div className="grid grid-cols-2 gap-8 mt-8">
+          <div className="text-center">
+            <div className="border-t-2 border-blue-800 pt-2 mb-2">
+              <div className="text-lg font-bold text-slate-900">[Instructor/Signer.Name]</div>
+              <div className="text-[8px] text-slate-700">[Instructor/Signer.Title]</div>
+            </div>
+            <div className="text-[8px] text-slate-500">Signature</div>
+          </div>
+          <div className="text-center">
+            <div className="border-t-2 border-blue-800 pt-2 mb-2">
+              <div className="text-lg font-bold text-slate-900">[Issuer.Representative.Name]</div>
+              <div className="text-[8px] text-slate-700">[Issuer.Representative.Title]</div>
+            </div>
+            <div className="text-[8px] text-slate-500">Signature</div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center text-[7px] text-slate-500">
+          <div>[Additional.Notes]</div>
+          <div className="mt-1">This certificate is awarded on [Issue.Date]</div>
+        </div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `
+   <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Certificate: [Certificate.Title]</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      color: #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      background-color: #f8fafc;
+    }
+    .certificate {
+      border: 4px solid #1e40af;
+      padding: 2rem;
+      background: linear-gradient(to bottom, #f0f9ff, white);
+      position: relative;
+      max-width: 800px;
+      width: 100%;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .certificate-title {
+      color: #1e40af;
+      font-size: 2rem;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    .recipient-name {
+      color: #1e40af;
+      font-size: 1.8rem;
+      font-weight: bold;
+      text-align: center;
+      margin: 1rem 0;
+      border-bottom: 2px solid #1e40af;
+      display: inline-block;
+      padding-bottom: 0.5rem;
+    }
+    .course-name {
+      color: #1e3a8a;
+      font-size: 1.5rem;
+      font-weight: bold;
+      text-align: center;
+      margin: 1rem 0;
+    }
+    .signature-section {
+      margin-top: 2rem;
+    }
+    .signature {
+      border-top: 2px solid #1e40af;
+      padding-top: 0.5rem;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+    .logo-container {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .logo-container img {
+      max-height: 4rem;
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="certificate">
+    <!-- Issuer Logo (Optional) -->
+    <div class="logo-container">
+      <img src="[Issuer.Logo]" alt="[Issuer.Name] Logo" />
+    </div>
+
+    <!-- Certificate Title -->
+    <div class="certificate-title">CERTIFICATE OF [Certificate.Title]</div>
+
+    <!-- Main Content -->
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+      <div style="font-size: 1.2rem; margin-bottom: 1rem;">This is to certify that</div>
+      <div class="recipient-name">[Recipient.Name]</div>
+      <div style="font-size: 1.1rem; margin: 1rem 0;">has successfully completed the</div>
+      <div class="course-name">[Course/Program.Name]</div>
+    </div>
+
+    <!-- Details -->
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+      <p style="font-size: 0.9rem; margin: 0.5rem 0;">Issued by: <strong>[Issuer.Name]</strong></p>
+      <p style="font-size: 0.9rem; margin: 0.5rem 0;">Date: <strong>[Issue.Date]</strong></p>
+      <p style="font-size: 0.9rem; margin: 0.5rem 0;">Certificate ID: <strong>[Certificate.ID]</strong></p>
+    </div>
+
+    <!-- Signatures -->
+    <div class="signature-section">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <div class="signature">
+          <div style="font-weight: bold; font-size: 1.1rem; margin-bottom: 0.3rem;">[Instructor/Signer.Name]</div>
+          <div style="font-size: 0.8rem; color: #64748b;">[Instructor/Signer.Title]</div>
+        </div>
+        <div class="signature">
+          <div style="font-weight: bold; font-size: 1.1rem; margin-bottom: 0.3rem;">[Issuer.Representative.Name]</div>
+          <div style="font-size: 0.8rem; color: #64748b;">[Issuer.Representative.Title]</div>
+        </div>
+      </div>
+      <div style="text-align: center; font-size: 0.7rem; color: #64748b; margin-top: 1rem;">
+        <p>[Additional.Notes]</p>
+        <p>This certificate is awarded on [Issue.Date]</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+
+  `
+},
+ {
+  id: 'tax-invoice-001',
+  name: 'Professional Tax Invoice',
+  description: 'Clean, professional, and legally compliant tax invoice template for businesses and freelancers',
+  category: 'finance',
+  popular: true,
+  fields: [
+    'Invoice Number',
+    'Invoice Date',
+    'Due Date',
+    'Company Name',
+    'Company Address',
+    'Company Contact',
+    'Company Tax ID',
+    'Client Name',
+    'Client Address',
+    'Client Contact',
+    'Client Tax ID',
+    'Item Description',
+    'Item Quantity',
+    'Item Unit Price',
+    'Item Total',
+    'Subtotal',
+    'Tax Rate',
+    'Tax Amount',
+    'Total Amount',
+    'Payment Terms',
+    'Bank Details',
+    'Notes'
+  ],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header Section */}
+      <div className="flex justify-between mb-8">
+        <div>
+          <div className="text-3xl font-bold text-slate-900">TAX INVOICE</div>
+          <div className="text-lg text-blue-800 font-semibold mt-2"># [Invoice.Number]</div>
+          <div className="text-sm text-slate-600 mt-1">
+            <div>Date: [Invoice.Date]</div>
+            <div>Due Date: [Due.Date]</div>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-xl font-bold text-slate-900">[Company.Name]</div>
+          <div className="text-[8px] text-slate-700 mt-1">
+            <div>[Company.Address]</div>
+            <div>Contact: [Company.Contact]</div>
+            <div>Tax ID: [Company.Tax.ID]</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Client and Invoice Details */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">BILL TO</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Client Details</div>
+            <div className="text-[8px] text-slate-700">
+              <div>[Client.Name]</div>
+              <div>[Client.Address]</div>
+              <div>Contact: [Client.Contact]</div>
+              <div>Tax ID: [Client.Tax.ID]</div>
+            </div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Invoice Details</div>
+            <div className="text-[8px] text-slate-700">
+              <div>Invoice #: [Invoice.Number]</div>
+              <div>Date: [Invoice.Date]</div>
+              <div>Due Date: [Due.Date]</div>
+              <div>Payment Terms: [Payment.Terms]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Invoice Items Table */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">INVOICE ITEMS</div>
+        <table className="w-full text-[8px] border-collapse">
+          <thead>
+            <tr className="bg-blue-50">
+              <th className="border border-slate-300 p-2 text-left">#</th>
+              <th className="border border-slate-300 p-2 text-left">Description</th>
+              <th className="border border-slate-300 p-2 text-right">Quantity</th>
+              <th className="border border-slate-300 p-2 text-right">Unit Price</th>
+              <th className="border border-slate-300 p-2 text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...Array(5)].map((_, i) => (
+              <tr key={i}>
+                <td className="border border-slate-300 p-2">{i+1}</td>
+                <td className="border border-slate-300 p-2">[Item.{i+1}.Description]</td>
+                <td className="border border-slate-300 p-2 text-right">[Item.{i+1}.Quantity]</td>
+                <td className="border border-slate-300 p-2 text-right">[Item.{i+1}.Unit.Price]</td>
+                <td className="border border-slate-300 p-2 text-right">[Item.{i+1}.Total]</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Totals Section */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">TOTALS</div>
+        <div className="flex justify-end">
+          <table className="w-1/3 text-[8px] border-collapse">
+            <tbody>
+              <tr>
+                <td className="border border-slate-300 p-2 text-right">Subtotal:</td>
+                <td className="border border-slate-300 p-2 text-right">[Subtotal]</td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 p-2 text-right">Tax ([Tax.Rate]%):</td>
+                <td className="border border-slate-300 p-2 text-right">[Tax.Amount]</td>
+              </tr>
+              <tr className="bg-blue-50 font-bold">
+                <td className="border border-slate-300 p-2 text-right">Total:</td>
+                <td className="border border-slate-300 p-2 text-right">[Total.Amount]</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Payment and Notes */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">PAYMENT DETAILS</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Bank Details</div>
+            <div className="text-[8px] text-slate-700">
+              <div>[Bank.Details]</div>
+            </div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Notes</div>
+            <div className="text-[8px] text-slate-700">
+              <div>[Notes]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+        <div>Thank you for your business!</div>
+        <div className="mt-1">Invoice generated on [Invoice.Date]</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `
+   <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tax Invoice # [Invoice.Number]</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+    }
+    .invoice-title {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #1e3a8a;
+    }
+    .invoice-number {
+      font-size: 1.1rem;
+      color: #1e40af;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+    .invoice-dates {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-top: 0.3rem;
+    }
+    .company-details {
+      text-align: right;
+    }
+    .company-name {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #1e3a8a;
+    }
+    .company-info {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-top: 0.3rem;
+    }
+    .section {
+      margin-bottom: 2rem;
+    }
+    .section-title {
+      color: #1e40af;
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid #1e40af;
+      padding-bottom: 0.5rem;
+    }
+    .client-box {
+      background: #f8fafc;
+      border-left: 4px solid #1e40af;
+      padding: 1rem;
+    }
+    .client-box h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+    .client-box p {
+      font-size: 0.8rem;
+      margin: 0.2rem 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.7rem;
+      margin-bottom: 1rem;
+    }
+    th, td {
+      border: 1px solid #e2e8f0;
+      padding: 0.5rem;
+      text-align: left;
+    }
+    th {
+      background: #f0f9ff;
+    }
+    th:not(:first-child) {
+      text-align: right;
+    }
+    td:not(:first-child) {
+      text-align: right;
+    }
+    .totals-table {
+      width: 33%;
+      margin-left: auto;
+    }
+    .totals-table tr:last-child {
+      background: #f0f9ff;
+      font-weight: bold;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="invoice-title">TAX INVOICE</div>
+      <div class="invoice-number"># [Invoice.Number]</div>
+      <div class="invoice-dates">
+        <div>Date: [Invoice.Date]</div>
+        <div>Due Date: [Due.Date]</div>
+      </div>
+    </div>
+    <div class="company-details">
+      <div class="company-name">[Company.Name]</div>
+      <div class="company-info">
+        <div>[Company.Address]</div>
+        <div>Contact: [Company.Contact]</div>
+        <div>Tax ID: [Company.Tax.ID]</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">BILL TO</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div class="client-box">
+        <h3>Client Details</h3>
+        <p>[Client.Name]</p>
+        <p>[Client.Address]</p>
+        <p>Contact: [Client.Contact]</p>
+        <p>Tax ID: [Client.Tax.ID]</p>
+      </div>
+      <div class="client-box">
+        <h3>Invoice Details</h3>
+        <p>Invoice #: [Invoice.Number]</p>
+        <p>Date: [Invoice.Date]</p>
+        <p>Due Date: [Due.Date]</p>
+        <p>Payment Terms: [Payment.Terms]</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">INVOICE ITEMS</div>
+    <table>
+      <thead>
+        <tr style="background: #f0f9ff;">
+          <th style="text-align: left;">#</th>
+          <th style="text-align: left;">Description</th>
+          <th>Quantity</th>
+          <th>Unit Price</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td style="text-align: left;">[Item.1.Description]</td>
+          <td>[Item.1.Quantity]</td>
+          <td>[Item.1.Unit.Price]</td>
+          <td>[Item.1.Total]</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td style="text-align: left;">[Item.2.Description]</td>
+          <td>[Item.2.Quantity]</td>
+          <td>[Item.2.Unit.Price]</td>
+          <td>[Item.2.Total]</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td style="text-align: left;">[Item.3.Description]</td>
+          <td>[Item.3.Quantity]</td>
+          <td>[Item.3.Unit.Price]</td>
+          <td>[Item.3.Total]</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td style="text-align: left;">[Item.4.Description]</td>
+          <td>[Item.4.Quantity]</td>
+          <td>[Item.4.Unit.Price]</td>
+          <td>[Item.4.Total]</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td style="text-align: left;">[Item.5.Description]</td>
+          <td>[Item.5.Quantity]</td>
+          <td>[Item.5.Unit.Price]</td>
+          <td>[Item.5.Total]</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">TOTALS</div>
+    <div style="display: flex; justify-content: flex-end;">
+      <table class="totals-table">
+        <tbody>
+          <tr>
+            <td style="text-align: right; padding: 0.5rem;">Subtotal:</td>
+            <td style="text-align: right; padding: 0.5rem;">[Subtotal]</td>
+          </tr>
+          <tr>
+            <td style="text-align: right; padding: 0.5rem;">Tax ([Tax.Rate]%):</td>
+            <td style="text-align: right; padding: 0.5rem;">[Tax.Amount]</td>
+          </tr>
+          <tr style="background: #f0f9ff; font-weight: bold;">
+            <td style="text-align: right; padding: 0.5rem;">Total:</td>
+            <td style="text-align: right; padding: 0.5rem;">[Total.Amount]</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">PAYMENT DETAILS</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div class="client-box">
+        <h3>Bank Details</h3>
+        <p>[Bank.Details]</p>
+      </div>
+      <div class="client-box">
+        <h3>Notes</h3>
+        <p>[Notes]</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Thank you for your business!</p>
+    <p>Invoice generated on [Invoice.Date]</p>
+  </div>
+</body>
+</html>
+
+  `
+},
+{
+  id: 'expense-report-001',
+  name: 'Professional Expense Report',
+  description: 'Clean, detailed, and professional expense report template for businesses and individuals',
+  category: 'finance',
+  popular: true,
+  fields: [
+    'Report Title',
+    'Report Number',
+    'Report Date',
+    'Employee Name',
+    'Employee ID',
+    'Department',
+    'Manager Name',
+    'Project Name',
+    'Expense Items',
+    'Expense Date',
+    'Expense Category',
+    'Expense Description',
+    'Expense Amount',
+    'Expense Receipt',
+    'Subtotal',
+    'Tax Amount',
+    'Total Amount',
+    'Payment Method',
+    'Approval Status',
+    'Notes'
+  ],
+  previewComponent: (
+    <div className="w-full h-full bg-white p-8 text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Header Section */}
+      <div className="text-center mb-8 pb-6 border-b-4 border-blue-800">
+        <div className="text-3xl font-bold text-slate-900 mb-2">EXPENSE REPORT</div>
+        <div className="text-lg text-blue-800 font-semibold mb-3">[Report.Title]</div>
+        <div className="text-sm text-slate-600">
+          <div>Report #: [Report.Number]</div>
+          <div>Date: [Report.Date]</div>
+        </div>
+      </div>
+
+      {/* Employee and Report Details */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">EMPLOYEE & REPORT DETAILS</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Employee Details</div>
+            <div className="text-[8px] text-slate-700">
+              <div>Name: [Employee.Name]</div>
+              <div>ID: [Employee.ID]</div>
+              <div>Department: [Department]</div>
+            </div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Report Details</div>
+            <div className="text-[8px] text-slate-700">
+              <div>Manager: [Manager.Name]</div>
+              <div>Project: [Project.Name]</div>
+              <div>Payment Method: [Payment.Method]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Expense Items Table */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">EXPENSE ITEMS</div>
+        <table className="w-full text-[8px] border-collapse">
+          <thead>
+            <tr className="bg-blue-50">
+              <th className="border border-slate-300 p-2 text-left">#</th>
+              <th className="border border-slate-300 p-2 text-left">Date</th>
+              <th className="border border-slate-300 p-2 text-left">Category</th>
+              <th className="border border-slate-300 p-2 text-left">Description</th>
+              <th className="border border-slate-300 p-2 text-right">Amount</th>
+              <th className="border border-slate-300 p-2 text-left">Receipt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...Array(10)].map((_, i) => (
+              <tr key={i}>
+                <td className="border border-slate-300 p-2">{i+1}</td>
+                <td className="border border-slate-300 p-2">[Expense.{i+1}.Date]</td>
+                <td className="border border-slate-300 p-2">[Expense.{i+1}.Category]</td>
+                <td className="border border-slate-300 p-2">[Expense.{i+1}.Description]</td>
+                <td className="border border-slate-300 p-2 text-right">[Expense.{i+1}.Amount]</td>
+                <td className="border border-slate-300 p-2">[Expense.{i+1}.Receipt]</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Totals Section */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">TOTALS</div>
+        <div className="flex justify-end">
+          <table className="w-1/3 text-[8px] border-collapse">
+            <tbody>
+              <tr>
+                <td className="border border-slate-300 p-2 text-right">Subtotal:</td>
+                <td className="border border-slate-300 p-2 text-right">[Subtotal]</td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 p-2 text-right">Tax:</td>
+                <td className="border border-slate-300 p-2 text-right">[Tax.Amount]</td>
+              </tr>
+              <tr className="bg-blue-50 font-bold">
+                <td className="border border-slate-300 p-2 text-right">Total:</td>
+                <td className="border border-slate-300 p-2 text-right">[Total.Amount]</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Approval and Notes */}
+      <div className="mb-8">
+        <div className="text-xl font-bold text-blue-800 mb-3 pb-2 border-b-2 border-blue-800">APPROVAL & NOTES</div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Approval Status</div>
+            <div className="text-[8px] text-slate-700">
+              <div>[Approval.Status]</div>
+              <div className="mt-4 border-t border-slate-300 pt-2">
+                <div className="font-bold">Manager Signature:</div>
+                <div className="mt-2">________________________</div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-slate-50 border-l-4 border-blue-800 p-4 rounded-r">
+            <div className="font-bold text-slate-900 text-sm mb-1">Notes</div>
+            <div className="text-[8px] text-slate-700">
+              <div>[Notes]</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center text-[7px] text-slate-500 border-t border-slate-200 pt-4">
+        <div>Please submit this report with all receipts attached.</div>
+        <div className="mt-1">Report generated on [Report.Date]</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Report: [Report.Title]</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      padding: 2rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+      border-bottom: 4px solid #1e40af;
+      padding-bottom: 1.5rem;
+    }
+    .section {
+      margin-bottom: 2rem;
+    }
+    .section-title {
+      color: #1e40af;
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid #1e40af;
+      padding-bottom: 0.5rem;
+    }
+    .detail-box {
+      background: #f8fafc;
+      border-left: 4px solid #1e40af;
+      padding: 1rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.7rem;
+      margin-bottom: 1rem;
+    }
+    th, td {
+      border: 1px solid #e2e8f0;
+      padding: 0.5rem;
+      text-align: left;
+    }
+    th {
+      background: #f0f9ff;
+    }
+    .totals-table {
+      width: 33%;
+      margin-left: auto;
+    }
+    .totals-table tr:last-child {
+      background: #f0f9ff;
+      font-weight: bold;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.7rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>EXPENSE REPORT</h1>
+    <h2 style="color: #1e40af; font-size: 1.1rem; margin-bottom: 0.5rem;">[Report.Title]</h2>
+    <p style="font-size: 0.8rem; color: #64748b;">
+      Report #: [Report.Number]<br>
+      Date: [Report.Date]
+    </p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">EMPLOYEE & REPORT DETAILS</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div class="detail-box">
+        <h3 style="font-size: 0.9rem; margin-bottom: 0.5rem;">Employee Details</h3>
+        <p style="font-size: 0.8rem; margin: 0.2rem 0;">Name: [Employee.Name]</p>
+        <p style="font-size: 0.8rem; margin: 0.2rem 0;">ID: [Employee.ID]</p>
+        <p style="font-size: 0.8rem; margin: 0.2rem 0;">Department: [Department]</p>
+      </div>
+      <div class="detail-box">
+        <h3 style="font-size: 0.9rem; margin-bottom: 0.5rem;">Report Details</h3>
+        <p style="font-size: 0.8rem; margin: 0.2rem 0;">Manager: [Manager.Name]</p>
+        <p style="font-size: 0.8rem; margin: 0.2rem 0;">Project: [Project.Name]</p>
+        <p style="font-size: 0.8rem; margin: 0.2rem 0;">Payment Method: [Payment.Method]</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">EXPENSE ITEMS</div>
+    <table>
+      <thead>
+        <tr style="background: #f0f9ff;">
+          <th style="text-align: left;">#</th>
+          <th style="text-align: left;">Date</th>
+          <th style="text-align: left;">Category</th>
+          <th style="text-align: left;">Description</th>
+          <th style="text-align: right;">Amount</th>
+          <th style="text-align: left;">Receipt</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>[Expense.1.Date]</td>
+          <td>[Expense.1.Category]</td>
+          <td>[Expense.1.Description]</td>
+          <td style="text-align: right;">[Expense.1.Amount]</td>
+          <td>[Expense.1.Receipt]</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>[Expense.2.Date]</td>
+          <td>[Expense.2.Category]</td>
+          <td>[Expense.2.Description]</td>
+          <td style="text-align: right;">[Expense.2.Amount]</td>
+          <td>[Expense.2.Receipt]</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>[Expense.3.Date]</td>
+          <td>[Expense.3.Category]</td>
+          <td>[Expense.3.Description]</td>
+          <td style="text-align: right;">[Expense.3.Amount]</td>
+          <td>[Expense.3.Receipt]</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>[Expense.4.Date]</td>
+          <td>[Expense.4.Category]</td>
+          <td>[Expense.4.Description]</td>
+          <td style="text-align: right;">[Expense.4.Amount]</td>
+          <td>[Expense.4.Receipt]</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>[Expense.5.Date]</td>
+          <td>[Expense.5.Category]</td>
+          <td>[Expense.5.Description]</td>
+          <td style="text-align: right;">[Expense.5.Amount]</td>
+          <td>[Expense.5.Receipt]</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>[Expense.6.Date]</td>
+          <td>[Expense.6.Category]</td>
+          <td>[Expense.6.Description]</td>
+          <td style="text-align: right;">[Expense.6.Amount]</td>
+          <td>[Expense.6.Receipt]</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>[Expense.7.Date]</td>
+          <td>[Expense.7.Category]</td>
+          <td>[Expense.7.Description]</td>
+          <td style="text-align: right;">[Expense.7.Amount]</td>
+          <td>[Expense.7.Receipt]</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>[Expense.8.Date]</td>
+          <td>[Expense.8.Category]</td>
+          <td>[Expense.8.Description]</td>
+          <td style="text-align: right;">[Expense.8.Amount]</td>
+          <td>[Expense.8.Receipt]</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td>[Expense.9.Date]</td>
+          <td>[Expense.9.Category]</td>
+          <td>[Expense.9.Description]</td>
+          <td style="text-align: right;">[Expense.9.Amount]</td>
+          <td>[Expense.9.Receipt]</td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td>[Expense.10.Date]</td>
+          <td>[Expense.10.Category]</td>
+          <td>[Expense.10.Description]</td>
+          <td style="text-align: right;">[Expense.10.Amount]</td>
+          <td>[Expense.10.Receipt]</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">TOTALS</div>
+    <div style="display: flex; justify-content: flex-end;">
+      <table class="totals-table">
+        <tbody>
+          <tr>
+            <td style="text-align: right; padding: 0.5rem;">Subtotal:</td>
+            <td style="text-align: right; padding: 0.5rem;">[Subtotal]</td>
+          </tr>
+          <tr>
+            <td style="text-align: right; padding: 0.5rem;">Tax:</td>
+            <td style="text-align: right; padding: 0.5rem;">[Tax.Amount]</td>
+          </tr>
+          <tr style="background: #f0f9ff; font-weight: bold;">
+            <td style="text-align: right; padding: 0.5rem;">Total:</td>
+            <td style="text-align: right; padding: 0.5rem;">[Total.Amount]</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">APPROVAL & NOTES</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div class="detail-box">
+        <h3 style="font-size: 0.9rem; margin-bottom: 0.5rem;">Approval Status</h3>
+        <p style="font-size: 0.8rem; margin: 0.2rem 0;">[Approval.Status]</p>
+        <div style="margin-top: 1rem; border-top: 1px solid #e2e8f0; padding-top: 0.5rem;">
+          <p style="font-weight: bold; font-size: 0.8rem;">Manager Signature:</p>
+          <p style="margin-top: 1rem;">________________________</p>
+        </div>
+      </div>
+      <div class="detail-box">
+        <h3 style="font-size: 0.9rem; margin-bottom: 0.5rem;">Notes</h3>
+        <p style="font-size: 0.8rem; margin: 0.2rem 0;">[Notes]</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Please submit this report with all receipts attached.</p>
+    <p>Report generated on [Report.Date]</p>
+  </div>
+</body>
+</html>
+
+  `
+},
+
 
   // Continue with more templates...
 ]
