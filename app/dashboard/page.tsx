@@ -614,7 +614,7 @@ const TemplatesSection = () => {
   const [showPreview, setShowPreview] = useState(false)
 
   const categories = [
-    { id: 'all', name: 'All Templates', icon: Grid, count: 5 },
+    { id: 'all', name: 'All Templates', icon: Grid, count: 33 },
     { id: 'invoices', name: 'Invoices', icon: FileText, count: 2 },
     { id: 'contracts', name: 'Contracts', icon: FileSignature, count: 2 },
     { id: 'proposals', name: 'Proposals', icon: FileCheck, count: 1 },
@@ -14083,6 +14083,1099 @@ htmlTemplate: `<!DOCTYPE html>
 `
 },
 
+    {
+  id: 'monthly-report-001',
+  name: 'Monthly Report',
+  description: 'Business performance and analytics report',
+  category: 'reports',
+  popular: false,
+  fields: ['Period', 'Metrics', 'Charts', 'Analysis', 'Recommendations'],
+  previewComponent: (
+    <div className="w-full h-full bg-white text-[9px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Cover Page */}
+      <div className="bg-gradient-to-br from-indigo-700 via-purple-700 to-pink-600 text-white p-10 min-h-[40%] flex flex-col justify-center">
+        <div className="text-[10px] opacity-90 mb-2">MONTHLY BUSINESS REPORT</div>
+        <div className="text-5xl font-bold mb-4">[Report.Month]</div>
+        <div className="text-2xl font-semibold mb-6">[Report.Year]</div>
+        <div className="w-32 h-1 bg-white mb-6 opacity-80"></div>
+        <div className="text-[9px] opacity-90 space-y-1">
+          <div>Prepared by: [Prepared.By]</div>
+          <div>Department: [Department.Name]</div>
+          <div>Report Date: [Report.Date]</div>
+        </div>
+      </div>
+      {/* Content */}
+      <div className="p-8">
+        {/* Executive Summary */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">EXECUTIVE SUMMARY</div>
+          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-600 p-5 rounded-r-lg">
+            <div className="text-[8px] text-slate-700 leading-relaxed space-y-2">
+              <p>
+                This report provides a comprehensive overview of business performance for <strong>[Report.Month] [Report.Year]</strong>. Key highlights include:
+              </p>
+              <ul className="ml-4 space-y-1">
+                <li>• [Highlight.1]</li>
+                <li>• [Highlight.2]</li>
+                <li>• [Highlight.3]</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        {/* Key Performance Indicators */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">KEY PERFORMANCE INDICATORS</div>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-5 shadow-lg">
+              <div className="text-[8px] opacity-90 mb-2">REVENUE</div>
+              <div className="text-3xl font-bold mb-1">${"[revenue]"}</div>
+              <div className="text-[7px] opacity-80 flex items-center gap-1">
+                <span className="text-green-300">↑ 12.5%</span> vs last month
+              </div>  
+            </div>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-5 shadow-lg">
+              <div className="text-[8px] opacity-90 mb-2">PROFIT</div>
+              <div className="text-3xl font-bold mb-1"> ${"[profit]"}</div>
+              <div className="text-[7px] opacity-80 flex items-center gap-1">
+                <span className="text-green-300">↑ 8.3%</span> vs last month
+              </div> 
+            </div>
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-5 shadow-lg">
+              <div className="text-[8px] opacity-90 mb-2">CUSTOMERS</div>
+              <div className="text-3xl font-bold mb-1">[Customer.Count]</div>
+              <div className="text-[7px] opacity-80 flex items-center gap-1">
+                <span className="text-green-300">↑ 15.2%</span> vs last month
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-5 shadow-lg">
+              <div className="text-[8px] opacity-90 mb-2">GROWTH RATE</div>
+              <div className="text-3xl font-bold mb-1">[Growth.Rate]%</div>
+              <div className="text-[7px] opacity-80 flex items-center gap-1">
+                <span className="text-green-300">↑ 3.1%</span> vs last month
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Revenue Analysis */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">REVENUE ANALYSIS</div>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+            <div className="mb-4">
+              <div className="text-[8px] font-semibold text-slate-900 mb-3">Monthly Revenue Trend</div>
+              <div className="h-32 bg-white border border-slate-200 rounded-lg flex items-end justify-around p-3 gap-1">
+                <div className="flex flex-col items-center gap-1 flex-1">
+                  <div className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t" style={{height: '60%'}}></div>
+                  <div className="text-[6px] text-slate-600">Jan</div>
+                </div>
+                <div className="flex flex-col items-center gap-1 flex-1">
+                  <div className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t" style={{height: '75%'}}></div>
+                  <div className="text-[6px] text-slate-600">Feb</div>
+                </div>
+                <div className="flex flex-col items-center gap-1 flex-1">
+                  <div className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t" style={{height: '85%'}}></div>
+                  <div className="text-[6px] text-slate-600">Mar</div>
+                </div>
+                <div className="flex flex-col items-center gap-1 flex-1">
+                  <div className="w-full bg-gradient-to-t from-indigo-600 to-indigo-500 rounded-t" style={{height: '95%'}}></div>
+                  <div className="text-[6px] font-bold text-indigo-600">This</div>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4 text-[8px]">
+              <div className="bg-white border border-slate-200 rounded-lg p-3">
+                <div className="text-slate-600 mb-1">Product Sales</div>
+                <div className="text-xl font-bold text-slate-900">$[Product.Revenue]</div>
+                <div className="text-[7px] text-green-600 mt-1">↑ 14.2%</div>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-lg p-3">
+                <div className="text-slate-600 mb-1">Service Revenue</div>
+                <div className="text-xl font-bold text-slate-900">$[Service.Revenue]</div>
+                <div className="text-[7px] text-green-600 mt-1">↑ 9.8%</div>
+              </div>
+              <div className="bg-white border border-slate-200 rounded-lg p-3">
+                <div className="text-slate-600 mb-1">Recurring Revenue</div>
+                <div className="text-xl font-bold text-slate-900">$[Recurring.Revenue]</div>
+                <div className="text-[7px] text-green-600 mt-1">↑ 18.5%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Customer Insights */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">CUSTOMER INSIGHTS</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-5">
+              <div className="text-[8px] font-semibold text-purple-900 mb-3">Customer Acquisition</div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">New Customers:</span>
+                  <span className="text-lg font-bold text-purple-700">[New.Customers]</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">Churn Rate:</span>
+                  <span className="text-lg font-bold text-slate-900">[Churn.Rate]%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">Retention Rate:</span>
+                  <span className="text-lg font-bold text-green-600">[Retention.Rate]%</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-xl p-5">
+              <div className="text-[8px] font-semibold text-blue-900 mb-3">Customer Satisfaction</div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">NPS Score:</span>
+                  <span className="text-lg font-bold text-blue-700">[NPS.Score]</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">CSAT Score:</span>
+                  <span className="text-lg font-bold text-slate-900">[CSAT.Score]%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[8px] text-slate-700">Support Tickets:</span>
+                  <span className="text-lg font-bold text-slate-900">[Support.Tickets]</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Departmental Performance */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">DEPARTMENTAL PERFORMANCE</div>
+          <div className="space-y-3">
+            <div className="bg-white border-2 border-slate-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <span className="text-xl">💼</span>
+                  </div>
+                  <div>
+                    <div className="text-[8px] font-bold text-slate-900">Sales Department</div>
+                    <div className="text-[7px] text-slate-600">Target Achievement: <strong className="text-green-600">125%</strong></div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-slate-900">$[Sales.Revenue]</div>
+                  <div className="text-[7px] text-green-600">↑ 25% vs target</div>
+                </div>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2">
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full" style={{width: '125%', maxWidth: '100%'}}></div>
+              </div>
+            </div>
+            <div className="bg-white border-2 border-slate-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <span className="text-xl">📢</span>
+                  </div>
+                  <div>
+                    <div className="text-[8px] font-bold text-slate-900">Marketing Department</div>
+                    <div className="text-[7px] text-slate-600">Target Achievement: <strong className="text-green-600">110%</strong></div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-slate-900">[Marketing.Leads]</div>
+                  <div className="text-[7px] text-green-600">↑ 10% vs target</div>
+                </div>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2">
+                <div className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full" style={{width: '110%', maxWidth: '100%'}}></div>
+              </div>
+            </div>
+            <div className="bg-white border-2 border-slate-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <span className="text-xl">🛠️</span>
+                  </div>
+                  <div>
+                    <div className="text-[8px] font-bold text-slate-900">Operations Department</div>
+                    <div className="text-[7px] text-slate-600">Efficiency Score: <strong className="text-blue-600">95%</strong></div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xl font-bold text-slate-900">[Operations.Score]</div>
+                  <div className="text-[7px] text-blue-600">↑ 5% improvement</div>
+                </div>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2">
+                <div className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full" style={{width: '95%'}}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Challenges & Opportunities */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">CHALLENGES & OPPORTUNITIES</div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
+              <div className="text-[8px] font-bold text-red-900 mb-3 flex items-center gap-2">
+                <span className="text-lg">⚠️</span> CHALLENGES
+              </div>
+              <ul className="text-[8px] text-slate-700 space-y-2">
+                <li className="flex gap-2">
+                  <span className="text-red-600">•</span>
+                  <span>[Challenge.1]</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-red-600">•</span>
+                  <span>[Challenge.2]</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-red-600">•</span>
+                  <span>[Challenge.3]</span>
+                </li>
+              </ul>
+            </div>
+            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-5">
+              <div className="text-[8px] font-bold text-green-900 mb-3 flex items-center gap-2">
+                <span className="text-lg">💡</span> OPPORTUNITIES
+              </div>
+              <ul className="text-[8px] text-slate-700 space-y-2">
+                <li className="flex gap-2">
+                  <span className="text-green-600">•</span>
+                  <span>[Opportunity.1]</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-green-600">•</span>
+                  <span>[Opportunity.2]</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-green-600">•</span>
+                  <span>[Opportunity.3]</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        {/* Recommendations */}
+        <div className="mb-8">
+          <div className="text-2xl font-bold text-indigo-700 mb-4 pb-2 border-b-3 border-indigo-600">RECOMMENDATIONS</div>
+          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-5">
+            <div className="text-[8px] text-slate-700 leading-relaxed space-y-3">
+              <div>
+                <strong className="text-indigo-900">1. Short-term Actions (0-30 days):</strong>
+                <ul className="ml-4 mt-1 space-y-1">
+                  <li>• [Short.Term.Action.1]</li>
+                  <li>• [Short.Term.Action.2]</li>
+                  <li>• [Short.Term.Action.3]</li>
+                </ul>
+              </div>
+              <div>
+                <strong className="text-indigo-900">2. Medium-term Initiatives (1-3 months):</strong>
+                <ul className="ml-4 mt-1 space-y-1">
+                  <li>• [Medium.Term.Action.1]</li>
+                  <li>• [Medium.Term.Action.2]</li>
+                </ul>
+              </div>
+              <div>
+                <strong className="text-indigo-900">3. Long-term Strategy (3-12 months):</strong>
+                <ul className="ml-4 mt-1 space-y-1">
+                  <li>• [Long.Term.Action.1]</li>
+                  <li>• [Long.Term.Action.2]</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Conclusion */}
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl p-6 text-center">
+          <div className="text-lg font-bold mb-2">OVERALL PERFORMANCE</div>
+          <div className="text-4xl font-bold mb-2">EXCELLENT</div>
+          <div className="text-[8px] opacity-90">Based on all key metrics and departmental performance</div>
+        </div>
+      </div>
+      {/* Footer */}
+      <div className="bg-slate-100 p-4 text-center text-[7px] text-slate-600 border-t">
+        <div className="font-semibold mb-1">CONFIDENTIAL - INTERNAL USE ONLY</div>
+        <div>[Company.Name] | Monthly Business Report</div>
+        <div className="mt-1">Report Period: [Report.Month] [Report.Year] | Generated: [Generated.Date]</div>
+      </div>
+    </div>
+  ),
+  htmlTemplate: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monthly Business Report</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+      color: #333;
+      background-color: #fff;
+    }
+
+    /* Cover Page */
+    .cover-page {
+      background: linear-gradient(135deg, #4c6ef5, #7c3aed, #ec4899);
+      color: white;
+      padding: 2.5rem;
+      min-height: 40vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .cover-title {
+      font-size: 0.65rem;
+      opacity: 0.9;
+      margin-bottom: 0.5rem;
+    }
+    .cover-month {
+      font-size: 3rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+    .cover-year {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+    }
+    .cover-divider {
+      width: 8rem;
+      height: 1px;
+      background-color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 1.5rem;
+    }
+    .cover-details {
+      font-size: 0.55rem;
+      opacity: 0.9;
+      line-height: 1.4;
+    }
+    .cover-detail {
+      margin-bottom: 0.25rem;
+    }
+
+    /* Content Container */
+    .content {
+      padding: 2rem;
+    }
+
+    /* Section Headers */
+    .section-header {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: #4c6ef5;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 3px solid #4c6ef5;
+    }
+
+    /* Executive Summary */
+    .summary-box {
+      background: linear-gradient(to right, #e0e7ff, #c7d2fe);
+      border-left: 4px solid #4c6ef5;
+      padding: 1.25rem;
+      border-radius: 0 0.75rem 0.75rem 0;
+    }
+    .summary-text {
+      font-size: 0.55rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+    .summary-list {
+      margin-top: 0.5rem;
+      margin-left: 1rem;
+    }
+    .summary-item {
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+    .summary-item::before {
+      content: "•";
+      color: #4c6ef5;
+      font-weight: bold;
+    }
+
+    /* KPI Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .kpi-card {
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      color: white;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .kpi-card-blue {
+      background: linear-gradient(to bottom right, #3b82f6, #1d4ed8);
+    }
+    .kpi-card-green {
+      background: linear-gradient(to bottom right, #10b981, #059669);
+    }
+    .kpi-card-purple {
+      background: linear-gradient(to bottom right, #8b5cf6, #7c3aed);
+    }
+    .kpi-card-orange {
+      background: linear-gradient(to bottom right, #f97316, #ea580c);
+    }
+    .kpi-label {
+      font-size: 0.5rem;
+      opacity: 0.9;
+      margin-bottom: 0.5rem;
+    }
+    .kpi-value {
+      font-size: 1.75rem;
+      font-weight: bold;
+      margin-bottom: 0.25rem;
+    }
+    .kpi-change {
+      font-size: 0.5rem;
+      opacity: 0.8;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .kpi-change-positive {
+      color: #10b981;
+    }
+
+    /* Revenue Analysis */
+    .revenue-section {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .revenue-header {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 0.75rem;
+    }
+    .chart-container {
+      height: 8rem;
+      background-color: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: end;
+      justify-content: space-around;
+      gap: 0.25rem;
+    }
+    .chart-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      flex: 1;
+    }
+    .chart-bar-fill {
+      width: 100%;
+      border-radius: 0.25rem 0.25rem 0 0;
+    }
+    .chart-bar-blue {
+      background: linear-gradient(to top, #3b82f6, #60a5fa);
+    }
+    .chart-bar-indigo {
+      background: linear-gradient(to top, #4c6ef5, #6366f1);
+    }
+    .chart-month {
+      font-size: 0.45rem;
+      color: #64748b;
+    }
+    .revenue-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+    .revenue-metric {
+      background-color: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+    }
+    .metric-label {
+      font-size: 0.5rem;
+      color: #64748b;
+      margin-bottom: 0.25rem;
+    }
+    .metric-value {
+      font-size: 1rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+    .metric-change {
+      font-size: 0.45rem;
+      color: #10b981;
+    }
+
+    /* Customer Insights */
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .insights-card {
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+    .insights-card-purple {
+      background: linear-gradient(to right, #f3e8ff, #e9d5ff);
+      border: 1px solid #c4b5fd;
+    }
+    .insights-card-blue {
+      background: linear-gradient(to right, #dbeafe, #bfdbfe);
+      border: 1px solid #93c5fd;
+    }
+    .insights-header {
+      font-size: 0.65rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    .insights-header-purple {
+      color: #7c3aed;
+    }
+    .insights-header-blue {
+      color: #1e40af;
+    }
+    .insights-metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-size: 0.55rem;
+    }
+    .insights-metric-label {
+      color: #64748b;
+    }
+    .insights-metric-value {
+      font-weight: bold;
+      color: #1e293b;
+    }
+    .insights-metric-green {
+      color: #10b981;
+    }
+
+    /* Departmental Performance */
+    .department-item {
+      background-color: white;
+      border: 2px solid #e2e8f0;
+      border-radius: 0.75rem;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    .department-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+    .department-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .department-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+    .department-icon-blue {
+      background-color: #dbeafe;
+    }
+    .department-icon-green {
+      background-color: #dcfce7;
+    }
+    .department-icon-purple {
+      background-color: #e9d5ff;
+    }
+    .department-details h4 {
+      font-size: 0.65rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.125rem;
+    }
+    .department-details p {
+      font-size: 0.5rem;
+      color: #64748b;
+    }
+    .department-metrics {
+      text-align: right;
+    }
+    .department-value {
+      font-size: 1.125rem;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 0.125rem;
+    }
+    .department-change {
+      font-size: 0.5rem;
+      color: #10b981;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 0.25rem;
+      background-color: #e2e8f0;
+      border-radius: 0.25rem;
+      margin-top: 0.5rem;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 0.25rem;
+    }
+    .progress-fill-blue {
+      background: linear-gradient(to right, #3b82f6, #1d4ed8);
+    }
+    .progress-fill-green {
+      background: linear-gradient(to right, #10b981, #059669);
+    }
+    .progress-fill-purple {
+      background: linear-gradient(to right, #8b5cf6, #7c3aed);
+    }
+
+    /* Challenges & Opportunities */
+    .challenges-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .challenges-card {
+      border: 2px solid;
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+    }
+    .challenges-card-red {
+      background-color: #fee2e2;
+      border-color: #fecaca;
+    }
+    .challenges-card-green {
+      background-color: #dcfce7;
+      border-color: #bbf7d0;
+    }
+    .challenges-header {
+      font-size: 0.65rem;
+      font-weight: bold;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .challenges-header-red {
+      color: #991b1b;
+    }
+    .challenges-header-green {
+      color: #166534;
+    }
+    .challenges-icon {
+      font-size: 1rem;
+    }
+    .challenges-list {
+      list-style: none;
+      padding-left: 0;
+    }
+    .challenges-item {
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      font-size: 0.55rem;
+      color: #64748b;
+    }
+    .challenges-bullet-red {
+      color: #dc2626;
+    }
+    .challenges-bullet-green {
+      color: #16a34a;
+    }
+
+    /* Recommendations */
+    .recommendations-box {
+      background: linear-gradient(to right, #e0e7ff, #c7d2fe);
+      border: 2px solid #c7d2fe;
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .recommendations-section {
+      margin-bottom: 1rem;
+    }
+    .recommendations-title {
+      font-size: 0.65rem;
+      font-weight: bold;
+      color: #4c6ef5;
+      margin-bottom: 0.5rem;
+    }
+    .recommendations-list {
+      margin-top: 0.25rem;
+      margin-left: 1rem;
+    }
+    .recommendations-item {
+      margin-bottom: 0.25rem;
+      font-size: 0.55rem;
+      color: #64748b;
+    }
+
+    /* Conclusion */
+    .conclusion-box {
+      background: linear-gradient(to right, #4c6ef5, #7c3aed);
+      color: white;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .conclusion-title {
+      font-size: 0.875rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    .conclusion-rating {
+      font-size: 2rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    .conclusion-subtitle {
+      font-size: 0.65rem;
+      opacity: 0.9;
+    }
+
+    /* Footer */
+    .footer {
+      background-color: #f8fafc;
+      padding: 1rem;
+      text-align: center;
+      font-size: 0.5rem;
+      color: #64748b;
+      border-top: 1px solid #e2e8f0;
+    }
+    .footer-bold {
+      font-weight: 600;
+      color: #1e293b;
+    }
+  </style>
+</head>
+<body>
+  <!-- Cover Page -->
+  <div class="cover-page">
+    <div class="cover-title">MONTHLY BUSINESS REPORT</div>
+    <div class="cover-month">[Report.Month]</div>
+    <div class="cover-year">[Report.Year]</div>
+    <div class="cover-divider"></div>
+    <div class="cover-details">
+      <div class="cover-detail">Prepared by: [Prepared.By]</div>
+      <div class="cover-detail">Department: [Department.Name]</div>
+      <div class="cover-detail">Report Date: [Report.Date]</div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    <!-- Executive Summary -->
+    <div style="margin-bottom: 2rem;">
+      <div class="section-header">EXECUTIVE SUMMARY</div>
+      <div class="summary-box">
+        <div class="summary-text">
+          <p>
+            This report provides a comprehensive overview of business performance for <strong>[Report.Month] [Report.Year]</strong>. Key highlights include:
+          </p>
+          <div class="summary-list">
+            <div class="summary-item">[Highlight.1]</div>
+            <div class="summary-item">[Highlight.2]</div>
+            <div class="summary-item">[Highlight.3]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Performance Indicators -->
+    <div style="margin-bottom: 2rem;">
+      <div class="section-header">KEY PERFORMANCE INDICATORS</div>
+      <div class="kpi-grid">
+        <div class="kpi-card kpi-card-blue">
+          <div class="kpi-label">REVENUE</div>
+          <div class="kpi-value">${"[revenue]"}</div>
+          <div class="kpi-change kpi-change-positive">
+            <span>↑ 12.5%</span>
+            <span>vs last month</span>
+          </div>
+        </div>
+        <div class="kpi-card kpi-card-green">
+          <div class="kpi-label">PROFIT</div>
+          <div class="kpi-value"> ${"[profit]"}</div>
+          <div class="kpi-change kpi-change-positive">
+            <span>↑ 8.3%</span>
+            <span>vs last month</span>
+          </div>
+        </div>
+        <div class="kpi-card kpi-card-purple">
+          <div class="kpi-label">CUSTOMERS</div>
+          <div class="kpi-value">[Customer.Count]</div>
+          <div class="kpi-change kpi-change-positive">
+            <span>↑ 15.2%</span>
+            <span>vs last month</span>
+          </div>
+        </div>
+        <div class="kpi-card kpi-card-orange">
+          <div class="kpi-label">GROWTH RATE</div>
+          <div class="kpi-value">[Growth.Rate]%</div>
+          <div class="kpi-change kpi-change-positive">
+            <span>↑ 3.1%</span>
+            <span>vs last month</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Revenue Analysis -->
+    <div style="margin-bottom: 2rem;">
+      <div class="section-header">REVENUE ANALYSIS</div>
+      <div class="revenue-section">
+        <div class="revenue-header">Monthly Revenue Trend</div>
+        <div class="chart-container">
+          <div class="chart-bar">
+            <div class="chart-bar-fill chart-bar-blue" style="height: 60%;"></div>
+            <div class="chart-month">Jan</div>
+          </div>
+          <div class="chart-bar">
+            <div class="chart-bar-fill chart-bar-blue" style="height: 75%;"></div>
+            <div class="chart-month">Feb</div>
+          </div>
+          <div class="chart-bar">
+            <div class="chart-bar-fill chart-bar-blue" style="height: 85%;"></div>
+            <div class="chart-month">Mar</div>
+          </div>
+          <div class="chart-bar">
+            <div class="chart-bar-fill chart-bar-indigo" style="height: 95%;"></div>
+            <div class="chart-month" style="font-weight: bold; color: #4c6ef5;">This</div>
+          </div>
+        </div>
+        <div class="revenue-metrics">
+          <div class="revenue-metric">
+            <div class="metric-label">Product Sales</div>
+            <div class="metric-value">$[Product.Revenue]</div>
+            <div class="metric-change">↑ 14.2%</div>
+          </div>
+          <div class="revenue-metric">
+            <div class="metric-label">Service Revenue</div>
+            <div class="metric-value">$[Service.Revenue]</div>
+            <div class="metric-change">↑ 9.8%</div>
+          </div>
+          <div class="revenue-metric">
+            <div class="metric-label">Recurring Revenue</div>
+            <div class="metric-value">$[Recurring.Revenue]</div>
+            <div class="metric-change">↑ 18.5%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer Insights -->
+    <div style="margin-bottom: 2rem;">
+      <div class="section-header">CUSTOMER INSIGHTS</div>
+      <div class="insights-grid">
+        <div class="insights-card insights-card-purple">
+          <div class="insights-header insights-header-purple">👥 Customer Acquisition</div>
+          <div class="space-y-3">
+            <div class="insights-metric">
+              <span class="insights-metric-label">New Customers:</span>
+              <span class="insights-metric-value">[New.Customers]</span>
+            </div>
+            <div class="insights-metric">
+              <span class="insights-metric-label">Churn Rate:</span>
+              <span class="insights-metric-value">[Churn.Rate]%</span>
+            </div>
+            <div class="insights-metric">
+              <span class="insights-metric-label">Retention Rate:</span>
+              <span class="insights-metric-value insights-metric-green">[Retention.Rate]%</span>
+            </div>
+          </div>
+        </div>
+        <div class="insights-card insights-card-blue">
+          <div class="insights-header insights-header-blue">😊 Customer Satisfaction</div>
+          <div class="space-y-3">
+            <div class="insights-metric">
+              <span class="insights-metric-label">NPS Score:</span>
+              <span class="insights-metric-value">[NPS.Score]</span>
+            </div>
+            <div class="insights-metric">
+              <span class="insights-metric-label">CSAT Score:</span>
+              <span class="insights-metric-value">[CSAT.Score]%</span>
+            </div>
+            <div class="insights-metric">
+              <span class="insights-metric-label">Support Tickets:</span>
+              <span class="insights-metric-value">[Support.Tickets]</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Departmental Performance -->
+    <div style="margin-bottom: 2rem;">
+      <div class="section-header">DEPARTMENTAL PERFORMANCE</div>
+      <div class="space-y-3">
+        <div class="department-item">
+          <div class="department-header">
+            <div class="department-info">
+              <div class="department-icon department-icon-blue">💼</div>
+              <div class="department-details">
+                <h4>Sales Department</h4>
+                <p>Target Achievement: <strong class="text-green-600">125%</strong></p>
+              </div>
+            </div>
+            <div class="department-metrics">
+              <div class="department-value">$[Sales.Revenue]</div>
+              <div class="department-change">↑ 25% vs target</div>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill progress-fill-blue" style="width: 100%;"></div>
+          </div>
+        </div>
+        <div class="department-item">
+          <div class="department-header">
+            <div class="department-info">
+              <div class="department-icon department-icon-green">📢</div>
+              <div class="department-details">
+                <h4>Marketing Department</h4>
+                <p>Target Achievement: <strong class="text-green-600">110%</strong></p>
+              </div>
+            </div>
+            <div class="department-metrics">
+              <div class="department-value">[Marketing.Leads]</div>
+              <div class="department-change">↑ 10% vs target</div>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill progress-fill-green" style="width: 100%;"></div>
+          </div>
+        </div>
+        <div class="department-item">
+          <div class="department-header">
+            <div class="department-info">
+              <div class="department-icon department-icon-purple">🛠️</div>
+              <div class="department-details">
+                <h4>Operations Department</h4>
+                <p>Efficiency Score: <strong class="text-blue-600">95%</strong></p>
+              </div>
+            </div>
+            <div class="department-metrics">
+              <div class="department-value">[Operations.Score]</div>
+              <div class="department-change">↑ 5% improvement</div>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill progress-fill-purple" style="width: 95%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Challenges & Opportunities -->
+    <div style="margin-bottom: 2rem;">
+      <div class="section-header">CHALLENGES & OPPORTUNITIES</div>
+      <div class="challenges-grid">
+        <div class="challenges-card challenges-card-red">
+          <div class="challenges-header challenges-header-red">
+            <span class="challenges-icon">⚠️</span>
+            CHALLENGES
+          </div>
+          <ul class="challenges-list">
+            <li class="challenges-item">
+              <span class="challenges-bullet challenges-bullet-red">•</span>
+              <span>[Challenge.1]</span>
+            </li>
+            <li class="challenges-item">
+              <span class="challenges-bullet challenges-bullet-red">•</span>
+              <span>[Challenge.2]</span>
+            </li>
+            <li class="challenges-item">
+              <span class="challenges-bullet challenges-bullet-red">•</span>
+              <span>[Challenge.3]</span>
+            </li>
+          </ul>
+        </div>
+        <div class="challenges-card challenges-card-green">
+          <div class="challenges-header challenges-header-green">
+            <span class="challenges-icon">💡</span>
+            OPPORTUNITIES
+          </div>
+          <ul class="challenges-list">
+            <li class="challenges-item">
+              <span class="challenges-bullet challenges-bullet-green">•</span>
+              <span>[Opportunity.1]</span>
+            </li>
+            <li class="challenges-item">
+              <span class="challenges-bullet challenges-bullet-green">•</span>
+              <span>[Opportunity.2]</span>
+            </li>
+            <li class="challenges-item">
+              <span class="challenges-bullet challenges-bullet-green">•</span>
+              <span>[Opportunity.3]</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recommendations -->
+    <div style="margin-bottom: 2rem;">
+      <div class="section-header">RECOMMENDATIONS</div>
+      <div class="recommendations-box">
+        <div class="recommendations-section">
+          <div class="recommendations-title">1. Short-term Actions (0-30 days):</div>
+          <div class="recommendations-list">
+            <div class="recommendations-item">• [Short.Term.Action.1]</div>
+            <div class="recommendations-item">• [Short.Term.Action.2]</div>
+            <div class="recommendations-item">• [Short.Term.Action.3]</div>
+          </div>
+        </div>
+        <div class="recommendations-section">
+          <div class="recommendations-title">2. Medium-term Initiatives (1-3 months):</div>
+          <div class="recommendations-list">
+            <div class="recommendations-item">• [Medium.Term.Action.1]</div>
+            <div class="recommendations-item">• [Medium.Term.Action.2]</div>
+          </div>
+        </div>
+        <div class="recommendations-section">
+          <div class="recommendations-title">3. Long-term Strategy (3-12 months):</div>
+          <div class="recommendations-list">
+            <div class="recommendations-item">• [Long.Term.Action.1]</div>
+            <div class="recommendations-item">• [Long.Term.Action.2]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conclusion -->
+    <div class="conclusion-box">
+      <div class="conclusion-title">OVERALL PERFORMANCE</div>
+      <div class="conclusion-rating">EXCELLENT</div>
+      <div class="conclusion-subtitle">Based on all key metrics and departmental performance</div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-bold">CONFIDENTIAL - INTERNAL USE ONLY</div>
+      <div>[Company.Name] | Monthly Business Report</div>
+      <div class="mt-1">Report Period: [Report.Month] [Report.Year] | Generated: [Generated.Date]</div>
+    </div>
+  </div>
+</body>
+</html>
+`
+},
+
 {
   id: 'timesheet-001',
   name: 'Employee Timesheet',
@@ -16368,7 +17461,7 @@ htmlTemplate: `<!DOCTYPE html>
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
-                          router.push(`/template/editor/${template.id}`)
+                          router.push(`/templates/editor/${template.id}`)
                         }}
                         className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
                       >
@@ -16407,7 +17500,7 @@ htmlTemplate: `<!DOCTYPE html>
         </h2>
         
         {filteredTemplates.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTemplates.map((template) => (
               <div
                 key={template.id}
@@ -16439,7 +17532,7 @@ htmlTemplate: `<!DOCTYPE html>
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
-                          router.push(`/template/editor/${template.id}`)
+                          router.push(`/templates/editor/${template.id}`)
                         }}
                         className="flex-1 h-8 text-xs bg-purple-600 hover:bg-purple-700"
                       >

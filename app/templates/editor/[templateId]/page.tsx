@@ -30,91 +30,262 @@ export default function TemplateEditorPage() {
   const [formData, setFormData] = useState<Record<string, string>>({})
   const [documentName, setDocumentName] = useState('')
 
-  // Template data mapping (same as in dashboard)
+  // Template data mapping
   const templateData: Record<string, any> = {
     'sales-invoice-001': {
       id: 'sales-invoice-001',
       name: 'Sales Invoice',
-      icon: '💰',
-      color: 'from-blue-500 to-blue-600',
+      icon: '📄',
+      color: 'from-indigo-500 to-purple-600',
       fields: {
-        company_logo: { label: 'Company Logo (emoji/text)', type: 'text', placeholder: '🏢', default: '💼' },
-        company_name: { label: 'Company Name', type: 'text', placeholder: 'Your Company Inc.' },
-        company_address: { label: 'Company Address', type: 'text', placeholder: '123 Business St, City, State 12345' },
-        company_email: { label: 'Company Email', type: 'email', placeholder: 'contact@company.com' },
-        company_phone: { label: 'Company Phone', type: 'tel', placeholder: '+1 (555) 123-4567' },
         invoice_number: { label: 'Invoice Number', type: 'text', placeholder: 'INV-001', default: 'INV-001' },
         invoice_date: { label: 'Invoice Date', type: 'date', default: new Date().toISOString().split('T')[0] },
-        due_date: { label: 'Due Date', type: 'date' },
-        client_name: { label: 'Client Name', type: 'text', placeholder: 'Client Company Name' },
-        client_address: { label: 'Client Address', type: 'text', placeholder: 'Client address' },
-        client_email: { label: 'Client Email', type: 'email', placeholder: 'client@email.com' },
+        invoice_terms: { label: 'Payment Terms', type: 'text', placeholder: 'Net 30', default: 'Net 30' },
+        invoice_due_date: { label: 'Due Date', type: 'date', default: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0] },
+        company_name: { label: 'Your Company Name', type: 'text', placeholder: 'PandaDoc', default: 'PandaDoc' },
+        company_address: { label: 'Company Address', type: 'text', placeholder: '123 Business Street', default: '123 Business Street' },
+        company_city: { label: 'City, State, Zip', type: 'text', placeholder: 'San Francisco, CA 94105', default: 'San Francisco, CA 94105' },
+        company_email: { label: 'Company Email', type: 'email', placeholder: 'contact@pandadoc.com', default: 'contact@pandadoc.com' },
+        company_phone: { label: 'Company Phone', type: 'tel', placeholder: '+1 (555) 123-4567', default: '+1 (555) 123-4567' },
+        client_first_name: { label: 'Client First Name', type: 'text', placeholder: 'John' },
+        client_last_name: { label: 'Client Last Name', type: 'text', placeholder: 'Doe' },
+        client_street_address: { label: 'Client Street Address', type: 'text', placeholder: '456 Client Ave' },
+        client_city: { label: 'Client City', type: 'text', placeholder: 'New York' },
+        client_state: { label: 'Client State', type: 'text', placeholder: 'NY' },
+        client_postal_code: { label: 'Client Postal Code', type: 'text', placeholder: '10001' },
+        client_email: { label: 'Client Email', type: 'email', placeholder: 'client@example.com' },
         client_phone: { label: 'Client Phone', type: 'tel', placeholder: '+1 (555) 987-6543' },
-        subtotal: { label: 'Subtotal', type: 'number', placeholder: '1000.00', default: '0.00' },
-        tax_rate: { label: 'Tax Rate (%)', type: 'number', placeholder: '10', default: '0' },
-        tax_amount: { label: 'Tax Amount', type: 'number', placeholder: '100.00', default: '0.00' },
-        total: { label: 'Total Amount', type: 'number', placeholder: '1100.00', default: '0.00' },
-        payment_terms: { label: 'Payment Terms', type: 'textarea', placeholder: 'Payment due within 30 days...', default: 'Payment due within 30 days. Late payments subject to 5% monthly interest.' },
-        notes: { label: 'Additional Notes', type: 'textarea', placeholder: 'Thank you for your business!', default: 'Thank you for your business!' }
+        item1_description: { label: 'Item 1 Description', type: 'text', placeholder: 'Web Development Services', default: 'Web Development Services' },
+        item1_details: { label: 'Item 1 Details', type: 'text', placeholder: 'Custom website development', default: 'Custom website development and design' },
+        item1_qty: { label: 'Item 1 Quantity', type: 'number', placeholder: '1', default: '1' },
+        item1_rate: { label: 'Item 1 Rate', type: 'number', placeholder: '5000.00', default: '5000.00' },
+        item2_description: { label: 'Item 2 Description', type: 'text', placeholder: 'SEO Optimization', default: 'SEO Optimization' },
+        item2_details: { label: 'Item 2 Details', type: 'text', placeholder: 'Search engine optimization', default: 'On-page and off-page SEO services' },
+        item2_qty: { label: 'Item 2 Quantity', type: 'number', placeholder: '1', default: '1' },
+        item2_rate: { label: 'Item 2 Rate', type: 'number', placeholder: '2000.00', default: '2000.00' },
+        item3_description: { label: 'Item 3 Description', type: 'text', placeholder: 'Maintenance Package', default: 'Maintenance Package' },
+        item3_details: { label: 'Item 3 Details', type: 'text', placeholder: 'Monthly maintenance', default: 'Monthly website maintenance and updates' },
+        item3_qty: { label: 'Item 3 Quantity', type: 'number', placeholder: '3', default: '3' },
+        item3_rate: { label: 'Item 3 Rate', type: 'number', placeholder: '500.00', default: '500.00' },
+        tax_rate: { label: 'Tax Rate (%)', type: 'number', placeholder: '8.5', default: '8.5' }
       },
       htmlTemplate: `
-        <div style="max-width: 800px; margin: 0 auto; padding: 40px; font-family: 'Arial', sans-serif; background: white;">
-          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 40px; border-bottom: 3px solid #2563eb; padding-bottom: 20px;">
-            <div>
-              <div style="width: 120px; height: 120px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; font-weight: bold; margin-bottom: 10px;">
-                {{company_logo}}
-              </div>
-              <h1 style="margin: 0; color: #1e293b; font-size: 28px; font-weight: bold;">{{company_name}}</h1>
-              <p style="margin: 5px 0; color: #64748b;">{{company_address}}</p>
-              <p style="margin: 5px 0; color: #64748b;">{{company_email}} | {{company_phone}}</p>
-            </div>
-            <div style="text-align: right;">
-              <h2 style="margin: 0; color: #2563eb; font-size: 36px; font-weight: bold;">INVOICE</h2>
-              <p style="margin: 10px 0; color: #64748b;"><strong>Invoice #:</strong> {{invoice_number}}</p>
-              <p style="margin: 5px 0; color: #64748b;"><strong>Date:</strong> {{invoice_date}}</p>
-              <p style="margin: 5px 0; color: #64748b;"><strong>Due Date:</strong> {{due_date}}</p>
-            </div>
-          </div>
-          <div style="margin-bottom: 40px;">
-            <h3 style="color: #1e293b; font-size: 18px; font-weight: bold; margin-bottom: 15px; border-left: 4px solid #2563eb; padding-left: 12px;">BILL TO:</h3>
-            <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
-              <p style="margin: 5px 0; color: #1e293b; font-weight: bold; font-size: 16px;">{{client_name}}</p>
-              <p style="margin: 5px 0; color: #64748b;">{{client_address}}</p>
-              <p style="margin: 5px 0; color: #64748b;">{{client_email}}</p>
-              <p style="margin: 5px 0; color: #64748b;">{{client_phone}}</p>
-            </div>
-          </div>
-          <div style="display: flex; justify-content: flex-end; margin-bottom: 40px;">
-            <div style="width: 300px;">
-              <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
-                <span style="color: #64748b; font-weight: 500;">Subtotal:</span>
-                <span style="color: #1e293b; font-weight: 600;">${"[subtotal]"}</span>
-              </div> 
-              <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
-                <span style="color: #64748b; font-weight: 500;">Tax ({{tax_rate}}%):</span>
-                <span style="color: #1e293b; font-weight: 600;">${"[tax_amount]"}</span>
-              </div>  
-              <div style="display: flex; justify-content: space-between; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; margin-top: 10px;">
-                <span style="font-size: 18px; font-weight: bold;">TOTAL:</span>
-                <span style="font-size: 20px; font-weight: bold;">${"[total]"}</span>
-              </div>   
-            </div>
-          </div>
-          <div style="background: #f8fafc; padding: 25px; border-radius: 8px; border-left: 4px solid #2563eb; margin-bottom: 30px;">
-            <h3 style="color: #1e293b; font-size: 16px; font-weight: bold; margin: 0 0 15px 0;">PAYMENT TERMS</h3>
-            <p style="margin: 0; color: #64748b; line-height: 1.6;">{{payment_terms}}</p>
-          </div>
-          <div style="background: #fffbeb; padding: 25px; border-radius: 8px; border-left: 4px solid #f59e0b; margin-bottom: 30px;">
-            <h3 style="color: #1e293b; font-size: 16px; font-weight: bold; margin: 0 0 15px 0;">NOTES</h3>
-            <p style="margin: 0; color: #64748b; line-height: 1.6;">{{notes}}</p>
-          </div>
-          <div style="text-align: center; padding-top: 30px; border-top: 2px solid #e2e8f0; color: #64748b; font-size: 14px;">
-            <p style="margin: 5px 0;"><strong>{{company_name}}</strong></p>
-            <p style="margin: 5px 0;">Thank you for your business!</p>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sales Invoice</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; padding: 40px; background: #f8f9fa; }
+    .invoice-container { max-width: 900px; margin: 0 auto; background: white; padding: 60px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 30px; border-bottom: 3px solid #1e293b; margin-bottom: 40px; }
+    .company-info { flex: 1; }
+    .logo { width: 80px; height: 80px; background: linear-gradient(135deg, #4f46e5, #9333ea); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 32px; font-weight: bold; margin-bottom: 15px; }
+    .company-name { font-size: 18px; font-weight: bold; color: #1e293b; margin-bottom: 10px; }
+    .company-details { font-size: 12px; color: #64748b; line-height: 1.6; }
+    .invoice-title-section { text-align: right; }
+    .invoice-title { font-size: 36px; font-weight: bold; color: #1e293b; margin-bottom: 15px; }
+    .invoice-number-box { background: #f1f5f9; padding: 15px 20px; border-radius: 8px; margin-top: 15px; }
+    .invoice-label { font-size: 11px; color: #64748b; margin-bottom: 5px; }
+    .invoice-value { font-size: 16px; font-weight: bold; color: #1e293b; }
+    .invoice-meta { font-size: 11px; color: #64748b; margin-top: 15px; line-height: 1.8; }
+    .bill-to-section { margin-bottom: 40px; }
+    .bill-to-title { font-size: 16px; font-weight: bold; color: #1e293b; margin-bottom: 15px; padding-left: 15px; border-left: 5px solid #4f46e5; }
+    .bill-to-box { background: #f8fafc; padding: 25px; border-radius: 10px; }
+    .client-name { font-weight: bold; font-size: 16px; color: #1e293b; margin-bottom: 10px; }
+    .client-details { font-size: 12px; color: #64748b; line-height: 1.8; }
+    .items-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; font-size: 12px; }
+    .items-table thead { background: #1e293b; color: white; }
+    .items-table th { padding: 15px; text-align: left; font-weight: 600; font-size: 11px; letter-spacing: 0.5px; }
+    .items-table th.center { text-align: center; }
+    .items-table th.right { text-align: right; }
+    .items-table tbody tr { border-bottom: 1px solid #e2e8f0; }
+    .items-table td { padding: 20px 15px; color: #1e293b; }
+    .item-description { font-weight: 600; margin-bottom: 8px; }
+    .item-details { font-size: 10px; color: #64748b; }
+    .items-table td.center { text-align: center; }
+    .items-table td.right { text-align: right; font-weight: bold; }
+    .totals-section { display: flex; justify-content: flex-end; margin-bottom: 40px; }
+    .totals-box { width: 350px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+    .totals-label { color: #64748b; }
+    .totals-value { font-weight: bold; color: #1e293b; }
+    .total-final { background: #1e293b; color: white; padding: 20px 25px; border-radius: 10px; margin-top: 15px; }
+    .total-final .totals-label { color: white; font-weight: bold; font-size: 13px; }
+    .total-final .totals-value { font-size: 24px; }
+    .terms-section { border-top: 2px solid #e2e8f0; padding-top: 30px; }
+    .terms-box { background: #f8fafc; padding: 25px; border-radius: 10px; margin-bottom: 30px; }
+    .terms-title { font-size: 12px; font-weight: bold; color: #1e293b; margin-bottom: 12px; }
+    .terms-text { font-size: 10px; color: #64748b; line-height: 1.8; }
+    .highlight { background: #fef3c7; padding: 2px 5px; border-radius: 3px; }
+    .signature-section { display: flex; justify-content: space-between; align-items: flex-end; }
+    .signature-box-wrapper { flex: 1; }
+    .signature-label { font-size: 10px; color: #64748b; margin-bottom: 8px; }
+    .signature-box { border: 2px solid #cbd5e1; border-radius: 10px; padding: 30px 40px; background: #f8fafc; text-align: center; }
+    .signature-icon { color: #4f46e5; font-size: 18px; }
+    .signature-date { font-size: 10px; color: #64748b; margin-top: 12px; }
+    .footer-text { text-align: right; font-size: 10px; color: #94a3b8; }
+    .footer-thank-you { margin-bottom: 8px; }
+    .footer-contact { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="invoice-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="company-info">
+        <div class="logo">{{company_name.substring(0,2).toUpperCase()}}</div>
+        <div class="company-name">{{company_name}}</div>
+        <div class="company-details">
+          <div>{{company_address}}</div>
+          <div>{{company_city}}</div>
+          <div>{{company_email}}</div>
+          <div>{{company_phone}}</div>
+        </div>
+      </div>
+      <div class="invoice-title-section">
+        <div class="invoice-title">SALES INVOICE</div>
+        <div class="invoice-number-box">
+          <div class="invoice-label">Invoice No:</div>
+          <div class="invoice-value">{{invoice_number}}</div>
+        </div>
+        <div class="invoice-meta">
+          <div><strong>Payment terms:</strong> {{invoice_terms}}</div>
+          <div><strong>Due date:</strong> {{invoice_due_date}}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bill To Section -->
+    <div class="bill-to-section">
+      <div class="bill-to-title">Bill to:</div>
+      <div class="bill-to-box">
+        <div class="client-name">{{client_first_name}} {{client_last_name}}</div>
+        <div class="client-details">
+          <div>{{client_street_address}} {{client_city}} {{client_state}}</div>
+          <div>{{client_postal_code}}</div>
+          <div style="margin-top: 8px;">{{client_email}}</div>
+          <div>{{client_phone}}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Items Table -->
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>DESCRIPTION</th>
+          <th class="center" style="width: 80px;">QTY</th>
+          <th class="right" style="width: 120px;">RATE</th>
+          <th class="right" style="width: 140px;">AMOUNT</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="item-description">{{item1_description}}</div>
+            <div class="item-details">{{item1_details}}</div>
+          </td>
+          <td class="center">{{item1_qty}}</td>
+          <td class="right"> ${"[item1_rate]"}</td> 
+          <td class="right">$<span id="item1-total"></span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="item-description">{{item2_description}}</div>
+            <div class="item-details">{{item2_details}}</div>
+          </td>
+          <td class="center">{{item2_qty}}</td>
+          <td class="right">${"[item2_rate]"}</td>
+          <td class="right">$<span id="item2-total"></span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="item-description">{{item3_description}}</div>
+            <div class="item-details">{{item3_details}}</div>
+          </td>
+          <td class="center">{{item3_qty}}</td>
+          <td class="right"> ${"[item3_rate]"}</td>  
+          <td class="right">$<span id="item3-total"></span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Totals Section -->
+    <div class="totals-section">
+      <div class="totals-box">
+        <div class="totals-row">
+          <span class="totals-label">Subtotal:</span>
+          <span class="totals-value">$<span id="subtotal"></span></span>
+        </div>
+        <div class="totals-row">
+          <span class="totals-label">Tax ({{tax_rate}}%):</span>
+          <span class="totals-value">$<span id="tax-amount"></span></span>
+        </div>
+        <div class="total-final">
+          <div class="totals-row" style="border: none; padding: 0;">
+            <span class="totals-label">TOTAL:</span>
+            <span class="totals-value">$<span id="total"></span></span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Terms and Signature -->
+    <div class="terms-section">
+      <div class="terms-box">
+        <div class="terms-title">Payment Terms & Conditions:</div>
+        <div class="terms-text">
+          I, the undersigned <span class="highlight">{{client_first_name}} {{client_last_name}}</span>, do hereby confirm that this invoice relates to a commercial transaction and this document contains a fair, complete and accurate description of the transaction and the relevant goods and/or services provided as well as a true and realistic description of their value.
+        </div>
+      </div>
+
+      <div class="signature-section">
+        <div class="signature-box-wrapper">
+          <div class="signature-label">Authorized Signature:</div>
+          <div class="signature-box">
+            <div class="signature-icon">✍️ Signature</div>
+          </div>
+          <div class="signature-date">{{invoice_date}}</div>
+        </div>
+        <div class="footer-text" style="margin-left: 40px;">
+          <div class="footer-thank-you">Thank you for your business!</div>
+          <div class="footer-contact">Questions? Contact us at {{company_email}}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Calculate totals
+    const item1Qty = parseFloat('{{item1_qty}}') || 0;
+    const item1Rate = parseFloat('{{item1_rate}}') || 0;
+    const item2Qty = parseFloat('{{item2_qty}}') || 0;
+    const item2Rate = parseFloat('{{item2_rate}}') || 0;
+    const item3Qty = parseFloat('{{item3_qty}}') || 0;
+    const item3Rate = parseFloat('{{item3_rate}}') || 0;
+    const taxRate = parseFloat('{{tax_rate}}') || 0;
+
+    const item1Total = (item1Qty * item1Rate).toFixed(2);
+    const item2Total = (item2Qty * item2Rate).toFixed(2);
+    const item3Total = (item3Qty * item3Rate).toFixed(2);
+    const subtotal = (parseFloat(item1Total) + parseFloat(item2Total) + parseFloat(item3Total)).toFixed(2);
+    const taxAmount = (parseFloat(subtotal) * (taxRate / 100)).toFixed(2);
+    const total = (parseFloat(subtotal) + parseFloat(taxAmount)).toFixed(2);
+
+    document.getElementById('item1-total').textContent = item1Total;
+    document.getElementById('item2-total').textContent = item2Total;
+    document.getElementById('item3-total').textContent = item3Total;
+    document.getElementById('subtotal').textContent = subtotal;
+    document.getElementById('tax-amount').textContent = taxAmount;
+    document.getElementById('total').textContent = total;
+  </script>
+</body>
+</html>
       `
     },
+    
     'service-agreement-001': {
       id: 'service-agreement-001',
       name: 'Service Agreement',
@@ -390,13 +561,12 @@ export default function TemplateEditorPage() {
                   />
                 ) : (
                   <Input
-  type={field.type}
-  value={formData[key] || ''}
-  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange(key, e.target.value)}
-  placeholder={field.placeholder}
-  className="h-9 text-sm"
-/>
-
+                    type={field.type}
+                    value={formData[key] || ''}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange(key, e.target.value)}
+                    placeholder={field.placeholder}
+                    className="h-9 text-sm"
+                  />
                 )}
               </div>
             ))}
