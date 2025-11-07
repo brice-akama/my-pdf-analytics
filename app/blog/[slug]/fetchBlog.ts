@@ -1,6 +1,5 @@
 // app/blog/[slug]/fetchBlog.ts
 import 'server-only';
-
 import { Metadata } from 'next';
 
 interface BlogPost {
@@ -10,28 +9,14 @@ interface BlogPost {
   imageUrl?: string;
   metaTitle?: string;
   metaDescription?: string;
-  translations?: {
-    [lang: string]: {
-      title: string;
-      content: string;
-      metaTitle?: string;
-      metaDescription?: string;
-    };
-  };
 }
 
-type Props = {
-  params: { slug: string };
-  searchParams: { lang?: string };
-};
-
+// Generate metadata for this post
 export async function generateMetadata(
-  { params, searchParams }: Props
+  { params }: { params: { slug: string } }
 ): Promise<Metadata> {
-  const lang = searchParams.lang || 'en';
-
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/blog?slug=${params.slug}&lang=${lang}`,
+    `${process.env.NEXT_PUBLIC_API_URL}/api/blog?slug=${params.slug}`,
     { cache: 'no-store' }
   );
 
@@ -42,10 +27,8 @@ export async function generateMetadata(
 
   if (!post) return {};
 
-  const translated = post.translations?.[lang];
-  const title = translated?.metaTitle || post.metaTitle || post.title;
-  const description =
-    translated?.metaDescription || post.metaDescription || post.title;
+  const title = post.metaTitle || post.title;
+  const description = post.metaDescription || post.title;
   const imageUrl = post.imageUrl;
   const fullUrl = `${process.env.NEXT_PUBLIC_API_URL}/blog/${params.slug}`;
 
@@ -69,13 +52,27 @@ export async function generateMetadata(
   };
 }
 
-export async function getBlogPost(slug: string, lang: string = 'en') {
+export async function getBlogPost(slug: string) {
+  console.log("Fetching post with slug:", slug);
+
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/blog?slug=${slug}&lang=${lang}`,
-    { cache: 'no-store' }
+    `${process.env.NEXT_PUBLIC_API_URL}/api/blog?slug=${slug}`,
+    { cache: "no-store" }
   );
 
-  if (!res.ok) throw new Error('Failed to fetch blog post');
+  if (!res.ok) {
+    throw new Error("Failed to fetch blog post");
+  }
+
   const data = await res.json();
-  return data.data;
+
+  // ✅ unwrap the actual post from the response
+  const post = data?.data?.post;
+
+  if (!post) {
+    console.error("❌ No post found in API response:", data);
+    return null;
+  }
+
+  return post; // ✅ return the post directly, not the wrapper object
 }

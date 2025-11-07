@@ -88,35 +88,43 @@ export default function BlogDetails({ post }: { post: BlogPost }) {
         </div>
       </div>
 
-      <div className="mt-10 prose max-w-none prose-p:leading-7 prose-p:mb-4 prose-a:text-blue-600">
-      {parse(post.content, {
-  replace: (domNode: any) => {
-    if (domNode.name === 'img') {
-      return (
-        <img
-          src={domNode.attribs.src}
-          alt={domNode.attribs.alt || ''}
-          className="max-w-[600px] w-full h-auto rounded-xl shadow-md my-4 mx-auto"
-        />
-      );
+<div className="mt-10 prose max-w-none prose-p:leading-7 prose-p:mb-4 prose-a:text-blue-600">
+  {parse(
+    // ✅ If content has no HTML tags, wrap each paragraph in <p>
+    /<\/?[a-z][\s\S]*>/i.test(post.content)
+      ? post.content
+      : post.content
+          .split(/\n{2,}|\r{2,}/) // split by blank lines
+          .map(p => `<p>${p.trim()}</p>`)
+          .join(""),
+    {
+      replace: (domNode: any) => {
+        if (domNode.name === "img") {
+          return (
+            <img
+              src={domNode.attribs.src}
+              alt={domNode.attribs.alt || ""}
+              className="max-w-[600px] w-full h-auto rounded-xl shadow-md my-4 mx-auto"
+            />
+          );
+        }
+        if (domNode.name === "a") {
+          return (
+            <a
+              href={domNode.attribs.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              {domNode.children[0]?.data}
+            </a>
+          );
+        }
+      },
     }
-    if (domNode.name === 'a') {
-      return (
-        <a
-          href={domNode.attribs.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600  hover:text-blue-800 transition-colors"
-        >
-          {domNode.children[0]?.data}
-        </a>
-      );
-    }
-  },
-})}
+  )}
+</div>
 
-
-      </div>
     </div>
   );
 }

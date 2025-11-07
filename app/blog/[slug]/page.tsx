@@ -1,42 +1,41 @@
-import { getBlogPost } from './fetchBlog';
-import BlogDetails from './BlogDetails';
-import { Metadata } from 'next';
+import { getBlogPost } from "./fetchBlog";
+import BlogDetails from "./BlogDetails";
+import { Metadata } from "next";
 
+// ✅ Type for route params
 type Props = {
-  params: { slug: string };
-  searchParams?: { lang?: string };
+  params: Promise<{ slug: string }>; // params is now async
 };
 
-// TEMP: Comment out static path generation to prevent build errors
-/*
-export async function generateStaticParams() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/blog`);
-  const data = await res.json();
+// ✅ Optional revalidation (you can keep or remove)
+export const revalidate = 60;
 
-  return Array.isArray(data)
-    ? data.map((post: any) => ({ slug: post.slug }))
-    : [];
-}
-*/
+// ✅ Generate metadata for SEO and social sharing
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  // 🧠 Unwrap params first
+  const resolvedParams = await params;
 
-// Tell Next.js to use runtime rendering instead of static generation
-export const dynamic = "force-dynamic";
+  if (!resolvedParams?.slug) {
+    console.warn("⚠️ generateMetadata called without a slug");
+    return {};
+  }
 
-// Metadata generation
-export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
-  const lang = searchParams?.lang || 'en';
-  const post = await getBlogPost(params.slug, lang);
+  // ✅ Fetch post safely
+  const post = await getBlogPost(resolvedParams.slug).catch((err) => {
+    console.error("❌ Failed to fetch post in generateMetadata:", err);
+    return null;
+  });
 
   if (!post) return {};
 
-  const translated = post.translations?.[lang];
-  const title = translated?.metaTitle || post.metaTitle || post.title;
-  const description =
-    translated?.metaDescription || post.metaDescription || post.title;
+  const title = post.metaTitle || post.title;
+  const description = post.metaDescription || post.title;
   const imageUrl = post.imageUrl;
-  const ogImageUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/blog/og?title=${encodeURIComponent(title)}`;
+  const ogImageUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/blog/og?title=${encodeURIComponent(
+    title
+  )}`;
   const image = imageUrl || ogImageUrl;
-  const canonicalUrl = `https://www.16zip.com/blog/${params.slug}`;
+  const canonicalUrl = `https://www.16zip.com/blog/${resolvedParams.slug}`;
 
   return {
     title,
@@ -46,10 +45,10 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       description,
       url: canonicalUrl,
       images: [{ url: image }],
-      type: 'article',
+      type: "article",
     },
     twitter: {
-      card: 'summary_large_image',
+      card: "summary_large_image",
       title,
       description,
       images: [image],
@@ -61,12 +60,19 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   };
 }
 
-export const revalidate = 60;
+// ✅ Page rendering logic
+export default async function Page({ params }: Props) {
+  const resolvedParams = await params; // 👈 same fix here
 
-// Page rendering
-export default async function Page({ params, searchParams }: Props) {
-  const lang = searchParams?.lang || 'en';
-  const post = await getBlogPost(params.slug, lang);
+  if (!resolvedParams?.slug) {
+    console.error("❌ Page rendered without a slug param");
+    return <div>Invalid blog URL</div>;
+  }
+
+  const post = await getBlogPost(resolvedParams.slug).catch((err) => {
+    console.error("❌ Failed to fetch blog post in Page:", err);
+    return null;
+  });
 
   if (!post) return <div>Post not found</div>;
 
