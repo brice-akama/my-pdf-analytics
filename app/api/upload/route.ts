@@ -8,9 +8,9 @@ import {
   analyzeDocument,
   extractMetadata 
 } from '@/lib/document-processor';
-
+import cloudinary from 'cloudinary';
+import streamifier from 'streamifier';
 export const maxDuration = 60;
-
 const SUPPORTED_FORMATS = {
   'application/pdf': 'pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
@@ -27,37 +27,41 @@ const SUPPORTED_FORMATS = {
   'image/gif': 'gif',
   'image/webp': 'webp',
 };
-
+// Configure Cloudinary
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_SECRET_KEY,
+});
+async function uploadToCloudinary(buffer: Buffer, filename: string, folder: string) {
+  return new Promise<string>((resolve, reject) => {
+    const uploadStream = cloudinary.v2.uploader.upload_stream(
+      { folder, public_id: filename.replace(/\.[^/.]+$/, ""), resource_type: "auto" },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result?.secure_url || '');
+      }
+    );
+    streamifier.createReadStream(buffer).pipe(uploadStream);
+  });
+}
 export async function POST(request: NextRequest) {
   try {
-    // ✅ Use cookie-based auth
+    // ✅ Verify user
     const user = await verifyUserFromRequest(request);
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // ✅ Get file
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-    }
-
+    if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     // ✅ Validate file type
     const fileType = SUPPORTED_FORMATS[file.type as keyof typeof SUPPORTED_FORMATS];
-    if (!fileType) {
-      return NextResponse.json({ 
-        error: 'Unsupported file type',
-        supported: Object.values(SUPPORTED_FORMATS)
-      }, { status: 400 });
-    }
-
+    if (!fileType) return NextResponse.json({ 
+      error: 'Unsupported file type',
+      supported: Object.values(SUPPORTED_FORMATS)
+    }, { status: 400 });
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    
-    console.log('📄 Processing file:', file.name, 'Type:', fileType, 'Size:', buffer.length);
-
     // ✅ Check file size based on plan
     const maxSize = user.plan === 'premium' ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
     if (buffer.length > maxSize) {
@@ -65,54 +69,50 @@ export async function POST(request: NextRequest) {
         error: `File too large. Maximum size is ${maxSize / (1024 * 1024)}MB for ${user.plan} plan` 
       }, { status: 400 });
     }
-
-    // 🔄 Convert to PDF if needed
-    let pdfBuffer: Buffer;
-    let originalBuffer = buffer;
-    
-    if (fileType !== 'pdf') {
-      console.log('🔄 Converting to PDF...');
-      pdfBuffer = await convertToPdf(buffer, fileType, file.name);
-    } else {
-      pdfBuffer = buffer;
-    }
-
-    // 📝 Extract text content
-    console.log('📝 Extracting text...');
+    // ✅ Convert to PDF if needed
+    const pdfBuffer = fileType !== 'pdf'
+      ? await convertToPdf(buffer, fileType, file.name)
+      : buffer;
+    // ✅ Extract text & metadata
     const extractedText = await extractTextFromPdf(pdfBuffer);
-
-    // 📊 Analyze document content (Grammar, Readability, etc.)
-    console.log('📊 Analyzing content...');
     const analysis = await analyzeDocument(extractedText, user.plan);
-
-    // 📄 Extract metadata
     const metadata = await extractMetadata(pdfBuffer, fileType);
 
+    // ✅ Detect scanned or image-only PDFs
+const scannedPdf = !extractedText || extractedText.trim().length < 30;
+
+// ✅ Generate quick text summary
+function generateSummary(text: string) {
+  const sentences = text.split(/[.!?]/).filter(Boolean);
+  if (sentences.length <= 3) return text;
+  return sentences.slice(0, 3).join(". ") + ".";
+}
+const summary = generateSummary(extractedText);
+
+    // ✅ Upload files to Cloudinary
+    const folder = `users/${user.id}/documents`;
+    const [originalUrl, pdfUrl] = await Promise.all([
+      uploadToCloudinary(buffer, file.name, folder),
+      uploadToCloudinary(pdfBuffer, file.name.replace(/\.[^/.]+$/, ".pdf"), folder)
+    ]);
+    // ✅ Store document in MongoDB
     const db = await dbPromise;
-    
-    // 💾 Store document with analytics
     const doc = {
       userId: user.id,
       plan: user.plan,
-      
-      // File info
       originalFilename: file.name,
       originalFormat: fileType,
       mimeType: file.type,
       size: buffer.length,
       pdfSize: pdfBuffer.length,
-      
-      // Content
-      pdfData: pdfBuffer.toString('base64'),
-      originalData: fileType !== 'pdf' ? originalBuffer.toString('base64') : null,
-      extractedText: extractedText.substring(0, 10000), // First 10k chars for search
-      
-      // Metadata
+      cloudinaryOriginalUrl: originalUrl,
+      cloudinaryPdfUrl: pdfUrl,
+      extractedText: extractedText.substring(0, 10000), // first 10k chars
       numPages: metadata.pageCount,
       wordCount: metadata.wordCount,
       charCount: metadata.charCount,
-      
-      // 📊 Content Analytics
+      summary,
+scannedPdf,
       analytics: {
         readabilityScore: analysis.readability,
         sentimentScore: analysis.sentiment,
@@ -123,19 +123,13 @@ export async function POST(request: NextRequest) {
         keywords: analysis.keywords,
         entities: analysis.entities,
         language: analysis.language,
-        
-        // Error counts
         errorCounts: {
           grammar: analysis.grammar.length,
           spelling: analysis.spelling.length,
           clarity: analysis.clarity.length,
         },
-        
-        // Document health score (0-100)
         healthScore: analysis.healthScore,
       },
-      
-      // 📈 Tracking (DocSend-style)
       tracking: {
         views: 0,
         uniqueVisitors: [],
@@ -145,44 +139,28 @@ export async function POST(request: NextRequest) {
         viewsByPage: Array(metadata.pageCount).fill(0),
         lastViewed: null,
       },
-      
-      // 🔒 Privacy & Sharing
       isPublic: false,
       sharedWith: [],
       shareLinks: [],
-      
-      // 🏷️ Organization (Notion-style)
       tags: [],
       folder: null,
       starred: false,
       archived: false,
-      
-      // Timestamps
       createdAt: new Date(),
       updatedAt: new Date(),
       lastAnalyzedAt: new Date(),
     };
-
     const result = await db.collection('documents').insertOne(doc);
-    
-    console.log('✅ Document saved with analytics:', result.insertedId);
-
-    // 📊 Return comprehensive response
     return NextResponse.json({
       success: true,
       documentId: result.insertedId.toString(),
-      
-      // File info
       filename: file.name,
       format: fileType,
-      convertedToPdf: fileType !== 'pdf',
-      
-      // Stats
       numPages: metadata.pageCount,
       wordCount: metadata.wordCount,
       size: buffer.length,
-      
-      // Analytics summary
+      cloudinaryOriginalUrl: originalUrl,
+      cloudinaryPdfUrl: pdfUrl,
       analytics: {
         healthScore: analysis.healthScore,
         readabilityScore: analysis.readability,
@@ -193,15 +171,12 @@ export async function POST(request: NextRequest) {
         },
         topKeywords: analysis.keywords.slice(0, 5),
       },
-      
-      // Quick issues preview
       hasIssues: analysis.grammar.length > 0 || analysis.spelling.length > 0,
       issuesSummary: `Found ${analysis.grammar.length} grammar issues, ${analysis.spelling.length} spelling errors`,
     }, { status: 201 });
-    
   } catch (error) {
     console.error('❌ Document upload error:', error);
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: 'Failed to process document. Please try again.',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
