@@ -1,16 +1,17 @@
 // lib/auth.ts
+// lib/auth.ts
 import { dbPromise } from '@/app/api/lib/mongodb';
 import jwt from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
- 
+import { NextRequest } from 'next/server';
 
-export async function verifyUserFromRequest(authHeader: string | null) {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+export async function verifyUserFromRequest(request: NextRequest) {
+  // Read token from HTTP-only cookie instead of Authorization header
+  const token = request.cookies.get('token')?.value;
+  
+  if (!token) {
     return null;
   }
-
-  const token = authHeader.split(' ')[1];
-  if (!token) return null;
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string; email: string };

@@ -121,7 +121,7 @@ export default function OnboardingFlow() {
 
 
 // ...existing code...
-  // If OAuth returns the user with ?step=4 (or any step), pick 
+  // If OAuth returns the user with ?step=2 (or any step), pick 
   useEffect(() => {
   const handle = async () => {
     try {
@@ -189,47 +189,42 @@ export default function OnboardingFlow() {
 
  
 
-  const handleUseCaseNext = async () => {
+ const handleUseCaseNext = async () => {
   if (selectedUseCases.length === 0) return
   setSignupError(null)
   setLoading(true)
   try {
-const payload = {
-  firstName: formData.firstName,
-  companyName: formData.companyName,
-  email: formData.email,
-  password: formData.password, // may be empty for Google users
-  avatar: formData.avatar || "", // 👈 new
-  full_name: `${formData.firstName} ${formData.lastName || ""}`, // 👈 new
-  industry: selectedIndustry,
-  companySize: selectedCompanySize,
-  useCases: selectedUseCases
-};
-
+    const payload = {
+      firstName: formData.firstName,
+      lastName: formData.lastName || "",
+      companyName: formData.companyName || "",
+      email: formData.email,
+      ...(formData.password && { password: formData.password }),
+      avatar: formData.avatar || "",
+      full_name: `${formData.firstName} ${formData.lastName || ""}`,
+      industry: selectedIndustry,
+      companySize: selectedCompanySize,
+      useCases: selectedUseCases
+    };
 
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      credentials: 'include'
     })
+    
     const data = await res.json()
+    
     if (!res.ok) {
       setSignupError(data?.error || "Signup failed")
       setLoading(false)
       return
     }
 
-    // ✅ CRITICAL: Save the token to localStorage
-    if (data.token) {
-      localStorage.setItem("token", data.token)
-    } else {
-      // If your API doesn't return a token on signup, you may need to auto-login
-      // or adjust your backend to include it.
-      console.warn("No token returned from signup")
-    }
-
-    // Now redirect — dashboard will find the token
-    router.push("/dashboard")
+    // ✅ Wait a moment for cookie to propagate, then use window.location
+    await new Promise(resolve => setTimeout(resolve, 100));
+    window.location.href = "/dashboard"; // Use window.location instead of router.push
   } catch (err) {
     console.error("Signup request failed", err)
     setSignupError("Network error. Please try again.")
@@ -237,8 +232,6 @@ const payload = {
     setLoading(false)
   }
 }
- 
-
   // Progress calculation
   const progress = (step / 4) * 100
 

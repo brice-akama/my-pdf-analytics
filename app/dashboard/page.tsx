@@ -291,6 +291,8 @@ const [showShareDialog, setShowShareDialog] = useState(false)
 const [selectedDocumentToShare, setSelectedDocumentToShare] = useState<string | null>(null)
 const [shareEmails, setShareEmails] = useState('')
 const [shareMessage, setShareMessage] = useState('')
+const [isAuthenticated, setIsAuthenticated] = useState(false);
+const [loading, setLoading] = useState(true);
 const [sharedFolders, setSharedFolders] = useState<FolderType[]>([])
 const [sharePermissions, setSharePermissions] = useState({
   canView: true,
@@ -317,13 +319,30 @@ const [sharePermissions, setSharePermissions] = useState({
 }
 
 useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.replace("/login");
-    } else {
-      setIsChecking(false);
-    }
+    // Check authentication on mount
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/verify', {
+          credentials: 'include'
+        });
+
+        if (res.ok) {
+          setIsAuthenticated(true);
+        } else {
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        router.push('/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
   }, [router]);
+
+
 
 
 // Handle document sharing
@@ -17733,29 +17752,27 @@ const handleFeedbackSubmit = async () => {
     }
   ]
 
-   useEffect(() => {
-  const fetchUser = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      console.warn("No token found in localStorage");
-      return;
-    }
+  // Replace your entire useEffect with this:
 
+useEffect(() => {
+  const fetchUser = async () => {
     try {
+      console.log('📥 Fetching user data...');
+      
+      // ✅ NEW: No token needed - cookie is sent automatically
       const res = await fetch("/api/auth/me", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
+        credentials: 'include', // Send HTTP-only cookie
+        cache: 'no-store'
       });
 
       if (!res.ok) {
         const errorText = await res.text();
-        console.error("Failed to fetch user:", errorText);
+        console.error("❌ Failed to fetch user:", res.status, errorText);
         return;
       }
 
       const data = await res.json();
-      console.log("User data received:", data);
+      console.log("✅ User data received:", data);
 
       if (data.success && data.user) {
         // Map the API response to match UserType interface
@@ -17769,7 +17786,7 @@ const handleFeedbackSubmit = async () => {
         });
       }
     } catch (error) {
-      console.error("Fetch error:", error);
+      console.error("❌ Fetch error:", error);
     }
   };
 
@@ -17807,56 +17824,60 @@ useEffect(() => {
 }, [])
 
 // Handle file upload
+// Handle file upload
 const handleFileUpload = async (file: File) => {
-  if (!file) return
-  
+  if (!file) return;
+
   if (file.type !== 'application/pdf') {
-    setUploadStatus('error')
-    setUploadMessage('Please upload a PDF file')
-    setTimeout(() => setUploadStatus('idle'), 3000)
-    return
+    setUploadStatus('error');
+    setUploadMessage('Please upload a PDF file');
+    setTimeout(() => setUploadStatus('idle'), 3000);
+    return;
   }
 
-  setUploadStatus('uploading')
-  setUploadMessage('Uploading your document...')
+  setUploadStatus('uploading');
+  setUploadMessage('Uploading your document...');
 
-  const formData = new FormData()
-  formData.append('file', file)
+  const formData = new FormData();
+  formData.append('file', file);
 
   try {
-    const token = localStorage.getItem("token")
     const res = await fetch("/api/upload", {
       method: 'POST',
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
       body: formData,
-    })
+      credentials: 'include',
+    });
 
-    const data = await res.json()
+    const data = await res.json();
 
     if (res.ok && data.success) {
-      setUploadStatus('success')
-      setUploadMessage(`Successfully uploaded ${file.name}`)
+      setUploadStatus('success');
+      setUploadMessage(`Successfully uploaded ${file.name}`);
+
+      // Redirect to the uploaded document's page
+      router.push(`/documents/${data.documentId}`);
+
+
       // Refresh documents list
-      fetchDocuments()
+      fetchDocuments();
+
       // Reset after 3 seconds
       setTimeout(() => {
-        setUploadStatus('idle')
-        setUploadMessage('')
-      }, 3000)
+        setUploadStatus('idle');
+        setUploadMessage('');
+      }, 3000);
     } else {
-      setUploadStatus('error')
-      setUploadMessage(data.error || 'Upload failed')
-      setTimeout(() => setUploadStatus('idle'), 3000)
+      setUploadStatus('error');
+      setUploadMessage(data.error || 'Upload failed');
+      setTimeout(() => setUploadStatus('idle'), 3000);
     }
   } catch (error) {
-    console.error('Upload error:', error)
-    setUploadStatus('error')
-    setUploadMessage('Upload failed. Please try again.')
-    setTimeout(() => setUploadStatus('idle'), 3000)
+    console.error('Upload error:', error);
+    setUploadStatus('error');
+    setUploadMessage('Upload failed. Please try again.');
+    setTimeout(() => setUploadStatus('idle'), 3000);
   }
-}
+};
 
 // Drag and drop handlers
 const handleDragOver = (e: React.DragEvent) => {
@@ -18235,6 +18256,14 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       default:
         return null
     }
+  }
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return null;
   }
 
   return (

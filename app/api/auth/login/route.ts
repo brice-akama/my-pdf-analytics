@@ -107,26 +107,36 @@ export async function POST(request: NextRequest) {
     });
 
     // ✅ Return token + user (include profile for consistency with signup)
-    return NextResponse.json(
-      {
-        success: true,
-        message: 'Login successful',
-        token,
-        user: {
-          id: user._id.toString(),
-          email: user.email,
-          full_name: user.profile?.fullName || '',
-          provider: user.provider,
-          profile: {
-            firstName: user.profile?.firstName || '',
-            lastName: user.profile?.lastName || '',
-            companyName: user.profile?.companyName || '',
-            avatarUrl: user.profile?.avatarUrl || null,
-          },
-        },
+    const response = NextResponse.json(
+  {
+    success: true,
+    message: 'Login successful',
+    user: {
+      id: user._id.toString(),
+      email: user.email,
+      full_name: user.profile?.fullName || '',
+      provider: user.provider,
+      profile: {
+        firstName: user.profile?.firstName || '',
+        lastName: user.profile?.lastName || '',
+        companyName: user.profile?.companyName || '',
+        avatarUrl: user.profile?.avatarUrl || null,
       },
-      { status: 200 }
-    );
+    },
+  },
+  { status: 200 }
+);
+
+// Set HTTP-only cookie
+response.cookies.set('token', token, {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  maxAge: 60 * 60 * 24 * 7, // 7 days
+  path: '/'
+});
+
+return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

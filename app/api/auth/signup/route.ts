@@ -31,10 +31,11 @@ export async function POST(request: NextRequest) {
     const userAgent = getUserAgent(request);
 
     // Rate limit
-    const rateLimitExceeded = await Promise.resolve(checkRateLimit(`signup:${clientIP}`, 3, 3600000));
-    if (rateLimitExceeded) {
-      return NextResponse.json({ error: 'Too many signup attempts' }, { status: 429 });
-    }
+   // Rate limit
+// const rateLimitExceeded = await Promise.resolve(checkRateLimit(`signup:${clientIP}`, 3, 3600000));
+// if (rateLimitExceeded) {
+//   return NextResponse.json({ error: 'Too many signup attempts' }, { status: 429 });
+// }
 
     const body = await request.json().catch(() => null);
     if (!body) {
@@ -54,19 +55,24 @@ export async function POST(request: NextRequest) {
     const isOAuthSignup = !password || !!sanitizedAvatar || !!full_name;
 
     const missingFields: string[] = [];
-    const invalidFields: { field: string; reason: string }[] = [];
+const invalidFields: { field: string; reason: string }[] = [];
 
-    if (!sanitizedFirstName) missingFields.push('firstName');
-    else if (!isValidName(sanitizedFirstName)) invalidFields.push({ field: 'firstName', reason: 'Invalid first name' });
+if (!sanitizedFirstName) missingFields.push('firstName');
+else if (!isValidName(sanitizedFirstName)) invalidFields.push({ field: 'firstName', reason: 'Invalid first name' });
 
-    if (!sanitizedEmail) missingFields.push('email');
-    else if (!isValidEmail(sanitizedEmail)) invalidFields.push({ field: 'email', reason: 'Invalid email address' });
+if (!sanitizedEmail) missingFields.push('email');
+else if (!isValidEmail(sanitizedEmail)) invalidFields.push({ field: 'email', reason: 'Invalid email address' });
 
-    // ✅ Skip password check if Google signup
-    if (!isOAuthSignup) {
-      if (!password) missingFields.push('password');
-      else if (!isValidPassword(password)) invalidFields.push({ field: 'password', reason: 'Password too weak' });
-    }
+// ✅ Validate companyName ONLY if provided
+if (sanitizedCompanyName && !isValidName(sanitizedCompanyName)) {
+  invalidFields.push({ field: 'companyName', reason: 'Invalid company name' });
+}
+
+// ✅ Skip password check if Google signup
+if (!isOAuthSignup) {
+  if (!password) missingFields.push('password');
+  else if (!isValidPassword(password)) invalidFields.push({ field: 'password', reason: 'Password too weak' });
+}
 
     if (missingFields.length) {
       return NextResponse.json({ error: 'Missing required fields', missingFields }, { status: 400 });
@@ -139,18 +145,28 @@ export async function POST(request: NextRequest) {
       { expiresIn: '7d' }
     );
 
-    return NextResponse.json({
-      success: true,
-      message: 'Account created successfully',
-      token,
-      user: {
-        id: insertedUserId,
-        email: sanitizedEmail,
-        full_name: fullName,
-        provider: userDoc.provider,
-        profile: userDoc.profile
-      }
-    });
+    const response = NextResponse.json({
+  success: true,
+  message: 'Account created successfully',
+  user: {
+    id: insertedUserId,
+    email: sanitizedEmail,
+    full_name: fullName,
+    provider: userDoc.provider,
+    profile: userDoc.profile
+  }
+});
+
+// Set HTTP-only cookie
+response.cookies.set('token', token, {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  maxAge: 60 * 60 * 24 * 7, // 7 days
+  path: '/'
+});
+
+return response;
   } catch (error) {
     console.error('Signup error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

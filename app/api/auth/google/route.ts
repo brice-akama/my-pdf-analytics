@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { dbPromise } from '../../lib/mongodb';
+import jwt from 'jsonwebtoken';
 
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -137,10 +139,39 @@ export async function GET(request: NextRequest) {
 
     if (effectiveMode === "login") {
       console.log("✅ Google login successful for:", profile.email);
-      return NextResponse.redirect(`${baseUrl}${effectiveNext}`);
+      
+      // ✅ ONLY FOR LOGIN: Check if user exists and set cookie
+      const db = await dbPromise;
+      const users = db.collection('users');
+      const user = await users.findOne({ email: profile.email });
+      
+      if (!user) {
+        return NextResponse.redirect(`${baseUrl}/login?error=user_not_found`);
+      }
+      
+      // ✅ Generate JWT token for existing user
+      const token = jwt.sign(
+        { userId: user._id.toString(), email: user.email },
+        process.env.JWT_SECRET!,
+        { expiresIn: '7d' }
+      );
+      
+      const response = NextResponse.redirect(`${baseUrl}${effectiveNext}`);
+      
+      // ✅ Set HTTP-only cookie
+      response.cookies.set('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 60 * 60 * 24 * 7,
+        path: '/'
+      });
+      
+      return response;
     }
 
     // Step 6: Build profile and redirect for signup
+    // ✅ NO cookie logic here - /api/auth/signup will handle it after they complete the form
     const smallProfile = {
       firstName: profile.given_name || profile.name?.split(" ")?.[0] || "",
       lastName: profile.family_name || "",

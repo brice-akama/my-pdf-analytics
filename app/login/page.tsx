@@ -36,6 +36,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         email: email.trim().toLowerCase(),
         password,
       }),
+      credentials: 'include' // ✅ Important: include cookies
     });
 
     const data = await res.json();
@@ -45,12 +46,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       return;
     }
 
-    // ✅ Save token under "token" to match dashboard
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-    }
-
-    // Redirect to dashboard
+    // ✅ Token is already stored in HTTP-only cookie, just redirect
     router.push("/dashboard");
   } catch (err) {
     console.error("Login error", err);
@@ -60,17 +56,14 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 };
   
-  const handleGoogleSignIn = () => {
+const handleGoogleSignIn = () => {
   const state = Math.random().toString(36).slice(2);
   sessionStorage.setItem("oauth_state", state);
 
-  // ❌ remove encodeURIComponent
   const next = "/dashboard";
 
   window.location.href = `/api/auth/google?mode=login&next=${next}&state=${state}`;
 };
-
-
 
   return (
     <div className="min-h-screen flex">

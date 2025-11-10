@@ -1,5 +1,4 @@
 // app/api/auth/me/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
@@ -9,10 +8,11 @@ export async function GET(req: NextRequest) {
   try {
     console.log("📍 /api/auth/me called");
 
-    // 1️⃣ Get Authorization header
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.error("❌ No token in Authorization header");
+    // ✅ FIXED: Get token from HTTP-only cookie instead of Authorization header
+    const token = req.cookies.get("token")?.value;
+
+    if (!token) {
+      console.error("❌ No token in cookies");
       return NextResponse.json(
         {
           success: false,
@@ -22,13 +22,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const token = authHeader.split(" ")[1];
-    console.log("🔑 Token received");
+    console.log("🔑 Token found in cookie");
 
     // 2️⃣ Verify JWT
     let decoded;
     try {
-      // ✅ FIXED: expect 'userId', not 'id' — matches your signup/login tokens
       decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
         userId: string;
         email: string;
@@ -63,7 +61,11 @@ export async function GET(req: NextRequest) {
     // 4️⃣ Fetch user data (exclude password)
     const user = await db.collection("users").findOne(
       { _id: new ObjectId(decoded.userId) },
-      { projection: { passwordHash: 1, email: 1, provider: 1, profile: 1, created_at: 1 } }
+      { 
+        projection: { 
+          passwordHash: 0 // Exclude password hash
+        } 
+      }
     );
 
     if (!user) {
@@ -87,15 +89,17 @@ export async function GET(req: NextRequest) {
     const userData = {
       id: decoded.userId,
       email: user.email,
-      provider: user.provider,
+      provider: user.provider || "local",
+      emailVerified: user.email_verified || false,
       profile: {
-        firstName: profile?.first_name || "",
-        lastName: profile?.last_name || "",
+        firstName: profile?.first_name || user.profile?.firstName || "",
+        lastName: profile?.last_name || user.profile?.lastName || "",
         fullName:
           profile?.full_name ||
-          `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim(),
-        companyName: profile?.company_name || "",
-        avatarUrl: profile?.avatar_url || "",
+          user.profile?.fullName ||
+          `${profile?.first_name || user.profile?.firstName || ""} ${profile?.last_name || user.profile?.lastName || ""}`.trim(),
+        companyName: profile?.company_name || user.profile?.companyName || "",
+        avatarUrl: profile?.avatar_url || user.profile?.avatarUrl || "",
         plan: profile?.plan || "Free Plan",
         createdAt: profile?.created_at || user?.created_at || null,
       },
