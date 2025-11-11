@@ -109,47 +109,36 @@ const [signatureRequest, setSignatureRequest] = useState({
 });
 const [isSendingSignature, setIsSendingSignature] = useState(false);
 
-  useEffect(() => {
-    fetchDocument();
-  }, [params.id]);
+useEffect(() => {
+  fetchDocument();
+  fetchAnalytics();
+}, [params.id]);
 
-  const fetchDocument = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.push('/login');
-      return;
-    }
+const fetchDocument = async () => {
+  try {
+    const res = await fetch(`/api/documents/${params.id}`, {
+      credentials: 'include', // ✅ Send HTTP-only cookies automatically
+    });
 
-    try {
-      const res = await fetch(`/api/documents/${params.id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setDoc(data.document);
-        }
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        setDoc(data.document);
       }
-    } catch (error) {
-      console.error("Failed to fetch document:", error);
-    } finally {
-      setLoading(false);
+    } else if (res.status === 401) {
+      router.push('/login'); // Redirect if unauthorized
     }
-  };
+  } catch (error) {
+    console.error("Failed to fetch document:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  // Fetch real analytics
 const fetchAnalytics = async () => {
-  const token = localStorage.getItem("token");
-  if (!token) return;
-
   try {
     const res = await fetch(`/api/documents/${params.id}/analytics`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      credentials: 'include', // ✅ Send HTTP-only cookies automatically
     });
 
     if (res.ok) {
@@ -157,6 +146,8 @@ const fetchAnalytics = async () => {
       if (data.success) {
         setAnalytics(data.analytics);
       }
+    } else if (res.status === 401) {
+      router.push('/login');
     }
   } catch (error) {
     console.error('Failed to fetch analytics:', error);

@@ -17794,27 +17794,27 @@ useEffect(() => {
 }, []);
 
 // Fetch documents
+// Fetch documents
 const fetchDocuments = async () => {
-  const token = localStorage.getItem("token")
-  if (!token) return
-
   try {
     const res = await fetch("/api/documents", {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
-    })
+      method: "GET",
+      credentials: "include", // ✅ important to send the HTTP-only cookie
+    });
 
     if (res.ok) {
-      const data = await res.json()
+      const data = await res.json();
       if (data.success) {
-        setDocuments(data.documents)
+        setDocuments(data.documents);
       }
+    } else {
+      console.error("Failed to fetch documents:", await res.json());
     }
   } catch (error) {
-    console.error("Failed to fetch documents:", error)
+    console.error("Failed to fetch documents:", error);
   }
-}
+};
+
 
 useEffect(() => {
   fetchDocuments()
@@ -17858,7 +17858,7 @@ const handleFileUpload = async (file: File) => {
       router.push(`/documents/${data.documentId}`);
 
 
-      // Refresh documents list
+      // Refresh documents list. 
       fetchDocuments();
 
       // Reset after 3 seconds
@@ -18072,7 +18072,7 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       </p>
       <p className="text-sm text-slate-500">or click to browse (PDF only)</p>
     </div>
-    <Button variant="outline" className="mt-2">Upload PDF</Button>
+    <Button  onClick={() => fileInputRef.current?.click()} variant="outline" className="mt-2">Upload PDF</Button>
   </div>
 </div>
                   </div>
