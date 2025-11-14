@@ -16,7 +16,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { Copy, Check, TrendingUp, Users, FileCheck } from "lucide-react"
+import { Copy, Check, TrendingUp, Users, FileCheck, Expand, Minimize  } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,6 +57,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Edit, 
   X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -94,6 +95,18 @@ const [generatedLink, setGeneratedLink] = useState<string | null>(null);
 const [isGeneratingLink, setIsGeneratingLink] = useState(false);
 const [analytics, setAnalytics] = useState<any>(null);
 const [analyticsLoading, setAnalyticsLoading] = useState(true);
+const [showFixIssuesDialog, setShowFixIssuesDialog] = useState(false);
+const [contentAnalytics, setContentAnalytics] = useState<any>(null);
+const [editableContent, setEditableContent] = useState('');
+const [isSavingFix, setIsSavingFix] = useState(false);
+const [currentIssueIndex, setCurrentIssueIndex] = useState(0);
+const [showAnalyticsOverlay, setShowAnalyticsOverlay] = useState(false);
+const [previewPage, setPreviewPage] = useState(1);
+const [documentPages, setDocumentPages] = useState<string[]>([]);
+const [currentEditPage, setCurrentEditPage] = useState(0);
+const [paginatedContent, setPaginatedContent] = useState<string[]>([]);
+const [isLoadingPage, setIsLoadingPage] = useState(false);
+const [showPdfView, setShowPdfView] = useState(false);
 const [linkSettings, setLinkSettings] = useState({
   requireEmail: false,
   allowDownload: true,
@@ -108,6 +121,7 @@ const [signatureRequest, setSignatureRequest] = useState({
   dueDate: '',
 });
 const [isSendingSignature, setIsSendingSignature] = useState(false);
+const [isFullscreenEditMode, setIsFullscreenEditMode] = useState(false);
 
 useEffect(() => {
   fetchDocument();
@@ -135,6 +149,8 @@ const fetchDocument = async () => {
   }
 };
 
+
+
 const fetchAnalytics = async () => {
   try {
     const res = await fetch(`/api/documents/${params.id}/analytics`, {
@@ -156,6 +172,258 @@ const fetchAnalytics = async () => {
   }
 };
 
+
+ // Navigate to next page
+const handleNextEditPage = () => {
+  if (currentEditPage < paginatedContent.length - 1) {
+    // Save current page content first
+    const updatedPages = [...paginatedContent];
+    updatedPages[currentEditPage] = editableContent;
+    setPaginatedContent(updatedPages);
+    
+    // Move to next page
+    const nextPage = currentEditPage + 1;
+    setCurrentEditPage(nextPage);
+    setEditableContent(updatedPages[nextPage]);
+  }
+};
+
+// Navigate to previous page
+const handlePrevEditPage = () => {
+  if (currentEditPage > 0) {
+    // Save current page content first
+    const updatedPages = [...paginatedContent];
+    updatedPages[currentEditPage] = editableContent;
+    setPaginatedContent(updatedPages);
+    
+    // Move to previous page
+    const prevPage = currentEditPage - 1;
+    setCurrentEditPage(prevPage);
+    setEditableContent(updatedPages[prevPage]);
+  }
+};
+
+// Go to specific page
+const handleGoToEditPage = (pageIndex: number) => {
+  if (pageIndex >= 0 && pageIndex < paginatedContent.length) {
+    // Save current page content first
+    const updatedPages = [...paginatedContent];
+    updatedPages[currentEditPage] = editableContent;
+    setPaginatedContent(updatedPages);
+    
+    // Move to selected page
+    setCurrentEditPage(pageIndex);
+    setEditableContent(updatedPages[pageIndex]);
+  }
+};
+
+// Fetch content analytics
+// Fetch content analytics
+const fetchContentAnalytics = async () => {
+  setAnalyticsLoading(true);
+  try {
+    const res = await fetch(`/api/documents/${params.id}/content-analytics`, {
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      console.log('📊 Content Analytics Response:', data);
+      if (data.success) {
+        console.log('✅ Analytics loaded:', {
+          grammar: data.analytics.grammarIssues?.length || 0,
+          spelling: data.analytics.spellingErrors?.length || 0,
+          clarity: data.analytics.clarityIssues?.length || 0,
+          health: data.analytics.healthScore
+        });
+        
+        setContentAnalytics(data.analytics);
+        
+        // Paginate the content
+        const fullText = data.extractedText || '';
+        const pages = paginateContent(fullText);
+        setPaginatedContent(pages);
+        setCurrentEditPage(0);
+        setEditableContent(pages[0] || '');
+        
+        console.log('📄 Document paginated into', pages.length, 'pages');
+      }
+    } else {
+      console.error('❌ Failed to fetch analytics:', res.status);
+    }
+  } catch (error) {
+    console.error('Failed to fetch content analytics:', error);
+  } finally {
+    setAnalyticsLoading(false);
+  }
+
+ 
+
+};
+// Handle opening fix issues dialog
+// Handle opening fix issues dialog
+const handleOpenFixIssues = async () => {
+  setShowFixIssuesDialog(true);
+  // Always fetch fresh analytics when opening
+  await fetchContentAnalytics();
+};
+
+// Auto-fetch analytics when Fix Issues dialog opens
+useEffect(() => {
+  if (showFixIssuesDialog && !contentAnalytics) {
+    fetchContentAnalytics();
+  }
+}, [showFixIssuesDialog]);
+
+// Paginate document content by estimated pages
+const paginateContent = (text: string, wordsPerPage: number = 250) => {
+  const words = text.split(/\s+/).filter(Boolean);
+  const pages: string[] = [];
+  
+  for (let i = 0; i < words.length; i += wordsPerPage) {
+    const pageWords = words.slice(i, i + wordsPerPage);
+    pages.push(pageWords.join(' '));
+  }
+  
+  return pages.length > 0 ? pages : [text];
+};
+
+// Save fixed content
+
+const handleSaveFixedContent = async () => {
+  setIsSavingFix(true);
+  try {
+    // Save current page edits first
+    const updatedPages = [...paginatedContent];
+    updatedPages[currentEditPage] = editableContent;
+    
+    // Combine all pages back into one text
+    const fullFixedText = updatedPages.join('\n\n');
+    
+    const res = await fetch(`/api/documents/${params.id}/fix-content`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fixedText: fullFixedText }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      alert('✅ Document updated successfully!');
+      setShowFixIssuesDialog(false);
+      // Refresh analytics
+      await fetchContentAnalytics();
+    } else {
+      alert('Failed to save changes');
+    }
+  } catch (error) {
+    console.error('Failed to save fixed content:', error);
+    alert('Failed to save changes');
+  } finally {
+    setIsSavingFix(false);
+  }
+};
+
+// Apply suggestion to text
+const applySuggestion = (issue: any) => {
+  if (issue.suggestion) {
+    const updatedText = editableContent.replace(issue.issue, issue.suggestion);
+    setEditableContent(updatedText);
+  }
+};
+
+// Get total issues count
+// Get total issues count
+const getTotalIssues = () => {
+  if (!contentAnalytics) return 0;
+  
+  const grammarCount = Array.isArray(contentAnalytics.grammarIssues) 
+    ? contentAnalytics.grammarIssues.length 
+    : 0;
+  const spellingCount = Array.isArray(contentAnalytics.spellingErrors) 
+    ? contentAnalytics.spellingErrors.length 
+    : 0;
+  
+  // Check both clarityScore (DB field) and clarityIssues (frontend field)
+  const clarityArray = contentAnalytics.clarityScore || contentAnalytics.clarityIssues || [];
+  const clarityCount = Array.isArray(clarityArray) ? clarityArray.length : 0;
+    
+  return grammarCount + spellingCount + clarityCount;
+};
+
+// Get all issues combined
+// Get all issues combined
+interface GrammarIssue {
+  message?: string;
+  issue?: string;
+  suggestion?: string;
+}
+
+interface SpellingError {
+  word?: string;
+  issue?: string;
+  position?: number;
+}
+
+interface ClarityIssue {
+  issue?: string;
+  message?: string;
+  suggestion?: string;
+}
+
+interface CombinedIssue extends Record<string, any> {
+  category: 'Grammar' | 'Spelling' | 'Clarity';
+  issue: string;
+  suggestion?: string;
+  position?: number;
+}
+
+const getAllIssues = (): CombinedIssue[] => {
+  if (!contentAnalytics) return [];
+  const issues: CombinedIssue[] = [];
+  
+  // Grammar issues
+  if (Array.isArray(contentAnalytics.grammarIssues)) {
+    contentAnalytics.grammarIssues.forEach((issue: GrammarIssue) => {
+      issues.push({ 
+        ...issue, 
+        category: 'Grammar',
+        issue: issue.message || issue.issue || 'Grammar issue detected',
+        suggestion: issue.suggestion || 'Review grammar'
+      });
+    });
+  }
+  
+  // Spelling errors
+  if (Array.isArray(contentAnalytics.spellingErrors)) {
+    contentAnalytics.spellingErrors.forEach((error: SpellingError) => {
+      issues.push({ 
+        issue: error.word || error.issue || 'Spelling error', 
+        suggestion: `Check spelling of "${error.word || 'this word'}"`,
+        category: 'Spelling',
+        position: error.position 
+      });
+    });
+  }
+  
+  // Clarity issues - use clarityScore from DB
+  const clarityIssues: ClarityIssue[] = contentAnalytics.clarityScore || contentAnalytics.clarityIssues || [];
+  if (Array.isArray(clarityIssues)) {
+    clarityIssues.forEach((issue: ClarityIssue) => {
+      issues.push({ 
+        ...issue, 
+        category: 'Clarity',
+        issue: issue.issue || issue.message || 'Clarity issue detected'
+      });
+    });
+  }
+  
+  return issues;
+};
+  
+
 // Fetch analytics when document loads
 useEffect(() => {
   if (doc) {
@@ -166,17 +434,18 @@ useEffect(() => {
   // Save notes
 const handleSaveNotes = async () => {
   setIsSavingNotes(true);
-  const token = localStorage.getItem("token");
+  
 
   try {
-    const res = await fetch(`/api/documents/${params.id}/notes`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ notes }),
-    });
+   const res = await fetch(`/api/documents/${params.id}/notes`, {
+  method: 'PATCH',
+  credentials: 'include', // Send HTTP-only cookies
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ notes }),
+});
+
 
     if (res.ok) {
       setIsEditingNotes(false);
@@ -205,8 +474,9 @@ useEffect(() => {
 // Handle present mode
 const handlePresent = () => {
   setPresentMode(true);
+  setPreviewPage(1);
   if (!pdfUrl) {
-    fetchPdfForPreview();
+    fetchPdfForPreview(1);
   }
 };
 
@@ -234,15 +504,14 @@ const handleExportVisits = () => {
 // Handle delete
 const handleDelete = async () => {
   setIsDeleting(true);
-  const token = localStorage.getItem("token");
+ 
 
   try {
     const res = await fetch(`/api/documents/${params.id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
+  method: 'DELETE',
+  credentials: 'include', // Send HTTP-only cookies
+});
+
 
     if (res.ok) {
       router.push('/dashboard');
@@ -268,82 +537,102 @@ const handleUpdateThumbnail = () => {
   alert('Update Thumbnail feature coming soon! This will let you choose a custom preview image.');
 };
 
-  const fetchPdfForPreview = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      const res = await fetch(`/api/documents/${params.id}/file`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        setPdfUrl(url);
-        setTotalPages(doc?.numPages || 1);
+// Fetch PDF for preview
+const fetchPdfForPreview = async (page: number = 1) => {
+  setIsLoadingPage(true);
+  try {
+    const res = await fetch(`/api/documents/${params.id}/file?page=${page}`, {
+      credentials: 'include',
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.fileUrl) {
+        // Directly use the Cloudinary URL with page parameter
+        const pdfUrlWithPage = `${data.fileUrl}#page=${page}`;
+        setPdfUrl(pdfUrlWithPage);
+        setTotalPages(data.numPages || doc?.numPages || 1);
+        setPreviewPage(page);
       }
-    } catch (error) {
-      console.error("Failed to fetch PDF:", error);
+    } else {
+      console.error('Failed to fetch PDF:', res.status);
     }
-  };
+  } catch (error) {
+    console.error("Failed to fetch PDF:", error);
+  } finally {
+    setIsLoadingPage(false);
+  }
+};
+// Handle preview
+const handlePreview = () => {
+  setPreviewOpen(true);
+  setPreviewPage(1);
+  if (!pdfUrl) {
+    fetchPdfForPreview(1);
+  }
+  // Fetch content analytics for overlay
+  if (!contentAnalytics) {
+    fetchContentAnalytics();
+  }
+};
 
-  const handlePreview = () => {
-    setPreviewOpen(true);
-    if (!pdfUrl) {
-      fetchPdfForPreview();
+const handleNextPage = () => {
+  if (previewPage < totalPages) {
+    fetchPdfForPreview(previewPage + 1);
+  }
+};
+
+const handlePrevPage = () => {
+  if (previewPage > 1) {
+    fetchPdfForPreview(previewPage - 1);
+  }
+};
+
+const handleGoToPage = (page: number) => {
+  if (page >= 1 && page <= totalPages) {
+    fetchPdfForPreview(page);
+  }
+};
+
+// Handle download
+const handleDownload = async () => {
+  if (!doc) return;
+  setIsDownloading(true);
+  try {
+    const res = await fetch(`/api/documents/${params.id}/file`, {
+      credentials: 'include', // Use HTTP-only cookies
+    });
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
-  };
+  } catch (error) {
+    console.error("Download failed:", error);
+    alert("Failed to download document. Please try again.");
+  } finally {
+    setIsDownloading(false);
+  }
+};
 
-  const handleDownload = async () => {
-    if (!doc) return;
-
-    setIsDownloading(true);
-    const token = localStorage.getItem("token");
-
-    try {
-      const res = await fetch(`/api/documents/${params.id}/file`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = doc.filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error("Download failed:", error);
-      alert("Failed to download document. Please try again.");
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  // Handle create shareable link
+// Handle create shareable link
 const handleCreateLink = async () => {
   setIsGeneratingLink(true);
-  const token = localStorage.getItem("token");
-
   try {
     const res = await fetch(`/api/documents/${params.id}/share`, {
       method: 'POST',
+      credentials: 'include', // Use HTTP-only cookies
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(linkSettings),
     });
-
     if (res.ok) {
       const data = await res.json();
       if (data.success) {
@@ -376,20 +665,16 @@ const handleSendSignatureRequest = async () => {
     alert('Please fill in recipient email and name');
     return;
   }
-
   setIsSendingSignature(true);
-  const token = localStorage.getItem("token");
-
   try {
     const res = await fetch(`/api/documents/${params.id}/signature`, {
       method: 'POST',
+      credentials: 'include', // Use HTTP-only cookies
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(signatureRequest),
     });
-
     if (res.ok) {
       const data = await res.json();
       alert('Signature request sent successfully!');
@@ -656,6 +941,7 @@ const openCreateLinkDialog = () => {
 </Dialog>
 
 {/* Present Mode Dialog */}
+{/* Present Mode Dialog with Pagination */}
 <Dialog open={presentMode} onOpenChange={setPresentMode}>
   <DialogContent className="max-w-screen-2xl w-screen h-screen p-0 bg-black">
     <div className="relative h-full">
@@ -669,11 +955,17 @@ const openCreateLinkDialog = () => {
 
       {/* PDF Viewer */}
       <div className="h-full flex items-center justify-center p-8">
-        {pdfUrl ? (
+        {isLoadingPage ? (
+          <div className="text-center">
+            <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-white">Loading page {previewPage}...</p>
+          </div>
+        ) : pdfUrl ? (
           <iframe
             src={pdfUrl}
-            className="w-full h-full bg-white"
+            className="w-full h-full bg-white rounded-lg shadow-2xl"
             title="PDF Presentation"
+            style={{ border: 'none' }}
           />
         ) : (
           <div className="text-center">
@@ -689,16 +981,20 @@ const openCreateLinkDialog = () => {
           variant="ghost"
           size="icon"
           className="text-white hover:bg-white/20"
+          onClick={handlePrevPage}
+          disabled={previewPage <= 1 || isLoadingPage}
         >
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <span className="text-white font-medium">
-          1 / {doc.numPages}
+        <span className="text-white font-medium min-w-[80px] text-center">
+          {previewPage} / {totalPages}
         </span>
         <Button
           variant="ghost"
           size="icon"
           className="text-white hover:bg-white/20"
+          onClick={handleNextPage}
+          disabled={previewPage >= totalPages || isLoadingPage}
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
@@ -706,7 +1002,6 @@ const openCreateLinkDialog = () => {
     </div>
   </DialogContent>
 </Dialog>
-
       {/* Tabs */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -770,6 +1065,19 @@ const openCreateLinkDialog = () => {
                   <LinkIcon className="h-4 w-4" />
                   Create link
                 </Button>
+                <Button
+  onClick={handleOpenFixIssues}
+  variant="outline"
+  className="gap-2 border-orange-300 text-orange-700 hover:bg-orange-50"
+>
+  <FileCheck className="h-4 w-4" />
+  Fix Issues
+  {doc && getTotalIssues() > 0 && (
+    <span className="ml-1 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
+      {getTotalIssues()}
+    </span>
+  )}
+</Button>
                 <Button
                 onClick={() => setShowSignatureDialog(true)}
                 variant="outline" className="gap-2">
@@ -1134,74 +1442,336 @@ const openCreateLinkDialog = () => {
       </div>
 
       {/* PDF Preview Dialog */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-5xl h-[90vh] p-0">
-          <DialogHeader className="px-6 py-4 border-b">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-lg font-semibold">
-                {doc.filename}
-              </DialogTitle>
-              <div className="flex items-center gap-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={handleDownload}
-                        disabled={isDownloading}
-                      >
-                        {isDownloading ? (
-                          <div className="animate-spin h-4 w-4 border-2 border-purple-600 border-t-transparent rounded-full" />
-                        ) : (
-                          <Download className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Download</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </div>
-          </DialogHeader>
-          
+    {/* PDF Preview Dialog with Analytics Overlay */}
+<Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+  <DialogContent className="max-w-7xl h-[95vh] p-0 bg-slate-900">
+    {/* Header */}
+    <DialogHeader className="px-6 py-4 border-b border-slate-700 bg-slate-800">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <DialogTitle className="text-lg font-semibold text-white">
+            {doc.filename}
+          </DialogTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAnalyticsOverlay(!showAnalyticsOverlay)}
+              className={`text-xs ${
+                showAnalyticsOverlay 
+                  ? 'bg-purple-500/20 text-purple-300' 
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Activity className="h-3.5 w-3.5 mr-1.5" />
+              {showAnalyticsOverlay ? 'Hide' : 'Show'} Issues
+              {contentAnalytics && getTotalIssues() > 0 && (
+                <span className="ml-1.5 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                  {getTotalIssues()}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                  className="text-slate-400 hover:text-white hover:bg-slate-700"
+                >
+                  {isDownloading ? (
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Download</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
+    </DialogHeader>
 
-          
-          <div className="flex-1 overflow-auto bg-slate-100 p-6">
-            {pdfUrl ? (
-              <div className="max-w-4xl mx-auto bg-white shadow-lg">
-                <iframe
-                  src={pdfUrl}
-                  className="w-full h-[calc(90vh-120px)]"
-                  title="PDF Preview"
-                />
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                  <p className="text-slate-600">Loading preview...</p>
+    {/* Main Content Area */}
+    <div className="flex-1 flex overflow-hidden">
+      {/* PDF Viewer */}
+      <div className="flex-1 overflow-auto bg-slate-800 p-6 relative">
+        {isLoadingPage ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-slate-400">Loading page {previewPage}...</p>
+            </div>
+          </div>
+        ) : pdfUrl ? (
+          <div className="max-w-5xl mx-auto bg-white shadow-2xl rounded-lg overflow-hidden">
+            <iframe
+              src={`${pdfUrl}#page=${previewPage}`}
+              className="w-full h-[calc(95vh-180px)]"
+              title="PDF Preview"
+            />
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-slate-400">Loading preview...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Page Navigation Overlay */}
+        {pdfUrl && !isLoadingPage && (
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center gap-3 bg-slate-900/90 backdrop-blur-sm rounded-full px-6 py-3 shadow-lg border border-slate-700">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePrevPage}
+              disabled={previewPage <= 1}
+              className="text-white hover:bg-slate-700 disabled:opacity-30"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max={totalPages}
+                value={previewPage}
+                onChange={(e) => {
+                  const page = parseInt(e.target.value);
+                  if (page) handleGoToPage(page);
+                }}
+                className="w-12 bg-slate-800 text-white text-center rounded px-2 py-1 text-sm border border-slate-600 focus:border-purple-500 focus:outline-none"
+              />
+              <span className="text-white font-medium text-sm">/ {totalPages}</span>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNextPage}
+              disabled={previewPage >= totalPages}
+              className="text-white hover:bg-slate-700 disabled:opacity-30"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Analytics Overlay Panel */}
+      {showAnalyticsOverlay && (
+        <div className="w-80 border-l border-slate-700 bg-slate-800 overflow-y-auto">
+          <div className="p-4">
+            <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Content Analysis
+            </h3>
+
+            {analyticsLoading ? (
+  <div className="text-center py-8">
+    <div className="animate-spin h-6 w-6 border-3 border-purple-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+    <p className="text-sm text-slate-400">Analyzing...</p>
+  </div>
+) : contentAnalytics?.scannedPdf ? (
+  <div className="text-center py-8">
+    <ImageIcon className="h-12 w-12 text-slate-500 mx-auto mb-3" />
+    <p className="text-sm text-slate-400">
+      Scanned document - limited text analysis
+    </p>
+  </div>
+) : !contentAnalytics || getTotalIssues() === 0 ? (
+  <div className="text-center py-8">
+    <div className="h-16 w-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-3">
+      <Check className="h-8 w-8 text-green-400" />
+    </div>
+    <h4 className="font-semibold text-white mb-2">
+      {contentAnalytics && getTotalIssues() === 0 ? 'No Issues Found!' : 'Loading...'}
+    </h4>
+    <p className="text-sm text-slate-400 mb-4">
+      {contentAnalytics && getTotalIssues() === 0 
+        ? 'Your document is ready to share' 
+        : 'Analyzing document...'
+      }
+    </p>
+    {contentAnalytics && getTotalIssues() === 0 && (
+      <div className="bg-slate-900/50 rounded-lg p-3 text-left">
+        <div className="space-y-2 text-xs">
+          <div className="flex items-center justify-between text-slate-300">
+            <span>Health Score</span>
+            <span className="font-semibold text-green-400">
+              {contentAnalytics.healthScore || 0}/100
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-slate-300">
+            <span>Readability</span>
+            <span className="font-semibold">
+              {contentAnalytics.readabilityScore || 0}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-slate-300">
+            <span>Grammar</span>
+            <span className="font-semibold text-green-400">✓ Perfect</span>
+          </div>
+          <div className="flex items-center justify-between text-slate-300">
+            <span>Spelling</span>
+            <span className="font-semibold text-green-400">✓ Perfect</span>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+) : (
+  // Show issues (rest of your existing code)
+              <div className="space-y-4">
+                {/* Summary Stats */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-slate-900/50 rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-red-400">
+                      {contentAnalytics?.errorCounts?.grammar || 0}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">Grammar</div>
+                  </div>
+                  <div className="bg-slate-900/50 rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-yellow-400">
+                      {contentAnalytics?.errorCounts?.spelling || 0}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">Spelling</div>
+                  </div>
+                  <div className="bg-slate-900/50 rounded-lg p-3 text-center">
+                    <div className="text-2xl font-bold text-blue-400">
+                      {contentAnalytics?.errorCounts?.clarity || 0}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">Clarity</div>
+                  </div>
                 </div>
+
+                {/* Health Score */}
+                <div className="bg-slate-900/50 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-slate-300">Health Score</span>
+                    <span className={`text-lg font-bold ${
+                      (contentAnalytics?.healthScore || 0) >= 80 
+                        ? 'text-green-400' 
+                        : (contentAnalytics?.healthScore || 0) >= 60 
+                        ? 'text-yellow-400' 
+                        : 'text-red-400'
+                    }`}>
+                      {contentAnalytics?.healthScore || 0}/100
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all ${
+                        (contentAnalytics?.healthScore || 0) >= 80 
+                          ? 'bg-green-500' 
+                          : (contentAnalytics?.healthScore || 0) >= 60 
+                          ? 'bg-yellow-500' 
+                          : 'bg-red-500'
+                      }`}
+                      style={{ width: `${contentAnalytics?.healthScore || 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Issues List */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-slate-300 mb-2">Issues Found:</h4>
+                  
+                  {/* Grammar Issues */}
+                  {contentAnalytics?.grammarIssues?.slice(0, 3).map((issue: any, idx: number) => (
+                    <div key={`grammar-${idx}`} className="bg-slate-900/50 rounded-lg p-3 border-l-2 border-red-500">
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs font-medium bg-red-500/20 text-red-400 px-2 py-0.5 rounded">
+                          Grammar
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 mt-2">{issue.message}</p>
+                    </div>
+                  ))}
+
+                  {/* Spelling Issues */}
+                  {contentAnalytics?.spellingErrors?.slice(0, 3).map((error: any, idx: number) => (
+                    <div key={`spelling-${idx}`} className="bg-slate-900/50 rounded-lg p-3 border-l-2 border-yellow-500">
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs font-medium bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">
+                          Spelling
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 mt-2">
+                        Possible misspelling: "<span className="font-semibold">{error.word}</span>"
+                      </p>
+                    </div>
+                  ))}
+
+                  {/* Clarity Issues */}
+                  {contentAnalytics?.clarityIssues?.slice(0, 2).map((issue: any, idx: number) => (
+                    <div key={`clarity-${idx}`} className="bg-slate-900/50 rounded-lg p-3 border-l-2 border-blue-500">
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs font-medium bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded">
+                          Clarity
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 mt-2">{issue.issue}</p>
+                      {issue.suggestion && (
+                        <p className="text-xs text-blue-400 mt-1">💡 {issue.suggestion}</p>
+                      )}
+                    </div>
+                  ))}
+
+                  {getTotalIssues() > 8 && (
+                    <p className="text-xs text-slate-500 text-center py-2">
+                      +{getTotalIssues() - 8} more issues
+                    </p>
+                  )}
+                </div>
+
+                {/* Action Button */}
+                <Button
+                  onClick={() => {
+                    setPreviewOpen(false);
+                    handleOpenFixIssues();
+                  }}
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                  size="sm"
+                >
+                  <FileCheck className="h-4 w-4 mr-2" />
+                  Fix All Issues
+                </Button>
               </div>
             )}
           </div>
+        </div>
+      )}
+    </div>
 
-          <div className="px-6 py-3 border-t bg-white flex items-center justify-between">
-            <div className="text-sm text-slate-600">
-              {doc.numPages && `${doc.numPages} pages`}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPreviewOpen(false)}
-            >
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+    {/* Footer */}
+    <div className="px-6 py-3 border-t border-slate-700 bg-slate-800 flex items-center justify-between">
+      <div className="text-sm text-slate-400">
+        {doc.numPages && `${doc.numPages} pages • `}
+        {(doc.size / 1024 / 1024).toFixed(2)} MB
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setPreviewOpen(false)}
+        className="border-slate-600 text-slate-300 hover:bg-slate-700"
+      >
+        Close
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
       {/* Create Share Link Dialog */}
 <Dialog open={showCreateLinkDialog} onOpenChange={setShowCreateLinkDialog}>
   <DialogContent className="max-w-2xl bg-white">
@@ -1543,6 +2113,321 @@ const openCreateLinkDialog = () => {
     </div>
   </DialogContent>
 </Dialog>
+
+{/* Fix Issues Dialog */}
+{/* Fix Issues Dialog with Pagination - Professional Design */}
+<Dialog open={showFixIssuesDialog} onOpenChange={setShowFixIssuesDialog}>
+  <DialogContent className={`max-w-full w-full max-h-[95vh]  overflow-hidden bg-white flex flex-col shadow-2xl rounded-lg ${isFullscreenEditMode ? 'fullscreen-edit-mode' : ''}`}>
+    {/* Header */}
+    <DialogHeader className="border-b pb-5 px-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <DialogTitle className="text-2xl font-bold text-gray-900">Content Analysis & Fixes</DialogTitle>
+          <p className="text-sm text-gray-500 mt-1.5">{doc?.filename}</p>
+        </div>
+        {contentAnalytics && (
+          <div className="flex items-center gap-5">
+            <div className="text-center">
+              <div className="text-3xl font-extrabold text-gray-900">
+                {contentAnalytics.healthScore}
+              </div>
+              <div className="text-xs text-gray-500 font-medium">Health Score</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-extrabold text-gray-900">
+                {contentAnalytics.readabilityScore}
+              </div>
+              <div className="text-xs text-gray-500 font-medium">Readability</div>
+            </div>
+            <div className={`px-4 py-2 rounded-full text-sm font-medium shadow-sm ${
+              getTotalIssues() === 0
+                ? 'bg-green-50 text-green-800 border border-green-200'
+                : 'bg-orange-50 text-orange-800 border border-orange-200'
+            }`}>
+              {getTotalIssues() === 0 ? '✓ No Issues' : `${getTotalIssues()} Issues Found`}
+            </div>
+          </div>
+        )}
+      </div>
+    </DialogHeader>
+
+    {/* Loading States */}
+    {analyticsLoading ? (
+      <div className="flex-1 flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="animate-spin h-10 w-10 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Analyzing content...</p>
+        </div>
+      </div>
+    ) : contentAnalytics?.scannedPdf ? (
+      <div className="flex-1 flex items-center justify-center py-20">
+        <div className="text-center max-w-md space-y-4">
+          <ImageIcon className="h-20 w-20 text-gray-300 mx-auto" />
+          <h3 className="text-2xl font-bold text-gray-900">
+            Scanned Document Detected
+          </h3>
+          <p className="text-gray-600 font-medium">
+            This appears to be a scanned or image-based PDF. Text extraction is limited.
+            For best results, please upload a text-based PDF document.
+          </p>
+        </div>
+      </div>
+    ) : !contentAnalytics ? (
+      <div className="flex-1 flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="animate-spin h-10 w-10 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading document analysis...</p>
+        </div>
+      </div>
+    ) : getTotalIssues() === 0 ? (
+      <div className="flex-1 flex items-center justify-center py-20">
+        <div className="text-center max-w-2xl space-y-6">
+          <div className="h-24 w-24 rounded-full bg-green-50 flex items-center justify-center mx-auto">
+            <Check className="h-12 w-12 text-green-600" />
+          </div>
+          <h3 className="text-3xl font-bold text-gray-900">
+            Perfect! No Issues Found
+          </h3>
+          <p className="text-gray-600 font-medium text-lg">
+            Your document looks great and is ready to be shared with employers, clients, or colleagues.
+          </p>
+          <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-left space-y-3">
+            <h4 className="font-bold text-green-900 text-lg">Document Quality:</h4>
+            <ul className="text-sm text-green-800 space-y-2">
+              <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-600" /> No grammar issues detected</li>
+              <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-600" /> No spelling errors found</li>
+              <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-600" /> Clarity is excellent</li>
+              <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-600" /> Readability score: {contentAnalytics.readabilityScore || 0}</li>
+              <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-600" /> Health score: {contentAnalytics.healthScore || 0}/100</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    ) : (
+     <div
+  className={`flex-1 grid gap-6 overflow-hidden p-1
+    ${isFullscreenEditMode ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}
+  `}
+>
+
+        {/* Left Panel - Issues List (Hidden in Fullscreen Mode) */}
+        {!isFullscreenEditMode && (
+          <div className="border-r pr-6 overflow-y-auto max-h-[70vh] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+            <div className="space-y-4 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-bold text-gray-900 text-lg">Issues & Suggestions</h3>
+                  <span className="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full font-medium">
+                    {getAllIssues().length} total
+                  </span>
+                </div>
+              </div>
+              {getAllIssues().map((issue, index) => (
+                <div
+                  key={index}
+                  className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ease-in-out ${
+                    currentIssueIndex === index
+                      ? 'border-purple-500 bg-purple-50 shadow-sm'
+                      : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                  }`}
+                  onClick={() => setCurrentIssueIndex(index)}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <span className={`text-xs font-medium px-3 py-1 rounded-full ${
+                      issue.category === 'Grammar'
+                        ? 'bg-red-50 text-red-800'
+                        : issue.category === 'Spelling'
+                        ? 'bg-yellow-50 text-yellow-800'
+                        : 'bg-blue-50 text-blue-800'
+                    }`}>
+                      {issue.category}
+                    </span>
+                    {issue.suggestion && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs font-medium text-purple-600 hover:text-purple-800 hover:bg-purple-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          applySuggestion(issue);
+                        }}
+                      >
+                        Apply Fix
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-800 font-medium mb-2">{issue.issue || issue.message}</p>
+                  {issue.suggestion && (
+                    <p className="text-xs text-gray-600 italic">
+                      💡 {issue.suggestion}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Right Panel - Editable Content with Pagination */}
+       {/* Right Panel - Editable Content with Pagination */}
+        <div className={`overflow-y-auto ${isFullscreenEditMode ? 'max-h-[85vh]' : 'max-h-[70vh]'} scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 flex flex-col`}>
+          <div className="mb-5 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-900 text-lg">Edit Document</h3>
+              <div className="flex items-center gap-4">
+                {/* PDF View Toggle (Only in Fullscreen) */}
+                {isFullscreenEditMode && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    onClick={() => setShowPdfView(!showPdfView)}
+                  >
+                    {showPdfView ? (
+                      <>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Switch to Edit
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-4 w-4 mr-2" />
+                        View Original PDF
+                      </>
+                    )}
+                  </Button>
+                )}
+                {/* Fullscreen Toggle Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                  onClick={() => setIsFullscreenEditMode(!isFullscreenEditMode)}
+                >
+                  {isFullscreenEditMode ? (
+                    <>
+                      <Minimize className="h-4 w-4 mr-2" />
+                      Exit Fullscreen
+                    </>
+                  ) : (
+                    <>
+                      <Expand className="h-4 w-4 mr-2" />
+                      Fullscreen Edit
+                    </>
+                  )}
+                </Button>
+                {/* Page Navigation */}
+                {paginatedContent.length > 1 && (
+                  <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-4 py-2 border border-gray-200">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-gray-600 hover:text-gray-900"
+                      onClick={handlePrevEditPage}
+                      disabled={currentEditPage === 0}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm font-medium text-gray-700">
+                      Page {currentEditPage + 1} / {paginatedContent.length}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-gray-600 hover:text-gray-900"
+                      onClick={handleNextEditPage}
+                      disabled={currentEditPage === paginatedContent.length - 1}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+                <span className="text-sm text-gray-600 font-medium">
+                  {editableContent.split(/\s+/).filter(Boolean).length} words
+                </span>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              Make changes below to fix issues. Navigate between pages to edit the entire document.
+            </p>
+          </div>
+
+          {/* Textarea for Content */}
+          <div className="px-4 pb-6 flex-1">
+            <Textarea
+              value={editableContent}
+              onChange={(e) => setEditableContent(e.target.value)}
+              className="flex-1 w-full font-mono text-sm resize-none min-h-[50vh] border-gray-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 rounded-lg shadow-sm p-4"
+              placeholder="Document content will appear here..."
+            />
+          </div>
+
+          {/* Page Thumbnails/Quick Navigation */}
+          {paginatedContent.length > 1 && (
+            <div className="mt-3 pt-4 border-t px-4">
+              <div className="flex items-center gap-3 overflow-x-auto pb-3">
+                {paginatedContent.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleGoToEditPage(index)}
+                    className={`flex-shrink-0 px-4 py-2 text-sm rounded-lg transition-all duration-200 ease-in-out ${
+                      currentEditPage === index
+                        ? 'bg-purple-600 text-white font-medium shadow-sm'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-sm'
+                    }`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* Footer Actions */}
+{!analyticsLoading && !contentAnalytics?.scannedPdf && contentAnalytics && getTotalIssues() > 0 && (
+  <div className="border-t pt-5 px-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="text-sm text-gray-600 font-medium">
+      Editing page {currentEditPage + 1} of {paginatedContent.length} • {getAllIssues().length} issue{getAllIssues().length !== 1 ? 's' : ''}
+    </div>
+
+    <div className="flex gap-3">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowFixIssuesDialog(false);
+          setEditableContent('');
+          setPaginatedContent([]);
+          setCurrentEditPage(0);
+        }}
+        disabled={isSavingFix}
+        className="text-gray-700 border-gray-300 hover:bg-gray-50 font-medium"
+      >
+        Cancel
+      </Button>
+
+      <Button
+        onClick={handleSaveFixedContent}
+        disabled={isSavingFix}
+        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium shadow-sm hover:shadow-md transition-all duration-200"
+      >
+        {isSavingFix ? (
+          <>
+            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+            Saving All Pages...
+          </>
+        ) : (
+          'Save All Changes'
+        )}
+      </Button>
+    </div>
+  </div>
+)}
+
+  </DialogContent>
+</Dialog>
+
     </div>
   );
 }

@@ -12,26 +12,27 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_SECRET_KEY,
 });
 
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ Verify user via HTTP-only cookie
     const user = await verifyUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // ✅ Validate document ID
-    if (!ObjectId.isValid(params.id)) {
+    // Await params from context
+    const { id } = await context.params;
+
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid document ID' }, { status: 400 });
     }
 
     const db = await dbPromise;
-    const documentId = new ObjectId(params.id);
+    const documentId = new ObjectId(id);
 
-    // ✅ Verify ownership of the document
     const document = await db.collection('documents').findOne({
       _id: documentId,
       userId: user.id,
@@ -41,74 +42,84 @@ export async function GET(
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    // ✅ Check if file URL exists
     if (!document.cloudinaryPdfUrl) {
-      return NextResponse.json({ 
-        error: 'File not found in storage',
-        details: 'PDF file URL is missing from document record'
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: 'File not found in storage',
+          details: 'PDF file URL is missing from document record',
+        },
+        { status: 404 }
+      );
     }
 
-    // ✅ Get query parameters for different actions
     const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action') || 'view'; // 'view', 'download', 'original'
-    const format = searchParams.get('format') || 'pdf'; // 'pdf', 'original'
+    const action = searchParams.get('action') || 'view';
+    const format = searchParams.get('format') || 'pdf';
+    const page = searchParams.get('page'); // page number for pagination
 
-    // ✅ Determine which file to serve
-    const fileUrl = format === 'original' && document.cloudinaryOriginalUrl
-      ? document.cloudinaryOriginalUrl
-      : document.cloudinaryPdfUrl;
+    const fileUrl =
+      format === 'original' && document.cloudinaryOriginalUrl
+        ? document.cloudinaryOriginalUrl
+        : document.cloudinaryPdfUrl;
 
-    const filename = format === 'original' 
-      ? document.originalFilename
-      : document.originalFilename.replace(/\.[^/.]+$/, '.pdf');
+    const filename =
+      format === 'original'
+        ? document.originalFilename
+        : document.originalFilename.replace(/\.[^/.]+$/, '.pdf');
 
-    // ✅ Track the file access
+    // Tracking fields
     const tracking = document.tracking || {
       views: 0,
       uniqueVisitors: [],
       downloads: 0,
       shares: 0,
       averageViewTime: 0,
+      viewsByPage: Array(document.numPages || 1).fill(0),
       lastViewed: null,
     };
 
-    // Update tracking based on action
     if (action === 'download') {
       tracking.downloads += 1;
     } else {
       tracking.views += 1;
+
+      if (page && !isNaN(parseInt(page))) {
+        const pageIndex = parseInt(page) - 1;
+
+        if (pageIndex >= 0 && pageIndex < tracking.viewsByPage.length) {
+          tracking.viewsByPage[pageIndex] += 1;
+        }
+      }
     }
+
     tracking.lastViewed = new Date();
 
-    // ✅ Update document tracking asynchronously (don't block response)
     db.collection('documents')
       .updateOne(
         { _id: documentId },
-        { 
-          $set: { 
+        {
+          $set: {
             tracking,
             lastAccessedAt: new Date(),
-          } 
+          },
         }
       )
-      .catch(err => console.error('Failed to update tracking:', err));
+      .catch((err) => console.error('Failed to update tracking:', err));
 
-    // ✅ Log detailed analytics
     db.collection('analytics_logs')
       .insertOne({
-        documentId: params.id,
+        documentId: id,
         action: action === 'download' ? 'download' : 'file_view',
         userId: user.id,
         format,
+        page: page ? parseInt(page) : null,
         timestamp: new Date(),
         userAgent: request.headers.get('user-agent'),
         ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
       })
-      .catch(err => console.error('Failed to log analytics:', err));
+      .catch((err) => console.error('Failed to log analytics:', err));
 
-    // ✅ Return file metadata for client-side fetching
-    // This allows the client to fetch directly from Cloudinary for better performance
+    // Return metadata + pagination info
     return NextResponse.json({
       success: true,
       fileUrl,
@@ -117,6 +128,7 @@ export async function GET(
       mimeType: document.mimeType,
       size: format === 'original' ? document.size : document.pdfSize,
       numPages: document.numPages,
+      currentPage: page ? parseInt(page) : 1,
       contentDisposition: action === 'download' ? 'attachment' : 'inline',
       documentInfo: {
         id: document._id.toString(),
@@ -124,15 +136,17 @@ export async function GET(
         originalFormat: document.originalFormat,
         createdAt: document.createdAt,
         updatedAt: document.updatedAt,
-      }
+      },
     });
-
   } catch (error) {
     console.error('❌ File fetch error:', error);
-    return NextResponse.json({
-      error: 'Failed to fetch file',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch file',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
 }
 
