@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
+import DashboardOverview from '@/components/DashboardOverview';
 import {
   Popover,
   PopoverContent,
@@ -17910,55 +17911,15 @@ const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   // Render different content based on active page
   const renderContent = () => {
     switch (activePage) {
-      case 'dashboard':
-        return (
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-6">Dashboard</h1>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-xl border shadow-sm p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-slate-900">Total Documents</h3>
-                  <FileText className="h-5 w-5 text-blue-500" />
-                </div>
-                <p className="text-3xl font-bold text-slate-900">24</p>
-                <p className="text-sm text-slate-500 mt-2">+3 this week</p>
-              </div>
-              <div className="bg-white rounded-xl border shadow-sm p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-slate-900">Total Views</h3>
-                  <Activity className="h-5 w-5 text-purple-500" />
-                </div>
-                <p className="text-3xl font-bold text-slate-900">1,248</p>
-                <p className="text-sm text-slate-500 mt-2">+156 this week</p>
-              </div>
-              <div className="bg-white rounded-xl border shadow-sm p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-slate-900">Engagement Rate</h3>
-                  <TrendingUp className="h-5 w-5 text-green-500" />
-                </div>
-                <p className="text-3xl font-bold text-slate-900">68%</p>
-                <p className="text-sm text-slate-500 mt-2">+12% this week</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-xl border shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-slate-900 mb-4">Recent Activity</h2>
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-lg">
-                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-slate-900">Document {i} was viewed</p>
-                      <p className="text-sm text-slate-500">{i} hours ago</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )
-
+case 'dashboard':
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-slate-900 mb-6">Dashboard</h1>
+      
+      {/* 🎯 Real-time tracking dashboard */}
+      <DashboardOverview />
+    </div>
+  );
       case 'content-library':
         return (
           <div>

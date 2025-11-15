@@ -107,6 +107,7 @@ const [currentEditPage, setCurrentEditPage] = useState(0);
 const [paginatedContent, setPaginatedContent] = useState<string[]>([]);
 const [isLoadingPage, setIsLoadingPage] = useState(false);
 const [showPdfView, setShowPdfView] = useState(false);
+const [basePdfUrl, setBasePdfUrl] = useState<string | null>(null); // new
 const [linkSettings, setLinkSettings] = useState({
   requireEmail: false,
   allowDownload: true,
@@ -264,9 +265,21 @@ const fetchContentAnalytics = async () => {
 // Handle opening fix issues dialog
 const handleOpenFixIssues = async () => {
   setShowFixIssuesDialog(true);
-  // Always fetch fresh analytics when opening
+  // Fetch analytics
   await fetchContentAnalytics();
+  // Fetch PDF for viewing
+  if (!pdfUrl) {
+    await fetchPdfForPreview(1);
+  }
 };
+
+// Add this useEffect after your other useEffects
+useEffect(() => {
+  // Sync PDF page when switching views or changing edit page
+  if (showPdfView && pdfUrl) {
+    // The embed src will update automatically due to currentEditPage in the template
+  }
+}, [showPdfView, currentEditPage, pdfUrl]);
 
 // Auto-fetch analytics when Fix Issues dialog opens
 useEffect(() => {
@@ -540,25 +553,38 @@ const handleUpdateThumbnail = () => {
 // Fetch PDF for preview
 const fetchPdfForPreview = async (page: number = 1) => {
   setIsLoadingPage(true);
+  console.log('🔍 Fetching PDF for page:', page);
+  
   try {
-    const res = await fetch(`/api/documents/${params.id}/file?page=${page}`, {
+    // Fetch with serve=blob parameter
+    const res = await fetch(`/api/documents/${params.id}/file?page=${page}&serve=blob`, {
       credentials: 'include',
     });
     
+    console.log('📡 Response status:', res.status);
+    console.log('📄 Content-Type:', res.headers.get('content-type'));
+    
     if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.fileUrl) {
-        // Directly use the Cloudinary URL with page parameter
-        const pdfUrlWithPage = `${data.fileUrl}#page=${page}`;
-        setPdfUrl(pdfUrlWithPage);
-        setTotalPages(data.numPages || doc?.numPages || 1);
-        setPreviewPage(page);
+      const blob = await res.blob();
+      console.log('💾 Blob size:', blob.size, 'Type:', blob.type);
+      
+      // Revoke old URL
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl);
       }
+      
+      const url = URL.createObjectURL(blob);
+      console.log('🔗 Blob URL created:', url);
+      
+      setPdfUrl(url);
+      setTotalPages(doc?.numPages || 1);
+      setPreviewPage(page);
+      console.log('✅ PDF loaded');
     } else {
-      console.error('Failed to fetch PDF:', res.status);
+      console.error('❌ Failed:', res.status);
     }
   } catch (error) {
-    console.error("Failed to fetch PDF:", error);
+    console.error("❌ Error:", error);
   } finally {
     setIsLoadingPage(false);
   }
@@ -627,16 +653,27 @@ const handleCreateLink = async () => {
   try {
     const res = await fetch(`/api/documents/${params.id}/share`, {
       method: 'POST',
-      credentials: 'include', // Use HTTP-only cookies
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(linkSettings),
+      body: JSON.stringify({
+        // Default settings - user can change later
+        requireEmail: false,
+        allowDownload: true,
+        expiresIn: 'never',
+        password: '',
+        notifyOnView: true,
+      }),
     });
+    
     if (res.ok) {
       const data = await res.json();
       if (data.success) {
+        // Show success message and copy link
         setGeneratedLink(data.shareLink);
+        navigator.clipboard.writeText(data.shareLink);
+        alert('✅ Link created and copied to clipboard!');
       }
     } else {
       alert('Failed to create share link');
@@ -944,6 +981,7 @@ const openCreateLinkDialog = () => {
 {/* Present Mode Dialog with Pagination */}
 <Dialog open={presentMode} onOpenChange={setPresentMode}>
   <DialogContent className="max-w-screen-2xl w-screen h-screen p-0 bg-black">
+     <DialogTitle className="sr-only">Presentation Mode</DialogTitle>
     <div className="relative h-full">
       {/* Close button */}
       <button
@@ -961,12 +999,12 @@ const openCreateLinkDialog = () => {
             <p className="text-white">Loading page {previewPage}...</p>
           </div>
         ) : pdfUrl ? (
-          <iframe
-            src={pdfUrl}
-            className="w-full h-full bg-white rounded-lg shadow-2xl"
-            title="PDF Presentation"
-            style={{ border: 'none' }}
-          />
+         <iframe
+  src={basePdfUrl ? `${basePdfUrl}#page=${previewPage}` : pdfUrl ?? undefined}
+  className="w-full h-full bg-white rounded-lg shadow-2xl"
+  title="PDF Presentation"
+  style={{ border: 'none' }}
+/>
         ) : (
           <div className="text-center">
             <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full mx-auto mb-4"></div>
@@ -1513,11 +1551,12 @@ const openCreateLinkDialog = () => {
           </div>
         ) : pdfUrl ? (
           <div className="max-w-5xl mx-auto bg-white shadow-2xl rounded-lg overflow-hidden">
-            <iframe
-              src={`${pdfUrl}#page=${previewPage}`}
-              className="w-full h-[calc(95vh-180px)]"
-              title="PDF Preview"
-            />
+      <embed
+  src={`${pdfUrl}#page=${previewPage}&toolbar=1&navpanes=1&scrollbar=1`}
+  type="application/pdf"
+  className="w-full h-full"
+  style={{ border: 'none' }}
+/>
           </div>
         ) : (
           <div className="flex items-center justify-center h-full">
@@ -1772,94 +1811,144 @@ const openCreateLinkDialog = () => {
     </div>
   </DialogContent>
 </Dialog>
-      {/* Create Share Link Dialog */}
+     {/* Create Share Link Dialog - DocSend Style */}
 <Dialog open={showCreateLinkDialog} onOpenChange={setShowCreateLinkDialog}>
-  <DialogContent className="max-w-2xl bg-white">
+  <DialogContent className="max-w-lg bg-white">
     <DialogHeader>
-      <DialogTitle className="text-xl">Create a shareable link</DialogTitle>
+      <DialogTitle className="text-xl font-semibold">Share "{doc?.filename}"</DialogTitle>
     </DialogHeader>
     
-    {!generatedLink ? (
-      <div className="space-y-6 py-4">
-        {/* Link Settings */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
+    <div className="space-y-4 py-4">
+      {/* Generated Link Display */}
+      {generatedLink ? (
+        <>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+            <Check className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
             <div>
-              <Label className="text-base font-medium">Require email to view</Label>
-              <p className="text-sm text-slate-500">Viewers must enter their email before accessing</p>
+              <p className="font-medium text-green-900">Link created!</p>
+              <p className="text-sm text-green-700">Anyone with this link can view your document.</p>
             </div>
-            <Switch
-              checked={linkSettings.requireEmail}
-              onCheckedChange={(checked) => 
-                setLinkSettings({ ...linkSettings, requireEmail: checked })
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-base font-medium">Allow download</Label>
-              <p className="text-sm text-slate-500">Let viewers download the PDF</p>
-            </div>
-            <Switch
-              checked={linkSettings.allowDownload}
-              onCheckedChange={(checked) => 
-                setLinkSettings({ ...linkSettings, allowDownload: checked })
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-base font-medium">Notify on view</Label>
-              <p className="text-sm text-slate-500">Get email when someone views the document</p>
-            </div>
-            <Switch
-              checked={linkSettings.notifyOnView}
-              onCheckedChange={(checked) => 
-                setLinkSettings({ ...linkSettings, notifyOnView: checked })
-              }
-            />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="expires">Link expires in</Label>
-            <select
-              id="expires"
-              value={linkSettings.expiresIn}
-              onChange={(e) => 
-                setLinkSettings({ ...linkSettings, expiresIn: e.target.value })
-              }
-              className="w-full border rounded-md px-3 py-2"
-            >
-              <option value="7">7 days</option>
-              <option value="30">30 days</option>
-              <option value="90">90 days</option>
-              <option value="never">Never</option>
-            </select>
+            <Label className="text-sm font-medium">Shareable Link</Label>
+            <div className="flex gap-2">
+              <Input
+                value={generatedLink}
+                readOnly
+                className="font-mono text-sm bg-slate-50"
+              />
+              <Button
+                onClick={handleCopyLink}
+                variant="outline"
+                className="gap-2 flex-shrink-0"
+              >
+                {linkCopied ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Copy
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
+          {/* Quick Share Options */}
           <div className="space-y-2">
-            <Label htmlFor="password">Password protection (optional)</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter password"
-              value={linkSettings.password}
-              onChange={(e) => 
-                setLinkSettings({ ...linkSettings, password: e.target.value })
-              }
-            />
+            <Label className="text-sm font-medium">Share via</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`mailto:?subject=${encodeURIComponent(doc?.filename || 'Document')}&body=${encodeURIComponent('View this document: ' + generatedLink)}`)}
+              >
+                <Mail className="h-4 w-4 mr-1" />
+                Email
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out: ' + generatedLink)}`)}
+              >
+                <Share2 className="h-4 w-4 mr-1" />
+                Twitter
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(generatedLink)}`)}
+              >
+                <Share2 className="h-4 w-4 mr-1" />
+                LinkedIn
+              </Button>
+            </div>
           </div>
-        </div>
 
-        <div className="flex gap-3 justify-end pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={() => setShowCreateLinkDialog(false)}
-          >
-            Cancel
-          </Button>
+          {/* Link Settings - Expandable */}
+          <details className="border rounded-lg">
+            <summary className="px-4 py-3 cursor-pointer font-medium text-sm hover:bg-slate-50">
+              Link Settings (Optional)
+            </summary>
+            <div className="px-4 pb-4 space-y-3 border-t">
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-sm font-medium">Require email to view</p>
+                  <p className="text-xs text-slate-500">Track who views your document</p>
+                </div>
+                <Switch
+                  checked={linkSettings.requireEmail}
+                  onCheckedChange={(checked) => 
+                    setLinkSettings({ ...linkSettings, requireEmail: checked })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-sm font-medium">Allow download</p>
+                  <p className="text-xs text-slate-500">Let viewers save a copy</p>
+                </div>
+                <Switch
+                  checked={linkSettings.allowDownload}
+                  onCheckedChange={(checked) => 
+                    setLinkSettings({ ...linkSettings, allowDownload: checked })
+                  }
+                />
+              </div>
+              <div className="space-y-2 py-2">
+                <Label className="text-sm font-medium">Link expires</Label>
+                <select
+                  value={linkSettings.expiresIn}
+                  onChange={(e) => 
+                    setLinkSettings({ ...linkSettings, expiresIn: e.target.value })
+                  }
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                >
+                  <option value="7">7 days</option>
+                  <option value="30">30 days</option>
+                  <option value="90">90 days</option>
+                  <option value="never">Never</option>
+                </select>
+              </div>
+            </div>
+          </details>
+        </>
+      ) : (
+        /* Before Link Created */
+        <div className="text-center py-8">
+          <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
+            <LinkIcon className="h-8 w-8 text-purple-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">
+            Create a shareable link
+          </h3>
+          <p className="text-sm text-slate-600 mb-6">
+            Anyone with the link can view your document and you'll see analytics
+          </p>
           <Button
             onClick={handleCreateLink}
             disabled={isGeneratingLink}
@@ -1868,113 +1957,47 @@ const openCreateLinkDialog = () => {
             {isGeneratingLink ? (
               <>
                 <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-                Generating...
+                Creating Link...
               </>
             ) : (
-              'Create Link'
+              <>
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Create Link
+              </>
             )}
           </Button>
         </div>
-      </div>
-    ) : (
-      <div className="space-y-6 py-4">
-        {/* Link Generated Success */}
-        <div className="text-center py-6">
-          <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-            <Check className="h-8 w-8 text-green-600" />
-          </div>
-          <h3 className="text-xl font-semibold text-slate-900 mb-2">
-            Your link is ready!
-          </h3>
-          <p className="text-slate-600">
-            Share this link to give others access to your document
-          </p>
-        </div>
+      )}
+    </div>
 
-        {/* Generated Link */}
-        <div className="space-y-3">
-          <Label>Shareable Link</Label>
-          <div className="flex gap-2">
-            <Input
-              value={generatedLink}
-              readOnly
-              className="font-mono text-sm"
-            />
-            <Button
-              onClick={handleCopyLink}
-              variant="outline"
-              className="gap-2"
-            >
-              {linkCopied ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4" />
-                  Copy
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Link Settings Summary */}
-        <div className="bg-slate-50 rounded-lg p-4 space-y-2">
-          <h4 className="font-medium text-sm text-slate-900">Link Settings:</h4>
-          <ul className="text-sm text-slate-600 space-y-1">
-            {linkSettings.requireEmail && <li>✓ Email required to view</li>}
-            {linkSettings.allowDownload && <li>✓ Download enabled</li>}
-            {linkSettings.notifyOnView && <li>✓ View notifications enabled</li>}
-            {linkSettings.password && <li>✓ Password protected</li>}
-            <li>✓ Expires in {linkSettings.expiresIn === 'never' ? 'never' : `${linkSettings.expiresIn} days`}</li>
-          </ul>
-        </div>
-
-        {/* Social Share Buttons */}
-        <div className="space-y-3">
-          <Label>Share via</Label>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => window.open(`mailto:?subject=${encodeURIComponent(doc.filename)}&body=${encodeURIComponent('View this document: ' + generatedLink)}`)}
-            >
-              <Mail className="h-4 w-4 mr-2" />
-              Email
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out this document: ' + generatedLink)}`)}
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              Twitter
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(generatedLink)}`)}
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              LinkedIn
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex gap-3 justify-end pt-4 border-t">
-          <Button
-            onClick={() => setShowCreateLinkDialog(false)}
-          >
-            Done
-          </Button>
-        </div>
-      </div>
-    )}
+    {/* Footer */}
+    <div className="flex justify-end gap-2 pt-4 border-t">
+      {generatedLink && (
+        <Button
+          variant="outline"
+          onClick={() => {
+            // Reset and close
+            setGeneratedLink(null);
+            setShowCreateLinkDialog(false);
+          }}
+        >
+          Create Another Link
+        </Button>
+      )}
+      <Button
+        onClick={() => {
+          setShowCreateLinkDialog(false);
+          if (generatedLink) {
+            // Reset after closing
+            setTimeout(() => setGeneratedLink(null), 300);
+          }
+        }}
+      >
+        Done
+      </Button>
+    </div>
   </DialogContent>
 </Dialog>
-
 {/* Request Signature Dialog - IMPROVED DESIGN */}
 <Dialog open={showSignatureDialog} onOpenChange={setShowSignatureDialog}>
   <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto bg-white">
@@ -2117,7 +2140,7 @@ const openCreateLinkDialog = () => {
 {/* Fix Issues Dialog */}
 {/* Fix Issues Dialog with Pagination - Professional Design */}
 <Dialog open={showFixIssuesDialog} onOpenChange={setShowFixIssuesDialog}>
-  <DialogContent className={`max-w-full w-full max-h-[95vh]  overflow-hidden bg-white flex flex-col shadow-2xl rounded-lg ${isFullscreenEditMode ? 'fullscreen-edit-mode' : ''}`}>
+  <DialogContent className={`max-w-full w-full max-h-[95vh] overflow-hidden bg-white flex flex-col shadow-2xl rounded-lg ${isFullscreenEditMode ? 'fullscreen-edit-mode' : ''}`}>
     {/* Header */}
     <DialogHeader className="border-b pb-5 px-6">
       <div className="flex items-center justify-between">
@@ -2204,12 +2227,7 @@ const openCreateLinkDialog = () => {
         </div>
       </div>
     ) : (
-     <div
-  className={`flex-1 grid gap-6 overflow-hidden p-1
-    ${isFullscreenEditMode ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}
-  `}
->
-
+      <div className={`flex-1 grid gap-6 overflow-hidden p-1 ${isFullscreenEditMode ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
         {/* Left Panel - Issues List (Hidden in Fullscreen Mode) */}
         {!isFullscreenEditMode && (
           <div className="border-r pr-6 overflow-y-auto max-h-[70vh] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
@@ -2269,33 +2287,33 @@ const openCreateLinkDialog = () => {
         )}
 
         {/* Right Panel - Editable Content with Pagination */}
-       {/* Right Panel - Editable Content with Pagination */}
         <div className={`overflow-y-auto ${isFullscreenEditMode ? 'max-h-[85vh]' : 'max-h-[70vh]'} scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 flex flex-col`}>
           <div className="mb-5 p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-gray-900 text-lg">Edit Document</h3>
+              <h3 className="font-bold text-gray-900 text-lg">
+                {showPdfView ? 'Original PDF View' : 'Edit Document'}
+              </h3>
               <div className="flex items-center gap-4">
-                {/* PDF View Toggle (Only in Fullscreen) */}
-                {isFullscreenEditMode && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                    onClick={() => setShowPdfView(!showPdfView)}
-                  >
-                    {showPdfView ? (
-                      <>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Switch to Edit
-                      </>
-                    ) : (
-                      <>
-                        <FileText className="h-4 w-4 mr-2" />
-                        View Original PDF
-                      </>
-                    )}
-                  </Button>
-                )}
+                {/* PDF/Edit Toggle */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`${showPdfView ? 'bg-blue-50 border-blue-300 text-blue-700' : 'text-blue-600 border-blue-200'} hover:bg-blue-50`}
+                  onClick={() => setShowPdfView(!showPdfView)}
+                >
+                  {showPdfView ? (
+                    <>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Switch to Edit
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4 mr-2" />
+                      View Original PDF
+                    </>
+                  )}
+                </Button>
+                
                 {/* Fullscreen Toggle Button */}
                 <Button
                   variant="outline"
@@ -2315,8 +2333,9 @@ const openCreateLinkDialog = () => {
                     </>
                   )}
                 </Button>
-                {/* Page Navigation */}
-                {paginatedContent.length > 1 && (
+                
+                {/* Page Navigation - Show for both views */}
+                {!showPdfView && paginatedContent.length > 1 && (
                   <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-4 py-2 border border-gray-200">
                     <Button
                       variant="ghost"
@@ -2341,28 +2360,58 @@ const openCreateLinkDialog = () => {
                     </Button>
                   </div>
                 )}
-                <span className="text-sm text-gray-600 font-medium">
-                  {editableContent.split(/\s+/).filter(Boolean).length} words
-                </span>
+                
+                {!showPdfView && (
+                  <span className="text-sm text-gray-600 font-medium">
+                    {editableContent.split(/\s+/).filter(Boolean).length} words
+                  </span>
+                )}
               </div>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              Make changes below to fix issues. Navigate between pages to edit the entire document.
+              {showPdfView 
+                ? 'Viewing the original PDF format. Switch to edit mode to make changes.'
+                : 'Make changes below to fix issues. Navigate between pages to edit the entire document.'
+              }
             </p>
           </div>
 
-          {/* Textarea for Content */}
-          <div className="px-4 pb-6 flex-1">
-            <Textarea
-              value={editableContent}
-              onChange={(e) => setEditableContent(e.target.value)}
-              className="flex-1 w-full font-mono text-sm resize-none min-h-[50vh] border-gray-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 rounded-lg shadow-sm p-4"
-              placeholder="Document content will appear here..."
-            />
-          </div>
+          {/* Content Area - PDF or Editor */}
+          {showPdfView ? (
+            /* PDF Viewer */
+            <div className="px-4 pb-6 flex-1">
+              {pdfUrl ? (
+                <div className="w-full h-[60vh] bg-white rounded-lg border-2 border-gray-200 overflow-hidden shadow-sm">
+                  <embed
+                    src={`${pdfUrl}#page=${currentEditPage + 1}&toolbar=0&navpanes=0&scrollbar=1`}
+                    type="application/pdf"
+                    className="w-full h-full"
+                    style={{ border: 'none' }}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-[60vh] bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <div className="text-center">
+                    <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading PDF...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Textarea Editor */
+            <div className="px-4 pb-6 flex-1">
+              <Textarea
+                value={editableContent}
+                onChange={(e) => setEditableContent(e.target.value)}
+                className="flex-1 w-full font-mono text-sm resize-none min-h-[50vh] border-gray-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 rounded-lg shadow-sm p-4"
+                placeholder="Document content will appear here..."
+              />
+            </div>
+          )}
 
-          {/* Page Thumbnails/Quick Navigation */}
-          {paginatedContent.length > 1 && (
+          {/* Page Navigation Thumbnails - Only show in edit mode */}
+          {!showPdfView && paginatedContent.length > 1 && (
             <div className="mt-3 pt-4 border-t px-4">
               <div className="flex items-center gap-3 overflow-x-auto pb-3">
                 {paginatedContent.map((_, index) => (
@@ -2386,48 +2435,46 @@ const openCreateLinkDialog = () => {
     )}
 
     {/* Footer Actions */}
-{!analyticsLoading && !contentAnalytics?.scannedPdf && contentAnalytics && getTotalIssues() > 0 && (
-  <div className="border-t pt-5 px-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-    <div className="text-sm text-gray-600 font-medium">
-      Editing page {currentEditPage + 1} of {paginatedContent.length} • {getAllIssues().length} issue{getAllIssues().length !== 1 ? 's' : ''}
-    </div>
+    {!analyticsLoading && !contentAnalytics?.scannedPdf && contentAnalytics && getTotalIssues() > 0 && (
+      <div className="border-t pt-5 px-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="text-sm text-gray-600 font-medium">
+          Editing page {currentEditPage + 1} of {paginatedContent.length} • {getAllIssues().length} issue{getAllIssues().length !== 1 ? 's' : ''}
+        </div>
 
-    <div className="flex gap-3">
-      <Button
-        variant="outline"
-        onClick={() => {
-          setShowFixIssuesDialog(false);
-          setEditableContent('');
-          setPaginatedContent([]);
-          setCurrentEditPage(0);
-        }}
-        disabled={isSavingFix}
-        className="text-gray-700 border-gray-300 hover:bg-gray-50 font-medium"
-      >
-        Cancel
-      </Button>
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowFixIssuesDialog(false);
+              setEditableContent('');
+              setPaginatedContent([]);
+              setCurrentEditPage(0);
+            }}
+            disabled={isSavingFix}
+            className="text-gray-700 border-gray-300 hover:bg-gray-50 font-medium"
+          >
+            Cancel
+          </Button>
 
-      <Button
-        onClick={handleSaveFixedContent}
-        disabled={isSavingFix}
-        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium shadow-sm hover:shadow-md transition-all duration-200"
-      >
-        {isSavingFix ? (
-          <>
-            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-            Saving All Pages...
-          </>
-        ) : (
-          'Save All Changes'
-        )}
-      </Button>
-    </div>
-  </div>
-)}
-
+          <Button
+            onClick={handleSaveFixedContent}
+            disabled={isSavingFix}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-medium shadow-sm hover:shadow-md transition-all duration-200"
+          >
+            {isSavingFix ? (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                Saving All Pages...
+              </>
+            ) : (
+              'Save All Changes'
+            )}
+          </Button>
+        </div>
+      </div>
+    )}
   </DialogContent>
 </Dialog>
-
     </div>
   );
 }

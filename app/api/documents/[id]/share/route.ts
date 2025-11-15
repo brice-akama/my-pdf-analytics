@@ -9,7 +9,7 @@ import bcrypt from 'bcryptjs';
 // ✅ POST - Create new share link with advanced settings
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // ✅ Verify user via HTTP-only cookie
@@ -18,13 +18,16 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // ✅ Await params (Next.js 15)
+    const { id } = await context.params;
+
     // ✅ Validate document ID
-    if (!ObjectId.isValid(params.id)) {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid document ID' }, { status: 400 });
     }
 
     const db = await dbPromise;
-    const documentId = new ObjectId(params.id);
+    const documentId = new ObjectId(id);
 
     // ✅ Verify ownership and check document exists
     const document = await db.collection('documents').findOne({
@@ -135,17 +138,50 @@ export async function POST(
       expiresAt,
 
       // Tracking
-      tracking: {
-        views: 0,
-        uniqueViewers: [],
-        downloads: 0,
-        prints: 0,
-        lastViewedAt: null,
-        firstViewedAt: null,
-        viewsByDate: {},
-        viewerEmails: [],
-        blockedAttempts: 0, // Wrong password attempts
-      },
+     // ✅ UPDATED: Add this to your share creation in app/api/documents/[id]/share/route.ts
+// Replace the tracking object in the shareRecord with this:
+
+tracking: {
+  // Basic counts
+  views: 0,
+  uniqueViewers: [],
+  downloads: 0,
+  prints: 0,
+  
+  // Time tracking - ✅ Initialize with 0 instead of null
+  totalTimeSpent: 0,
+  timeSpentByViewer: {},
+  
+  // Page tracking
+  pageViews: {},
+  totalPageViews: 0,
+  pageViewsByViewer: {},
+  
+  // Scroll tracking
+  scrollDepth: {},
+  scrollDepthByViewer: {},
+  
+  // Timestamps
+  lastViewedAt: null,
+  firstViewedAt: null,
+  
+  // Date-based views
+  viewsByDate: {},
+  
+  // Email tracking
+  viewerEmails: [],
+  
+  // Attempt tracking
+  blockedAttempts: 0,
+  downloadAttempts: 0,
+  blockedDownloads: 0,
+  printAttempts: 0,
+  blockedPrints: 0,
+  
+  // Event arrays
+  downloadEvents: [],
+  printEvents: [],
+},
 
       // Status
       active: true,
@@ -194,7 +230,7 @@ export async function POST(
 
     // ✅ Log share creation
     await db.collection('analytics_logs').insertOne({
-      documentId: params.id,
+      documentId: id,
       action: 'share_created',
       userId: user.id,
       shareId: result.insertedId.toString(),
@@ -218,6 +254,7 @@ export async function POST(
     // ✅ Return comprehensive response
     return NextResponse.json({
       success: true,
+      shareLink, // This is what the frontend expects
       share: {
         id: result.insertedId.toString(),
         shareLink,
@@ -257,7 +294,7 @@ export async function POST(
 // ✅ GET - List all share links for a document
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // ✅ Verify user
@@ -266,13 +303,16 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // ✅ Await params
+    const { id } = await context.params;
+
     // ✅ Validate document ID
-    if (!ObjectId.isValid(params.id)) {
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid document ID' }, { status: 400 });
     }
 
     const db = await dbPromise;
-    const documentId = new ObjectId(params.id);
+    const documentId = new ObjectId(id);
 
     // ✅ Verify ownership
     const document = await db.collection('documents').findOne({
@@ -347,7 +387,7 @@ export async function GET(
 // ✅ PATCH - Update share link settings
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // ✅ Verify user
@@ -355,6 +395,9 @@ export async function PATCH(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // ✅ Await params
+    const { id } = await context.params;
 
     const body = await request.json();
     const { shareId, active, settings } = body;
@@ -403,7 +446,7 @@ export async function PATCH(
 
     // ✅ Log update
     await db.collection('analytics_logs').insertOne({
-      documentId: params.id,
+      documentId: id,
       action: 'share_updated',
       userId: user.id,
       shareId,
@@ -428,7 +471,7 @@ export async function PATCH(
 // ✅ DELETE - Delete/revoke share link
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     // ✅ Verify user
@@ -436,6 +479,9 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // ✅ Await params
+    const { id } = await context.params;
 
     const { searchParams } = new URL(request.url);
     const shareId = searchParams.get('shareId');
@@ -471,7 +517,7 @@ export async function DELETE(
 
     // ✅ Log deletion
     await db.collection('analytics_logs').insertOne({
-      documentId: params.id,
+      documentId: id,
       action: 'share_deleted',
       userId: user.id,
       shareId,

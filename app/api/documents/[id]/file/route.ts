@@ -12,7 +12,6 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_SECRET_KEY,
 });
 
-
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -23,7 +22,6 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Await params from context
     const { id } = await context.params;
 
     if (!ObjectId.isValid(id)) {
@@ -55,9 +53,10 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action') || 'view';
     const format = searchParams.get('format') || 'pdf';
-    const page = searchParams.get('page'); // page number for pagination
+    const page = searchParams.get('page');
+    const serve = searchParams.get('serve');
 
-    const fileUrl =
+    let fileUrl =
       format === 'original' && document.cloudinaryOriginalUrl
         ? document.cloudinaryOriginalUrl
         : document.cloudinaryPdfUrl;
@@ -67,7 +66,7 @@ export async function GET(
         ? document.originalFilename
         : document.originalFilename.replace(/\.[^/.]+$/, '.pdf');
 
-    // Tracking fields
+    // Tracking
     const tracking = document.tracking || {
       views: 0,
       uniqueVisitors: [],
@@ -82,27 +81,19 @@ export async function GET(
       tracking.downloads += 1;
     } else {
       tracking.views += 1;
-
       if (page && !isNaN(parseInt(page))) {
         const pageIndex = parseInt(page) - 1;
-
         if (pageIndex >= 0 && pageIndex < tracking.viewsByPage.length) {
           tracking.viewsByPage[pageIndex] += 1;
         }
       }
     }
-
     tracking.lastViewed = new Date();
 
     db.collection('documents')
       .updateOne(
         { _id: documentId },
-        {
-          $set: {
-            tracking,
-            lastAccessedAt: new Date(),
-          },
-        }
+        { $set: { tracking, lastAccessedAt: new Date() } }
       )
       .catch((err) => console.error('Failed to update tracking:', err));
 
@@ -119,10 +110,93 @@ export async function GET(
       })
       .catch((err) => console.error('Failed to log analytics:', err));
 
-    // Return metadata + pagination info
+    // If serve=blob, use authenticated download
+    if (serve === 'blob') {
+      try {
+        // Extract public_id from URL
+        const urlParts = fileUrl.split('/upload/');
+        const afterUpload = urlParts[1];
+        const pathParts = afterUpload.split('/');
+        pathParts.shift(); // remove version
+        let publicId = pathParts.join('/').replace('.pdf', '');
+        publicId = decodeURIComponent(publicId);
+
+        console.log('📝 Public ID:', publicId);
+
+        // Use Cloudinary's authenticated download URL
+        const downloadUrl = cloudinary.v2.utils.private_download_url(
+          publicId,
+          'pdf', // format
+          {
+            resource_type: 'image',
+            type: 'upload',
+            attachment: true,
+            expires_at: Math.floor(Date.now() / 1000) + 3600
+          }
+        );
+
+        console.log('🔐 Generated private download URL');
+        console.log('🌐 Fetching from private URL...');
+
+        const cloudinaryResponse = await fetch(downloadUrl);
+        
+        console.log('📡 Response status:', cloudinaryResponse.status);
+        console.log('📄 Content-Type:', cloudinaryResponse.headers.get('content-type'));
+
+        if (!cloudinaryResponse.ok) {
+          console.error('❌ Private download failed');
+          console.error('Response headers:', Object.fromEntries(cloudinaryResponse.headers.entries()));
+          
+          return NextResponse.json({ 
+            error: 'Failed to fetch file from Cloudinary',
+            status: cloudinaryResponse.status,
+            details: 'Private download URL failed',
+            publicId,
+          }, { status: 500 });
+        }
+
+        const arrayBuffer = await cloudinaryResponse.arrayBuffer();
+        console.log('✅ File fetched:', arrayBuffer.byteLength, 'bytes');
+
+        return new NextResponse(arrayBuffer, {
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `${action === 'download' ? 'attachment' : 'inline'}; filename="${filename}"`,
+            'Content-Length': arrayBuffer.byteLength.toString(),
+            'Cache-Control': 'private, max-age=3600',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      } catch (error) {
+        console.error('❌ Failed to fetch PDF:', error);
+        return NextResponse.json({ 
+          error: 'Failed to fetch file',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }, { status: 500 });
+      }
+    }
+
+    // Default: Return metadata with download URL
+    const urlParts = fileUrl.split('/upload/');
+    const afterUpload = urlParts[1];
+    const pathParts = afterUpload.split('/');
+    pathParts.shift(); // remove version
+    let publicId = pathParts.join('/').replace('.pdf', '');
+    publicId = decodeURIComponent(publicId);
+
+    const downloadUrl = cloudinary.v2.utils.private_download_url(
+      publicId,
+      'pdf',
+      {
+        resource_type: 'image',
+        type: 'upload',
+        expires_at: Math.floor(Date.now() / 1000) + 3600
+      }
+    );
+
     return NextResponse.json({
       success: true,
-      fileUrl,
+      fileUrl: downloadUrl,
       filename,
       format: document.originalFormat,
       mimeType: document.mimeType,
@@ -149,7 +223,6 @@ export async function GET(
     );
   }
 }
-
 // ✅ Optional: Direct file proxy (if you need to serve file directly through your API)
 export async function POST(
   request: NextRequest,

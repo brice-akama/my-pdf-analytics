@@ -36,7 +36,13 @@ cloudinary.v2.config({
 async function uploadToCloudinary(buffer: Buffer, filename: string, folder: string) {
   return new Promise<string>((resolve, reject) => {
     const uploadStream = cloudinary.v2.uploader.upload_stream(
-      { folder, public_id: filename.replace(/\.[^/.]+$/, ""), resource_type: "auto" },
+      { 
+        folder, 
+        public_id: filename.replace(/\.[^/.]+$/, ""), 
+        resource_type: "auto",
+        type: 'upload', // ADD THIS - ensures it's public
+        access_mode: 'public' // ADD THIS - makes URL publicly accessible
+      },
       (error, result) => {
         if (error) return reject(error);
         resolve(result?.secure_url || '');
