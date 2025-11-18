@@ -1,4 +1,5 @@
 // app/view/[token]/page.tsx
+// app/view/[token]/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -41,8 +42,11 @@ export default function ViewSharedDocument() {
   const [requiresEmail, setRequiresEmail] = useState(false);
   const [requiresPassword, setRequiresPassword] = useState(false);
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [company, setCompany] = useState('');
   const [password, setPassword] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
 
   // ✅ Tracking states
   const [sessionId] = useState(() => `session-${Date.now()}-${Math.random()}`);

@@ -107,6 +107,9 @@ const [currentEditPage, setCurrentEditPage] = useState(0);
 const [paginatedContent, setPaginatedContent] = useState<string[]>([]);
 const [isLoadingPage, setIsLoadingPage] = useState(false);
 const [showPdfView, setShowPdfView] = useState(false);
+const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+const [generatedLinks, setGeneratedLinks] = useState([]);
+const [isSending, setIsSending] = useState(false);
 const [basePdfUrl, setBasePdfUrl] = useState<string | null>(null); // new
 const [linkSettings, setLinkSettings] = useState({
   requireEmail: false,
@@ -1998,109 +2001,25 @@ const openCreateLinkDialog = () => {
     </div>
   </DialogContent>
 </Dialog>
-{/* Request Signature Dialog - IMPROVED DESIGN */}
+
+{/* signature Dialog */}
 <Dialog open={showSignatureDialog} onOpenChange={setShowSignatureDialog}>
-  <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto bg-white">
-    <DialogHeader>
-      <DialogTitle className="text-lg font-semibold">Request eSignature</DialogTitle>
-    </DialogHeader>
-    
-    <div className="space-y-4">
-      {/* Recipient Info */}
-      <div className="space-y-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="recipientEmail" className="text-sm font-medium">Recipient Email *</Label>
-          <Input
-            id="recipientEmail"
-            type="email"
-            placeholder="recipient@example.com"
-            value={signatureRequest.recipientEmail}
-            onChange={(e) => 
-              setSignatureRequest({ ...signatureRequest, recipientEmail: e.target.value })
+  <DialogContent className="max-w-6xl h-[90vh] p-0 bg-white flex flex-col">
+    <DialogHeader className="px-6 py-4 border-b">
+      <div className="flex items-center justify-between">
+        <div>
+          <DialogTitle className="text-xl font-semibold">Request Signature</DialogTitle>
+          <p className="text-sm text-slate-500 mt-1">
+            Step {signatureRequest.step || 1} of 3: {
+              (signatureRequest.step || 1) === 1 ? 'Add Recipients' :
+              (signatureRequest.step || 1) === 2 ? 'Place Signature Fields' :
+              'Review & Send'
             }
-            className="text-sm"
-          />
+          </p>
         </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="recipientName" className="text-sm font-medium">Recipient Name *</Label>
-          <Input
-            id="recipientName"
-            placeholder="John Doe"
-            value={signatureRequest.recipientName}
-            onChange={(e) => 
-              setSignatureRequest({ ...signatureRequest, recipientName: e.target.value })
-            }
-            className="text-sm"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="dueDate" className="text-sm font-medium">Due Date (optional)</Label>
-          <Input
-            id="dueDate"
-            type="date"
-            value={signatureRequest.dueDate}
-            onChange={(e) => 
-              setSignatureRequest({ ...signatureRequest, dueDate: e.target.value })
-            }
-            min={new Date().toISOString().split('T')[0]}
-            className="text-sm"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="message" className="text-sm font-medium">Message (optional)</Label>
-          <Textarea
-            id="message"
-            placeholder="Please review and sign..."
-            rows={3}
-            value={signatureRequest.message}
-            onChange={(e) => 
-              setSignatureRequest({ ...signatureRequest, message: e.target.value })
-            }
-            className="text-sm resize-none"
-          />
-        </div>
-      </div>
-
-      {/* Document Preview */}
-      <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-        <h4 className="font-medium text-xs text-slate-900 mb-2">Document:</h4>
-        <div className="flex items-center gap-2">
-          <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-            <FileText className="h-5 w-5 text-red-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm text-slate-900 truncate">{doc.filename}</p>
-            <p className="text-xs text-slate-500">{doc.numPages} pages</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <div className="flex gap-2">
-          <div className="flex-shrink-0">
-            <div className="h-7 w-7 rounded-full bg-blue-100 flex items-center justify-center">
-              <FileSignature className="h-3.5 w-3.5 text-blue-600" />
-            </div>
-          </div>
-          <div className="flex-1">
-            <h4 className="font-medium text-blue-900 text-xs mb-1">What happens next?</h4>
-            <ul className="text-xs text-blue-800 space-y-0.5">
-              <li>• Recipient gets email with signing link</li>
-              <li>• You're notified when they sign</li>
-              <li>• Completed document sent to you</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-2 justify-end pt-3 border-t">
         <Button
-          variant="outline"
+          variant="ghost"
+          size="icon"
           onClick={() => {
             setShowSignatureDialog(false);
             setSignatureRequest({
@@ -2108,35 +2027,874 @@ const openCreateLinkDialog = () => {
               recipientName: '',
               message: '',
               dueDate: '',
+              step: 1,
+              recipients: [],
+              signatureFields: [],
             });
           }}
-          disabled={isSendingSignature}
-          className="text-sm"
         >
-          Cancel
+          <X className="h-5 w-5" />
         </Button>
-        <Button
-          onClick={handleSendSignatureRequest}
-          disabled={isSendingSignature || !signatureRequest.recipientEmail || !signatureRequest.recipientName}
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-sm"
-        >
-          {isSendingSignature ? (
-            <>
-              <div className="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full mr-2" />
-              Sending...
-            </>
-          ) : (
-            <>
-              <Mail className="h-3.5 w-3.5 mr-2" />
-              Send Request
-            </>
-          )}
-        </Button>
+      </div>
+    </DialogHeader>
+
+    {/* Progress Bar */}
+    <div className="px-6 py-3 bg-slate-50 border-b">
+      <div className="flex items-center gap-2">
+        <div className={`flex-1 h-2 rounded-full ${(signatureRequest.step || 1) >= 1 ? 'bg-purple-600' : 'bg-slate-200'}`} />
+        <div className={`flex-1 h-2 rounded-full ${(signatureRequest.step || 1) >= 2 ? 'bg-purple-600' : 'bg-slate-200'}`} />
+        <div className={`flex-1 h-2 rounded-full ${(signatureRequest.step || 1) >= 3 ? 'bg-purple-600' : 'bg-slate-200'}`} />
+      </div>
+    </div>
+
+    {/* Step Content */}
+    <div className="flex-1 overflow-hidden">
+      {/* Step 1: Recipients */}
+      {(signatureRequest.step || 1) === 1 && (
+        <div className="h-full overflow-y-auto p-6">
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">Who needs to sign?</h3>
+              <p className="text-sm text-slate-600">Add recipients and set signing order</p>
+            </div>
+
+            {/* Recipients List */}
+            <div className="space-y-3">
+              {(signatureRequest.recipients || []).map((recipient, index) => (
+                <div key={index} className="border rounded-lg p-4 bg-white hover:border-purple-300 transition-colors">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0">
+                      <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                        <span className="text-purple-600 font-semibold">{index + 1}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs font-medium text-slate-700">Full Name</Label>
+                          <Input
+                            value={recipient.name}
+                            onChange={(e) => {
+                              const updated = [...(signatureRequest.recipients || [])];
+                              updated[index].name = e.target.value;
+                              setSignatureRequest({ ...signatureRequest, recipients: updated });
+                            }}
+                            placeholder="John Doe"
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-slate-700">Email Address</Label>
+                          <Input
+                            type="email"
+                            value={recipient.email}
+                            onChange={(e) => {
+                              const updated = [...(signatureRequest.recipients || [])];
+                              updated[index].email = e.target.value;
+                              setSignatureRequest({ ...signatureRequest, recipients: updated });
+                            }}
+                            placeholder="john@company.com"
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-slate-700">Role (optional)</Label>
+                        <Input
+                          value={recipient.role || ''}
+                          onChange={(e) => {
+                            const updated = [...(signatureRequest.recipients || [])];
+                            updated[index].role = e.target.value;
+                            setSignatureRequest({ ...signatureRequest, recipients: updated });
+                          }}
+                          placeholder="e.g., Client, Manager, Legal"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const updated = (signatureRequest.recipients || []).filter((_, i) => i !== index);
+                        setSignatureRequest({ ...signatureRequest, recipients: updated });
+                      }}
+                      className="text-slate-400 hover:text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Add Recipient Button */}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const updated = [
+                    ...(signatureRequest.recipients || []),
+                    { name: '', email: '', role: '', color: `hsl(${Math.random() * 360}, 70%, 50%)` }
+                  ];
+                  setSignatureRequest({ ...signatureRequest, recipients: updated });
+                }}
+                className="w-full border-dashed"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Add Another Recipient
+              </Button>
+            </div>
+
+            {/* Message & Due Date */}
+            <div className="space-y-4 pt-4 border-t">
+              <div>
+                <Label className="text-sm font-medium">Message to Recipients (optional)</Label>
+                <Textarea
+                  value={signatureRequest.message}
+                  onChange={(e) => setSignatureRequest({ ...signatureRequest, message: e.target.value })}
+                  placeholder="Please review and sign this document..."
+                  rows={3}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Due Date (optional)</Label>
+                <Input
+                  type="date"
+                  value={signatureRequest.dueDate}
+                  onChange={(e) => setSignatureRequest({ ...signatureRequest, dueDate: e.target.value })}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2: Place Signature Fields */}
+      {(signatureRequest.step || 1) === 2 && (
+        <div className="h-full flex">
+          {/* Left Sidebar - Field Types */}
+          <div className="w-64 border-r bg-slate-50 p-4 overflow-y-auto">
+            <h3 className="font-semibold text-slate-900 mb-4">Signature Fields</h3>
+            
+            {/* Recipients with Field Counts */}
+            <div className="space-y-2 mb-6">
+              {(signatureRequest.recipients || []).map((recipient, index) => {
+                const fieldCount = (signatureRequest.signatureFields || []).filter(
+                  (f) => f.recipientIndex === index
+                ).length;
+                return (
+                  <div key={index} className="p-3 bg-white rounded-lg border shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div 
+                        className="h-4 w-4 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: recipient.color }}
+                      />
+                      <span className="text-sm font-medium text-slate-900 truncate flex-1">
+                        {recipient.name || `Recipient ${index + 1}`}
+                      </span>
+                      {fieldCount > 0 && (
+                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                          {fieldCount}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 truncate">{recipient.email}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-slate-700 mb-2">Drag to place:</p>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-sm"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('fieldType', 'signature');
+                }}
+              >
+                <FileSignature className="h-4 w-4 mr-2" />
+                Signature
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-sm"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('fieldType', 'date');
+                }}
+              >
+                <Clock className="h-4 w-4 mr-2" />
+                Date Signed
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-sm"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('fieldType', 'text');
+                }}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Text Field
+              </Button>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="mt-6 space-y-2">
+              <p className="text-xs font-medium text-slate-700 mb-2">Quick Actions:</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start text-xs"
+                onClick={() => {
+                  const newFields = (signatureRequest.recipients || []).map((_, index) => ({
+                    id: Date.now() + index,
+                    type: 'signature',
+                    x: 25,
+                    y: 60 + (index * 15),
+                    page: 1,
+                    recipientIndex: index,
+                  }));
+                  setSignatureRequest({
+                    ...signatureRequest,
+                    signatureFields: [...(signatureRequest.signatureFields || []), ...newFields]
+                  });
+                  if (previewPage !== 1) {
+                    setPreviewPage(1);
+                  }
+                }}
+              >
+                <FileSignature className="h-3 w-3 mr-2" />
+                Auto-place Signatures
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={() => {
+                  if (window.confirm('Remove all fields from this page?')) {
+                    const updated = (signatureRequest.signatureFields || []).filter(
+                      (f) => f.page !== previewPage
+                    );
+                    setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+                  }
+                }}
+                disabled={(signatureRequest.signatureFields || []).filter((f) => f.page === previewPage).length === 0}
+              >
+                <Trash2 className="h-3 w-3 mr-2" />
+                Clear Page Fields
+              </Button>
+            </div>
+
+            <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-xs text-blue-800">
+                💡 Tip: Drag fields onto the document, then hover to assign to specific recipients or delete.
+              </p>
+            </div>
+          </div>
+
+          {/* Main Area - PDF with Signature Fields */}
+          <div className="flex-1 p-6 overflow-auto bg-slate-100">
+            <div 
+              className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden relative"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const fieldType = e.dataTransfer.getData('fieldType');
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                
+                const newField = {
+                  id: Date.now(),
+                  type: fieldType,
+                  x,
+                  y,
+                  page: previewPage,
+                  recipientIndex: 0,
+                };
+                
+                setSignatureRequest({
+                  ...signatureRequest,
+                  signatureFields: [...(signatureRequest.signatureFields || []), newField]
+                });
+              }}
+            >
+              {pdfUrl ? (
+                <>
+                  <embed
+                    src={`${pdfUrl}#page=${previewPage}&toolbar=0`}
+                    type="application/pdf"
+                    className="w-full h-[600px]"
+                    style={{ border: 'none', pointerEvents: 'none' }}
+                  />
+                  
+                  {/* Signature Field Overlays */}
+                  {(signatureRequest.signatureFields || [])
+                    .filter((field) => field.page === previewPage)
+                    .map((field) => {
+                      const recipient = (signatureRequest.recipients || [])[field.recipientIndex];
+                      return (
+                        <div
+                          key={field.id}
+                          className="absolute border-2 rounded cursor-move bg-white/90 shadow-lg group hover:shadow-xl transition-shadow"
+                          style={{
+                            left: `${field.x}%`,
+                            top: `${field.y}%`,
+                            borderColor: recipient?.color || '#9333ea',
+                            width: field.type === 'signature' ? '200px' : '150px',
+                            height: field.type === 'signature' ? '60px' : '40px',
+                          }}
+                          draggable
+                          onDragEnd={(e) => {
+                            const rect = e.currentTarget.parentElement.getBoundingClientRect();
+                            const newX = ((e.clientX - rect.left) / rect.width) * 100;
+                            const newY = ((e.clientY - rect.top) / rect.height) * 100;
+                            
+                            const updated = (signatureRequest.signatureFields || []).map((f) =>
+                              f.id === field.id ? { ...f, x: newX, y: newY } : f
+                            );
+                            setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+                          }}
+                        >
+                          <div className="h-full flex flex-col items-center justify-center px-2 relative">
+                            <select
+                              value={field.recipientIndex}
+                              onChange={(e) => {
+                                const updated = (signatureRequest.signatureFields || []).map((f) =>
+                                  f.id === field.id ? { ...f, recipientIndex: parseInt(e.target.value) } : f
+                                );
+                                setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute top-1 left-1 right-1 text-xs border rounded px-1 py-0.5 bg-white/95 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              style={{ fontSize: '10px' }}
+                            >
+                              {(signatureRequest.recipients || []).map((r, idx) => (
+                                <option key={idx} value={idx}>
+                                  {r.name || `Recipient ${idx + 1}`}
+                                </option>
+                              ))}
+                            </select>
+                            
+                            <div className="text-center mt-2">
+                              <div className="flex items-center justify-center gap-1 mb-0.5">
+                                {field.type === 'signature' && <FileSignature className="h-3 w-3" />}
+                                {field.type === 'date' && <Clock className="h-3 w-3" />}
+                                {field.type === 'text' && <Edit className="h-3 w-3" />}
+                                <span className="text-xs font-medium">
+                                  {field.type === 'signature' ? 'Sign Here' : field.type === 'date' ? 'Date' : 'Text'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-600 truncate">
+                                {recipient?.name || `Recipient ${field.recipientIndex + 1}`}
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const updated = (signatureRequest.signatureFields || []).filter((f) => f.id !== field.id);
+                                setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </>
+              ) : (
+                <div className="h-[600px] flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-slate-600">Loading document...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Page Navigation */}
+            {doc && doc.numPages > 1 && (
+              <div className="flex items-center justify-center gap-3 mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPreviewPage(Math.max(1, previewPage - 1))}
+                  disabled={previewPage <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-slate-600">
+                  Page {previewPage} of {doc.numPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPreviewPage(Math.min(doc.numPages, previewPage + 1))}
+                  disabled={previewPage >= doc.numPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Review & Send */}
+      {(signatureRequest.step || 1) === 3 && (
+        <div className="h-full overflow-y-auto p-6">
+          <div className="max-w-3xl mx-auto space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">Review & Send</h3>
+              <p className="text-sm text-slate-600">Double-check everything before sending</p>
+            </div>
+
+            {/* Document Info */}
+            <div className="bg-slate-50 rounded-lg p-4 border">
+              <h4 className="font-medium text-slate-900 mb-3">Document</h4>
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900">{doc.filename}</p>
+                  <p className="text-sm text-slate-500">{doc.numPages} pages</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Recipients Summary */}
+            <div className="bg-slate-50 rounded-lg p-4 border">
+              <h4 className="font-medium text-slate-900 mb-3">
+                Recipients ({(signatureRequest.recipients || []).length})
+              </h4>
+              <div className="space-y-2">
+                {(signatureRequest.recipients || []).map((recipient, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-white rounded-lg">
+                    <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
+                      <span className="text-purple-600 font-semibold text-sm">{index + 1}</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-slate-900">{recipient.name}</p>
+                      <p className="text-sm text-slate-600">{recipient.email}</p>
+                      {recipient.role && (
+                        <p className="text-xs text-slate-500 mt-0.5">{recipient.role}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-500">
+                        {(signatureRequest.signatureFields || []).filter((f) => f.recipientIndex === index).length} fields
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Signature Fields Summary */}
+            <div className="bg-slate-50 rounded-lg p-4 border">
+              <h4 className="font-medium text-slate-900 mb-3">
+                Signature Fields ({(signatureRequest.signatureFields || []).length})
+              </h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {(signatureRequest.signatureFields || []).filter((f) => f.type === 'signature').length}
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">Signatures</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {(signatureRequest.signatureFields || []).filter((f) => f.type === 'date').length}
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">Date Fields</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {(signatureRequest.signatureFields || []).filter((f) => f.type === 'text').length}
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">Text Fields</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Message Preview */}
+            {signatureRequest.message && (
+              <div className="bg-slate-50 rounded-lg p-4 border">
+                <h4 className="font-medium text-slate-900 mb-2">Message</h4>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap">{signatureRequest.message}</p>
+              </div>
+            )}
+
+            {/* Due Date */}
+            {signatureRequest.dueDate && (
+              <div className="bg-slate-50 rounded-lg p-4 border">
+                <h4 className="font-medium text-slate-900 mb-2">Due Date</h4>
+                <p className="text-sm text-slate-700">
+                  {new Date(signatureRequest.dueDate).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+              </div>
+            )}
+
+            {/* Email Preview */}
+            <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
+              <div className="flex items-start gap-4">
+                <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <Mail className="h-5 w-5 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-slate-900 mb-2">Email Preview</h4>
+                  <div className="bg-white rounded-lg p-4 border text-sm">
+                    <p className="text-slate-600 mb-3">Hi {(signatureRequest.recipients || [])[0]?.name},</p>
+                    <p className="text-slate-600 mb-3">
+                      You've been requested to review and sign <strong>{doc.filename}</strong>.
+                    </p>
+                    {signatureRequest.message && (
+                      <p className="text-slate-600 mb-3 border-l-4 border-purple-300 pl-3 italic">
+                        "{signatureRequest.message}"
+                      </p>
+                    )}
+                    <Button className="bg-purple-600 hover:bg-purple-700" size="sm">
+                      Review & Sign Document
+                    </Button>
+                    {signatureRequest.dueDate && (
+                      <p className="text-xs text-slate-500 mt-3">
+                        Please complete by {new Date(signatureRequest.dueDate).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Footer Navigation */}
+    <div className="px-6 py-4 border-t bg-slate-50 flex items-center justify-between">
+      <div className="text-sm text-slate-600">
+        {(signatureRequest.step || 1) === 1 && (
+          <span>{(signatureRequest.recipients || []).length} recipient(s) added</span>
+        )}
+        {(signatureRequest.step || 1) === 2 && (
+          <span>{(signatureRequest.signatureFields || []).length} field(s) placed</span>
+        )}
+        {(signatureRequest.step || 1) === 3 && (
+          <span>Ready to send</span>
+        )}
+      </div>
+      <div className="flex gap-3">
+        {(signatureRequest.step || 1) > 1 && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSignatureRequest({
+                ...signatureRequest,
+                step: (signatureRequest.step || 1) - 1
+              });
+            }}
+          >
+            <ChevronLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        )}
+       {(signatureRequest.step || 1) < 3 ? (
+          <Button
+            onClick={() => {
+              if ((signatureRequest.step || 1) === 1) {
+                const validRecipients = (signatureRequest.recipients || []).filter(
+                  (r) => r.name && r.email
+                );
+                if (validRecipients.length === 0) {
+                  alert('Please add at least one recipient with name and email');
+                  return;
+                }
+              }
+              setSignatureRequest({
+                ...signatureRequest,
+                step: (signatureRequest.step || 1) + 1
+              });
+            }}
+          >
+            Continue
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        ) : (
+          <Button
+            onClick={async () => {
+              try {
+                // Validate
+                const validRecipients = (signatureRequest.recipients || []).filter(
+                  (r) => r.name && r.email
+                );
+                if (validRecipients.length === 0) {
+                  alert('Please add at least one recipient with name and email');
+                  return;
+                }
+
+                // Use React state for loading instead of DOM manipulation
+                setIsSending(true);
+
+                // Call API to create signature requests
+                const response = await fetch('/api/signature/create', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    documentId: doc._id,
+                    recipients: signatureRequest.recipients,
+                    signatureFields: signatureRequest.signatureFields,
+                    message: signatureRequest.message,
+                    dueDate: signatureRequest.dueDate,
+                  }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                  alert(data.message || 'Failed to send signature request');
+                  setIsSending(false);
+                  return;
+                }
+
+                // Success! Show the success dialog with real links
+                setGeneratedLinks(data.signatureRequests);
+                setShowSuccessDialog(true);
+                setShowSignatureDialog(false);
+
+                // Reset form
+                setSignatureRequest({
+                  recipientEmail: '',
+                  recipientName: '',
+                  message: '',
+                  dueDate: '',
+                  step: 1,
+                  recipients: [],
+                  signatureFields: [],
+                });
+
+                setIsSending(false);
+                console.log('✅ Signature requests created successfully');
+                
+              } catch (error) {
+                console.error('❌ Error sending signature request:', error);
+                alert('Failed to send signature request. Please try again.');
+                setIsSending(false);
+              }
+            }}
+            className="bg-purple-600 hover:bg-purple-700"
+            disabled={isSending}
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            {isSending ? 'Sending...' : 'Send Request'}
+          </Button>
+        )}
       </div>
     </div>
   </DialogContent>
 </Dialog>
 
+{/* Success Dialog with Generated Links */}
+<Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+  <DialogContent className="max-w-3xl p-0 bg-white flex flex-col">
+    <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-green-50 to-emerald-50">
+      <div className="flex items-center gap-3">
+        <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+          <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <div>
+          <DialogTitle className="text-xl font-semibold text-slate-900">Signature Request Sent!</DialogTitle>
+          <p className="text-sm text-slate-600 mt-1">
+            Emails have been sent to all recipients with their signing links
+          </p>
+        </div>
+      </div>
+    </DialogHeader>
+
+    <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+      {/* Document Summary */}
+      <div className="bg-slate-50 rounded-lg p-4 border">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+            <FileText className="h-5 w-5 text-purple-600" />
+          </div>
+          <div>
+            <p className="font-medium text-slate-900">{doc.filename}</p>
+            <p className="text-sm text-slate-500">
+              Sent to {(generatedLinks || []).length} recipient(s)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Recipients and Their Links */}
+      <div>
+        <h3 className="font-semibold text-slate-900 mb-3">Signing Links Generated</h3>
+        <div className="space-y-3">
+          {(generatedLinks || []).map((item, index) => (
+            <div key={index} className="border rounded-lg p-4 bg-white hover:border-purple-300 transition-colors">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-purple-600 font-semibold">{index + 1}</span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">{item.recipient}</p>
+                    <p className="text-sm text-slate-600">{item.email}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {item.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Unique Signing Link */}
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <Label className="text-xs font-medium text-slate-700 mb-2 block">
+                  Unique Signing Link
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={item.link}
+                    readOnly
+                    className="flex-1 text-sm font-mono bg-white"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(item.link);
+                      alert('Link copied to clipboard!');
+                    }}
+                    className="flex-shrink-0"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      window.open(item.link, '_blank');
+                    }}
+                    className="flex-shrink-0"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  💡 This unique link has been emailed to {item.recipient}. You can also share it manually.
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* What Happens Next */}
+      <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+        <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          What happens next?
+        </h4>
+        <ul className="space-y-2 text-sm text-blue-800">
+          <li className="flex items-start gap-2">
+            <span className="flex-shrink-0 mt-0.5">✓</span>
+            <span>Each recipient will receive an email with their unique signing link</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="flex-shrink-0 mt-0.5">✓</span>
+            <span>They can click the link to view and sign the document</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="flex-shrink-0 mt-0.5">✓</span>
+            <span>You'll receive notifications when each person signs</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="flex-shrink-0 mt-0.5">✓</span>
+            <span>Track signing status in your dashboard</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    {/* Footer Actions */}
+    <div className="px-6 py-4 border-t bg-slate-50 flex items-center justify-between">
+      <Button
+        variant="outline"
+        onClick={() => {
+          // Copy all links
+          const allLinks = (generatedLinks || [])
+            .map((item) => `${item.recipient} (${item.email}): ${item.link}`)
+            .join('\n\n');
+          navigator.clipboard.writeText(allLinks);
+          alert('All links copied to clipboard!');
+        }}
+      >
+        <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+        Copy All Links
+      </Button>
+      <div className="flex gap-3">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowSuccessDialog(false);
+            // Reset signature request
+            setSignatureRequest({
+              recipientEmail: '',
+              recipientName: '',
+              message: '',
+              dueDate: '',
+              step: 1,
+              recipients: [],
+              signatureFields: [],
+            });
+          }}
+        >
+          Close
+        </Button>
+        <Button
+          onClick={() => {
+            setShowSuccessDialog(false);
+            // In a real app, this would navigate to the tracking dashboard
+            alert('Opening document tracking dashboard...');
+          }}
+          className="bg-purple-600 hover:bg-purple-700"
+        >
+          Track Status
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
 {/* Fix Issues Dialog */}
 {/* Fix Issues Dialog with Pagination - Professional Design */}
 <Dialog open={showFixIssuesDialog} onOpenChange={setShowFixIssuesDialog}>

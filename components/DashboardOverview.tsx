@@ -4,9 +4,18 @@
 import { useEffect, useState } from 'react';
 import { 
   FileText, Activity, TrendingUp, Eye, Users, Download, 
-  Clock, BarChart3, ArrowUp, ArrowDown, Loader2 
+  Clock, BarChart3, ArrowUp, ArrowDown, Loader2, Globe,
+  MapPin, Monitor, Smartphone, Tablet, Calendar, Filter,
+  TrendingDown, Target, Zap, Share2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
+  Legend, ResponsiveContainer 
+} from 'recharts';
+
 
 interface DashboardStats {
   totalDocuments: number;
@@ -28,24 +37,35 @@ interface DashboardStats {
     downloadsChange: number;
     engagementChange: number;
   };
+  // Advanced analytics
+  viewsOverTime: Array<{ date: string; views: number; downloads: number }>;
+  geographicData: Array<{ country: string; city: string; views: number; lat: number; lng: number }>;
+  deviceBreakdown: Array<{ device: string; count: number; percentage: number }>;
+  browserBreakdown: Array<{ browser: string; count: number }>;
+  topDocuments: Array<{ name: string; views: number; downloads: number; engagement: number }>;
+  hourlyActivity: Array<{ hour: number; views: number }>;
+  conversionFunnel: Array<{ stage: string; count: number; percentage: number }>;
+  viewerEngagement: Array<{ segment: string; count: number; avgTime: number }>;
 }
+
+const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
 
 export default function DashboardOverview() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     fetchDashboardStats();
-    
-    // Refresh stats every 30 seconds
     const interval = setInterval(fetchDashboardStats, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timeRange]);
 
   const fetchDashboardStats = async () => {
     try {
-      const res = await fetch('/api/dashboard/stats', {
+      const res = await fetch(`/api/dashboard/stats?range=${timeRange}`, {
         credentials: 'include',
       });
       
@@ -95,20 +115,10 @@ export default function DashboardOverview() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <div className="h-4 w-24 bg-slate-200 rounded"></div>
-                <div className="h-5 w-5 bg-slate-200 rounded"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-8 w-16 bg-slate-200 rounded mb-2"></div>
-                <div className="h-3 w-20 bg-slate-200 rounded"></div>
-              </CardContent>
-            </Card>
-          ))}
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
+          <p className="text-slate-600">Loading advanced analytics...</p>
         </div>
       </div>
     );
@@ -130,224 +140,502 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-6">
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Total Documents */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">
-              Total Documents
-            </CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-blue-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">
-              {stats.totalDocuments}
-            </div>
-            <p className="text-sm text-slate-500 mt-2 flex items-center gap-1">
-              {stats.activeShares > 0 && (
-                <>
-                  <span className="font-medium text-blue-600">{stats.activeShares}</span>
-                  active shares
-                </>
-              )}
-            </p>
-          </CardContent>
-        </Card>
+      {/* Header with Time Range Selector */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Analytics Dashboard</h2>
+          <p className="text-sm text-slate-600 mt-1">Track document performance and viewer engagement</p>
+        </div>
+        
+        <div className="flex gap-2 bg-slate-100 rounded-lg p-1">
+          {(['7d', '30d', '90d'] as const).map((range) => (
+            <button
+              key={range}
+              onClick={() => setTimeRange(range)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                timeRange === range
+                  ? 'bg-white text-purple-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {/* Total Views */}
-        <Card className="hover:shadow-lg transition-shadow">
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">
-              Total Views
-            </CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Eye className="h-5 w-5 text-purple-600" />
-            </div>
+            <CardTitle className="text-sm font-medium text-slate-600">Total Views</CardTitle>
+            <Eye className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-slate-900">
-              {stats.totalViews.toLocaleString()}
-            </div>
+            <div className="text-3xl font-bold text-slate-900">{stats.totalViews.toLocaleString()}</div>
             <p className={`text-sm mt-2 flex items-center gap-1 ${getTrendColor(stats.trending.viewsChange)}`}>
               {getTrendIcon(stats.trending.viewsChange)}
-              <span className="font-medium">
-                {Math.abs(stats.trending.viewsChange)}%
-              </span>
-              <span className="text-slate-500">this week</span>
+              <span className="font-medium">{Math.abs(stats.trending.viewsChange)}%</span>
+              <span className="text-slate-500">vs last period</span>
             </p>
           </CardContent>
         </Card>
 
-        {/* Unique Viewers */}
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-green-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">
-              Unique Viewers
-            </CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <Users className="h-5 w-5 text-green-600" />
-            </div>
+            <CardTitle className="text-sm font-medium text-slate-600">Unique Viewers</CardTitle>
+            <Users className="h-5 w-5 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-slate-900">
-              {stats.uniqueViewers.toLocaleString()}
-            </div>
+            <div className="text-3xl font-bold text-slate-900">{stats.uniqueViewers.toLocaleString()}</div>
             <p className="text-sm text-slate-500 mt-2">
-              {stats.totalDownloads > 0 && (
-                <>
-                  <span className="font-medium text-green-600">{stats.totalDownloads}</span>
-                  {' '}downloads
-                </>
-              )}
+              <span className="font-medium text-green-600">{stats.totalDownloads}</span> downloads
             </p>
           </CardContent>
         </Card>
 
-        {/* Engagement Rate */}
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-purple-500">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">
-              Engagement Rate
-            </CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-orange-100 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-orange-600" />
-            </div>
+            <CardTitle className="text-sm font-medium text-slate-600">Engagement</CardTitle>
+            <Target className="h-5 w-5 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-slate-900">
-              {stats.averageEngagement}%
-            </div>
+            <div className="text-3xl font-bold text-slate-900">{stats.averageEngagement}%</div>
             <p className={`text-sm mt-2 flex items-center gap-1 ${getTrendColor(stats.trending.engagementChange)}`}>
               {getTrendIcon(stats.trending.engagementChange)}
-              <span className="font-medium">
-                {Math.abs(stats.trending.engagementChange)}%
-              </span>
-              <span className="text-slate-500">this week</span>
+              <span className="font-medium">{Math.abs(stats.trending.engagementChange)}%</span>
+              <span className="text-slate-500">vs last period</span>
             </p>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-orange-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600">Avg. Time</CardTitle>
+            <Clock className="h-5 w-5 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-slate-900">{formatTimeSpent(stats.averageTimeSpent)}</div>
+            <p className="text-sm text-slate-500 mt-2">per document</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Secondary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Average Time Spent */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <Clock className="h-5 w-5 text-blue-600" />
-              Average Time Spent
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900 mb-2">
-              {formatTimeSpent(stats.averageTimeSpent)}
-            </div>
-            <p className="text-sm text-slate-600">
-              per document view
-            </p>
-            <div className="mt-4 h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all"
-                style={{ width: `${Math.min((stats.averageTimeSpent / 300) * 100, 100)}%` }}
-              />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Advanced Analytics Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="bg-slate-100 p-1">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="geography">Geography</TabsTrigger>
+          <TabsTrigger value="devices">Devices</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
+        </TabsList>
 
-        {/* Quick Stats Grid */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-purple-600" />
-              Quick Stats
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Total Downloads</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.totalDownloads}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Active Shares</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.activeShares}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Avg. Views/Doc</p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {stats.totalDocuments > 0 
-                    ? Math.round(stats.totalViews / stats.totalDocuments) 
-                    : 0}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Engagement</p>
-                <p className="text-2xl font-bold text-slate-900">{stats.averageEngagement}%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        {/* OVERVIEW TAB */}
+        <TabsContent value="overview" className="space-y-6">
+          {/* Views & Downloads Over Time */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-purple-600" />
+                Views & Downloads Over Time
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={stats.viewsOverTime}>
+                  <defs>
+                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorDownloads" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="date" stroke="#64748b" fontSize={12} />
+                  <YAxis stroke="#64748b" fontSize={12} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                  />
+                  <Legend />
+                  <Area type="monotone" dataKey="views" stroke="#8B5CF6" fillOpacity={1} fill="url(#colorViews)" />
+                  <Area type="monotone" dataKey="downloads" stroke="#10B981" fillOpacity={1} fill="url(#colorDownloads)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-green-600" />
-            Recent Activity
-          </CardTitle>
-          <button className="text-sm text-purple-600 hover:text-purple-700 font-medium">
-            View All
-          </button>
-        </CardHeader>
-        <CardContent>
-          {stats.recentActivity.length > 0 ? (
-            <div className="space-y-3">
-              {stats.recentActivity.slice(0, 5).map((activity) => (
-                <div 
-                  key={activity.id}
-                  className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
-                >
-                  <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    activity.type === 'view' ? 'bg-blue-100' :
-                    activity.type === 'download' ? 'bg-green-100' :
-                    'bg-purple-100'
-                  }`}>
-                    {activity.type === 'view' && <Eye className="h-5 w-5 text-blue-600" />}
-                    {activity.type === 'download' && <Download className="h-5 w-5 text-green-600" />}
-                    {activity.type === 'share' && <Activity className="h-5 w-5 text-purple-600" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 truncate">
-                      {activity.documentName}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Hourly Activity Heatmap */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-blue-600" />
+                  Activity by Hour
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={stats.hourlyActivity}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="hour" stroke="#64748b" fontSize={12} />
+                    <YAxis stroke="#64748b" fontSize={12} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                    />
+                    <Bar dataKey="views" fill="#3B82F6" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Conversion Funnel */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-orange-600" />
+                  Engagement Funnel
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {stats.conversionFunnel.map((stage, index) => (
+                    <div key={stage.stage}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="font-medium text-slate-700">{stage.stage}</span>
+                        <span className="text-slate-600">{stage.count} ({stage.percentage}%)</span>
+                      </div>
+                      <div className="h-8 bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full flex items-center justify-end px-3 text-white text-xs font-medium transition-all`}
+                          style={{ 
+                            width: `${stage.percentage}%`,
+                            backgroundColor: COLORS[index % COLORS.length]
+                          }}
+                        >
+                          {stage.percentage}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Top Performing Documents */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-purple-600" />
+                Top Performing Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-sm text-slate-600 border-b">
+                      <th className="pb-3 font-medium">Document</th>
+                      <th className="pb-3 font-medium">Views</th>
+                      <th className="pb-3 font-medium">Downloads</th>
+                      <th className="pb-3 font-medium">Engagement</th>
+                      <th className="pb-3 font-medium">Trend</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm">
+                    {stats.topDocuments.map((doc, index) => (
+                      <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="py-3 font-medium text-slate-900">{doc.name}</td>
+                        <td className="py-3">{doc.views.toLocaleString()}</td>
+                        <td className="py-3">{doc.downloads}</td>
+                        <td className="py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-purple-500 to-blue-500"
+                                style={{ width: `${doc.engagement}%` }}
+                              />
+                            </div>
+                            <span className="text-xs">{doc.engagement}%</span>
+                          </div>
+                        </td>
+                        <td className="py-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+                            index < 2 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {index < 2 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                            {index < 2 ? 'Rising' : 'Stable'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* GEOGRAPHY TAB */}
+        <TabsContent value="geography" className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Geographic Map (Simulated) */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-blue-600" />
+                  Geographic Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* World Map Visualization (Placeholder - would use real map library) */}
+                <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg p-8 border-2 border-dashed border-slate-300">
+                  <div className="text-center">
+                    <Globe className="h-16 w-16 text-slate-400 mx-auto mb-4" />
+                    <h3 className="font-semibold text-slate-900 mb-2">Interactive World Map</h3>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Geographic visualization showing viewer locations worldwide
                     </p>
-                    <p className="text-sm text-slate-600">
-                      {activity.type === 'view' && 'was viewed'}
-                      {activity.type === 'download' && 'was downloaded'}
-                      {activity.type === 'share' && 'was shared'}
-                      {activity.viewer && ` by ${activity.viewer}`}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {formatTimeAgo(activity.timestamp)}
-                    </p>
+                    <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
+                      {stats.geographicData.slice(0, 6).map((location, index) => (
+                        <div key={index} className="bg-white rounded-lg p-4 border border-slate-200">
+                          <MapPin className="h-5 w-5 text-purple-600 mb-2" />
+                          <p className="font-semibold text-slate-900">{location.city}</p>
+                          <p className="text-xs text-slate-600">{location.country}</p>
+                          <p className="text-lg font-bold text-purple-600 mt-1">{location.views}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Activity className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-sm text-slate-600">No recent activity yet</p>
-              <p className="text-xs text-slate-500 mt-1">
-                Share your first document to see activity here
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+
+            {/* Top Countries */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-green-600" />
+                  Top Countries
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {stats.geographicData.slice(0, 5).map((location, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-medium text-slate-900">{location.country}</span>
+                          <span className="text-sm text-slate-600">{location.views} views</span>
+                        </div>
+                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
+                            style={{ width: `${(location.views / stats.totalViews) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Top Cities */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-blue-600" />
+                  Top Cities
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {stats.geographicData.slice(0, 8).map((location, index) => (
+                    <div key={index} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400 text-sm">#{index + 1}</span>
+                        <span className="font-medium text-slate-900">{location.city}</span>
+                      </div>
+                      <span className="text-sm text-slate-600">{location.views} views</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* DEVICES TAB */}
+        <TabsContent value="devices" className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Device Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Monitor className="h-5 w-5 text-purple-600" />
+                  Device Types
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={stats.deviceBreakdown}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ device, percentage }) => `${device}: ${percentage}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {stats.deviceBreakdown.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                
+                <div className="mt-4 space-y-2">
+                  {stats.deviceBreakdown.map((device, index) => (
+                    <div key={device.device} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <span className="text-sm text-slate-700">{device.device}</span>
+                      </div>
+                      <span className="text-sm font-medium text-slate-900">{device.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Browser Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-blue-600" />
+                  Browsers
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {stats.browserBreakdown.map((browser, index) => {
+                    const percentage = (browser.count / stats.totalViews) * 100;
+                    return (
+                      <div key={browser.browser}>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="font-medium text-slate-700">{browser.browser}</span>
+                          <span className="text-slate-600">{browser.count} ({percentage.toFixed(1)}%)</span>
+                        </div>
+                        <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all"
+                            style={{ 
+                              width: `${percentage}%`,
+                              backgroundColor: COLORS[index % COLORS.length]
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* PERFORMANCE TAB */}
+        <TabsContent value="performance" className="space-y-6">
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Viewer Engagement Segments */}
+            {stats.viewerEngagement.map((segment, index) => (
+              <Card key={segment.segment}>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium text-slate-600">
+                    {segment.segment} Engagement
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-slate-900 mb-2">
+                    {segment.count}
+                  </div>
+                  <p className="text-sm text-slate-600">
+                    Avg. {formatTimeSpent(segment.avgTime)}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Recent Activity */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-green-600" />
+                Recent Activity
+              </CardTitle>
+              <button className="text-sm text-purple-600 hover:text-purple-700 font-medium">
+                View All
+              </button>
+            </CardHeader>
+            <CardContent>
+              {stats.recentActivity.length > 0 ? (
+                <div className="space-y-3">
+                  {stats.recentActivity.slice(0, 8).map((activity) => (
+                    <div 
+                      key={activity.id}
+                      className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        activity.type === 'view' ? 'bg-blue-100' :
+                        activity.type === 'download' ? 'bg-green-100' :
+                        'bg-purple-100'
+                      }`}>
+                        {activity.type === 'view' && <Eye className="h-5 w-5 text-blue-600" />}
+                        {activity.type === 'download' && <Download className="h-5 w-5 text-green-600" />}
+                        {activity.type === 'share' && <Share2 className="h-5 w-5 text-purple-600" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900 truncate">
+                          {activity.documentName}
+                        </p>
+                        <p className="text-sm text-slate-600">
+                          {activity.type === 'view' && 'was viewed'}
+                          {activity.type === 'download' && 'was downloaded'}
+                          {activity.type === 'share' && 'was shared'}
+                          {activity.viewer && ` by ${activity.viewer}`}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {formatTimeAgo(activity.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Activity className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-sm text-slate-600">No recent activity yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
     </div>
   );
 }
