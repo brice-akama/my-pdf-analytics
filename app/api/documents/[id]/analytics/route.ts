@@ -6,16 +6,19 @@ import { ObjectId } from 'mongodb';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ Await params in Next.js 15
+    const { id } = await params;
+    
     // ✅ Verify user via HTTP-only cookie
     const user = await verifyUserFromRequest(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const db = await dbPromise;
-    const documentId = new ObjectId(params.id);
-    console.log(params.id); // Add this to debug
+    const documentId = new ObjectId(id);
+    console.log(id); // Add this to debug
 
     // ✅ Verify ownership of the document
     const document = await db.collection('documents').findOne({
@@ -106,11 +109,11 @@ export async function GET(
     const deviceCounts = { desktop: 0, mobile: 0, tablet: 0 };
     type DeviceType = 'desktop' | 'mobile' | 'tablet';
     
-        views.forEach(v => { 
-          if (v.device && (v.device as DeviceType)) {
-            deviceCounts[v.device as DeviceType]++;
-          }
-        });
+    views.forEach(v => { 
+      if (v.device && (v.device as DeviceType)) {
+        deviceCounts[v.device as DeviceType]++;
+      }
+    });
     const devicePercentages = Object.fromEntries(
       Object.entries(deviceCounts).map(([k, v]) => [k, totalViews ? Math.round((v / totalViews) * 100) : 0])
     );
@@ -185,15 +188,17 @@ export async function GET(
   }
 }
 
-// 📈 POST - Track interactions
 // 📈 POST - Track interactions and update tracking object
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ Await params in Next.js 15
+    const { id } = await params;
+    
     const db = await dbPromise;
-    const documentId = params.id;
+    const documentId = id;
     const body = await request.json();
     const { action, pageNumber, viewTime = 0, visitorId } = body;
 

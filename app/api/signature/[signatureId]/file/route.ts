@@ -1,7 +1,7 @@
 // app/api/signature/[signatureId]/file/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { dbPromise } from "../../../lib/mongodb";
+import { dbPromise } from "@/app/api/lib/mongodb";
 import { ObjectId } from "mongodb";
 import cloudinary from 'cloudinary';
 
