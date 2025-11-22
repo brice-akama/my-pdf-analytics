@@ -110,9 +110,13 @@ const [showPdfView, setShowPdfView] = useState(false);
 const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 const [generatedLinks, setGeneratedLinks] = useState([]);
 const [isSending, setIsSending] = useState(false);
+const [showThumbnailDialog, setShowThumbnailDialog] = useState(false);
+const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
 const [basePdfUrl, setBasePdfUrl] = useState<string | null>(null); // new
 const [linkSettings, setLinkSettings] = useState({
-  requireEmail: false,
+  requireEmail: true,
   allowDownload: true,
   expiresIn: '30', // days
   password: '',
@@ -513,24 +517,63 @@ const handlePresent = () => {
 };
 
 // Handle export visits (CSV format)
-const handleExportVisits = () => {
-  // Create sample analytics data
-  const csvContent = [
-    ['Date', 'Visitor', 'Time Spent', 'Pages Viewed'],
-    ['2025-01-20', 'Anonymous', '5 min', '3'],
-    ['2025-01-19', 'Anonymous', '8 min', '5'],
-    ['2025-01-18', 'Anonymous', '3 min', '2'],
-  ].map(row => row.join(',')).join('\n');
-
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${doc?.filename}-analytics.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+const handleExportVisits = async () => {
+  try {
+    // Fetch real analytics data
+    const res = await fetch(`/api/documents/${params.id}/analytics`, {
+      credentials: 'include',
+    });
+    
+    if (!res.ok) {
+      alert('Failed to fetch analytics data');
+      return;
+    }
+    
+    const data = await res.json();
+    const analytics = data.analytics;
+    
+    // Create CSV header
+    const csvRows = [
+      ['Date', 'Visitor', 'Time Spent', 'Pages Viewed', 'Device', 'Completion']
+    ];
+    
+    // Add data rows from topViewers
+    if (analytics.topViewers && analytics.topViewers.length > 0) {
+      analytics.topViewers.forEach((viewer: any) => {
+        csvRows.push([
+          viewer.lastViewed,
+          viewer.email,
+          viewer.time,
+          '-', // Pages viewed not in this dataset
+          '-', // Device not in this dataset
+          '-'  // Completion not in this dataset
+        ]);
+      });
+    } else {
+      // No data yet
+      csvRows.push(['No visits yet', '-', '-', '-', '-', '-']);
+    }
+    
+    // Convert to CSV string
+    const csvContent = csvRows.map(row => row.join(',')).join('\n');
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${doc.filename}-analytics-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    console.log('✅ Analytics exported successfully');
+    
+  } catch (error) {
+    console.error('Export error:', error);
+    alert('Failed to export analytics');
+  }
 };
 
 // Handle delete
@@ -587,9 +630,73 @@ const handleConvertToSignable = () => {
   }
 };
 
-// Handle update thumbnail
+
+
 const handleUpdateThumbnail = () => {
-  alert('Update Thumbnail feature coming soon! This will let you choose a custom preview image.');
+  setShowThumbnailDialog(true);
+};
+
+const handleThumbnailFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (JPG, PNG, etc.)');
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB');
+      return;
+    }
+    
+    setThumbnailFile(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setThumbnailPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+const handleUploadThumbnail = async () => {
+  if (!thumbnailFile) {
+    alert('Please select an image');
+    return;
+  }
+  
+  setIsUploadingThumbnail(true);
+  
+  try {
+    const formData = new FormData();
+    formData.append('thumbnail', thumbnailFile);
+    
+    const res = await fetch(`/api/documents/${doc._id}/thumbnail`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      alert('✅ Thumbnail updated successfully!');
+      setShowThumbnailDialog(false);
+      setThumbnailFile(null);
+      setThumbnailPreview(null);
+      await fetchDocument(); // Refresh document data
+    } else {
+      const error = await res.json();
+      alert(error.message || 'Failed to update thumbnail');
+    }
+  } catch (error) {
+    console.error('Thumbnail upload error:', error);
+    alert('Failed to update thumbnail');
+  } finally {
+    setIsUploadingThumbnail(false);
+  }
 };
 
 // Fetch PDF for preview
@@ -700,19 +807,18 @@ const handleCreateLink = async () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // Default settings - user can change later
-        requireEmail: false,
-        allowDownload: true,
-        expiresIn: 'never',
-        password: '',
-        notifyOnView: true,
+        requireEmail: true, // ✅ FORCE email capture
+        allowDownload: linkSettings.allowDownload,
+        allowPrint: true,
+        notifyOnView: linkSettings.notifyOnView,
+        expiresIn: linkSettings.expiresIn,
+        password: linkSettings.password || null,
       }),
     });
     
     if (res.ok) {
       const data = await res.json();
       if (data.success) {
-        // Show success message and copy link
         setGeneratedLink(data.shareLink);
         navigator.clipboard.writeText(data.shareLink);
         alert('✅ Link created and copied to clipboard!');
@@ -727,7 +833,6 @@ const handleCreateLink = async () => {
     setIsGeneratingLink(false);
   }
 };
-
 // Copy link to clipboard
 const [linkCopied, setLinkCopied] = useState(false);
 const handleCopyLink = () => {
@@ -838,20 +943,28 @@ const openCreateLinkDialog = () => {
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-                  <FileText className="h-5 w-5 text-red-600" />
-                </div>
-               <div>
-  <h1 className="font-semibold text-slate-900">{doc.filename}</h1>
-  {!isEditingNotes ? (
-    <button
-      onClick={() => setIsEditingNotes(true)}
-      className="text-xs text-slate-500 hover:text-purple-600 transition-colors text-left"
-    >
-      {doc.notes ? `📝 ${doc.notes}` : '📝 Add a note to this document'}
-    </button>
-  ) : (
+             <div className="flex items-center gap-3">
+  <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+    <FileText className="h-5 w-5 text-red-600" />
+  </div>
+  <div>
+    <div className="flex items-center gap-2">
+      <h1 className="font-semibold text-slate-900">{doc.filename}</h1>
+      {doc.isTemplate && (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+          <FileSignature className="h-3 w-3 mr-1" />
+          Signable Template
+        </span>
+      )}
+    </div>
+    {!isEditingNotes ? (
+      <button
+        onClick={() => setIsEditingNotes(true)}
+        className="text-xs text-slate-500 hover:text-purple-600 transition-colors text-left"
+      >
+        {doc.notes ? `📝 ${doc.notes}` : ''}
+      </button>
+    ) : (
     <div className="flex items-center gap-2 mt-1">
       <input
         type="text"
@@ -929,10 +1042,34 @@ const openCreateLinkDialog = () => {
     <Presentation className="mr-2 h-4 w-4" />
     <span>Present</span>
   </DropdownMenuItem>
-  <DropdownMenuItem onClick={handleConvertToSignable}>
-    <FileSignature className="mr-2 h-4 w-4" />
-    <span>Convert to signable</span>
-  </DropdownMenuItem>
+  <DropdownMenuItem 
+  onClick={doc?.isTemplate ? async () => {
+    // If already a template, load and edit it
+    const res = await fetch(`/api/documents/${doc._id}/template`, {
+      credentials: 'include',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setSignatureRequest({
+        recipientEmail: '',
+        recipientName: '',
+        message: '',
+        dueDate: '',
+        step: 2,
+        recipients: data.template.recipients || [],
+        signatureFields: data.template.signatureFields || [],
+        isTemplate: true,
+      });
+      setShowSignatureDialog(true);
+      if (!pdfUrl) {
+        fetchPdfForPreview(1);
+      }
+    }
+  } : handleConvertToSignable}
+>
+  <FileSignature className="mr-2 h-4 w-4" />
+  <span>{doc?.isTemplate ? 'Edit Template' : 'Convert to signable'}</span>
+</DropdownMenuItem>
   <DropdownMenuItem onClick={handleDownload} disabled={isDownloading}>
     {isDownloading ? (
       <div className="mr-2 h-4 w-4 animate-spin border-2 border-purple-600 border-t-transparent rounded-full" />
@@ -1123,51 +1260,155 @@ const openCreateLinkDialog = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'activity' && (
-          <div className="bg-white rounded-lg border shadow-sm p-12 text-center">
-            <div className="max-w-md mx-auto">
-              <div className="mb-6">
-                <img
-                  src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3Crect x='50' y='50' width='300' height='200' rx='10' fill='%233b82f6'/%3E%3Cpath d='M 100 180 Q 150 150 200 180 T 300 180' stroke='%23000' stroke-width='3' fill='none'/%3E%3Cpath d='M 80 120 L 100 100 L 120 110' fill='%23000'/%3E%3C/svg%3E"
-                  alt="Put document to work"
-                  className="w-64 h-48 mx-auto mb-6"
-                />
-              </div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-3">
-                Put your document to work
-              </h2>
-              <p className="text-slate-600 mb-6">
-                Create a link to share this document, or customize the document to collect eSignatures
-              </p>
-              <div className="flex gap-3 justify-center">
-                <Button
-                onClick={openCreateLinkDialog}
-                 className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                  <LinkIcon className="h-4 w-4" />
-                  Create link
-                </Button>
-                <Button
-  onClick={handleOpenFixIssues}
-  variant="outline"
-  className="gap-2 border-orange-300 text-orange-700 hover:bg-orange-50"
->
-  <FileCheck className="h-4 w-4" />
-  Fix Issues
-  {doc && getTotalIssues() > 0 && (
-    <span className="ml-1 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
-      {getTotalIssues()}
-    </span>
-  )}
-</Button>
-                <Button
-                onClick={() => setShowSignatureDialog(true)}
-                variant="outline" className="gap-2">
-                  <Mail className="h-4 w-4" />
-                  Request signatures
-                </Button>
-              </div>
-            </div>
+  <div className="space-y-6">
+    {/* NEW: Template Section - Show if document is a template */}
+    {doc.isTemplate && (
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200 p-8 text-center">
+        <div className="max-w-md mx-auto">
+          <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
+            <FileSignature className="h-8 w-8 text-purple-600" />
           </div>
-        )}
+          <h2 className="text-2xl font-bold text-slate-900 mb-3">
+            Signable Template Ready
+          </h2>
+          <p className="text-slate-600 mb-6">
+            This document has pre-placed signature fields. Send it to recipients to collect signatures.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button
+              onClick={async () => {
+                // Load template configuration
+                const res = await fetch(`/api/documents/${doc._id}/template`, {
+                  credentials: 'include',
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  // Pre-populate signature dialog with template fields
+                  setSignatureRequest({
+                    recipientEmail: '',
+                    recipientName: '',
+                    message: '',
+                    dueDate: '',
+                    step: 1,
+                    recipients: [],
+                    signatureFields: data.template.signatureFields || [],
+                    isTemplate: false, // Now in "send mode"
+                  });
+                  setShowSignatureDialog(true);
+                  if (!pdfUrl) {
+                    fetchPdfForPreview(1);
+                  }
+                }
+              }}
+              className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              <Mail className="h-4 w-4" />
+              Send to Recipients
+            </Button>
+            <Button
+              onClick={async () => {
+                // Edit template fields
+                const res = await fetch(`/api/documents/${doc._id}/template`, {
+                  credentials: 'include',
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  setSignatureRequest({
+                    recipientEmail: '',
+                    recipientName: '',
+                    message: '',
+                    dueDate: '',
+                    step: 2, // Go to field placement
+                    recipients: data.template.recipients || [],
+                    signatureFields: data.template.signatureFields || [],
+                    isTemplate: true, // Edit template mode
+                  });
+                  setShowSignatureDialog(true);
+                  if (!pdfUrl) {
+                    fetchPdfForPreview(1);
+                  }
+                }
+              }}
+              variant="outline"
+              className="gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              Edit Template
+            </Button>
+            <Button
+              onClick={async () => {
+                if (confirm('Remove template configuration? This will not delete the document.')) {
+                  const res = await fetch(`/api/documents/${doc._id}/template`, {
+                    method: 'DELETE',
+                    credentials: 'include',
+                  });
+                  if (res.ok) {
+                    alert('✅ Template configuration removed');
+                    fetchDocument(); // Refresh document data
+                  }
+                }
+              }}
+              variant="outline"
+              className="gap-2 text-red-600 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              Remove Template
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* EXISTING: Your original "Put document to work" section */}
+    <div className="bg-white rounded-lg border shadow-sm p-12 text-center">
+      <div className="max-w-md mx-auto">
+        <div className="mb-6">
+          <img
+            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3Crect x='50' y='50' width='300' height='200' rx='10' fill='%233b82f6'/%3E%3Cpath d='M 100 180 Q 150 150 200 180 T 300 180' stroke='%23000' stroke-width='3' fill='none'/%3E%3Cpath d='M 80 120 L 100 100 L 120 110' fill='%23000'/%3E%3C/svg%3E"
+            alt="Put document to work"
+            className="w-64 h-48 mx-auto mb-6"
+          />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-3">
+          Put your document to work
+        </h2>
+        <p className="text-slate-600 mb-6">
+          Create a link to share this document, or customize the document to collect eSignatures
+        </p>
+        <div className="flex gap-3 justify-center">
+          <Button
+            onClick={openCreateLinkDialog}
+            className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          >
+            <LinkIcon className="h-4 w-4" />
+            Create link
+          </Button>
+          <Button
+            onClick={handleOpenFixIssues}
+            variant="outline"
+            className="gap-2 border-orange-300 text-orange-700 hover:bg-orange-50"
+          >
+            <FileCheck className="h-4 w-4" />
+            Fix Issues
+            {doc && getTotalIssues() > 0 && (
+              <span className="ml-1 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
+                {getTotalIssues()}
+              </span>
+            )}
+          </Button>
+          <Button
+            onClick={() => setShowSignatureDialog(true)}
+            variant="outline"
+            className="gap-2"
+          >
+            <Mail className="h-4 w-4" />
+            Request signatures
+          </Button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
         {activeTab === 'performance' && (
   <div className="space-y-6">
@@ -1285,29 +1526,30 @@ const openCreateLinkDialog = () => {
         </div>
 
         {/* Top Viewers */}
-        {analytics.topViewers.length > 0 && (
-          <div className="bg-white rounded-xl border shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Top Viewers</h3>
-            <div className="space-y-3">
-              {analytics.topViewers.map((viewer: any, index: number) => (
-                <div key={index} className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
-                    {viewer.email.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 truncate">{viewer.email}</p>
-                    <p className="text-sm text-slate-500">
-                      {viewer.views} views • {viewer.time} total time
-                    </p>
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    {viewer.lastViewed}
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Top Viewers - Should show emails now */}
+{analytics.topViewers.length > 0 && (
+  <div className="bg-white rounded-xl border shadow-sm p-6">
+    <h3 className="text-lg font-semibold text-slate-900 mb-4">Top Viewers</h3>
+    <div className="space-y-3">
+      {analytics.topViewers.map((viewer: any, index: number) => (
+        <div key={index} className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors">
+          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
+            {viewer.email.charAt(0).toUpperCase()}
           </div>
-        )}
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-slate-900 truncate">{viewer.email}</p>
+            <p className="text-sm text-slate-500">
+              {viewer.views} views • {viewer.time} total time
+            </p>
+          </div>
+          <div className="text-xs text-slate-500">
+            {viewer.lastViewed}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
       </>
     )}
   </div>
@@ -1930,7 +2172,19 @@ const openCreateLinkDialog = () => {
               </Button>
             </div>
           </div>
-
+          {/* In your Create Link Dialog, add this setting */}
+<div className="flex items-center justify-between py-2">
+  <div>
+    <p className="text-sm font-medium">Require email to view</p>
+    <p className="text-xs text-slate-500">Track who views your document</p>
+  </div>
+  <Switch
+    checked={linkSettings.requireEmail}
+    onCheckedChange={(checked) => 
+      setLinkSettings({ ...linkSettings, requireEmail: checked })
+    }
+  />
+</div>
           {/* Link Settings - Expandable */}
           <details className="border rounded-lg">
             <summary className="px-4 py-3 cursor-pointer font-medium text-sm hover:bg-slate-50">
@@ -2046,16 +2300,21 @@ const openCreateLinkDialog = () => {
   <DialogContent className="max-w-6xl h-[90vh] p-0 bg-white flex flex-col">
     <DialogHeader className="px-6 py-4 border-b">
       <div className="flex items-center justify-between">
-        <div>
-          <DialogTitle className="text-xl font-semibold">Request Signature</DialogTitle>
-          <p className="text-sm text-slate-500 mt-1">
-            Step {signatureRequest.step || 1} of 3: {
+         <div>
+      <DialogTitle className="text-xl font-semibold">
+        {signatureRequest.isTemplate ? 'Convert to Signable Template' : 'Request Signature'}
+      </DialogTitle>
+      <p className="text-sm text-slate-500 mt-1">
+        {signatureRequest.isTemplate 
+          ? `Step ${signatureRequest.step || 1} of 3: Setup Template` 
+          : `Step ${signatureRequest.step || 1} of 3: ${
               (signatureRequest.step || 1) === 1 ? 'Add Recipients' :
               (signatureRequest.step || 1) === 2 ? 'Place Signature Fields' :
               'Review & Send'
-            }
-          </p>
-        </div>
+            }`
+        }
+      </p>
+    </div>
         <Button
           variant="ghost"
           size="icon"
@@ -2671,98 +2930,162 @@ const openCreateLinkDialog = () => {
             Back
           </Button>
         )}
-       {(signatureRequest.step || 1) < 3 ? (
-          <Button
-            onClick={() => {
-              if ((signatureRequest.step || 1) === 1) {
-                const validRecipients = (signatureRequest.recipients || []).filter(
-                  (r) => r.name && r.email
-                );
-                if (validRecipients.length === 0) {
-                  alert('Please add at least one recipient with name and email');
-                  return;
-                }
-              }
-              setSignatureRequest({
-                ...signatureRequest,
-                step: (signatureRequest.step || 1) + 1
-              });
-            }}
-          >
-            Continue
-            <ChevronRight className="h-4 w-4 ml-2" />
-          </Button>
-        ) : (
-          <Button
-            onClick={async () => {
-              try {
-                // Validate
-                const validRecipients = (signatureRequest.recipients || []).filter(
-                  (r) => r.name && r.email
-                );
-                if (validRecipients.length === 0) {
-                  alert('Please add at least one recipient with name and email');
-                  return;
-                }
+       
+{(signatureRequest.step || 1) < 3 ? (
+  <Button
+    onClick={() => {
+      if ((signatureRequest.step || 1) === 1) {
+        const validRecipients = (signatureRequest.recipients || []).filter(
+          (r) => r.name && r.email
+        );
+        if (validRecipients.length === 0 && !signatureRequest.isTemplate) {
+          alert('Please add at least one recipient with name and email');
+          return;
+        }
+      }
+      setSignatureRequest({
+        ...signatureRequest,
+        step: (signatureRequest.step || 1) + 1
+      });
+    }}
+  >
+    Continue
+    <ChevronRight className="h-4 w-4 ml-2" />
+  </Button>
+) : (
+  <Button
+    onClick={async () => {
+      try {
+        // Validate based on mode
+        if (signatureRequest.isTemplate) {
+          // Template mode - just save the template
+          if ((signatureRequest.signatureFields || []).length === 0) {
+            alert('Please add at least one signature field');
+            return;
+          }
+          
+          setIsSending(true);
+          
+          // Save template to document
+          const response = await fetch(`/api/documents/${doc._id}/template`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              signatureFields: signatureRequest.signatureFields,
+              recipients: signatureRequest.recipients,
+            }),
+          });
+          
+          const data = await response.json();
+          
+          if (!response.ok || !data.success) {
+            alert(data.message || 'Failed to save template');
+            setIsSending(false);
+            return;
+          }
+          
+          // Success!
+         // After successful template save
+alert('✅ Document converted to signable template! You can now send it to multiple recipients.');
+setShowSignatureDialog(false);
+await fetchDocument(); // Add this line - it will refresh the document data
+          
+          // Reset form
+          setSignatureRequest({
+            recipientEmail: '',
+            recipientName: '',
+            message: '',
+            dueDate: '',
+            step: 1,
+            recipients: [],
+            signatureFields: [],
+            isTemplate: false,
+          });
+          
+          setIsSending(false);
+          
+        } else {
+          // Regular signature request mode
+          const validRecipients = (signatureRequest.recipients || []).filter(
+            (r) => r.name && r.email
+          );
+          if (validRecipients.length === 0) {
+            alert('Please add at least one recipient with name and email');
+            return;
+          }
 
-                // Use React state for loading instead of DOM manipulation
-                setIsSending(true);
+          setIsSending(true);
 
-                // Call API to create signature requests
-                const response = await fetch('/api/signature/create', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    documentId: doc._id,
-                    recipients: signatureRequest.recipients,
-                    signatureFields: signatureRequest.signatureFields,
-                    message: signatureRequest.message,
-                    dueDate: signatureRequest.dueDate,
-                  }),
-                });
+          // Call API to create signature requests
+          const response = await fetch('/api/signature/create', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              documentId: doc._id,
+              recipients: signatureRequest.recipients,
+              signatureFields: signatureRequest.signatureFields,
+              message: signatureRequest.message,
+              dueDate: signatureRequest.dueDate,
+            }),
+          });
 
-                const data = await response.json();
+          const data = await response.json();
 
-                if (!response.ok || !data.success) {
-                  alert(data.message || 'Failed to send signature request');
-                  setIsSending(false);
-                  return;
-                }
+          if (!response.ok || !data.success) {
+            alert(data.message || 'Failed to send signature request');
+            setIsSending(false);
+            return;
+          }
 
-                // Success! Show the success dialog with real links
-                setGeneratedLinks(data.signatureRequests);
-                setShowSuccessDialog(true);
-                setShowSignatureDialog(false);
+          // Success! Show the success dialog with real links
+          setGeneratedLinks(data.signatureRequests);
+          setShowSuccessDialog(true);
+          setShowSignatureDialog(false);
 
-                // Reset form
-                setSignatureRequest({
-                  recipientEmail: '',
-                  recipientName: '',
-                  message: '',
-                  dueDate: '',
-                  step: 1,
-                  recipients: [],
-                  signatureFields: [],
-                });
+          // Reset form
+          setSignatureRequest({
+            recipientEmail: '',
+            recipientName: '',
+            message: '',
+            dueDate: '',
+            step: 1,
+            recipients: [],
+            signatureFields: [],
+            isTemplate: false,
+          });
 
-                setIsSending(false);
-                console.log('✅ Signature requests created successfully');
-                
-              } catch (error) {
-                console.error('❌ Error sending signature request:', error);
-                alert('Failed to send signature request. Please try again.');
-                setIsSending(false);
-              }
-            }}
-            className="bg-purple-600 hover:bg-purple-700"
-            disabled={isSending}
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            {isSending ? 'Sending...' : 'Send Request'}
-          </Button>
-        )}
+          setIsSending(false);
+          console.log('✅ Signature requests created successfully');
+        }
+        
+      } catch (error) {
+        console.error('❌ Error:', error);
+        alert('Failed to process request. Please try again.');
+        setIsSending(false);
+      }
+    }}
+    className="bg-purple-600 hover:bg-purple-700"
+    disabled={isSending}
+  >
+    {signatureRequest.isTemplate ? (
+      <>
+        <FileSignature className="h-4 w-4 mr-2" />
+        {isSending ? 'Saving Template...' : 'Save as Template'}
+      </>
+    ) : (
+      <>
+        <Mail className="h-4 w-4 mr-2" />
+        {isSending ? 'Sending...' : 'Send Request'}
+      </>
+    )}
+  </Button>
+)}
       </div>
     </div>
   </DialogContent>
@@ -2950,6 +3273,124 @@ const openCreateLinkDialog = () => {
           Track Status
         </Button>
       </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Update Thumbnail Dialog */}
+<Dialog open={showThumbnailDialog} onOpenChange={setShowThumbnailDialog}>
+  <DialogContent className="max-w-md bg-white max-h-[80vh] overflow-y-auto">
+
+    <DialogHeader>
+      <DialogTitle>Update Document Thumbnail</DialogTitle>
+      <p className="text-sm text-slate-500 mt-1">
+        Choose a custom preview image for your document
+      </p>
+    </DialogHeader>
+    
+    <div className="space-y-4 py-4">
+      {/* Current Thumbnail */}
+      {doc?.thumbnail && !thumbnailPreview && (
+        <div>
+          <Label className="text-sm font-medium mb-2 block">Current Thumbnail</Label>
+          <div className="relative w-full aspect-video rounded-lg overflow-hidden border-2 border-slate-200">
+            <img 
+              src={doc.thumbnail} 
+              alt="Current thumbnail"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* Preview New Thumbnail */}
+      {thumbnailPreview && (
+        <div>
+          <Label className="text-sm font-medium mb-2 block">New Thumbnail Preview</Label>
+          <div className="relative w-full aspect-video rounded-lg overflow-hidden border-2 border-purple-500">
+            <img 
+              src={thumbnailPreview} 
+              alt="New thumbnail preview"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* File Upload */}
+      <div>
+        <Label className="text-sm font-medium mb-2 block">
+          {thumbnailPreview ? 'Choose Different Image' : 'Choose Image'}
+        </Label>
+        <div className="flex items-center gap-3">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleThumbnailFileSelect}
+            className="hidden"
+            id="thumbnail-upload"
+          />
+          <label
+            htmlFor="thumbnail-upload"
+            className="flex-1 cursor-pointer"
+          >
+            <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-purple-400 transition-colors">
+              <Upload className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-sm text-slate-600 font-medium">
+                Click to upload image
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                JPG, PNG, GIF (Max 5MB)
+              </p>
+            </div>
+          </label>
+        </div>
+        {thumbnailFile && (
+          <p className="text-xs text-slate-600 mt-2">
+            Selected: {thumbnailFile.name} ({(thumbnailFile.size / 1024).toFixed(1)} KB)
+          </p>
+        )}
+      </div>
+      
+      {/* Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <p className="text-xs text-blue-800">
+          💡 <strong>Tip:</strong> Use a clear, high-quality image that represents your document. 
+          This thumbnail will appear in your dashboard and when sharing.
+        </p>
+      </div>
+    </div>
+    
+    {/* Footer */}
+    <div className="flex justify-end gap-3 pt-4 border-t">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowThumbnailDialog(false);
+          setThumbnailFile(null);
+          setThumbnailPreview(null);
+        }}
+        disabled={isUploadingThumbnail}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleUploadThumbnail}
+        disabled={!thumbnailFile || isUploadingThumbnail}
+        className="bg-purple-600 hover:bg-purple-700"
+      >
+        {isUploadingThumbnail ? (
+          <>
+            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+            Uploading...
+          </>
+        ) : (
+          <>
+            <Upload className="h-4 w-4 mr-2" />
+            Update Thumbnail
+          </>
+        )}
+      </Button>
     </div>
   </DialogContent>
 </Dialog>

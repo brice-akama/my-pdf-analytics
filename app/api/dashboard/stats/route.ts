@@ -1,4 +1,5 @@
 // app/api/dashboard/stats/route.ts
+// app/api/dashboard/stats/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
@@ -44,14 +45,27 @@ export async function GET(request: NextRequest) {
       })
       .toArray();
 
+    // ✅ Get REAL analytics logs with emails
+    const analyticsLogs = await db.collection('analytics_logs')
+      .find({
+        documentId: { $in: documentIds.map(id => id.toString()) },
+        timestamp: { $gte: startDate }
+      })
+      .toArray();
+
     // Calculate basic stats
     const totalViews = shares.reduce((sum, share) => 
       sum + (share.tracking?.views || 0), 0
     );
 
-    const uniqueViewers = new Set(
+    // ✅ REAL unique viewers (including emails)
+    const allViewerEmails = new Set(
+      shares.flatMap(share => share.tracking?.viewerEmails || [])
+    );
+    const allViewerIds = new Set(
       shares.flatMap(share => share.tracking?.uniqueViewers || [])
-    ).size;
+    );
+    const uniqueViewers = allViewerEmails.size + allViewerIds.size;
 
     const totalDownloads = shares.reduce((sum, share) => 
       sum + (share.tracking?.downloads || 0), 0
@@ -75,28 +89,33 @@ export async function GET(request: NextRequest) {
     if (totalViews > 0) {
       const viewerEngagement = (uniqueViewers / totalViews) * 100;
       const timeEngagement = Math.min((averageTimeSpent / 60) * 10, 50);
-      const downloadEngagement = totalDownloads > 0 ? 20 : 0;
-      engagementScore = Math.round((viewerEngagement + timeEngagement + downloadEngagement) / 2);
+      const downloadEngagement = totalDownloads > 0 ? (totalDownloads / totalViews) * 100 : 0;
+      engagementScore = Math.round((viewerEngagement + timeEngagement + downloadEngagement) / 3);
     }
 
     // Calculate trends
     const previousPeriodStart = new Date(startDate);
     previousPeriodStart.setDate(previousPeriodStart.getDate() - daysAgo);
 
-    const previousShares = shares.filter(share => 
-      share.createdAt && 
-      new Date(share.createdAt) >= previousPeriodStart && 
-      new Date(share.createdAt) < startDate
+    const previousLogs = analyticsLogs.filter(log => 
+      log.timestamp >= previousPeriodStart && log.timestamp < startDate
     );
+    const currentLogs = analyticsLogs.filter(log => log.timestamp >= startDate);
 
-    const currentShares = shares.filter(share =>
-      share.createdAt && new Date(share.createdAt) >= startDate
-    );
-
-    const previousViews = previousShares.reduce((sum, s) => sum + (s.tracking?.views || 0), 0);
-    const currentViews = currentShares.reduce((sum, s) => sum + (s.tracking?.views || 0), 0);
-    const previousDownloads = previousShares.reduce((sum, s) => sum + (s.tracking?.downloads || 0), 0);
-    const currentDownloads = currentShares.reduce((sum, s) => sum + (s.tracking?.downloads || 0), 0);
+    const previousViews = previousLogs.filter(l => l.action === 'document_viewed').length;
+    const currentViews = currentLogs.filter(l => l.action === 'document_viewed').length;
+    const previousDownloads = shares.reduce((sum, s) => {
+      const events = s.tracking?.downloadEvents?.filter((e: any) => 
+        e.timestamp >= previousPeriodStart && e.timestamp < startDate
+      ) || [];
+      return sum + events.length;
+    }, 0);
+    const currentDownloads = shares.reduce((sum, s) => {
+      const events = s.tracking?.downloadEvents?.filter((e: any) => 
+        e.timestamp >= startDate
+      ) || [];
+      return sum + events.length;
+    }, 0);
 
     const viewsChange = previousViews > 0 
       ? Math.round(((currentViews - previousViews) / previousViews) * 100)
@@ -108,136 +127,144 @@ export async function GET(request: NextRequest) {
 
     const engagementChange = Math.round((viewsChange + downloadsChange) / 2);
 
-    // ✅ Views Over Time (Daily breakdown)
-    const viewsOverTime = generateTimeSeriesData(shares, daysAgo);
+    // ✅ REAL Views Over Time (from actual logs)
+    const viewsOverTime = generateRealTimeSeriesData(analyticsLogs, shares, daysAgo);
 
-    // ✅ Geographic Data (with IP geolocation simulation)
-    const geographicData = await generateGeographicData(analyticsEvents);
+    // ✅ REAL Geographic Data (from analytics events)
+    const geographicData = generateRealGeographicData(analyticsEvents);
 
-    // ✅ Device & Browser Breakdown
-    const deviceBreakdown = generateDeviceBreakdown(analyticsEvents);
-    const browserBreakdown = generateBrowserBreakdown(analyticsEvents);
+    // ✅ REAL Device & Browser Breakdown
+    const deviceBreakdown = generateRealDeviceBreakdown(analyticsEvents);
+    const browserBreakdown = generateRealBrowserBreakdown(analyticsEvents);
 
-    // ✅ Top Documents WITH VIEWERS
-    const topDocumentsWithViewers = await Promise.all(
-      documents
-        .map(async (doc) => {
-          const docShares = shares.filter(s => s.documentId.toString() === doc._id.toString());
-          const views = docShares.reduce((sum, s) => sum + (s.tracking?.views || 0), 0);
-          const downloads = docShares.reduce((sum, s) => sum + (s.tracking?.downloads || 0), 0);
-          const engagement = views > 0 ? Math.round((downloads / views) * 100) : 0;
+    // ✅ REAL Top Documents WITH REAL VIEWERS AND EMAILS
+    const topDocuments = await Promise.all(
+      documents.map(async (doc) => {
+        const docShares = shares.filter(s => s.documentId.toString() === doc._id.toString());
+        const views = docShares.reduce((sum, s) => sum + (s.tracking?.views || 0), 0);
+        const downloads = docShares.reduce((sum, s) => sum + (s.tracking?.downloads || 0), 0);
+        const engagement = views > 0 ? Math.round((downloads / views) * 100) : 0;
+        
+        // ✅ Get REAL viewers with emails from shares
+        const viewersMap = new Map<string, any>();
+        
+        for (const share of docShares) {
+          const viewerEmails = share.tracking?.viewerEmails || [];
           
-          // Get viewers for this document
-          const shareIds = docShares.map(s => s._id.toString());
-          const docViewers = await db.collection('share_viewers')
-            .find({ shareId: { $in: shareIds } })
-            .sort({ lastAccessAt: -1 })
-            .toArray();
-          
-          // Get location for each viewer
-          const viewersWithLocation = await Promise.all(
-            docViewers.map(async (viewer) => {
-              // Find location from analytics events
-              const locationEvent = await db.collection('analytics_events').findOne({
-                shareId: { $in: shareIds },
-                $or: [
-                  { email: viewer.email },
-                  { viewerId: viewer.viewerId }
-                ],
-                location: { $exists: true, $ne: null }
-              });
-              
-              const location = locationEvent?.location || null;
-              
-              // Calculate engagement
-              let engagementScore = 0;
-              engagementScore += Math.min((viewer.totalViews || 1) * 10, 40);
-              const minutes = (viewer.totalTimeSpent || 0) / 60;
-              engagementScore += Math.min(minutes * 2, 40);
-              const hoursSinceLastView = (Date.now() - new Date(viewer.lastAccessAt).getTime()) / (1000 * 60 * 60);
-              if (hoursSinceLastView < 24) engagementScore += 20;
-              else if (hoursSinceLastView < 72) engagementScore += 10;
-              
-              const engagementLevel = engagementScore >= 70 ? 'high' : engagementScore >= 40 ? 'medium' : 'low';
-              
-              return {
-                email: viewer.email,
-                name: viewer.name,
-                company: viewer.company,
-                firstAccessAt: viewer.firstAccessAt,
-                lastAccessAt: viewer.lastAccessAt,
-                totalViews: viewer.totalViews || 1,
-                totalTimeSpent: viewer.totalTimeSpent || 0,
-                location: location ? {
-                  city: location.city,
-                  country: location.country,
+          for (const email of viewerEmails) {
+            if (!email) continue;
+            
+            // Get viewer details from analytics logs
+            const viewerLogs = analyticsLogs.filter(log => 
+              log.email === email && 
+              log.documentId === doc._id.toString()
+            );
+            
+            const viewCount = viewerLogs.filter(l => l.action === 'document_viewed').length;
+            const lastView = viewerLogs.length > 0 
+              ? viewerLogs.sort((a, b) => b.timestamp - a.timestamp)[0].timestamp 
+              : new Date();
+            const firstView = viewerLogs.length > 0
+              ? viewerLogs.sort((a, b) => a.timestamp - b.timestamp)[0].timestamp
+              : new Date();
+            
+            // Get time spent from share tracking
+            let timeSpent = 0;
+            for (const viewerId of (share.tracking?.uniqueViewers || [])) {
+              timeSpent += share.tracking?.timeSpentByViewer?.[viewerId] || 0;
+            }
+            
+            // Get location from analytics events
+            const locationEvent = analyticsEvents.find(e => 
+              e.email === email && e.location
+            );
+            
+            // Calculate engagement level
+            let engagementScore = 0;
+            engagementScore += Math.min(viewCount * 10, 40);
+            engagementScore += Math.min((timeSpent / 60) * 2, 40);
+            const hoursSinceLastView = (Date.now() - new Date(lastView).getTime()) / (1000 * 60 * 60);
+            if (hoursSinceLastView < 24) engagementScore += 20;
+            else if (hoursSinceLastView < 72) engagementScore += 10;
+            
+            const engagementLevel = engagementScore >= 70 ? 'high' : engagementScore >= 40 ? 'medium' : 'low';
+            
+            if (!viewersMap.has(email)) {
+              viewersMap.set(email, {
+                email,
+                name: email.split('@')[0], // Extract name from email
+                company: email.split('@')[1] || null, // Extract domain as company
+                firstAccessAt: firstView,
+                lastAccessAt: lastView,
+                totalViews: viewCount,
+                totalTimeSpent: timeSpent,
+                location: locationEvent?.location ? {
+                  city: locationEvent.location.city,
+                  country: locationEvent.location.country,
                 } : null,
-                engagement: engagementLevel as 'high' | 'medium' | 'low',
-              };
-            })
-          );
-          
-          return {
-            id: doc._id.toString(),
-            name: doc.originalFilename,
-            views,
-            downloads,
-            engagement,
-            viewers: viewersWithLocation,
-          };
-        })
-    );
-    
-    const topDocuments = topDocumentsWithViewers
-      .sort((a, b) => b.views - a.views)
-      .slice(0, 10);
-
-    // ✅ Hourly Activity Pattern
-    const hourlyActivity = generateHourlyActivity(analyticsEvents);
-
-    // ✅ Conversion Funnel
-    const conversionFunnel = [
-      { stage: 'Link Opened', count: totalViews, percentage: 100 },
-      { stage: 'Document Viewed', count: Math.round(totalViews * 0.85), percentage: 85 },
-      { stage: 'Read >50%', count: Math.round(totalViews * 0.60), percentage: 60 },
-      { stage: 'Read Complete', count: Math.round(totalViews * 0.45), percentage: 45 },
-      { stage: 'Downloaded', count: totalDownloads, percentage: Math.round((totalDownloads / totalViews) * 100) },
-    ];
-
-    // ✅ Viewer Engagement Segments
-    const viewerEngagement = [
-      { segment: 'High', count: Math.round(uniqueViewers * 0.25), avgTime: averageTimeSpent * 2 },
-      { segment: 'Medium', count: Math.round(uniqueViewers * 0.45), avgTime: averageTimeSpent },
-      { segment: 'Low', count: Math.round(uniqueViewers * 0.30), avgTime: Math.round(averageTimeSpent * 0.5) },
-    ];
-
-    // ✅ Recent Activity
-    const recentLogs = await db.collection('analytics_logs')
-      .find({ 
-        userId: user.id,
-        action: { $in: ['document_viewed', 'download', 'share_created'] }
+                engagement: engagementLevel,
+              });
+            } else {
+              const existing = viewersMap.get(email);
+              existing.totalViews += viewCount;
+              existing.totalTimeSpent += timeSpent;
+              existing.lastAccessAt = new Date(Math.max(
+                new Date(existing.lastAccessAt).getTime(),
+                new Date(lastView).getTime()
+              ));
+            }
+          }
+        }
+        
+        return {
+          id: doc._id.toString(),
+          name: doc.originalFilename,
+          views,
+          downloads,
+          engagement,
+          viewers: Array.from(viewersMap.values()),
+        };
       })
-      .sort({ timestamp: -1 })
-      .limit(20)
-      .toArray();
+    );
 
-    const recentActivity = await Promise.all(
-      recentLogs.map(async (log) => {
+    // Sort by views
+    topDocuments.sort((a, b) => b.views - a.views);
+
+    // ✅ REAL Hourly Activity Pattern
+    const hourlyActivity = generateRealHourlyActivity(analyticsLogs);
+
+    // ✅ REAL Conversion Funnel
+    const linkOpened = totalViews;
+    const viewed = analyticsLogs.filter(l => l.action === 'document_viewed').length;
+    const downloads = totalDownloads;
+    
+    const conversionFunnel = [
+      { stage: 'Link Opened', count: linkOpened, percentage: 100 },
+      { stage: 'Document Viewed', count: viewed, percentage: linkOpened > 0 ? Math.round((viewed / linkOpened) * 100) : 0 },
+      { stage: 'Downloaded', count: downloads, percentage: linkOpened > 0 ? Math.round((downloads / linkOpened) * 100) : 0 },
+    ];
+
+    // ✅ REAL Viewer Engagement Segments
+    const viewerEngagement = calculateRealViewerEngagement(shares, averageTimeSpent);
+
+    // ✅ REAL Recent Activity WITH EMAILS
+    const recentActivity = analyticsLogs
+      .filter(log => log.action === 'document_viewed' || log.action === 'download')
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 20)
+      .map(log => {
         const document = documents.find(doc => 
           doc._id.toString() === log.documentId
         );
 
         return {
           id: log._id.toString(),
-          type: log.action === 'document_viewed' ? 'view' as const : 
-                log.action === 'download' ? 'download' as const : 
-                'share' as const,
+          type: log.action === 'document_viewed' ? 'view' as const : 'download' as const,
           documentName: document?.originalFilename || 'Unknown Document',
           timestamp: log.timestamp.toISOString(),
-          viewer: log.email || (log.viewerId ? 'Anonymous' : undefined),
+          viewer: log.email || 'Anonymous', // ✅ REAL EMAIL
         };
-      })
-    );
+      });
 
     return NextResponse.json({
       success: true,
@@ -260,7 +287,7 @@ export async function GET(request: NextRequest) {
         geographicData,
         deviceBreakdown,
         browserBreakdown,
-        topDocuments,
+        topDocuments, // ✅ NOW WITH REAL VIEWERS AND EMAILS
         hourlyActivity,
         conversionFunnel,
         viewerEngagement,
@@ -276,23 +303,30 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ✅ Helper: Generate time series data
-function generateTimeSeriesData(shares: any[], days: number) {
+// ✅ REAL time series data from actual logs
+function generateRealTimeSeriesData(logs: any[], shares: any[], days: number) {
   const data = [];
   const now = new Date();
 
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date(now);
     date.setDate(date.getDate() - i);
-    const dateKey = date.toISOString().split('T')[0];
+    const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(date.setHours(23, 59, 59, 999));
 
-    const dayViews = shares.reduce((sum, share) => {
-      const viewsByDate = share.tracking?.viewsByDate || {};
-      return sum + (viewsByDate[dateKey] || 0);
+    const dayViews = logs.filter(log => 
+      log.action === 'document_viewed' &&
+      log.timestamp >= startOfDay &&
+      log.timestamp <= endOfDay
+    ).length;
+
+    const dayDownloads = shares.reduce((sum, share) => {
+      const events = share.tracking?.downloadEvents?.filter((e: any) =>
+        new Date(e.timestamp) >= startOfDay &&
+        new Date(e.timestamp) <= endOfDay
+      ) || [];
+      return sum + events.length;
     }, 0);
-
-    // Estimate downloads as ~15% of views
-    const dayDownloads = Math.round(dayViews * 0.15);
 
     data.push({
       date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -304,8 +338,8 @@ function generateTimeSeriesData(shares: any[], days: number) {
   return data;
 }
 
-// ✅ Helper: Generate geographic data from REAL analytics events
-async function generateGeographicData(events: any[]) {
+// ✅ REAL geographic data from events
+function generateRealGeographicData(events: any[]) {
   const locationCounts: Record<string, { 
     country: string; 
     city: string; 
@@ -314,7 +348,6 @@ async function generateGeographicData(events: any[]) {
     lng: number 
   }> = {};
 
-  // Process REAL location data from events
   events.forEach(event => {
     if (event.location && event.location.country && event.location.city) {
       const key = `${event.location.country}-${event.location.city}`;
@@ -332,14 +365,13 @@ async function generateGeographicData(events: any[]) {
     }
   });
 
-  // Return sorted by views (most viewed locations first)
   return Object.values(locationCounts)
     .sort((a, b) => b.views - a.views)
     .slice(0, 20);
 }
 
-// ✅ Helper: Parse device type from user agent
-function generateDeviceBreakdown(events: any[]) {
+// ✅ REAL device breakdown
+function generateRealDeviceBreakdown(events: any[]) {
   const devices: Record<string, number> = {
     Desktop: 0,
     Mobile: 0,
@@ -366,8 +398,8 @@ function generateDeviceBreakdown(events: any[]) {
   }));
 }
 
-// ✅ Helper: Parse browser from user agent
-function generateBrowserBreakdown(events: any[]) {
+// ✅ REAL browser breakdown
+function generateRealBrowserBreakdown(events: any[]) {
   const browsers: Record<string, number> = {
     Chrome: 0,
     Safari: 0,
@@ -397,13 +429,13 @@ function generateBrowserBreakdown(events: any[]) {
     .sort((a, b) => b.count - a.count);
 }
 
-// ✅ Helper: Generate hourly activity pattern
-function generateHourlyActivity(events: any[]) {
+// ✅ REAL hourly activity
+function generateRealHourlyActivity(logs: any[]) {
   const hours = Array(24).fill(0);
 
-  events.forEach(event => {
-    if (event.timestamp) {
-      const hour = new Date(event.timestamp).getHours();
+  logs.forEach(log => {
+    if (log.timestamp && log.action === 'document_viewed') {
+      const hour = new Date(log.timestamp).getHours();
       hours[hour]++;
     }
   });
@@ -412,4 +444,28 @@ function generateHourlyActivity(events: any[]) {
     hour: hour === 0 ? '12am' : hour < 12 ? `${hour}am` : hour === 12 ? '12pm' : `${hour - 12}pm`,
     views,
   }));
+}
+
+// ✅ REAL viewer engagement calculation
+function calculateRealViewerEngagement(shares: any[], avgTime: number) {
+  const allViewers: Array<{ timeSpent: number }> = [];
+  
+  shares.forEach(share => {
+    const timeByViewer = share.tracking?.timeSpentByViewer || {};
+    Object.values(timeByViewer).forEach((time: any) => {
+      if (typeof time === 'number') {
+        allViewers.push({ timeSpent: time });
+      }
+    });
+  });
+
+  const highEngagement = allViewers.filter(v => v.timeSpent > avgTime * 1.5).length;
+  const mediumEngagement = allViewers.filter(v => v.timeSpent >= avgTime * 0.5 && v.timeSpent <= avgTime * 1.5).length;
+  const lowEngagement = allViewers.filter(v => v.timeSpent < avgTime * 0.5).length;
+
+  return [
+    { segment: 'High', count: highEngagement, avgTime: avgTime * 2 },
+    { segment: 'Medium', count: mediumEngagement, avgTime: avgTime },
+    { segment: 'Low', count: lowEngagement, avgTime: Math.round(avgTime * 0.5) },
+  ];
 }

@@ -76,35 +76,106 @@ export async function GET(
       return { page: pageNum, views: percentage, avgTime };
     });
 
-    // Top viewers
-    const viewerMap = new Map<string, { email: string, views: number, lastViewed: Date, totalTime: number }>();
-    views.forEach(v => {
-      const email = v.viewerEmail || `Anonymous (${v.viewerIp?.slice(0, 10)}...)`;
-      const existing = viewerMap.get(email);
-      if (existing) {
-        existing.views++;
-        existing.lastViewed = new Date(Math.max(existing.lastViewed.getTime(), new Date(v.viewedAt).getTime()));
-        existing.totalTime += v.timeSpent || 0;
-      } else {
-        viewerMap.set(email, {
-          email,
+    
+    // Top viewers - UPDATED to show real viewer emails from shares
+const topViewers: any[] = [];
+
+// Get all shares for this document
+const documentShares = await db.collection('shares')
+  .find({ documentId })
+  .toArray();
+
+// Collect viewer data from all shares
+const viewerEmailMap = new Map<string, {
+  email: string;
+  views: number;
+  lastViewed: Date;
+  totalTime: number;
+  shares: string[];
+}>();
+
+for (const share of documentShares) {
+  // Get viewer emails from this share
+  const viewerEmails = share.tracking?.viewerEmails || [];
+  
+  for (const email of viewerEmails) {
+    if (!email) continue;
+    
+    // Get analytics events for this email
+    const emailEvents = await db.collection('analytics_logs')
+      .find({ 
+        documentId: id,
+        email: email,
+        action: 'document_viewed'
+      })
+      .sort({ timestamp: -1 })
+      .toArray();
+    
+    const viewCount = emailEvents.length || 1; // At least 1 view if email is recorded
+    const lastView = emailEvents[0]?.timestamp || share.tracking?.lastViewedAt || new Date();
+    
+    // Get viewer ID hash from share tracking
+    const viewerIds = share.tracking?.uniqueViewers || [];
+    let timeSpent = 0;
+    
+    // Try to match email to viewer ID and get time spent
+    for (const viewerId of viewerIds) {
+      const viewerTime = share.tracking?.timeSpentByViewer?.[viewerId] || 0;
+      timeSpent += viewerTime;
+    }
+    
+    if (viewerEmailMap.has(email)) {
+      const existing = viewerEmailMap.get(email)!;
+      existing.views += viewCount;
+      existing.lastViewed = new Date(Math.max(existing.lastViewed.getTime(), new Date(lastView).getTime()));
+      existing.totalTime += timeSpent;
+      if (!existing.shares.includes(share.shareToken)) {
+        existing.shares.push(share.shareToken);
+      }
+    } else {
+      viewerEmailMap.set(email, {
+        email,
+        views: viewCount,
+        lastViewed: new Date(lastView),
+        totalTime: timeSpent,
+        shares: [share.shareToken]
+      });
+    }
+  }
+  
+  // Also include anonymous viewers with IDs (only if no emails recorded)
+  if (viewerEmails.length === 0) {
+    const uniqueViewers = share.tracking?.uniqueViewers || [];
+    for (const viewerId of uniqueViewers) {
+      const anonKey = `Anonymous (${viewerId.substring(0, 8)})`;
+      const timeSpent = share.tracking?.timeSpentByViewer?.[viewerId] || 0;
+      
+      if (!viewerEmailMap.has(anonKey)) {
+        viewerEmailMap.set(anonKey, {
+          email: anonKey,
           views: 1,
-          lastViewed: new Date(v.viewedAt),
-          totalTime: v.timeSpent || 0,
+          lastViewed: share.tracking?.lastViewedAt || new Date(),
+          totalTime: timeSpent,
+          shares: [share.shareToken]
         });
       }
-    });
+    }
+  }
+}
 
-    const topViewers = Array.from(viewerMap.values())
-      .sort((a, b) => b.views - a.views)
-      .slice(0, 10)
-      .map(v => ({
-        email: v.email,
-        views: v.views,
-        lastViewed: formatTimeAgo(v.lastViewed),
-        time: formatTime(v.totalTime),
-      }));
+// Convert to array and sort by views
+const sortedViewers = Array.from(viewerEmailMap.values())
+  .sort((a, b) => b.views - a.views)
+  .slice(0, 10)
+  .map(v => ({
+    email: v.email,
+    views: v.views,
+    lastViewed: formatTimeAgo(v.lastViewed),
+    time: formatTime(v.totalTime),
+    shares: v.shares.length, // Number of different share links used
+  }));
 
+topViewers.push(...sortedViewers);
     // Device breakdown
     const deviceCounts = { desktop: 0, mobile: 0, tablet: 0 };
     type DeviceType = 'desktop' | 'mobile' | 'tablet';
