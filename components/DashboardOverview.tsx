@@ -6,7 +6,7 @@ import {
   FileText, Activity, TrendingUp, Eye, Users, Download, 
   Clock, BarChart3, ArrowUp, ArrowDown, Loader2, Globe,
   MapPin, Monitor, Smartphone, Tablet, Calendar, Filter,
-  TrendingDown, Target, Zap, Share2
+  TrendingDown, Target, Zap, Share2, ChevronRight, Mail, ExternalLink, MousePointer 
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,6 +15,37 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
   Legend, ResponsiveContainer 
 } from 'recharts';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+interface Viewer {
+  email: string;
+  name: string;
+  company: string | null;
+  firstAccessAt: string;
+  lastAccessAt: string;
+  totalViews: number;
+  totalTimeSpent: number;
+  location: {
+    city: string;
+    country: string;
+  } | null;
+  engagement: 'high' | 'medium' | 'low';
+}
+
+interface Document {
+  id: string;
+  name: string;
+  views: number;
+  downloads: number;
+  engagement: number;
+  viewers: Viewer[];
+}
 
 
 interface DashboardStats {
@@ -42,7 +73,7 @@ interface DashboardStats {
   geographicData: Array<{ country: string; city: string; views: number; lat: number; lng: number }>;
   deviceBreakdown: Array<{ device: string; count: number; percentage: number }>;
   browserBreakdown: Array<{ browser: string; count: number }>;
-  topDocuments: Array<{ name: string; views: number; downloads: number; engagement: number }>;
+  topDocuments: Document[];
   hourlyActivity: Array<{ hour: number; views: number }>;
   conversionFunnel: Array<{ stage: string; count: number; percentage: number }>;
   viewerEngagement: Array<{ segment: string; count: number; avgTime: number }>;
@@ -56,6 +87,9 @@ export default function DashboardOverview() {
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
   const [activeTab, setActiveTab] = useState('overview');
+  // Document details modal
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [showDocumentDetails, setShowDocumentDetails] = useState(false);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -111,7 +145,20 @@ export default function DashboardOverview() {
     if (change > 0) return 'text-green-600';
     if (change < 0) return 'text-red-600';
     return 'text-slate-600';
-  };
+  };const getEngagementColor = (level: 'high' | 'medium' | 'low') => {
+  switch(level) {
+    case 'high': return 'bg-green-100 text-green-700 border-green-200';
+    case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+    case 'low': return 'bg-slate-100 text-slate-700 border-slate-200';
+  }
+};
+
+const handleDocumentClick = (doc: Document) => {
+  setSelectedDocument(doc);
+  setShowDocumentDetails(true);
+};
+
+
 
   if (loading) {
     return (
@@ -225,6 +272,7 @@ export default function DashboardOverview() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-slate-100 p-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger> 
           <TabsTrigger value="geography">Geography</TabsTrigger>
           <TabsTrigger value="devices">Devices</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
@@ -324,6 +372,7 @@ export default function DashboardOverview() {
               </CardContent>
             </Card>
           </div>
+          
 
           {/* Top Performing Documents */}
           <Card>
@@ -377,6 +426,102 @@ export default function DashboardOverview() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* NEW DOCUMENTS TAB - PER-DOCUMENT ANALYTICS */}
+        <TabsContent value="documents" className="space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Document Performance</h3>
+              <p className="text-sm text-slate-600">Click on any document to see detailed viewer analytics</p>
+            </div>
+            <div className="text-sm text-slate-600">
+              {stats.topDocuments.length} documents
+            </div>
+          </div>
+
+          {stats.topDocuments.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <FileText className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">No Documents Yet</h3>
+                <p className="text-sm text-slate-600">Upload documents and share them to see analytics here</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {stats.topDocuments.map((doc) => (
+                <Card 
+                  key={doc.id} 
+                  className="hover:shadow-lg transition-all cursor-pointer border-l-4 border-l-purple-500"
+                  onClick={() => handleDocumentClick(doc)}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-4 flex-1">
+                        <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center flex-shrink-0">
+                          <FileText className="h-6 w-6 text-purple-600" />
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-slate-900 text-lg mb-2 truncate">
+                            {doc.name}
+                          </h4>
+                          
+                          {/* Stats Row */}
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 mb-3">
+                            <div className="flex items-center gap-1">
+                              <Eye className="h-4 w-4" />
+                              <span className="font-medium">{doc.views}</span> views
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Users className="h-4 w-4" />
+                              <span className="font-medium">{doc.viewers.length}</span> viewers
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Download className="h-4 w-4" />
+                              <span className="font-medium">{doc.downloads}</span> downloads
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Target className="h-4 w-4" />
+                              <span className="font-medium">{doc.engagement}%</span> engagement
+                            </div>
+                          </div>
+
+                          {/* Viewer Emails Preview */}
+                          {doc.viewers.length > 0 && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Mail className="h-4 w-4 text-slate-400" />
+                              <div className="flex flex-wrap gap-2">
+                                {doc.viewers.slice(0, 3).map((viewer, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200"
+                                  >
+                                    {viewer.email}
+                                  </span>
+                                ))}
+                                {doc.viewers.length > 3 && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700">
+                                    +{doc.viewers.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <button className="flex items-center gap-1 text-purple-600 hover:text-purple-700 text-sm font-medium ml-4">
+                        View Details
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         {/* GEOGRAPHY TAB */}
@@ -635,7 +780,137 @@ export default function DashboardOverview() {
           </Card>
         </TabsContent>
       </Tabs>
+     {/* Document Details Modal */}
+      <Dialog open={showDocumentDetails} onOpenChange={setShowDocumentDetails}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-3">
+              <FileText className="h-6 w-6 text-purple-600" />
+              {selectedDocument?.name}
+            </DialogTitle>
+          </DialogHeader>
 
+          {selectedDocument && (
+            <div className="space-y-6 mt-4">
+              {/* Document Stats */}
+              <div className="grid grid-cols-4 gap-4">
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Eye className="h-4 w-4 text-blue-600" />
+                    <span className="text-xs font-medium text-blue-900">Views</span>
+                  </div>
+                  <div className="text-2xl font-bold text-blue-900">{selectedDocument.views}</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Users className="h-4 w-4 text-green-600" />
+                    <span className="text-xs font-medium text-green-900">Viewers</span>
+                  </div>
+                  <div className="text-2xl font-bold text-green-900">{selectedDocument.viewers.length}</div>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Download className="h-4 w-4 text-purple-600" />
+                    <span className="text-xs font-medium text-purple-900">Downloads</span>
+                  </div>
+                  <div className="text-2xl font-bold text-purple-900">{selectedDocument.downloads}</div>
+                </div>
+                <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Target className="h-4 w-4 text-orange-600" />
+                    <span className="text-xs font-medium text-orange-900">Engagement</span>
+                  </div>
+                  <div className="text-2xl font-bold text-orange-900">{selectedDocument.engagement}%</div>
+                </div>
+              </div>
+
+              {/* Viewers Table */}
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                  <Users className="h-5 w-5 text-purple-600" />
+                  All Viewers ({selectedDocument.viewers.length})
+                </h3>
+
+                {selectedDocument.viewers.length === 0 ? (
+                  <div className="bg-slate-50 rounded-lg p-8 text-center border-2 border-dashed border-slate-200">
+                    <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm text-slate-600">No viewers yet</p>
+                  </div>
+                ) : (
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 border-b">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Viewer</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Location</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">First View</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Last View</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Views</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Time Spent</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Engagement</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {selectedDocument.viewers.map((viewer, index) => (
+                          <tr key={index} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
+                                  {viewer.email.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-slate-900 truncate">{viewer.email}</p>
+                                  {viewer.company && (
+                                    <p className="text-xs text-slate-500 truncate">{viewer.company}</p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              {viewer.location ? (
+                                <div className="flex items-center gap-1 text-sm text-slate-700">
+                                  <MapPin className="h-4 w-4 text-slate-400" />
+                                  <span>{viewer.location.city}, {viewer.location.country}</span>
+                                </div>
+                              ) : (
+                                <span className="text-sm text-slate-400">Unknown</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-4 text-sm text-slate-700">
+                              {formatTimeAgo(viewer.firstAccessAt)}
+                            </td>
+                            <td className="px-4 py-4 text-sm text-slate-700">
+                              {formatTimeAgo(viewer.lastAccessAt)}
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-900">
+                                <MousePointer className="h-3.5 w-3.5" />
+                                {viewer.totalViews}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 text-sm font-medium text-slate-900">
+                              {formatTimeSpent(viewer.totalTimeSpent)}
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getEngagementColor(viewer.engagement)}`}>
+                                {viewer.engagement.charAt(0).toUpperCase() + viewer.engagement.slice(1)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+
+
+
