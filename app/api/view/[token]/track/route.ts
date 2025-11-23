@@ -17,8 +17,7 @@ async function getLocationFromIP(ip: string) {
       headers: {
         'User-Agent': 'DocMetrics-Analytics/1.0'
       },
-      // Add timeout
-      signal: AbortSignal.timeout(5000) // 5 second timeout
+      signal: AbortSignal.timeout(5000)
     });
     
     if (!response.ok) {
@@ -28,7 +27,6 @@ async function getLocationFromIP(ip: string) {
     
     const data = await response.json();
     
-    // Check for API errors (rate limit, invalid IP, etc.)
     if (data.error) {
       console.error('❌ Geolocation error:', data.reason);
       return null;
@@ -45,7 +43,7 @@ async function getLocationFromIP(ip: string) {
       lng: data.longitude,
       timezone: data.timezone,
       postal: data.postal,
-      org: data.org, // ISP/Organization
+      org: data.org,
     };
   } catch (error) {
     console.error('❌ Failed to get location:', error);
@@ -89,9 +87,8 @@ export async function POST(
     // ✅ Get REAL IP address (handles proxies and load balancers)
     const forwardedFor = request.headers.get('x-forwarded-for');
     const realIP = request.headers.get('x-real-ip');
-    const cfConnectingIP = request.headers.get('cf-connecting-ip'); // Cloudflare
+    const cfConnectingIP = request.headers.get('cf-connecting-ip');
     
-    // Get the first IP from x-forwarded-for (client's real IP)
     let ip = 'unknown';
     if (forwardedFor) {
       ip = forwardedFor.split(',')[0].trim();
@@ -133,9 +130,45 @@ export async function POST(
           await trackTimeSpent(db, share, validTimeSpent, viewerId, now);
         }
         break;
-      
+
+      case 'page_time':
+        if (page && !isNaN(page) && timeSpent && !isNaN(timeSpent)) {
+          const validTime = parseInt(timeSpent);
+          const validPage = parseInt(page);
+          
+          await db.collection('shares').updateOne(
+            { _id: share._id },
+            {
+              $inc: {
+                [`tracking.timePerPage.page_${validPage}`]: validTime,
+              },
+              $set: {
+                [`tracking.timePerPageByViewer.${viewerId}.page_${validPage}`]: validTime,
+              },
+            }
+          );
+        }
+        break;
+
       case 'download_attempt':
         await trackDownloadAttempt(db, share, viewerId, now, metadata?.allowed || false, location);
+        break;
+
+      case 'download_success':
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          {
+            $inc: { 'tracking.downloads': 1 },
+            $push: {
+              'tracking.downloadEvents': {
+                viewerId,
+                timestamp: now,
+                filename: metadata?.filename || 'unknown',
+                success: true,
+              },
+            },
+          }
+        );
         break;
       
       case 'print_attempt':
@@ -166,7 +199,7 @@ export async function POST(
   }
 }
 
-// ✅ Updated: Track page view with location
+// ✅ Track page view with location
 async function trackPageView(
   db: any, 
   share: any, 
@@ -178,30 +211,18 @@ async function trackPageView(
   await db.collection('shares').updateOne(
     { _id: share._id },
     {
-      $setOnInsert: {
-        'tracking.pageViews': {},
-        'tracking.totalPageViews': 0,
-        'tracking.pageViewsByViewer': {},
-      }
-    },
-    { upsert: false }
-  );
-
-  await db.collection('shares').updateOne(
-    { _id: share._id },
-    {
       $inc: {
         [`tracking.pageViews.page_${page}`]: 1,
         'tracking.totalPageViews': 1,
       },
       $set: {
         [`tracking.pageViewsByViewer.${viewerId}.page_${page}`]: timestamp,
+        [`tracking.pageViewsByViewer.${viewerId}.lastPage`]: page,
         updatedAt: timestamp,
       },
     }
   );
 
-  // ✅ Log event with REAL location data
   await db.collection('analytics_events').insertOne({
     shareId: share._id.toString(),
     documentId: share.documentId.toString(),
@@ -210,11 +231,10 @@ async function trackPageView(
     page,
     timestamp,
     userAgent: share.tracking?.userAgent,
-    location, // ✅ Real geographic data
+    location,
   }).catch(err => console.error('Failed to log page view:', err));
 }
 
-// ✅ Other tracking functions remain the same
 async function trackScroll(db: any, share: any, page: number, scrollDepth: number, viewerId: string, timestamp: Date) {
   await db.collection('shares').updateOne(
     { _id: share._id },
@@ -296,7 +316,7 @@ async function trackDownloadAttempt(
     event: 'download_attempt',
     allowed,
     timestamp,
-    location, // ✅ Location for downloads too
+    location,
   });
 }
 
@@ -347,7 +367,7 @@ async function trackSessionStart(
     duration: 0,
     pagesViewed: [],
     actions: [],
-    location, // ✅ Session location
+    location,
   });
 }
 

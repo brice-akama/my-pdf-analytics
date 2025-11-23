@@ -55,6 +55,7 @@ export default function ViewSharedDocument() {
   const [viewedPages, setViewedPages] = useState<Set<number>>(new Set());
   const [timeOnPage, setTimeOnPage] = useState<Record<number, number>>({});
   const [lastActivityTime, setLastActivityTime] = useState(Date.now());
+const [pageStartTime, setPageStartTime] = useState(Date.now());
 
   // Load shared document
   useEffect(() => {
@@ -73,6 +74,28 @@ export default function ViewSharedDocument() {
       };
     }
   }, [shareData?.document]);
+
+  // Track page changes and time spent per page
+useEffect(() => {
+  if (shareData?.document && currentPage > 0) {
+    // Track page view
+    trackEvent('page_view', { page: currentPage });
+    
+    // Reset page timer
+    setPageStartTime(Date.now());
+    
+    return () => {
+      // Track time spent on this page when leaving
+      const timeOnPage = Math.floor((Date.now() - pageStartTime) / 1000);
+      if (timeOnPage > 0 && timeOnPage < 600) { // Max 10 minutes per page
+        trackEvent('page_time', { 
+          page: currentPage, 
+          timeSpent: timeOnPage 
+        });
+      }
+    };
+  }
+}, [currentPage, shareData?.document]);
 
   // ✅ Track time spent (send every 30 seconds)
   useEffect(() => {
@@ -207,37 +230,41 @@ export default function ViewSharedDocument() {
   };
 
   const handleDownload = async () => {
-    if (!shareData?.settings?.allowDownload) {
-      // Track blocked download attempt
-      await trackEvent('download_attempt', { allowed: false });
-      alert('Downloads are disabled for this document');
-      return;
-    }
+  if (!shareData?.settings?.allowDownload) {
+    await trackEvent('download_attempt', { allowed: false });
+    alert('Downloads are disabled for this document');
+    return;
+  }
 
-    // Track download attempt
-    await trackEvent('download_attempt', { allowed: true });
+  // Track download attempt
+  await trackEvent('download_attempt', { allowed: true });
 
-    try {
-      const res = await fetch(`/api/view/${token}/download`, {
-        method: 'POST',
+  try {
+    const res = await fetch(`/api/view/${token}/download`, {
+      method: 'POST',
+    });
+
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = shareData.document?.filename || 'document.pdf';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      // ✅ Track successful download
+      await trackEvent('download_success', { 
+        filename: shareData.document?.filename 
       });
-
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = shareData.document?.filename || 'document.pdf';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }
-    } catch (err) {
-      console.error('Download failed:', err);
-      alert('Failed to download document');
     }
-  };
+  } catch (err) {
+    console.error('Download failed:', err);
+    alert('Failed to download document');
+  }
+};
 
   const handlePrint = async () => {
     if (!shareData?.settings?.allowPrint) {
@@ -422,11 +449,16 @@ export default function ViewSharedDocument() {
         {/* PDF Viewer */}
         {shareData?.document?.pdfUrl ? (
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-            <iframe
-              src={shareData.document.pdfUrl}
-              className="w-full h-[calc(100vh-200px)] border-0"
-              title={shareData.document.filename}
-            />
+<iframe
+  src={shareData.document.pdfUrl}
+  className="w-full h-[calc(100vh-200px)] border-0"
+  title={shareData.document.filename}
+  onLoad={() => {
+    // Listen for page changes in PDF
+    // Note: This works if PDF viewer supports it
+    setCurrentPage(1);
+  }}
+/>
           </div>
         ) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">

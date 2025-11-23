@@ -1497,6 +1497,70 @@ const openCreateLinkDialog = () => {
           </div>
         </div>
 
+        {/* Page-by-Page Analytics - NEW */}
+<div className="bg-white rounded-xl border shadow-sm p-6">
+  <h3 className="text-lg font-semibold text-slate-900 mb-4">Page-by-Page Analytics</h3>
+  <div className="space-y-4">
+    {analytics.pageEngagement.map((page: any) => {
+      const maxViews = Math.max(...analytics.pageEngagement.map((p: any) => p.totalViews));
+      const barWidth = maxViews > 0 ? (page.totalViews / maxViews) * 100 : 0;
+      
+      return (
+        <div key={page.page} className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium text-slate-700">Page {page.page}</span>
+            <div className="flex items-center gap-4 text-xs text-slate-600">
+              <span>{page.totalViews} views</span>
+              <span>•</span>
+              <span>Avg {page.avgTime}s</span>
+            </div>
+          </div>
+          <div className="relative">
+            <div className="h-8 bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all flex items-center px-3"
+                style={{ width: `${barWidth}%` }}
+              >
+                {barWidth > 20 && (
+                  <span className="text-xs font-medium text-white">
+                    {page.views}%
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</div>
+
+{/* Download Analytics - NEW */}
+<div className="bg-white rounded-xl border shadow-sm p-6">
+  <h3 className="text-lg font-semibold text-slate-900 mb-4">Download Analytics</h3>
+  <div className="grid grid-cols-3 gap-4">
+    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+      <Download className="h-8 w-8 text-green-600 mb-2" />
+      <div className="text-2xl font-bold text-green-900">{analytics.downloads}</div>
+      <p className="text-xs text-green-700 mt-1">Total Downloads</p>
+    </div>
+    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+      <Users className="h-8 w-8 text-blue-600 mb-2" />
+      <div className="text-2xl font-bold text-blue-900">
+        {analytics.totalViews > 0 ? Math.round((analytics.downloads / analytics.totalViews) * 100) : 0}%
+      </div>
+      <p className="text-xs text-blue-700 mt-1">Download Rate</p>
+    </div>
+    <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+      <TrendingUp className="h-8 w-8 text-purple-600 mb-2" />
+      <div className="text-2xl font-bold text-purple-900">
+        {analytics.downloads > 0 ? Math.round(analytics.totalViews / analytics.downloads) : 0}
+      </div>
+      <p className="text-xs text-purple-700 mt-1">Views per Download</p>
+    </div>
+  </div>
+</div>
+
         {/* Page Engagement */}
         <div className="bg-white rounded-xl border shadow-sm p-6">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">Page-by-Page Engagement</h3>

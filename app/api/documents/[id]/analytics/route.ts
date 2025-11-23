@@ -64,18 +64,39 @@ export async function GET(
       return { date: `${date.getMonth() + 1}/${date.getDate()}`, views: count };
     });
 
-    // Page engagement
-    const pageEngagement = Array.from({ length: document.numPages }, (_, i) => {
-      const pageNum = i + 1;
-      const pageViews = views.filter(v => v.pagesViewed >= pageNum);
-      const percentage = totalViews ? Math.round((pageViews.length / totalViews) * 100) : 0;
+    // ✅ CORRECT VERSION - Use this
+const shares = await db.collection('shares')
+  .find({ documentId })
+  .toArray();
 
-      const pageTimes = pageViews.map(v => v.pageTimeSpent?.[pageNum] || 0).filter(Boolean);
-      const avgTime = pageTimes.length ? Math.round(pageTimes.reduce((a, b) => a + b, 0) / pageTimes.length) : 0;
+const pageEngagement = await Promise.all(
+  Array.from({ length: document.numPages }, async (_, i) => {
+    const pageNum = i + 1;
+    
+    let pageViews = 0;
+    let totalTimeOnPage = 0;
+    
+    // All shares are already for this document
+    for (const share of shares) {
+      const pageKey = `page_${pageNum}`;
+      pageViews += share.tracking?.pageViews?.[pageKey] || 0;
+      totalTimeOnPage += share.tracking?.timePerPage?.[pageKey] || 0;
+    }
+    
+    const percentage = totalViews ? Math.round((pageViews / totalViews) * 100) : 0;
+    const avgTime = pageViews > 0 ? Math.round(totalTimeOnPage / pageViews) : 0;
 
-      return { page: pageNum, views: percentage, avgTime };
-    });
+    return { 
+      page: pageNum, 
+      views: percentage, 
+      avgTime,
+      totalViews: pageViews,
+      totalTime: totalTimeOnPage,
+    };
+  })
+);
 
+    
     
     // Top viewers - UPDATED to show real viewer emails from shares
 const topViewers: any[] = [];
@@ -198,7 +219,7 @@ topViewers.push(...sortedViewers);
       .slice(0, 5);
 
     // Shares & downloads
-    const shares = tracking.shares || await db.collection('shares').countDocuments({ documentId });
+    const totalShares = tracking.shares || await db.collection('shares').countDocuments({ documentId });
     const downloads = tracking.downloads || views.filter(v => v.downloaded).length;
 
     // Return full analytics + content quality + document info + sharing
@@ -211,7 +232,7 @@ topViewers.push(...sortedViewers);
         averageTime: formatTime(averageTimeSeconds),
         completionRate,
         downloads,
-        shares,
+        shares: totalShares,
         viewsByDate,
         pageEngagement,
         topViewers,

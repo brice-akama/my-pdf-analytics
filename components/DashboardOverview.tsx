@@ -782,7 +782,7 @@ const handleDocumentClick = (doc: Document) => {
       </Tabs>
      {/* Document Details Modal */}
       <Dialog open={showDocumentDetails} onOpenChange={setShowDocumentDetails}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center gap-3">
               <FileText className="h-6 w-6 text-purple-600" />
