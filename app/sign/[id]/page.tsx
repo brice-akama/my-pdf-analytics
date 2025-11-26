@@ -1,11 +1,39 @@
 "use client"
- 
 
 import React, { useState, useRef, useEffect } from 'react';
-import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+
+// Type definitions
+interface Document {
+  id: string;
+  filename: string;
+  numPages: number;
+}
+
+interface Recipient {
+  name: string;
+  email: string;
+  index: number;
+}
+
+interface SignatureField {
+  id: string;
+  page: number;
+  recipientIndex: number;
+  type: 'signature' | 'date' | 'text';
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+}
+
+interface SignatureData {
+  type: string;
+  data: string;
+  timestamp: string;
+}
 
 const DocSendSigningPage = () => {
-  // Extract signature ID from URL
   const getSignIdFromUrl = () => {
     if (typeof window === 'undefined') return null;
     const path = window.location.pathname;
@@ -15,22 +43,24 @@ const DocSendSigningPage = () => {
 
   const signatureId = getSignIdFromUrl();
   
-  const [document, setDocument] = useState(null);
+  const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [recipient, setRecipient] = useState(null);
-  const [signatureFields, setSignatureFields] = useState([]);
-  const [signatures, setSignatures] = useState({});
+  const [error, setError] = useState<string | null>(null);
+  const [recipient, setRecipient] = useState<Recipient | null>(null);
+  const [signatureFields, setSignatureFields] = useState<SignatureField[]>([]);
+  const [signatures, setSignatures] = useState<Record<string, SignatureData>>({});
   const [isDrawing, setIsDrawing] = useState(false);
-  const [activeField, setActiveField] = useState(null);
+  const [activeField, setActiveField] = useState<SignatureField | null>(null);
   const [completed, setCompleted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const canvasRef = useRef(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [signatureData, setSignatureData] = useState('');
+  const [textFieldInput, setTextFieldInput] = useState('');
+  const [activeTextField, setActiveTextField] = useState<SignatureField | null>(null);
+  const [loadingPage, setLoadingPage] = useState(false);
 
-  // Fetch signature request from backend
   useEffect(() => {
     const fetchSignatureRequest = async () => {
       if (!signatureId) {
@@ -40,7 +70,6 @@ const DocSendSigningPage = () => {
       }
 
       try {
-        // Fetch signature request data
         const res = await fetch(`/api/signature/${signatureId}`);
         const data = await res.json();
 
@@ -52,7 +81,6 @@ const DocSendSigningPage = () => {
 
         const { signatureRequest } = data;
 
-        // Set document and recipient info
         setDocument({
           id: signatureRequest.document._id,
           filename: signatureRequest.document.filename,
@@ -67,7 +95,6 @@ const DocSendSigningPage = () => {
 
         setSignatureFields(signatureRequest.signatureFields || []);
 
-        // Fetch PDF file
         const pdfRes = await fetch(`/api/signature/${signatureId}/file`);
         if (pdfRes.ok) {
           const blob = await pdfRes.blob();
@@ -86,24 +113,68 @@ const DocSendSigningPage = () => {
     fetchSignatureRequest();
   }, [signatureId]);
 
-  // Get fields for current recipient and current page
+  const changePage = async (newPage: number) => {
+    setLoadingPage(true);
+    setCurrentPage(newPage);
+    setTimeout(() => setLoadingPage(false), 300);
+  };
+
+  useEffect(() => {
+    if (!signatureId || !pdfUrl) return;
+    
+    const trackView = async () => {
+      try {
+        await fetch(`/api/signature/${signatureId}/track-view`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            page: currentPage,
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to track view:', err);
+      }
+    };
+    
+    trackView();
+  }, [currentPage, signatureId, pdfUrl]);
+
+  useEffect(() => {
+    const startTime = Date.now();
+    
+    return () => {
+      const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+      
+      if (signatureId && timeSpent > 2) {
+        fetch(`/api/signature/${signatureId}/track-time`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            page: currentPage,
+            timeSpent,
+          }),
+        }).catch(() => {});
+      }
+    };
+  }, [currentPage, signatureId]);
+
   const currentPageFields = signatureFields.filter(
     f => f.page === currentPage && f.recipientIndex === recipient?.index
   );
 
-  // Get all fields for current recipient
   const myFields = signatureFields.filter(f => f.recipientIndex === recipient?.index);
-
-  // Check if all required fields are filled
   const allFieldsFilled = myFields.every(f => signatures[f.id]);
 
-  // Canvas drawing functions
-  const startDrawing = (e) => {
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
@@ -112,7 +183,7 @@ const DocSendSigningPage = () => {
     setIsDrawing(true);
   };
 
-  const draw = (e) => {
+  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     
     const canvas = canvasRef.current;
@@ -120,6 +191,8 @@ const DocSendSigningPage = () => {
     
     const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
@@ -145,26 +218,26 @@ const DocSendSigningPage = () => {
     const canvas = canvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      setSignatureData('');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        setSignatureData('');
+      }
     }
   };
 
   const saveSignature = () => {
-    if (!signatureData) {
+    if (!signatureData || !activeField || !recipient) {
       alert('Please draw your signature first');
       return;
     }
 
-    // Get current date for auto-fill
     const currentDate = new Date().toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
     });
 
-    // Save signature
-    const updatedSignatures = {
+    const updatedSignatures: Record<string, SignatureData> = {
       ...signatures,
       [activeField.id]: {
         type: 'signature',
@@ -173,7 +246,6 @@ const DocSendSigningPage = () => {
       }
     };
 
-    // AUTO-FILL ALL DATE FIELDS FOR THIS RECIPIENT (DocSend behavior)
     const dateFields = signatureFields.filter(
       f => f.type === 'date' && f.recipientIndex === recipient.index
     );
@@ -192,7 +264,7 @@ const DocSendSigningPage = () => {
     clearSignature();
   };
 
-  const handleTextInput = (fieldId, value) => {
+  const handleTextInput = (fieldId: string, value: string) => {
     setSignatures(prev => ({
       ...prev,
       [fieldId]: {
@@ -212,15 +284,33 @@ const DocSendSigningPage = () => {
     setSubmitting(true);
 
     try {
-      // Submit signature to backend
+      let ipAddress = null;
+      try {
+        const ipRes = await fetch('https://api.ipify.org?format=json');
+        const ipData = await ipRes.json();
+        ipAddress = ipData.ip;
+      } catch (err) {
+        console.warn('Could not fetch IP address');
+      }
+
+      const signedFieldsArray = Object.entries(signatures).map(([id, sig]) => ({
+        id: parseInt(id),
+        type: sig.type,
+        signatureData: sig.type === 'signature' ? sig.data : null,
+        dateValue: sig.type === 'date' ? sig.data : null,
+        textValue: sig.type === 'text' ? sig.data : null,
+        timestamp: sig.timestamp,
+      }));
+
       const res = await fetch(`/api/signature/${signatureId}/sign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          signedFields: signatures,
+          signedFields: signedFieldsArray,
           signedAt: new Date().toISOString(),
+          ipAddress: ipAddress,
         }),
       });
 
@@ -240,7 +330,52 @@ const DocSendSigningPage = () => {
     }
   };
 
-  // Loading state
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    setIsDrawing(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!isDrawing) return;
+    
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    stopDrawing();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
@@ -252,7 +387,6 @@ const DocSendSigningPage = () => {
     );
   }
 
-  // Error state
   if (error || !document || !recipient) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center p-4">
@@ -272,33 +406,47 @@ const DocSendSigningPage = () => {
     );
   }
 
-  // Completed state
-  if (completed) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-xl p-8 max-w-md text-center">
-          <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Check className="h-8 w-8 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Successfully Signed!</h2>
-          <p className="text-slate-600 mb-6">
-            Your signature has been recorded and the document owner has been notified.
+  // In your signing page, completed state:
+if (completed) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl p-8 max-w-md text-center">
+        <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Check className="h-8 w-8 text-green-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Successfully Signed!</h2>
+        <p className="text-slate-600 mb-6">
+          Your signature has been recorded and the document owner has been notified.
+        </p>
+        
+        {/* ✨ ADD THIS */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-blue-800 mb-3">
+            📧 You'll receive an email with a link to download the final signed document 
+            once all parties have signed.
           </p>
-          <div className="bg-slate-50 rounded-lg p-4 border text-left">
-            <p className="text-sm text-slate-700"><strong>Document:</strong> {document.filename}</p>
-            <p className="text-sm text-slate-700 mt-2"><strong>Signed by:</strong> {recipient.name}</p>
-            <p className="text-sm text-slate-700 mt-2"><strong>Email:</strong> {recipient.email}</p>
-            <p className="text-sm text-slate-700 mt-2"><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
-          </div>
+          <a
+            href={`/signed/${signatureId}`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+          >
+            <Download className="h-4 w-4" />
+            View Signed Document Now
+          </a>
+        </div>
+        
+        <div className="bg-slate-50 rounded-lg p-4 border text-left">
+          <p className="text-sm text-slate-700"><strong>Document:</strong> {document.filename}</p>
+          <p className="text-sm text-slate-700 mt-2"><strong>Signed by:</strong> {recipient.name}</p>
+          <p className="text-sm text-slate-700 mt-2"><strong>Email:</strong> {recipient.email}</p>
+          <p className="text-sm text-slate-700 mt-2"><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  // Main signing interface
   return (
     <div className="min-h-screen bg-slate-100">
-      {/* Header */}
       <div className="bg-white border-b shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -320,45 +468,48 @@ const DocSendSigningPage = () => {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6 sm:p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Document Preview */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 order-2 lg:order-1">
             <div className="bg-white rounded-lg shadow-lg overflow-hidden">
               <div className="relative">
-                {/* PDF Display */}
                 {pdfUrl ? (
                   <div className="relative">
                     <embed
                       src={`${pdfUrl}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=1`}
                       type="application/pdf"
-                      className="w-full h-[700px]"
+                      className="w-full h-[500px] sm:h-[700px]"
                       style={{ border: 'none' }}
                     />
 
-                    {/* Signature Field Overlays */}
                     {currentPageFields.map((field) => {
                       const isFilled = signatures[field.id];
                       
                       return (
                         <div
                           key={field.id}
-                          className={`absolute border-2 rounded transition-all ${
+                          className={`absolute rounded transition-all ${
                             isFilled 
-                              ? 'bg-green-50/90 border-green-500' 
-                              : 'bg-yellow-50/90 border-yellow-500 animate-pulse hover:bg-yellow-100/90'
+                              ? 'bg-transparent border-0'
+                              : 'bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80'
                           }`}
                           style={{
                             left: `${field.x}%`,
                             top: `${field.y}%`,
-                            width: field.type === 'signature' ? '200px' : '150px',
-                            height: field.type === 'signature' ? '60px' : '40px',
+                            width: field.width ? `${field.width}px` : (field.type === 'signature' ? '200px' : '150px'),
+                            height: field.height ? `${field.height}px` : (field.type === 'signature' ? '60px' : '40px'),
+                            transform: 'translate(-50%, -50%)',
                             cursor: field.type === 'signature' && !isFilled ? 'pointer' : 'default',
+                            pointerEvents: isFilled ? 'none' : 'auto',
                           }}
                           onClick={() => {
-                            if (field.type === 'signature' && !isFilled) {
-                              setActiveField(field);
+                            if (!isFilled) {
+                              if (field.type === 'signature') {
+                                setActiveField(field);
+                              } else if (field.type === 'text') {
+                                setActiveTextField(field);
+                                setTextFieldInput('');
+                              }
                             }
                           }}
                         >
@@ -366,37 +517,32 @@ const DocSendSigningPage = () => {
                             {isFilled ? (
                               <>
                                 {field.type === 'signature' && (
-                                  <img src={signatures[field.id].data} alt="Signature" className="max-h-full max-w-full" />
+                                  <img 
+                                    src={signatures[field.id].data} 
+                                    alt="Signature" 
+                                    className="max-h-full max-w-full object-contain"
+                                    style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
+                                  />
                                 )}
                                 {field.type === 'date' && (
-                                  <div className="text-center">
-                                    <Clock className="h-4 w-4 mx-auto mb-1 text-green-600" />
-                                    <p className="text-xs font-medium text-slate-900">{signatures[field.id].data}</p>
+                                  <div className="text-center w-full">
+                                    <p className="text-sm font-medium text-slate-900 leading-tight">
+                                      {signatures[field.id].data}
+                                    </p>
                                   </div>
                                 )}
                                 {field.type === 'text' && (
-                                  <p className="text-sm font-medium text-slate-900">{signatures[field.id].data}</p>
+                                  <p className="text-sm font-medium text-slate-900 text-center px-2 leading-tight">
+                                    {signatures[field.id].data}
+                                  </p>
                                 )}
                               </>
                             ) : (
                               <div className="text-center">
-                                {field.type === 'signature' && (
-                                  <>
-                                    <FileSignature className="h-5 w-5 mx-auto mb-1 text-yellow-600" />
-                                    <p className="text-xs font-semibold text-slate-700">Click to Sign</p>
-                                  </>
-                                )}
-                                {field.type === 'date' && (
-                                  <>
-                                    <Clock className="h-4 w-4 mx-auto mb-1 text-yellow-600" />
-                                    <p className="text-xs font-medium text-slate-700">Auto-filled</p>
-                                  </>
-                                )}
-                                {field.type === 'text' && (
-                                  <>
-                                    <p className="text-xs font-medium text-slate-700">Text Field</p>
-                                  </>
-                                )}
+                                <p className="text-xs font-medium text-yellow-700">
+                                  {field.type === 'signature' ? 'Click to Sign' :
+                                   field.type === 'date' ? 'Auto-filled' : 'Click to Fill'}
+                                </p>
                               </div>
                             )}
                           </div>
@@ -411,7 +557,6 @@ const DocSendSigningPage = () => {
                 )}
               </div>
 
-              {/* Page Navigation */}
               {document.numPages > 1 && (
                 <div className="flex items-center justify-between p-4 border-t bg-slate-50">
                   <button
@@ -438,12 +583,10 @@ const DocSendSigningPage = () => {
             </div>
           </div>
 
-          {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-lg p-6 sticky top-24">
               <h3 className="font-semibold text-slate-900 mb-4">Signature Progress</h3>
               
-              {/* Progress */}
               <div className="mb-6">
                 <div className="flex justify-between text-sm text-slate-600 mb-2">
                   <span>Completed</span>
@@ -459,7 +602,6 @@ const DocSendSigningPage = () => {
                 </div>
               </div>
 
-              {/* Fields List */}
               <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
                 {myFields.map(field => (
                   <div 
@@ -482,7 +624,6 @@ const DocSendSigningPage = () => {
                 ))}
               </div>
 
-              {/* Complete Button */}
               <button
                 onClick={completeSignature}
                 disabled={!allFieldsFilled || submitting}
@@ -511,7 +652,6 @@ const DocSendSigningPage = () => {
         </div>
       </div>
 
-      {/* Signature Drawing Modal */}
       {activeField && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full">
@@ -541,7 +681,11 @@ const DocSendSigningPage = () => {
                   onMouseMove={draw}
                   onMouseUp={stopDrawing}
                   onMouseLeave={stopDrawing}
-                  className="w-full cursor-crosshair"
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  className="w-full cursor-crosshair touch-none"
+                  style={{ touchAction: 'none' }}
                 />
               </div>
               
@@ -564,6 +708,64 @@ const DocSendSigningPage = () => {
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   Save Signature
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTextField && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="p-6 border-b flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Enter Text</h3>
+                <p className="text-sm text-slate-500 mt-1">Type your response below</p>
+              </div>
+              <button
+                onClick={() => {
+                  setActiveTextField(null);
+                  setTextFieldInput('');
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <input
+                type="text"
+                value={textFieldInput}
+                onChange={(e) => setTextFieldInput(e.target.value)}
+                placeholder="Enter text here..."
+                className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg"
+                autoFocus
+              />
+              
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => {
+                    setActiveTextField(null);
+                    setTextFieldInput('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (textFieldInput.trim()) {
+                      handleTextInput(activeTextField.id, textFieldInput.trim());
+                      setActiveTextField(null);
+                      setTextFieldInput('');
+                    }
+                  }}
+                  disabled={!textFieldInput.trim()}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  Save
                 </button>
               </div>
             </div>

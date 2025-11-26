@@ -70,6 +70,46 @@ type DocumentType = {
   createdAt: string;
   notes?: string;
   thumbnail?: string;
+  isTemplate?: boolean;
+  originalFilename?: string;
+  originalFormat?: string;
+  mimeType?: string;
+};
+
+type Recipient = {
+  name: string;
+  email: string;
+  role?: string;
+  color?: string;
+};
+
+type SignatureField = {
+  id: string | number;
+  type: 'signature' | 'date' | 'text';
+  x: number;
+  y: number;
+  page: number;
+  recipientIndex: number;
+  width?: number;
+  height?: number;
+};
+
+type SignatureRequestType = {
+  recipientEmail?: string;
+  recipientName?: string;
+  message?: string;
+  dueDate?: string;
+  isTemplate: boolean;
+  step?: number;
+  recipients?: Recipient[];
+  signatureFields?: SignatureField[];
+};
+
+type GeneratedLink = {
+  recipient?: string;
+  email?: string;
+  link?: string;
+  status?: string;
 };
 
 export default function DocumentPage() {
@@ -108,7 +148,7 @@ const [paginatedContent, setPaginatedContent] = useState<string[]>([]);
 const [isLoadingPage, setIsLoadingPage] = useState(false);
 const [showPdfView, setShowPdfView] = useState(false);
 const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-const [generatedLinks, setGeneratedLinks] = useState([]);
+
 const [isSending, setIsSending] = useState(false);
 const [showThumbnailDialog, setShowThumbnailDialog] = useState(false);
 const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
@@ -122,13 +162,17 @@ const [linkSettings, setLinkSettings] = useState({
   password: '',
   notifyOnView: true,
 });
-const [signatureRequest, setSignatureRequest] = useState({
+const [signatureRequest, setSignatureRequest] = useState<SignatureRequestType>({
   recipientEmail: '',
   recipientName: '',
   message: '',
   dueDate: '',
   isTemplate: false,
+  step: 1,
+  recipients: [],
+  signatureFields: [],
 });
+const [generatedLinks, setGeneratedLinks] = useState<GeneratedLink[]>([]);
 const [isSendingSignature, setIsSendingSignature] = useState(false);
 const [isFullscreenEditMode, setIsFullscreenEditMode] = useState(false);
 
@@ -518,6 +562,11 @@ const handlePresent = () => {
 
 // Handle export visits (CSV format)
 const handleExportVisits = async () => {
+  if (!doc) {
+    alert('Document not loaded');
+    return;
+  }
+
   try {
     // Fetch real analytics data
     const res = await fetch(`/api/documents/${params.id}/analytics`, {
@@ -665,6 +714,10 @@ const handleThumbnailFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 const handleUploadThumbnail = async () => {
   if (!thumbnailFile) {
     alert('Please select an image');
+    return;
+  }
+  if (!doc) {
+    alert('Document not loaded');
     return;
   }
   
@@ -868,6 +921,10 @@ const handleSendSignatureRequest = async () => {
         recipientName: '',
         message: '',
         dueDate: '',
+        isTemplate: false,
+        step: 1,
+        recipients: [],
+        signatureFields: [],
       });
     } else {
       alert('Failed to send signature request');
@@ -2385,13 +2442,14 @@ const openCreateLinkDialog = () => {
           onClick={() => {
             setShowSignatureDialog(false);
             setSignatureRequest({
-              recipientEmail: '',
-              recipientName: '',
-              message: '',
-              dueDate: '',
-              step: 1,
-              recipients: [],
-              signatureFields: [],
+           recipientEmail: '',
+        recipientName: '',
+        message: '',
+        dueDate: '',
+        isTemplate: false,
+        step: 1,
+        recipients: [],
+        signatureFields: [],
             });
           }}
         >
@@ -2616,7 +2674,7 @@ const openCreateLinkDialog = () => {
           onClick={() => {
             const newFields = (signatureRequest.recipients || []).map((_, index) => ({
               id: Date.now() + index,
-              type: 'signature',
+              type: "signature" as "signature",
               x: 25,
               y: 60 + (index * 15),
               page: 1,
@@ -2680,7 +2738,7 @@ const openCreateLinkDialog = () => {
           
           const newField = {
             id: Date.now(),
-            type: fieldType,
+            type: fieldType as "signature" | "date" | "text",
             x,
             y,
             page: previewPage,
@@ -2725,7 +2783,9 @@ const openCreateLinkDialog = () => {
                     }}
                     draggable
                     onDragEnd={(e) => {
-                      const rect = e.currentTarget.parentElement.getBoundingClientRect();
+                      const parent = e.currentTarget.parentElement;
+                      if (!parent) return;
+                      const rect = parent.getBoundingClientRect();
                       const newX = ((e.clientX - rect.left) / rect.width) * 100;
                       const newY = ((e.clientY - rect.top) / rect.height) * 100;
                       
@@ -3229,7 +3289,7 @@ await fetchDocument(); // Add this line - it will refresh the document data
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      navigator.clipboard.writeText(item.link);
+                      navigator.clipboard.writeText(item.link ?? "");
                       alert('Link copied to clipboard!');
                     }}
                     className="flex-shrink-0"
@@ -3321,6 +3381,7 @@ await fetchDocument(); // Add this line - it will refresh the document data
               step: 1,
               recipients: [],
               signatureFields: [],
+              isTemplate: false,
             });
           }}
         >

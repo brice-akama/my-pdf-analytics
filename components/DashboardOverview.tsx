@@ -22,6 +22,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import SignatureDashboard from '@/components/SignatureDashboard';
+ 
 
 interface Viewer {
   email: string;
@@ -273,6 +275,7 @@ const handleDocumentClick = (doc: Document) => {
         <TabsList className="bg-slate-100 p-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger> 
+          <TabsTrigger value="signatures">📝 E-Signatures</TabsTrigger>
           <TabsTrigger value="geography">Geography</TabsTrigger>
           <TabsTrigger value="devices">Devices</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
@@ -427,6 +430,10 @@ const handleDocumentClick = (doc: Document) => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="signatures" className="space-y-6">
+  <SignatureDashboard />  {/* ← ADD THIS */}
+</TabsContent>
 
         {/* NEW DOCUMENTS TAB - PER-DOCUMENT ANALYTICS */}
         <TabsContent value="documents" className="space-y-6">
@@ -636,7 +643,7 @@ const handleDocumentClick = (doc: Document) => {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ device, percentage }) => `${device}: ${percentage}%`}
+                      label={({ payload, percent }) => `${payload?.device}: ${Math.round((percent || 0) * 100)}%`}
                       outerRadius={100}
                       fill="#8884d8"
                       dataKey="count"
@@ -907,6 +914,8 @@ const handleDocumentClick = (doc: Document) => {
           )}
         </DialogContent>
       </Dialog>
+
+       
     </div>
   );
 }
