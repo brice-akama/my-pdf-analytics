@@ -79,22 +79,32 @@ const DocSendSigningPage = () => {
           return;
         }
 
-        const { signatureRequest } = data;
+        const { signature } = data;
 
-        setDocument({
-          id: signatureRequest.document._id,
-          filename: signatureRequest.document.filename,
-          numPages: signatureRequest.document.numPages,
-        });
+// Fetch the actual signature REQUEST with fields
+const requestRes = await fetch(`/api/signature/${signatureId}/request`);
+if (!requestRes.ok) {
+  setError('Failed to load signature fields');
+  setLoading(false);
+  return;
+}
 
-        setRecipient({
-          name: signatureRequest.recipient.name,
-          email: signatureRequest.recipient.email,
-          index: signatureRequest.recipientIndex,
-        });
+const requestData = await requestRes.json();
+const signatureRequest = requestData.signatureRequest;
 
-        setSignatureFields(signatureRequest.signatureFields || []);
+setDocument({
+  id: signatureRequest.documentId,
+  filename: signatureRequest.document?.filename || signature.documentName,
+  numPages: signatureRequest.document?.numPages || 1,
+});
 
+setRecipient({
+  name: signatureRequest.recipient.name,
+  email: signatureRequest.recipient.email,
+  index: signatureRequest.recipientIndex,
+});
+
+setSignatureFields(signatureRequest.signatureFields || []);
         const pdfRes = await fetch(`/api/signature/${signatureId}/file`);
         if (pdfRes.ok) {
           const blob = await pdfRes.blob();

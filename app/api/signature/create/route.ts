@@ -3,50 +3,48 @@ import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
 import { sendSignatureRequestEmail } from "@/lib/emailService";
-import { cookies } from "next/headers";
+import { verifyUserFromRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    // ✅ Use JWT authentication
+    const user = await verifyUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     const { documentId, recipients, signatureFields, message, dueDate } = await request.json();
-    
-    // Get user session (assuming you have auth)
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('session')?.value;
     
     const db = await dbPromise;
 
-    // Get current user (owner)
-    let ownerId = null;
-    let ownerName = 'Document Owner';
-    let ownerEmail = '';
+    // ✅ Get current user details
+    const ownerId = user.id;
+    const ownerEmail = user.email;
     
-    if (sessionToken) {
-      const session = await db.collection('sessions').findOne({ token: sessionToken });
-      if (session) {
-        ownerId = session.userId;
-        const user = await db.collection('users').findOne({ _id: new ObjectId(ownerId) });
-        if (user) {
-          ownerName = user.name || user.email;
-          ownerEmail = user.email;
-        }
-      }
-    }
+    const userDoc = await db.collection('users').findOne({ 
+      _id: new ObjectId(ownerId) 
+    });
+    const ownerName = userDoc?.profile?.fullName || userDoc?.email || user.email;
 
-    // Verify document exists
+    // ✅ Verify document exists and belongs to user
     const document = await db.collection("documents").findOne({
       _id: new ObjectId(documentId),
+      userId: ownerId,
     });
 
     if (!document) {
       return NextResponse.json(
-        { success: false, message: "Document not found" },
+        { success: false, message: "Document not found or access denied" },
         { status: 404 }
       );
     }
 
     console.log('📝 Creating signature requests for', recipients.length, 'recipients');
+    console.log('👤 Owner:', ownerName, '(', ownerEmail, ')');
 
-    // Create signature requests for each recipient
     const signatureRequests = [];
     const emailPromises = [];
     
@@ -57,8 +55,8 @@ export async function POST(request: NextRequest) {
       const signatureRequest = {
         uniqueId,
         documentId: documentId,
-        ownerId: ownerId,
-        ownerEmail: ownerEmail,
+        ownerId: ownerId, // ✅ Now properly set!
+        ownerEmail: ownerEmail, // ✅ Now properly set!
         recipient: {
           name: recipient.name,
           email: recipient.email,
@@ -90,7 +88,6 @@ export async function POST(request: NextRequest) {
         status: 'pending',
       });
 
-      // Send email to this recipient (don't await, do it in parallel)
       emailPromises.push(
         sendSignatureRequestEmail({
           recipientName: recipient.name,
@@ -102,18 +99,15 @@ export async function POST(request: NextRequest) {
           dueDate: dueDate,
         }).catch(err => {
           console.error(`❌ Failed to send email to ${recipient.email}:`, err);
-          // Don't fail the whole request if email fails
           return null;
         })
       );
     }
 
-    // Wait for all emails to be sent
     console.log('📧 Sending', emailPromises.length, 'emails...');
     await Promise.all(emailPromises);
-    console.log('✅ All emails sent (or failed gracefully)');
+    console.log('✅ All emails sent');
 
-    // Update document status
     await db.collection("documents").updateOne(
       { _id: new ObjectId(documentId) },
       {

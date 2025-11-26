@@ -750,7 +750,7 @@ export default function SignatureDashboard() {
 
       {/* Signer Details Modal */}
       <Dialog open={showSignerDetails} onOpenChange={setShowSignerDetails}>
-        <DialogContent className="max-w-3xl bg-white">
+        <DialogContent className="max-w-3xl bg-white scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-3">
               <Users className="h-6 w-6 text-purple-600" />
