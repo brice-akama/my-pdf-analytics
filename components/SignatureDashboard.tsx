@@ -44,6 +44,7 @@ interface SignatureDocument {
   id: string;
   documentId: string;
   name: string;
+  documentName: string;
   totalSigners: number;
   signedCount: number;
   pendingCount: number;
@@ -153,9 +154,9 @@ export default function SignatureDashboard() {
     
     // Fetch detailed analytics
     try {
-      const res = await fetch(`/api/signature/${signer.uniqueId}/route`, {
-        credentials: 'include',
-      });
+      const res = await fetch(`/api/signature/${signer.uniqueId}`, {
+  credentials: 'include',
+});
       if (res.ok) {
         const data = await res.json();
         setSelectedSigner({
@@ -701,33 +702,58 @@ export default function SignatureDashboard() {
 
         {/* Document Actions */}
         <div className="flex justify-end gap-3">
+         
+          <button
+  onClick={() => {
+    console.log('🔍 Selected Document:', selectedDocument);
+    console.log('🔍 Signers:', selectedDocument.signers);
+    console.log('🔍 First Signer:', selectedDocument.signers[0]);
+    
+    const firstSigner = selectedDocument.signers[0];
+    if (firstSigner && firstSigner.uniqueId) {
+      console.log('✅ Using uniqueId:', firstSigner.uniqueId);
+      window.open(`/view-signed/${firstSigner.uniqueId}`, '_blank');
+    } else {
+      console.error('❌ No uniqueId found!', selectedDocument);
+      alert('No signers found or missing uniqueId');
+    }
+  }}
+  className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium"
+>
+  <Eye className="h-4 w-4" />
+ View & Download Document
+</button>
           <button
             onClick={() => {
-              window.open(`/api/signature/${selectedDocument.id}/download`, '_blank');
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 text-sm font-medium text-slate-700"
-          >
-            <Download className="h-4 w-4" />
-            Download PDF
-          </button>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(
-                `${window.location.origin}/sign/${selectedDocument.id}`
-              );
-              alert('Signing link copied to clipboard!');
-            }}
+    // Use the first signer's uniqueId for the signing link
+    const firstSigner = selectedDocument.signers[0];
+    if (firstSigner) {
+      navigator.clipboard.writeText(
+        `${window.location.origin}/sign/${firstSigner.uniqueId}`
+      );
+      alert('Signing link copied to clipboard!');
+    } else {
+      alert('No signers found for this document');
+    }
+  }}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 text-sm font-medium text-slate-700"
           >
             <ExternalLink className="h-4 w-4" />
             Copy Link
           </button>
           <button
-            onClick={() => {
-              setSendingReminder(selectedDocument.id);
-              setTimeout(() => setSendingReminder(null), 2000);
-            }}
-            disabled={sendingReminder === selectedDocument.id}
+           onClick={() => {
+    // Send reminder to all pending signers
+    const pendingSigners = selectedDocument.signers.filter(s => s.status !== 'signed');
+    if (pendingSigners.length === 0) {
+      alert('All signers have already signed!');
+      return;
+    }
+    
+    // Send to first pending signer (or you can send to all)
+    handleSendReminder(pendingSigners[0].uniqueId);
+  }}
+  disabled={sendingReminder !== null}
             className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {sendingReminder === selectedDocument.id ? (

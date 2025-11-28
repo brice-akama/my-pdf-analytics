@@ -35,24 +35,9 @@ export async function GET(
       );
     }
 
-    // Check if already signed
-    if (signatureRequest.status === "signed") {
-      return NextResponse.json(
-        { success: false, message: "Document already signed" },
-        { status: 400 }
-      );
-    }
+    
 
-    // Check if expired
-    if (
-      signatureRequest.dueDate &&
-      new Date(signatureRequest.dueDate) < new Date()
-    ) {
-      return NextResponse.json(
-        { success: false, message: "Signature request expired" },
-        { status: 400 }
-      );
-    }
+    
 
     // Get the document
     const document = await db.collection("documents").findOne({

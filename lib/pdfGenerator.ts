@@ -82,95 +82,115 @@ export async function generateSignedPDF(
     console.log('📄 PDF Pages:', pages.length);
 
     // Insert signature field content
-    for (const request of signatureRequests) {
-      if (request.status !== "signed" || !request.signedFields) continue;
-      for (const field of request.signatureFields) {
-        const signedField = request.signedFields.find(
-          (sf: any) => sf.id === field.id
+   // Insert signature field content
+for (const request of signatureRequests) {
+  if (request.status !== "signed" || !request.signedFields) continue;
+  
+  for (const field of request.signatureFields) {
+    const signedField = request.signedFields.find(
+      (sf: any) => sf.id === field.id
+    );
+    if (!signedField) continue;
+    
+    const pageIndex = field.page - 1;
+    if (pageIndex < 0 || pageIndex >= pages.length) continue;
+    
+    const page = pages[pageIndex];
+    const { width, height } = page.getSize();
+    
+    // Calculate field dimensions
+    const fieldWidth = field.width || 180;
+    const fieldHeight = field.height || (field.type === 'signature' ? 60 : 40);
+    
+    // Convert percentage to PDF points
+    const xInPoints = (field.x / 100) * width;
+    const yFromTop = (field.y / 100) * height;
+    
+    // Fix Y coordinate (flip from top-origin to bottom-origin) and center the field
+    const x = xInPoints - (fieldWidth / 2);
+    const y = height - yFromTop - (fieldHeight / 2);
+
+    // SIGNATURE IMAGE
+    if (field.type === "signature" && signedField.signatureData) {
+      try {
+        const base64 = signedField.signatureData.replace(
+          /^data:image\/\w+;base64,/,
+          ""
         );
-        if (!signedField) continue;
-        const pageIndex = field.page - 1;
-        if (pageIndex < 0 || pageIndex >= pages.length) continue;
-        const page = pages[pageIndex];
-        const { width, height } = page.getSize();
-        const x = (field.x / 100) * width;
-        const y = height - (field.y / 100) * height;
-        const fieldWidth = field.width ? (field.width / 100) * width : 180;
-        const fieldHeight = field.height ? (field.height / 100) * height : 60;
-
-        // SIGNATURE IMAGE
-        if (field.type === "signature" && signedField.signatureData) {
-          try {
-            const base64 = signedField.signatureData.replace(
-              /^data:image\/\w+;base64,/,
-              ""
-            );
-            const imgBytes = Buffer.from(base64, "base64");
-            let image;
-            if (signedField.signatureData.includes("image/png")) {
-              image = await pdfDoc.embedPng(imgBytes);
-            } else {
-              image = await pdfDoc.embedJpg(imgBytes);
-            }
-            page.drawImage(image, {
-              x,
-              y: y - fieldHeight,
-              width: fieldWidth,
-              height: fieldHeight,
-            });
-          } catch {
-            page.drawText("Signed", {
-              x,
-              y: y - 30,
-              size: 14,
-              font,
-              color: rgb(0.2, 0.2, 0.8),
-            });
-          }
+        const imgBytes = Buffer.from(base64, "base64");
+        let image;
+        if (signedField.signatureData.includes("image/png")) {
+          image = await pdfDoc.embedPng(imgBytes);
+        } else {
+          image = await pdfDoc.embedJpg(imgBytes);
         }
-
-        // DATE FIELD
-        if (field.type === "date" && signedField.dateValue) {
-          page.drawText(signedField.dateValue, {
-            x,
-            y: y - 25,
-            size: 11,
-            font,
-            color: rgb(0, 0, 0),
-          });
-        }
-
-        // TEXT FIELD
-        if (field.type === "text" && signedField.textValue) {
-          page.drawText(signedField.textValue, {
-            x,
-            y: y - 25,
-            size: 11,
-            font,
-            color: rgb(0, 0, 0),
-          });
-        }
-
-        // Signer label
-        page.drawText(`${request.recipient.name}`, {
-          x,
-          y: y - fieldHeight - 12,
-          size: 8,
-          font,
-          color: rgb(0.4, 0.4, 0.4),
+        
+        page.drawImage(image, {
+          x: x,
+          y: y,
+          width: fieldWidth,
+          height: fieldHeight,
         });
-
-        const timestamp = new Date(request.signedAt).toLocaleString();
-        page.drawText(`Signed: ${timestamp}`, {
-          x,
-          y: y - fieldHeight - 24,
-          size: 7,
+      } catch (err) {
+        console.error('Failed to embed signature image:', err);
+        page.drawText("Signed", {
+          x: x + 10,
+          y: y + (fieldHeight / 2) - 7,
+          size: 14,
           font,
-          color: rgb(0.5, 0.5, 0.5),
+          color: rgb(0.2, 0.2, 0.8),
         });
       }
     }
 
+    // DATE FIELD
+    if (field.type === "date" && signedField.dateValue) {
+      const textWidth = font.widthOfTextAtSize(signedField.dateValue, 11);
+      page.drawText(signedField.dateValue, {
+        x: x + (fieldWidth - textWidth) / 2,
+        y: y + (fieldHeight / 2) - 4,
+        size: 11,
+        font,
+        color: rgb(0, 0, 0),
+      });
+    }
+
+    // TEXT FIELD
+    if (field.type === "text" && signedField.textValue) {
+      const textWidth = font.widthOfTextAtSize(signedField.textValue, 11);
+      page.drawText(signedField.textValue, {
+        x: x + (fieldWidth - textWidth) / 2,
+        y: y + (fieldHeight / 2) - 4,
+        size: 11,
+        font,
+        color: rgb(0, 0, 0),
+      });
+    }
+
+    // Signer label below the field
+    const signerLabel = `${request.recipient.name}`;
+    const signerLabelWidth = font.widthOfTextAtSize(signerLabel, 8);
+    page.drawText(signerLabel, {
+      x: x + (fieldWidth - signerLabelWidth) / 2,
+      y: y - 15,
+      size: 8,
+      font,
+      color: rgb(0.4, 0.4, 0.4),
+    });
+
+    // Timestamp below signer label
+    const timestamp = new Date(request.signedAt).toLocaleString();
+    const timestampText = `Signed: ${timestamp}`;
+    const timestampWidth = font.widthOfTextAtSize(timestampText, 7);
+    page.drawText(timestampText, {
+      x: x + (fieldWidth - timestampWidth) / 2,
+      y: y - 27,
+      size: 7,
+      font,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+  }
+}
     // AUDIT TRAIL
     const lastPage = pages[pages.length - 1];
     let auditY = 35;

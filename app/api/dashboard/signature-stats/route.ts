@@ -118,7 +118,8 @@ export async function GET(request: NextRequest) {
 
         return {
           id: docId,
-          name: doc?.filename || 'Unknown Document',
+          documentId: docId,
+          name: doc?.filename || doc?.originalFilename || 'Unknown Document',
           totalSigners: totalCount,
           signedCount: signedCount,
           pendingCount: totalCount - signedCount,
@@ -156,7 +157,7 @@ export async function GET(request: NextRequest) {
         return {
           id: r.uniqueId,
           type: r.status === 'signed' ? 'signed' : r.status === 'viewed' ? 'viewed' : 'sent',
-          documentName: doc?.filename || 'Unknown',
+          documentName: doc?.originalFilename || doc?.filename || 'Unknown',
           signerName: r.recipient.name,
           signerEmail: r.recipient.email,
           timestamp: r.signedAt || r.viewedAt || r.createdAt,
