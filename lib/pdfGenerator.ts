@@ -168,27 +168,32 @@ for (const request of signatureRequests) {
     }
 
     // Signer label below the field
-    const signerLabel = `${request.recipient.name}`;
-    const signerLabelWidth = font.widthOfTextAtSize(signerLabel, 8);
-    page.drawText(signerLabel, {
-      x: x + (fieldWidth - signerLabelWidth) / 2,
-      y: y - 15,
-      size: 8,
-      font,
-      color: rgb(0.4, 0.4, 0.4),
-    });
+// Show name and timestamp ONLY for signature fields (professional standard)
+    if (field.type === "signature") {
+      // Signer label below the signature
+      const signerLabel = `${request.recipient.name}`;
+      const signerLabelWidth = font.widthOfTextAtSize(signerLabel, 8);
+      page.drawText(signerLabel, {
+        x: x + (fieldWidth - signerLabelWidth) / 2,
+        y: y - 15,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
 
-    // Timestamp below signer label
-    const timestamp = new Date(request.signedAt).toLocaleString();
-    const timestampText = `Signed: ${timestamp}`;
-    const timestampWidth = font.widthOfTextAtSize(timestampText, 7);
-    page.drawText(timestampText, {
-      x: x + (fieldWidth - timestampWidth) / 2,
-      y: y - 27,
-      size: 7,
-      font,
-      color: rgb(0.5, 0.5, 0.5),
-    });
+      // Timestamp below signer label
+      const timestamp = new Date(request.signedAt).toLocaleString();
+      const timestampText = `Signed: ${timestamp}`;
+      const timestampWidth = font.widthOfTextAtSize(timestampText, 7);
+      page.drawText(timestampText, {
+        x: x + (fieldWidth - timestampWidth) / 2,
+        y: y - 27,
+        size: 7,
+        font,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+    }
+    // Date and Text fields: NO name/timestamp (they speak for themselves)
   }
 }
     // AUDIT TRAIL
