@@ -197,30 +197,196 @@ for (const request of signatureRequests) {
   }
 }
     // AUDIT TRAIL
-    const lastPage = pages[pages.length - 1];
-    let auditY = 35;
-    lastPage.drawText("AUDIT TRAIL", {
+
+// AUDIT TRAIL
+// Add a new page for the audit trail
+let auditTrailPage = pdfDoc.addPage([pages[0].getWidth(), pages[0].getHeight()]);
+let auditY = auditTrailPage.getHeight() - 50; // Start near the top of the new page
+
+// Draw a separator line
+auditTrailPage.drawLine({
+  start: { x: 50, y: auditY + 10 },
+  end: { x: auditTrailPage.getWidth() - 50, y: auditY + 10 },
+  thickness: 1,
+  color: rgb(0.7, 0.7, 0.7),
+});
+
+// Title
+auditTrailPage.drawText("AUDIT TRAIL", {
+  x: 50,
+  y: auditY,
+  size: 12,
+  font: boldFont,
+  color: rgb(0, 0, 0),
+});
+auditY -= 20;
+
+// Document metadata
+auditTrailPage.drawText(`Document ID: ${documentId}`, {
+  x: 50,
+  y: auditY,
+  size: 9,
+  font,
+  color: rgb(0.3, 0.3, 0.3),
+});
+auditY -= 15;
+
+auditTrailPage.drawText(`Completed: ${new Date().toLocaleString()}`, {
+  x: 50,
+  y: auditY,
+  size: 9,
+  font,
+  color: rgb(0.3, 0.3, 0.3),
+});
+auditY -= 20;
+
+// Signers section
+auditTrailPage.drawText("Signers:", {
+  x: 50,
+  y: auditY,
+  size: 10,
+  font: boldFont,
+  color: rgb(0, 0, 0),
+});
+auditY -= 15;
+
+// Generate a document hash for tamper-proofing
+const crypto = require('crypto');
+const documentHash = crypto.createHash('sha256').update(JSON.stringify(signatureRequests)).digest('hex');
+
+// List all signers
+for (const req of signatureRequests) {
+  if (req.status === "signed") {
+    const signerName = req.recipient.name || "Unknown";
+    const signerEmail = req.recipient.email || "Unknown";
+    const signedAt = req.signedAt ? new Date(req.signedAt).toLocaleString() : "Unknown";
+
+    auditTrailPage.drawText(`${signerName} (${signerEmail})`, {
       x: 50,
-      y: 50,
-      size: 10,
+      y: auditY,
+      size: 9,
       font: boldFont,
-      color: rgb(0.3, 0.3, 0.3),
+      color: rgb(0, 0, 0),
     });
-    for (const req of signatureRequests) {
-      if (req.status === "signed") {
-        const txt = `${req.recipient.name} (${req.recipient.email}) - Signed: ${new Date(
-          req.signedAt
-        ).toLocaleString()}`;
-        lastPage.drawText(txt, {
-          x: 50,
+    auditY -= 12;
+
+    auditTrailPage.drawText(`   • Signed: ${signedAt}`, {
+      x: 55,
+      y: auditY,
+      size: 8,
+      font,
+      color: rgb(0.4, 0.4, 0.4),
+    });
+    auditY -= 10;
+
+    // Document viewed timestamp (optional)
+    if (req.viewedAt) {
+      const viewedAt = new Date(req.viewedAt).toLocaleString();
+      auditTrailPage.drawText(`   • Viewed: ${viewedAt}`, {
+        x: 55,
+        y: auditY,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      auditY -= 10;
+    }
+
+    // Email delivery status (optional)
+    if (req.emailOpened) {
+      const emailOpenedAt = new Date(req.emailOpenedAt).toLocaleString();
+      auditTrailPage.drawText(`   • Email opened: ${emailOpenedAt}`, {
+        x: 55,
+        y: auditY,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      auditY -= 10;
+    }
+
+    // IP Address and Location (optional)
+    if (req.recipient.ipAddress) {
+      let locationText = `   • IP: ${req.recipient.ipAddress}`;
+      
+      // Add location if available
+      if (req.recipient.location) {
+        const loc = req.recipient.location;
+        const locationParts = [loc.city, loc.region, loc.country].filter(Boolean);
+        if (locationParts.length > 0) {
+          locationText += ` (${locationParts.join(', ')})`;
+        }
+      }
+      
+      auditTrailPage.drawText(locationText, {
+        x: 55,
+        y: auditY,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      auditY -= 10;
+    }
+
+    // Device & Browser info (optional)
+    if (req.recipient.device || req.recipient.browser) {
+      let deviceText = '   • Device: ';
+      const deviceParts = [];
+      
+      if (req.recipient.browser) deviceParts.push(req.recipient.browser);
+      if (req.recipient.os) deviceParts.push(req.recipient.os);
+      if (req.recipient.deviceType) deviceParts.push(req.recipient.deviceType);
+      
+      if (deviceParts.length > 0) {
+        deviceText += deviceParts.join(', ');
+        auditTrailPage.drawText(deviceText, {
+          x: 55,
           y: auditY,
-          size: 7,
+          size: 8,
           font,
           color: rgb(0.4, 0.4, 0.4),
         });
-        auditY -= 12;
+        auditY -= 10;
       }
     }
+
+    auditY -= 5; // Extra space between signers
+
+    // If we're running out of space, add another page
+    if (auditY < 100) {
+      auditTrailPage = pdfDoc.addPage([auditTrailPage.getWidth(), auditTrailPage.getHeight()]);
+      auditY = auditTrailPage.getHeight() - 50;
+    }
+  }
+}
+
+// Document hash for tamper-proofing
+auditTrailPage.drawText(`Document Hash: ${documentHash}`, {
+  x: 50,
+  y: auditY,
+  size: 8,
+  font,
+  color: rgb(0.5, 0.5, 0.5),
+});
+auditY -= 15;
+
+// Footer
+auditTrailPage.drawLine({
+  start: { x: 50, y: auditY + 5 },
+  end: { x: auditTrailPage.getWidth() - 50, y: auditY + 5 },
+  thickness: 0.5,
+  color: rgb(0.7, 0.7, 0.7),
+});
+
+auditTrailPage.drawText("This document was signed electronically via [YourAppName] and is legally binding.", {
+  x: 50,
+  y: auditY - 5,
+  size: 7,
+  font,
+  color: rgb(0.5, 0.5, 0.5),
+});
+console.log('🧾 Audit trail page added');
+
 // Save signed PDF
     const finalPdfBytes = await pdfDoc.save();
     console.log('💾 Signed PDF generated, size:', finalPdfBytes.byteLength, 'bytes');

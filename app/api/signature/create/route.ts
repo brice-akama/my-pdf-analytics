@@ -16,16 +16,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { documentId, recipients, signatureFields, message, dueDate } = await request.json();
-    
+    const { documentId, recipients, signatureFields, message, dueDate, viewMode } = await request.json();
     const db = await dbPromise;
 
     // ✅ Get current user details
     const ownerId = user.id;
     const ownerEmail = user.email;
-    
-    const userDoc = await db.collection('users').findOne({ 
-      _id: new ObjectId(ownerId) 
+
+    const userDoc = await db.collection('users').findOne({
+      _id: new ObjectId(ownerId)
     });
     const ownerName = userDoc?.profile?.fullName || userDoc?.email || user.email;
 
@@ -47,11 +46,26 @@ export async function POST(request: NextRequest) {
 
     const signatureRequests = [];
     const emailPromises = [];
-    
+
     for (let i = 0; i < recipients.length; i++) {
       const recipient = recipients[i];
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`;
-      
+
+      // ⭐ ADD .map() to enrich fields with recipient details
+      const enrichedSignatureFields = viewMode === 'shared'
+        ? signatureFields.map((f: any) => ({
+            ...f,
+            recipientName: recipients[f.recipientIndex]?.name || `Recipient ${f.recipientIndex + 1}`,
+            recipientEmail: recipients[f.recipientIndex]?.email || '',
+          }))
+        : signatureFields
+            .filter((f: any) => f.recipientIndex === i)
+            .map((f: any) => ({
+              ...f,
+              recipientName: recipients[f.recipientIndex]?.name || `Recipient ${f.recipientIndex + 1}`,
+              recipientEmail: recipients[f.recipientIndex]?.email || '',
+            }));
+
       const signatureRequest = {
         uniqueId,
         documentId: documentId,
@@ -63,7 +77,11 @@ export async function POST(request: NextRequest) {
           role: recipient.role || '',
         },
         recipientIndex: i,
-        signatureFields: signatureFields.filter((f: any) => f.recipientIndex === i),
+        // ✅ KEEP ORIGINAL signatureFields (do NOT replace)
+        signatureFields: viewMode === 'shared'
+          ? signatureFields  // All fields if shared
+          : signatureFields.filter((f: any) => f.recipientIndex === i), // Only their fields if isolated
+        viewMode: viewMode || 'isolated', // ADD THIS
         message: message || '',
         dueDate: dueDate || null,
         status: 'pending',
@@ -76,9 +94,9 @@ export async function POST(request: NextRequest) {
       };
 
       const result = await db.collection("signature_requests").insertOne(signatureRequest);
-      
+
       const signingLink = `${request.nextUrl.origin}/sign/${uniqueId}`;
-      
+
       signatureRequests.push({
         id: result.insertedId,
         uniqueId,
@@ -125,6 +143,7 @@ export async function POST(request: NextRequest) {
       success: true,
       signatureRequests,
       message: `Signature requests created and sent to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
+       
     });
   } catch (error) {
     console.error("❌ Error creating signature requests:", error);

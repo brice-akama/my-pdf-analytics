@@ -54,7 +54,33 @@ export async function POST(
       }
     );
 
+    
+
     console.log('✅ Signature saved for:', signatureRequest.recipient.name);
+
+    // If shared mode, update ALL signature requests for this document with the new signature
+if (signatureRequest.viewMode === 'shared') {
+  console.log('🔄 Shared mode: Updating all recipients with new signature...');
+  
+  await db.collection("signature_requests").updateMany(
+    { 
+      documentId: signatureRequest.documentId,
+      uniqueId: { $ne: signatureId } // Don't update the current one again
+    },
+    {
+      $set: {
+        [`sharedSignatures.${signatureRequest.recipientIndex}`]: {
+          recipientName: signatureRequest.recipient.name,
+          recipientEmail: signatureRequest.recipient.email,
+          signedFields: signedFields,
+          signedAt: now,
+        }
+      }
+    }
+  );
+  
+  console.log('✅ All recipients updated with new signature');
+}
 
     // Get the document
     const document = await db.collection("documents").findOne({
@@ -101,11 +127,13 @@ export async function POST(
       }
     );
 
+    
     // If ALL signed, generate final PDF and notify everyone
     if (signedCount === totalRecipients) {
       console.log('🎉 All signatures collected! Generating final PDF...');
 
       try {
+        
         // Generate signed PDF
         const signedPdfUrl = await generateSignedPDF(
           signatureRequest.documentId,

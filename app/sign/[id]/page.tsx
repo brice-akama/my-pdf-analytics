@@ -24,6 +24,8 @@ interface SignatureField {
   y: number;
   width?: number;
   height?: number;
+  recipientName?: string; // ⭐ ADD THIS
+  recipientEmail?: string; // ⭐ ADD THIS
 }
 
 interface SignatureData {
@@ -82,6 +84,36 @@ const DocSendSigningPage = () => {
         }
         const requestData = await requestRes.json();
         const signatureRequest = requestData.signatureRequest;
+
+        // Pre-populate signatures from other signers in shared mode
+if (signatureRequest.viewMode === 'shared' && signatureRequest.sharedSignatures) {
+  const preFilledSignatures: Record<string, SignatureData> = {};
+  
+  Object.entries(signatureRequest.sharedSignatures).forEach(([recipientIndex, sigData]: [string, any]) => {
+    // Find all fields for this recipient
+    const recipientFields = signatureRequest.signatureFields.filter(
+      (f: SignatureField) => f.recipientIndex === parseInt(recipientIndex)
+    );
+    
+    // Match signed fields to field IDs
+    recipientFields.forEach((field: SignatureField) => {
+      const matchingSignedField = sigData.signedFields.find((sf: any) => 
+        sf.id === field.id || sf.type === field.type
+      );
+      
+      if (matchingSignedField) {
+        preFilledSignatures[field.id] = {
+          type: matchingSignedField.type,
+          data: matchingSignedField.signatureData || matchingSignedField.dateValue || matchingSignedField.textValue,
+          timestamp: matchingSignedField.timestamp,
+        };
+      }
+    });
+  });
+  
+  setSignatures(preFilledSignatures);
+  console.log('✅ Pre-loaded', Object.keys(preFilledSignatures).length, 'signatures from other signers');
+}
         setDocument({
           id: signatureRequest.documentId,
           filename: signatureRequest.document?.filename || signature.documentName,
@@ -152,6 +184,7 @@ const DocSendSigningPage = () => {
   }, [signatureId]);
 
   const myFields = signatureFields.filter(f => f.recipientIndex === recipient?.index);
+  const allFields = signatureFields;
   const allFieldsFilled = myFields.every(f => signatures[f.id]);
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -434,7 +467,7 @@ const DocSendSigningPage = () => {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
-                {Object.keys(signatures).length} / {myFields.length} completed
+                {Object.keys(signatures).filter(id => myFields.some(f => f.id === id)).length} / {myFields.length} your fields completed
               </span>
             </div>
           </div>
@@ -462,10 +495,9 @@ const DocSendSigningPage = () => {
 
                     {/* Signature Field Overlays */}
                     <div className="absolute inset-0 pointer-events-none">
-                      {signatureFields
-                        .filter(f => f.recipientIndex === recipient?.index)
-                        .map((field) => {
-                          const isFilled = signatures[field.id];
+                     {signatureFields.map((field) => { // ⬅️ Show ALL fields in shared mode
+  const isFilled = signatures[field.id];
+  const isMyField = field.recipientIndex === recipient?.index;
                           const pageHeight = 297 * 3.78; // Convert mm to pixels
                           const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
 
@@ -488,7 +520,7 @@ const DocSendSigningPage = () => {
                                 zIndex: 10,
                               }}
                               onClick={() => {
-                                if (!isFilled) {
+                                if (!isFilled && isMyField) {
                                   if (field.type === 'signature') {
                                     setActiveField(field);
                                   } else if (field.type === 'text') {
@@ -528,6 +560,10 @@ const DocSendSigningPage = () => {
                                       {field.type === 'signature' ? 'Click to Sign' :
                                        field.type === 'date' ? 'Auto-filled' : 'Click to Fill'}
                                     </p>
+                                     <p className="text-xs text-slate-600 mt-1 font-semibold">
+    {(field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
+    {isMyField && ' (You)'}
+  </p>
                                   </div>
                                 )}
                               </div>
@@ -563,26 +599,33 @@ const DocSendSigningPage = () => {
                 </div>
               </div>
               <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
-                {myFields.map(field => (
-                  <div
-                    key={field.id}
-                    className={`p-3 rounded-lg border ${
-                      signatures[field.id] ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-900">
-                        {field.type === 'signature' ? '✍️ Signature' :
-                         field.type === 'date' ? '📅 Date' : '📝 Text Field'}
-                      </span>
-                      {signatures[field.id] && (
-                        <Check className="h-4 w-4 text-green-600" />
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">Page {field.page}</p>
-                  </div>
-                ))}
-              </div>
+  {allFields.map(field => {  // ⬅️ Show all fields
+    const isMyField = field.recipientIndex === recipient?.index;
+    return (
+    <div
+      key={field.id}
+      className={`p-3 rounded-lg border ${
+        signatures[field.id] 
+          ? 'bg-green-50 border-green-200' 
+          : isMyField 
+            ? 'bg-yellow-50 border-yellow-200'  // My pending field
+            : 'bg-slate-50 border-slate-200'     // Others' fields
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-slate-900">
+          {field.type === 'signature' ? '✍️ Signature' :
+           field.type === 'date' ? '📅 Date' : '📝 Text Field'}
+          {!isMyField && ' (Other signer)'}  {/* ⬅️ Show indicator */}
+        </span>
+        {signatures[field.id] && (
+          <Check className="h-4 w-4 text-green-600" />
+        )}
+      </div>
+      <p className="text-xs text-slate-500 mt-1">Page {field.page}</p>
+    </div>
+  )})}
+</div>
               <button
                 onClick={completeSignature}
                 disabled={!allFieldsFilled || submitting}

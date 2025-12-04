@@ -52,6 +52,7 @@ type SignatureRequest = {
   step: number;
   recipients: Recipient[];
   signatureFields: SignatureField[];
+   viewMode?: 'isolated' | 'shared'; // ADD THIS
 };
 export default function ESignaturePage() {
   const params = useParams();
@@ -77,11 +78,14 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
   useEffect(() => {
     fetchDocument();
   }, [params.id]);
+
+
   useEffect(() => {
     if (doc && signatureRequest.step === 2 && !pdfUrl) {
       fetchPdfForPreview();
     }
   }, [doc, signatureRequest.step]);
+
   const fetchDocument = async () => {
     try {
       const res = await fetch(`/api/documents/${params.id}`, {
@@ -178,6 +182,7 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
           signatureFields: signatureRequest.signatureFields,
           message: signatureRequest.message,
           dueDate: signatureRequest.dueDate,
+          viewMode: signatureRequest.viewMode || 'isolated', // ADD THIS
         }),
       });
       const data = await response.json();
@@ -425,6 +430,33 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                   <Users className="h-5 w-5 mr-2" />
                   Add Another Recipient
                 </Button>
+                 
+
+<div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+  <div className="flex items-center justify-between">
+    <div>
+      <Label className="text-sm font-medium text-slate-900">
+        Signature View Mode
+      </Label>
+      <p className="text-xs text-slate-600 mt-1">
+        Choose how recipients view signatures
+      </p>
+    </div>
+    <select
+      value={signatureRequest.viewMode || 'isolated'}
+      onChange={(e) =>
+        setSignatureRequest({
+          ...signatureRequest,
+          viewMode: e.target.value as 'isolated' | 'shared',
+        })
+      }
+      className="border rounded-lg px-3 py-2 text-sm"
+    >
+      <option value="isolated">Isolated - Each sees only their fields</option>
+      <option value="shared">Shared - All see all signatures</option>
+    </select>
+  </div>
+</div>
               </div>
               <div className="mt-8 pt-8 border-t space-y-4">
                 <div>
@@ -669,7 +701,7 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                                 setSignatureRequest({ ...signatureRequest, signatureFields: updated });
                               }}
                               onClick={(e) => e.stopPropagation()}
-                              className="absolute top-1 left-1 right-1 text-xs border rounded px-1 py-0.5 bg-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                              className="absolute top-1 left-1 right-1 text-xs border rounded px-1 py-0.5 bg-white/90 backdrop-blur-sm transition-opacity cursor-pointer z-10"
                               style={{ fontSize: "10px" }}
                             >
                               {signatureRequest.recipients.map((r, idx) => (
