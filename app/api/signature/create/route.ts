@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { documentId, recipients, signatureFields, message, dueDate, viewMode } = await request.json();
+    const { documentId, recipients, signatureFields, message, dueDate, viewMode , signingOrder } = await request.json();
     const db = await dbPromise;
 
     // ✅ Get current user details
@@ -51,7 +51,12 @@ export async function POST(request: NextRequest) {
       const recipient = recipients[i];
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`;
 
-      // ⭐ ADD .map() to enrich fields with recipient details
+      //   Determine initial status based on signing order
+  const initialStatus = signingOrder === 'sequential' 
+    ? (i === 0 ? 'pending' : 'awaiting_turn')  // First person is 'pending', rest wait
+    : 'pending';  // Everyone is 'pending' for 'any' order
+
+      //   ADD .map() to enrich fields with recipient details
       const enrichedSignatureFields = viewMode === 'shared'
         ? signatureFields.map((f: any) => ({
             ...f,
@@ -78,13 +83,14 @@ export async function POST(request: NextRequest) {
         },
         recipientIndex: i,
         // ✅ KEEP ORIGINAL signatureFields (do NOT replace)
+        signingOrder: signingOrder || 'any', //   ADD THIS
         signatureFields: viewMode === 'shared'
           ? signatureFields  // All fields if shared
           : signatureFields.filter((f: any) => f.recipientIndex === i), // Only their fields if isolated
         viewMode: viewMode || 'isolated', // ADD THIS
         message: message || '',
         dueDate: dueDate || null,
-        status: 'pending',
+        status: initialStatus, //   Use dynamic status
         createdAt: new Date(),
         viewedAt: null,
         signedAt: null,
@@ -103,8 +109,14 @@ export async function POST(request: NextRequest) {
         recipient: recipient.name,
         email: recipient.email,
         link: signingLink,
-        status: 'pending',
+       status: initialStatus, //   Return actual status
       });
+
+      //   Only send email to first person if sequential order
+  if (signingOrder === 'sequential' && i > 0) {
+    console.log(`⏳ Skipping email for ${recipient.email} - awaiting turn`);
+    continue; // Skip sending email
+  }
 
       emailPromises.push(
         sendSignatureRequestEmail({

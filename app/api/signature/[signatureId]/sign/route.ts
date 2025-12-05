@@ -1,10 +1,11 @@
- // app/api/signature/[signatureId]/sign/route.ts
+// app/api/signature/[signatureId]/sign/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../../lib/mongodb";
 import { ObjectId } from "mongodb";
 import { 
   sendDocumentSignedNotification, 
-  sendAllSignaturesCompleteEmail 
+  sendAllSignaturesCompleteEmail,
+  sendSignatureRequestEmail // ⭐ Add this import
 } from "@/lib/emailService";
 import { generateSignedPDF } from "@/lib/pdfGenerator";
 
@@ -39,6 +40,18 @@ export async function POST(
       );
     }
 
+    // ⭐ Get the document FIRST (moved up to avoid undefined error)
+    const document = await db.collection("documents").findOne({
+      _id: new ObjectId(signatureRequest.documentId),
+    });
+
+    if (!document) {
+      return NextResponse.json(
+        { success: false, message: "Document not found" },
+        { status: 404 }
+      );
+    }
+
     // Update this recipient's signature
     const now = new Date();
     await db.collection("signature_requests").updateOne(
@@ -54,44 +67,73 @@ export async function POST(
       }
     );
 
-    
-
     console.log('✅ Signature saved for:', signatureRequest.recipient.name);
 
-    // If shared mode, update ALL signature requests for this document with the new signature
-if (signatureRequest.viewMode === 'shared') {
-  console.log('🔄 Shared mode: Updating all recipients with new signature...');
-  
-  await db.collection("signature_requests").updateMany(
-    { 
-      documentId: signatureRequest.documentId,
-      uniqueId: { $ne: signatureId } // Don't update the current one again
-    },
-    {
-      $set: {
-        [`sharedSignatures.${signatureRequest.recipientIndex}`]: {
-          recipientName: signatureRequest.recipient.name,
-          recipientEmail: signatureRequest.recipient.email,
-          signedFields: signedFields,
-          signedAt: now,
+    // ⭐ Handle sequential signing
+    if (signatureRequest.signingOrder === 'sequential') {
+      console.log('🔄 Sequential mode: Checking for next signer...');
+      
+      // Find the next person in line
+      const nextRecipient = await db.collection("signature_requests").findOne({
+        documentId: signatureRequest.documentId,
+        recipientIndex: signatureRequest.recipientIndex + 1,
+        status: 'awaiting_turn',
+      });
+
+      if (nextRecipient) {
+        // Activate next recipient
+        await db.collection("signature_requests").updateOne(
+          { _id: nextRecipient._id },
+          { $set: { status: 'pending', notifiedAt: new Date() } }
+        );
+
+        console.log('✅ Next signer activated:', nextRecipient.recipient.name);
+
+        // Send email to next signer
+        const nextSigningLink = `${request.nextUrl.origin}/sign/${nextRecipient.uniqueId}`;
+        
+        // ⭐ Fixed: Proper async/await
+        try {
+          await sendSignatureRequestEmail({
+            recipientName: nextRecipient.recipient.name,
+            recipientEmail: nextRecipient.recipient.email,
+            documentName: document.filename,
+            signingLink: nextSigningLink,
+            senderName: signatureRequest.recipient.name,
+            message: `${signatureRequest.recipient.name} has signed. It's now your turn to sign.`,
+            dueDate: nextRecipient.dueDate,
+          });
+          console.log('✅ Next signer notified via email');
+        } catch (err) {
+          console.error('❌ Failed to notify next signer:', err);
         }
+      } else {
+        console.log('✅ No more signers - this was the last one');
       }
     }
-  );
-  
-  console.log('✅ All recipients updated with new signature');
-}
 
-    // Get the document
-    const document = await db.collection("documents").findOne({
-      _id: new ObjectId(signatureRequest.documentId),
-    });
-
-    if (!document) {
-      return NextResponse.json(
-        { success: false, message: "Document not found" },
-        { status: 404 }
+    // If shared mode, update ALL signature requests for this document with the new signature
+    if (signatureRequest.viewMode === 'shared') {
+      console.log('🔄 Shared mode: Updating all recipients with new signature...');
+      
+      await db.collection("signature_requests").updateMany(
+        { 
+          documentId: signatureRequest.documentId,
+          uniqueId: { $ne: signatureId }
+        },
+        {
+          $set: {
+            [`sharedSignatures.${signatureRequest.recipientIndex}`]: {
+              recipientName: signatureRequest.recipient.name,
+              recipientEmail: signatureRequest.recipient.email,
+              signedFields: signedFields,
+              signedAt: now,
+            }
+          }
+        }
       );
+      
+      console.log('✅ All recipients updated with new signature');
     }
 
     // Notify owner that someone signed
@@ -102,7 +144,7 @@ if (signatureRequest.viewMode === 'shared') {
         signerName: signatureRequest.recipient.name,
         signerEmail: signatureRequest.recipient.email,
         documentName: document.filename,
-        statusLink: `${request.nextUrl.origin}/dashboard`, // Update with actual status page
+        statusLink: `${request.nextUrl.origin}/dashboard`,
       }).catch(err => console.error('Failed to send owner notification:', err));
     }
 
@@ -127,13 +169,11 @@ if (signatureRequest.viewMode === 'shared') {
       }
     );
 
-    
     // If ALL signed, generate final PDF and notify everyone
     if (signedCount === totalRecipients) {
       console.log('🎉 All signatures collected! Generating final PDF...');
 
       try {
-        
         // Generate signed PDF
         const signedPdfUrl = await generateSignedPDF(
           signatureRequest.documentId,
@@ -196,11 +236,10 @@ if (signatureRequest.viewMode === 'shared') {
           message: "Document signed successfully! All signatures collected.",
           allComplete: true,
           signedPdfUrl: signedPdfUrl,
-          downloadLink: `/signed/${signatureId}`, // ← Add this for user to download
+          downloadLink: `/signed/${signatureId}`,
         });
       } catch (pdfError) {
         console.error('❌ Failed to generate signed PDF:', pdfError);
-        // Still return success for the signature, but log the PDF error
         return NextResponse.json({
           success: true,
           message: "Document signed successfully, but PDF generation failed. Please contact support.",

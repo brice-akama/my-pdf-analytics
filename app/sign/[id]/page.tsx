@@ -58,6 +58,8 @@ const DocSendSigningPage = () => {
   const [signatureData, setSignatureData] = useState('');
   const [textFieldInput, setTextFieldInput] = useState('');
   const [activeTextField, setActiveTextField] = useState<SignatureField | null>(null);
+  const [isAwaitingTurn, setIsAwaitingTurn] = useState(false);
+
 
   useEffect(() => {
     const fetchSignatureRequest = async () => {
@@ -84,36 +86,58 @@ const DocSendSigningPage = () => {
         }
         const requestData = await requestRes.json();
         const signatureRequest = requestData.signatureRequest;
+        const isAwaitingTurnStatus = signatureRequest.status === 'awaiting_turn';
+        setIsAwaitingTurn(isAwaitingTurnStatus);
+
+        // ⭐ DON'T block access - just track the status
+        const isAwaitingTurn = signatureRequest.status === 'awaiting_turn';
+
+        setDocument({
+          id: signatureRequest.documentId,
+          filename: signatureRequest.document?.filename || signature.documentName,
+          numPages: signatureRequest.document?.numPages || 1,
+        });
+        setRecipient({
+          name: signatureRequest.recipient.name,
+          email: signatureRequest.recipient.email,
+          index: signatureRequest.recipientIndex,
+        });
+        setSignatureFields(signatureRequest.signatureFields || []);
+
+        // Store whether they're awaiting their turn
+        if (isAwaitingTurn) {
+          console.log('⏳ User is viewing document but cannot sign yet');
+        }
 
         // Pre-populate signatures from other signers in shared mode
-if (signatureRequest.viewMode === 'shared' && signatureRequest.sharedSignatures) {
-  const preFilledSignatures: Record<string, SignatureData> = {};
-  
-  Object.entries(signatureRequest.sharedSignatures).forEach(([recipientIndex, sigData]: [string, any]) => {
-    // Find all fields for this recipient
-    const recipientFields = signatureRequest.signatureFields.filter(
-      (f: SignatureField) => f.recipientIndex === parseInt(recipientIndex)
-    );
-    
-    // Match signed fields to field IDs
-    recipientFields.forEach((field: SignatureField) => {
-      const matchingSignedField = sigData.signedFields.find((sf: any) => 
-        sf.id === field.id || sf.type === field.type
-      );
-      
-      if (matchingSignedField) {
-        preFilledSignatures[field.id] = {
-          type: matchingSignedField.type,
-          data: matchingSignedField.signatureData || matchingSignedField.dateValue || matchingSignedField.textValue,
-          timestamp: matchingSignedField.timestamp,
-        };
-      }
-    });
-  });
-  
-  setSignatures(preFilledSignatures);
-  console.log('✅ Pre-loaded', Object.keys(preFilledSignatures).length, 'signatures from other signers');
-}
+        if (signatureRequest.viewMode === 'shared' && signatureRequest.sharedSignatures) {
+          const preFilledSignatures: Record<string, SignatureData> = {};
+
+          Object.entries(signatureRequest.sharedSignatures).forEach(([recipientIndex, sigData]: [string, any]) => {
+            // Find all fields for this recipient
+            const recipientFields = signatureRequest.signatureFields.filter(
+              (f: SignatureField) => f.recipientIndex === parseInt(recipientIndex)
+            );
+
+            // Match signed fields to field IDs
+            recipientFields.forEach((field: SignatureField) => {
+              const matchingSignedField = sigData.signedFields.find((sf: any) =>
+                sf.id === field.id || sf.type === field.type
+              );
+
+              if (matchingSignedField) {
+                preFilledSignatures[field.id] = {
+                  type: matchingSignedField.type,
+                  data: matchingSignedField.signatureData || matchingSignedField.dateValue || matchingSignedField.textValue,
+                  timestamp: matchingSignedField.timestamp,
+                };
+              }
+            });
+          });
+
+          setSignatures(preFilledSignatures);
+          console.log('✅ Pre-loaded', Object.keys(preFilledSignatures).length, 'signatures from other signers');
+        }
         setDocument({
           id: signatureRequest.documentId,
           filename: signatureRequest.document?.filename || signature.documentName,
@@ -178,7 +202,7 @@ if (signatureRequest.viewMode === 'shared' && signatureRequest.sharedSignatures)
             page: 1, // Track as page 1 since we're showing all pages
             timeSpent,
           }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
     };
   }, [signatureId]);
@@ -455,6 +479,20 @@ if (signatureRequest.viewMode === 'shared' && signatureRequest.sharedSignatures)
     <div className="min-h-screen bg-slate-100">
       <div className="bg-white border-b shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4">
+          {/*   ADD WARNING BANNER if awaiting turn */}
+          {isAwaitingTurn && (
+            <div className="mb-3 bg-amber-50 border border-amber-300 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Waiting for Previous Signer</p>
+                  <p className="text-xs text-amber-700">
+                    You can view the document below, but you cannot sign yet. You'll be notified via email when it's your turn.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -495,81 +533,91 @@ if (signatureRequest.viewMode === 'shared' && signatureRequest.sharedSignatures)
 
                     {/* Signature Field Overlays */}
                     <div className="absolute inset-0 pointer-events-none">
-                     {signatureFields.map((field) => { // ⬅️ Show ALL fields in shared mode
-  const isFilled = signatures[field.id];
-  const isMyField = field.recipientIndex === recipient?.index;
-                          const pageHeight = 297 * 3.78; // Convert mm to pixels
-                          const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
+                      {signatureFields.map((field) => { // ⬅️ Show ALL fields in shared mode
+                        const isFilled = signatures[field.id];
+                        const isMyField = field.recipientIndex === recipient?.index;
+                        const pageHeight = 297 * 3.78; // Convert mm to pixels
+                        const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
 
-                          return (
-                            <div
-                              key={field.id}
-                              className={`absolute rounded transition-all ${
-                                isFilled
-                                  ? 'bg-transparent border-0'
+                        return (
+                          <div
+                            key={field.id}
+                            className={`absolute rounded transition-all ${isFilled
+                                ? 'bg-transparent border-0'
+                                : isAwaitingTurn && isMyField
+                                  ? 'bg-gray-200/80 border-2 border-gray-400 cursor-not-allowed'  // ⭐ Grayed out
                                   : 'bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80'
                               }`}
-                              style={{
-                                left: `${field.x}%`,
-                                top: `${topPosition}px`,
-                                width: field.width ? `${field.width}px` : (field.type === 'signature' ? '200px' : '150px'),
-                                height: field.height ? `${field.height}px` : (field.type === 'signature' ? '60px' : '40px'),
-                                transform: 'translate(-50%, 0%)',
-                                cursor: field.type === 'signature' && !isFilled ? 'pointer' : 'default',
-                                pointerEvents: isFilled ? 'none' : 'auto',
-                                zIndex: 10,
-                              }}
-                              onClick={() => {
-                                if (!isFilled && isMyField) {
-                                  if (field.type === 'signature') {
-                                    setActiveField(field);
-                                  } else if (field.type === 'text') {
-                                    setActiveTextField(field);
-                                    setTextFieldInput('');
-                                  }
+                            style={{
+                              left: `${field.x}%`,
+                              top: `${topPosition}px`,
+                              width: field.width ? `${field.width}px` : (field.type === 'signature' ? '200px' : '150px'),
+                              height: field.height ? `${field.height}px` : (field.type === 'signature' ? '60px' : '40px'),
+                              transform: 'translate(-50%, 0%)',
+                              cursor: field.type === 'signature' && !isFilled ? 'pointer' : 'default',
+                              pointerEvents: isFilled ? 'none' : 'auto',
+                              zIndex: 10,
+                            }}
+                            onClick={() => {
+                              //   ADD isAwaitingTurn check
+                              if (!isFilled && isMyField && !isAwaitingTurn) {
+                                if (field.type === 'signature') {
+                                  setActiveField(field);
+                                } else if (field.type === 'text') {
+                                  setActiveTextField(field);
+                                  setTextFieldInput('');
                                 }
-                              }}
-                            >
-                              <div className="h-full flex flex-col items-center justify-center p-2">
-                                {isFilled ? (
-                                  <>
-                                    {field.type === 'signature' && (
-                                      <img
-                                        src={signatures[field.id].data}
-                                        alt="Signature"
-                                        className="max-h-full max-w-full object-contain"
-                                        style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
-                                      />
-                                    )}
-                                    {field.type === 'date' && (
-                                      <div className="text-center w-full">
-                                        <p className="text-sm font-medium text-slate-900 leading-tight">
-                                          {signatures[field.id].data}
-                                        </p>
-                                      </div>
-                                    )}
-                                    {field.type === 'text' && (
-                                      <p className="text-sm font-medium text-slate-900 text-center px-2 leading-tight">
+                              } else if (isAwaitingTurn && isMyField) {
+                                //   Show helpful message
+                                alert("It's not your turn yet. You'll receive an email when the previous signer completes.");
+                              }
+                            }}
+                          >
+                            <div className="h-full flex flex-col items-center justify-center p-2">
+                              {isFilled ? (
+                                <>
+                                  {field.type === 'signature' && (
+                                    <img
+                                      src={signatures[field.id].data}
+                                      alt="Signature"
+                                      className="max-h-full max-w-full object-contain"
+                                      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
+                                    />
+                                  )}
+                                  {field.type === 'date' && (
+                                    <div className="text-center w-full">
+                                      <p className="text-sm font-medium text-slate-900 leading-tight">
                                         {signatures[field.id].data}
                                       </p>
-                                    )}
-                                  </>
-                                ) : (
-                                  <div className="text-center">
-                                    <p className="text-xs font-medium text-yellow-700">
-                                      {field.type === 'signature' ? 'Click to Sign' :
-                                       field.type === 'date' ? 'Auto-filled' : 'Click to Fill'}
+                                    </div>
+                                  )}
+                                  {field.type === 'text' && (
+                                    <p className="text-sm font-medium text-slate-900 text-center px-2 leading-tight">
+                                      {signatures[field.id].data}
                                     </p>
-                                     <p className="text-xs text-slate-600 mt-1 font-semibold">
+                                  )}
+                                </>
+                              ) : (
+                               <div className="text-center">
+  <p className="text-xs font-medium text-yellow-700">
+    {isAwaitingTurn && isMyField ? (
+      '⏳ Waiting for your turn'  // ⭐ New message
+    ) : (
+      field.type === 'signature' ? (isMyField ? '✍️ Click to Sign' : '⏳ Awaiting Signature') :
+      field.type === 'date' ? (isMyField ? '📅 Auto-filled' : '📅 Date pending') : 
+      (isMyField ? '📝 Click to Fill' : '⏳ Awaiting Input')
+    )}
+  </p>
+  <p className="text-xs text-slate-600 mt-1 font-semibold">
     {(field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
     {isMyField && ' (You)'}
   </p>
-                                  </div>
-                                )}
-                              </div>
+</div>
+                              )}
                             </div>
-                          );
-                        })}
+                          </div>
+                        );
+                      })}
                     </div>
                   </>
                 ) : (
@@ -599,56 +647,61 @@ if (signatureRequest.viewMode === 'shared' && signatureRequest.sharedSignatures)
                 </div>
               </div>
               <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
-  {allFields.map(field => {  // ⬅️ Show all fields
-    const isMyField = field.recipientIndex === recipient?.index;
-    return (
-    <div
-      key={field.id}
-      className={`p-3 rounded-lg border ${
-        signatures[field.id] 
-          ? 'bg-green-50 border-green-200' 
-          : isMyField 
-            ? 'bg-yellow-50 border-yellow-200'  // My pending field
-            : 'bg-slate-50 border-slate-200'     // Others' fields
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-900">
-          {field.type === 'signature' ? '✍️ Signature' :
-           field.type === 'date' ? '📅 Date' : '📝 Text Field'}
-          {!isMyField && ' (Other signer)'}  {/* ⬅️ Show indicator */}
-        </span>
-        {signatures[field.id] && (
-          <Check className="h-4 w-4 text-green-600" />
-        )}
-      </div>
-      <p className="text-xs text-slate-500 mt-1">Page {field.page}</p>
-    </div>
-  )})}
-</div>
+                {allFields.map(field => {  // ⬅️ Show all fields
+                  const isMyField = field.recipientIndex === recipient?.index;
+                  return (
+                    <div
+                      key={field.id}
+                      className={`p-3 rounded-lg border ${signatures[field.id]
+                          ? 'bg-green-50 border-green-200'
+                          : isMyField
+                            ? 'bg-yellow-50 border-yellow-200'  // My pending field
+                            : 'bg-slate-50 border-slate-200'     // Others' fields
+                        }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-slate-900">
+                          {field.type === 'signature' ? '✍️ Signature' :
+                            field.type === 'date' ? '📅 Date' : '📝 Text Field'}
+                          {!isMyField && ' (Other signer)'}  {/* ⬅️ Show indicator */}
+                        </span>
+                        {signatures[field.id] && (
+                          <Check className="h-4 w-4 text-green-600" />
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">Page {field.page}</p>
+                    </div>
+                  )
+                })}
+              </div>
               <button
-                onClick={completeSignature}
-                disabled={!allFieldsFilled || submitting}
-                className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                  allFieldsFilled && !submitting
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
-                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                }`}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Submitting...
-                  </>
-                ) : allFieldsFilled ? (
-                  <>
-                    <Check className="h-5 w-5" />
-                    Complete Signing
-                  </>
-                ) : (
-                  'Complete All Fields'
-                )}
-              </button>
+  onClick={completeSignature}
+  disabled={!allFieldsFilled || submitting || isAwaitingTurn}  // ⭐ Add isAwaitingTurn
+  className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+    allFieldsFilled && !submitting && !isAwaitingTurn  // ⭐ Add check
+      ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
+      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+  }`}
+>
+  {submitting ? (
+    <>
+      <Loader2 className="h-5 w-5 animate-spin" />
+      Submitting...
+    </>
+  ) : isAwaitingTurn ? (  // ⭐ Add this
+    <>
+      <Clock className="h-5 w-5" />
+      Waiting for Your Turn
+    </>
+  ) : allFieldsFilled ? (
+    <>
+      <Check className="h-5 w-5" />
+      Complete Signing
+    </>
+  ) : (
+    'Complete All Fields'
+  )}
+</button>
             </div>
           </div>
         </div>

@@ -53,6 +53,7 @@ type SignatureRequest = {
   recipients: Recipient[];
   signatureFields: SignatureField[];
    viewMode?: 'isolated' | 'shared'; // ADD THIS
+    signingOrder?: 'any' | 'sequential'; // ⭐ ADD THIS
 };
 export default function ESignaturePage() {
   const params = useParams();
@@ -183,6 +184,7 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
           message: signatureRequest.message,
           dueDate: signatureRequest.dueDate,
           viewMode: signatureRequest.viewMode || 'isolated', // ADD THIS
+          signingOrder: signatureRequest.signingOrder || 'any', // ⭐ ADD THIS
         }),
       });
       const data = await response.json();
@@ -456,6 +458,60 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
       <option value="shared">Shared - All see all signatures</option>
     </select>
   </div>
+</div>
+{/* ⭐ NEW: Add Signing Order Toggle */}
+<div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+  <div className="flex items-center justify-between">
+    <div>
+      <Label className="text-sm font-medium text-slate-900">
+        Signing Order
+      </Label>
+      <p className="text-xs text-slate-600 mt-1">
+        Require recipients to sign in order?
+      </p>
+    </div>
+    <div className="flex items-center gap-3">
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="radio"
+          name="signingOrder"
+          value="any"
+          checked={signatureRequest.signingOrder !== 'sequential'}
+          onChange={() =>
+            setSignatureRequest({
+              ...signatureRequest,
+              signingOrder: 'any',
+            })
+          }
+          className="w-4 h-4 text-purple-600"
+        />
+        <span className="text-sm">Any Order</span>
+      </label>
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="radio"
+          name="signingOrder"
+          value="sequential"
+          checked={signatureRequest.signingOrder === 'sequential'}
+          onChange={() =>
+            setSignatureRequest({
+              ...signatureRequest,
+              signingOrder: 'sequential',
+            })
+          }
+          className="w-4 h-4 text-purple-600"
+        />
+        <span className="text-sm">Sequential Order</span>
+      </label>
+    </div>
+  </div>
+  {signatureRequest.signingOrder === 'sequential' && (
+    <div className="mt-3 bg-white rounded-lg p-3 border border-amber-300">
+      <p className="text-xs text-amber-800">
+        📋 Recipients will sign in the order listed above. Each person gets notified only after the previous person signs.
+      </p>
+    </div>
+  )}
 </div>
               </div>
               <div className="mt-8 pt-8 border-t space-y-4">

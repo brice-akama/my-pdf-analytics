@@ -1099,30 +1099,8 @@ const openCreateLinkDialog = () => {
     <Presentation className="mr-2 h-4 w-4" />
     <span>Present</span>
   </DropdownMenuItem>
-  <DropdownMenuItem 
-  onClick={doc?.isTemplate ? async () => {
-    // If already a template, load and edit it
-    const res = await fetch(`/api/documents/${doc._id}/template`, {
-      credentials: 'include',
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setSignatureRequest({
-        recipientEmail: '',
-        recipientName: '',
-        message: '',
-        dueDate: '',
-        step: 2,
-        recipients: data.template.recipients || [],
-        signatureFields: data.template.signatureFields || [],
-        isTemplate: true,
-      });
-      setShowSignatureDialog(true);
-      if (!pdfUrl) {
-        fetchPdfForPreview(1);
-      }
-    }
-  } : handleConvertToSignable}
+ <DropdownMenuItem 
+  onClick={() => router.push(`/documents/${doc._id}/signature`)}
 >
   <FileSignature className="mr-2 h-4 w-4" />
   <span>{doc?.isTemplate ? 'Edit Template' : 'Convert to signable'}</span>
@@ -1333,65 +1311,20 @@ const openCreateLinkDialog = () => {
           </p>
           <div className="flex gap-3 justify-center">
             <Button
-              onClick={async () => {
-                // Load template configuration
-                const res = await fetch(`/api/documents/${doc._id}/template`, {
-                  credentials: 'include',
-                });
-                if (res.ok) {
-                  const data = await res.json();
-                  // Pre-populate signature dialog with template fields
-                  setSignatureRequest({
-                    recipientEmail: '',
-                    recipientName: '',
-                    message: '',
-                    dueDate: '',
-                    step: 1,
-                    recipients: [],
-                    signatureFields: data.template.signatureFields || [],
-                    isTemplate: false, // Now in "send mode"
-                  });
-                  setShowSignatureDialog(true);
-                  if (!pdfUrl) {
-                    fetchPdfForPreview(1);
-                  }
-                }
-              }}
-              className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-            >
-              <Mail className="h-4 w-4" />
-              Send to Recipients
-            </Button>
-            <Button
-              onClick={async () => {
-                // Edit template fields
-                const res = await fetch(`/api/documents/${doc._id}/template`, {
-                  credentials: 'include',
-                });
-                if (res.ok) {
-                  const data = await res.json();
-                  setSignatureRequest({
-                    recipientEmail: '',
-                    recipientName: '',
-                    message: '',
-                    dueDate: '',
-                    step: 2, // Go to field placement
-                    recipients: data.template.recipients || [],
-                    signatureFields: data.template.signatureFields || [],
-                    isTemplate: true, // Edit template mode
-                  });
-                  setShowSignatureDialog(true);
-                  if (!pdfUrl) {
-                    fetchPdfForPreview(1);
-                  }
-                }
-              }}
-              variant="outline"
-              className="gap-2"
-            >
-              <Edit className="h-4 w-4" />
-              Edit Template
-            </Button>
+  onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)}
+  className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+>
+  <Mail className="h-4 w-4" />
+  Send to Recipients
+</Button>
+<Button
+  onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)}
+  variant="outline"
+  className="gap-2"
+>
+  <Edit className="h-4 w-4" />
+  Edit Template
+</Button>
             <Button
               onClick={async () => {
                 if (confirm('Remove template configuration? This will not delete the document.')) {
