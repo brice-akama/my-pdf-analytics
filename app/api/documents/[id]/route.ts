@@ -64,6 +64,7 @@ export async function GET(
         wordCount: document.wordCount,
         charCount: document.charCount,
         summary: document.summary,
+        isTemplate: document.isTemplate || false,
         scannedPdf: document.scannedPdf,
         cloudinaryOriginalUrl: document.cloudinaryOriginalUrl,
         cloudinaryPdfUrl: document.cloudinaryPdfUrl,

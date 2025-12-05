@@ -1,3 +1,5 @@
+//APP/DOCUMENTS/[ID]/PAGE.TSX
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -190,7 +192,11 @@ const fetchDocument = async () => {
     if (res.ok) {
       const data = await res.json();
       if (data.success) {
+        console.log('📄 Document loaded:', data.document); // ⭐ Check this log
+        console.log('🏷️ Is template?', data.document.isTemplate); 
+        console.log("Full API response:", data);
         setDoc(data.document);
+        console.log("Document data:", data.document); // <-- Add this line
       }
     } else if (res.status === 401) {
       router.push('/login'); // Redirect if unauthorized
@@ -1100,7 +1106,7 @@ const openCreateLinkDialog = () => {
     <span>Present</span>
   </DropdownMenuItem>
  <DropdownMenuItem 
-  onClick={() => router.push(`/documents/${doc._id}/signature`)}
+  onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)}
 >
   <FileSignature className="mr-2 h-4 w-4" />
   <span>{doc?.isTemplate ? 'Edit Template' : 'Convert to signable'}</span>
@@ -1318,6 +1324,14 @@ const openCreateLinkDialog = () => {
   Send to Recipients
 </Button>
 <Button
+          onClick={() => router.push(`/documents/${doc._id}/template-preview`)}
+          variant="outline"
+          className="gap-2"
+        >
+          <FileSignature className="h-4 w-4" />
+          View Template
+        </Button>
+<Button
   onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)}
   variant="outline"
   className="gap-2"
@@ -1387,7 +1401,7 @@ const openCreateLinkDialog = () => {
             )}
           </Button>
           <Button
-  onClick={() => router.push(`/documents/${doc._id}/signature`)}
+  onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)}
   variant="outline"
   className="gap-2"
 >

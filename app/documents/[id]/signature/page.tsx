@@ -1,6 +1,8 @@
-  "use client";
+ //app/documents/[id]/signature/page.tsx
+ 
+ "use client";
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -64,6 +66,8 @@ export default function ESignaturePage() {
   const [isSending, setIsSending] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const searchParams = useSearchParams();
+const mode = searchParams?.get('mode'); // 'edit' or 'send'
 const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; email: string; link: string; status: string }>>([]);
 
   const [signatureRequest, setSignatureRequest] = useState<SignatureRequest>({
@@ -88,42 +92,59 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
   }, [doc, signatureRequest.step]);
 
   const fetchDocument = async () => {
-    try {
-      const res = await fetch(`/api/documents/${params.id}`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setDoc(data.document);
-          
-          // If it's a template, load template data
-          if (data.document.isTemplate) {
-            const templateRes = await fetch(`/api/documents/${params.id}/template`, {
-              credentials: "include",
-            });
-            if (templateRes.ok) {
-              const templateData = await templateRes.json();
-              setSignatureRequest({
-                recipientEmail: "",
-                recipientName: "",
-                message: "",
-                dueDate: "",
-                step: 1,
-                recipients: templateData.template.recipients || [],
-                signatureFields: templateData.template.signatureFields || [],
-                isTemplate: true,
-              });
-            }
-          }
-        }
+  try {
+    const res = await fetch(`/api/documents/${params.id}`, {
+      credentials: "include",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        setDoc(data.document);
+        
+        // ⭐ CHECK: Is this already a template?
+       if (data.document.isTemplate) {
+  // Load existing template configuration
+  const templateRes = await fetch(`/api/documents/${params.id}/template`, {
+    credentials: "include",
+  });
+  if (templateRes.ok) {
+    const templateData = await templateRes.json();
+    setSignatureRequest({
+      recipientEmail: "",
+      recipientName: "",
+      message: "",
+      dueDate: "",
+      step: 1,
+      recipients: templateData.template.recipients || [],
+      signatureFields: templateData.template.signatureFields || [],
+      isTemplate: mode !== 'send', // ⭐ Only template mode if NOT sending
+      viewMode: 'isolated',
+    });
+  }
+} else {
+  // ⭐ NEW DOCUMENT
+  setSignatureRequest({
+    recipientEmail: "",
+    recipientName: "",
+    message: "",
+    dueDate: "",
+    step: 1,
+    recipients: [
+      { name: "Recipient 1", email: "", role: "Signer", color: "#9333ea" },
+    ],
+    signatureFields: [],
+    isTemplate: mode !== 'send', // ⭐ Template mode ONLY if mode is 'edit'
+    viewMode: 'isolated',
+  });
+}
       }
-    } catch (error) {
-      console.error("Failed to fetch document:", error);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error) {
+    console.error("Failed to fetch document:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
 
   const fetchPdfForPreview = async () => {
@@ -167,7 +188,7 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
       const data = await response.json();
       if (response.ok && data.success) {
         alert("✅ Document converted to signable template!");
-        router.push(`/documents/${doc?._id}`);
+         window.location.href = `/documents/${doc?._id}`; // Force full page reload
       } else {
         alert(data.message || "Failed to save template");
       }
@@ -260,10 +281,10 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
               </Button>
               <div>
                 <h1 className="text-xl font-bold text-slate-900">{doc.filename}</h1>
-                <p className="text-sm text-slate-500">
-                  {signatureRequest.isTemplate ? "Edit Template" : "Request Signatures"} - Step{" "}
-                  {signatureRequest.step} of 3
-                </p>
+<p className="text-sm text-slate-500">
+  {mode === 'edit' ? "Edit Template" : "Request Signatures"} - Step{" "}
+  {signatureRequest.step} of 3
+</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -278,44 +299,53 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                   Back
                 </Button>
               )}
-              {signatureRequest.step < 3 ? (
-                <Button
-                  onClick={() => {
-                    if (signatureRequest.step === 1) {
-                      const validRecipients = signatureRequest.recipients.filter(
-                        (r) => r.name && r.email
-                      );
-                      if (validRecipients.length === 0 && !signatureRequest.isTemplate) {
-                        alert("Please add at least one recipient");
-                        return;
-                      }
-                    }
-                    setSignatureRequest({ ...signatureRequest, step: signatureRequest.step + 1 });
-                  }}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  Continue
-                  <ChevronRight className="h-4 w-4 ml-2" />
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleSendSignature}
-                  disabled={isSending}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  {isSending ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="h-4 w-4 mr-2" />
-                      {signatureRequest.isTemplate ? "Save Template" : "Send Request"}
-                    </>
-                  )}
-                </Button>
-              )}
+             {signatureRequest.step < 3 ? (
+  <Button
+    onClick={() => {
+      if (signatureRequest.step === 1) {
+        const validRecipients = signatureRequest.recipients.filter(
+          (r) => r.name && (mode === 'send' ? r.email : true) // ⭐ Require email only in 'send' mode
+        );
+        if (validRecipients.length === 0) {
+          alert(mode === 'send' ? 'Please add recipient emails' : 'Please add at least one role');
+          return;
+        }
+      }
+      setSignatureRequest({ ...signatureRequest, step: signatureRequest.step + 1 });
+    }}
+    className="bg-purple-600 hover:bg-purple-700"
+  >
+    Continue
+    <ChevronRight className="h-4 w-4 ml-2" />
+  </Button>
+) : (
+  <Button
+    onClick={handleSendSignature}
+    disabled={isSending}
+    className="bg-purple-600 hover:bg-purple-700"
+  >
+    {isSending ? (
+      <>
+        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+        {mode === 'send' ? 'Sending...' : 'Saving...'} {/* ⭐ Dynamic text */}
+      </>
+    ) : (
+      <>
+        {mode === 'send' ? ( // ⭐ Check mode here
+          <>
+            <Mail className="h-4 w-4 mr-2" />
+            Send Request  {/* ⭐ When sending to recipients */}
+          </>
+        ) : (
+          <>
+            <FileSignature className="h-4 w-4 mr-2" />
+            Save as Template  {/* ⭐ When creating/editing template */}
+          </>
+        )}
+      </>
+    )}
+  </Button>
+)}
             </div>
           </div>
         </div>
@@ -346,8 +376,15 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
         {signatureRequest.step === 1 && (
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="bg-white rounded-xl shadow-sm border p-8">
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">Who needs to sign?</h2>
-              <p className="text-slate-600 mb-6">Add recipients and set signing order</p>
+             <h2 className="text-2xl font-bold text-slate-900 mb-2">
+  {signatureRequest.isTemplate ? 'Define Recipient Roles' : 'Who needs to sign?'}
+</h2>
+<p className="text-slate-600 mb-6">
+  {signatureRequest.isTemplate
+    ? 'Add roles (e.g., "Signer 1", "Signer 2") and place fields. You’ll assign real recipients when sending.'
+    : 'Add recipients and set signing order'}
+</p>
+
               <div className="space-y-4">
                 {signatureRequest.recipients.map((recipient, index) => (
                   <div key={index} className="border rounded-lg p-6 bg-slate-50">
@@ -371,18 +408,20 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                             />
                           </div>
                           <div>
-                            <Label>Email Address</Label>
+                            <Label>
+    Email Address {signatureRequest.isTemplate && ' (optional)'}
+  </Label>
                             <Input
-                              type="email"
-                              value={recipient.email}
-                              onChange={(e) => {
-                                const updated = [...signatureRequest.recipients];
-                                updated[index].email = e.target.value;
-                                setSignatureRequest({ ...signatureRequest, recipients: updated });
-                              }}
-                              placeholder="john@company.com"
-                              className="mt-1"
-                            />
+    type="email"
+    value={recipient.email}
+    onChange={(e) => {
+      const updated = [...signatureRequest.recipients];
+      updated[index].email = e.target.value;
+      setSignatureRequest({ ...signatureRequest, recipients: updated });
+    }}
+    placeholder={signatureRequest.isTemplate ? "Optional - leave blank" : "john@company.com"}
+    className="mt-1"
+  />
                           </div>
                         </div>
                         <div>
@@ -514,32 +553,34 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
   )}
 </div>
               </div>
-              <div className="mt-8 pt-8 border-t space-y-4">
-                <div>
-                  <Label>Message to Recipients (optional)</Label>
-                  <Textarea
-                    value={signatureRequest.message}
-                    onChange={(e) =>
-                      setSignatureRequest({ ...signatureRequest, message: e.target.value })
-                    }
-                    placeholder="Please review and sign this document..."
-                    rows={4}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>Due Date (optional)</Label>
-                  <Input
-                    type="date"
-                    value={signatureRequest.dueDate}
-                    onChange={(e) =>
-                      setSignatureRequest({ ...signatureRequest, dueDate: e.target.value })
-                    }
-                    min={new Date().toISOString().split("T")[0]}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
+              {mode === 'send' && (
+  <div className="mt-8 pt-8 border-t space-y-4">
+    <div>
+      <Label>Message to Recipients (optional)</Label>
+      <Textarea
+        value={signatureRequest.message}
+        onChange={(e) =>
+          setSignatureRequest({ ...signatureRequest, message: e.target.value })
+        }
+        placeholder="Please review and sign this document..."
+        rows={4}
+        className="mt-1"
+      />
+    </div>
+    <div>
+      <Label>Due Date (optional)</Label>
+      <Input
+        type="date"
+        value={signatureRequest.dueDate}
+        onChange={(e) =>
+          setSignatureRequest({ ...signatureRequest, dueDate: e.target.value })
+        }
+        min={new Date().toISOString().split("T")[0]}
+        className="mt-1"
+      />
+    </div>
+  </div>
+)}
             </div>
           </div>
         )}
@@ -576,6 +617,13 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                     </div>
                   );
                 })}
+                {signatureRequest.isTemplate && (
+  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+    <p className="text-xs text-blue-800">
+      💡 <strong>Tip:</strong> Place signature fields for each recipient role. When you send this template later, you'll just enter real names and emails!
+    </p>
+  </div>
+)}
               </div>
               {/* Field Types */}
               <div className="space-y-3">
@@ -820,10 +868,15 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
         {signatureRequest.step === 3 && (
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="bg-white rounded-xl shadow-sm border p-8">
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">Review & Send</h2>
-              <p className="text-slate-600 mb-8">
-                Double-check everything before sending your signature request
-                              </p>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+  {mode === 'edit' ? 'Review Template' : 'Review & Send'}
+</h2>
+<p className="text-slate-600 mb-8">
+  {mode === 'edit'
+    ? 'Review your template configuration. You can reuse this template to send documents quickly.'
+    : 'Double-check everything before sending your signature request'
+  }
+</p>
               <div className="space-y-6">
                 {/* Recipients Review */}
                 <div className="space-y-4">

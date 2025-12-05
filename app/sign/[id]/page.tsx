@@ -61,6 +61,7 @@ const DocSendSigningPage = () => {
   const [isAwaitingTurn, setIsAwaitingTurn] = useState(false);
 
 
+
   useEffect(() => {
     const fetchSignatureRequest = async () => {
       if (!signatureId) {
@@ -451,10 +452,7 @@ const DocSendSigningPage = () => {
           </p>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-blue-800 mb-3">
-              📧 You'll receive an email with a link to download the final signed document
-              once all parties have signed.
-            </p>
+
             <a
               href={`/signed/${signatureId}`}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
@@ -543,10 +541,10 @@ const DocSendSigningPage = () => {
                           <div
                             key={field.id}
                             className={`absolute rounded transition-all ${isFilled
-                                ? 'bg-transparent border-0'
-                                : isAwaitingTurn && isMyField
-                                  ? 'bg-gray-200/80 border-2 border-gray-400 cursor-not-allowed'  // ⭐ Grayed out
-                                  : 'bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80'
+                              ? 'bg-transparent border-0'
+                              : isAwaitingTurn && isMyField
+                                ? 'bg-gray-200/80 border-2 border-gray-400 cursor-not-allowed'  // ⭐ Grayed out
+                                : 'bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80'
                               }`}
                             style={{
                               left: `${field.x}%`,
@@ -598,21 +596,21 @@ const DocSendSigningPage = () => {
                                   )}
                                 </>
                               ) : (
-                               <div className="text-center">
-  <p className="text-xs font-medium text-yellow-700">
-    {isAwaitingTurn && isMyField ? (
-      '⏳ Waiting for your turn'  // ⭐ New message
-    ) : (
-      field.type === 'signature' ? (isMyField ? '✍️ Click to Sign' : '⏳ Awaiting Signature') :
-      field.type === 'date' ? (isMyField ? '📅 Auto-filled' : '📅 Date pending') : 
-      (isMyField ? '📝 Click to Fill' : '⏳ Awaiting Input')
-    )}
-  </p>
-  <p className="text-xs text-slate-600 mt-1 font-semibold">
-    {(field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
-    {isMyField && ' (You)'}
-  </p>
-</div>
+                                <div className="text-center">
+                                  <p className="text-xs font-medium text-yellow-700">
+                                    {isAwaitingTurn && isMyField ? (
+                                      '⏳ Waiting for your turn'  // ⭐ New message
+                                    ) : (
+                                      field.type === 'signature' ? (isMyField ? '✍️ Click to Sign' : '⏳ Awaiting Signature') :
+                                        field.type === 'date' ? (isMyField ? '📅 Auto-filled' : '📅 Date pending') :
+                                          (isMyField ? '📝 Click to Fill' : '⏳ Awaiting Input')
+                                    )}
+                                  </p>
+                                  <p className="text-xs text-slate-600 mt-1 font-semibold">
+                                    {(field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
+                                    {isMyField && ' (You)'}
+                                  </p>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -630,6 +628,19 @@ const DocSendSigningPage = () => {
           </div>
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-lg p-6 sticky top-24">
+
+              {/*   ADD status indicator at top */}
+    {isAwaitingTurn && (
+      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+        <div className="flex items-center gap-2 mb-2">
+          <Clock className="h-4 w-4 text-amber-600" />
+          <span className="text-sm font-semibold text-amber-900">Awaiting Turn</span>
+        </div>
+        <p className="text-xs text-amber-700">
+          You can review the document, but signing is disabled until the previous signer completes.
+        </p>
+      </div>
+    )}
               <h3 className="font-semibold text-slate-900 mb-4">Signature Progress</h3>
 
               <div className="mb-6">
@@ -653,10 +664,10 @@ const DocSendSigningPage = () => {
                     <div
                       key={field.id}
                       className={`p-3 rounded-lg border ${signatures[field.id]
-                          ? 'bg-green-50 border-green-200'
-                          : isMyField
-                            ? 'bg-yellow-50 border-yellow-200'  // My pending field
-                            : 'bg-slate-50 border-slate-200'     // Others' fields
+                        ? 'bg-green-50 border-green-200'
+                        : isMyField
+                          ? 'bg-yellow-50 border-yellow-200'  // My pending field
+                          : 'bg-slate-50 border-slate-200'     // Others' fields
                         }`}
                     >
                       <div className="flex items-center justify-between">
@@ -675,33 +686,32 @@ const DocSendSigningPage = () => {
                 })}
               </div>
               <button
-  onClick={completeSignature}
-  disabled={!allFieldsFilled || submitting || isAwaitingTurn}  // ⭐ Add isAwaitingTurn
-  className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-    allFieldsFilled && !submitting && !isAwaitingTurn  // ⭐ Add check
-      ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
-      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-  }`}
->
-  {submitting ? (
-    <>
-      <Loader2 className="h-5 w-5 animate-spin" />
-      Submitting...
-    </>
-  ) : isAwaitingTurn ? (  // ⭐ Add this
-    <>
-      <Clock className="h-5 w-5" />
-      Waiting for Your Turn
-    </>
-  ) : allFieldsFilled ? (
-    <>
-      <Check className="h-5 w-5" />
-      Complete Signing
-    </>
-  ) : (
-    'Complete All Fields'
-  )}
-</button>
+                onClick={completeSignature}
+                disabled={!allFieldsFilled || submitting || isAwaitingTurn}  // ⭐ Add isAwaitingTurn
+                className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${allFieldsFilled && !submitting && !isAwaitingTurn  // ⭐ Add check
+                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Submitting...
+                  </>
+                ) : isAwaitingTurn ? (  // ⭐ Add this
+                  <>
+                    <Clock className="h-5 w-5" />
+                    Waiting for Your Turn
+                  </>
+                ) : allFieldsFilled ? (
+                  <>
+                    <Check className="h-5 w-5" />
+                    Complete Signing
+                  </>
+                ) : (
+                  'Complete All Fields'
+                )}
+              </button>
             </div>
           </div>
         </div>

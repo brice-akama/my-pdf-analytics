@@ -110,6 +110,7 @@ export async function GET(
         device: deviceInfo.device,
         browser: deviceInfo.browser,
         location: location,
+         
         engagement: engagement,
         viewHistory: views.map(v => ({
           timestamp: v.timestamp,
