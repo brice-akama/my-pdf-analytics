@@ -6,7 +6,8 @@ import {
   FileText, Clock, Users, CheckCircle, Eye, AlertCircle,
   Download, Mail, MapPin, Monitor, Smartphone, Tablet,
   Calendar, TrendingUp, Loader2, Send, RefreshCw, ExternalLink,
-  ChevronRight, Globe, Target, Activity, MousePointer
+  ChevronRight, Globe, Target, Activity, MousePointer,
+  X
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,6 +22,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
   Legend, ResponsiveContainer 
 } from 'recharts';
+import { Button } from './ui/button';
 
 interface Signer {
   name: string;
@@ -53,6 +55,7 @@ interface SignatureDocument {
   status: string;
   createdAt: string;
   signers: Signer[];
+  uniqueId: string;
 }
 
 interface SignatureStats {
@@ -88,8 +91,8 @@ export default function SignatureDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
   const [activeTab, setActiveTab] = useState('overview');
-  
-  // Modal states
+ const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+const [cancelReason, setCancelReason] = useState('');
   const [selectedDocument, setSelectedDocument] = useState<SignatureDocument | null>(null);
   const [showDocumentDetails, setShowDocumentDetails] = useState(false);
   const [selectedSigner, setSelectedSigner] = useState<Signer | null>(null);
@@ -122,6 +125,41 @@ export default function SignatureDashboard() {
       setLoading(false);
     }
   };
+
+
+  const handleCancelRequest = async (signatureId: string, documentName: string, reason: string = '') => {
+  if (!signatureId) {
+    alert('Error: Missing signatureId for the signature request.');
+    return;
+  }
+
+  if (!reason && !confirm(`Are you sure you want to cancel this signature request for "${documentName}" without a reason?`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/signature/${signatureId}/cancel`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: reason || 'No reason provided' }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      alert(`✅ Signature request cancelled. ${data.cancelledCount} recipient(s) notified.`);
+      fetchSignatureStats();
+    } else {
+      alert(data.message || 'Failed to cancel request');
+    }
+  } catch (error) {
+    console.error('Cancel error:', error);
+    alert('Failed to cancel request');
+  }
+};
+
+
 
   const handleSendReminder = async (signatureId: string) => {
     setSendingReminder(signatureId);
@@ -196,6 +234,7 @@ export default function SignatureDashboard() {
       case 'signed': return 'bg-green-100 text-green-700 border-green-200';
       case 'viewed': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
       case 'pending': return 'bg-slate-100 text-slate-700 border-slate-200';
+      case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';  //   Add this
       default: return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
@@ -768,6 +807,17 @@ export default function SignatureDashboard() {
               </>
             )}
           </button>
+          {/*  ADD CANCEL BUTTON */}
+   
+<Button
+  variant="outline"
+  size="sm"
+  className="text-red-600 hover:bg-red-50 border-red-300"
+  onClick={() => setShowCancelConfirm(true)}
+>
+  <X className="h-4 w-4 mr-1" />
+  Cancel
+</Button>
         </div>
       </div>
     )}
@@ -943,6 +993,59 @@ export default function SignatureDashboard() {
           )}
         </DialogContent>
       </Dialog>
+      {/* Add this modal to your component */}
+<Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+  <DialogContent className="bg-white">
+    <DialogHeader>
+      <DialogTitle>Cancel Signature Request</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4 py-4">
+      <p>
+        Are you sure you want to cancel the signature request for <strong>{selectedDocument?.documentName}</strong>?
+      </p>
+      <div>
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          Reason (optional)
+        </label>
+        <textarea
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          className="w-full p-2 border rounded-lg"
+          rows={3}
+          placeholder="Enter a reason for cancellation..."
+        />
+      </div>
+      <div className="flex justify-end gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setShowCancelConfirm(false)}
+        >
+          Cancel
+        </Button>
+        <Button
+          className="bg-red-600 hover:bg-red-700 text-white"
+         onClick={async () => {
+  if (selectedDocument && selectedDocument.signers.length > 0) {
+    await handleCancelRequest(
+      selectedDocument.signers[0].uniqueId,  // This value goes to signatureId param
+      selectedDocument.name, 
+      cancelReason
+    );
+    setShowCancelConfirm(false);
+    setShowDocumentDetails(false);
+  } else {
+    alert('No signers found for this document');
+    setShowCancelConfirm(false);
+  }
+}}
+        >
+          Confirm Cancellation
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
     </div>
   );
 }

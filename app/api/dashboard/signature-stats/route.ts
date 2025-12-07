@@ -38,10 +38,13 @@ export async function GET(request: NextRequest) {
       .toArray();
 
     // Calculate stats
-    const totalRequests = allRequests.length;
-    const pendingRequests = allRequests.filter(r => r.status === 'pending').length;
-    const viewedRequests = allRequests.filter(r => r.status === 'viewed').length;
-    const signedRequests = allRequests.filter(r => r.status === 'signed').length;
+   // Calculate stats
+const totalRequests = allRequests.length;
+const signedRequests = allRequests.filter(r => r.status === 'signed').length;
+const cancelledRequests = allRequests.filter(r => r.status === 'cancelled').length;
+const viewedRequests = allRequests.filter(r => r.status === 'viewed').length;
+// Pending = everything that's not signed or cancelled (includes viewed)
+const pendingRequests = allRequests.filter(r => r.status !== 'signed' && r.status !== 'cancelled').length;
     
     // Get previous period for comparison
     let prevStartDate = new Date(startDate);
@@ -102,43 +105,56 @@ export async function GET(request: NextRequest) {
       .toArray();
 
     // Get top documents
-    const topDocuments = await Promise.all(
-      documentIds.slice(0, 10).map(async (docId) => {
-        const docRequests = allRequests.filter(r => r.documentId === docId);
-        const doc = documents.find(d => d._id.toString() === docId);
-        
-        const signedCount = docRequests.filter(r => r.status === 'signed').length;
-        const totalCount = docRequests.length;
-        const completionRate = totalCount > 0 ? Math.round((signedCount / totalCount) * 100) : 0;
+   // Get top documents
+const topDocuments = await Promise.all(
+  documentIds.slice(0, 10).map(async (docId) => {
+    const docRequests = allRequests.filter(r => r.documentId === docId);
+    const doc = documents.find(d => d._id.toString() === docId);
+    
+    const signedCount = docRequests.filter(r => r.status === 'signed').length;
+    const cancelledCount = docRequests.filter(r => r.status === 'cancelled').length;
+    const totalCount = docRequests.length;
+    const completionRate = totalCount > 0 ? Math.round((signedCount / totalCount) * 100) : 0;
 
-        // Get views for this document's signatures
-        const signatureIds = docRequests.map(r => r.uniqueId);
-        const views = await db.collection("signature_views")
-          .countDocuments({ signatureId: { $in: signatureIds } });
+    // ✅ Determine document status based on signature requests
+    let documentStatus = 'pending';
+    if (cancelledCount > 0) {
+      documentStatus = 'cancelled';  // Any cancellation = entire doc cancelled
+    } else if (signedCount === totalCount) {
+      documentStatus = 'signed';  // All signed = completed
+    } else if (signedCount > 0) {
+      documentStatus = 'partially_signed';  // Some signed
+    }
 
-        return {
-          id: docId,
-          documentId: docId,
-          name: doc?.filename || doc?.originalFilename || 'Unknown Document',
-          totalSigners: totalCount,
-          signedCount: signedCount,
-          pendingCount: totalCount - signedCount,
-          completionRate: completionRate,
-          views: views,
-          status: doc?.status || 'pending',
-          createdAt: docRequests[0]?.createdAt,
-          signers: docRequests.map(r => ({
-            name: r.recipient.name,
-            email: r.recipient.email,
-            status: r.status,
-            uniqueId: r.uniqueId,
-            viewedAt: r.viewedAt,
-            signedAt: r.signedAt,
-          })),
-        };
-      })
-    );
+    // Get views for this document's signatures
+    const signatureIds = docRequests.map(r => r.uniqueId);
+    const views = await db.collection("signature_views")
+      .countDocuments({ signatureId: { $in: signatureIds } });
 
+    return {
+      id: docId,
+      documentId: docId,
+      name: doc?.filename || doc?.originalFilename || 'Unknown Document',
+      documentName: doc?.filename || doc?.originalFilename || 'Unknown Document',
+      totalSigners: totalCount,
+      signedCount: signedCount,
+      pendingCount: totalCount - signedCount - cancelledCount,
+      completionRate: completionRate,
+      views: views,
+      status: documentStatus,  // ✅ Use calculated status instead of doc.status
+      createdAt: docRequests[0]?.createdAt,
+      signers: docRequests.map(r => ({
+        name: r.recipient.name,
+        email: r.recipient.email,
+        status: r.status,
+        uniqueId: r.uniqueId,
+        viewedAt: r.viewedAt,
+        signedAt: r.signedAt,
+      })),
+      uniqueId: docRequests[0]?.uniqueId,  // ✅ Add this for cancel button
+    };
+  })
+);
     // Sort by most recent
     topDocuments.sort((a, b) => 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

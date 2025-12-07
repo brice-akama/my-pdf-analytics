@@ -8,7 +8,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function sendSignatureRequestEmail({
   recipientName,
   recipientEmail,
-  documentName,
+  originalFilename,
   signingLink,
   senderName,
   message,
@@ -16,7 +16,7 @@ export async function sendSignatureRequestEmail({
 }: {
   recipientName: string;
   recipientEmail: string;
-  documentName: string;
+  originalFilename: string;
   signingLink: string;
   senderName: string;
   message?: string;
@@ -35,7 +35,7 @@ export async function sendSignatureRequestEmail({
     const { data, error } = await resend.emails.send({
       from: 'DocuShare <onboarding@resend.dev>', // ⚠️ Change this to your verified domain
       to: [recipientEmail],
-      subject: `${senderName} has requested your signature on "${documentName}"`,
+      subject: `${senderName} has requested your signature on "${originalFilename}"`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -152,7 +152,7 @@ export async function sendSignatureRequestEmail({
               </p>
               
               <div class="document-info">
-                <div class="document-name">📄 ${documentName}</div>
+                <div class="document-name">📄 ${originalFilename}</div>
                 <p style="margin: 5px 0; color: #6c757d; font-size: 14px;">
                   Click the button below to review and sign this document
                 </p>
@@ -231,21 +231,21 @@ export async function sendDocumentSignedNotification({
   ownerName,
   signerName,
   signerEmail,
-  documentName,
+  originalFilename,
   statusLink,
 }: {
   ownerEmail: string;
   ownerName: string;
   signerName: string;
   signerEmail: string;
-  documentName: string;
+  originalFilename: string;
   statusLink: string;
 }) {
   try {
     const { data, error } = await resend.emails.send({
       from: 'DocuShare <onboarding@resend.dev>',
       to: [ownerEmail],
-      subject: `✅ ${signerName} signed "${documentName}"`,
+      subject: `✅ ${signerName} signed "${originalFilename}"`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -322,7 +322,7 @@ export async function sendDocumentSignedNotification({
               
               <div class="signature-info">
                 <div style="margin-bottom: 15px;">
-                  <strong>📄 Document:</strong> ${documentName}
+                  <strong>📄 Document:</strong> ${originalFilename}
                 </div>
                 <div style="margin-bottom: 15px;">
                   <strong>✍️ Signed by:</strong> ${signerName} (${signerEmail})
@@ -378,13 +378,13 @@ export async function sendDocumentSignedNotification({
 export async function sendAllSignaturesCompleteEmail({
   recipientEmail,
   recipientName,
-  documentName,
+  originalFilename,
   downloadLink,
   allSigners,
 }: {
   recipientEmail: string;
   recipientName: string;
-  documentName: string;
+   originalFilename: string;
   downloadLink: string;
   allSigners: { name: string; email: string; signedAt: Date }[];
 }) {
@@ -392,7 +392,7 @@ export async function sendAllSignaturesCompleteEmail({
     const { data, error } = await resend.emails.send({
       from: 'DocuShare <onboarding@resend.dev>',
       to: [recipientEmail],
-      subject: `🎉 All signatures collected for "${documentName}"`,
+      subject: `🎉 All signatures collected for "${originalFilename}"`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -480,13 +480,13 @@ export async function sendAllSignaturesCompleteEmail({
               <p>Hi ${recipientName},</p>
               
               <p>
-                Congratulations! All parties have signed <strong>"${documentName}"</strong>. 
+                Congratulations! All parties have signed <strong>"${originalFilename}"</strong>. 
                 The document is now legally binding and complete.
               </p>
               
               <div class="complete-box">
                 <strong>✅ Status:</strong> All signatures collected<br>
-                <strong>📄 Document:</strong> ${documentName}<br>
+                <strong>📄 Document:</strong> ${originalFilename}<br>
                 <strong>⏰ Completed:</strong> ${new Date().toLocaleString('en-US', {
                   weekday: 'long',
                   year: 'numeric',
@@ -558,14 +558,14 @@ export async function sendAllSignaturesCompleteEmail({
 export async function sendSignatureReminderEmail({
   recipientName,
   recipientEmail,
-  documentName,
+   originalFilename,
   signingLink,
   senderName,
   daysLeft,
 }: {
   recipientName: string;
   recipientEmail: string;
-  documentName: string;
+   originalFilename: string;
   signingLink: string;
   senderName: string;
   daysLeft?: number;
@@ -574,7 +574,7 @@ export async function sendSignatureReminderEmail({
     const { data, error } = await resend.emails.send({
       from: 'DocuShare <onboarding@resend.dev>',
       to: [recipientEmail],
-      subject: `⏰ Reminder: Please sign "${documentName}"`,
+      subject: `⏰ Reminder: Please sign "${originalFilename}"`,
       html: `
         <!DOCTYPE html>
         <html>
@@ -648,7 +648,7 @@ export async function sendSignatureReminderEmail({
               </p>
               
               <div class="reminder-box">
-                <strong>📄 Document:</strong> ${documentName}
+                <strong>📄 Document:</strong> ${originalFilename}
                 ${daysLeft ? `<br><strong>⏰ Due in:</strong> ${daysLeft} day${daysLeft > 1 ? 's' : ''}` : ''}
               </div>
               
@@ -680,6 +680,82 @@ export async function sendSignatureReminderEmail({
     }
 
     console.log('✅ Reminder email sent to:', recipientEmail);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Email service error:', error);
+    throw error;
+  }
+}
+
+
+export async function sendSignatureRequestCancelledEmail({
+  recipientEmail,
+  recipientName,
+  originalFilename,
+  ownerName,
+  reason,
+}: {
+  recipientEmail: string;
+  recipientName: string;
+  originalFilename: string;
+  ownerName: string;
+  reason: string;
+}) {
+  try {
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+          .alert-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 5px; }
+          .button { display: inline-block; padding: 12px 30px; background: #6366f1; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0;">❌ Signature Request Cancelled</h1>
+          </div>
+          <div class="content">
+            <p>Hi ${recipientName},</p>
+
+            <div class="alert-box">
+              <p style="margin: 0; font-weight: bold;">The signature request for "${originalFilename}" has been cancelled by ${ownerName}.</p>
+            </div>
+
+            <p><strong>Reason:</strong> ${reason}</p>
+
+            <p>You no longer need to take any action on this document. The signing link you received is no longer valid.</p>
+
+            <p>If you have questions, please contact ${ownerName} directly.</p>
+
+            <div class="footer">
+              <p>This is an automated email from our signature service.</p>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const { data, error } = await resend.emails.send({
+      from: 'DocuShare <onboarding@resend.dev>',
+      to: [recipientEmail],
+      subject: `Signature Request Cancelled - ${originalFilename}`,
+      html: emailHtml,
+    });
+
+    if (error) {
+      console.error('❌ Failed to send cancellation email:', error);
+      throw error;
+    }
+
+    console.log('✅ Cancellation email sent to:', recipientEmail);
     return { success: true, data };
   } catch (error) {
     console.error('❌ Email service error:', error);

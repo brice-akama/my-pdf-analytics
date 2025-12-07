@@ -56,6 +56,7 @@ type SignatureRequest = {
   signatureFields: SignatureField[];
    viewMode?: 'isolated' | 'shared'; // ADD THIS
     signingOrder?: 'any' | 'sequential'; // ⭐ ADD THIS
+    expirationDays?: string; // ⭐ ADD THIS
 };
 export default function ESignaturePage() {
   const params = useParams();
@@ -205,7 +206,8 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
           message: signatureRequest.message,
           dueDate: signatureRequest.dueDate,
           viewMode: signatureRequest.viewMode || 'isolated', // ADD THIS
-          signingOrder: signatureRequest.signingOrder || 'any', // ⭐ ADD THIS
+          signingOrder: signatureRequest.signingOrder || 'any', //   ADD THIS
+          expirationDays: signatureRequest.expirationDays || '30', //   ADD THIS
         }),
       });
       const data = await response.json();
@@ -579,6 +581,30 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
         className="mt-1"
       />
     </div>
+    {/* After Due Date field, add this: */}
+<div>
+  <Label>Link Expiration</Label>
+  <select
+    value={signatureRequest.expirationDays || '30'}
+    onChange={(e) =>
+      setSignatureRequest({ 
+        ...signatureRequest, 
+        expirationDays: e.target.value 
+      })
+    }
+    className="mt-1 w-full border rounded-lg px-3 py-2"
+  >
+    <option value="7">7 days</option>
+    <option value="14">14 days</option>
+    <option value="30">30 days (Recommended)</option>
+    <option value="60">60 days</option>
+    <option value="90">90 days</option>
+    <option value="never">Never expire</option>
+  </select>
+  <p className="text-xs text-slate-500 mt-1">
+    Signing links will expire after this period for security
+  </p>
+</div>
   </div>
 )}
             </div>

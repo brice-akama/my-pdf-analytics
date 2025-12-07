@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { documentId, recipients, signatureFields, message, dueDate, viewMode , signingOrder } = await request.json();
+    const { documentId, recipients, signatureFields, message, dueDate, viewMode , signingOrder, expirationDays  } = await request.json();
     const db = await dbPromise;
 
     // ✅ Get current user details
@@ -50,6 +50,16 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < recipients.length; i++) {
       const recipient = recipients[i];
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`;
+
+      //   Calculate expiration date
+let expiresAt = null;
+if (expirationDays && expirationDays !== 'never') {
+  const days = parseInt(expirationDays);
+  expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + days);
+}
+
+console.log('📅 Signature request will expire:', expiresAt || 'Never');
 
       //   Determine initial status based on signing order
   const initialStatus = signingOrder === 'sequential' 
@@ -90,6 +100,7 @@ export async function POST(request: NextRequest) {
         viewMode: viewMode || 'isolated', // ADD THIS
         message: message || '',
         dueDate: dueDate || null,
+        expiresAt: expiresAt, //   ADD THIS
         status: initialStatus, //   Use dynamic status
         createdAt: new Date(),
         viewedAt: null,
@@ -122,7 +133,7 @@ export async function POST(request: NextRequest) {
         sendSignatureRequestEmail({
           recipientName: recipient.name,
           recipientEmail: recipient.email,
-          documentName: document.filename,
+          originalFilename: document.originalFilename,
           signingLink: signingLink,
           senderName: ownerName,
           message: message,

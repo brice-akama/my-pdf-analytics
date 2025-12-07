@@ -59,8 +59,20 @@ const DocSendSigningPage = () => {
   const [textFieldInput, setTextFieldInput] = useState('');
   const [activeTextField, setActiveTextField] = useState<SignatureField | null>(null);
   const [isAwaitingTurn, setIsAwaitingTurn] = useState(false);
+  const [daysUntilExpiration, setDaysUntilExpiration] = useState<number | null>(null);
+  const [signatureRequest ] = useState<any | null>(null);
 
 
+
+  useEffect(() => {
+  if (signatureRequest?.expiresAt) {
+    const expirationDate = new Date(signatureRequest.expiresAt);
+    const now = new Date();
+    const daysRemaining = Math.ceil((expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    setDaysUntilExpiration(daysRemaining);
+
+  }
+}, [signatureRequest]);
 
   useEffect(() => {
     const fetchSignatureRequest = async () => {
@@ -87,10 +99,35 @@ const DocSendSigningPage = () => {
         }
         const requestData = await requestRes.json();
         const signatureRequest = requestData.signatureRequest;
-        const isAwaitingTurnStatus = signatureRequest.status === 'awaiting_turn';
+       
+        //   CHECK IF CANCELLED
+if (signatureRequest.status === 'cancelled') {
+  const cancelledDate = signatureRequest.cancelledAt 
+    ? new Date(signatureRequest.cancelledAt).toLocaleDateString()
+    : 'recently';
+  const reason = signatureRequest.cancellationReason || 'No reason provided';
+  
+  setError(`This signature request was cancelled ${cancelledDate}. Reason: ${reason}`);
+  setLoading(false);
+  return;
+}
+
+        //  CHECK EXPIRATION
+if (signatureRequest.expiresAt) {
+  const expirationDate = new Date(signatureRequest.expiresAt);
+  const now = new Date();
+  
+  if (now > expirationDate) {
+    setError(`This signature request expired on ${expirationDate.toLocaleDateString()}. Please contact the document sender for a new link.`);
+    setLoading(false);
+    return;
+  }
+}
+
+  const isAwaitingTurnStatus = signatureRequest.status === 'awaiting_turn';
         setIsAwaitingTurn(isAwaitingTurnStatus);
 
-        // ⭐ DON'T block access - just track the status
+        //   DON'T block access - just track the status
         const isAwaitingTurn = signatureRequest.status === 'awaiting_turn';
 
         setDocument({
@@ -438,6 +475,35 @@ const DocSendSigningPage = () => {
       </div>
     );
   }
+
+  {/* Show expiration warning if < 3 days remaining */}
+{daysUntilExpiration !== null && daysUntilExpiration <= 3 && daysUntilExpiration > 0 && (
+  <div className="mb-3 bg-orange-50 border border-orange-300 rounded-lg p-3">
+    <div className="flex items-center gap-2">
+      <Clock className="h-5 w-5 text-orange-600 flex-shrink-0" />
+      <div>
+        <p className="text-sm font-semibold text-orange-900">
+          ⚠️ Link Expires Soon
+        </p>
+        <p className="text-xs text-orange-700">
+          This signing link expires in {daysUntilExpiration} day{daysUntilExpiration !== 1 ? 's' : ''}. Please sign before {new Date(signatureRequest.expiresAt).toLocaleDateString()}.
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+
+{signatureRequest?.status === 'cancelled' && (
+  <div className="flex items-center gap-2 text-red-600">
+    <X className="h-4 w-4" />
+    <span className="text-sm font-medium">Cancelled</span>
+    {signatureRequest?.cancelledAt && (
+      <span className="text-xs text-slate-500">
+        on {new Date(signatureRequest.cancelledAt).toLocaleDateString()}
+      </span>
+    )}
+  </div>
+)}
 
   if (completed) {
     return (
