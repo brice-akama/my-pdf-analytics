@@ -99,16 +99,19 @@ for (const request of signatureRequests) {
     const { width, height } = page.getSize();
     
     // Calculate field dimensions
-    const fieldWidth = field.width || 180;
-    const fieldHeight = field.height || (field.type === 'signature' ? 60 : 40);
-    
-    // Convert percentage to PDF points
-    const xInPoints = (field.x / 100) * width;
-    const yFromTop = (field.y / 100) * height;
-    
-    // Fix Y coordinate (flip from top-origin to bottom-origin) and center the field
-    const x = xInPoints - (fieldWidth / 2);
-    const y = height - yFromTop - (fieldHeight / 2);
+    // ✅ NEW CODE - Match signing page exactly
+const fieldWidth = field.width || (field.type === 'signature' ? 200 : 150);
+const fieldHeight = field.height || (field.type === 'signature' ? 60 : 40);
+
+// Convert percentage to PDF points (same as signing page)
+const xInPoints = (field.x / 100) * width;
+const yFromTop = (field.y / 100) * height;
+
+// Center horizontally (same as signing page's transform: translate(-50%, 0%))
+const x = xInPoints - (fieldWidth / 2);
+
+// PDF coordinates are bottom-up, so we flip Y
+const y = height - yFromTop - fieldHeight;
 
     // SIGNATURE IMAGE
     if (field.type === "signature" && signedField.signatureData) {

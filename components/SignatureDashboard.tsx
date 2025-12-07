@@ -7,7 +7,8 @@ import {
   Download, Mail, MapPin, Monitor, Smartphone, Tablet,
   Calendar, TrendingUp, Loader2, Send, RefreshCw, ExternalLink,
   ChevronRight, Globe, Target, Activity, MousePointer,
-  X
+  X,
+  XCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,6 +24,7 @@ import {
   Legend, ResponsiveContainer 
 } from 'recharts';
 import { Button } from './ui/button';
+import router from 'next/router';
 
 interface Signer {
   name: string;
@@ -98,6 +100,8 @@ const [cancelReason, setCancelReason] = useState('');
   const [selectedSigner, setSelectedSigner] = useState<Signer | null>(null);
   const [showSignerDetails, setShowSignerDetails] = useState(false);
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+  const [bulkSends, setBulkSends] = useState<any[]>([]);
+const [loadingBulkSends, setLoadingBulkSends] = useState(false);
 
   useEffect(() => {
     fetchSignatureStats();
@@ -159,6 +163,31 @@ const [cancelReason, setCancelReason] = useState('');
   }
 };
 
+
+const fetchBulkSends = async () => {
+  setLoadingBulkSends(true);
+  try {
+    const res = await fetch("/api/bulk-send/list", {
+      credentials: "include",
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        setBulkSends(data.bulkSends);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to fetch bulk sends:", error);
+  } finally {
+    setLoadingBulkSends(false);
+  }
+};
+
+// Call on mount
+useEffect(() => {
+  fetchBulkSends();
+}, []);
 
 
   const handleSendReminder = async (signatureId: string) => {
@@ -372,6 +401,7 @@ const [cancelReason, setCancelReason] = useState('');
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="bulk-sends">Bulk Sends</TabsTrigger>
         </TabsList>
 
         {/* OVERVIEW TAB */}
@@ -586,6 +616,192 @@ const [cancelReason, setCancelReason] = useState('');
             </div>
           )}
         </TabsContent>
+        
+         {/* Bulk Sends Tab */}
+        <TabsContent value="bulk-sends" className="space-y-6">
+  <div className="space-y-4">
+    <div className="flex items-center justify-between mb-6">
+      <h2 className="text-2xl font-bold text-slate-900">Bulk Sends</h2>
+      <Button
+        onClick={() => router.push("/bulk-send/new")}
+        className="flex items-center gap-2"
+      >
+        <Send className="h-4 w-4" />
+        Send Bulk
+      </Button>
+    </div>
+    {loadingBulkSends ? (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    ) : bulkSends.length === 0 ? (
+      <div className="text-center py-12 bg-white rounded-lg border">
+        <Users className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-slate-900 mb-2">
+          No Bulk Sends Yet
+        </h3>
+        <p className="text-slate-600 mb-6">
+          Send documents to multiple recipients at once
+        </p>
+        <Button onClick={() => router.push("/dashboard")}>
+          Browse Documents
+        </Button>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {bulkSends.map((bulkSend) => (
+          <div
+            key={bulkSend.batchId}
+            className="bg-white rounded-lg border p-6 hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <Users className="h-6 w-6 text-purple-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-slate-900 mb-1">
+                    Bulk Send to {bulkSend.totalRecipients} Recipients
+                  </h3>
+                  <p className="text-sm text-slate-600 mb-2">
+                    Batch ID: {bulkSend.batchId}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Created {new Date(bulkSend.createdAt).toLocaleDateString()} at{" "}
+                    {new Date(bulkSend.createdAt).toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
+              {/* Status Badge */}
+              <div>
+                {bulkSend.status === "processing" && (
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Processing
+                  </span>
+                )}
+                {bulkSend.status === "completed" && (
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <CheckCircle className="h-3 w-3" />
+                    Completed
+                  </span>
+                )}
+                {bulkSend.status === "failed" && (
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    <XCircle className="h-3 w-3" />
+                    Failed
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* Progress Stats */}
+            <div className="grid grid-cols-4 gap-4 mb-4">
+              <div className="bg-slate-50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-slate-900">
+                  {bulkSend.totalRecipients}
+                </div>
+                <div className="text-xs text-slate-600 mt-1">Total</div>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {bulkSend.sentCount}
+                </div>
+                <div className="text-xs text-green-700 mt-1">Sent</div>
+              </div>
+              <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-yellow-600">
+                  {bulkSend.pendingCount}
+                </div>
+                <div className="text-xs text-yellow-700 mt-1">Pending</div>
+              </div>
+              <div className="bg-red-50 rounded-lg p-3 text-center">
+                <div className="text-2xl font-bold text-red-600">
+                  {bulkSend.failedCount}
+                </div>
+                <div className="text-xs text-red-700 mt-1">Failed</div>
+              </div>
+            </div>
+            {/* Progress Bar */}
+            <div className="mb-4">
+              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-purple-600 to-blue-600 transition-all"
+                  style={{
+                    width: `${
+                      (bulkSend.sentCount / bulkSend.totalRecipients) * 100
+                    }%`,
+                  }}
+                />
+              </div>
+            </div>
+            {/* Failed Recipients */}
+            {bulkSend.failedRecipients && bulkSend.failedRecipients.length > 0 && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm font-medium text-red-900 mb-2">
+                  {bulkSend.failedRecipients.length} Failed Recipients:
+                </p>
+                <div className="space-y-1 max-h-20 overflow-y-auto">
+                  {bulkSend.failedRecipients.map((failed: any, index: number) => (
+                    <div key={index} className="text-xs text-red-800">
+                      • {failed.name} ({failed.email}) - {failed.error}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Actions */}
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  router.push(`/bulk-send/${bulkSend.batchId}/details`)
+                }
+              >
+                View Details
+              </Button>
+              {bulkSend.failedCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                  onClick={async () => {
+                    if (
+                      confirm(
+                        `Retry sending to ${bulkSend.failedCount} failed recipients?`
+                      )
+                    ) {
+                      try {
+                        const res = await fetch(
+                          `/api/bulk-send/${bulkSend.batchId}/retry`,
+                          {
+                            method: "POST",
+                            credentials: "include",
+                          }
+                        );
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                          alert(`✅ ${data.message}`);
+                          fetchBulkSends(); // Refresh list
+                        } else {
+                          alert(data.message || "Retry failed");
+                        }
+                      } catch (error) {
+                        alert("Failed to retry");
+                      }
+                    }
+                  }}
+                >
+                  Retry Failed
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</TabsContent>
 
         {/* ACTIVITY TAB */}
         <TabsContent value="activity" className="space-y-6">

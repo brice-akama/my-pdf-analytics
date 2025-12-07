@@ -1129,6 +1129,14 @@ const openCreateLinkDialog = () => {
     <span>Update thumbnail</span>
   </DropdownMenuItem>
   <DropdownMenuSeparator />
+  {doc?.isTemplate && (
+  <DropdownMenuItem 
+    onClick={() => router.push(`/documents/${doc._id}/bulk-send`)}
+  >
+    <Users className="mr-2 h-4 w-4" />
+    <span>Bulk Send</span>
+  </DropdownMenuItem>
+)}
   <DropdownMenuItem 
     onClick={() => setShowDeleteDialog(true)}
     className="text-red-600 focus:text-red-600"
