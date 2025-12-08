@@ -1,8 +1,8 @@
 //app/api/signature/[signatureId]/download/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../../lib/mongodb";
 import { ObjectId } from "mongodb";
+import { generateSignedPDF } from "@/lib/pdfGenerator";
 import cloudinary from 'cloudinary';
 
 cloudinary.v2.config({
@@ -44,28 +44,45 @@ export async function GET(
       );
     }
 
-    if (!document.signedPdfUrl) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: "Signed document not yet available." 
-        },
-        { status: 400 }
-      );
+    // ✅ DETERMINE WHICH SIGNATURES TO INCLUDE
+    let signaturesToInclude;
+
+    if (signatureRequest.isBulkSend === true) {
+      // BULK SEND: Only this person's signature
+      signaturesToInclude = [signatureRequest];
+      console.log('📧 Bulk send mode - PDF with only this signer');
+    } else {
+      // SHARED/ISOLATED: All signatures
+      signaturesToInclude = await db.collection("signature_requests")
+        .find({ 
+          documentId: signatureRequest.documentId,
+          status: "signed"
+        })
+        .toArray();
+      console.log(`🤝 Shared/Isolated mode - PDF with all ${signaturesToInclude.length} signers`);
     }
 
-    // Extract public_id from the URL
-    const urlMatch = document.signedPdfUrl.match(/\/signed_documents\/(.+?)\.pdf/);
+    // ✅ GENERATE PDF WITH APPROPRIATE SIGNATURES
+    console.log('🎨 Generating signed PDF...');
+    const signedPdfUrl = await generateSignedPDF(
+      signatureRequest.documentId,
+      signaturesToInclude
+    );
+
+    console.log('✅ PDF generated:', signedPdfUrl);
+
+    // Extract public_id from the generated URL
+    const urlMatch = signedPdfUrl.match(/\/signed_documents\/(.+?)\.pdf/);
     if (!urlMatch) {
-      console.error('❌ Could not extract public_id from URL');
+      console.error('❌ Could not extract public_id from generated URL');
       return NextResponse.json(
-        { success: false, message: "Invalid document URL" },
+        { success: false, message: "Invalid generated PDF URL" },
         { status: 500 }
       );
     }
 
     const publicId = `signed_documents/${urlMatch[1]}`;
-    console.log('🔑 Public ID:', publicId);
+    console.log('🔑 Generated PDF Public ID:', publicId);
 
     // Generate authenticated download URL
     const authenticatedUrl = cloudinary.v2.utils.private_download_url(
@@ -74,7 +91,7 @@ export async function GET(
       {
         resource_type: 'image',
         type: 'upload',
-        expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
       }
     );
 
@@ -102,10 +119,23 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Download error:', error);
     return NextResponse.json(
       { success: false, message: "Server error" },
       { status: 500 }
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+

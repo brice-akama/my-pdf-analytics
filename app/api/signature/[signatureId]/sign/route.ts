@@ -40,6 +40,7 @@ export async function POST(
       );
     }
 
+    
     // ⭐ Get the document FIRST (moved up to avoid undefined error)
     const document = await db.collection("documents").findOne({
       _id: new ObjectId(signatureRequest.documentId),
@@ -69,6 +70,8 @@ export async function POST(
 
     console.log('✅ Signature saved for:', signatureRequest.recipient.name);
 
+  
+
     // ⭐ Handle sequential signing
     if (signatureRequest.signingOrder === 'sequential') {
       console.log('🔄 Sequential mode: Checking for next signer...');
@@ -97,7 +100,7 @@ export async function POST(
           await sendSignatureRequestEmail({
             recipientName: nextRecipient.recipient.name,
             recipientEmail: nextRecipient.recipient.email,
-            documentName: document.filename,
+             originalFilename: document.filename,
             signingLink: nextSigningLink,
             senderName: signatureRequest.recipient.name,
             message: `${signatureRequest.recipient.name} has signed. It's now your turn to sign.`,
@@ -143,7 +146,7 @@ export async function POST(
         ownerName: 'Document Owner',
         signerName: signatureRequest.recipient.name,
         signerEmail: signatureRequest.recipient.email,
-        documentName: document.filename,
+        originalFilename: document.filename,
         statusLink: `${request.nextUrl.origin}/dashboard`,
       }).catch(err => console.error('Failed to send owner notification:', err));
     }
@@ -208,7 +211,7 @@ export async function POST(
           sendAllSignaturesCompleteEmail({
             recipientEmail: req.recipient.email,
             recipientName: req.recipient.name,
-            documentName: document.filename,
+           originalFilename: document.filename,
             downloadLink: downloadLink,
             allSigners: allSigners,
           }).catch(err => console.error('Failed to send completion email:', err))
@@ -221,7 +224,7 @@ export async function POST(
             sendAllSignaturesCompleteEmail({
               recipientEmail: signatureRequest.ownerEmail,
               recipientName: 'Document Owner',
-              documentName: document.filename,
+               originalFilename: document.filename,
               downloadLink: downloadLink,
               allSigners: allSigners,
             }).catch(err => console.error('Failed to send owner completion email:', err))

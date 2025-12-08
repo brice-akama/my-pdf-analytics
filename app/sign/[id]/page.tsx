@@ -1,6 +1,7 @@
 "use client"
 import React, { useState, useRef, useEffect } from 'react';
-import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download, CheckSquare, Square } from 'lucide-react';
+
 
 // Type definitions
 interface Document {
@@ -19,13 +20,23 @@ interface SignatureField {
   id: string;
   page: number;
   recipientIndex: number;
-  type: 'signature' | 'date' | 'text';
+  type: 'signature' | 'date' | 'text' | 'checkbox'; 
   x: number;
   y: number;
   width?: number;
   height?: number;
   recipientName?: string; // ⭐ ADD THIS
   recipientEmail?: string; // ⭐ ADD THIS
+  label?: string;
+  defaultChecked?: boolean;
+
+  // ADD THIS:
+  conditional?: {
+    enabled: boolean;
+    dependsOn: string | number;
+    condition: 'checked' | 'unchecked' | 'equals' | 'not_equals' | 'contains';
+    value?: string;
+  };
 }
 
 interface SignatureData {
@@ -60,9 +71,50 @@ const DocSendSigningPage = () => {
   const [activeTextField, setActiveTextField] = useState<SignatureField | null>(null);
   const [isAwaitingTurn, setIsAwaitingTurn] = useState(false);
   const [daysUntilExpiration, setDaysUntilExpiration] = useState<number | null>(null);
-  const [signatureRequest ] = useState<any | null>(null);
+  const [signatureRequest ] = useState<any | null>(null); 
+  const [fieldValues, setFieldValues] = useState<Record<string, any>>({});
 
 
+
+
+
+ // ⭐ Check if a field should be visible based on conditional logic
+const isFieldVisible = (field: SignatureField): boolean => {
+  if (!field.conditional?.enabled) {
+    return true; // No conditional logic, always visible
+  }
+  const dependsOnField = signatureFields.find(
+    (f) => f.id.toString() === field.conditional!.dependsOn.toString()
+  );
+  if (!dependsOnField) {
+    return true; // Dependency not found, show field
+  }
+  const dependencyValue = fieldValues[dependsOnField.id];
+  
+  // Evaluate condition
+  switch (field.conditional.condition) {
+    case "checked":
+      return dependencyValue === true;
+    
+    case "unchecked":
+      return dependencyValue !== true;
+    
+    case "equals":
+      return dependencyValue === field.conditional.value;
+    
+    case "not_equals":
+      return dependencyValue !== field.conditional.value;
+    
+    case "contains":
+      if (typeof dependencyValue === "string" && field.conditional.value) {
+        return dependencyValue.toLowerCase().includes(field.conditional.value.toLowerCase());
+      }
+      return false;
+    
+    default:
+      return true;
+  }
+};
 
   useEffect(() => {
   if (signatureRequest?.expiresAt) {
@@ -350,6 +402,11 @@ if (signatureRequest.expiresAt) {
         timestamp: new Date().toISOString()
       }
     }));
+    // ⭐ NEW: Update field values for conditional logic
+  setFieldValues((prev) => ({
+    ...prev,
+    [fieldId]: value,
+  }));
   };
 
   const completeSignature = async () => {
@@ -399,6 +456,27 @@ if (signatureRequest.expiresAt) {
       setSubmitting(false);
     }
   };
+
+  const handleCheckboxToggle = (fieldId: string) => {
+  const currentValue = fieldValues[fieldId] || false;
+  const newValue = !currentValue;
+  
+  // Update field values
+  setFieldValues((prev) => ({
+    ...prev,
+    [fieldId]: newValue,
+  }));
+  
+  // Update signatures
+  setSignatures((prev) => ({
+    ...prev,
+    [fieldId]: {
+      type: "checkbox",
+      data: newValue.toString(),
+      timestamp: new Date().toISOString(),
+    },
+  }));
+};
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
@@ -597,91 +675,141 @@ if (signatureRequest.expiresAt) {
 
                     {/* Signature Field Overlays */}
                     <div className="absolute inset-0 pointer-events-none">
-                      {signatureFields.map((field) => { // ⬅️ Show ALL fields in shared mode
-                        const isFilled = signatures[field.id];
-                        const isMyField = field.recipientIndex === recipient?.index;
-                        const pageHeight = 297 * 3.78; // Convert mm to pixels
-                        const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
+                     {signatureFields
+  .filter((field) => {
+    const isMyField = field.recipientIndex === recipient?.index;
+    const isVisible = isFieldVisible(field);
+    return isMyField || isVisible; // Show my fields or visible shared fields
+  })
+  .map((field) => {
+    const isFilled = signatures[field.id];
+    const isMyField = field.recipientIndex === recipient?.index;
+    const isVisible = isFieldVisible(field);
+    const pageHeight = 297 * 3.78;
+    const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
 
-                        return (
-                          <div
-                            key={field.id}
-                            className={`absolute rounded transition-all ${isFilled
-                              ? 'bg-transparent border-0'
-                              : isAwaitingTurn && isMyField
-                                ? 'bg-gray-200/80 border-2 border-gray-400 cursor-not-allowed'  // ⭐ Grayed out
-                                : 'bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80'
-                              }`}
-                            style={{
-                              left: `${field.x}%`,
-                              top: `${topPosition}px`,
-                              width: field.width ? `${field.width}px` : (field.type === 'signature' ? '200px' : '150px'),
-                              height: field.height ? `${field.height}px` : (field.type === 'signature' ? '60px' : '40px'),
-                              transform: 'translate(-50%, 0%)',
-                              cursor: field.type === 'signature' && !isFilled ? 'pointer' : 'default',
-                              pointerEvents: isFilled ? 'none' : 'auto',
-                              zIndex: 10,
-                            }}
-                            onClick={() => {
-                              //   ADD isAwaitingTurn check
-                              if (!isFilled && isMyField && !isAwaitingTurn) {
-                                if (field.type === 'signature') {
-                                  setActiveField(field);
-                                } else if (field.type === 'text') {
-                                  setActiveTextField(field);
-                                  setTextFieldInput('');
-                                }
-                              } else if (isAwaitingTurn && isMyField) {
-                                //   Show helpful message
-                                alert("It's not your turn yet. You'll receive an email when the previous signer completes.");
-                              }
-                            }}
-                          >
-                            <div className="h-full flex flex-col items-center justify-center p-2">
-                              {isFilled ? (
-                                <>
-                                  {field.type === 'signature' && (
-                                    <img
-                                      src={signatures[field.id].data}
-                                      alt="Signature"
-                                      className="max-h-full max-w-full object-contain"
-                                      style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }}
-                                    />
-                                  )}
-                                  {field.type === 'date' && (
-                                    <div className="text-center w-full">
-                                      <p className="text-sm font-medium text-slate-900 leading-tight">
-                                        {signatures[field.id].data}
-                                      </p>
-                                    </div>
-                                  )}
-                                  {field.type === 'text' && (
-                                    <p className="text-sm font-medium text-slate-900 text-center px-2 leading-tight">
-                                      {signatures[field.id].data}
-                                    </p>
-                                  )}
-                                </>
-                              ) : (
-                                <div className="text-center">
-                                  <p className="text-xs font-medium text-yellow-700">
-                                    {isAwaitingTurn && isMyField ? (
-                                      '⏳ Waiting for your turn'  // ⭐ New message
-                                    ) : (
-                                      field.type === 'signature' ? (isMyField ? '✍️ Click to Sign' : '⏳ Awaiting Signature') :
-                                        field.type === 'date' ? (isMyField ? '📅 Auto-filled' : '📅 Date pending') :
-                                          (isMyField ? '📝 Click to Fill' : '⏳ Awaiting Input')
-                                    )}
-                                  </p>
-                                  <p className="text-xs text-slate-600 mt-1 font-semibold">
-                                    {(field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
-                                    {isMyField && ' (You)'}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+    return (
+      <div
+        key={field.id}
+        className={`absolute rounded transition-all ${
+          isFilled
+            ? "bg-transparent border-0"
+            : !isVisible
+            ? "hidden" // ⭐ Hide if not visible
+            : "bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80"
+        }`}
+        style={{
+          left: `${field.x}%`,
+          top: `${topPosition}px`,
+          width: field.width ? `${field.width}px` : 
+                 field.type === "signature" ? "200px" :
+                 field.type === "checkbox" ? "30px" : "150px",
+          height: field.height ? `${field.height}px` : 
+                  field.type === "signature" ? "60px" :
+                  field.type === "checkbox" ? "30px" : "40px",
+          transform: "translate(-50%, 0%)",
+          cursor: field.type === "signature" && !isFilled ? "pointer" : "default",
+          pointerEvents: !isVisible ? "none" : field.type === "checkbox" ? "auto" : isFilled ? "none" : "auto",
+          zIndex: 10,
+        }}
+        onClick={() => {
+          if (!isFilled && isMyField && isVisible) {
+            if (field.type === "signature") {
+              setActiveField(field);
+            } else if (field.type === "text") {
+              setActiveTextField(field);
+              setTextFieldInput("");
+            } else if (field.type === "checkbox") {
+              // ⭐ Handle checkbox click
+              handleCheckboxToggle(field.id);
+            }
+          }
+        }}
+      >
+        <div className="h-full flex flex-col items-center justify-center p-2">
+          {isFilled ? (
+            <>
+              {field.type === "signature" && (
+                <img
+                  src={signatures[field.id].data}
+                  alt="Signature"
+                  className="max-h-full max-w-full object-contain"
+                  style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.1))" }}
+                />
+              )}
+              {field.type === "date" && (
+                <div className="text-center w-full">
+                  <p className="text-sm font-medium text-slate-900 leading-tight">
+                    {signatures[field.id].data}
+                  </p>
+                </div>
+              )}
+              {field.type === "text" && (
+                <p className="text-sm font-medium text-slate-900 text-center px-2 leading-tight">
+                  {signatures[field.id].data}
+                </p>
+              )}
+              {/* ⭐ NEW: Checkbox display */}
+          {field.type === "checkbox" && (
+  <div 
+    className="flex items-center gap-2 w-full h-full px-2 cursor-pointer"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleCheckboxToggle(field.id);
+    }}
+  >
+    {fieldValues[field.id] ? (
+      <CheckSquare className="h-5 w-5 text-purple-600 flex-shrink-0" />
+    ) : (
+      <Square className="h-5 w-5 text-slate-400 flex-shrink-0" />
+    )}
+   {field.label && (
+     <p className="text-xs font-medium text-slate-900 mt-1 text-center whitespace-nowrap text-ellipsis">
+        {field.label}
+      </p>
+    )}
+  </div>
+)}
+
+            </>
+          ) : (
+            <div className="text-center">
+              {field.type === "checkbox" ? (
+  <div className="flex items-center gap-2 w-full h-full px-2">
+    <Square className="h-5 w-5 text-yellow-700 flex-shrink-0" />
+    {field.label && (
+      <p className="text-xs text-yellow-700 font-medium truncate">
+        {field.label}
+      </p>
+    )}
+  </div>
+) : (
+                <>
+                  <p className="text-xs font-medium text-yellow-700">
+                    {field.type === "signature"
+                      ? isMyField
+                        ? "✍️ Click to Sign"
+                        : "⏳ Awaiting Signature"
+                      : field.type === "date"
+                      ? isMyField
+                        ? "📅 Auto-filled"
+                        : "📅 Date pending"
+                      : isMyField
+                      ? "📝 Click to Fill"
+                      : "⏳ Awaiting Input"}
+                  </p>
+                  <p className="text-xs text-slate-600 mt-1 font-semibold">
+                    {(field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
+                    {isMyField && " (You)"}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  })}
                     </div>
                   </>
                 ) : (

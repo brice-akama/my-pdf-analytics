@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import ConditionalFieldBuilder from "@/components/ConditionalFieldBuilder";
 
 
 import {
@@ -22,6 +23,8 @@ import {
   Mail,
   ArrowLeft,
   FileText,
+  CheckSquare,
+  Settings,
 } from "lucide-react";
 type DocumentType = {
   _id: string;
@@ -37,14 +40,26 @@ type Recipient = {
 };
 type SignatureField = {
   id: string | number;
-  type: "signature" | "date" | "text";
+  type: "signature" | "date" | "text"  | "checkbox";
   x: number;
   y: number;
   page: number;
   recipientIndex: number;
   width?: number;
   height?: number;
+  label?: string; //   Field label
+  defaultChecked?: boolean; //   NEW: For checkboxes
+
+  //   NEW: Conditional Logic
+  conditional?: {
+    enabled: boolean;
+    dependsOn: string | number; // Field ID this depends on
+    condition: 'checked' | 'unchecked' | 'equals' | 'not_equals' | 'contains';
+    value?: string; // For 'equals' and 'contains' conditions
+  };
+  
 };
+
 type SignatureRequest = {
   recipientEmail?: string;
   recipientName?: string;
@@ -70,6 +85,8 @@ export default function ESignaturePage() {
   const searchParams = useSearchParams();
 const mode = searchParams?.get('mode'); // 'edit' or 'send'
 const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; email: string; link: string; status: string }>>([]);
+const [editingFieldLogic, setEditingFieldLogic] = useState<SignatureField | null>(null);
+const [editingLabelField, setEditingLabelField] = useState<SignatureField | null>(null);
 
   const [signatureRequest, setSignatureRequest] = useState<SignatureRequest>({
     recipientEmail: "",
@@ -681,6 +698,16 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                   <Edit className="h-5 w-5 mr-3" />
                   Text Field
                 </Button>
+                {/*   NEW: CHECKBOX FIELD */}
+<Button
+  variant="outline"
+  className="w-full justify-start h-12"
+  draggable
+  onDragStart={(e) => e.dataTransfer.setData("fieldType", "checkbox")}
+>
+  <CheckSquare className="h-5 w-5 mr-3" />
+  Checkbox Field
+</Button>
               </div>
               {/* Quick Actions */}
               <div className="mt-6 pt-6 border-t space-y-3">
@@ -709,6 +736,7 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                   <FileSignature className="h-4 w-4 mr-2" />
                   Auto-place Signatures
                 </Button>
+      
                 <Button
                   variant="outline"
                   size="sm"
@@ -730,6 +758,7 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                   Clear This Page
                 </Button>
               </div>
+              
               <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-xs text-blue-800">
                   💡 <strong>Tip:</strong> Drag field types onto the document where you want
@@ -749,7 +778,8 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                   const fieldType = e.dataTransfer.getData("fieldType") as
                     | "signature"
                     | "date"
-                    | "text";
+                    | "text"
+                    | "checkbox"; //   Add checkbox
                   const container = document.getElementById("pdf-container");
                   if (!container) return;
                   const rect = container.getBoundingClientRect();
@@ -765,6 +795,8 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                     y: yPercent,
                     page: pageNumber,
                     recipientIndex: 0,
+                     label: fieldType === 'checkbox' ? 'Check this box' : '', //   Default label
+    defaultChecked: false, //   For checkboxes
                   };
                   setSignatureRequest({
                     ...signatureRequest,
@@ -796,13 +828,14 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                           key={field.id}
                           className="absolute border-2 rounded cursor-move bg-white/95 shadow-xl group hover:shadow-2xl transition-all hover:z-50"
                           style={{
-                            left: `${field.x}%`,
-                            top: `${topPosition}px`,
-                            borderColor: recipient?.color || "#9333ea",
-                            width: field.type === "signature" ? "180px" : "140px",
-                            height: field.type === "signature" ? "70px" : "45px",
-                            transform: "translate(-50%, 0%)",
-                          }}
+  left: `${field.x}%`,
+  top: `${topPosition}px`,
+  borderColor: recipient?.color || "#9333ea",
+  width: "180px", // Same width for all fields
+  height: field.type === "signature" ? "70px" : "45px", // Same height for non-signature fields
+  transform: "translate(-50%, 0%)",
+}}
+
                           draggable
                           onDragEnd={(e) => {
                             const container = document.getElementById("pdf-container");
@@ -840,6 +873,25 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                                 </option>
                               ))}
                             </select>
+
+                            {/*   MOVE THE LABEL EDITOR HERE (right after select) */}
+  {(field.type === "checkbox" || field.type === "text") && (
+    <input
+      type="text"
+      value={field.label || ""}
+      onChange={(e) => {
+        e.stopPropagation();
+        const updated = signatureRequest.signatureFields.map((f) =>
+          f.id === field.id ? { ...f, label: e.target.value } : f
+        );
+        setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+      }}
+      onClick={(e) => e.stopPropagation()}
+      placeholder={field.type === "checkbox" ? "Checkbox label..." : "Field label..."}
+      className="absolute bottom-full mb-1 left-1/2 transform -translate-x-1/2 text-xs border rounded px-2 py-1 bg-white opacity-0 group-hover:opacity-100 transition-opacity w-40 text-center"
+    />
+  )}
+                              
                             <div className="text-center">
                               <div className="flex items-center justify-center gap-1 mb-1">
                                 {field.type === "signature" && (
@@ -847,18 +899,57 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                                 )}
                                 {field.type === "date" && <Clock className="h-4 w-4" />}
                                 {field.type === "text" && <Edit className="h-4 w-4" />}
-                                <span className="text-xs font-semibold">
-                                  {field.type === "signature"
-                                    ? "Sign Here"
-                                    : field.type === "date"
-                                    ? "Date"
-                                    : "Text"}
-                                </span>
+                                {field.type === "checkbox" && <CheckSquare className="h-4 w-4" />}
+                                {field.type !== "checkbox" && (
+              <span className="text-xs font-semibold">
+                {field.type === "signature" ? "Sign Here" :
+                 field.type === "date" ? "Date" : "Text"}
+              </span>
+            )}
+
+            
                               </div>
-                              <p className="text-xs text-slate-600 truncate px-2">
-                                {recipient?.name || `Recipient ${field.recipientIndex + 1}`}
-                              </p>
+
+                              
+                              {/*   Show label for checkbox */}
+          
+          {field.type !== "checkbox" && (
+            <p className="text-xs text-slate-600 truncate px-2">
+              {recipient?.name || `Recipient ${field.recipientIndex + 1}`}
+            </p>
+          )}
                             </div>
+                            {/* Settings Button (Top-Left) */}
+    {(field.type === "checkbox" || field.type === "text") && (
+  <Button
+    variant="ghost"
+    size="icon"
+    className="absolute -top-3 -left-3 h-7 w-7 rounded-full bg-blue-500 text-white hover:bg-blue-600 shadow-lg z-10"
+    onClick={(e) => {
+      e.stopPropagation();
+      setEditingFieldLogic(field);
+    }}
+  >
+    <Settings className="h-4 w-4" />
+  </Button>
+)}
+
+    {/* Edit Label Button (Top-Right) */}
+    {(field.type === "text" || field.type === "checkbox") && (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute -top-3 -right-10 h-7 w-7 rounded-full bg-blue-500 text-white hover:bg-blue-600 shadow-lg z-10"
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditingLabelField(field);
+        }}
+      >
+        <Edit className="h-4 w-4" />
+      </Button>
+    )}
+
+                           
                             <Button
                               variant="ghost"
                               size="icon"
@@ -874,6 +965,12 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
                               <X className="h-4 w-4" />
                             </Button>
                           </div>
+                           {/* ⭐ NEW: Conditional Logic Indicator */}
+  {field.conditional?.enabled && (
+    <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full shadow">
+      Conditional
+    </div>
+  )}
                         </div>
                       );
                     })}
@@ -1190,6 +1287,69 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
     </div>
   </DialogContent>
 </Dialog>
+<Dialog
+  open={!!editingLabelField}
+  onOpenChange={(open) => !open && setEditingLabelField(null)}
+>
+  <DialogContent className="bg-white sm:max-w-md p-0 overflow-hidden">
+    <DialogHeader className="p-6 border-b bg-white">
+      <DialogTitle className="text-lg font-semibold text-gray-900">
+        Edit Label
+      </DialogTitle>
+    </DialogHeader>
+    <div className="p-6 space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="field-label" className="text-sm font-medium text-gray-700">
+          Field Label
+        </Label>
+        <Input
+          id="field-label"
+          value={editingLabelField?.label || ""}
+          onChange={(e) => {
+            if (!editingLabelField) return;
+            const updated = signatureRequest.signatureFields.map((f) =>
+              f.id === editingLabelField.id ? { ...f, label: e.target.value } : f
+            );
+            setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+            setEditingLabelField({ ...editingLabelField, label: e.target.value });
+          }}
+          placeholder="Enter field label"
+          className="text-sm"
+        />
+      </div>
+    </div>
+    <div className="p-4 border-t bg-gray-50 flex justify-end space-x-3">
+      <Button
+        variant="outline"
+        onClick={() => setEditingLabelField(null)}
+        className="text-sm"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={() => setEditingLabelField(null)}
+        className="bg-purple-600 hover:bg-purple-700 text-sm"
+      >
+        Save
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{editingFieldLogic && (
+  <ConditionalFieldBuilder
+    field={editingFieldLogic as any}
+    allFields={signatureRequest.signatureFields as any}
+    onUpdate={(updatedField: any) => {
+      const updated = signatureRequest.signatureFields.map((f) =>
+        f.id === updatedField.id ? { ...f, ...updatedField } : f
+      );
+      setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+    }}
+    onClose={() => setEditingFieldLogic(null)}
+  />
+)}
+
     </div>
   );
 }
