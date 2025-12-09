@@ -70,6 +70,14 @@ return NextResponse.json({
     signatureFields: signatureRequest.signatureFields || [],
     viewMode: signatureRequest.viewMode || 'isolated', // ⭐ ADD THIS
     sharedSignatures: allSharedSignatures, // ⭐ ADD THIS
+    expiresAt: signatureRequest.expiresAt, // ⭐ ADD THIS
+    cancelledAt: signatureRequest.cancelledAt, // ⭐ ADD THIS
+    declinedAt: signatureRequest.declinedAt, // ⭐ ADD THIS
+    declineReason: signatureRequest.declineReason, // ⭐ ADD THIS
+    cancellationReason: signatureRequest.cancellationReason, // ⭐ ADD THIS
+    signedAt: signatureRequest.signedAt,
+    signedFields: signatureRequest.signedFields || [],
+    ipAddress: signatureRequest.ipAddress || null,
     message: signatureRequest.message,
     dueDate: signatureRequest.dueDate,
     createdAt: signatureRequest.createdAt,

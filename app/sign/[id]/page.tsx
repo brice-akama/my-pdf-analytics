@@ -73,6 +73,11 @@ const DocSendSigningPage = () => {
   const [daysUntilExpiration, setDaysUntilExpiration] = useState<number | null>(null);
   const [signatureRequest ] = useState<any | null>(null); 
   const [fieldValues, setFieldValues] = useState<Record<string, any>>({});
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+const [declineReason, setDeclineReason] = useState('');
+const [decliningDocument, setDecliningDocument] = useState(false);
+const [wasDeclined, setWasDeclined] = useState(false);
+
 
 
 
@@ -153,13 +158,28 @@ const isFieldVisible = (field: SignatureField): boolean => {
         const signatureRequest = requestData.signatureRequest;
        
         //   CHECK IF CANCELLED
+//   CHECK IF CANCELLED
+console.log('🔍 Checking cancellation status...');
+console.log('Status:', signatureRequest.status);
+
 if (signatureRequest.status === 'cancelled') {
+  console.log('🔍 CANCELLED REQUEST DETECTED');
+  console.log('🔍 signatureRequest:', signatureRequest);
+  
   const cancelledDate = signatureRequest.cancelledAt 
-    ? new Date(signatureRequest.cancelledAt).toLocaleDateString()
+    ? new Date(signatureRequest.cancelledAt).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
     : 'recently';
+  
   const reason = signatureRequest.cancellationReason || 'No reason provided';
   
-  setError(`This signature request was cancelled ${cancelledDate}. Reason: ${reason}`);
+  console.log('✅ Cancellation reason:', reason);
+  
+  setError(`This signature request was cancelled on ${cancelledDate}. Reason: ${reason}`);
   setLoading(false);
   return;
 }
@@ -174,6 +194,19 @@ if (signatureRequest.expiresAt) {
     setLoading(false);
     return;
   }
+}
+
+// Also check for declined status
+if (signatureRequest.status === 'declined') {
+  console.log('🔍 DECLINED REQUEST DETECTED (this person declined)');
+  const declinedDate = signatureRequest.declinedAt 
+    ? new Date(signatureRequest.declinedAt).toLocaleDateString()
+    : 'recently';
+  const reason = signatureRequest.declineReason || 'No reason provided';
+  
+  setError(`You declined to sign this document on ${declinedDate}. Reason: ${reason}`);
+  setLoading(false);
+  return;
 }
 
   const isAwaitingTurnStatus = signatureRequest.status === 'awaiting_turn';
@@ -457,6 +490,56 @@ if (signatureRequest.expiresAt) {
     }
   };
 
+  const handleDecline = async () => {
+  if (declineReason.trim().length < 10) {
+    alert('Please provide a reason for declining (at least 10 characters)');
+    return;
+  }
+
+  setDecliningDocument(true);
+
+  try {
+    let ipAddress = null;
+    try {
+      const ipRes = await fetch('https://api.ipify.org?format=json');
+      const ipData = await ipRes.json();
+      ipAddress = ipData.ip;
+    } catch (err) {
+      console.warn('Could not fetch IP address');
+    }
+
+    const res = await fetch(`/api/signature/${signatureId}/decline`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        reason: declineReason.trim(),
+        ipAddress: ipAddress,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      alert(data.message || 'Failed to decline document');
+      setDecliningDocument(false);
+      return;
+    }
+
+    setShowDeclineModal(false);
+    setWasDeclined(true);
+    setCompleted(true);
+    setDecliningDocument(false);
+    
+  } catch (err) {
+    console.error('Error declining document:', err);
+    alert('Failed to decline document. Please try again.');
+    setDecliningDocument(false);
+  }
+};
+
+
   const handleCheckboxToggle = (fieldId: string) => {
   const currentValue = fieldValues[fieldId] || false;
   const newValue = !currentValue;
@@ -583,6 +666,36 @@ if (signatureRequest.expiresAt) {
   </div>
 )}
 
+if (completed) {
+  // Show DECLINE success screen
+  if (wasDeclined) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-xl p-8 max-w-md text-center">
+          <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <X className="h-8 w-8 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Document Declined</h2>
+          <p className="text-slate-600 mb-6">
+            You have declined to sign this document. All parties have been notified of your decision.
+          </p>
+
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-red-800 mb-2"><strong>Reason provided:</strong></p>
+            <p className="text-sm text-red-700 italic">"{declineReason}"</p>
+          </div>
+
+          <div className="bg-slate-50 rounded-lg p-4 border text-left">
+            <p className="text-sm text-slate-700"><strong>Document:</strong> {document.filename}</p>
+            <p className="text-sm text-slate-700 mt-2"><strong>Declined by:</strong> {recipient.name}</p>
+            <p className="text-sm text-slate-700 mt-2"><strong>Email:</strong> {recipient.email}</p>
+            <p className="text-sm text-slate-700 mt-2"><strong>Date:</strong> {new Date().toLocaleDateString()}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  } 
   if (completed) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
@@ -879,34 +992,53 @@ if (signatureRequest.expiresAt) {
                   )
                 })}
               </div>
-              <button
-                onClick={completeSignature}
-                disabled={!allFieldsFilled || submitting || isAwaitingTurn}  // ⭐ Add isAwaitingTurn
-                className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${allFieldsFilled && !submitting && !isAwaitingTurn  // ⭐ Add check
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
-                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  }`}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Submitting...
-                  </>
-                ) : isAwaitingTurn ? (  // ⭐ Add this
-                  <>
-                    <Clock className="h-5 w-5" />
-                    Waiting for Your Turn
-                  </>
-                ) : allFieldsFilled ? (
-                  <>
-                    <Check className="h-5 w-5" />
-                    Complete Signing
-                  </>
-                ) : (
-                  'Complete All Fields'
-                )}
-              </button>
+             {/* Complete Signing Button */}
+  <button
+    onClick={completeSignature}
+    disabled={!allFieldsFilled || submitting || isAwaitingTurn}
+    className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+      allFieldsFilled && !submitting && !isAwaitingTurn
+        ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
+        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+    }`}
+  >
+    {submitting ? (
+      <>
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Submitting...
+      </>
+    ) : isAwaitingTurn ? (
+      <>
+        <Clock className="h-5 w-5" />
+        Waiting for Your Turn
+      </>
+    ) : allFieldsFilled ? (
+      <>
+        <Check className="h-5 w-5" />
+        Complete Signing
+      </>
+    ) : (
+      'Complete All Fields'
+    )}
+  </button>
+
+  {/* Decline to Sign Button */}
+  {!isAwaitingTurn && (
+    <button
+      onClick={() => setShowDeclineModal(true)}
+      disabled={submitting}
+      className="w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 border-2 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <X className="h-5 w-5" />
+      Decline to Sign
+    </button>
+  )}
+
+  <p className="text-xs text-slate-500 text-center mt-2">
+    By clicking "Complete Signing", you agree that your signature is legally binding.
+  </p>
             </div>
+            
           </div>
         </div>
       </div>
@@ -1029,6 +1161,94 @@ if (signatureRequest.expiresAt) {
           </div>
         </div>
       )}
+      {/* Decline Modal */}
+{showDeclineModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full scrollball max-h-[90vh] overflow-y-auto">
+      <div className="p-6 border-b">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <X className="h-5 w-5 text-red-600" />
+              Decline to Sign
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">Please provide a reason for declining</p>
+          </div>
+          <button
+            onClick={() => {
+              setShowDeclineModal(false);
+              setDeclineReason('');
+            }}
+            className="text-slate-400 hover:text-slate-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="p-6">
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Reason for declining <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={declineReason}
+            onChange={(e) => setDeclineReason(e.target.value)}
+            placeholder="Please explain why you're declining to sign this document..."
+            className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-red-500 focus:outline-none resize-none"
+            rows={4}
+            autoFocus
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Minimum 10 characters • {declineReason.length}/500
+          </p>
+        </div>
+
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <p className="text-sm text-red-800">
+            <strong>⚠️ Warning:</strong> Declining this document will:
+          </p>
+          <ul className="text-xs text-red-700 mt-2 space-y-1 ml-4">
+            <li>• Cancel the entire signing process</li>
+            <li>• Notify all parties involved</li>
+            <li>• Prevent further signatures</li>
+            <li>• This action cannot be undone</li>
+          </ul>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setShowDeclineModal(false);
+              setDeclineReason('');
+            }}
+            disabled={decliningDocument}
+            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 font-medium disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDecline}
+            disabled={declineReason.trim().length < 10 || decliningDocument}
+            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
+          >
+            {decliningDocument ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Declining...
+              </>
+            ) : (
+              <>
+                <X className="h-4 w-4" />
+                Decline Document
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

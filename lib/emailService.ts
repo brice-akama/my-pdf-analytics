@@ -686,6 +686,9 @@ export async function sendSignatureReminderEmail({
     throw error;
   }
 }
+// ===================================
+// SIGNATURE REQUEST CANCELLED EMAIL
+// ===================================
 
 
 export async function sendSignatureRequestCancelledEmail({
@@ -940,6 +943,194 @@ export async function sendCCCompletionEmail({
     }
 
     console.log('✅ CC completion email sent to:', ccEmail);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Email service error:', error);
+    throw error;
+  }
+}
+
+
+// ===================================
+// SIGNATURE DECLINED NOTIFICATION
+// ===================================
+
+export async function sendSignatureDeclinedNotification({
+  ownerEmail,
+  ownerName,
+  declinerName,
+  declinerEmail,
+  documentName,
+  reason,
+  statusLink,
+}: {
+  ownerEmail: string;
+  ownerName: string;
+  declinerName: string;
+  declinerEmail: string;
+  documentName: string;
+  reason: string;
+  statusLink: string;
+}) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocuShare <onboarding@resend.dev>',
+      to: [ownerEmail],
+      subject: `🚫 ${declinerName} declined to sign "${documentName}"`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              background-color: #f5f5f5;
+              margin: 0;
+              padding: 0;
+            }
+            .container {
+              max-width: 600px;
+              margin: 40px auto;
+              background: white;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+              background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+              padding: 40px 30px;
+              text-align: center;
+              color: white;
+            }
+            .icon {
+              font-size: 60px;
+              margin-bottom: 10px;
+            }
+            .content {
+              padding: 40px 30px;
+            }
+            .decline-info {
+              background: #fef2f2;
+              border-left: 4px solid #ef4444;
+              padding: 20px;
+              border-radius: 8px;
+              margin: 20px 0;
+            }
+            .reason-box {
+              background: #f9fafb;
+              border: 1px solid #e5e7eb;
+              padding: 15px;
+              border-radius: 6px;
+              margin: 15px 0;
+              font-style: italic;
+              color: #4b5563;
+            }
+            .cta-button {
+              display: inline-block;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 14px 32px;
+              text-decoration: none;
+              border-radius: 8px;
+              font-weight: 600;
+              margin: 20px 0;
+            }
+            .footer {
+              background: #f8f9fa;
+              padding: 30px;
+              text-align: center;
+              font-size: 14px;
+              color: #6c757d;
+              border-top: 1px solid #e9ecef;
+            }
+            .next-steps {
+              background: #eff6ff;
+              border-left: 4px solid #3b82f6;
+              padding: 15px;
+              border-radius: 6px;
+              margin: 20px 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="icon">🚫</div>
+              <h1 style="margin: 0; font-size: 28px;">Signature Declined</h1>
+            </div>
+            
+            <div class="content">
+              <p>Hi ${ownerName},</p>
+              
+              <p>
+                <strong>${declinerName}</strong> has declined to sign the following document:
+              </p>
+              
+              <div class="decline-info">
+                <div style="margin-bottom: 15px;">
+                  <strong>📄 Document:</strong> ${documentName}
+                </div>
+                <div style="margin-bottom: 15px;">
+                  <strong>🚫 Declined by:</strong> ${declinerName} (${declinerEmail})
+                </div>
+                <div>
+                  <strong>⏰ Declined at:</strong> ${new Date().toLocaleString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <strong>Reason provided:</strong>
+                <div class="reason-box">
+                  "${reason}"
+                </div>
+              </div>
+              
+              <div class="next-steps">
+                <strong>📌 What happens next:</strong>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                  <li>This signature request has been cancelled</li>
+                  <li>Other recipients have been notified</li>
+                  <li>No further signatures can be collected</li>
+                  <li>You may want to contact ${declinerName} to discuss their concerns</li>
+                </ul>
+              </div>
+              
+              <center>
+                <a href="${statusLink}" class="cta-button">
+                  View Document Status
+                </a>
+              </center>
+              
+              <p style="margin-top: 30px; font-size: 14px; color: #6c757d;">
+                If you need to proceed with this document, you may create a new signature request after addressing the concerns raised.
+              </p>
+            </div>
+            
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error('❌ Failed to send decline notification:', error);
+      throw error;
+    }
+
+    console.log('✅ Decline notification sent to:', ownerEmail);
     return { success: true, data };
   } catch (error) {
     console.error('❌ Email service error:', error);
