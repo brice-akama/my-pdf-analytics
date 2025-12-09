@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
-import { sendSignatureRequestEmail } from "@/lib/emailService";
+import { sendCCNotificationEmail, sendSignatureRequestEmail } from "@/lib/emailService";
 import { verifyUserFromRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { documentId, recipients, signatureFields, message, dueDate, viewMode , signingOrder, expirationDays  } = await request.json();
+    const { documentId, recipients, signatureFields, message, dueDate, viewMode , signingOrder, expirationDays, ccRecipients  } = await request.json();
     const db = await dbPromise;
 
     // ✅ Get current user details
@@ -46,25 +46,26 @@ export async function POST(request: NextRequest) {
 
     const signatureRequests = [];
     const emailPromises = [];
+    const ccRecipientLinks = []; // NEW: Track CC links
 
     for (let i = 0; i < recipients.length; i++) {
       const recipient = recipients[i];
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`;
 
       //   Calculate expiration date
-let expiresAt = null;
-if (expirationDays && expirationDays !== 'never') {
-  const days = parseInt(expirationDays);
-  expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + days);
-}
+      let expiresAt = null;
+      if (expirationDays && expirationDays !== 'never') {
+        const days = parseInt(expirationDays);
+        expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + days);
+      }
 
-console.log('📅 Signature request will expire:', expiresAt || 'Never');
+      console.log('📅 Signature request will expire:', expiresAt || 'Never');
 
       //   Determine initial status based on signing order
-  const initialStatus = signingOrder === 'sequential' 
-    ? (i === 0 ? 'pending' : 'awaiting_turn')  // First person is 'pending', rest wait
-    : 'pending';  // Everyone is 'pending' for 'any' order
+      const initialStatus = signingOrder === 'sequential' 
+        ? (i === 0 ? 'pending' : 'awaiting_turn')  // First person is 'pending', rest wait
+        : 'pending';  // Everyone is 'pending' for 'any' order
 
       //   ADD .map() to enrich fields with recipient details
       const enrichedSignatureFields = viewMode === 'shared'
@@ -84,24 +85,22 @@ console.log('📅 Signature request will expire:', expiresAt || 'Never');
       const signatureRequest = {
         uniqueId,
         documentId: documentId,
-        ownerId: ownerId, // ✅ Now properly set!
-        ownerEmail: ownerEmail, // ✅ Now properly set!
+        ownerId: ownerId,
+        ownerEmail: ownerEmail,
         recipient: {
           name: recipient.name,
           email: recipient.email,
           role: recipient.role || '',
         },
         recipientIndex: i,
-        // ✅ KEEP ORIGINAL signatureFields (do NOT replace)
-        signingOrder: signingOrder || 'any', //   ADD THIS
-        signatureFields: viewMode === 'shared'
-          ? signatureFields  // All fields if shared
-          : signatureFields.filter((f: any) => f.recipientIndex === i), // Only their fields if isolated
-        viewMode: viewMode || 'isolated', // ADD THIS
+        signingOrder: signingOrder || 'any',
+        expirationDays: expirationDays || '30',
+        signatureFields: enrichedSignatureFields,
+        viewMode: viewMode || 'isolated',
         message: message || '',
         dueDate: dueDate || null,
-        expiresAt: expiresAt, //   ADD THIS
-        status: initialStatus, //   Use dynamic status
+        expiresAt: expiresAt,
+        status: initialStatus,
         createdAt: new Date(),
         viewedAt: null,
         signedAt: null,
@@ -120,14 +119,14 @@ console.log('📅 Signature request will expire:', expiresAt || 'Never');
         recipient: recipient.name,
         email: recipient.email,
         link: signingLink,
-       status: initialStatus, //   Return actual status
+        status: initialStatus,
       });
 
       //   Only send email to first person if sequential order
-  if (signingOrder === 'sequential' && i > 0) {
-    console.log(`⏳ Skipping email for ${recipient.email} - awaiting turn`);
-    continue; // Skip sending email
-  }
+      if (signingOrder === 'sequential' && i > 0) {
+        console.log(`⏳ Skipping email for ${recipient.email} - awaiting turn`);
+        continue; // Skip sending email
+      }
 
       emailPromises.push(
         sendSignatureRequestEmail({
@@ -143,6 +142,60 @@ console.log('📅 Signature request will expire:', expiresAt || 'Never');
           return null;
         })
       );
+    }
+
+    // ⭐ NEW: Handle CC Recipients (AFTER the recipient loop)
+    if (ccRecipients && ccRecipients.length > 0) {
+      console.log('📧 Processing', ccRecipients.length, 'CC recipients');
+      
+      for (let j = 0; j < ccRecipients.length; j++) {
+        const cc = ccRecipients[j];
+        const ccUniqueId = `cc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${j}`;
+        
+        // Create CC recipient record in database
+        const ccRecord = {
+          uniqueId: ccUniqueId,
+          documentId: documentId,
+          ownerId: ownerId,
+          ownerEmail: ownerEmail,
+          name: cc.name,
+          email: cc.email,
+          notifyWhen: cc.notifyWhen,
+          type: 'cc_recipient',
+          status: 'active',
+          createdAt: new Date(),
+          notifiedAt: cc.notifyWhen === 'immediately' ? new Date() : null,
+        };
+        
+        await db.collection("cc_recipients").insertOne(ccRecord);
+        
+        const ccViewLink = `${request.nextUrl.origin}/cc/${ccUniqueId}?email=${cc.email}`;
+        
+        ccRecipientLinks.push({
+          name: cc.name,
+          email: cc.email,
+          uniqueId: ccUniqueId,
+          link: ccViewLink,
+          notifyWhen: cc.notifyWhen,
+        });
+        
+        // Send immediate email if requested
+        if (cc.notifyWhen === 'immediately') {
+          console.log(`📤 Sending immediate CC to ${cc.email}`);
+          
+          await sendCCNotificationEmail({
+            ccName: cc.name,
+            ccEmail: cc.email,
+            documentName: document.filename,
+            senderName: ownerName,
+            viewLink: ccViewLink,
+          }).catch(err => {
+            console.error(`Failed to send CC to ${cc.email}:`, err);
+          });
+        }
+      }
+      
+      console.log('✅ CC recipients processed:', ccRecipientLinks.length);
     }
 
     console.log('📧 Sending', emailPromises.length, 'emails...');
@@ -165,8 +218,8 @@ console.log('📅 Signature request will expire:', expiresAt || 'Never');
     return NextResponse.json({
       success: true,
       signatureRequests,
+      ccRecipients: ccRecipientLinks, // ⭐ NEW: Return CC links
       message: `Signature requests created and sent to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
-       
     });
   } catch (error) {
     console.error("❌ Error creating signature requests:", error);

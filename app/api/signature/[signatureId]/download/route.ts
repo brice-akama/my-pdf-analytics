@@ -22,32 +22,89 @@ export async function GET(
     
     const db = await dbPromise;
 
-    const signatureRequest = await db.collection("signature_requests").findOne({
-      uniqueId: signatureId,
-    });
+    // ⭐ NEW: Check if this is a CC recipient request
+    const isCCRequest = signatureId.startsWith('cc-');
+    let signatureRequest;
+    let document;
 
-    if (!signatureRequest) {
-      return NextResponse.json(
-        { success: false, message: "Signature request not found" },
-        { status: 404 }
-      );
-    }
+    if (isCCRequest) {
+      console.log('📧 CC Recipient download request');
+      
+      // Get CC recipient record
+      const ccRecord = await db.collection("cc_recipients").findOne({
+        uniqueId: signatureId,
+      });
 
-    const document = await db.collection("documents").findOne({
-      _id: new ObjectId(signatureRequest.documentId),
-    });
+      if (!ccRecord) {
+        return NextResponse.json(
+          { success: false, message: "CC record not found" },
+          { status: 404 }
+        );
+      }
 
-    if (!document) {
-      return NextResponse.json(
-        { success: false, message: "Document not found" },
-        { status: 404 }
-      );
+      // Get document
+      document = await db.collection("documents").findOne({
+        _id: new ObjectId(ccRecord.documentId),
+      });
+
+      if (!document) {
+        return NextResponse.json(
+          { success: false, message: "Document not found" },
+          { status: 404 }
+        );
+      }
+
+      // ⭐ Get any signature request for this document (needed for generateSignedPDF)
+      signatureRequest = await db.collection("signature_requests").findOne({
+        documentId: ccRecord.documentId,
+      });
+
+      if (!signatureRequest) {
+        return NextResponse.json(
+          { success: false, message: "No signature requests found for this document" },
+          { status: 404 }
+        );
+      }
+
+      console.log('✅ CC recipient verified, document found');
+    } else {
+      // Regular signature request
+      signatureRequest = await db.collection("signature_requests").findOne({
+        uniqueId: signatureId,
+      });
+
+      if (!signatureRequest) {
+        return NextResponse.json(
+          { success: false, message: "Signature request not found" },
+          { status: 404 }
+        );
+      }
+
+      document = await db.collection("documents").findOne({
+        _id: new ObjectId(signatureRequest.documentId),
+      });
+
+      if (!document) {
+        return NextResponse.json(
+          { success: false, message: "Document not found" },
+          { status: 404 }
+        );
+      }
     }
 
     // ✅ DETERMINE WHICH SIGNATURES TO INCLUDE
     let signaturesToInclude;
 
-    if (signatureRequest.isBulkSend === true) {
+    if (isCCRequest) {
+      // ⭐ CC RECIPIENT: Include ALL signed signatures
+      signaturesToInclude = await db.collection("signature_requests")
+        .find({ 
+          documentId: signatureRequest.documentId,
+          status: "signed"
+        })
+        .toArray();
+      console.log(`📧 CC mode - PDF with all ${signaturesToInclude.length} signers`);
+    } else if (signatureRequest.isBulkSend === true) {
       // BULK SEND: Only this person's signature
       signaturesToInclude = [signatureRequest];
       console.log('📧 Bulk send mode - PDF with only this signer');

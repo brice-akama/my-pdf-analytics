@@ -70,9 +70,18 @@ type SignatureRequest = {
   recipients: Recipient[];
   signatureFields: SignatureField[];
    viewMode?: 'isolated' | 'shared'; // ADD THIS
-    signingOrder?: 'any' | 'sequential'; // ⭐ ADD THIS
-    expirationDays?: string; // ⭐ ADD THIS
+    signingOrder?: 'any' | 'sequential'; //   ADD THIS
+    expirationDays?: string; //   ADD THIS
+ccRecipients?: CCRecipient[]; //   ADD THIS
+
 };
+
+type CCRecipient = {
+  name: string;
+  email: string;
+  notifyWhen: 'completed' | 'immediately';
+};
+
 export default function ESignaturePage() {
   const params = useParams();
   const router = useRouter();
@@ -84,7 +93,7 @@ export default function ESignaturePage() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const searchParams = useSearchParams();
 const mode = searchParams?.get('mode'); // 'edit' or 'send'
-const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; email: string; link: string; status: string }>>([]);
+const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; email: string; link: string; status: string; isCC?: boolean }>>([]);
 const [editingFieldLogic, setEditingFieldLogic] = useState<SignatureField | null>(null);
 const [editingLabelField, setEditingLabelField] = useState<SignatureField | null>(null);
 
@@ -225,6 +234,7 @@ const [editingLabelField, setEditingLabelField] = useState<SignatureField | null
           viewMode: signatureRequest.viewMode || 'isolated', // ADD THIS
           signingOrder: signatureRequest.signingOrder || 'any', //   ADD THIS
           expirationDays: signatureRequest.expirationDays || '30', //   ADD THIS
+          ccRecipients: signatureRequest.ccRecipients || [], //   ADD THIS
         }),
       });
       const data = await response.json();
@@ -242,6 +252,7 @@ const [editingLabelField, setEditingLabelField] = useState<SignatureField | null
             email: string;
             link: string;
             status: string;
+             isCC?: boolean; // Add this to identify CC recipients
         }
 
         const links: GeneratedLink[] = (data.signatureRequests as SignatureRequestResponse[]).map((request) => ({
@@ -251,6 +262,19 @@ const [editingLabelField, setEditingLabelField] = useState<SignatureField | null
             status: request.status,
         }));
         setGeneratedLinks(links);
+        // Generate CC recipient links if they exist
+if (data.ccRecipients && data.ccRecipients.length > 0) {
+    const ccLinks = data.ccRecipients.map((cc: any) => ({
+        recipient: cc.name,
+        email: cc.email,
+        link: `${window.location.origin}/cc/${cc.uniqueId}?email=${cc.email}`,
+        status: 'CC',
+        isCC: true, // Flag to identify CC recipients
+    }));
+    setGeneratedLinks([...links, ...ccLinks]);
+} else {
+    setGeneratedLinks(links);
+}
         setShowSuccessDialog(true);
       } else {
         alert(data.message || "Failed to send signature request");
@@ -490,7 +514,110 @@ const [editingLabelField, setEditingLabelField] = useState<SignatureField | null
                   <Users className="h-5 w-5 mr-2" />
                   Add Another Recipient
                 </Button>
-                 
+                 {/* ⭐ NEW: CC Recipients Section */}
+<div className="mt-8 pt-8 border-t">
+  <div className="flex items-center justify-between mb-4">
+    <div>
+      <h3 className="text-lg font-semibold text-slate-900">
+        CC Recipients (Optional)
+      </h3>
+      <p className="text-sm text-slate-600">
+        People who will receive a copy but don't need to sign
+      </p>
+    </div>
+  </div>
+
+  {/* CC Recipients List */}
+  <div className="space-y-3">
+    {(signatureRequest.ccRecipients || []).map((cc, index) => (
+      <div key={index} className="border rounded-lg p-4 bg-slate-50">
+        <div className="flex items-start gap-4">
+          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <Mail className="h-5 w-5 text-blue-600" />
+          </div>
+          <div className="flex-1 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Name</Label>
+                <Input
+                  value={cc.name}
+                  onChange={(e) => {
+                    const updated = [...(signatureRequest.ccRecipients || [])];
+                    updated[index].name = e.target.value;
+                    setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
+                  }}
+                  placeholder="John Doe"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Email</Label>
+                <Input
+                  type="email"
+                  value={cc.email}
+                  onChange={(e) => {
+                    const updated = [...(signatureRequest.ccRecipients || [])];
+                    updated[index].email = e.target.value;
+                    setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
+                  }}
+                  placeholder="john@company.com"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Send Copy</Label>
+              <select
+                value={cc.notifyWhen}
+                onChange={(e) => {
+                  const updated = [...(signatureRequest.ccRecipients || [])];
+                  updated[index].notifyWhen = e.target.value as 'completed' | 'immediately';
+                  setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
+                }}
+                className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
+              >
+                <option value="completed">When all signatures are completed</option>
+                <option value="immediately">Immediately after sending</option>
+              </select>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              const updated = (signatureRequest.ccRecipients || []).filter((_, i) => i !== index);
+              setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
+            }}
+            className="text-red-600 hover:bg-red-50"
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
+    ))}
+
+    {/* Add CC Button */}
+    <Button
+      variant="outline"
+      onClick={() => {
+        const updated = [
+          ...(signatureRequest.ccRecipients || []),
+          {
+            name: "",
+            email: "",
+            notifyWhen: "completed" as const,
+          },
+        ];
+        setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
+      }}
+      className="w-full border-dashed h-12"
+    >
+      <Mail className="h-4 w-4 mr-2" />
+      Add CC Recipient
+    </Button>
+  </div>
+</div>
+                {/* ⭐ NEW: Signature View Mode Selector */}
 
 <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
   <div className="flex items-center justify-between">
@@ -1030,6 +1157,32 @@ const [editingLabelField, setEditingLabelField] = useState<SignatureField | null
                           </div>
                         </div>
                       ))}
+
+                      {/* ⭐ NEW: CC Recipients Review */}
+{signatureRequest.ccRecipients && signatureRequest.ccRecipients.length > 0 && (
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-slate-800">
+      CC Recipients ({signatureRequest.ccRecipients.length})
+    </h3>
+    <div className="space-y-2">
+      {signatureRequest.ccRecipients.map((cc, index) => (
+        <div
+          key={index}
+          className="p-3 border rounded-lg bg-blue-50 border-blue-200 flex items-center gap-3"
+        >
+          <Mail className="h-5 w-5 text-blue-600" />
+          <div className="flex-1">
+            <p className="font-medium text-slate-900">{cc.name}</p>
+            <p className="text-sm text-slate-600">{cc.email}</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Will receive copy: {cc.notifyWhen === 'completed' ? 'When completed' : 'Immediately'}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
                     </div>
                   ) : (
                     <p className="text-sm text-slate-500">No recipients added.</p>
@@ -1153,12 +1306,25 @@ const [editingLabelField, setEditingLabelField] = useState<SignatureField | null
                   <div>
                     <p className="font-medium text-slate-900">{item.recipient}</p>
                     <p className="text-sm text-slate-600">{item.email}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                        <Clock className="h-3 w-3 mr-1" />
-                        {item.status}
-                      </span>
-                    </div>
+                   <div className="flex items-center gap-2 mt-1">
+  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+    item.isCC 
+      ? 'bg-blue-100 text-blue-800' 
+      : 'bg-yellow-100 text-yellow-800'
+  }`}>
+    {item.isCC ? (
+      <>
+        <Mail className="h-3 w-3 mr-1" />
+        CC Recipient
+      </>
+    ) : (
+      <>
+        <Clock className="h-3 w-3 mr-1" />
+        {item.status}
+      </>
+    )}
+  </span>
+</div>
                   </div>
                 </div>
               </div>
@@ -1166,8 +1332,8 @@ const [editingLabelField, setEditingLabelField] = useState<SignatureField | null
               {/* Unique Signing Link */}
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                 <Label className="text-xs font-medium text-slate-700 mb-2 block">
-                  Unique Signing Link
-                </Label>
+  {item.isCC ? 'View-Only Link (CC)' : 'Unique Signing Link'}
+</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     value={item.link}
@@ -1200,9 +1366,12 @@ const [editingLabelField, setEditingLabelField] = useState<SignatureField | null
                     </svg>
                   </Button>
                 </div>
-                <p className="text-xs text-slate-500 mt-2">
-                  💡 This unique link has been emailed to {item.recipient}. You can also share it manually.
-                </p>
+               <p className="text-xs text-slate-500 mt-2">
+  {item.isCC 
+    ? `💡 This view-only link has been emailed to ${item.recipient}. They can view the document but cannot sign.`
+    : `💡 This unique link has been emailed to ${item.recipient}. You can also share it manually.`
+  }
+</p>
               </div>
             </div>
           ))}

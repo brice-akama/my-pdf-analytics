@@ -5,7 +5,8 @@ import { ObjectId } from "mongodb";
 import { 
   sendDocumentSignedNotification, 
   sendAllSignaturesCompleteEmail,
-  sendSignatureRequestEmail // ⭐ Add this import
+  sendSignatureRequestEmail, // ⭐ Add this import
+  sendCCCompletionEmail
 } from "@/lib/emailService";
 import { generateSignedPDF } from "@/lib/pdfGenerator";
 
@@ -216,6 +217,34 @@ export async function POST(
             allSigners: allSigners,
           }).catch(err => console.error('Failed to send completion email:', err))
         );
+
+        // ⭐ ADD THIS: Send to CC recipients who want completion notification
+    if (document.ccRecipients) {
+      const completionCCs = document.ccRecipients.filter(
+        (cc: any) => cc.notifyWhen === 'completed'
+      );
+      
+      if (completionCCs.length > 0) {
+        console.log('📤 Sending completion CC to', completionCCs.length, 'recipients');
+        
+        const ccEmailPromises = completionCCs.map((cc: any) =>
+          sendCCCompletionEmail({
+            ccName: cc.name,
+            ccEmail: cc.email,
+            originalFilename: document.filename,
+            downloadLink: `${request.nextUrl.origin}/api/signature/${signatureId}/download`,
+            allSigners: allSigners,
+          }).catch(err => {
+            console.error(`Failed to send CC completion to ${cc.email}:`, err);
+            return null;
+          })
+        );
+        
+        emailPromises.push(...ccEmailPromises);
+      }
+    }
+    
+    await Promise.all(emailPromises);
 
         // Also send to owner if different from signers
         if (signatureRequest.ownerEmail && 

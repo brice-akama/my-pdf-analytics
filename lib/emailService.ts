@@ -762,3 +762,187 @@ export async function sendSignatureRequestCancelledEmail({
     throw error;
   }
 }
+
+// ===================================
+// CC NOTIFICATION EMAILS
+// ===================================
+
+/**
+ * Sends an immediate CC notification when a document is sent for signature
+ */
+export async function sendCCNotificationEmail({
+  ccName,
+  ccEmail,
+  documentName,
+  senderName,
+  viewLink,
+}: {
+  ccName: string;
+  ccEmail: string;
+  documentName: string;
+  senderName: string;
+  viewLink: string;
+}) {
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+        .content { padding: 30px; background: #f9fafb; }
+        .info-box { background: #e0e7ff; border-left: 4px solid #6366f1; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .button { display: inline-block; padding: 12px 30px; background: #6366f1; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; text-align: center; }
+        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; padding: 20px; background: #f8f9fa; border-top: 1px solid #e9ecef; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 style="margin: 0; font-size: 24px;">📋 Document Copy (CC)</h1>
+        </div>
+        <div class="content">
+          <p>Hi ${ccName},</p>
+          <p>You've been copied on a signature request for:</p>
+
+          <div class="info-box">
+            <p style="margin: 0; font-weight: bold;">${documentName}</p>
+            <p style="margin: 5px 0 0 0; font-size: 14px; color: #475569;">Sent by ${senderName}</p>
+          </div>
+
+          <p><strong>Note:</strong> You are receiving a copy for your records. You are not required to sign this document.</p>
+
+          <p>The document is currently being signed by the required parties. You'll receive the final signed version once complete.</p>
+
+          <a href="${viewLink}" class="button">View Document</a>
+
+          <div class="footer">
+            <p>This is an informational email. No action is required from you.</p>
+            <p style="margin-top: 10px;">© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocuShare <onboarding@resend.dev>',
+      to: [ccEmail],
+      subject: `CC: ${documentName} - Signature Request`,
+      html: emailHtml,
+    });
+
+    if (error) {
+      console.error('❌ Failed to send CC notification email:', error);
+      throw error;
+    }
+
+    console.log('✅ CC notification email sent to:', ccEmail);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Email service error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sends a completion notification to CC recipients when all signatures are collected
+ */
+export async function sendCCCompletionEmail({
+  ccName,
+  ccEmail,
+  originalFilename,
+  downloadLink,
+  allSigners,
+}: {
+  ccName: string;
+  ccEmail: string;
+  originalFilename: string;
+  downloadLink: string;
+  allSigners: Array<{ name: string; email: string; signedAt: Date }>;
+}) {
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; }
+        .content { padding: 30px; background: #f9fafb; }
+        .success-box { background: #d1fae5; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .signers-list { background: white; border: 1px solid #e5e7eb; border-radius: 5px; padding: 15px; margin: 20px 0; }
+        .signer-item { padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+        .signer-item:last-child { border-bottom: none; }
+        .button { display: inline-block; padding: 12px 30px; background: #10b981; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; text-align: center; }
+        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; padding: 20px; background: #f8f9fa; border-top: 1px solid #e9ecef; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 style="margin: 0; font-size: 24px;">✅ Document Fully Signed</h1>
+        </div>
+        <div class="content">
+          <p>Hi ${ccName},</p>
+
+          <div class="success-box">
+            <p style="margin: 0; font-weight: bold; color: #065f46;">All Signatures Collected!</p>
+            <p style="margin: 5px 0 0 0; font-size: 14px; color: #047857;">${originalFilename}</p>
+          </div>
+
+          <p>The following parties have signed the document:</p>
+
+          <div class="signers-list">
+            ${allSigners
+              .map(
+                (signer) => `
+                <div class="signer-item">
+                  <strong>${signer.name}</strong><br/>
+                  <span style="font-size: 13px; color: #6b7280;">${signer.email}</span><br/>
+                  <span style="font-size: 12px; color: #9ca3af;">Signed: ${new Date(
+                    signer.signedAt
+                  ).toLocaleString()}</span>
+                </div>
+              `
+              )
+              .join("")}
+          </div>
+
+          <p>Download the final signed document:</p>
+
+          <a href="${downloadLink}" class="button">Download Signed Document</a>
+
+          <div class="footer">
+            <p>You received this email because you were CC'd on this signature request.</p>
+            <p style="margin-top: 10px;">© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocuShare <onboarding@resend.dev>',
+      to: [ccEmail],
+      subject: `✅ Completed: ${originalFilename}`,
+      html: emailHtml,
+    });
+
+    if (error) {
+      console.error('❌ Failed to send CC completion email:', error);
+      throw error;
+    }
+
+    console.log('✅ CC completion email sent to:', ccEmail);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Email service error:', error);
+    throw error;
+  }
+}
