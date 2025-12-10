@@ -80,6 +80,7 @@ export async function POST(
       // Find the next person in line
       const nextRecipient = await db.collection("signature_requests").findOne({
         documentId: signatureRequest.documentId,
+        
         recipientIndex: signatureRequest.recipientIndex + 1,
         status: 'awaiting_turn',
       });
@@ -123,6 +124,7 @@ export async function POST(
       await db.collection("signature_requests").updateMany(
         { 
           documentId: signatureRequest.documentId,
+          
           uniqueId: { $ne: signatureId }
         },
         {

@@ -1,6 +1,8 @@
 "use client"
 import React, { useState, useRef, useEffect } from 'react';
 import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download, CheckSquare, Square } from 'lucide-react';
+import { SignatureStyleModal } from '@/components/SignatureStyleModal';
+
 
 
 // Type definitions
@@ -826,8 +828,9 @@ if (completed) {
           zIndex: 10,
         }}
         onClick={() => {
-          if (!isFilled && isMyField && isVisible) {
+          if (!isFilled && isMyField && isVisible ) {
             if (field.type === "signature") {
+              console.log('🖊️ Signature field clicked, setting activeField:', field);
               setActiveField(field);
             } else if (field.type === "text") {
               setActiveTextField(field);
@@ -1042,68 +1045,48 @@ if (completed) {
           </div>
         </div>
       </div>
-      {activeField && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full">
-            <div className="p-6 border-b flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">Draw Your Signature</h3>
-                <p className="text-sm text-slate-500 mt-1">Sign inside the box below</p>
-              </div>
-              <button
-                onClick={() => {
-                  setActiveField(null);
-                  clearSignature();
-                }}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6">
-              <div className="border-2 border-dashed border-slate-300 rounded-lg bg-white mb-4 overflow-hidden">
-                <canvas
-                  ref={canvasRef}
-                  width={600}
-                  height={200}
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={handleTouchStart}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
-                  className="w-full cursor-crosshair touch-none"
-                  style={{ touchAction: 'none' }}
-                />
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                <p className="text-sm text-blue-800">
-                  💡 <strong>Tip:</strong> After you sign, the date will automatically appear in the "Date Signed" field below your signature.
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={clearSignature}
-                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 font-medium"
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={saveSignature}
-                  disabled={!signatureData}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  Save Signature
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <SignatureStyleModal
+  isOpen={activeField !== null}
+  onClose={() => {
+    setActiveField(null);
+    clearSignature();
+  }}
+  onSave={(signatureData) => {
+    if (!activeField || !recipient) return;
+    
+    const currentDate = new Date().toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    
+    const updatedSignatures: Record<string, SignatureData> = {
+      ...signatures,
+      [activeField.id]: {
+        type: 'signature',
+        data: signatureData.data,
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    // Auto-fill date fields
+    const dateFields = signatureFields.filter(
+      f => f.type === 'date' && f.recipientIndex === recipient.index
+    );
+    dateFields.forEach(dateField => {
+      updatedSignatures[dateField.id] = {
+        type: 'date',
+        data: currentDate,
+        timestamp: new Date().toISOString()
+      };
+    });
+    
+    setSignatures(updatedSignatures);
+    setActiveField(null);
+    clearSignature();
+  }}
+  recipientName={recipient?.name}
+/>
       {activeTextField && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
