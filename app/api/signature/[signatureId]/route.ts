@@ -3,6 +3,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
+import { parseUserAgent, DeviceInfo } from '@/lib/deviceParser';
+import { getLocationFromIP, GeoLocation } from '@/lib/geoip';
 
 export async function GET(
   request: NextRequest,
@@ -24,6 +26,42 @@ export async function GET(
       );
     }
 
+    // Track view if the document is still pending
+    if (signatureRequest.status === 'pending') {
+      const userAgent = request.headers.get('user-agent') || '';
+      const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown';
+
+      // Get geographic location
+      const geoLocation = await getLocationFromIP(ipAddress);
+
+      // Parse user agent for device, browser, and OS info
+      const deviceInfo: DeviceInfo = parseUserAgent(userAgent);
+
+      await db.collection("signature_requests").updateOne(
+        { uniqueId: signatureId },
+        {
+          $set: {
+            status: 'viewed',
+            viewedAt: new Date(),
+            device: deviceInfo.device,
+            browser: deviceInfo.browser,
+            os: deviceInfo.os,
+            userAgent: userAgent,
+            ipAddress: ipAddress,
+            location: geoLocation ? {
+              city: geoLocation.city,
+              region: geoLocation.region,
+              country: geoLocation.country,
+              countryCode: geoLocation.countryCode,
+              latitude: geoLocation.latitude,
+              longitude: geoLocation.longitude,
+              timezone: geoLocation.timezone,
+            } : null,
+          },
+        }
+      );
+    }
+
     // Get document
     const document = await db.collection("documents").findOne({
       _id: new ObjectId(signatureRequest.documentId),
@@ -42,52 +80,19 @@ export async function GET(
 
     const totalTimeSpent = timeTracking.reduce((sum, t) => sum + (t.timeSpent || 0), 0);
 
-    // Parse user agent for device/browser info
-    const parseUserAgent = (ua: string) => {
-      const isMobile = /Mobile|Android|iPhone/i.test(ua);
-      const isTablet = /Tablet|iPad/i.test(ua);
-      const device = isMobile ? 'Mobile' : isTablet ? 'Tablet' : 'Desktop';
-      
-      let browser = 'Unknown';
-      if (ua.includes('Chrome')) browser = 'Chrome';
-      else if (ua.includes('Firefox')) browser = 'Firefox';
-      else if (ua.includes('Safari')) browser = 'Safari';
-      else if (ua.includes('Edge')) browser = 'Edge';
-      
-      return { device, browser };
-    };
-
+    // Parse user agent for device/browser info for the first view
     const firstView = views.length > 0 ? views[views.length - 1] : null;
-    const deviceInfo = firstView ? parseUserAgent(firstView.userAgent || '') : { device: 'Unknown', browser: 'Unknown' };
+    const firstViewDeviceInfo: DeviceInfo = firstView ? parseUserAgent(firstView.userAgent || '') : { device: 'Desktop', browser: 'Unknown', os: 'Unknown' };
 
-    // Get location from IP (simplified - you can integrate a real geolocation API)
-    const getLocationFromIP = async (ip: string) => {
-      try {
-        // Using ipapi.co free API (you can replace with your preferred service)
-        const response = await fetch(`https://ipapi.co/${ip}/json/`);
-        if (response.ok) {
-          const data = await response.json();
-          return {
-            city: data.city || 'Unknown',
-            country: data.country_name || 'Unknown',
-            lat: data.latitude,
-            lng: data.longitude,
-          };
-        }
-      } catch (error) {
-        console.error('Location lookup failed:', error);
-      }
-      return { city: 'Unknown', country: 'Unknown', lat: 0, lng: 0 };
-    };
-
-    const location = firstView?.ip ? await getLocationFromIP(firstView.ip) : null;
+    // Get location from IP for the first view
+    const firstViewLocation: GeoLocation | null = firstView?.ip ? await getLocationFromIP(firstView.ip) : null;
 
     // Calculate engagement level
     let engagement: 'high' | 'medium' | 'low' = 'low';
     if (signatureRequest.status === 'signed') {
       const timeToSign = new Date(signatureRequest.signedAt).getTime() - new Date(signatureRequest.createdAt).getTime();
-      if (timeToSign < 86400000) engagement = 'high'; // < 24 hours
-      else if (timeToSign < 604800000) engagement = 'medium'; // < 7 days
+      if (timeToSign < 86400000) engagement = 'high'; // Less than 24 hours
+      else if (timeToSign < 604800000) engagement = 'medium'; // Less than 7 days
     } else if (signatureRequest.status === 'viewed') {
       engagement = 'medium';
     }
@@ -107,10 +112,10 @@ export async function GET(
         message: signatureRequest.message,
         totalViews: views.length,
         totalTimeSpent: totalTimeSpent,
-        device: deviceInfo.device,
-        browser: deviceInfo.browser,
-        location: location,
-         
+        device: firstViewDeviceInfo.device,
+        browser: firstViewDeviceInfo.browser,
+        os: firstViewDeviceInfo.os,
+        location: firstViewLocation,
         engagement: engagement,
         viewHistory: views.map(v => ({
           timestamp: v.timestamp,

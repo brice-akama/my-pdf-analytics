@@ -291,6 +291,93 @@ if (signatureRequest.status === 'declined') {
     fetchSignatureRequest();
   }, [signatureId]);
 
+  // Track initial view
+useEffect(() => {
+  if (!signatureId || !pdfUrl) return;
+  const trackView = async () => {
+    try {
+      await fetch(`/api/signature/${signatureId}/track-page`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          page: 1,
+          action: 'view',
+          timestamp: new Date().toISOString(),
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to track view:', err);
+    }
+  };
+  trackView();
+}, [signatureId, pdfUrl]);
+
+// ✅ NEW: Track page exits
+useEffect(() => {
+  if (!signatureId) return;
+  const handleBeforeUnload = () => {
+    // Use sendBeacon for reliable exit tracking
+    const data = JSON.stringify({
+      page: 1,
+      action: 'exit',
+      timestamp: new Date().toISOString(),
+    });
+
+    // sendBeacon is more reliable than fetch for page exit
+    navigator.sendBeacon(
+      `/api/signature/${signatureId}/track-page`,
+      new Blob([data], { type: 'application/json' })
+    );
+  };
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [signatureId]);
+
+// ✅ NEW: Track scroll behavior (which pages they actually look at)
+useEffect(() => {
+  if (!signatureId || !pdfUrl || !document) return;
+
+  const pagesViewed = new Set<number>();
+  let scrollTimeout: NodeJS.Timeout;
+
+  const handleScroll = () => {
+    clearTimeout(scrollTimeout);
+
+    scrollTimeout = setTimeout(() => {
+      // ⭐ FIX: Use window.document to access the DOM
+      const container = window.document.getElementById('pdf-signing-container');
+      if (!container) return;
+
+      const scrollTop = window.scrollY;
+      const pageHeight = 297 * 3.78; // mm to pixels
+      const currentPage = Math.floor(scrollTop / pageHeight) + 1;
+
+      // Track each page only once
+      if (currentPage <= document.numPages && !pagesViewed.has(currentPage)) {
+        pagesViewed.add(currentPage);
+
+        fetch(`/api/signature/${signatureId}/track-page`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            page: currentPage,
+            action: 'scroll',
+            timestamp: new Date().toISOString(),
+          }),
+        }).catch(err => console.error('Failed to track scroll:', err));
+      }
+    }, 500); // Debounce scroll events
+  };
+
+  window.addEventListener('scroll', handleScroll);
+
+  return () => {
+    window.removeEventListener('scroll', handleScroll);
+    clearTimeout(scrollTimeout);
+  };
+}, [signatureId, pdfUrl, document]);
+
+
   useEffect(() => {
     if (!signatureId || !pdfUrl) return;
 

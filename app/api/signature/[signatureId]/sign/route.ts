@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../../lib/mongodb";
 import { ObjectId } from "mongodb";
+import { parseUserAgent } from '@/lib/deviceParser';
 import { 
   sendDocumentSignedNotification, 
   sendAllSignaturesCompleteEmail,
@@ -9,6 +10,7 @@ import {
   sendCCCompletionEmail
 } from "@/lib/emailService";
 import { generateSignedPDF } from "@/lib/pdfGenerator";
+import { getLocationFromIP } from '@/lib/geoip';
 
 export async function POST(
   request: NextRequest,
@@ -41,6 +43,14 @@ export async function POST(
       );
     }
 
+     // Track device, browser, OS, and user agent when signing
+    const userAgent = request.headers.get('user-agent') || '';
+    const deviceInfo = parseUserAgent(userAgent);
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown';
+
+
+    // ✅ Get geographic location
+    const geoLocation = await getLocationFromIP(ip);
     
     // ⭐ Get the document FIRST (moved up to avoid undefined error)
     const document = await db.collection("documents").findOne({
@@ -65,6 +75,19 @@ export async function POST(
           signedAt: now,
           completedAt: now,
           ipAddress: ipAddress || null,
+          device: deviceInfo.device, // Add this
+          browser: deviceInfo.browser, // Add this
+          os: deviceInfo.os, // Add this
+          userAgent: userAgent, // Add this
+          // ✅ Add geographic data
+          location: geoLocation ? {
+            city: geoLocation.city,
+            region: geoLocation.region,
+            country: geoLocation.country,
+            countryCode: geoLocation.countryCode,
+            latitude: geoLocation.latitude,
+            longitude: geoLocation.longitude,
+          } : null,
         },
       }
     );

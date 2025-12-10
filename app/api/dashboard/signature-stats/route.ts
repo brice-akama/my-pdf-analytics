@@ -194,6 +194,116 @@ const topDocuments = await Promise.all(
     const mediumEngagement = allRequests.filter(r => r.status === 'viewed').length;
     const lowEngagement = allRequests.filter(r => r.status === 'pending').length;
 
+    // Calculate device breakdown
+    const deviceBreakdown = {
+      mobile: allRequests.filter(r => r.device === 'Mobile').length,
+      tablet: allRequests.filter(r => r.device === 'Tablet').length,
+      desktop: allRequests.filter(r => r.device === 'Desktop').length,
+      unknown: allRequests.filter(r => !r.device).length,
+    };
+
+    // Calculate browser breakdown
+    const browserStats: { [key: string]: number } = {};
+    allRequests.forEach(r => {
+      if (r.browser) {
+        browserStats[r.browser] = (browserStats[r.browser] || 0) + 1;
+      }
+    });
+
+    // Calculate time spent analytics
+    const timeSpentData = allRequests
+      .filter(r => r.viewedAt && r.signedAt)
+      .map(r => {
+        const viewed = new Date(r.viewedAt).getTime();
+        const signed = new Date(r.signedAt).getTime();
+        return Math.floor((signed - viewed) / 1000); // seconds
+      });
+
+    const avgTimeSpentOnDoc = timeSpentData.length > 0
+      ? Math.floor(timeSpentData.reduce((a, b) => a + b, 0) / timeSpentData.length)
+      : 0;
+
+    const minTimeSpent = timeSpentData.length > 0 ? Math.min(...timeSpentData) : 0;
+    const maxTimeSpent = timeSpentData.length > 0 ? Math.max(...timeSpentData) : 0;
+
+    // OS breakdown
+    const osStats: { [key: string]: number } = {};
+    allRequests.forEach(r => {
+      if (r.os) {
+        osStats[r.os] = (osStats[r.os] || 0) + 1;
+      }
+    });
+
+    // Drop-off Analysis
+    const viewedButNotSigned = allRequests.filter(r => r.status === 'viewed').length;
+    const neverViewed = allRequests.filter(r => r.status === 'pending').length;
+    const dropOffRate = totalRequests > 0
+      ? Math.round((viewedButNotSigned / totalRequests) * 100)
+      : 0;
+
+    // Geographic breakdown
+    const locationStats: { [key: string]: number } = {};
+    const countryStats: { [key: string]: number } = {};
+    const geoMapData: Array<{ lat: number; lng: number; city: string; country: string; count: number }> = [];
+
+    allRequests.forEach(r => {
+      if (r.location) {
+        // City breakdown
+        const cityKey = `${r.location.city}, ${r.location.country}`;
+        locationStats[cityKey] = (locationStats[cityKey] || 0) + 1;
+
+        // Country breakdown
+        countryStats[r.location.country] = (countryStats[r.location.country] || 0) + 1;
+
+        // Map data (aggregate by city)
+        const existing = geoMapData.find(
+          d => d.lat === r.location.latitude && d.lng === r.location.longitude
+        );
+        if (existing) {
+          existing.count += 1;
+        } else {
+          geoMapData.push({
+            lat: r.location.latitude,
+            lng: r.location.longitude,
+            city: r.location.city,
+            country: r.location.country,
+            count: 1,
+          });
+        }
+      }
+    });
+
+    // Page tracking analytics (if you have page tracking data)
+    const pageTrackingStats = await db.collection("signature_page_tracking")
+      .aggregate([
+        {
+          $match: {
+            signatureId: { $in: allRequests.map(r => r.uniqueId) }
+          }
+        },
+        {
+          $group: {
+            _id: "$page",
+            views: { $sum: 1 },
+            exits: {
+              $sum: { $cond: [{ $eq: ["$action", "exit"] }, 1, 0] }
+            }
+          }
+        },
+        {
+          $sort: { _id: 1 }
+        }
+      ])
+      .toArray();
+
+    const pageAnalytics = pageTrackingStats.map(p => ({
+      page: p._id,
+      views: p.views,
+      exits: p.exits,
+      exitRate: p.views > 0 ? Math.round((p.exits / p.views) * 100) : 0,
+    }));
+
+
     return NextResponse.json({
       success: true,
       stats: {
@@ -216,8 +326,28 @@ const topDocuments = await Promise.all(
           { segment: 'Medium', count: mediumEngagement, avgTime: 86400 },
           { segment: 'Low', count: lowEngagement, avgTime: 0 },
         ],
+        deviceBreakdown,
+        browserStats,
+        timeSpentAnalytics: {
+          avgTimeSpentOnDoc,
+          minTimeSpent,
+          maxTimeSpent,
+        },
+        osStats,
+        dropOffAnalysis: {
+          viewedButNotSigned,
+          neverViewed,
+          dropOffRate,
+        },
+        geographicBreakdown: {
+          locationStats,
+          countryStats,
+          geoMapData,
+        },
+        pageAnalytics,
       },
     });
+    
   } catch (error) {
     console.error("❌ Error fetching signature stats:", error);
     return NextResponse.json(

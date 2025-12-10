@@ -8,7 +8,7 @@ import {
   Calendar, TrendingUp, Loader2, Send, RefreshCw, ExternalLink,
   ChevronRight, Globe, Target, Activity, MousePointer,
   X,
-  XCircle
+  XCircle, 
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -24,7 +24,9 @@ import {
   Legend, ResponsiveContainer 
 } from 'recharts';
 import { Button } from './ui/button';
-import router from 'next/router';
+import { useRouter } from 'next/navigation';
+import GeoHeatMap from './GeoHeatMap';
+ 
 
 interface Signer {
   name: string;
@@ -68,6 +70,22 @@ interface SignatureStats {
   uniqueSigners: number;
   avgTimeToSign: number;
   completionRate: number;
+  
+  deviceBreakdown?: {
+    mobile: number;
+    tablet: number;
+    desktop: number;
+    unknown: number;
+  };
+  
+  browserStats?: { [key: string]: number };
+  osStats?: { [key: string]: number };
+  timeSpentAnalytics?: {
+    average: number;
+    min: number;
+    max: number;
+    total: number;
+  };
   trending: {
     signedChange: number;
   };
@@ -83,6 +101,31 @@ interface SignatureStats {
   }>;
   conversionFunnel: Array<{ stage: string; count: number; percentage: number }>;
   signerEngagement: Array<{ segment: string; count: number; avgTime: number }>;
+  // ⭐ ADD THESE NEW FIELDS:
+  dropOffAnalysis?: {
+    viewedButNotSigned: number;
+    neverViewed: number;
+    dropOffRate: number;
+    totalAbandoned: number;
+  };
+
+  locationStats?: { [key: string]: number };
+  countryStats?: { [key: string]: number };
+
+  geoMapData?: Array<{
+    lat: number;
+    lng: number;
+    city: string;
+    country: string;
+    count: number;
+  }>;
+
+  pageAnalytics?: Array<{
+    page: number;
+    views: number;
+    exits: number;
+    exitRate: number;
+  }>;
 }
 
 const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
@@ -102,6 +145,7 @@ const [cancelReason, setCancelReason] = useState('');
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
   const [bulkSends, setBulkSends] = useState<any[]>([]);
 const [loadingBulkSends, setLoadingBulkSends] = useState(false);
+const router = useRouter();
 
   useEffect(() => {
     fetchSignatureStats();
@@ -318,6 +362,17 @@ useEffect(() => {
           <h2 className="text-2xl font-bold text-slate-900">E-Signature Analytics</h2>
           <p className="text-sm text-slate-600 mt-1">Track signature requests and signer engagement</p>
         </div>
+          <div className="flex gap-3"> 
+         {/* ✅ ADD CSV EXPORT BUTTON */}
+    <button
+      onClick={() => {
+        window.open(`/api/dashboard/export-csv?range=${timeRange}`, '_blank');
+      }}
+      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium"
+    >
+      <Download className="h-4 w-4" />
+      Export CSV
+    </button>
         
         <div className="flex gap-2 bg-slate-100 rounded-lg p-1">
           {(['7d', '30d', '90d'] as const).map((range) => (
@@ -335,7 +390,7 @@ useEffect(() => {
           ))}
         </div>
       </div>
-
+    </div>
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-purple-500">
@@ -406,6 +461,220 @@ useEffect(() => {
 
         {/* OVERVIEW TAB */}
         <TabsContent value="overview" className="space-y-6">
+          {/* Drop-off Analysis */}
+{stats.dropOffAnalysis && (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <AlertCircle className="h-5 w-5 text-red-600" />
+        Drop-off Analysis
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="text-center p-4 bg-red-50 rounded-lg">
+            <p className="text-sm text-slate-600 mb-1">Drop-off Rate</p>
+            <p className="text-3xl font-bold text-red-600">
+              {stats.dropOffAnalysis.dropOffRate}%
+            </p>
+          </div>
+          <div className="text-center p-4 bg-orange-50 rounded-lg">
+            <p className="text-sm text-slate-600 mb-1">Total Abandoned</p>
+            <p className="text-3xl font-bold text-orange-600">
+              {stats.dropOffAnalysis.totalAbandoned}
+            </p>
+          </div>
+        </div>
+        
+        <div className="space-y-2 pt-4 border-t">
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Viewed but not signed</span>
+            <span className="font-medium text-red-600">
+              {stats.dropOffAnalysis.viewedButNotSigned}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-600">Never opened</span>
+            <span className="font-medium text-orange-600">
+              {stats.dropOffAnalysis.neverViewed}
+            </span>
+          </div>
+        </div>
+
+        {stats.dropOffAnalysis.dropOffRate > 30 && (
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <strong>High drop-off detected!</strong> Consider simplifying your documents or following up with reminders.
+            </p>
+          </div>
+        )}
+      </div>
+    </CardContent>
+  </Card>
+)}
+
+{/* Page Analytics */}
+{stats.pageAnalytics && stats.pageAnalytics.length > 0 && (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <FileText className="h-5 w-5 text-indigo-600" />
+        Page-by-Page Analysis
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="space-y-3">
+        {stats.pageAnalytics.map((page) => (
+          <div key={page.page}>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="font-medium">Page {page.page}</span>
+              <span className="text-slate-600">
+                {page.views} views • {page.exits} exits ({page.exitRate}%)
+              </span>
+            </div>
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className={`h-full transition-all ${
+                  page.exitRate > 50 ? 'bg-red-500' :
+                  page.exitRate > 30 ? 'bg-orange-500' :
+                  'bg-green-500'
+                }`}
+                style={{ width: `${page.exitRate}%` }}
+              />
+            </div>
+            {page.exitRate > 50 && (
+              <p className="text-xs text-red-600 mt-1">
+                ⚠️ High exit rate - consider simplifying this page
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+)}
+
+{/* Geographic Distribution */}
+{stats.locationStats && Object.keys(stats.locationStats).length > 0 && (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <MapPin className="h-5 w-5 text-green-600" />
+        Top Locations
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="space-y-3">
+        {Object.entries(stats.locationStats)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 10)
+          .map(([location, count]) => {
+            const percentage = Math.round((count / stats.totalRequests) * 100);
+            return (
+              <div key={location}>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="font-medium">{location}</span>
+                  <span className="text-slate-600">{count} ({percentage}%)</span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-500 transition-all"
+                    style={{ width: `${percentage}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+      </div>
+    </CardContent>
+  </Card>
+)}
+
+{/* Country Breakdown */}
+{stats.countryStats && Object.keys(stats.countryStats).length > 0 && (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Globe className="h-5 w-5 text-blue-600" />
+        Countries
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <ResponsiveContainer width="100%" height={250}>
+        <BarChart data={Object.entries(stats.countryStats)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 10)
+          .map(([country, count]) => ({ country, count }))
+        }>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="country" stroke="#64748b" fontSize={12} />
+          <YAxis stroke="#64748b" fontSize={12} />
+          <Tooltip 
+            contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+          />
+          <Bar dataKey="count" fill="#3B82F6" />
+        </BarChart>
+      </ResponsiveContainer>
+    </CardContent>
+  </Card>
+)}
+{/* Geographic Heat Map */}
+{stats.geoMapData && stats.geoMapData.length > 0 && (
+  <Card className="md:col-span-2">
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <MapPin className="h-5 w-5 text-purple-600" />
+        Geographic Heat Map
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="relative w-full h-96 bg-slate-100 rounded-lg overflow-hidden">
+        {/* Simple visualization - you can enhance with a proper map library later */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <Globe className="h-16 w-16 text-slate-400 mx-auto mb-4" />
+            <p className="text-sm text-slate-600 mb-2">
+              Signatures from {stats.geoMapData.length} locations
+            </p>
+            <div className="max-w-md mx-auto space-y-2">
+              {stats.geoMapData
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 5)
+                .map((location, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-2 bg-white rounded">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-purple-600" />
+                      <span className="text-sm font-medium">
+                        {location.city}, {location.country}
+                      </span>
+                    </div>
+                    <span className="text-sm text-slate-600">{location.count} signatures</span>
+                  </div>
+                ))}
+            </div>
+            <p className="text-xs text-slate-500 mt-4">
+              💡 Tip: You can integrate Google Maps or Mapbox for a visual map
+            </p>
+          </div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+)}
+{stats.geoMapData && stats.geoMapData.length > 0 && (
+  <Card className="md:col-span-2">
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <MapPin className="h-5 w-5 text-purple-600" />
+        Geographic Heat Map
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <GeoHeatMap data={stats.geoMapData} />
+    </CardContent>
+  </Card>
+)}
           {/* Signature Requests Over Time */}
           <Card>
             <CardHeader>
@@ -440,7 +709,194 @@ useEffect(() => {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+           {/* ✅ ADD NEW ANALYTICS SECTION */}
+  <div className="grid md:grid-cols-2 gap-6">
+    {/* Device Breakdown */}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Monitor className="h-5 w-5 text-blue-600" />
+          Device Breakdown
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {stats.deviceBreakdown ? (
+          <>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Mobile', value: stats.deviceBreakdown.mobile, color: '#8B5CF6' },
+                    { name: 'Desktop', value: stats.deviceBreakdown.desktop, color: '#3B82F6' },
+                    { name: 'Tablet', value: stats.deviceBreakdown.tablet, color: '#10B981' },
+                  ].filter(d => d.value > 0)}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${percent ? (percent * 100).toFixed(0) : '0'}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {[
+                    { name: 'Mobile', value: stats.deviceBreakdown.mobile, color: '#8B5CF6' },
+                    { name: 'Desktop', value: stats.deviceBreakdown.desktop, color: '#3B82F6' },
+                    { name: 'Tablet', value: stats.deviceBreakdown.tablet, color: '#10B981' },
+                  ].filter(d => d.value > 0).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="h-4 w-4 text-purple-600" />
+                  <span>Mobile</span>
+                </div>
+                <span className="font-medium">{stats.deviceBreakdown.mobile}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <Monitor className="h-4 w-4 text-blue-600" />
+                  <span>Desktop</span>
+                </div>
+                <span className="font-medium">{stats.deviceBreakdown.desktop}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <Tablet className="h-4 w-4 text-green-600" />
+                  <span>Tablet</span>
+                </div>
+                <span className="font-medium">{stats.deviceBreakdown.tablet}</span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-slate-600 text-center py-8">No device data available</p>
+        )}
+      </CardContent>
+    </Card>
 
+    {/* Time Spent Analytics */}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="h-5 w-5 text-orange-600" />
+          Time Spent on Documents
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {stats.timeSpentAnalytics && stats.timeSpentAnalytics.total > 0 ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <p className="text-sm text-slate-600 mb-1">Average</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {formatTimeSpent(stats.timeSpentAnalytics.average)}
+                </p>
+              </div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-slate-600 mb-1">Minimum</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {formatTimeSpent(stats.timeSpentAnalytics.min)}
+                </p>
+              </div>
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <p className="text-sm text-slate-600 mb-1">Maximum</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatTimeSpent(stats.timeSpentAnalytics.max)}
+                </p>
+              </div>
+            </div>
+            
+            <div className="pt-4 border-t">
+              <p className="text-sm text-slate-600 text-center">
+                Based on {stats.timeSpentAnalytics.total} completed signatures
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-600 text-center py-8">
+            No time tracking data available yet
+          </p>
+        )}
+      </CardContent>
+    </Card>
+
+    {/* Browser Stats */}
+    {stats.browserStats && Object.keys(stats.browserStats).length > 0 && (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5 text-indigo-600" />
+            Browser Usage
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {Object.entries(stats.browserStats)
+              .sort(([, a], [, b]) => b - a)
+              .slice(0, 5)
+              .map(([browser, count]) => {
+                const percentage = Math.round((count / stats.totalRequests) * 100);
+                return (
+                  <div key={browser}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="font-medium">{browser}</span>
+                      <span className="text-slate-600">{count} ({percentage}%)</span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-indigo-500 transition-all"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </CardContent>
+      </Card>
+    )}
+
+    {/* OS Stats */}
+    {stats.osStats && Object.keys(stats.osStats).length > 0 && (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Monitor className="h-5 w-5 text-teal-600" />
+            Operating Systems
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {Object.entries(stats.osStats)
+              .sort(([, a], [, b]) => b - a)
+              .map(([os, count]) => {
+                const percentage = Math.round((count / stats.totalRequests) * 100);
+                return (
+                  <div key={os}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="font-medium">{os}</span>
+                      <span className="text-slate-600">{count} ({percentage}%)</span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-teal-500 transition-all"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </CardContent>
+      </Card>
+    )}
+  </div>
           <div className="grid md:grid-cols-2 gap-6">
             {/* Conversion Funnel */}
             <Card>
