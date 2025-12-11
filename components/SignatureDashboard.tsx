@@ -8,7 +8,8 @@ import {
   Calendar, TrendingUp, Loader2, Send, RefreshCw, ExternalLink,
   ChevronRight, Globe, Target, Activity, MousePointer,
   X,
-  XCircle, 
+  XCircle,
+  Archive, 
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -146,34 +147,35 @@ const [cancelReason, setCancelReason] = useState('');
   const [bulkSends, setBulkSends] = useState<any[]>([]);
 const [loadingBulkSends, setLoadingBulkSends] = useState(false);
 const router = useRouter();
+const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     fetchSignatureStats();
     const interval = setInterval(fetchSignatureStats, 30000); // Refresh every 30s
     return () => clearInterval(interval);
-  }, [timeRange]);
+  }, [timeRange, showArchived]);
+
 
   const fetchSignatureStats = async () => {
-    try {
-      const res = await fetch(`/api/dashboard/signature-stats?range=${timeRange}`, {
-        credentials: 'include',
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data.stats);
-        setError(null);
-      } else {
-        throw new Error('Failed to fetch stats');
-      }
-    } catch (err) {
-      console.error('Signature stats error:', err);
-      setError('Failed to load signature data');
-    } finally {
-      setLoading(false);
+  try {
+    const res = await fetch(`/api/dashboard/signature-stats?range=${timeRange}&archived=${showArchived}`, {
+      credentials: 'include',
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      setStats(data.stats);
+      setError(null);
+    } else {
+      throw new Error('Failed to fetch stats');
     }
-  };
-
+  } catch (err) {
+    console.error('Signature stats error:', err);
+    setError('Failed to load signature data');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleCancelRequest = async (signatureId: string, documentName: string, reason: string = '') => {
   if (!signatureId) {
@@ -207,6 +209,49 @@ const router = useRouter();
   }
 };
 
+const handleArchiveDocument = async (signatureId: string) => {
+  if (!confirm('Archive this document? You can view it in the Archived tab.')) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/signature/${signatureId}/archive`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      alert('✅ Document archived successfully!');
+      setShowDocumentDetails(false);
+      fetchSignatureStats();
+    } else {
+      alert('Failed to archive document');
+    }
+  } catch (error) {
+    console.error('Archive error:', error);
+    alert('Failed to archive document');
+  }
+};
+
+const handleUnarchiveDocument = async (signatureId: string) => {
+  try {
+    const res = await fetch(`/api/signature/${signatureId}/archive`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      alert('✅ Document restored successfully!');
+      setShowDocumentDetails(false);
+      fetchSignatureStats();
+    } else {
+      alert('Failed to restore document');
+    }
+  } catch (error) {
+    console.error('Unarchive error:', error);
+    alert('Failed to restore document');
+  }
+};
 
 const fetchBulkSends = async () => {
   setLoadingBulkSends(true);
@@ -456,6 +501,7 @@ useEffect(() => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="archived">Archived</TabsTrigger>
           <TabsTrigger value="bulk-sends">Bulk Sends</TabsTrigger>
         </TabsList>
 
@@ -1259,6 +1305,123 @@ useEffect(() => {
   </div>
 </TabsContent>
 
+{/* ARCHIVED TAB */}
+<TabsContent value="archived" className="space-y-6">
+  <div className="flex items-center justify-between mb-4">
+    <div>
+      <h3 className="text-lg font-semibold text-slate-900">Archived Documents</h3>
+      <p className="text-sm text-slate-600">Documents you've archived</p>
+    </div>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        setShowArchived(!showArchived);
+        fetchSignatureStats();
+      }}
+    >
+      {showArchived ? 'Hide Archived' : 'Show Archived'}
+    </Button>
+  </div>
+
+  {!showArchived ? (
+    <Card>
+      <CardContent className="py-12 text-center">
+        <Archive className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">View Archived Documents</h3>
+        <p className="text-sm text-slate-600 mb-4">Click "Show Archived" to view your archived documents</p>
+        <Button onClick={() => setShowArchived(true)}>
+          Show Archived
+        </Button>
+      </CardContent>
+    </Card>
+  ) : stats.topDocuments.length === 0 ? (
+    <Card>
+      <CardContent className="py-12 text-center">
+        <Archive className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">No Archived Documents</h3>
+        <p className="text-sm text-slate-600">You haven't archived any documents yet</p>
+      </CardContent>
+    </Card>
+  ) : (
+    <div className="grid gap-4">
+      {stats.topDocuments.map((doc) => (
+        <Card 
+          key={doc.id} 
+          className="hover:shadow-lg transition-all cursor-pointer border-l-4 border-l-slate-400"
+          onClick={() => {
+            setSelectedDocument(doc);
+            setShowDocumentDetails(true);
+          }}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                  <Archive className="h-6 w-6 text-slate-600" />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="font-semibold text-slate-900 text-lg truncate">
+                      {doc.name}
+                    </h4>
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                      <Archive className="h-3 w-3 mr-1" />
+                      Archived
+                    </span>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="mb-3">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-slate-600">
+                        {doc.signedCount} of {doc.totalSigners} signed
+                      </span>
+                      <span className="font-medium text-slate-600">{doc.completionRate}%</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-slate-400 transition-all"
+                        style={{ width: `${doc.completionRate}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stats Row */}
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                    <div className="flex items-center gap-1">
+                      <CheckCircle className="h-4 w-4" />
+                      <span className="font-medium">{doc.signedCount}</span> signed
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-4 w-4" />
+                      <span className="font-medium">{doc.pendingCount}</span> pending
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUnarchiveDocument(doc.signers[0]?.uniqueId);
+                }}
+                className="ml-4"
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Restore
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )}
+</TabsContent>
+
         {/* ACTIVITY TAB */}
         <TabsContent value="activity" className="space-y-6">
           <Card>
@@ -1413,6 +1576,49 @@ useEffect(() => {
 
         {/* Document Actions */}
         <div className="flex justify-end gap-3">
+
+          {/* Add Archive Button */}
+  {!showArchived ? (
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-slate-600 hover:bg-slate-50 border-slate-300"
+      onClick={() => {
+        if (selectedDocument?.signers[0]?.uniqueId) {
+          handleArchiveDocument(selectedDocument.signers[0].uniqueId);
+        }
+      }}
+    >
+      <Archive className="h-4 w-4 mr-1" />
+      Archive
+    </Button>
+  ) : (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        if (selectedDocument?.signers[0]?.uniqueId) {
+          handleUnarchiveDocument(selectedDocument.signers[0].uniqueId);
+        }
+      }}
+    >
+      <RefreshCw className="h-4 w-4 mr-1" />
+      Restore
+    </Button>
+  )}
+
+  {/* Cancel button */}
+  {!showArchived && (
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-red-600 hover:bg-red-50 border-red-300"
+      onClick={() => setShowCancelConfirm(true)}
+    >
+      <X className="h-4 w-4 mr-1" />
+      Cancel
+    </Button>
+  )}
          
           <button
   onClick={() => {
@@ -1452,21 +1658,19 @@ useEffect(() => {
             <ExternalLink className="h-4 w-4" />
             Copy Link
           </button>
-          <button
-           onClick={() => {
-    // Send reminder to all pending signers
+          
+         <button
+  onClick={() => {
     const pendingSigners = selectedDocument.signers.filter(s => s.status !== 'signed');
     if (pendingSigners.length === 0) {
       alert('All signers have already signed!');
       return;
     }
-    
-    // Send to first pending signer (or you can send to all)
     handleSendReminder(pendingSigners[0].uniqueId);
   }}
-  disabled={sendingReminder !== null}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium disabled:opacity-70 disabled:cursor-not-allowed"
-          >
+  disabled={sendingReminder !== null || selectedDocument.status === 'cancelled'}  // ✅ Add this
+  className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+>
             {sendingReminder === selectedDocument.id ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1480,16 +1684,35 @@ useEffect(() => {
             )}
           </button>
           {/*  ADD CANCEL BUTTON */}
-   
-<Button
-  variant="outline"
-  size="sm"
-  className="text-red-600 hover:bg-red-50 border-red-300"
-  onClick={() => setShowCancelConfirm(true)}
->
-  <X className="h-4 w-4 mr-1" />
-  Cancel
-</Button>
+  {selectedDocument.status !== 'cancelled' && (
+  <>
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-slate-600 hover:bg-slate-50 border-slate-300"
+      onClick={() => handleArchiveDocument(selectedDocument.signers[0].uniqueId)}
+    >
+      <Archive className="h-4 w-4 mr-1" />
+      Archive
+    </Button>
+
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-red-600 hover:bg-red-50 border-red-300"
+      onClick={() => setShowCancelConfirm(true)}
+    >
+      <X className="h-4 w-4 mr-1" />
+      Cancel
+    </Button>
+  </>
+)}
+
+{selectedDocument.status === 'cancelled' && (
+  <div className="text-red-600 text-sm font-medium">
+    This document was cancelled
+  </div>
+)}
         </div>
       </div>
     )}

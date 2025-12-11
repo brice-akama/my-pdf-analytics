@@ -29,11 +29,15 @@ export async function GET(request: NextRequest) {
 
     const db = await dbPromise;
 
+    // Check if requesting archived documents
+const showArchived = searchParams.get('archived') === 'true';
+
     // Get all signature requests for this user
     const allRequests = await db.collection("signature_requests")
       .find({ 
         ownerId: userId,
-        createdAt: { $gte: startDate }
+        createdAt: { $gte: startDate },
+        ...(showArchived ? { archived: true } : { archived: { $ne: true } })
       })
       .toArray();
 
