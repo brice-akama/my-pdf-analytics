@@ -1262,6 +1262,19 @@ useEffect(() => {
               >
                 View Details
               </Button>
+              {bulkSend.status === "completed" && (
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={(e) => {
+      e.stopPropagation();
+      window.open(`/api/bulk-send/${bulkSend.batchId}/download-all`, '_blank');
+    }}
+  >
+    <Download className="h-4 w-4 mr-1" />
+    Download All ({bulkSend.sentCount} PDFs)
+  </Button>
+)}
               {bulkSend.failedCount > 0 && (
                 <Button
                   variant="outline"

@@ -18,7 +18,14 @@ export async function GET(request: NextRequest) {
     const userId = user.id;
     
     const { searchParams } = new URL(request.url);
+
+    // ✅ NEW: Extract pagination, search, and filter params
     const range = searchParams.get('range') || '30d';
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+    const statusFilter = searchParams.get('statusFilter') || 'all'; // all, active, completed, cancelled
+    const sortBy = searchParams.get('sortBy') || 'recent'; // recent, oldest, name, completion
 
     // Calculate date range
     const now = new Date();
@@ -32,6 +39,13 @@ export async function GET(request: NextRequest) {
     // Check if requesting archived documents
 const showArchived = searchParams.get('archived') === 'true';
 
+ // Base query for all requests
+    const baseQuery: any = {
+      ownerId: userId,
+      createdAt: { $gte: startDate },
+      ...(showArchived ? { archived: true } : { archived: { $ne: true } })
+    };
+
     // Get all signature requests for this user
     const allRequests = await db.collection("signature_requests")
       .find({ 
@@ -40,6 +54,30 @@ const showArchived = searchParams.get('archived') === 'true';
         ...(showArchived ? { archived: true } : { archived: { $ne: true } })
       })
       .toArray();
+
+      // ✅ NEW: Apply search filter to allRequests for stats
+    let filteredRequests = [...allRequests];
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredRequests = filteredRequests.filter(r =>
+        r.documentName?.toLowerCase().includes(searchLower) ||
+        r.recipient?.email?.toLowerCase().includes(searchLower) ||
+        r.recipient?.name?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // ✅ NEW: Apply status filter to allRequests for stats
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'active') {
+        filteredRequests = filteredRequests.filter(r =>
+          r.status === 'pending' || r.status === 'viewed'
+        );
+      } else if (statusFilter === 'completed') {
+        filteredRequests = filteredRequests.filter(r => r.status === 'signed');
+      } else if (statusFilter === 'cancelled') {
+        filteredRequests = filteredRequests.filter(r => r.status === 'cancelled');
+      }
+    }
 
     // Calculate stats
    // Calculate stats
@@ -159,6 +197,31 @@ const topDocuments = await Promise.all(
     };
   })
 );
+
+// ✅ NEW: Apply sorting
+    if (sortBy === 'recent') {
+      topDocuments.sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    } else if (sortBy === 'oldest') {
+      topDocuments.sort((a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+    } else if (sortBy === 'name') {
+      topDocuments.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'completion') {
+      topDocuments.sort((a, b) => b.completionRate - a.completionRate);
+    }
+
+    // ✅ NEW: Apply pagination
+    const totalDocuments = topDocuments.length;
+    const totalPages = Math.ceil(totalDocuments / limit);
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedDocuments = topDocuments.slice(startIndex, endIndex);
+    
+
+
     // Sort by most recent
     topDocuments.sort((a, b) => 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -322,7 +385,7 @@ const topDocuments = await Promise.all(
           signedChange: Math.round(signedChange),
         },
         requestsOverTime,
-        topDocuments,
+        topDocuments: paginatedDocuments, // ✅ Now paginated
         recentActivity,
         conversionFunnel: funnelData,
         signerEngagement: [
@@ -349,6 +412,14 @@ const topDocuments = await Promise.all(
           geoMapData,
         },
         pageAnalytics,
+        // ✅ NEW: Pagination metadata
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalDocuments,
+          hasMore: page < totalPages,
+          limit,
+        },
       },
     });
     

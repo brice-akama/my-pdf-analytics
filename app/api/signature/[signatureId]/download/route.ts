@@ -171,7 +171,7 @@ export async function GET(
     return new NextResponse(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="signed_${document.filename}"`,
+        'Content-Disposition': `attachment; filename="signed_${document.originalFilename || document.filename || 'document.pdf'}"`,
         'Content-Length': pdfBuffer.byteLength.toString(),
       },
     });

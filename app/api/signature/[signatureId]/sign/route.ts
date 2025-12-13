@@ -243,6 +243,8 @@ export async function POST(
           }).catch(err => console.error('Failed to send completion email:', err))
         );
 
+        
+
         // ⭐ ADD THIS: Send to CC recipients who want completion notification
     if (document.ccRecipients) {
       const completionCCs = document.ccRecipients.filter(
