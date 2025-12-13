@@ -165,6 +165,7 @@ export async function POST(
       console.log('✅ All recipients updated with new signature');
     }
 
+    
     // Notify owner that someone signed
     if (signatureRequest.ownerEmail) {
       await sendDocumentSignedNotification({
@@ -222,7 +223,25 @@ export async function POST(
             },
           }
         );
-
+        
+// ✅ Update bulk send record with signed document
+if (signatureRequest.isBulkSend && signedPdfUrl) {
+  await db.collection("bulk_sends").updateOne(
+    { batchId: signatureRequest.bulkSendBatchId },
+    {
+      $push: {
+        signedDocuments: {
+          recipientName: signatureRequest.recipient.name,
+          recipientEmail: signatureRequest.recipient.email,
+          documentId: signatureRequest.documentId,
+          signedPdfUrl: signedPdfUrl,
+          signedAt: new Date(),
+        }
+      }
+    } as any // ✅ Add type assertion
+  );
+  console.log('✅ Updated bulk send record with signed document');
+}
         // Send completion emails to ALL parties (owner + all signers)
         const downloadLink = `${request.nextUrl.origin}/api/signature/${signatureId}/download`;
         

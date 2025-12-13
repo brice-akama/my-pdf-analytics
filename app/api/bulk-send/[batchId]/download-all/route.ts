@@ -4,9 +4,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "@/app/api/lib/mongodb";
 import { verifyUserFromRequest } from "@/lib/auth";
 import JSZip from "jszip";
- 
+import cloudinary from 'cloudinary';
 
-export async function GET(request: NextRequest, { params }: { params: { batchId: string } }) {
+// ✅ Configure Cloudinary
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_SECRET_KEY,
+});
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ batchId: string }> }
+) {
+  const { batchId } = await params;
+  
   try {
     // ✅ Verify user authentication
     const user = await verifyUserFromRequest(request);
@@ -16,8 +28,6 @@ export async function GET(request: NextRequest, { params }: { params: { batchId:
         { status: 401 }
       );
     }
-
-    const { batchId } = params;
 
     // ✅ Check if batchId is valid
     if (!batchId) {
@@ -51,26 +61,68 @@ export async function GET(request: NextRequest, { params }: { params: { batchId:
       );
     }
 
+    console.log(`📦 Creating ZIP with ${bulkSend.signedDocuments.length} documents`);
+
     // ✅ Create ZIP file with all signed PDFs
     const zip = new JSZip();
 
     // ✅ Add each signed document to the ZIP
     for (const doc of bulkSend.signedDocuments) {
       try {
-        // ✅ Fetch the PDF from the URL
-        const pdfResponse = await fetch(doc.signedPdfUrl);
+        console.log(`📄 Processing: ${doc.recipientName}`);
+
+        // ✅ Extract public_id from Cloudinary URL
+        const urlMatch = doc.signedPdfUrl.match(/\/signed_documents\/(.+?)\.pdf/);
+        if (!urlMatch) {
+          console.error(`❌ Could not extract public_id for ${doc.recipientName}`);
+          continue;
+        }
+
+        const publicId = `signed_documents/${urlMatch[1]}`;
+        console.log(`🔑 Public ID: ${publicId}`);
+
+        // ✅ Generate authenticated Cloudinary download URL
+        const authenticatedUrl = cloudinary.v2.utils.private_download_url(
+          publicId,
+          'pdf',
+          {
+            resource_type: 'image',
+            type: 'upload',
+            expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour
+          }
+        );
+
+        // ✅ Fetch the PDF with authenticated URL
+        const pdfResponse = await fetch(authenticatedUrl);
+        
         if (!pdfResponse.ok) {
-          console.error(`Failed to fetch PDF for ${doc.recipientName}: ${pdfResponse.statusText}`);
-          continue; // Skip this document if fetch fails
+          console.error(`❌ Failed to fetch PDF for ${doc.recipientName}: ${pdfResponse.statusText}`);
+          continue;
         }
 
         const pdfBuffer = await pdfResponse.arrayBuffer();
-        zip.file(`${doc.recipientName.replace(/[^a-z0-9]/gi, '_')}_signed.pdf`, pdfBuffer);
+        console.log(`✅ Downloaded ${doc.recipientName}: ${pdfBuffer.byteLength} bytes`);
+
+        // ✅ Add to ZIP with sanitized filename
+        const sanitizedName = doc.recipientName.replace(/[^a-z0-9]/gi, '_');
+        zip.file(`${sanitizedName}_signed.pdf`, pdfBuffer);
+
       } catch (error) {
-        console.error(`Error processing document for ${doc.recipientName}:`, error);
-        continue; // Skip this document if there's an error
+        console.error(`❌ Error processing document for ${doc.recipientName}:`, error);
+        continue;
       }
     }
+
+    // ✅ Check if ZIP has any files
+    const fileCount = Object.keys(zip.files).length;
+    if (fileCount === 0) {
+      return NextResponse.json(
+        { success: false, message: "No documents could be added to ZIP" },
+        { status: 500 }
+      );
+    }
+
+    console.log(`📦 ZIP contains ${fileCount} files`);
 
     // ✅ Generate the ZIP file as a Node.js Buffer
     const zipContent = await zip.generateAsync({ type: "nodebuffer" });
@@ -78,11 +130,14 @@ export async function GET(request: NextRequest, { params }: { params: { batchId:
     // ✅ Convert to Uint8Array for NextResponse
     const uint8Array = new Uint8Array(zipContent);
 
+    console.log(`✅ ZIP generated: ${uint8Array.length} bytes`);
+
     // ✅ Return the ZIP file as a download
     return new NextResponse(uint8Array, {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="bulk_${batchId}_signed_documents.zip"`,
+        'Content-Length': uint8Array.length.toString(),
       },
     });
 

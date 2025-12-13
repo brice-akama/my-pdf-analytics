@@ -452,6 +452,32 @@ export default function BulkSendDetailsPage() {
                         Generating...
                       </span>
                     )}
+                    {/* Pending - Resend button */}
+  {(recipient.status === "pending" || recipient.status === "awaiting_turn") && (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={async () => {
+        try {
+          const res = await fetch(`/api/signature/${recipient.uniqueId}/remind`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+          if (res.ok) {
+            alert(`✅ Reminder sent to ${recipient.name}`);
+          } else {
+            alert('❌ Failed to send reminder');
+          }
+        } catch (err) {
+          console.error('Resend error:', err);
+          alert('❌ Error sending reminder');
+        }
+      }}
+    >
+      <Mail className="h-4 w-4 mr-1" />
+      Resend
+    </Button>
+  )}
                   </div>
                 </div>
               ))}
