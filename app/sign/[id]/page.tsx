@@ -799,19 +799,18 @@ if (showAccessCodeModal) {
   return (
     <AccessCodeModal
       signatureId={signatureId!}
-      onVerified={async () => {
-        console.log('✅ Access code verified! Closing modal and reloading...');
-        setAccessCodeVerified(true);
-        setShowAccessCodeModal(false);
-        
-        // Give the modal time to close smoothly
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        // Reload the page data
-        if (fetchSignatureRequestRef.current) {
-          await fetchSignatureRequestRef.current();
-        }
-      }}
+     onVerified={async () => {
+  console.log('✅ Access code verified! Closing modal and reloading...');
+  setAccessCodeVerified(true);
+  setLoading(true); // ⭐ ADD THIS - Show loading instead of error
+  setShowAccessCodeModal(false);
+  
+  await new Promise(resolve => setTimeout(resolve, 300));
+  
+  if (fetchSignatureRequestRef.current) {
+    await fetchSignatureRequestRef.current();
+  }
+}}
     />
   );
 }
@@ -895,6 +894,9 @@ if (completed) {
     );
   }
   } 
+
+
+  
   if (completed) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
