@@ -5,6 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download, CheckSquare, Square, Paperclip } from 'lucide-react';
 import { SignatureStyleModal } from '@/components/SignatureStyleModal';
 import { AttachmentModal } from '@/components/AttachmentModal';
+import { AccessCodeModal } from '@/components/AccessCodeModal';
 
 
 
@@ -87,7 +88,12 @@ const [decliningDocument, setDecliningDocument] = useState(false);
 const [wasDeclined, setWasDeclined] = useState(false);
 const [showAttachmentModal, setShowAttachmentModal] = useState(false);
 const [activeAttachmentField, setActiveAttachmentField] = useState<SignatureField | null>(null);
-const [attachments, setAttachments] = useState<Record<string, any[]>>({}); // Store uploaded attachments per field
+const [attachments, setAttachments] = useState<Record<string, any[]>>({});  
+const [showAccessCodeModal, setShowAccessCodeModal] = useState(false);
+const [accessCodeVerified, setAccessCodeVerified] = useState(false);
+ const fetchSignatureRequestRef = useRef<() => Promise<void>>(async () => {});
+
+
 
 
 
@@ -132,6 +138,8 @@ const isFieldVisible = (field: SignatureField): boolean => {
   }
 };
 
+
+
   useEffect(() => {
   if (signatureRequest?.expiresAt) {
     const expirationDate = new Date(signatureRequest.expiresAt);
@@ -150,23 +158,53 @@ const isFieldVisible = (field: SignatureField): boolean => {
         return;
       }
       try {
+        console.log('🔍 Fetching signature with ID:', signatureId);
         const res = await fetch(`/api/signature/${signatureId}`);
         const data = await res.json();
+        console.log('📥 First API response:', data);
         if (!res.ok || !data.success) {
           setError(data.message || 'Failed to load signature request');
           setLoading(false);
           return;
         }
         const { signature } = data;
-
+         console.log('🔍 Fetching signature request details...');
         const requestRes = await fetch(`/api/signature/${signatureId}/request`);
-        if (!requestRes.ok) {
-          setError('Failed to load signature fields');
-          setLoading(false);
-          return;
-        }
-        const requestData = await requestRes.json();
-        const signatureRequest = requestData.signatureRequest;
+        console.log('📥 Request API status:', requestRes.ok, requestRes.status);
+if (!requestRes.ok) {
+  console.error('❌ Request API failed');
+  setError('Failed to load signature fields');
+  setLoading(false);
+  return;
+}
+const requestData = await requestRes.json();
+console.log('📥 Request API response:', requestData);
+const signatureRequest = requestData.signatureRequest;
+
+// ⭐ ADD THIS DEBUG LOG:
+console.log('🔍 Access Code Check:', {
+  required: signatureRequest.accessCodeRequired,
+  verifiedInDB: signatureRequest.accessCodeVerifiedAt,
+  verifiedLocally: accessCodeVerified,
+  willShowModal: signatureRequest.accessCodeRequired && !signatureRequest.accessCodeVerifiedAt && !accessCodeVerified
+});
+
+//   ✅ CHECK ACCESS CODE - Use database value OR local state
+if (signatureRequest.accessCodeRequired && 
+    !signatureRequest.accessCodeVerifiedAt && 
+    !accessCodeVerified) {
+  console.log('🔒 Access code required but not verified yet');
+  setShowAccessCodeModal(true);
+  setLoading(false);
+  return; // Stop here - don't load document until verified
+}
+
+//   ✅ If already verified in database, update local state
+if (signatureRequest.accessCodeVerifiedAt) {
+  console.log('✅ Access code already verified in database');
+  setAccessCodeVerified(true);
+  sessionStorage.setItem(`access_verified_${signatureId}`, 'true');
+}
        
         //   CHECK IF CANCELLED
 //   CHECK IF CANCELLED
@@ -194,6 +232,9 @@ if (signatureRequest.status === 'cancelled') {
   setLoading(false);
   return;
 }
+
+  
+
 
         //  CHECK EXPIRATION
 if (signatureRequest.expiresAt) {
@@ -297,8 +338,10 @@ if (signatureRequest.status === 'declined') {
         setLoading(false);
       }
     };
+    // Assign the function to the ref
+  fetchSignatureRequestRef.current = fetchSignatureRequest;
     fetchSignatureRequest();
-  }, [signatureId]);
+  }, [signatureId , accessCodeVerified ]);
 
   useEffect(() => {
   const fetchAttachments = async () => {
@@ -751,24 +794,47 @@ useEffect(() => {
     );
   }
 
-  if (error || !document || !recipient) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-xl p-8 max-w-md text-center">
-          <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <AlertCircle className="h-8 w-8 text-red-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Invalid Link</h2>
-          <p className="text-slate-600 mb-6">
-            {error || 'This signing link is invalid or has expired.'}
-          </p>
-          <p className="text-sm text-slate-500">
-            Please contact the document sender for a new link.
-          </p>
+  // ⭐ NEW: Show access code modal BEFORE showing error screen
+if (showAccessCodeModal) {
+  return (
+    <AccessCodeModal
+      signatureId={signatureId!}
+      onVerified={async () => {
+        console.log('✅ Access code verified! Closing modal and reloading...');
+        setAccessCodeVerified(true);
+        setShowAccessCodeModal(false);
+        
+        // Give the modal time to close smoothly
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Reload the page data
+        if (fetchSignatureRequestRef.current) {
+          await fetchSignatureRequestRef.current();
+        }
+      }}
+    />
+  );
+}
+
+// Show error screen only if no access code modal
+if (error || !document || !recipient) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl p-8 max-w-md text-center">
+        <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="h-8 w-8 text-red-600" />
         </div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Invalid Link</h2>
+        <p className="text-slate-600 mb-6">
+          {error || 'This signing link is invalid or has expired.'}
+        </p>
+        <p className="text-sm text-slate-500">
+          Please contact the document sender for a new link.
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   {/* Show expiration warning if < 3 days remaining */}
 {daysUntilExpiration !== null && daysUntilExpiration <= 3 && daysUntilExpiration > 0 && (
@@ -862,6 +928,23 @@ if (completed) {
       </div>
     );
   }
+
+  if (loading) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
+        <p className="text-slate-600 font-medium">Loading document...</p>
+      </div>
+    </div>
+  );
+}
+
+// ✅ NEW: Separate check for access code (after loading)
+if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
+  return null; // The AccessCodeModal is already shown at the bottom
+}
+
 
   
   return (
@@ -1425,7 +1508,7 @@ if (completed) {
   </div>
 )}
 
-{/* ⭐ NEW: Attachment Upload Modal */}
+{/*   NEW: Attachment Upload Modal */}
 {showAttachmentModal && activeAttachmentField && (
   <AttachmentModal
     isOpen={showAttachmentModal}
@@ -1453,6 +1536,9 @@ if (completed) {
     }}
   />
 )}
+
+
+
     </div>
   );
 };

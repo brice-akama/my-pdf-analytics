@@ -81,6 +81,11 @@ return NextResponse.json({
     message: signatureRequest.message,
     dueDate: signatureRequest.dueDate,
     createdAt: signatureRequest.createdAt,
+    // ⭐ ADD THESE ACCESS CODE FIELDS:
+    accessCodeRequired: signatureRequest.accessCodeRequired || false,
+    accessCodeVerifiedAt: signatureRequest.accessCodeVerifiedAt || null,
+    accessCodeType: signatureRequest.accessCodeType || null,
+    accessCodeHint: signatureRequest.accessCodeHint || null,
     document: {
       _id: document._id.toString(),
       filename: document.originalFilename || document.filename,

@@ -4,6 +4,7 @@ import { dbPromise } from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
 import { sendCCNotificationEmail, sendSignatureRequestEmail } from "@/lib/emailService";
 import { verifyUserFromRequest } from '@/lib/auth';
+import { hashAccessCode } from "@/lib/accessCodeConfig";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +17,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { documentId, recipients, signatureFields, message, dueDate, viewMode , signingOrder, expirationDays, ccRecipients  } = await request.json();
+    const { documentId, recipients, signatureFields, message, dueDate, viewMode , signingOrder, expirationDays, ccRecipients, accessCodeRequired,
+  accessCodeType,
+  accessCodeHint,
+  accessCode  } = await request.json();
+
     const db = await dbPromise;
 
     // ✅ Get current user details
@@ -27,6 +32,13 @@ export async function POST(request: NextRequest) {
       _id: new ObjectId(ownerId)
     });
     const ownerName = userDoc?.profile?.fullName || userDoc?.email || user.email;
+
+    // ✅ Hash the access code if provided
+let accessCodeHash = null;
+if (accessCodeRequired && accessCode) {
+  accessCodeHash = await hashAccessCode(accessCode);
+  console.log(`🔒 Access code hashed for document ${documentId}`);
+}
 
     // ✅ Verify document exists and belongs to user
     const document = await db.collection("documents").findOne({
@@ -51,6 +63,7 @@ export async function POST(request: NextRequest) {
     for (let i = 0; i < recipients.length; i++) {
       const recipient = recipients[i];
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`;
+
 
       //   Calculate expiration date
       let expiresAt = null;
@@ -107,6 +120,13 @@ export async function POST(request: NextRequest) {
         completedAt: null,
         signedFields: null,
         ipAddress: null,
+        // ⭐ Add access code settings
+  accessCodeRequired: accessCodeRequired || false,
+  accessCodeHash: accessCodeHash,
+  accessCodeType: accessCodeType,
+  accessCodeHint: accessCodeHint,
+  accessCodeFailedAttempts: 0,
+  accessCodeLockoutUntil: null,
       };
 
       const result = await db.collection("signature_requests").insertOne(signatureRequest);
