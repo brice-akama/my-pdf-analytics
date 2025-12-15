@@ -25,6 +25,7 @@ import {
   FileText,
   CheckSquare,
   Settings,
+   Paperclip,
 } from "lucide-react";
 type DocumentType = {
   _id: string;
@@ -40,7 +41,7 @@ type Recipient = {
 };
 type SignatureField = {
   id: string | number;
-  type: "signature" | "date" | "text"  | "checkbox";
+  type: "signature" | "date" | "text"  | "checkbox" | "attachment";
   x: number;
   y: number;
   page: number;
@@ -49,6 +50,10 @@ type SignatureField = {
   height?: number;
   label?: string; //   Field label
   defaultChecked?: boolean; //   NEW: For checkboxes
+  // ⭐ NEW: For attachment fields
+  attachmentLabel?: string; // e.g., "Upload ID", "Upload Proof of Address"
+  attachmentType?: string; // e.g., "proof_of_identity", "proof_of_address"
+  isRequired?: boolean; // Whether attachment is mandatory
 
   //   NEW: Conditional Logic
   conditional?: {
@@ -835,6 +840,18 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
   <CheckSquare className="h-5 w-5 mr-3" />
   Checkbox Field
 </Button>
+{/* Existing buttons: Signature, Date, Text, Checkbox */}
+
+{/*   NEW: ATTACHMENT FIELD */}
+<Button
+  variant="outline"
+  className="w-full justify-start h-12"
+  draggable
+  onDragStart={(e) => e.dataTransfer.setData("fieldType", "attachment")}
+>
+  <Paperclip className="h-5 w-5 mr-3" />
+  Attachment Field
+</Button>
               </div>
               {/* Quick Actions */}
               <div className="mt-6 pt-6 border-t space-y-3">
@@ -906,7 +923,8 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                     | "signature"
                     | "date"
                     | "text"
-                    | "checkbox"; //   Add checkbox
+                    | "checkbox" //   Add checkbox
+                    | "attachment";
                   const container = document.getElementById("pdf-container");
                   if (!container) return;
                   const rect = container.getBoundingClientRect();
@@ -924,6 +942,10 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                     recipientIndex: 0,
                      label: fieldType === 'checkbox' ? 'Check this box' : '', //   Default label
     defaultChecked: false, //   For checkboxes
+                  // ⭐ NEW: Default values for attachment fields
+    attachmentLabel: fieldType === 'attachment' ? 'Upload Required Document' : undefined,
+    attachmentType: fieldType === 'attachment' ? 'supporting_document' : undefined,
+    isRequired: fieldType === 'attachment' ? true : false,
                   };
                   setSignatureRequest({
                     ...signatureRequest,
@@ -1001,6 +1023,24 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                               ))}
                             </select>
 
+                             {/* ⭐ ADD: Attachment Label Editor */}
+        {field.type === "attachment" && (
+          <input
+            type="text"
+            value={field.attachmentLabel || ""}
+            onChange={(e) => {
+              e.stopPropagation();
+              const updated = signatureRequest.signatureFields.map((f) =>
+                f.id === field.id ? { ...f, attachmentLabel: e.target.value } : f
+              );
+              setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+            }}
+            onClick={(e) => e.stopPropagation()}
+            placeholder="e.g., Upload ID..."
+            className="absolute bottom-full mb-1 left-1/2 transform -translate-x-1/2 text-xs border rounded px-2 py-1 bg-white opacity-0 group-hover:opacity-100 transition-opacity w-40 text-center"
+          />
+        )}
+
                             {/*   MOVE THE LABEL EDITOR HERE (right after select) */}
   {(field.type === "checkbox" || field.type === "text") && (
     <input
@@ -1027,25 +1067,46 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                                 {field.type === "date" && <Clock className="h-4 w-4" />}
                                 {field.type === "text" && <Edit className="h-4 w-4" />}
                                 {field.type === "checkbox" && <CheckSquare className="h-4 w-4" />}
-                                {field.type !== "checkbox" && (
+                                 {/* ⭐ NEW: Attachment Icon */}
+            {field.type === "attachment" && <Paperclip className="h-4 w-4" />}
+{field.type !== "checkbox" && field.type !== "attachment" && (
               <span className="text-xs font-semibold">
                 {field.type === "signature" ? "Sign Here" :
                  field.type === "date" ? "Date" : "Text"}
               </span>
             )}
-
+                    {/* ⭐ NEW: Show attachment label */}
+            {field.type === "attachment" && (
+              <span className="text-xs font-semibold truncate">
+                {field.attachmentLabel || "Upload File"}
+              </span>
+            )}
             
                               </div>
 
                               
                               {/*   Show label for checkbox */}
           
-          {field.type !== "checkbox" && (
+         {field.type !== "checkbox" && field.type !== "attachment" && (
             <p className="text-xs text-slate-600 truncate px-2">
               {recipient?.name || `Recipient ${field.recipientIndex + 1}`}
             </p>
           )}
                             </div>
+                            {/* ⭐ NEW: Settings button for attachment fields */}
+        {field.type === "attachment" && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute -top-3 -left-3 h-7 w-7 rounded-full bg-blue-500 text-white hover:bg-blue-600 shadow-lg z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditingFieldLogic(field);
+            }}
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        )}
                             {/* Settings Button (Top-Left) */}
     {(field.type === "checkbox" || field.type === "text") && (
   <Button
@@ -1202,6 +1263,43 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                     <p className="text-sm text-slate-500">No message added.</p>
                   )}
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {signatureRequest.signatureFields.map((field) => {
+    const recipient = signatureRequest.recipients[field.recipientIndex];
+    return (
+      <div
+        key={field.id}
+        className="p-4 border rounded-lg bg-slate-50 flex items-center gap-3"
+      >
+        <div
+          className="h-8 w-8 rounded-full flex-shrink-0"
+          style={{ backgroundColor: recipient?.color || "#9333ea" }}
+        />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-slate-900">
+            {field.type === "signature" ? "Signature" :
+             field.type === "date" ? "Date" :
+             field.type === "text" ? "Text" :
+             field.type === "checkbox" ? "Checkbox" :
+             field.type === "attachment" ? `📎 ${field.attachmentLabel || "Attachment"}` : // ⭐ ADD THIS
+             field.type
+            } - Page {field.page}
+          </p>
+          <p className="text-xs text-slate-600">
+            {recipient?.name || `Recipient ${field.recipientIndex + 1}`}
+          </p>
+          {/* ⭐ NEW: Show if required */}
+          {field.type === "attachment" && field.isRequired && (
+            <span className="inline-block mt-1 text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">
+              Required
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  })}
+</div>
 
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-slate-800">Due Date</h3>
@@ -1519,6 +1617,113 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
   />
 )}
 
+{/* ⭐ NEW: Attachment Field Settings Modal */}
+{editingFieldLogic && editingFieldLogic.type === 'attachment' && (
+  <Dialog
+    open={!!editingFieldLogic}
+    onOpenChange={(open) => !open && setEditingFieldLogic(null)}
+  >
+    <DialogContent className="bg-white sm:max-w-md p-0 overflow-hidden">
+      <DialogHeader className="p-6 border-b bg-white">
+        <DialogTitle className="text-lg font-semibold text-gray-900">
+          Attachment Field Settings
+        </DialogTitle>
+      </DialogHeader>
+      <div className="p-6 space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="attachment-label" className="text-sm font-medium text-gray-700">
+            Instruction Text (What should they upload?)
+          </Label>
+          <Input
+            id="attachment-label"
+            value={editingFieldLogic?.attachmentLabel || ""}
+            onChange={(e) => {
+              if (!editingFieldLogic) return;
+              const updated = signatureRequest.signatureFields.map((f) =>
+                f.id === editingFieldLogic.id 
+                  ? { ...f, attachmentLabel: e.target.value } 
+                  : f
+              );
+              setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+              setEditingFieldLogic({ ...editingFieldLogic, attachmentLabel: e.target.value });
+            }}
+            placeholder="e.g., Upload Proof of ID, Upload Bank Statement"
+            className="text-sm"
+          />
+          <p className="text-xs text-slate-500">
+            This text will guide the signer on what to upload
+          </p>
+        </div>
+        
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-gray-700">
+            Document Type Category
+          </Label>
+          <select
+            value={editingFieldLogic?.attachmentType || 'supporting_document'}
+            onChange={(e) => {
+              if (!editingFieldLogic) return;
+              const updated = signatureRequest.signatureFields.map((f) =>
+                f.id === editingFieldLogic.id 
+                  ? { ...f, attachmentType: e.target.value } 
+                  : f
+              );
+              setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+              setEditingFieldLogic({ ...editingFieldLogic, attachmentType: e.target.value });
+            }}
+            className="w-full border rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="proof_of_identity">🪪 Proof of Identity</option>
+            <option value="proof_of_address">🏠 Proof of Address</option>
+            <option value="tax_form">📋 Tax Form</option>
+            <option value="bank_info">🏦 Banking Information</option>
+            <option value="insurance_card">🩺 Insurance Card</option>
+            <option value="certification">🎓 Certification/License</option>
+            <option value="financial_statement">💰 Financial Statement</option>
+            <option value="supporting_document">📄 Supporting Document</option>
+          </select>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="attachment-required"
+            checked={editingFieldLogic?.isRequired || false}
+            onChange={(e) => {
+              if (!editingFieldLogic) return;
+              const updated = signatureRequest.signatureFields.map((f) =>
+                f.id === editingFieldLogic.id 
+                  ? { ...f, isRequired: e.target.checked } 
+                  : f
+              );
+              setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+              setEditingFieldLogic({ ...editingFieldLogic, isRequired: e.target.checked });
+            }}
+            className="h-4 w-4 text-purple-600 rounded"
+          />
+          <label htmlFor="attachment-required" className="text-sm text-slate-700">
+            Mark as required (signer must upload before completing)
+          </label>
+        </div>
+      </div>
+      <div className="p-4 border-t bg-gray-50 flex justify-end space-x-3">
+        <Button
+          variant="outline"
+          onClick={() => setEditingFieldLogic(null)}
+          className="text-sm"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={() => setEditingFieldLogic(null)}
+          className="bg-purple-600 hover:bg-purple-700 text-sm"
+        >
+          Save Settings
+        </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+)}
     </div>
   );
 }

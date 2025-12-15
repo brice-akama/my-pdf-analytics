@@ -1,7 +1,11 @@
+//app/sign/[id]/page.tsx
+
 "use client"
 import React, { useState, useRef, useEffect } from 'react';
-import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download, CheckSquare, Square } from 'lucide-react';
+import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download, CheckSquare, Square, Paperclip } from 'lucide-react';
 import { SignatureStyleModal } from '@/components/SignatureStyleModal';
+import { AttachmentModal } from '@/components/AttachmentModal';
+
 
 
 
@@ -22,7 +26,7 @@ interface SignatureField {
   id: string;
   page: number;
   recipientIndex: number;
-  type: 'signature' | 'date' | 'text' | 'checkbox'; 
+  type: 'signature' | 'date' | 'text' | 'checkbox' | "attachment"; 
   x: number;
   y: number;
   width?: number;
@@ -31,6 +35,8 @@ interface SignatureField {
   recipientEmail?: string; // ⭐ ADD THIS
   label?: string;
   defaultChecked?: boolean;
+  attachmentLabel?: string;
+  isRequired?: boolean;
 
   // ADD THIS:
   conditional?: {
@@ -79,6 +85,9 @@ const DocSendSigningPage = () => {
 const [declineReason, setDeclineReason] = useState('');
 const [decliningDocument, setDecliningDocument] = useState(false);
 const [wasDeclined, setWasDeclined] = useState(false);
+const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+const [activeAttachmentField, setActiveAttachmentField] = useState<SignatureField | null>(null);
+const [attachments, setAttachments] = useState<Record<string, any[]>>({}); // Store uploaded attachments per field
 
 
 
@@ -291,6 +300,32 @@ if (signatureRequest.status === 'declined') {
     fetchSignatureRequest();
   }, [signatureId]);
 
+  useEffect(() => {
+  const fetchAttachments = async () => {
+    if (!signatureId) return;
+    
+    try {
+      const res = await fetch(`/api/signature/${signatureId}/attachments`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.attachments) {
+          // Group attachments by field ID
+          const grouped: Record<string, any[]> = {};
+          data.attachments.forEach((att: any) => {
+            if (!grouped[att.fieldId]) grouped[att.fieldId] = [];
+            grouped[att.fieldId].push(att);
+          });
+          setAttachments(grouped);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch attachments:', err);
+    }
+  };
+  
+  fetchAttachments();
+}, [signatureId]);
+
   // Track initial view
 useEffect(() => {
   if (!signatureId || !pdfUrl) return;
@@ -421,7 +456,16 @@ useEffect(() => {
 
   const myFields = signatureFields.filter(f => f.recipientIndex === recipient?.index);
   const allFields = signatureFields;
-  const allFieldsFilled = myFields.every(f => signatures[f.id]);
+  const allFieldsFilled = myFields.every(f => {
+  if (f.type === 'attachment') {
+    // ⭐ Check if required attachments are uploaded
+    if (f.isRequired) {
+      return attachments[f.id]?.length > 0;
+    }
+    return true; // Optional attachments don't block completion
+  }
+  return signatures[f.id]; // Existing check for other fields
+});
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -819,6 +863,7 @@ if (completed) {
     );
   }
 
+  
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="bg-white border-b shadow-sm sticky top-0 z-40">
@@ -884,7 +929,9 @@ if (completed) {
     return isMyField || isVisible; // Show my fields or visible shared fields
   })
   .map((field) => {
-    const isFilled = signatures[field.id];
+    const isFilled = field.type === 'attachment' 
+      ? (attachments[field.id]?.length > 0) // ⭐ Check if attachment uploaded
+      : signatures[field.id];
     const isMyField = field.recipientIndex === recipient?.index;
     const isVisible = isFieldVisible(field);
     const pageHeight = 297 * 3.78;
@@ -905,12 +952,18 @@ if (completed) {
           top: `${topPosition}px`,
           width: field.width ? `${field.width}px` : 
                  field.type === "signature" ? "200px" :
-                 field.type === "checkbox" ? "30px" : "150px",
+                 field.type === "checkbox" ? "30px" : 
+                 field.type === "attachment" ? "200px" :
+                 "150px",
           height: field.height ? `${field.height}px` : 
                   field.type === "signature" ? "60px" :
-                  field.type === "checkbox" ? "30px" : "40px",
+                  field.type === "checkbox" ? "30px" :
+                  field.type === "attachment" ? "50px" :
+                   "40px",
           transform: "translate(-50%, 0%)",
-          cursor: field.type === "signature" && !isFilled ? "pointer" : "default",
+          cursor: field.type === "signature" && !isFilled ? "pointer" :
+          field.type === "attachment" && !isFilled ? "pointer" :
+           "default",
           pointerEvents: !isVisible ? "none" : field.type === "checkbox" ? "auto" : isFilled ? "none" : "auto",
           zIndex: 10,
         }}
@@ -925,6 +978,10 @@ if (completed) {
             } else if (field.type === "checkbox") {
               // ⭐ Handle checkbox click
               handleCheckboxToggle(field.id);
+            }  
+            else if (field.type === "attachment") { // ⭐ ADD THIS
+              setActiveAttachmentField(field);
+              setShowAttachmentModal(true);
             }
           }
         }}
@@ -974,40 +1031,74 @@ if (completed) {
   </div>
 )}
 
+{/* ⭐ NEW: Attachment Display */}
+              {field.type === "attachment" && attachments[field.id] && (
+                <div className="text-center w-full">
+                  <Paperclip className="h-5 w-5 text-green-600 mx-auto mb-1" />
+                  <p className="text-xs font-medium text-green-800">
+                    {attachments[field.id].length} file(s) uploaded
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveAttachmentField(field);
+                      setShowAttachmentModal(true);
+                    }}
+                    className="text-xs text-blue-600 hover:underline mt-1"
+                  >
+                    View Files
+                  </button>
+                </div>
+              )}
+
             </>
           ) : (
             <div className="text-center">
-              {field.type === "checkbox" ? (
-  <div className="flex items-center gap-2 w-full h-full px-2">
-    <Square className="h-5 w-5 text-yellow-700 flex-shrink-0" />
-    {field.label && (
-      <p className="text-xs text-yellow-700 font-medium truncate">
-        {field.label}
+  {field.type === "attachment" ? (
+    <>
+      <Paperclip className="h-5 w-5 text-yellow-700 mx-auto mb-1" />
+      <p className="text-xs font-medium text-yellow-700">
+        📎 {field.attachmentLabel || "Upload Required"}
       </p>
-    )}
-  </div>
-) : (
-                <>
-                  <p className="text-xs font-medium text-yellow-700">
-                    {field.type === "signature"
-                      ? isMyField
-                        ? "✍️ Click to Sign"
-                        : "⏳ Awaiting Signature"
-                      : field.type === "date"
-                      ? isMyField
-                        ? "📅 Auto-filled"
-                        : "📅 Date pending"
-                      : isMyField
-                      ? "📝 Click to Fill"
-                      : "⏳ Awaiting Input"}
-                  </p>
-                  <p className="text-xs text-slate-600 mt-1 font-semibold">
-                    {(field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
-                    {isMyField && " (You)"}
-                  </p>
-                </>
-              )}
-            </div>
+      {field.isRequired && (
+        <p className="text-xs text-red-600 font-semibold mt-1">
+          * Required
+        </p>
+      )}
+      <p className="text-xs text-slate-600 mt-1">Click to upload</p>
+    </>
+  ) : field.type === "checkbox" ? (
+    <div className="flex items-center gap-2 w-full h-full px-2">
+      <Square className="h-5 w-5 text-yellow-700 flex-shrink-0" />
+      {field.label && (
+        <p className="text-xs text-yellow-700 font-medium truncate">
+          {field.label}
+        </p>
+      )}
+    </div>
+  ) : (
+    <>
+      <p className="text-xs font-medium text-yellow-700">
+        {field.type === "signature"
+          ? isMyField
+            ? "✍️ Click to Sign"
+            : "⏳ Awaiting Signature"
+          : field.type === "date"
+          ? isMyField
+            ? "📅 Auto-filled"
+            : "📅 Date pending"
+          : isMyField
+          ? "📝 Click to Fill"
+          : "⏳ Awaiting Input"}
+      </p>
+      <p className="text-xs text-slate-600 mt-1 font-semibold">
+        {(field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
+        {isMyField && " (You)"}
+      </p>
+    </>
+  )}
+</div>
+
           )}
         </div>
       </div>
@@ -1057,20 +1148,28 @@ if (completed) {
               <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
                 {allFields.map(field => {  // ⬅️ Show all fields
                   const isMyField = field.recipientIndex === recipient?.index;
+                  const isFilled = field.type === 'attachment' 
+                  ? (attachments[field.id]?.length > 0) // ⭐ ADD THIS
+      : signatures[field.id];
                   return (
                     <div
                       key={field.id}
-                      className={`p-3 rounded-lg border ${signatures[field.id]
-                        ? 'bg-green-50 border-green-200'
-                        : isMyField
-                          ? 'bg-yellow-50 border-yellow-200'  // My pending field
-                          : 'bg-slate-50 border-slate-200'     // Others' fields
-                        }`}
+        className={`p-3 rounded-lg border ${isFilled
+          ? 'bg-green-50 border-green-200'
+          : isMyField
+            ? 'bg-yellow-50 border-yellow-200'
+            : 'bg-slate-50 border-slate-200'
+        }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-slate-900">
-                          {field.type === 'signature' ? '✍️ Signature' :
-                            field.type === 'date' ? '📅 Date' : '📝 Text Field'}
+                         {field.type === 'signature' ? '✍️ Signature' :
+             field.type === 'date' ? '📅 Date' :
+             field.type === 'text' ? '📝 Text Field' :
+             field.type === 'checkbox' ? '☑️ Checkbox' :
+             field.type === 'attachment' ? `📎 ${field.attachmentLabel || 'Attachment'}` : // ⭐ ADD THIS
+             'Field'}
+                            
                           {!isMyField && ' (Other signer)'}  {/* ⬅️ Show indicator */}
                         </span>
                         {signatures[field.id] && (
@@ -1078,6 +1177,12 @@ if (completed) {
                         )}
                       </div>
                       <p className="text-xs text-slate-500 mt-1">Page {field.page}</p>
+                      {/* ⭐ NEW: Show required indicator for attachments */}
+        {field.type === 'attachment' && field.isRequired && !isFilled && (
+          <span className="inline-block mt-1 text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">
+            Required
+          </span>
+        )}
                     </div>
                   )
                 })}
@@ -1318,6 +1423,35 @@ if (completed) {
       </div>
     </div>
   </div>
+)}
+
+{/* ⭐ NEW: Attachment Upload Modal */}
+{showAttachmentModal && activeAttachmentField && (
+  <AttachmentModal
+    isOpen={showAttachmentModal}
+    onClose={() => {
+      setShowAttachmentModal(false);
+      setActiveAttachmentField(null);
+    }}
+    signatureId={signatureId!}
+    fieldId={activeAttachmentField.id.toString()}
+    existingAttachments={attachments[activeAttachmentField.id] || []}
+    onAttachmentsChange={() => {
+      // Refresh attachments
+      fetch(`/api/signature/${signatureId}/attachments`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const grouped: Record<string, any[]> = {};
+            data.attachments.forEach((att: any) => {
+              if (!grouped[att.fieldId]) grouped[att.fieldId] = [];
+              grouped[att.fieldId].push(att);
+            });
+            setAttachments(grouped);
+          }
+        });
+    }}
+  />
 )}
     </div>
   );

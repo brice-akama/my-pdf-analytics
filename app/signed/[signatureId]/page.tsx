@@ -13,6 +13,24 @@ export default function SignedDocumentPage() {
   const [documentData, setDocumentData] = useState<any>(null);
   const [downloading, setDownloading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<any[]>([]);
+
+  // Fetch attachments
+  useEffect(() => {
+    const fetchAttachments = async () => {
+      try {
+        const res = await fetch(`/api/signature/${signatureId}/attachments`);
+        const data = await res.json();
+        if (data.success) {
+          setAttachments(data.attachments);
+        }
+      } catch (err) {
+        console.error('Failed to fetch attachments:', err);
+      }
+    };
+    
+    fetchAttachments();
+  }, [signatureId]);
 
   // Fetch signed document info
   useEffect(() => {
@@ -40,41 +58,40 @@ export default function SignedDocumentPage() {
   }, [signatureId]);
 
   // Download the signed PDF
-  // Download the signed PDF
-const handleDownload = async () => {
-  setDownloading(true);
-  try {
-    const res = await fetch(`/api/signature/${signatureId}/download`);
-    
-    if (!res.ok) {
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/signature/${signatureId}/download`);
+      
+      if (!res.ok) {
+        alert('Failed to download document');
+        setDownloading(false);
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      const filename = documentData?.document?.filename 
+        ? documentData.document.filename.replace('.pdf', '_signed.pdf')
+        : `signed_document_${signatureId}.pdf`;
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setDownloading(false);
+    } catch (err) {
+      console.error('Download error:', err);
       alert('Failed to download document');
       setDownloading(false);
-      return;
     }
+  };
 
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    
-    // FIX: Check if filename exists, otherwise use a default name
-    const filename = documentData?.document?.filename 
-      ? documentData.document.filename.replace('.pdf', '_signed.pdf')
-      : `signed_document_${signatureId}.pdf`;
-    
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    setDownloading(false);
-  } catch (err) {
-    console.error('Download error:', err);
-    alert('Failed to download document');
-    setDownloading(false);
-  }
-};
   // View PDF in browser
   const handleView = async () => {
     if (pdfUrl) {
@@ -192,7 +209,7 @@ const handleDownload = async () => {
                 )}
               </button>
             </div>
-
+   
             {/* Signers List */}
             <div className="bg-slate-50 rounded-lg p-6 border">
               <h3 className="font-semibold text-slate-900 mb-4">Signatures Collected</h3>
@@ -230,6 +247,57 @@ const handleDownload = async () => {
             </div>
           </div>
         </div>
+
+        {/* Attachments Section */}
+        {attachments.length > 0 && (
+          <div className="bg-white rounded-xl shadow-xl overflow-hidden mb-6">
+            <div className="p-8">
+              <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                📎 Attachments ({attachments.length})
+              </h3>
+              <div className="space-y-3">
+                {attachments.map((attachment) => (
+                  <div
+                    key={attachment._id}
+                    className="border rounded-lg p-4 flex items-center justify-between hover:border-purple-300 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">
+                        {attachment.fileType.includes('pdf') ? '📄' :
+                         attachment.fileType.includes('image') ? '🖼️' :
+                         attachment.fileType.includes('word') ? '📝' :
+                         attachment.fileType.includes('excel') ? '📊' : '📎'}
+                      </span>
+                      <div>
+                        <p className="font-medium text-slate-900">{attachment.filename}</p>
+                        <p className="text-sm text-slate-500">
+                          Uploaded by {attachment.recipientName || attachment.recipientEmail}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <a
+                        href={`/api/signature/${signatureId}/attachments/${attachment._id}?action=view`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        View
+                      </a>
+                      <a
+                        href={`/api/signature/${signatureId}/attachments/${attachment._id}?action=download`}
+                        download={attachment.filename}
+                        className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        Download
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* PDF Viewer (Optional) */}
         {pdfUrl && (
