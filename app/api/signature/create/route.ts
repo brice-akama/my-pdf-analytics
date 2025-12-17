@@ -127,6 +127,7 @@ if (accessCodeRequired && accessCode) {
   accessCodeHint: accessCodeHint,
   accessCodeFailedAttempts: 0,
   accessCodeLockoutUntil: null,
+  selfieVerificationRequired: accessCodeRequired || false,
       };
 
       const result = await db.collection("signature_requests").insertOne(signatureRequest);

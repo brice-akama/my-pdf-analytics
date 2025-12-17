@@ -10,6 +10,7 @@ import {
   X,
   XCircle,
   Archive, 
+  Camera
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -45,6 +46,8 @@ interface Signer {
   totalViews?: number;
   totalTimeSpent?: number;
   engagement?: 'high' | 'medium' | 'low';
+  selfieUrl?: string;  //   ADD THIS
+  selfieVerifiedAt?: string;  //   ADD THIS
 }
 
 interface SignatureDocument {
@@ -323,6 +326,8 @@ useEffect(() => {
           totalViews: data.signature.totalViews,
           totalTimeSpent: data.signature.totalTimeSpent,
           engagement: data.signature.engagement,
+          selfieUrl: data.signature.selfieVerification?.selfieImageUrl || null,  // ⭐ ADD THIS
+        selfieVerifiedAt: data.signature.selfieVerifiedAt || null,  // ⭐ ADD THIS
         });
       }
     } catch (err) {
@@ -1743,6 +1748,7 @@ useEffect(() => {
           </DialogHeader>
           {selectedSigner && (
             <div className="space-y-6">
+             
               {/* Signer Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card>
@@ -1769,6 +1775,8 @@ useEffect(() => {
                           <span className="capitalize font-medium">{selectedSigner.status}</span>
                         </div>
                       </div>
+
+                      
                       {selectedSigner.signedAt && (
                         <div>
                           <p className="text-sm text-slate-600">Signed At</p>
@@ -1780,6 +1788,8 @@ useEffect(() => {
                     </div>
                   </CardContent>
                 </Card>
+
+                
 
                 {/* Device & Location */}
                 <Card>
@@ -1815,6 +1825,49 @@ useEffect(() => {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* ⭐ ADD SELFIE CARD HERE - OUTSIDE THE GRID */}
+{selectedSigner.selfieUrl && (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Camera className="h-5 w-5 text-purple-600" />
+        Selfie Verification
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <CheckCircle className="h-5 w-5 text-green-600" />
+          <span className="text-sm font-medium text-green-900">
+            Identity verified with selfie
+          </span>
+        </div>
+        
+        <div className="relative w-full max-w-md mx-auto">
+          <img 
+            src={selectedSigner.selfieUrl} 
+            alt="Verification selfie"
+            className="w-full rounded-lg border-2 border-purple-200 shadow-lg"
+          />
+          <div className="mt-2 text-xs text-slate-600 text-center">
+            Captured on {selectedSigner.selfieVerifiedAt 
+              ? new Date(selectedSigner.selfieVerifiedAt).toLocaleString() 
+              : 'verification'}
+          </div>
+        </div>
+
+        <button
+          onClick={() => window.open(selectedSigner.selfieUrl, '_blank')}
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium"
+        >
+          <Download className="h-4 w-4" />
+          Download Selfie
+        </button>
+      </div>
+    </CardContent>
+  </Card>
+)}
 
               {/* Engagement Metrics */}
               <Card>
@@ -1897,8 +1950,10 @@ useEffect(() => {
                   </div>
                 </CardContent>
               </Card>
+             
             </div>
           )}
+          
         </DialogContent>
       </Dialog>
       {/* Add this modal to your component */}

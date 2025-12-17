@@ -86,6 +86,9 @@ return NextResponse.json({
     accessCodeVerifiedAt: signatureRequest.accessCodeVerifiedAt || null,
     accessCodeType: signatureRequest.accessCodeType || null,
     accessCodeHint: signatureRequest.accessCodeHint || null,
+    selfieVerificationRequired: signatureRequest.selfieVerificationRequired || false, // ⭐ ADD THIS
+    selfieVerifiedAt: signatureRequest.selfieVerifiedAt || null, // ⭐ ADD THIS
+    selfieVerification: signatureRequest.selfieVerification || null, // ⭐ ADD THIS (for selfie URL)
     document: {
       _id: document._id.toString(),
       filename: document.originalFilename || document.filename,

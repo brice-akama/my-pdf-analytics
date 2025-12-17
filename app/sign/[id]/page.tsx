@@ -2,10 +2,11 @@
 
 "use client"
 import React, { useState, useRef, useEffect } from 'react';
-import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download, CheckSquare, Square, Paperclip } from 'lucide-react';
+import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download, CheckSquare, Square, Paperclip, Camera } from 'lucide-react';
 import { SignatureStyleModal } from '@/components/SignatureStyleModal';
 import { AttachmentModal } from '@/components/AttachmentModal';
 import { AccessCodeModal } from '@/components/AccessCodeModal';
+import { SelfieVerificationModal } from '@/components/SelfieVerificationModal';
 
 
 
@@ -92,6 +93,10 @@ const [attachments, setAttachments] = useState<Record<string, any[]>>({});
 const [showAccessCodeModal, setShowAccessCodeModal] = useState(false);
 const [accessCodeVerified, setAccessCodeVerified] = useState(false);
  const fetchSignatureRequestRef = useRef<() => Promise<void>>(async () => {});
+ const [showSelfieModal, setShowSelfieModal] = useState(false);
+const [selfieVerified, setSelfieVerified] = useState(false);
+const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
+const [selfieRequired, setSelfieRequired] = useState(false);
 
 
 
@@ -178,8 +183,50 @@ if (!requestRes.ok) {
   return;
 }
 const requestData = await requestRes.json();
-console.log('📥 Request API response:', requestData);
 const signatureRequest = requestData.signatureRequest;
+
+
+// ⭐ CHECK IF SELFIE VERIFICATION IS REQUIRED
+// ONLY enable selfie if access code was USED and VERIFIED (check BOTH DB and local state)
+const accessWasVerified = signatureRequest.accessCodeVerifiedAt || accessCodeVerified;
+
+console.log('🔍 Selfie Verification Check:', {
+  selfieVerificationRequired: signatureRequest.selfieVerificationRequired,
+  accessCodeRequired: signatureRequest.accessCodeRequired,
+  accessCodeVerifiedAt: signatureRequest.accessCodeVerifiedAt,
+  accessCodeVerified: accessCodeVerified,
+  accessWasVerified: accessWasVerified,
+  willEnableSelfie: signatureRequest.selfieVerificationRequired && 
+                    signatureRequest.accessCodeRequired && 
+                    accessWasVerified
+                    });
+
+// ⭐ FIXED: Check if selfie is required when access code is used
+if (signatureRequest.selfieVerificationRequired && signatureRequest.accessCodeRequired) {
+  if (accessWasVerified) {
+    console.log('📸 Selfie verification enabled (access code was verified)');
+    setSelfieRequired(true);
+    
+    // Check if selfie already verified
+    if (signatureRequest.selfieVerifiedAt) {
+      console.log('✅ Selfie already verified');
+      setSelfieVerified(true);
+      setSelfieUrl(signatureRequest.selfieVerification?.selfieImageUrl || null);
+    } else {
+      console.log('⚠️ Selfie not verified yet');
+      setSelfieVerified(false);
+    }
+  } else {
+    console.log('⚠️ Selfie disabled - access code not verified yet');
+    setSelfieRequired(false);
+  }
+} else if (signatureRequest.selfieVerificationRequired && !signatureRequest.accessCodeRequired) {
+  console.log('⚠️ Selfie disabled - no access code requirement');
+  setSelfieRequired(false);
+} else {
+  console.log('⚠️ Selfie not required');
+  setSelfieRequired(false);
+}
 
 // ⭐ ADD THIS DEBUG LOG:
 console.log('🔍 Access Code Check:', {
@@ -619,52 +666,84 @@ useEffect(() => {
   };
 
   const completeSignature = async () => {
-    if (!allFieldsFilled) {
-      alert('Please complete all required fields before submitting');
+    console.log('🔍 === COMPLETE SIGNING CLICKED ===');
+  console.log('🔍 allFieldsFilled:', allFieldsFilled);
+  console.log('🔍 selfieRequired:', selfieRequired);
+  console.log('🔍 selfieVerified:', selfieVerified);
+  console.log('🔍 accessCodeVerified:', accessCodeVerified);
+  if (!allFieldsFilled) {
+    alert('Please complete all required fields before submitting');
+    return;
+  }
+
+  // ⭐ ADD DEBUG LOGGING
+  console.log('🔍 Complete Signing Check:', {
+    selfieRequired,
+    selfieVerified,
+    accessCodeVerified,
+    shouldShowSelfie: selfieRequired && !selfieVerified
+  });
+
+  // ⭐ CHECK IF SELFIE VERIFICATION IS REQUIRED BUT NOT DONE
+  if (selfieRequired && !selfieVerified) {
+    console.log('📸 Selfie verification required - opening modal');
+    setShowSelfieModal(true);
+    return;
+  }
+
+  // Proceed with submission
+  await submitSignature();
+};
+
+// ⭐ NEW FUNCTION: Actual signature submission
+const submitSignature = async () => {
+  setSubmitting(true);
+  try {
+    let ipAddress = null;
+    try {
+      const ipRes = await fetch('https://api.ipify.org?format=json');
+      const ipData = await ipRes.json();
+      ipAddress = ipData.ip;
+    } catch (err) {
+      console.warn('Could not fetch IP address');
+    }
+
+    const signedFieldsArray = Object.entries(signatures).map(([id, sig]) => ({
+      id: parseInt(id),
+      type: sig.type,
+      signatureData: sig.type === 'signature' ? sig.data : null,
+      dateValue: sig.type === 'date' ? sig.data : null,
+      textValue: sig.type === 'text' ? sig.data : null,
+      timestamp: sig.timestamp,
+    }));
+
+    const res = await fetch(`/api/signature/${signatureId}/sign`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        signedFields: signedFieldsArray,
+        signedAt: new Date().toISOString(),
+        ipAddress: ipAddress,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      alert(data.message || 'Failed to submit signature');
+      setSubmitting(false);
       return;
     }
-    setSubmitting(true);
-    try {
-      let ipAddress = null;
-      try {
-        const ipRes = await fetch('https://api.ipify.org?format=json');
-        const ipData = await ipRes.json();
-        ipAddress = ipData.ip;
-      } catch (err) {
-        console.warn('Could not fetch IP address');
-      }
-      const signedFieldsArray = Object.entries(signatures).map(([id, sig]) => ({
-        id: parseInt(id),
-        type: sig.type,
-        signatureData: sig.type === 'signature' ? sig.data : null,
-        dateValue: sig.type === 'date' ? sig.data : null,
-        textValue: sig.type === 'text' ? sig.data : null,
-        timestamp: sig.timestamp,
-      }));
-      const res = await fetch(`/api/signature/${signatureId}/sign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          signedFields: signedFieldsArray,
-          signedAt: new Date().toISOString(),
-          ipAddress: ipAddress,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        alert(data.message || 'Failed to submit signature');
-        setSubmitting(false);
-        return;
-      }
-      setCompleted(true);
-    } catch (err) {
-      console.error('Error completing signature:', err);
-      alert('Failed to submit signature. Please try again.');
-      setSubmitting(false);
-    }
-  };
+
+    setCompleted(true);
+  } catch (err) {
+    console.error('Error completing signature:', err);
+    alert('Failed to submit signature. Please try again.');
+    setSubmitting(false);
+  }
+};
 
   const handleDecline = async () => {
   if (declineReason.trim().length < 10) {
@@ -799,13 +878,14 @@ if (showAccessCodeModal) {
   return (
     <AccessCodeModal
       signatureId={signatureId!}
-     onVerified={async () => {
+   onVerified={async () => {
   console.log('✅ Access code verified! Closing modal and reloading...');
   setAccessCodeVerified(true);
-  setLoading(true); // ⭐ ADD THIS - Show loading instead of error
+  setLoading(true);
   setShowAccessCodeModal(false);
   
-  await new Promise(resolve => setTimeout(resolve, 300));
+  // ⭐ Wait longer for database write to complete
+  await new Promise(resolve => setTimeout(resolve, 1000));
   
   if (fetchSignatureRequestRef.current) {
     await fetchSignatureRequestRef.current();
@@ -1274,34 +1354,38 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
               </div>
              {/* Complete Signing Button */}
   <button
-    onClick={completeSignature}
-    disabled={!allFieldsFilled || submitting || isAwaitingTurn}
-    className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-      allFieldsFilled && !submitting && !isAwaitingTurn
-        ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
-        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-    }`}
-  >
-    {submitting ? (
-      <>
-        <Loader2 className="h-5 w-5 animate-spin" />
-        Submitting...
-      </>
-    ) : isAwaitingTurn ? (
-      <>
-        <Clock className="h-5 w-5" />
-        Waiting for Your Turn
-      </>
-    ) : allFieldsFilled ? (
-      <>
-        <Check className="h-5 w-5" />
-        Complete Signing
-      </>
-    ) : (
-      'Complete All Fields'
-    )}
-  </button>
-
+  onClick={completeSignature}
+  disabled={!allFieldsFilled || submitting || isAwaitingTurn}
+  className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+    allFieldsFilled && !submitting && !isAwaitingTurn
+      ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
+      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+  }`}
+>
+  {submitting ? (
+    <>
+      <Loader2 className="h-5 w-5 animate-spin" />
+      Submitting...
+    </>
+  ) : isAwaitingTurn ? (
+    <>
+      <Clock className="h-5 w-5" />
+      Waiting for Your Turn
+    </>
+  ) : selfieRequired && !selfieVerified ? (
+    <>
+      <Camera className="h-5 w-5" />
+      Verify Identity & Sign
+    </>
+  ) : allFieldsFilled ? (
+    <>
+      <Check className="h-5 w-5" />
+      Complete Signing
+    </>
+  ) : (
+    'Complete All Fields'
+  )}
+</button>
   {/* Decline to Sign Button */}
   {!isAwaitingTurn && (
     <button
@@ -1539,7 +1623,23 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
   />
 )}
 
-
+{/* Selfie Verification Modal */}
+{showSelfieModal && (
+  <SelfieVerificationModal
+    isOpen={showSelfieModal}
+    onClose={() => setShowSelfieModal(false)}
+    onVerified={(url) => {
+      console.log('✅ Selfie verified!', url);
+      setSelfieVerified(true);
+      setSelfieUrl(url);
+      setShowSelfieModal(false);
+      
+      // Now submit the signature
+      submitSignature();
+    }}
+    signatureId={signatureId!}
+  />
+)}
 
     </div>
   );

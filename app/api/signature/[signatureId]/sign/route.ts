@@ -43,6 +43,18 @@ export async function POST(
       );
     }
 
+    // ⭐ CHECK IF SELFIE IS REQUIRED AND VERIFIED
+// Only enforce selfie if access code was also used and verified
+if (signatureRequest.selfieVerificationRequired && 
+    signatureRequest.accessCodeRequired && 
+    signatureRequest.accessCodeVerifiedAt && 
+    !signatureRequest.selfieVerifiedAt) {
+  return NextResponse.json(
+    { success: false, message: "Selfie verification required before signing" },
+    { status: 400 }
+  );
+}
+
      // Track device, browser, OS, and user agent when signing
     const userAgent = request.headers.get('user-agent') || '';
     const deviceInfo = parseUserAgent(userAgent);

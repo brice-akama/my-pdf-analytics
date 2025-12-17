@@ -117,6 +117,8 @@ export async function GET(
         os: firstViewDeviceInfo.os,
         location: firstViewLocation,
         engagement: engagement,
+         selfieVerification: signatureRequest.selfieVerification || null,  // ⭐ ADD THIS
+    selfieVerifiedAt: signatureRequest.selfieVerifiedAt || null,      // ⭐ ADD THIS
         viewHistory: views.map(v => ({
           timestamp: v.timestamp,
           page: v.page,
