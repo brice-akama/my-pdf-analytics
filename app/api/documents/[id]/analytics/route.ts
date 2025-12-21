@@ -38,6 +38,49 @@ export async function GET(
       .sort({ viewedAt: -1 })
       .toArray();
 
+      // ✅ Fetch signature requests for e-signature analytics
+const signatureRequests = await db.collection("signature_requests")
+  .find({ documentId: id })
+  .toArray();
+
+// Calculate e-signature analytics
+const totalRecipients = signatureRequests.length;
+const completedRecipients = signatureRequests.filter(sr => sr.status === 'completed');
+const completedCount = completedRecipients.length;
+
+// Calculate average time to sign
+const signingTimingsInSeconds = completedRecipients
+  .filter(sr => sr.timeSpentSeconds != null)
+  .map(sr => sr.timeSpentSeconds);
+
+const averageSigningTimeSeconds = signingTimingsInSeconds.length > 0
+  ? Math.floor(signingTimingsInSeconds.reduce((a, b) => a + b, 0) / signingTimingsInSeconds.length)
+  : null;
+
+// Individual recipient timings for e-signatures
+const recipientTimings = completedRecipients
+  .filter(sr => sr.timeSpentSeconds != null)
+  .map(sr => ({
+    recipient: sr.recipient?.name || sr.recipientEmail,
+    email: sr.recipientEmail,
+    timeSpent: sr.timeSpentSeconds,
+    timeSpentFormatted: formatTime(sr.timeSpentSeconds),
+    completedAt: sr.signedAt,
+  }));
+
+// Add e-signature analytics object
+const eSignatureAnalytics = {
+  totalRecipients,
+  completedCount,
+  completionRate: totalRecipients > 0 ? Math.floor((completedCount / totalRecipients) * 100) : 0,
+  averageTimeSeconds: averageSigningTimeSeconds,
+  averageTimeFormatted: averageSigningTimeSeconds ? formatTime(averageSigningTimeSeconds) : 'N/A',
+  recipientTimings,
+  fastestTime: signingTimingsInSeconds.length > 0 ? Math.min(...signingTimingsInSeconds) : null,
+  slowestTime: signingTimingsInSeconds.length > 0 ? Math.max(...signingTimingsInSeconds) : null,
+};
+
+
     const totalViews = tracking.views || views.length;
     const uniqueViewers = tracking.uniqueVisitors?.length || new Set(views.map(v => v.viewerEmail || v.viewerIp)).size;
 
@@ -239,6 +282,7 @@ topViewers.push(...sortedViewers);
         devices: devicePercentages,
         locations,
         lastViewed: tracking.lastViewed || null,
+        eSignature: eSignatureAnalytics,
 
         // Content quality metrics
         contentQuality: {
@@ -292,7 +336,57 @@ export async function POST(
     const db = await dbPromise;
     const documentId = id;
     const body = await request.json();
-    const { action, pageNumber, viewTime = 0, visitorId } = body;
+    
+    // Add signatureId and recipientEmail to the destructured body
+const { action, pageNumber, viewTime = 0, visitorId, signatureId, recipientEmail } = body;
+
+// Add logic for e-signature tracking
+if (action === 'first_view' || action === 'completed') {
+  const signatureRequest = await db.collection("signature_requests").findOne({
+    uniqueId: signatureId,
+  });
+
+  if (!signatureRequest) {
+    return NextResponse.json(
+      { success: false, message: "Signature request not found" },
+      { status: 404 }
+    );
+  }
+
+  if (action === 'first_view') {
+    if (!signatureRequest.firstViewedAt) {
+      await db.collection("signature_requests").updateOne(
+        { uniqueId: signatureId },
+        { $set: { firstViewedAt: new Date() } }
+      );
+      console.log('✅ First view tracked');
+    }
+  } else if (action === 'completed') {
+    const firstViewed = signatureRequest.firstViewedAt;
+    const completedAt = new Date();
+    let timeSpentSeconds = null;
+    if (firstViewed) {
+      timeSpentSeconds = Math.floor((completedAt.getTime() - new Date(firstViewed).getTime()) / 1000);
+    }
+
+    await db.collection("signature_requests").updateOne(
+      { uniqueId: signatureId },
+      {
+        $set: {
+          completedAt: completedAt,
+          timeSpentSeconds: timeSpentSeconds,
+          status: 'completed',
+        }
+      }
+    );
+    console.log(`✅ Completion tracked: ${timeSpentSeconds} seconds`);
+  }
+
+  return NextResponse.json({ success: true, message: 'Signature interaction tracked' });
+}
+
+
+    
 
     if (!ObjectId.isValid(documentId)) 
       return NextResponse.json({ error: 'Invalid document ID' }, { status: 400 });

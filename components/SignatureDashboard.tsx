@@ -10,7 +10,8 @@ import {
   X,
   XCircle,
   Archive, 
-  Camera
+  Camera,
+  Award
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -81,6 +82,8 @@ interface SignatureStats {
     desktop: number;
     unknown: number;
   };
+
+  
   
   browserStats?: { [key: string]: number };
   osStats?: { [key: string]: number };
@@ -88,7 +91,16 @@ interface SignatureStats {
     average: number;
     min: number;
     max: number;
+    fastestTime: number;
+    slowestTime: number;
     total: number;
+    recipientTimings: Array<{
+      recipient: string;
+      email: string;
+      timeSpent: number;
+      timeSpentFormatted: string;
+      completedAt: string;
+    }>;
   };
   trending: {
     signedChange: number;
@@ -341,7 +353,7 @@ useEffect(() => {
     if (minutes < 60) return `${minutes}m`;
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
+    return `${hours}h ${mins}m ${seconds % 60}s`;
   };
 
   const formatTimeAgo = (timestamp: string): string => {
@@ -498,6 +510,34 @@ useEffect(() => {
             <p className="text-sm text-slate-500 mt-2">to sign</p>
           </CardContent>
         </Card>
+
+        {/* Add these cards to the "Key Metrics" grid */}
+<Card className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
+  <CardHeader className="flex flex-row items-center justify-between pb-2">
+    <CardTitle className="text-sm font-medium text-slate-600">Fastest Completion</CardTitle>
+    <Award className="h-5 w-5 text-green-600" />
+  </CardHeader>
+  <CardContent>
+    <div className="text-3xl font-bold text-slate-900">
+      {stats.timeSpentAnalytics?.fastestTime ? formatTimeSpent(stats.timeSpentAnalytics.fastestTime) : 'N/A'}
+    </div>
+    <p className="text-sm text-slate-500 mt-2">Quickest signer</p>
+  </CardContent>
+</Card>
+
+<Card className="hover:shadow-lg transition-shadow border-l-4 border-l-orange-500">
+  <CardHeader className="flex flex-row items-center justify-between pb-2">
+    <CardTitle className="text-sm font-medium text-slate-600">Slowest Completion</CardTitle>
+    <TrendingUp className="h-5 w-5 text-orange-600" />
+  </CardHeader>
+  <CardContent>
+    <div className="text-3xl font-bold text-slate-900">
+      {stats.timeSpentAnalytics?.slowestTime ? formatTimeSpent(stats.timeSpentAnalytics.slowestTime) : 'N/A'}
+    </div>
+    <p className="text-sm text-slate-500 mt-2">Longest signer</p>
+  </CardContent>
+</Card>
+
       </div>
 
       {/* Tabs */}
@@ -670,6 +710,45 @@ useEffect(() => {
     </CardContent>
   </Card>
 )}
+
+{/* Recipient Timings */}
+{stats.timeSpentAnalytics?.recipientTimings && stats.timeSpentAnalytics.recipientTimings.length > 0 && (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Users className="h-5 w-5 text-purple-600" />
+        Individual Recipient Times
+      </CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="space-y-3">
+        {stats.timeSpentAnalytics.recipientTimings.map((recipient: any, index: number) => (
+          <div key={index} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+            <div>
+              <p className="font-medium text-slate-900">{recipient.recipient}</p>
+              <p className="text-sm text-slate-600">{recipient.email}</p>
+              <p className="text-xs text-slate-500 mt-1">
+                Completed: {recipient.completedAt ? new Date(recipient.completedAt).toLocaleString() : 'N/A'}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-purple-600">
+                {recipient.timeSpentFormatted}
+              </p>
+              <p className="text-xs text-slate-500">Time spent</p>
+            </div>
+          </div>
+        ))}
+        {stats.timeSpentAnalytics.recipientTimings.length === 0 && (
+          <p className="text-center text-slate-500 py-8">
+            No completed signatures yet
+          </p>
+        )}
+      </div>
+    </CardContent>
+  </Card>
+)}
+
 {/* Geographic Heat Map */}
 {stats.geoMapData && stats.geoMapData.length > 0 && (
   <Card className="md:col-span-2">

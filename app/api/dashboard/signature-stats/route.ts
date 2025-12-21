@@ -4,6 +4,17 @@ import { dbPromise } from "../../lib/mongodb";
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
+// Helper function to format time in seconds
+const formatTimeSpent = (seconds: number): string => {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}h ${mins}m ${seconds % 60}s`;
+};
+
+
 export async function GET(request: NextRequest) {
   try {
     // Use the auth helper instead of manual cookie handling
@@ -290,6 +301,26 @@ const topDocuments = await Promise.all(
       ? Math.floor(timeSpentData.reduce((a, b) => a + b, 0) / timeSpentData.length)
       : 0;
 
+      // Calculate fastest and slowest completion times
+const fastestTime = timeSpentData.length > 0 ? Math.min(...timeSpentData) : null;
+const slowestTime = timeSpentData.length > 0 ? Math.max(...timeSpentData) : null;
+
+// Calculate individual recipient timings
+const recipientTimings = allRequests
+  .filter(r => r.signedAt && r.createdAt)
+  .map(r => {
+    const timeSpentSeconds = Math.floor(
+      (new Date(r.signedAt).getTime() - new Date(r.createdAt).getTime()) / 1000
+    );
+    return {
+      recipient: r.recipient.name,
+      email: r.recipient.email,
+      timeSpent: timeSpentSeconds,
+      timeSpentFormatted: formatTimeSpent(timeSpentSeconds),
+      completedAt: r.signedAt,
+    };
+  });
+
     const minTimeSpent = timeSpentData.length > 0 ? Math.min(...timeSpentData) : 0;
     const maxTimeSpent = timeSpentData.length > 0 ? Math.max(...timeSpentData) : 0;
 
@@ -399,6 +430,9 @@ const topDocuments = await Promise.all(
           avgTimeSpentOnDoc,
           minTimeSpent,
           maxTimeSpent,
+          fastestTime,
+          slowestTime,
+          recipientTimings,
         },
         osStats,
         dropOffAnalysis: {

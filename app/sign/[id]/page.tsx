@@ -424,10 +424,13 @@ if (signatureRequest.status === 'declined') {
 }, [signatureId]);
 
   // Track initial view
+// Track initial view AND first view timing
 useEffect(() => {
   if (!signatureId || !pdfUrl) return;
+  
   const trackView = async () => {
     try {
+      // Track page view
       await fetch(`/api/signature/${signatureId}/track-page`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -437,6 +440,17 @@ useEffect(() => {
           timestamp: new Date().toISOString(),
         }),
       });
+
+      //   NEW: Track first view for timing analytics
+      await fetch(`/api/signature/${signatureId}/track-time`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'first_view',
+        }),
+      });
+      
+      console.log('⏱️ Started timing tracking');
     } catch (err) {
       console.error('Failed to track view:', err);
     }
@@ -749,6 +763,19 @@ const submitSignature = async () => {
       return;
     }
 
+    //   NEW: Track completion timing
+try {
+  await fetch(`/api/signature/${signatureId}/track-time`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'completed',
+    }),
+  });
+  console.log('⏱️ Completion time tracked');
+} catch (err) {
+  console.error('Failed to track completion time:', err);
+}
     setCompleted(true);
   } catch (err) {
     console.error('Error completing signature:', err);
