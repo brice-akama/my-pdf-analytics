@@ -167,8 +167,126 @@ export async function generateSignedPDF(
             color: rgb(0, 0, 0),
           });
         }
+      // CHECKBOX FIELD
+if (field.type === "checkbox" && signedField.textValue !== undefined) {
+  const isChecked = signedField.textValue === "true";
+  
+  if (isChecked) {
+    // Draw checked box
+    page.drawRectangle({
+      x: x + 5,
+      y: y + 5,
+      width: 20,
+      height: 20,
+      borderColor: rgb(0.4, 0.2, 0.6),
+      borderWidth: 2,
+    });
+    
+    // Draw checkmark
+    page.drawText("✓", {
+      x: x + 8,
+      y: y + 8,
+      size: 16,
+      font: boldFont,
+      color: rgb(0.4, 0.2, 0.6),
+    });
+  } else {
+    // Draw empty box
+    page.drawRectangle({
+      x: x + 5,
+      y: y + 5,
+      width: 20,
+      height: 20,
+      borderColor: rgb(0.6, 0.6, 0.6),
+      borderWidth: 2,
+    });
+  }
+  
+  // Draw label if exists
+  if (field.label) {
+    page.drawText(field.label, {
+      x: x + 30,
+      y: y + 10,
+      size: 10,
+      font,
+      color: rgb(0, 0, 0),
+    });
+  }
+}
+
+// DROPDOWN FIELD
+if (field.type === "dropdown" && signedField.textValue) {
+  const selectedValue = signedField.textValue;
+  const textWidth = font.widthOfTextAtSize(selectedValue, 11);
+  
+  page.drawText(selectedValue, {
+    x: x + (fieldWidth - textWidth) / 2,
+    y: y + (fieldHeight / 2) - 4,
+    size: 11,
+    font,
+    color: rgb(0, 0, 0),
+  });
+}
+
+// RADIO BUTTON FIELD
+if (field.type === "radio" && signedField.textValue) {
+  const selectedValue = signedField.textValue;
+  
+  // Draw label if exists
+  if (field.label) {
+    page.drawText(field.label, {
+      x: x + 5,
+      y: y + fieldHeight - 15,
+      size: 10,
+      font: boldFont,
+      color: rgb(0, 0, 0),
+    });
+  }
+  
+  // Draw all radio button options
+  let optionY = y + fieldHeight - 35;
+  const radioSize = 8;
+  const lineHeight = 20;
+  
+  field.options?.forEach((option: string) => {
+    const isSelected = option === selectedValue;
+    
+    // Draw outer circle
+    page.drawCircle({
+      x: x + 15,
+      y: optionY + 5,
+      size: radioSize,
+      borderColor: rgb(0.4, 0.2, 0.6),
+      borderWidth: 2,
+    });
+    
+    // Draw filled circle if selected
+    if (isSelected) {
+      page.drawCircle({
+        x: x + 15,
+        y: optionY + 5,
+        size: radioSize - 4,
+        color: rgb(0.4, 0.2, 0.6),
+      });
+    }
+    
+    // Draw option text
+    page.drawText(option, {
+      x: x + 30,
+      y: optionY,
+      size: 10,
+      font: isSelected ? boldFont : font,
+      color: rgb(0, 0, 0),
+    });
+    
+    optionY -= lineHeight; // Move down for next option
+  });
+}
+        
       }
     }
+
+    
 
     // AUDIT TRAIL - Add a new page
     let auditTrailPage = pdfDoc.addPage([pages[0].getWidth(), pages[0].getHeight()]);
@@ -298,6 +416,147 @@ export async function generateSignedPDF(
           auditY -= 10;
         }
 
+        
+
+         // ⭐ NEW: ACCESS CODE VERIFICATION
+    if (req.accessCodeRequired) {
+      auditTrailPage.drawText("AUTHENTICATION:", {
+        x: 50,
+        y: auditY,
+        size: 10,
+        font: boldFont,
+        color: rgb(0, 0, 0),
+      });
+      auditY -= 14;
+
+      const accessCodeStatus = req.accessCodeVerifiedAt 
+        ? `✓ Verified on ${new Date(req.accessCodeVerifiedAt).toLocaleString()}`
+        : "✗ Not verified";
+      
+      auditTrailPage.drawText(`  • Access Code: ${accessCodeStatus}`, {
+        x: 55,
+        y: auditY,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      auditY -= 10;
+
+      if (req.accessCodeType) {
+        const codeTypeName = req.accessCodeType === 'custom' ? 'Custom code' : req.accessCodeType.replace(/_/g, ' ');
+        auditTrailPage.drawText(`  • Code Type: ${codeTypeName}`, {
+          x: 55,
+          y: auditY,
+          size: 8,
+          font,
+          color: rgb(0.4, 0.4, 0.4),
+        });
+        auditY -= 10;
+      }
+
+      if (req.accessCodeFailedAttempts > 0) {
+        auditTrailPage.drawText(`  • Failed Attempts: ${req.accessCodeFailedAttempts}`, {
+          x: 55,
+          y: auditY,
+          size: 8,
+          font,
+          color: rgb(0.8, 0.4, 0),
+        });
+        auditY -= 10;
+      }
+
+      auditY -= 5;
+    }
+
+    // ⭐ NEW: SELFIE VERIFICATION
+    if (req.selfieVerification) {
+      auditTrailPage.drawText(`  • Identity Verification: ✓ Selfie Captured`, {
+        x: 55,
+        y: auditY,
+        size: 8,
+        font,
+        color: rgb(0, 0.6, 0),
+      });
+      auditY -= 10;
+
+      const selfieCapturedAt = new Date(req.selfieVerification.capturedAt).toLocaleString();
+      auditTrailPage.drawText(`    - Captured: ${selfieCapturedAt}`, {
+        x: 60,
+        y: auditY,
+        size: 7,
+        font,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+      auditY -= 10;
+
+      if (req.selfieVerification.deviceInfo?.userAgent) {
+        const deviceText = `${req.selfieVerification.deviceInfo.platform || 'Unknown device'}`;
+        auditTrailPage.drawText(`    - Device: ${deviceText}`, {
+          x: 60,
+          y: auditY,
+          size: 7,
+          font,
+          color: rgb(0.5, 0.5, 0.5),
+        });
+        auditY -= 10;
+      }
+
+      auditY -= 5;
+    }
+
+    // Document activity
+    if (req.viewedAt) {
+      const viewedAt = new Date(req.viewedAt).toLocaleString();
+      auditTrailPage.drawText(`  • Viewed: ${viewedAt}`, {
+        x: 55,
+        y: auditY,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      auditY -= 10;
+    }
+
+    // ⭐ NEW: Time spent (if tracked)
+    if (req.timeSpentSeconds) {
+      const minutes = Math.floor(req.timeSpentSeconds / 60);
+      const seconds = req.timeSpentSeconds % 60;
+      auditTrailPage.drawText(`  • Time Spent: ${minutes}m ${seconds}s`, {
+        x: 55,
+        y: auditY,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      auditY -= 10;
+    }
+
+    // IP Address and Location
+    if (req.ipAddress) {
+      let locationText = `  • IP: ${req.ipAddress}`;
+      
+      if (req.location) {
+        const loc = req.location;
+        const locationParts = [loc.city, loc.region, loc.country].filter(Boolean);
+        if (locationParts.length > 0) {
+          locationText += ` (${locationParts.join(', ')})`;
+        }
+      }
+
+      
+      
+      auditTrailPage.drawText(locationText, {
+        x: 55,
+        y: auditY,
+        size: 8,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      auditY -= 10;
+    }
+
+    
+
         // Device & Browser info
         if (req.recipient.device || req.recipient.browser) {
           let deviceText = '   • Device: ';
@@ -322,6 +581,8 @@ export async function generateSignedPDF(
 
         auditY -= 5;
 
+        
+
         // Add new page if running out of space
         if (auditY < 100) {
           auditTrailPage = pdfDoc.addPage([auditTrailPage.getWidth(), auditTrailPage.getHeight()]);
@@ -330,6 +591,7 @@ export async function generateSignedPDF(
       }
     }
 
+    
     // Document hash
     auditTrailPage.drawText(`Document Hash: ${documentHash}`, {
       x: 50,
@@ -655,6 +917,8 @@ const maxHeight = PAGE_HEIGHT - MARGIN * 2;
       console.log('📄 No attachments to merge');
       finalPdfBytes = signedPdfBytes;
     }
+
+    
 
     // Upload final PDF to Cloudinary
     const uploadResult = await new Promise<any>((resolve, reject) => {

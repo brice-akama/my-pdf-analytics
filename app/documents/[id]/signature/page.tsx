@@ -44,7 +44,7 @@ type Recipient = {
 };
 type SignatureField = {
   id: string | number;
-  type: "signature" | "date" | "text"  | "checkbox" | "attachment";
+  type: "signature" | "date" | "text"  | "checkbox" | "attachment" | "dropdown" | "radio";
   x: number;
   y: number;
   page: number;
@@ -57,6 +57,10 @@ type SignatureField = {
   attachmentLabel?: string; // e.g., "Upload ID", "Upload Proof of Address"
   attachmentType?: string; // e.g., "proof_of_identity", "proof_of_address"
   isRequired?: boolean; // Whether attachment is mandatory
+
+  // ⭐ NEW: For dropdown and radio buttons
+  options?: string[]; // List of options
+  defaultValue?: string; // Pre-selected value
 
   //   NEW: Conditional Logic
   conditional?: {
@@ -983,6 +987,33 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
   <Paperclip className="h-5 w-5 mr-3" />
   Attachment Field
 </Button>
+
+{/* ⭐ NEW: Dropdown Field */}
+<Button
+  variant="outline"
+  className="w-full justify-start h-12"
+  draggable
+  onDragStart={(e) => e.dataTransfer.setData("fieldType", "dropdown")}
+>
+  <svg className="h-5 w-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+  </svg>
+  Dropdown Field
+</Button>
+
+{/* ⭐ NEW: Radio Button Field */}
+<Button
+  variant="outline"
+  className="w-full justify-start h-12"
+  draggable
+  onDragStart={(e) => e.dataTransfer.setData("fieldType", "radio")}
+>
+  <svg className="h-5 w-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9" strokeWidth={2} />
+    <circle cx="12" cy="12" r="4" fill="currentColor" />
+  </svg>
+  Radio Button Field
+</Button>
               </div>
               {/* Quick Actions */}
               <div className="mt-6 pt-6 border-t space-y-3">
@@ -1055,7 +1086,10 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                     | "date"
                     | "text"
                     | "checkbox" //   Add checkbox
-                    | "attachment";
+                    | "attachment"
+                    | "dropdown" //   Add dropdown
+                    | "radio"; //   Add radio
+         
                   const container = document.getElementById("pdf-container");
                   if (!container) return;
                   const rect = container.getBoundingClientRect();
@@ -1071,12 +1105,19 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                     y: yPercent,
                     page: pageNumber,
                     recipientIndex: 0,
-                     label: fieldType === 'checkbox' ? 'Check this box' : '', //   Default label
+                      label: fieldType === 'checkbox' ? 'Check this box' :
+         fieldType === 'dropdown' ? 'Select an option' :  // ⭐ ADD
+         fieldType === 'radio' ? 'Choose one option' :     // ⭐ ADD
+         '',
     defaultChecked: false, //   For checkboxes
                   // ⭐ NEW: Default values for attachment fields
     attachmentLabel: fieldType === 'attachment' ? 'Upload Required Document' : undefined,
     attachmentType: fieldType === 'attachment' ? 'supporting_document' : undefined,
     isRequired: fieldType === 'attachment' ? true : false,
+    // ⭐ NEW: Default options for dropdown/radio
+  options: (fieldType === 'dropdown' || fieldType === 'radio') ? 
+    ['Option 1', 'Option 2', 'Option 3'] : undefined,
+  defaultValue: undefined,
                   };
                   setSignatureRequest({
                     ...signatureRequest,
@@ -1111,8 +1152,13 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
   left: `${field.x}%`,
   top: `${topPosition}px`,
   borderColor: recipient?.color || "#9333ea",
-  width: "180px", // Same width for all fields
-  height: field.type === "signature" ? "70px" : "45px", // Same height for non-signature fields
+  width: field.type === "dropdown" ? "220px" :  // ⭐ ADD
+         field.type === "radio" ? "200px" :      // ⭐ ADD
+         "180px",
+  height: field.type === "signature" ? "70px" :
+          field.type === "dropdown" ? "45px" :   // ⭐ ADD
+          field.type === "radio" ? "auto" :      // ⭐ ADD (auto-height for options)
+          "45px",
   transform: "translate(-50%, 0%)",
 }}
 
@@ -1200,12 +1246,29 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                                 {field.type === "checkbox" && <CheckSquare className="h-4 w-4" />}
                                  {/* ⭐ NEW: Attachment Icon */}
             {field.type === "attachment" && <Paperclip className="h-4 w-4" />}
+            {/* ⭐ NEW: Dropdown Icon */}
+{field.type === "dropdown" && (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+  </svg>
+)}
+
+{/* ⭐ NEW: Radio Icon */}
+{field.type === "radio" && (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9" strokeWidth={2} />
+  </svg>
+)}
 {field.type !== "checkbox" && field.type !== "attachment" && (
-              <span className="text-xs font-semibold">
-                {field.type === "signature" ? "Sign Here" :
-                 field.type === "date" ? "Date" : "Text"}
-              </span>
-            )}
+  <span className="text-xs font-semibold">
+    {field.type === "signature" ? "Sign Here" :
+     field.type === "date" ? "Date" :
+     field.type === "text" ? "Text" :
+     field.type === "dropdown" ? (field.label || "Dropdown") :  // ⭐ ADD
+     field.type === "radio" ? (field.label || "Radio") :        // ⭐ ADD
+     "Text"}
+  </span>
+)}
                     {/* ⭐ NEW: Show attachment label */}
             {field.type === "attachment" && (
               <span className="text-xs font-semibold truncate">
@@ -1238,6 +1301,21 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
             <Settings className="h-4 w-4" />
           </Button>
         )}
+
+        {/* ⭐ NEW: Settings for Dropdown/Radio */}
+{(field.type === "dropdown" || field.type === "radio") && (
+  <Button
+    variant="ghost"
+    size="icon"
+    className="absolute -top-3 -left-3 h-7 w-7 rounded-full bg-blue-500 text-white hover:bg-blue-600 shadow-lg z-10"
+    onClick={(e) => {
+      e.stopPropagation();
+      setEditingFieldLogic(field);
+    }}
+  >
+    <Settings className="h-4 w-4" />
+  </Button>
+)}
                             {/* Settings Button (Top-Left) */}
     {(field.type === "checkbox" || field.type === "text") && (
   <Button
@@ -1434,7 +1512,9 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
              field.type === "date" ? "Date" :
              field.type === "text" ? "Text" :
              field.type === "checkbox" ? "Checkbox" :
-             field.type === "attachment" ? `📎 ${field.attachmentLabel || "Attachment"}` : // ⭐ ADD THIS
+             field.type === "attachment" ? `📎 ${field.attachmentLabel || "Attachment"}` :
+             field.type === "dropdown" ? `📋 ${field.label || "Dropdown"}` :  // ⭐ ADD
+   field.type === "radio" ? `⭕ ${field.label || "Radio"}` :        // ⭐ ADD  
              field.type
             } - Page {field.page}
           </p>
@@ -1872,6 +1952,155 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
         >
           Save Settings
         </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+)}
+{/* ⭐ NEW: Dropdown/Radio Field Settings Modal */}
+{editingFieldLogic && (editingFieldLogic.type === 'dropdown' || editingFieldLogic.type === 'radio') && (
+  <Dialog
+    open={!!editingFieldLogic}
+    onOpenChange={(open) => !open && setEditingFieldLogic(null)}
+  >
+    <DialogContent className="bg-white sm:max-w-md p-0 overflow-hidden max-h-[90vh]">
+      <DialogHeader className="p-6 border-b bg-white">
+        <DialogTitle className="text-lg font-semibold text-gray-900">
+          {editingFieldLogic.type === 'dropdown' ? 'Dropdown' : 'Radio Button'} Field Settings
+        </DialogTitle>
+      </DialogHeader>
+      
+      <div className="p-6 space-y-4 overflow-y-auto max-h-[60vh]">
+
+        {/* Field Label */}
+        <div className="space-y-2">
+          <Label htmlFor="field-label" className="text-sm font-medium text-gray-700">
+            Field Label / Question
+          </Label>
+          <Input
+            id="field-label"
+            value={editingFieldLogic?.label || ""}
+            onChange={(e) => {
+              if (!editingFieldLogic) return;
+              const updated = signatureRequest.signatureFields.map((f) =>
+                f.id === editingFieldLogic.id 
+                  ? { ...f, label: e.target.value } 
+                  : f
+              );
+              setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+              setEditingFieldLogic({ ...editingFieldLogic, label: e.target.value });
+            }}
+            placeholder="e.g., Select your country, Choose payment method"
+            className="text-sm"
+          />
+        </div>
+        
+        {/* Options List */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-gray-700">
+            Options (one per line)
+          </Label>
+          <Textarea
+  value={(editingFieldLogic?.options || []).join('\n')}
+  onChange={(e) => {
+    if (!editingFieldLogic) return;
+    // Don't filter out empty strings during typing - only split by newline
+    const optionsArray = e.target.value.split('\n');
+    const updated = signatureRequest.signatureFields.map((f) =>
+      f.id === editingFieldLogic.id 
+        ? { ...f, options: optionsArray } 
+        : f
+    );
+    setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+    setEditingFieldLogic({ ...editingFieldLogic, options: optionsArray });
+  }}
+  placeholder="Option 1&#10;Option 2&#10;Option 3"
+  rows={6}
+  className="text-sm font-mono"
+/>
+          <p className="text-xs text-slate-500">
+            Enter each option on a new line. Minimum 2 options required.
+          </p>
+        </div>
+        
+        {/* Required Toggle */}
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="field-required"
+            checked={editingFieldLogic?.isRequired || false}
+            onChange={(e) => {
+              if (!editingFieldLogic) return;
+              const updated = signatureRequest.signatureFields.map((f) =>
+                f.id === editingFieldLogic.id 
+                  ? { ...f, isRequired: e.target.checked } 
+                  : f
+              );
+              setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+              setEditingFieldLogic({ ...editingFieldLogic, isRequired: e.target.checked });
+            }}
+            className="h-4 w-4 text-purple-600 rounded"
+          />
+          <label htmlFor="field-required" className="text-sm text-slate-700">
+            Mark as required field
+          </label>
+        </div>
+        
+        {/* Preview */}
+        <div className="p-3 bg-slate-50 rounded-lg border">
+          <p className="text-xs font-medium text-slate-600 mb-2">Preview:</p>
+          {editingFieldLogic.type === 'dropdown' ? (
+            <select className="w-full border rounded px-3 py-2 text-sm">
+              <option>{editingFieldLogic.label || "Select an option..."}</option>
+              {(editingFieldLogic.options || []).map((opt, idx) => (
+                <option key={idx}>{opt}</option>
+              ))}
+            </select>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">{editingFieldLogic.label || "Choose one:"}</p>
+              {(editingFieldLogic.options || []).map((opt, idx) => (
+                <label key={idx} className="flex items-center gap-2 text-sm">
+                  <input type="radio" name="preview" className="h-4 w-4" />
+                  {opt}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="p-4 border-t bg-gray-50 flex justify-end space-x-3">
+        <Button
+          variant="outline"
+          onClick={() => setEditingFieldLogic(null)}
+          className="text-sm"
+        >
+          Cancel
+        </Button>
+       <Button
+  onClick={() => {
+    // Filter out empty options before validating
+    const validOptions = (editingFieldLogic?.options || []).filter(o => o.trim());
+    
+    if (validOptions.length < 2) {
+      alert('Please add at least 2 options');
+      return;
+    }
+    
+    // Save with filtered options
+    const updated = signatureRequest.signatureFields.map((f) =>
+      f.id === editingFieldLogic.id 
+        ? { ...f, options: validOptions } 
+        : f
+    );
+    setSignatureRequest({ ...signatureRequest, signatureFields: updated });
+    
+    setEditingFieldLogic(null);
+  }}
+  className="bg-purple-600 hover:bg-purple-700 text-sm"
+>
+  Save Settings
+</Button>
       </div>
     </DialogContent>
   </Dialog>

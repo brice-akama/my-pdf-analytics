@@ -28,7 +28,7 @@ interface SignatureField {
   id: string;
   page: number;
   recipientIndex: number;
-  type: 'signature' | 'date' | 'text' | 'checkbox' | "attachment"; 
+  type: 'signature' | 'date' | 'text' | 'checkbox' | "attachment" | 'dropdown' | 'radio'; 
   x: number;
   y: number;
   width?: number;
@@ -39,6 +39,9 @@ interface SignatureField {
   defaultChecked?: boolean;
   attachmentLabel?: string;
   isRequired?: boolean;
+  // ⭐ NEW: For dropdown and radio buttons
+  options?: string[]; // List of options to choose from
+  defaultValue?: string; // Pre-selected option
 
   // ADD THIS:
   conditional?: {
@@ -97,6 +100,10 @@ const [accessCodeVerified, setAccessCodeVerified] = useState(false);
 const [selfieVerified, setSelfieVerified] = useState(false);
 const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
 const [selfieRequired, setSelfieRequired] = useState(false);
+const [showDropdownModal, setShowDropdownModal] = useState(false);
+const [activeDropdownField, setActiveDropdownField] = useState<SignatureField | null>(null);
+const [showRadioModal, setShowRadioModal] = useState(false);
+const [activeRadioField, setActiveRadioField] = useState<SignatureField | null>(null);
 
 
 
@@ -713,7 +720,12 @@ const submitSignature = async () => {
       type: sig.type,
       signatureData: sig.type === 'signature' ? sig.data : null,
       dateValue: sig.type === 'date' ? sig.data : null,
-      textValue: sig.type === 'text' ? sig.data : null,
+      textValue: (sig.type === 'text' || 
+              sig.type === 'checkbox' || 
+              sig.type === 'dropdown' || 
+              sig.type === 'radio') 
+    ? sig.data 
+    : null,
       timestamp: sig.timestamp,
     }));
 
@@ -1119,11 +1131,15 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
                  field.type === "signature" ? "200px" :
                  field.type === "checkbox" ? "30px" : 
                  field.type === "attachment" ? "200px" :
+                 field.type === "dropdown" ? "250px" :
+                 field.type === "radio" ? "200px" :
                  "150px",
           height: field.height ? `${field.height}px` : 
                   field.type === "signature" ? "60px" :
                   field.type === "checkbox" ? "30px" :
                   field.type === "attachment" ? "50px" :
+                  field.type === "dropdown" ? "45px" :
+                  field.type === "radio" ? "auto" :
                    "40px",
           transform: "translate(-50%, 0%)",
           cursor: field.type === "signature" && !isFilled ? "pointer" :
@@ -1148,6 +1164,13 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
               setActiveAttachmentField(field);
               setShowAttachmentModal(true);
             }
+            else if (field.type === "dropdown") {
+  setActiveDropdownField(field);
+  setShowDropdownModal(true);
+} else if (field.type === "radio") {
+  setActiveRadioField(field);
+  setShowRadioModal(true);
+}
           }
         }}
       >
@@ -1216,6 +1239,55 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
                 </div>
               )}
 
+              {/* ⭐ NEW: Dropdown Display */}
+{field.type === "dropdown" && (
+  <div className="w-full h-full flex items-center justify-center px-2">
+    <p className="text-sm font-medium text-slate-900 text-center truncate">
+      {fieldValues[field.id] || signatures[field.id]?.data || ""}
+    </p>
+  </div>
+)}
+
+{/* ⭐ NEW: Radio Button Display */}
+{field.type === "radio" && (
+  <div className="w-full px-2 space-y-1">
+    {field.label && (
+      <p className="text-xs font-semibold text-slate-700 mb-2">{field.label}</p>
+    )}
+    {field.options?.map((option, idx) => (
+      <label
+        key={idx}
+        className="flex items-center gap-2 cursor-pointer hover:bg-purple-50 p-1 rounded"
+      >
+        <input
+          type="radio"
+          name={`radio-${field.id}`}
+          value={option}
+          checked={fieldValues[field.id] === option}
+          onChange={(e) => {
+            const value = e.target.value;
+            setFieldValues((prev) => ({
+              ...prev,
+              [field.id]: value,
+            }));
+            setSignatures((prev) => ({
+              ...prev,
+              [field.id]: {
+                type: "radio",
+                data: value,
+                timestamp: new Date().toISOString(),
+              },
+            }));
+          }}
+          disabled={!isMyField}
+          className="h-4 w-4 text-purple-600 focus:ring-purple-500"
+        />
+        <span className="text-xs font-medium text-slate-900">{option}</span>
+      </label>
+    ))}
+  </div>
+)}
+
             </>
           ) : (
             <div className="text-center">
@@ -1244,18 +1316,27 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
   ) : (
     <>
       <p className="text-xs font-medium text-yellow-700">
-        {field.type === "signature"
-          ? isMyField
-            ? "✍️ Click to Sign"
-            : "⏳ Awaiting Signature"
-          : field.type === "date"
-          ? isMyField
-            ? "📅 Auto-filled"
-            : "📅 Date pending"
-          : isMyField
-          ? "📝 Click to Fill"
-          : "⏳ Awaiting Input"}
-      </p>
+  {field.type === "signature"
+    ? isMyField
+      ? "✍️ Click to Sign"
+      : "⏳ Awaiting Signature"
+    : field.type === "date"
+    ? isMyField
+      ? "📅 Auto-filled"
+      : "📅 Date pending"
+    : field.type === "dropdown"
+    ? isMyField
+      ? "📋 Select Option"
+      : "⏳ Awaiting Selection"
+    : field.type === "radio"
+    ? isMyField
+      ? "⭕ Choose Option"
+      : "⏳ Awaiting Choice"
+    : isMyField
+    ? "📝 Click to Fill"
+    : "⏳ Awaiting Input"}
+</p>
+
       <p className="text-xs text-slate-600 mt-1 font-semibold">
         {(field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
         {isMyField && " (You)"}
@@ -1333,6 +1414,8 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
              field.type === 'text' ? '📝 Text Field' :
              field.type === 'checkbox' ? '☑️ Checkbox' :
              field.type === 'attachment' ? `📎 ${field.attachmentLabel || 'Attachment'}` : // ⭐ ADD THIS
+             field.type === 'dropdown' ? `📋 ${field.label || 'Dropdown'}` :
+             field.type === 'radio' ? `⭕ ${field.label || 'Radio Button'}` :
              'Field'}
                             
                           {!isMyField && ' (Other signer)'}  {/* ⬅️ Show indicator */}
@@ -1639,6 +1722,134 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
     }}
     signatureId={signatureId!}
   />
+)}
+{/* Dropdown Selection Modal */}
+{showDropdownModal && activeDropdownField && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+      <div className="p-6 border-b">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">
+              {activeDropdownField.label || "Select an Option"}
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">Choose one option below</p>
+          </div>
+          <button
+            onClick={() => {
+              setShowDropdownModal(false);
+              setActiveDropdownField(null);
+            }}
+            className="text-slate-400 hover:text-slate-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="p-6 max-h-96 overflow-y-auto">
+        <div className="space-y-2">
+          {activeDropdownField.options?.map((option, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                const value = option;
+                setFieldValues((prev) => ({
+                  ...prev,
+                  [activeDropdownField.id]: value,
+                }));
+                setSignatures((prev) => ({
+                  ...prev,
+                  [activeDropdownField.id]: {
+                    type: "dropdown",
+                    data: value,
+                    timestamp: new Date().toISOString(),
+                  },
+                }));
+                setShowDropdownModal(false);
+                setActiveDropdownField(null);
+              }}
+              className="w-full text-left px-4 py-3 border-2 border-slate-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all"
+            >
+              <span className="font-medium text-slate-900">{option}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Radio Button Selection Modal */}
+{showRadioModal && activeRadioField && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+      <div className="p-6 border-b">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">
+              {activeRadioField.label || "Choose an Option"}
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">Select one option</p>
+          </div>
+          <button
+            onClick={() => {
+              setShowRadioModal(false);
+              setActiveRadioField(null);
+            }}
+            className="text-slate-400 hover:text-slate-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="p-6 max-h-96 overflow-y-auto">
+        <div className="space-y-3">
+          {activeRadioField.options?.map((option, idx) => (
+            <label
+              key={idx}
+              className="flex items-center gap-3 p-3 border-2 border-slate-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 cursor-pointer transition-all"
+            >
+              <input
+                type="radio"
+                name={`radio-modal-${activeRadioField.id}`}
+                value={option}
+                checked={fieldValues[activeRadioField.id] === option}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFieldValues((prev) => ({
+                    ...prev,
+                    [activeRadioField.id]: value,
+                  }));
+                  setSignatures((prev) => ({
+                    ...prev,
+                    [activeRadioField.id]: {
+                      type: "radio",
+                      data: value,
+                      timestamp: new Date().toISOString(),
+                    },
+                  }));
+                }}
+                className="h-5 w-5 text-purple-600 focus:ring-purple-500"
+              />
+              <span className="font-medium text-slate-900">{option}</span>
+            </label>
+          ))}
+        </div>
+
+        <button
+          onClick={() => {
+            setShowRadioModal(false);
+            setActiveRadioField(null);
+          }}
+          className="w-full mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+        >
+          Confirm Selection
+        </button>
+      </div>
+    </div>
+  </div>
 )}
 
     </div>
