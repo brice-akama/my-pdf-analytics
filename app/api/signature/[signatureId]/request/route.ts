@@ -23,6 +23,48 @@ export async function GET(
       );
     }
 
+    // ⭐ CHECK ACCESS CONTROL FOR REASSIGNED DOCUMENTS
+    if (signatureRequest.wasReassigned) {
+      const { allowOriginalToView, originalRecipient } = signatureRequest;
+      
+      // Get the requesting user's email from query params or headers
+      const url = new URL(request.url);
+      const requestingEmail = url.searchParams.get('recipient');
+      
+      // Check if this is the original recipient trying to access
+      const isOriginalRecipient = requestingEmail === originalRecipient?.email;
+      const isCurrentRecipient = requestingEmail === signatureRequest.recipientEmail;
+      
+      console.log('🔍 Access Check:', {
+        requestingEmail,
+        isOriginalRecipient,
+        isCurrentRecipient,
+        allowOriginalToView,
+      });
+      
+      if (isOriginalRecipient && !isCurrentRecipient) {
+        if (!allowOriginalToView) {
+          // ⭐ ACCESS DENIED
+          return NextResponse.json(
+            { 
+              success: false, 
+              message: "This document has been reassigned and you no longer have access.",
+              wasReassigned: true,
+              accessDenied: true,
+              newRecipient: {
+                name: signatureRequest.recipientName,
+                email: signatureRequest.recipientEmail,
+              }
+            },
+            { status: 403 }
+          );
+        }
+        
+        // ⭐ VIEW-ONLY MODE
+        console.log('👁️ Granting view-only access to original recipient');
+      }
+    }
+
     // Get document details
     const document = await db.collection("documents").findOne({
       _id: new ObjectId(signatureRequest.documentId),
@@ -35,68 +77,74 @@ export async function GET(
       );
     }
 
-  
-// Get all shared signatures if in shared mode
-let allSharedSignatures: Record<string, any> = {};
-if (signatureRequest.viewMode === 'shared') {
-  // Get all signature requests for this document
-  const allRequests = await db.collection("signature_requests")
-    .find({ documentId: signatureRequest.documentId })
-    .toArray();
-  
-  // Build a map of all signatures
-  allRequests.forEach(req => {
-    if (req.status === 'signed' && req.signedFields) {
-      allSharedSignatures[req.recipientIndex] = {
-        recipientName: req.recipient.name,
-        recipientEmail: req.recipient.email,
-        signedFields: req.signedFields,
-        signedAt: req.signedAt,
-      };
+    // Get all shared signatures if in shared mode
+    let allSharedSignatures: Record<string, any> = {};
+    if (signatureRequest.viewMode === 'shared') {
+      const allRequests = await db.collection("signature_requests")
+        .find({ documentId: signatureRequest.documentId })
+        .toArray();
+      
+      allRequests.forEach(req => {
+        if (req.status === 'signed' && req.signedFields) {
+          allSharedSignatures[req.recipientIndex] = {
+            recipientName: req.recipient.name,
+            recipientEmail: req.recipient.email,
+            signedFields: req.signedFields,
+            signedAt: req.signedAt,
+          };
+        }
+      });
+      
+      console.log('📊 Shared mode: Found', Object.keys(allSharedSignatures).length, 'signed fields');
     }
-  });
-  
-  console.log('📊 Shared mode: Found', Object.keys(allSharedSignatures).length, 'signed fields');
-}
 
-return NextResponse.json({
-  success: true,
-  signatureRequest: {
-    uniqueId: signatureRequest.uniqueId,
-    documentId: signatureRequest.documentId,
-    status: signatureRequest.status,
-    recipient: signatureRequest.recipient,
-    recipientIndex: signatureRequest.recipientIndex,
-    signatureFields: signatureRequest.signatureFields || [],
-    viewMode: signatureRequest.viewMode || 'isolated', // ⭐ ADD THIS
-    sharedSignatures: allSharedSignatures, // ⭐ ADD THIS
-    expiresAt: signatureRequest.expiresAt, // ⭐ ADD THIS
-    cancelledAt: signatureRequest.cancelledAt, // ⭐ ADD THIS
-    declinedAt: signatureRequest.declinedAt, // ⭐ ADD THIS
-    declineReason: signatureRequest.declineReason, // ⭐ ADD THIS
-    cancellationReason: signatureRequest.cancellationReason, // ⭐ ADD THIS
-    signedAt: signatureRequest.signedAt,
-    signedFields: signatureRequest.signedFields || [],
-    ipAddress: signatureRequest.ipAddress || null,
-    message: signatureRequest.message,
-    dueDate: signatureRequest.dueDate,
-    createdAt: signatureRequest.createdAt,
-    // ⭐ ADD THESE ACCESS CODE FIELDS:
-    accessCodeRequired: signatureRequest.accessCodeRequired || false,
-    accessCodeVerifiedAt: signatureRequest.accessCodeVerifiedAt || null,
-    accessCodeType: signatureRequest.accessCodeType || null,
-    accessCodeHint: signatureRequest.accessCodeHint || null,
-    selfieVerificationRequired: signatureRequest.selfieVerificationRequired || false, // ⭐ ADD THIS
-    selfieVerifiedAt: signatureRequest.selfieVerifiedAt || null, // ⭐ ADD THIS
-    selfieVerification: signatureRequest.selfieVerification || null, // ⭐ ADD THIS (for selfie URL)
-    document: {
-      _id: document._id.toString(),
-      filename: document.originalFilename || document.filename,
-      numPages: document.numPages || 1,
-      cloudinaryPdfUrl: document.cloudinaryPdfUrl,
-    },
-  },
-});
+    // ⭐ Add view-only flag if this is a reassigned document being viewed by original recipient
+    const viewOnlyMode = signatureRequest.wasReassigned && 
+                        signatureRequest.allowOriginalToView &&
+                        request.url.includes(`recipient=${signatureRequest.originalRecipient?.email}`);
+
+    return NextResponse.json({
+      success: true,
+      viewOnlyMode: viewOnlyMode, //   Add this flag
+      wasReassigned: signatureRequest.wasReassigned || false, //   Add this
+      originalRecipient: signatureRequest.originalRecipient || null, //   Add this
+      signatureRequest: {
+        uniqueId: signatureRequest.uniqueId,
+        documentId: signatureRequest.documentId,
+        status: signatureRequest.status,
+        recipient: signatureRequest.recipient,
+        recipientIndex: signatureRequest.recipientIndex,
+        recipientName: signatureRequest.recipientName,  //   ADD THIS
+  recipientEmail: signatureRequest.recipientEmail,  //   ADD THIS
+        signatureFields: signatureRequest.signatureFields || [],
+        viewMode: signatureRequest.viewMode || 'isolated',
+        sharedSignatures: allSharedSignatures,
+        expiresAt: signatureRequest.expiresAt,
+        cancelledAt: signatureRequest.cancelledAt,
+        declinedAt: signatureRequest.declinedAt,
+        declineReason: signatureRequest.declineReason,
+        cancellationReason: signatureRequest.cancellationReason,
+        signedAt: signatureRequest.signedAt,
+        signedFields: signatureRequest.signedFields || [],
+        ipAddress: signatureRequest.ipAddress || null,
+        message: signatureRequest.message,
+        dueDate: signatureRequest.dueDate,
+        createdAt: signatureRequest.createdAt,
+        accessCodeRequired: signatureRequest.accessCodeRequired || false,
+        accessCodeVerifiedAt: signatureRequest.accessCodeVerifiedAt || null,
+        accessCodeType: signatureRequest.accessCodeType || null,
+        accessCodeHint: signatureRequest.accessCodeHint || null,
+        selfieVerificationRequired: signatureRequest.selfieVerificationRequired || false,
+        selfieVerifiedAt: signatureRequest.selfieVerifiedAt || null,
+        selfieVerification: signatureRequest.selfieVerification || null,
+        document: {
+          _id: document._id.toString(),
+          filename: document.originalFilename || document.filename,
+          numPages: document.numPages || 1,
+          cloudinaryPdfUrl: document.cloudinaryPdfUrl,
+        },
+      },
+    });
   } catch (error) {
     console.error("❌ Error fetching signature request:", error);
     return NextResponse.json(

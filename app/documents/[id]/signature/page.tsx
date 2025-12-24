@@ -89,6 +89,7 @@ ccRecipients?: CCRecipient[]; //   ADD THIS
   accessCodeType?: string; // e.g., 'custom', 'last_4_ssn'
   accessCodeHint?: string;
   accessCode?: string; // Temporary storage for the code (not saved as plaintext)
+  scheduledSendDate?: string;
 
 };
 
@@ -258,6 +259,7 @@ const [showAccessCode, setShowAccessCode] = useState(false);
     accessCodeType: signatureRequest.accessCodeType,
     accessCodeHint: signatureRequest.accessCodeHint,
     accessCode: signatureRequest.accessCode, // This will be hashed by the backend
+    scheduledSendDate: signatureRequest.scheduledSendDate,
         }),
       });
       const data = await response.json();
@@ -865,6 +867,27 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
         className="mt-1"
       />
     </div>
+
+    {/*  NEW: Scheduled Send Date */}
+<div>
+  <Label>Schedule Sending (optional)</Label>
+  <Input
+    type="datetime-local"
+    value={signatureRequest.scheduledSendDate || ''}
+    onChange={(e) =>
+      setSignatureRequest({ 
+        ...signatureRequest, 
+        scheduledSendDate: e.target.value 
+      })
+    }
+    min={new Date().toISOString().slice(0, 16)}
+    className="mt-1"
+  />
+  <p className="text-xs text-slate-500 mt-1">
+    Leave blank to send immediately, or choose a date/time to schedule
+  </p>
+</div>
+
     {/* After Due Date field, add this: */}
 <div>
   <Label>Link Expiration</Label>

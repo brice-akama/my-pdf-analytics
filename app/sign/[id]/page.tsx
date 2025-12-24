@@ -2,11 +2,14 @@
 
 "use client"
 import React, { useState, useRef, useEffect } from 'react';
-import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download, CheckSquare, Square, Paperclip, Camera } from 'lucide-react';
+import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download, CheckSquare, Square, Paperclip, Camera, UserPlus, Eye } from 'lucide-react';
 import { SignatureStyleModal } from '@/components/SignatureStyleModal';
 import { AttachmentModal } from '@/components/AttachmentModal';
 import { AccessCodeModal } from '@/components/AccessCodeModal';
 import { SelfieVerificationModal } from '@/components/SelfieVerificationModal';
+import { DelegateSigningModal } from '@/components/DelegateSigningModal';
+import { useRouter } from 'next/navigation';
+
 
 
 
@@ -104,6 +107,11 @@ const [showDropdownModal, setShowDropdownModal] = useState(false);
 const [activeDropdownField, setActiveDropdownField] = useState<SignatureField | null>(null);
 const [showRadioModal, setShowRadioModal] = useState(false);
 const [activeRadioField, setActiveRadioField] = useState<SignatureField | null>(null);
+const [showDelegateModal, setShowDelegateModal] = useState(false);
+ const router = useRouter();
+ const [viewOnlyMode, setViewOnlyMode] = useState(false);
+const [reassignmentInfo, setReassignmentInfo] = useState<any>(null);
+
 
 
 
@@ -174,11 +182,27 @@ const isFieldVisible = (field: SignatureField): boolean => {
         const res = await fetch(`/api/signature/${signatureId}`);
         const data = await res.json();
         console.log('📥 First API response:', data);
-        if (!res.ok || !data.success) {
-          setError(data.message || 'Failed to load signature request');
-          setLoading(false);
-          return;
-        }
+        // ⭐ Handle access denied
+if (!res.ok) {
+  if (data.accessDenied) {
+    setError(`This document was reassigned to ${data.newRecipient?.name || 'another person'}. You no longer have access.`);
+    setLoading(false);
+    return;
+  }
+  setError(data.message || 'Failed to load signature request');
+  setLoading(false);
+  return;
+}
+
+// ⭐ Handle view-only mode
+if (data.viewOnlyMode) {
+  console.log('👁️ Entering view-only mode');
+  setViewOnlyMode(true);
+  setReassignmentInfo({
+    originalRecipient: data.originalRecipient,
+    currentRecipient: data.currentRecipient,
+  });
+}
         const { signature } = data;
          console.log('🔍 Fetching signature request details...');
         const requestRes = await fetch(`/api/signature/${signatureId}/request`);
@@ -1050,6 +1074,8 @@ if (completed) {
     );
   }
 
+  
+
   if (loading) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
@@ -1072,6 +1098,27 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
     <div className="min-h-screen bg-slate-100">
       <div className="bg-white border-b shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4">
+
+          {/* View-Only Mode Banner */}
+{viewOnlyMode && reassignmentInfo && (
+  <div className="max-w-7xl mx-auto px-4 py-3 mb-4">
+    <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+      <div className="flex items-start gap-3">
+        <AlertCircle className="h-6 w-6 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <h3 className="font-semibold text-blue-900 mb-1">
+            👁️ View-Only Mode
+          </h3>
+          <p className="text-sm text-blue-800">
+            This document was reassigned to{' '}
+            <strong>{reassignmentInfo.currentRecipient?.name}</strong> (
+            {reassignmentInfo.currentRecipient?.email}). You can view the document but cannot sign.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
           {/*   ADD WARNING BANNER if awaiting turn */}
           {isAwaitingTurn && (
             <div className="mb-3 bg-amber-50 border border-amber-300 rounded-lg p-3">
@@ -1364,10 +1411,13 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
     : "⏳ Awaiting Input"}
 </p>
 
-      <p className="text-xs text-slate-600 mt-1 font-semibold">
-        {(field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
-        {isMyField && " (You)"}
-      </p>
+    <p className="text-xs text-slate-600 mt-1 font-semibold">
+  {isMyField 
+    ? recipient.name 
+    : (field as any).recipientName || `Recipient ${field.recipientIndex + 1}`
+  }
+  {isMyField && " (You)"} 
+</p> 
     </>
   )}
 </div>
@@ -1462,17 +1512,33 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
                   )
                 })}
               </div>
+              {/* Delegate Signing Button */}
+{!isAwaitingTurn && !completed && (
+  <button
+    onClick={() => setShowDelegateModal(true)}
+    disabled={submitting}
+    className="w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 border-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed mb-3"
+  >
+    <UserPlus className="h-5 w-5" />
+    Delegate to Someone Else
+  </button>
+)}
              {/* Complete Signing Button */}
   <button
-  onClick={completeSignature}
-  disabled={!allFieldsFilled || submitting || isAwaitingTurn}
+ onClick={completeSignature}
+  disabled={!allFieldsFilled || submitting || isAwaitingTurn || viewOnlyMode} // ⭐ ADD viewOnlyMode
   className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-    allFieldsFilled && !submitting && !isAwaitingTurn
+    allFieldsFilled && !submitting && !isAwaitingTurn && !viewOnlyMode // ⭐ ADD viewOnlyMode
       ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
       : 'bg-slate-200 text-slate-400 cursor-not-allowed'
   }`}
 >
-  {submitting ? (
+  {viewOnlyMode ? ( // ⭐ ADD THIS
+    <>
+      <Eye className="h-5 w-5" />
+      View-Only Access
+    </>
+  ) : submitting ? (
     <>
       <Loader2 className="h-5 w-5 animate-spin" />
       Submitting...
@@ -1877,6 +1943,25 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
       </div>
     </div>
   </div>
+)}
+
+{/* Delegate Modal */}
+{showDelegateModal && recipient && (
+  <DelegateSigningModal
+    isOpen={showDelegateModal}
+onClose={() => setShowDelegateModal(false)}
+signatureId={signatureId!}
+currentRecipient={{
+name: recipient.name,
+email: recipient.email,
+}}
+onDelegated={() => {
+setShowDelegateModal(false);
+alert('✅ Signing authority delegated successfully! The delegate will receive an email.');
+// Optionally redirect
+router.push('/');
+}}
+/>
 )}
 
     </div>

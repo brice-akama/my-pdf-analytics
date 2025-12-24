@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     const { documentId, recipients, signatureFields, message, dueDate, viewMode , signingOrder, expirationDays, ccRecipients, accessCodeRequired,
   accessCodeType,
-  accessCodeHint,
+  accessCodeHint, scheduledSendDate,
   accessCode  } = await request.json();
 
     const db = await dbPromise;
@@ -63,6 +63,12 @@ if (accessCodeRequired && accessCode) {
     for (let i = 0; i < recipients.length; i++) {
       const recipient = recipients[i];
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`;
+
+      // Determine if this should be sent immediately or scheduled
+const now = new Date();
+const scheduledDate = scheduledSendDate ? new Date(scheduledSendDate) : null;
+const shouldSendNow = !scheduledDate || scheduledDate <= now;
+
 
 
       //   Calculate expiration date
@@ -128,6 +134,11 @@ if (accessCodeRequired && accessCode) {
   accessCodeFailedAttempts: 0,
   accessCodeLockoutUntil: null,
   selfieVerificationRequired: accessCodeRequired || false,
+        scheduledSendDate: scheduledSendDate ? new Date(scheduledSendDate) : null,
+      sendStatus: shouldSendNow ? 'sent' : 'scheduled',
+      sendAt: shouldSendNow ? new Date() : null,
+      notifiedAt: shouldSendNow ? new Date() : null,
+
       };
 
       const result = await db.collection("signature_requests").insertOne(signatureRequest);
@@ -142,6 +153,12 @@ if (accessCodeRequired && accessCode) {
         link: signingLink,
         status: initialStatus,
       });
+
+      // Only send email if it should be sent now
+if (!shouldSendNow) {
+  console.log(`📅 Email scheduled for ${recipient.email} at ${scheduledDate}`);
+  continue; // Skip sending email
+}
 
       //   Only send email to first person if sequential order
       if (signingOrder === 'sequential' && i > 0) {
@@ -232,6 +249,8 @@ if (accessCodeRequired && accessCode) {
           sentAt: new Date(),
           totalRecipients: recipients.length,
           signedCount: 0,
+          scheduledSendDate: scheduledSendDate ? new Date(scheduledSendDate) : null,
+          
         },
       }
     );

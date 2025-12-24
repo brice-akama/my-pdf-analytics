@@ -11,10 +11,12 @@ import {
   XCircle,
   Archive, 
   Camera,
-  Award
+  Award,
+  UserX
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ReassignSignerModal } from '@/components/ReassignSignerModal';
 import {
   Dialog,
   DialogContent,
@@ -34,7 +36,7 @@ import GeoHeatMap from './GeoHeatMap';
 interface Signer {
   name: string;
   email: string;
-  status: 'pending' | 'viewed' | 'signed';
+  status: 'pending' | 'viewed' | 'signed' | 'completed' | 'declined';
   uniqueId: string;
   viewedAt?: string;
   signedAt?: string;
@@ -163,6 +165,7 @@ const [cancelReason, setCancelReason] = useState('');
 const [loadingBulkSends, setLoadingBulkSends] = useState(false);
 const router = useRouter();
 const [showArchived, setShowArchived] = useState(false);
+const [reassigningRequest, setReassigningRequest] = useState<any>(null)
 
   useEffect(() => {
     fetchSignatureStats();
@@ -1195,6 +1198,8 @@ useEffect(() => {
                         View Details
                         <ChevronRight className="h-4 w-4" />
                       </button>
+
+                       
                     </div>
                   </CardContent>
                 </Card>
@@ -1737,6 +1742,23 @@ useEffect(() => {
   <Eye className="h-4 w-4" />
  View & Download Document
 </button>
+
+{selectedDocument.signers.some(s => s.status !== 'signed' && s.status !== 'declined') && (
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => {
+      const pendingSigner = selectedDocument.signers.find(s => s.status !== 'signed' && s.status !== 'declined');
+      if (pendingSigner) {
+        setReassigningRequest(pendingSigner);
+      }
+    }}
+  >
+    <UserX className="h-4 w-4 mr-2" />
+    Reassign
+  </Button>
+)}
+
           <button
             onClick={() => {
     // Use the first signer's uniqueId for the signing link
@@ -2029,7 +2051,21 @@ useEffect(() => {
                   </div>
                 </CardContent>
               </Card>
-             
+             {/* Actions */}
+<div className="flex justify-end gap-3 pt-4 border-t">
+  {selectedSigner.status !== 'signed' && selectedSigner.status !== 'declined' && (
+    <Button
+      variant="outline"
+      onClick={() => {
+        setReassigningRequest(selectedSigner);
+        setShowSignerDetails(false); // Close current modal
+      }}
+    >
+      <UserX className="h-4 w-4 mr-2" />
+      Reassign Signer
+    </Button>
+  )}
+</div>
             </div>
           )}
           
@@ -2087,6 +2123,24 @@ useEffect(() => {
     </div>
   </DialogContent>
 </Dialog>
+
+{/* Modal */}
+{reassigningRequest && (
+  <ReassignSignerModal
+    isOpen={!!reassigningRequest}
+    onClose={() => setReassigningRequest(null)}
+    signatureId={reassigningRequest.uniqueId}
+    currentRecipient={{
+      name: reassigningRequest.recipient?.name || reassigningRequest.recipientName,
+      email: reassigningRequest.recipientEmail,
+    }}
+    onReassigned={() => {
+      // Refresh the list
+      fetchSignatureStats();
+      alert('✅ Signer reassigned successfully!');
+    }}
+  />
+)}
 
     </div>
   );
