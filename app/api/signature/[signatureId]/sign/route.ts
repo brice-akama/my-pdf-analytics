@@ -43,6 +43,18 @@ export async function POST(
       );
     }
 
+    // ⭐ NEW: CHECK IF USER DELEGATED SIGNING (BLOCK SIGNING)
+if (signatureRequest.status === 'delegated') {
+  return NextResponse.json(
+    { 
+      success: false, 
+      message: `You delegated this document to ${signatureRequest.delegatedToName}. You can view but cannot sign.` 
+    },
+    { status: 403 }
+  );
+}
+
+
     // ⭐ CHECK IF SELFIE IS REQUIRED AND VERIFIED
 // Only enforce selfie if access code was also used and verified
 if (signatureRequest.selfieVerificationRequired && 

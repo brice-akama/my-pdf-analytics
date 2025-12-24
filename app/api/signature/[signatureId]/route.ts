@@ -20,12 +20,12 @@ export async function GET(
     });
 
     // ⭐ If not found, check if this is an old link from a reassigned document
-if (!signatureRequest) {
-  // Check if any document was reassigned and this was the original uniqueId
-  signatureRequest = await db.collection("signature_requests").findOne({
-    'originalRecipient.uniqueId': signatureId,
-    wasReassigned: true,
-  });
+    if (!signatureRequest) {
+      // Check if any document was reassigned and this was the original uniqueId
+      signatureRequest = await db.collection("signature_requests").findOne({
+        'originalRecipient.uniqueId': signatureId,
+        wasReassigned: true,
+      });
 
       // ⭐ If found as original recipient, check access permissions
       if (signatureRequest) {
@@ -60,10 +60,16 @@ if (!signatureRequest) {
               success: true,
               viewOnlyMode: true, // ⭐ Flag for frontend
               wasReassigned: true,
+              isDelegated: true,
               originalRecipient: originalRecipient,
               currentRecipient: {
                 name: signatureRequest.recipientName,
                 email: signatureRequest.recipientEmail,
+              },
+              delegatedTo: {
+                name: signatureRequest.delegatedToName,
+                email: signatureRequest.delegatedToEmail,
+                reason: signatureRequest.delegationReason,
               },
               signature: {
                 uniqueId: signatureRequest.uniqueId,
@@ -89,18 +95,29 @@ if (!signatureRequest) {
       );
     }
 
+    // ⭐ 3. DELEGATED MODE — STOP HERE
+    if (signatureRequest.status === "delegated") {
+      const delegatedDocument = await db
+        .collection("documents")
+        .findOne({
+          _id: new ObjectId(signatureRequest.documentId),
+        });
+      
+      // Add your delegated mode logic here if needed
+    }
+
     // ⭐ If cancelled (access revoked)
-if (signatureRequest.status === 'cancelled' && signatureRequest.wasReassigned) {
-  return NextResponse.json(
-    { 
-      success: false, 
-      message: `This document was reassigned to ${signatureRequest.reassignedToName || 'another person'}. Your access has been revoked.`,
-      wasReassigned: true,
-      accessDenied: true,
-    },
-    { status: 403 }
-  );
-}
+    if (signatureRequest.status === 'cancelled' && signatureRequest.wasReassigned) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: `This document was reassigned to ${signatureRequest.reassignedToName || 'another person'}. Your access has been revoked.`,
+          wasReassigned: true,
+          accessDenied: true,
+        },
+        { status: 403 }
+      );
+    }
 
     // Track view if the document is still pending
     if (signatureRequest.status === 'pending') {
@@ -193,10 +210,10 @@ if (signatureRequest.status === 'cancelled' && signatureRequest.wasReassigned) {
         os: firstViewDeviceInfo.os,
         location: firstViewLocation,
         engagement: engagement,
-         selfieVerification: signatureRequest.selfieVerification || null,  // ⭐ ADD THIS
-    selfieVerifiedAt: signatureRequest.selfieVerifiedAt || null,      // ⭐ ADD THIS
-    recipientName: signatureRequest.recipientName,
-recipientEmail: signatureRequest.recipientEmail,
+        selfieVerification: signatureRequest.selfieVerification || null,  // ⭐ ADD THIS
+        selfieVerifiedAt: signatureRequest.selfieVerifiedAt || null,      // ⭐ ADD THIS
+        recipientName: signatureRequest.recipientName,
+        recipientEmail: signatureRequest.recipientEmail,
         viewHistory: views.map(v => ({
           timestamp: v.timestamp,
           page: v.page,

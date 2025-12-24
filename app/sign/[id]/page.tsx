@@ -111,6 +111,8 @@ const [showDelegateModal, setShowDelegateModal] = useState(false);
  const router = useRouter();
  const [viewOnlyMode, setViewOnlyMode] = useState(false);
 const [reassignmentInfo, setReassignmentInfo] = useState<any>(null);
+const [delegationInfo, setDelegationInfo] = useState<any>(null);
+const [isDelegatedMode, setIsDelegatedMode] = useState(false);
 
 
 
@@ -198,10 +200,17 @@ if (!res.ok) {
 if (data.viewOnlyMode) {
   console.log('👁️ Entering view-only mode');
   setViewOnlyMode(true);
+  if (data.isDelegated) {
+    setIsDelegatedMode(true); //   ADD THIS
+    setDelegationInfo({
+      delegatedTo: data.delegatedTo,
+    });
+  }else {
   setReassignmentInfo({
     originalRecipient: data.originalRecipient,
     currentRecipient: data.currentRecipient,
   });
+  }
 }
         const { signature } = data;
          console.log('🔍 Fetching signature request details...');
@@ -1100,20 +1109,44 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
         <div className="max-w-7xl mx-auto px-4 py-4">
 
           {/* View-Only Mode Banner */}
-{viewOnlyMode && reassignmentInfo && (
+{/* View-Only Mode Banner */}
+{viewOnlyMode && (reassignmentInfo || delegationInfo) && (
   <div className="max-w-7xl mx-auto px-4 py-3 mb-4">
     <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
       <div className="flex items-start gap-3">
         <AlertCircle className="h-6 w-6 text-blue-600 flex-shrink-0 mt-0.5" />
         <div className="flex-1">
-          <h3 className="font-semibold text-blue-900 mb-1">
-            👁️ View-Only Mode
-          </h3>
-          <p className="text-sm text-blue-800">
-            This document was reassigned to{' '}
-            <strong>{reassignmentInfo.currentRecipient?.name}</strong> (
-            {reassignmentInfo.currentRecipient?.email}). You can view the document but cannot sign.
-          </p>
+          {delegationInfo ? (
+            <>
+              <h3 className="font-semibold text-blue-900 mb-1">
+                👁️ View-Only Mode - You Delegated This Document
+              </h3>
+              <p className="text-sm text-blue-800">
+                You delegated signing authority to{' '}
+                <strong>{delegationInfo.delegatedTo?.name}</strong> (
+                {delegationInfo.delegatedTo?.email}). 
+                {delegationInfo.delegatedTo?.reason && (
+                  <span className="block mt-1">
+                    <strong>Reason:</strong> {delegationInfo.delegatedTo.reason}
+                  </span>
+                )}
+              </p>
+              <p className="text-sm text-blue-700 mt-2">
+                You can view the document but cannot sign. Your delegate will sign on your behalf.
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 className="font-semibold text-blue-900 mb-1">
+                👁️ View-Only Mode
+              </h3>
+              <p className="text-sm text-blue-800">
+                This document was reassigned to{' '}
+                <strong>{reassignmentInfo.currentRecipient?.name}</strong> (
+                {reassignmentInfo.currentRecipient?.email}). You can view the document but cannot sign.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -1513,7 +1546,7 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
                 })}
               </div>
               {/* Delegate Signing Button */}
-{!isAwaitingTurn && !completed && (
+{!isAwaitingTurn && !completed && !isDelegatedMode && (
   <button
     onClick={() => setShowDelegateModal(true)}
     disabled={submitting}
@@ -1526,19 +1559,19 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
              {/* Complete Signing Button */}
   <button
  onClick={completeSignature}
-  disabled={!allFieldsFilled || submitting || isAwaitingTurn || viewOnlyMode} // ⭐ ADD viewOnlyMode
+  disabled={!allFieldsFilled || submitting || isAwaitingTurn || viewOnlyMode || isDelegatedMode} // ⭐ ADD viewOnlyMode
   className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-    allFieldsFilled && !submitting && !isAwaitingTurn && !viewOnlyMode // ⭐ ADD viewOnlyMode
+    allFieldsFilled && !submitting && !isAwaitingTurn && !viewOnlyMode && !isDelegatedMode // ⭐ ADD viewOnlyMode
       ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
       : 'bg-slate-200 text-slate-400 cursor-not-allowed'
   }`}
 >
-  {viewOnlyMode ? ( // ⭐ ADD THIS
-    <>
-      <Eye className="h-5 w-5" />
-      View-Only Access
-    </>
-  ) : submitting ? (
+  {viewOnlyMode || isDelegatedMode ? ( //   ADD isDelegatedMode
+  <>
+    <Eye className="h-5 w-5" />
+    {isDelegatedMode ? 'You Delegated This' : 'View-Only Access'} 
+  </>
+) : submitting ? (
     <>
       <Loader2 className="h-5 w-5 animate-spin" />
       Submitting...
@@ -1563,7 +1596,7 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
   )}
 </button>
   {/* Decline to Sign Button */}
-  {!isAwaitingTurn && (
+  {!isAwaitingTurn && !isDelegatedMode && (
     <button
       onClick={() => setShowDeclineModal(true)}
       disabled={submitting}
