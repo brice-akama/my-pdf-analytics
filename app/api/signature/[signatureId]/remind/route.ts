@@ -73,6 +73,8 @@ export async function POST(
       senderName: senderName,
     });
 
+    
+
     await db.collection("signature_reminders").insertOne({
       signatureId: signatureId,
       recipientEmail: signatureRequest.recipient.email,
@@ -81,6 +83,19 @@ export async function POST(
     });
 
     console.log(`✅ Reminder sent to ${signatureRequest.recipient.email}`);
+    
+    //  NEW: Track reminder count on the signature request
+await db.collection("signature_requests").updateOne(
+  { uniqueId: signatureId },
+  {
+    $set: {
+      lastReminderSentAt: new Date(),
+    },
+    $inc: {
+      reminderCount: 1,
+    }
+  }
+);
 
     return NextResponse.json({
       success: true,

@@ -697,12 +697,14 @@ export async function sendSignatureRequestCancelledEmail({
   originalFilename,
   ownerName,
   reason,
+  wasVoided,
 }: {
   recipientEmail: string;
   recipientName: string;
   originalFilename: string;
   ownerName: string;
   reason: string;
+  wasVoided: boolean;
 }) {
   try {
     const emailHtml = `
