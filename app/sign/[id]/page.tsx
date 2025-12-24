@@ -113,6 +113,8 @@ const [showDelegateModal, setShowDelegateModal] = useState(false);
 const [reassignmentInfo, setReassignmentInfo] = useState<any>(null);
 const [delegationInfo, setDelegationInfo] = useState<any>(null);
 const [isDelegatedMode, setIsDelegatedMode] = useState(false);
+const [isScheduled, setIsScheduled] = useState(false);
+const [scheduledDate, setScheduledDate] = useState<string | null>(null);
 
 
 
@@ -122,7 +124,7 @@ const [isDelegatedMode, setIsDelegatedMode] = useState(false);
 
 
 
- // ⭐ Check if a field should be visible based on conditional logic
+ //   Check if a field should be visible based on conditional logic
 const isFieldVisible = (field: SignatureField): boolean => {
   if (!field.conditional?.enabled) {
     return true; // No conditional logic, always visible
@@ -184,8 +186,20 @@ const isFieldVisible = (field: SignatureField): boolean => {
         const res = await fetch(`/api/signature/${signatureId}`);
         const data = await res.json();
         console.log('📥 First API response:', data);
-        // ⭐ Handle access denied
+
+       
+
+       
 if (!res.ok) {
+   //  Handle scheduled documents
+  if (data.isScheduled) {
+    setIsScheduled(true);
+    setScheduledDate(data.scheduledDate);
+    setError(data.message);
+    setLoading(false);
+    return;
+  }
+ //   Handle access denied
   if (data.accessDenied) {
     setError(`This document was reassigned to ${data.newRecipient?.name || 'another person'}. You no longer have access.`);
     setLoading(false);
@@ -1047,6 +1061,37 @@ if (completed) {
   }
   } 
 
+  {/* Scheduled Document Banner */}
+{isScheduled && scheduledDate && (
+  <div className="max-w-7xl mx-auto px-4 py-3 mb-4">
+    <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4">
+      <div className="flex items-start gap-3">
+        <Clock className="h-6 w-6 text-amber-600 flex-shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <h3 className="font-semibold text-amber-900 mb-1">
+            📅 Document Not Yet Available
+          </h3>
+          <p className="text-sm text-amber-800">
+            This document is scheduled to be available on:{' '}
+            <strong>
+              {new Date(scheduledDate).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </strong>
+          </p>
+          <p className="text-sm text-amber-700 mt-2">
+            Please check back after this date and time to view and sign the document.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
   
   if (completed) {

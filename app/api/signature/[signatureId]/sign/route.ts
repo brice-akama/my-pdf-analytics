@@ -54,8 +54,23 @@ if (signatureRequest.status === 'delegated') {
   );
 }
 
+//   CHECK IF SCHEDULED FOR FUTURE
+if (signatureRequest.scheduledSendDate) {
+  const scheduledDate = new Date(signatureRequest.scheduledSendDate);
+  const now = new Date();
+  
+  if (now < scheduledDate) {
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: `This document is scheduled to be available on ${scheduledDate.toLocaleDateString()}. You cannot sign before this date.` 
+      },
+      { status: 403 }
+    );
+  }
+}
 
-    // ⭐ CHECK IF SELFIE IS REQUIRED AND VERIFIED
+    //   CHECK IF SELFIE IS REQUIRED AND VERIFIED
 // Only enforce selfie if access code was also used and verified
 if (signatureRequest.selfieVerificationRequired && 
     signatureRequest.accessCodeRequired && 

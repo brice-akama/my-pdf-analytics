@@ -68,7 +68,7 @@ export async function POST(
     await sendSignatureReminderEmail({
       recipientEmail: signatureRequest.recipient.email,
       recipientName: signatureRequest.recipient.name,
-      documentName: document.filename,
+      originalFilename: document.filename,
       signingLink: `${request.nextUrl.origin}/sign/${signatureId}`,
       senderName: senderName,
     });

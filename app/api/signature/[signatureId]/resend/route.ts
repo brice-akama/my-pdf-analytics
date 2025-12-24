@@ -57,7 +57,7 @@ export async function POST(
     await sendSignatureReminderEmail({
       recipientName: signatureRequest.recipient.name,
       recipientEmail: signatureRequest.recipient.email,
-      documentName: document.filename,
+      originalFilename: document.filename,
       signingLink: `${request.nextUrl.origin}/sign/${signatureId}`,
       senderName: 'Document Owner', // Get from owner's profile
       daysLeft: daysLeft !== null && daysLeft > 0 ? daysLeft : undefined,

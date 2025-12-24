@@ -23,7 +23,32 @@ export async function GET(
       );
     }
 
-    // ⭐ CHECK ACCESS CONTROL FOR REASSIGNED DOCUMENTS
+    //   CHECK IF SCHEDULED FOR FUTURE
+if (signatureRequest.scheduledSendDate) {
+  const scheduledDate = new Date(signatureRequest.scheduledSendDate);
+  const now = new Date();
+  
+  if (now < scheduledDate) {
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: `This document is scheduled to be available on ${scheduledDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })}. Please check back then.`,
+        isScheduled: true,
+        scheduledDate: scheduledDate.toISOString(),
+      },
+      { status: 403 }
+    );
+  }
+}
+
+    //   CHECK ACCESS CONTROL FOR REASSIGNED DOCUMENTS
     if (signatureRequest.wasReassigned) {
       const { allowOriginalToView, originalRecipient } = signatureRequest;
       

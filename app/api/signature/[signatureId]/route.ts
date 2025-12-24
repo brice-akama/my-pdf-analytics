@@ -95,6 +95,31 @@ export async function GET(
       );
     }
 
+    //  CHECK IF SCHEDULED FOR FUTURE
+if (signatureRequest.scheduledSendDate) {
+  const scheduledDate = new Date(signatureRequest.scheduledSendDate);
+  const now = new Date();
+  
+  if (now < scheduledDate) {
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: `This document is scheduled to be available on ${scheduledDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })}. Please check back then.`,
+        isScheduled: true,
+        scheduledDate: scheduledDate.toISOString(),
+      },
+      { status: 403 }
+    );
+  }
+}
+
     // ⭐ 3. DELEGATED MODE — STOP HERE
     if (signatureRequest.status === "delegated") {
       const delegatedDocument = await db
@@ -118,6 +143,8 @@ export async function GET(
         { status: 403 }
       );
     }
+
+
 
     // Track view if the document is still pending
     if (signatureRequest.status === 'pending') {
