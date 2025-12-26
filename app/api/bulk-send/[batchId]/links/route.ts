@@ -1,3 +1,5 @@
+// my-pdf-analytics/app/api/bulk-send/[batchId]/links/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
  
 import { verifyUserFromRequest } from "@/lib/auth";

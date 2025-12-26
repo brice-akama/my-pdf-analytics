@@ -1,3 +1,5 @@
+// my-pdf-analytics/app/bulk-send/page.tsx
+
 "use client";
 
 import { useEffect, useState } from "react";

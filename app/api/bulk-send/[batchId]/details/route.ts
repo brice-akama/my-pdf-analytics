@@ -1,3 +1,4 @@
+// my-pdf-analytics/app/api/bulk-send/[batchId]/details/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "@/app/api/lib/mongodb";
 import { verifyUserFromRequest } from "@/lib/auth";

@@ -962,3 +962,616 @@ const maxHeight = PAGE_HEIGHT - MARGIN * 2;
     throw error;
   }
 }
+
+
+/**
+ * Generate signed PDF package for envelope (multiple documents)
+ */
+export async function generateEnvelopeSignedPDF(
+  envelopeId: string,
+  signedDocuments: any[],
+  recipient: any
+): Promise<string> {
+  try {
+    console.log('📦 Generating envelope signed PDF package for:', envelopeId);
+
+    const db = await dbPromise;
+    const { ObjectId } = await import('mongodb');
+
+    // Get envelope details
+    const envelope = await db.collection('envelopes').findOne({
+      envelopeId: envelopeId,
+    });
+
+    if (!envelope) {
+      throw new Error('Envelope not found');
+    }
+
+    console.log(`📦 Envelope contains ${envelope.documents.length} documents`);
+
+    // Create a new PDF for the complete package
+    const packagePdf = await PDFDocument.create();
+    const font = await packagePdf.embedFont(StandardFonts.Helvetica);
+    const boldFont = await packagePdf.embedFont(StandardFonts.HelveticaBold);
+
+    // ============================================
+    // 1. CREATE COVER PAGE
+    // ============================================
+    console.log('📄 Creating envelope cover page...');
+    const coverPage = packagePdf.addPage([612, 792]); // Letter size
+    let yPos = 700;
+
+    // Header
+    coverPage.drawRectangle({
+      x: 0,
+      y: 720,
+      width: 612,
+      height: 72,
+      color: rgb(0.49, 0.23, 0.93), // Purple
+    });
+
+    coverPage.drawText('SIGNED DOCUMENT PACKAGE', {
+      x: 50,
+      y: 745,
+      size: 24,
+      font: boldFont,
+      color: rgb(1, 1, 1),
+    });
+
+    yPos = 650;
+
+    // Envelope Info
+    coverPage.drawText('Envelope Details', {
+      x: 50,
+      y: yPos,
+      size: 16,
+      font: boldFont,
+      color: rgb(0, 0, 0),
+    });
+    yPos -= 25;
+
+    coverPage.drawText(`Envelope ID: ${envelopeId}`, {
+      x: 50,
+      y: yPos,
+      size: 10,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    yPos -= 15;
+
+    coverPage.drawText(`Completed: ${new Date().toLocaleString()}`, {
+      x: 50,
+      y: yPos,
+      size: 10,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    yPos -= 15;
+
+    coverPage.drawText(`Signed by: ${recipient.name} (${recipient.email})`, {
+      x: 50,
+      y: yPos,
+      size: 10,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    yPos -= 35;
+
+    // Document List
+    coverPage.drawLine({
+      start: { x: 50, y: yPos },
+      end: { x: 562, y: yPos },
+      thickness: 1,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+    yPos -= 25;
+
+    coverPage.drawText('Documents in this Package', {
+      x: 50,
+      y: yPos,
+      size: 14,
+      font: boldFont,
+      color: rgb(0, 0, 0),
+    });
+    yPos -= 25;
+
+    for (let i = 0; i < envelope.documents.length; i++) {
+      const doc = envelope.documents[i];
+      const signedDoc = signedDocuments.find(sd => sd.documentId === doc.documentId);
+
+      // Document number circle
+      coverPage.drawCircle({
+        x: 60,
+        y: yPos - 5,
+        size: 10,
+        color: rgb(0.93, 0.90, 0.98),
+        borderColor: rgb(0.49, 0.23, 0.93),
+        borderWidth: 2,
+      });
+
+      coverPage.drawText(`${i + 1}`, {
+        x: 57,
+        y: yPos - 8,
+        size: 10,
+        font: boldFont,
+        color: rgb(0.49, 0.23, 0.93),
+      });
+
+      // Document name
+      coverPage.drawText(doc.filename, {
+        x: 80,
+        y: yPos - 5,
+        size: 11,
+        font: boldFont,
+        color: rgb(0, 0, 0),
+      });
+      yPos -= 15;
+
+      // Status
+      const statusText = signedDoc ? '✓ Signed' : '✗ Not signed';
+      const statusColor = signedDoc ? rgb(0, 0.6, 0) : rgb(0.8, 0, 0);
+      
+      coverPage.drawText(statusText, {
+        x: 80,
+        y: yPos - 5,
+        size: 9,
+        font,
+        color: statusColor,
+      });
+      yPos -= 25;
+
+      if (yPos < 100) {
+        // Add new page if running out of space
+        yPos = 700;
+      }
+    }
+
+    // Security info at bottom
+    yPos = 100;
+    coverPage.drawLine({
+      start: { x: 50, y: yPos },
+      end: { x: 562, y: yPos },
+      thickness: 0.5,
+      color: rgb(0.7, 0.7, 0.7),
+    });
+    yPos -= 15;
+
+    coverPage.drawText('🔒 This package is digitally signed and tamper-proof', {
+      x: 50,
+      y: yPos,
+      size: 9,
+      font,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+    yPos -= 12;
+
+    const crypto = require('crypto');
+    const packageHash = crypto.createHash('sha256')
+      .update(JSON.stringify({ envelopeId, signedDocuments }))
+      .digest('hex');
+
+    coverPage.drawText(`Package Hash: ${packageHash.substring(0, 40)}...`, {
+      x: 50,
+      y: yPos,
+      size: 7,
+      font,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+
+    console.log('✅ Cover page created');
+
+    // ============================================
+    // 2. PROCESS EACH DOCUMENT
+    // ============================================
+    for (const signedDoc of signedDocuments) {
+      console.log(`📄 Processing document: ${signedDoc.filename}`);
+
+      const document = await db.collection('documents').findOne({
+        _id: new ObjectId(signedDoc.documentId),
+      });
+
+      if (!document || !document.cloudinaryPdfUrl) {
+        console.warn(`⚠️ Document ${signedDoc.documentId} not found, skipping`);
+        continue;
+      }
+
+      // Extract publicId from Cloudinary URL
+      const urlParts = document.cloudinaryPdfUrl.split('/upload/');
+      if (urlParts.length < 2) {
+        console.error('Invalid Cloudinary URL format');
+        continue;
+      }
+
+      const afterUpload = urlParts[1];
+      const pathParts = afterUpload.split('/');
+      pathParts.shift(); // Remove version
+      let publicId = pathParts.join('/').replace('.pdf', '');
+      publicId = decodeURIComponent(publicId);
+
+      const resourceType = document.cloudinaryPdfUrl.includes('/image/upload/') ? 'image' : 'raw';
+
+      // Generate authenticated download URL
+      const downloadUrl = cloudinary.v2.utils.private_download_url(
+        publicId,
+        'pdf',
+        {
+          resource_type: resourceType,
+          type: 'upload',
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+        }
+      );
+
+      // Download PDF
+      const pdfResponse = await fetch(downloadUrl);
+      if (!pdfResponse.ok) {
+        console.error(`❌ Failed to download PDF: ${pdfResponse.status}`);
+        continue;
+      }
+
+      const pdfBytes = await pdfResponse.arrayBuffer();
+      const originalPdf = await PDFDocument.load(pdfBytes);
+
+      // Add signatures to this document
+      const pages = originalPdf.getPages();
+
+      for (const signedField of signedDoc.signedFields) {
+        const pageIndex = signedField.page - 1;
+        if (pageIndex < 0 || pageIndex >= pages.length) continue;
+
+        const page = pages[pageIndex];
+        const { width, height } = page.getSize();
+
+        // Find field definition
+        const fieldDef = envelope.signatureFields.find(
+          (f: any) => f.id === signedField.id
+        );
+
+        if (!fieldDef) continue;
+
+        const fieldWidth = fieldDef.width || (fieldDef.type === 'signature' ? 200 : 150);
+        const fieldHeight = fieldDef.height || (fieldDef.type === 'signature' ? 60 : 40);
+
+        const xInPoints = (fieldDef.x / 100) * width;
+        const yFromTop = (fieldDef.y / 100) * height;
+        const x = xInPoints - (fieldWidth / 2);
+        const y = height - yFromTop - fieldHeight;
+
+        // Draw signature
+        if (fieldDef.type === 'signature' && signedField.signatureData) {
+          try {
+            const base64 = signedField.signatureData.replace(/^data:image\/\w+;base64,/, '');
+            const imgBytes = Buffer.from(base64, 'base64');
+            let image;
+            if (signedField.signatureData.includes('image/png')) {
+              image = await originalPdf.embedPng(imgBytes);
+            } else {
+              image = await originalPdf.embedJpg(imgBytes);
+            }
+
+            page.drawImage(image, {
+              x: x,
+              y: y,
+              width: fieldWidth,
+              height: fieldHeight,
+            });
+          } catch (err) {
+            console.error('Failed to embed signature:', err);
+          }
+        }
+
+        // Draw date
+        if (fieldDef.type === 'date' && signedField.dateValue) {
+          const textWidth = font.widthOfTextAtSize(signedField.dateValue, 11);
+          page.drawText(signedField.dateValue, {
+            x: x + (fieldWidth - textWidth) / 2,
+            y: y + (fieldHeight / 2) - 4,
+            size: 11,
+            font,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Draw text
+        if (fieldDef.type === 'text' && signedField.textValue) {
+          const textWidth = font.widthOfTextAtSize(signedField.textValue, 11);
+          page.drawText(signedField.textValue, {
+            x: x + (fieldWidth - textWidth) / 2,
+            y: y + (fieldHeight / 2) - 4,
+            size: 11,
+            font,
+            color: rgb(0, 0, 0),
+          });
+        }
+
+        // Draw checkbox
+        if (fieldDef.type === 'checkbox' && signedField.textValue !== undefined) {
+          const isChecked = signedField.textValue === 'true';
+
+          if (isChecked) {
+            page.drawRectangle({
+              x: x + 5,
+              y: y + 5,
+              width: 20,
+              height: 20,
+              borderColor: rgb(0.4, 0.2, 0.6),
+              borderWidth: 2,
+            });
+
+            page.drawText('✓', {
+              x: x + 8,
+              y: y + 8,
+              size: 16,
+              font: boldFont,
+              color: rgb(0.4, 0.2, 0.6),
+            });
+          } else {
+            page.drawRectangle({
+              x: x + 5,
+              y: y + 5,
+              width: 20,
+              height: 20,
+              borderColor: rgb(0.6, 0.6, 0.6),
+              borderWidth: 2,
+            });
+          }
+
+          if (fieldDef.label) {
+            page.drawText(fieldDef.label, {
+              x: x + 30,
+              y: y + 10,
+              size: 10,
+              font,
+              color: rgb(0, 0, 0),
+            });
+          }
+        }
+      }
+
+      // Copy all pages from this document to package
+      const copiedPages = await packagePdf.copyPages(originalPdf, originalPdf.getPageIndices());
+      copiedPages.forEach(page => packagePdf.addPage(page));
+
+      console.log(`✅ Added ${copiedPages.length} pages from ${signedDoc.filename}`);
+    }
+
+    // ============================================
+    // 3. ADD AUDIT TRAIL PAGE
+    // ============================================
+    console.log('🧾 Creating audit trail page...');
+    let auditPage = packagePdf.addPage([612, 792]);
+    let auditY = 720;
+
+    // Header
+    auditPage.drawRectangle({
+      x: 0,
+      y: auditY,
+      width: 612,
+      height: 50,
+      color: rgb(0.49, 0.23, 0.93),
+    });
+
+    auditPage.drawText('ENVELOPE AUDIT TRAIL', {
+      x: 50,
+      y: auditY + 18,
+      size: 18,
+      font: boldFont,
+      color: rgb(1, 1, 1),
+    });
+
+    auditY = 650;
+
+    // Envelope metadata
+    auditPage.drawText(`Envelope ID: ${envelopeId}`, {
+      x: 50,
+      y: auditY,
+      size: 10,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    auditY -= 15;
+
+    auditPage.drawText(`Completed: ${new Date().toLocaleString()}`, {
+      x: 50,
+      y: auditY,
+      size: 10,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    auditY -= 15;
+
+    auditPage.drawText(`Total Documents: ${envelope.documents.length}`, {
+      x: 50,
+      y: auditY,
+      size: 10,
+      font,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    auditY -= 30;
+
+    // Signer section
+    auditPage.drawLine({
+      start: { x: 50, y: auditY },
+      end: { x: 562, y: auditY },
+      thickness: 1,
+      color: rgb(0.7, 0.7, 0.7),
+    });
+    auditY -= 20;
+
+    auditPage.drawText('SIGNER INFORMATION', {
+      x: 50,
+      y: auditY,
+      size: 12,
+      font: boldFont,
+      color: rgb(0, 0, 0),
+    });
+    auditY -= 20;
+
+    auditPage.drawText(`Name: ${recipient.name}`, {
+      x: 50,
+      y: auditY,
+      size: 10,
+      font: boldFont,
+      color: rgb(0, 0, 0),
+    });
+    auditY -= 15;
+
+    auditPage.drawText(`Email: ${recipient.email}`, {
+      x: 50,
+      y: auditY,
+      size: 10,
+      font,
+      color: rgb(0.4, 0.4, 0.4),
+    });
+    auditY -= 15;
+
+    if (recipient.completedAt) {
+      auditPage.drawText(`Completed: ${new Date(recipient.completedAt).toLocaleString()}`, {
+        x: 50,
+        y: auditY,
+        size: 10,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      auditY -= 15;
+    }
+
+    if (recipient.viewedAt) {
+      auditPage.drawText(`First Viewed: ${new Date(recipient.viewedAt).toLocaleString()}`, {
+        x: 50,
+        y: auditY,
+        size: 10,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      auditY -= 15;
+    }
+
+    auditY -= 15;
+
+    // Document signing details
+    auditPage.drawLine({
+      start: { x: 50, y: auditY },
+      end: { x: 562, y: auditY },
+      thickness: 1,
+      color: rgb(0.7, 0.7, 0.7),
+    });
+    auditY -= 20;
+
+    auditPage.drawText('DOCUMENT SIGNATURES', {
+      x: 50,
+      y: auditY,
+      size: 12,
+      font: boldFont,
+      color: rgb(0, 0, 0),
+    });
+    auditY -= 20;
+
+    for (let i = 0; i < signedDocuments.length; i++) {
+      const signedDoc = signedDocuments[i];
+      const envDoc = envelope.documents.find((d: any) => d.documentId === signedDoc.documentId);
+
+      auditPage.drawText(`${i + 1}. ${signedDoc.filename}`, {
+        x: 50,
+        y: auditY,
+        size: 10,
+        font: boldFont,
+        color: rgb(0, 0, 0),
+      });
+      auditY -= 15;
+
+      auditPage.drawText(`   • Signed: ${new Date(signedDoc.signedAt).toLocaleString()}`, {
+        x: 55,
+        y: auditY,
+        size: 9,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      auditY -= 12;
+
+      auditPage.drawText(`   • Fields Completed: ${signedDoc.signedFields.length}`, {
+        x: 55,
+        y: auditY,
+        size: 9,
+        font,
+        color: rgb(0.4, 0.4, 0.4),
+      });
+      auditY -= 20;
+
+      if (auditY < 100) {
+        auditPage = packagePdf.addPage([612, 792]);
+        auditY = 720;
+      }
+    }
+
+    // Security footer
+    auditY = 80;
+    auditPage.drawLine({
+      start: { x: 50, y: auditY },
+      end: { x: 562, y: auditY },
+      thickness: 0.5,
+      color: rgb(0.7, 0.7, 0.7),
+    });
+    auditY -= 15;
+
+    auditPage.drawText('This envelope was signed electronically and is legally binding.', {
+      x: 50,
+      y: auditY,
+      size: 8,
+      font,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+    auditY -= 12;
+
+    auditPage.drawText(`Package Hash: ${packageHash}`, {
+      x: 50,
+      y: auditY,
+      size: 7,
+      font,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+
+    console.log('✅ Audit trail page created');
+
+    // ============================================
+    // 4. SAVE AND UPLOAD
+    // ============================================
+    const packagePdfBytes = await packagePdf.save();
+    console.log('💾 Package PDF generated, size:', packagePdfBytes.byteLength, 'bytes');
+
+    // Upload to Cloudinary
+    const uploadResult = await new Promise<any>((resolve, reject) => {
+      const uploadStream = cloudinary.v2.uploader.upload_stream(
+        {
+          folder: 'signed_envelopes',
+          resource_type: 'image',
+          public_id: `envelope_${envelopeId}_${Date.now()}`,
+          type: 'upload',
+          format: 'pdf',
+          overwrite: true,
+          invalidate: true,
+          access_mode: 'public',
+        },
+        (error, result) => {
+          if (error) {
+            console.error('❌ Cloudinary upload error:', error);
+            reject(error);
+          } else {
+            console.log('✅ Upload successful');
+            resolve(result);
+          }
+        }
+      );
+
+      uploadStream.end(Buffer.from(packagePdfBytes));
+    });
+
+    const signedUrl = uploadResult.secure_url.replace(/\s+/g, '');
+    console.log('🔗 Signed envelope PDF URL:', signedUrl);
+
+    return signedUrl;
+
+  } catch (error) {
+    console.error('❌ Error generating envelope signed PDF:', error);
+    throw error;
+  }
+}

@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { sendEmail } from './email';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -1139,3 +1140,565 @@ export async function sendSignatureDeclinedNotification({
     throw error;
   }
 }
+
+// ===================================
+// EXPIRATION WARNING EMAIL
+// ===================================
+
+export async function sendExpirationWarningEmail({
+  recipientName,
+  recipientEmail,
+  originalFilename,
+  signingLink,
+  senderName,
+  expiresAt,
+  daysLeft,
+}: {
+  recipientName: string;
+  recipientEmail: string;
+  originalFilename: string;
+  signingLink: string;
+  senderName: string;
+  expiresAt: string;
+  daysLeft: number;
+}) {
+  const urgencyColor = daysLeft === 1 ? '#dc2626' : daysLeft === 2 ? '#ea580c' : '#f59e0b';
+  const urgencyBg = daysLeft === 1 ? '#fef2f2' : daysLeft === 2 ? '#fff7ed' : '#fffbeb';
+  const urgencyEmoji = daysLeft === 1 ? '🚨' : daysLeft === 2 ? '⚠️' : '⏰';
+  const urgencyText = daysLeft === 1 ? 'FINAL WARNING' : daysLeft === 2 ? 'URGENT' : 'REMINDER';
+
+  const expirationDate = new Date(expiresAt).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  return sendEmail({
+    to: recipientEmail,
+    subject: `${urgencyEmoji} ${urgencyText}: Signing Link Expires in ${daysLeft} Day${daysLeft > 1 ? 's' : ''}!`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 2px solid ${urgencyColor}; border-radius: 8px; overflow: hidden;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, ${urgencyColor} 0%, ${urgencyColor}dd 100%); padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${urgencyEmoji} ${urgencyText}</h1>
+          <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">
+            Your signing link expires in <strong>${daysLeft} day${daysLeft > 1 ? 's' : ''}</strong>
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 30px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Hi <strong>${recipientName}</strong>,
+          </p>
+
+          <div style="background: ${urgencyBg}; border: 2px solid ${urgencyColor}; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 18px; font-weight: bold; color: ${urgencyColor}; text-align: center;">
+              ⏰ Time is running out!
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 14px; color: #374151; text-align: center;">
+              Your signing link for <strong>${originalFilename}</strong> will expire on:
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 16px; font-weight: bold; color: ${urgencyColor}; text-align: center;">
+              ${expirationDate}
+            </p>
+          </div>
+
+          <p style="font-size: 14px; color: #6b7280; margin: 20px 0;">
+            This document was sent by <strong>${senderName}</strong>. After the expiration date, this link will no longer work and you won't be able to sign.
+          </p>
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${signingLink}" 
+               style="display: inline-block; background: linear-gradient(135deg, ${urgencyColor} 0%, ${urgencyColor}dd 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+              ${urgencyEmoji} Sign Now - Don't Wait!
+            </a>
+          </div>
+
+          <p style="font-size: 13px; color: #9ca3af; text-align: center; margin-top: 20px;">
+            If the button doesn't work, copy and paste this link:<br/>
+            <span style="color: #6b7280; word-break: break-all;">${signingLink}</span>
+          </p>
+
+          ${daysLeft === 1 ? `
+          <div style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 6px; padding: 15px; margin-top: 25px; text-align: center;">
+            <p style="font-size: 14px; color: #991b1b; margin: 0; font-weight: bold;">
+              🚨 LAST CHANCE: This is your final reminder. Sign within 24 hours or this link will expire forever!
+            </p>
+          </div>
+          ` : ''}
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+          <p style="font-size: 12px; color: #9ca3af; margin: 0;">
+            This is an automated expiration warning. Please sign the document before ${expirationDate}.
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+// ============================================
+// ENVELOPE EMAIL TEMPLATES
+// ============================================
+
+/**
+ * Send initial envelope notification to recipient
+ */
+export async function sendEnvelopeEmail({
+  recipientName,
+  recipientEmail,
+  documentCount,
+  documentNames,
+  signingLink,
+  senderName,
+  message,
+  dueDate,
+}: {
+  recipientName: string;
+  recipientEmail: string;
+  documentCount: number;
+  documentNames: string[];
+  signingLink: string;
+  senderName: string;
+  message?: string;
+  dueDate?: string;
+}) {
+  const dueDateText = dueDate
+    ? `<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 20px 0;">
+        <p style="margin: 0; font-size: 14px; color: #92400e;">
+          <strong>⏰ Due Date:</strong> ${new Date(dueDate).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })}
+        </p>
+      </div>`
+    : '';
+
+  const messageText = message
+    ? `<div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0; font-size: 14px; color: #374151; font-style: italic;">
+          "${message}"
+        </p>
+        <p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">
+          - ${senderName}
+        </p>
+      </div>`
+    : '';
+
+  return sendEmail({
+    to: recipientEmail,
+    subject: `📦 Signing Package: ${documentCount} Document${documentCount > 1 ? 's' : ''} Require Your Signature`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); padding: 30px; text-align: center;">
+          <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="9" y1="9" x2="15" y2="9"></line>
+              <line x1="9" y1="15" x2="15" y2="15"></line>
+            </svg>
+          </div>
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Signing Package Ready</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">
+            ${documentCount} document${documentCount > 1 ? 's' : ''} • One signing session
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 30px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Hi <strong>${recipientName}</strong>,
+          </p>
+
+          <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">
+            <strong>${senderName}</strong> has sent you a signing package containing <strong>${documentCount} document${documentCount > 1 ? 's' : ''}</strong>. You can review and sign all documents in one convenient session.
+          </p>
+
+          ${messageText}
+
+          <!-- Document List -->
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 25px 0;">
+            <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">
+              📄 Documents in this package:
+            </h3>
+            <div style="space-y: 10px;">
+              ${documentNames.map((name, index) => `
+                <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #7c3aed;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="background: #ede9fe; color: #7c3aed; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">
+                      ${index + 1}
+                    </span>
+                    <span style="font-size: 14px; color: #111827; font-weight: 500;">
+                      ${name}
+                    </span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          ${dueDateText}
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${signingLink}" 
+               style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);">
+              📝 Review & Sign Package
+            </a>
+          </div>
+
+          <p style="font-size: 13px; color: #9ca3af; text-align: center; margin-top: 20px;">
+            If the button doesn't work, copy and paste this link:<br/>
+            <span style="color: #6b7280; word-break: break-all; font-size: 11px;">${signingLink}</span>
+          </p>
+
+          <!-- Info Boxes -->
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 15px; margin-top: 25px;">
+            <p style="font-size: 13px; color: #1e40af; margin: 0;">
+              <strong>✨ What's a signing package?</strong><br/>
+              Instead of signing ${documentCount} separate documents, you'll sign them all in one streamlined session. It's faster and easier!
+            </p>
+          </div>
+
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 15px; margin-top: 15px;">
+            <p style="font-size: 13px; color: #166534; margin: 0;">
+              <strong>🔒 Secure & Legal:</strong><br/>
+              Your signatures are encrypted and legally binding. A complete audit trail is maintained for all documents.
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+          <p style="font-size: 12px; color: #9ca3af; margin: 0;">
+            This signing package was sent by ${senderName}
+          </p>
+          <p style="font-size: 11px; color: #d1d5db; margin: 10px 0 0 0;">
+            Powered by DocSend E-Signature
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/**
+ * Send envelope completion notification
+ */
+export async function sendEnvelopeCompletedEmail({
+  ownerEmail,
+  recipients,
+  documentCount,
+}: {
+  ownerEmail: string;
+  recipients: any[];
+  documentCount: number;
+}) {
+  const allCompleted = recipients.every(r => r.status === 'completed');
+
+  if (!allCompleted) {
+    return; // Don't send until all recipients complete
+  }
+
+  return sendEmail({
+    to: ownerEmail,
+    subject: `✅ Envelope Completed - All ${documentCount} Documents Signed`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
+          <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Envelope Completed!</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">
+            All signatures collected
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 30px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Great news! Your signing package has been completed by all recipients.
+          </p>
+
+          <!-- Stats Box -->
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 25px 0;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div style="text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; color: #059669; margin-bottom: 5px;">
+                  ${documentCount}
+                </div>
+                <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">
+                  Documents
+                </div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 32px; font-weight: bold; color: #059669; margin-bottom: 5px;">
+                  ${recipients.length}
+                </div>
+                <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">
+                  Signers
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recipients List -->
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 25px 0;">
+            <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">
+              ✓ Completed by:
+            </h3>
+            ${recipients.map((r, index) => `
+              <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                <div style="background: #d1fae5; color: #065f46; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
+                <div style="flex: 1;">
+                  <div style="font-weight: 600; color: #111827; font-size: 14px;">${r.name}</div>
+                  <div style="font-size: 12px; color: #6b7280;">${r.email}</div>
+                </div>
+                <div style="font-size: 11px; color: #6b7280;">
+                  ${r.completedAt ? new Date(r.completedAt).toLocaleString() : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL}/SignatureDashboard" 
+               style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">
+              📊 View Dashboard
+            </a>
+          </div>
+
+          <!-- Info Box -->
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 15px; margin-top: 25px;">
+            <p style="font-size: 13px; color: #1e40af; margin: 0;">
+              <strong>📥 What's Next?</strong><br/>
+              • Signed PDFs are available for download<br/>
+              • Complete audit trail has been generated<br/>
+              • All parties have received their copies
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+          <p style="font-size: 12px; color: #9ca3af; margin: 0;">
+            Powered by DocSend E-Signature
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+/**
+ * Send reminder for incomplete envelope
+ */
+export async function sendEnvelopeReminderEmail({
+  recipientName,
+  recipientEmail,
+  documentCount,
+  documentNames,
+  signingLink,
+  senderName,
+  dueDate,
+}: {
+  recipientName: string;
+  recipientEmail: string;
+  documentCount: number;
+  documentNames: string[];
+  signingLink: string;
+  senderName: string;
+  dueDate?: string;
+}) {
+  const dueDateText = dueDate
+    ? `<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 20px 0;">
+        <p style="margin: 0; font-size: 14px; color: #92400e;">
+          <strong>⏰ Due Date:</strong> ${new Date(dueDate).toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })}
+        </p>
+      </div>`
+    : '';
+
+  return sendEmail({
+    to: recipientEmail,
+    subject: `⏰ Reminder: ${documentCount} Documents Awaiting Your Signature`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 2px solid #f59e0b; border-radius: 8px; overflow: hidden;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">⏰ Signature Reminder</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">
+            Your signing package is waiting
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 30px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Hi <strong>${recipientName}</strong>,
+          </p>
+
+          <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">
+            This is a friendly reminder that you have a signing package from <strong>${senderName}</strong> containing <strong>${documentCount} document${documentCount > 1 ? 's' : ''}</strong> that require your signature.
+          </p>
+
+          <!-- Document List -->
+          <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 20px; margin: 25px 0;">
+            <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #92400e; font-weight: 600;">
+              📄 Pending Documents:
+            </h3>
+            ${documentNames.map((name, index) => `
+              <div style="background: white; padding: 10px; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid #f59e0b;">
+                <span style="font-size: 13px; color: #111827;">
+                  ${index + 1}. ${name}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+
+          ${dueDateText}
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${signingLink}" 
+               style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);">
+              📝 Sign Now
+            </a>
+          </div>
+
+          <p style="font-size: 13px; color: #9ca3af; text-align: center; margin-top: 20px;">
+            If the button doesn't work, copy and paste this link:<br/>
+            <span style="color: #6b7280; word-break: break-all; font-size: 11px;">${signingLink}</span>
+          </p>
+
+          <!-- Info Box -->
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 15px; margin-top: 25px;">
+            <p style="font-size: 13px; color: #1e40af; margin: 0;">
+              💡 <strong>Quick Reminder:</strong> You can sign all ${documentCount} documents in one session. It usually takes less than 5 minutes!
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+          <p style="font-size: 12px; color: #9ca3af; margin: 0;">
+            This is an automated reminder from ${senderName}
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
+
+ // Notify recipient that one document in envelope was signed
+ 
+export async function sendEnvelopeProgressEmail({
+  recipientName,
+  recipientEmail,
+  completedCount,
+  totalCount,
+  remainingDocuments,
+  signingLink,
+}: {
+  recipientName: string;
+  recipientEmail: string;
+  completedCount: number;
+  totalCount: number;
+  remainingDocuments: string[];
+  signingLink: string;
+}) {
+  const progressPercent = Math.round((completedCount / totalCount) * 100);
+
+  return sendEmail({
+    to: recipientEmail,
+    subject: `📊 Progress Update: ${completedCount}/${totalCount} Documents Signed`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Almost There!</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">
+            ${completedCount} of ${totalCount} documents signed
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 30px;">
+          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
+            Hi <strong>${recipientName}</strong>,
+          </p>
+
+          <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">
+            Great progress! You've signed ${completedCount} out of ${totalCount} documents. 
+            ${remainingDocuments.length === 1 ? 'Just one more to go!' : `${remainingDocuments.length} more to go!`}
+          </p>
+
+          <!-- Progress Bar -->
+          <div style="background: #f3f4f6; border-radius: 8px; padding: 20px; margin: 25px 0;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+              <span style="font-size: 14px; color: #6b7280;">Progress</span>
+              <span style="font-size: 14px; font-weight: 600; color: #3b82f6;">${progressPercent}%</span>
+            </div>
+            <div style="background: #e5e7eb; height: 12px; border-radius: 6px; overflow: hidden;">
+              <div style="background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); height: 100%; width: ${progressPercent}%; transition: width 0.3s;"></div>
+            </div>
+          </div>
+
+          <!-- Remaining Documents -->
+          <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 20px; margin: 25px 0;">
+            <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #92400e; font-weight: 600;">
+              📋 Still need your signature:
+            </h3>
+            ${remainingDocuments.map((name, index) => `
+              <div style="background: white; padding: 10px; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid #fbbf24;">
+                <span style="font-size: 13px; color: #111827;">
+                  ${index + 1}. ${name}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${signingLink}" 
+               style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+              ✍️ Continue Signing
+            </a>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+          <p style="font-size: 12px; color: #9ca3af; margin: 0;">
+            You're so close to completing this package!
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+

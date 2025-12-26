@@ -18,7 +18,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { Copy, Check, TrendingUp, Users, FileCheck, Expand, Minimize  } from "lucide-react"
+import { Copy, Check, TrendingUp, Users, FileCheck, Expand, Minimize, Package  } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1415,6 +1415,14 @@ const openCreateLinkDialog = () => {
 >
   <Mail className="h-4 w-4" />
   Request signatures
+</Button>
+
+<Button
+  onClick={() => router.push('/documents/envelope/create')}
+  className="bg-purple-600 hover:bg-purple-700"
+>
+  <Package className="h-4 w-4 mr-2" />
+  Create Envelope
 </Button>
         </div>
       </div>
