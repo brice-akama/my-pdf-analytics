@@ -31,7 +31,7 @@ interface SignatureField {
   id: string;
   documentId: string;
   page: number;
-  type: 'signature' | 'date' | 'text' | 'checkbox';
+  type: 'signature' | 'date' | 'text' | 'checkbox' | 'attachment';
   x: number;
   y: number;
   width?: number;
@@ -86,6 +86,9 @@ export default function EnvelopeSigningPage() {
     setEnvelope(data.envelope);
     setDocuments(data.envelope.documents);
     setAllSignatureFields(data.envelope.signatureFields);
+    //  ADD: Log recipient info for debugging
+console.log('📋 Envelope recipient:', data.envelope.recipient);
+console.log('📋 Signature fields:', data.envelope.signatureFields);
 
     // ✅ Load PDFs through your API route (not directly from Cloudinary)
     const urls: Record<string, string> = {};
@@ -290,14 +293,22 @@ export default function EnvelopeSigningPage() {
       <div className="bg-white border-b shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">
-                Signing Package ({currentDocIndex + 1} of {documents.length})
-              </h1>
-              <p className="text-sm text-slate-600 mt-1">
-                {currentDocument?.filename}
-              </p>
-            </div>
+            <div className="flex items-center gap-3">
+  <div className="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center">
+    <FileText className="h-5 w-5 text-purple-600" />
+  </div>
+  <div>
+    <h1 className="text-xl font-bold text-slate-900">
+      Signing Package ({currentDocIndex + 1} of {documents.length})
+    </h1>
+    <p className="text-sm text-slate-600 mt-1">
+      {currentDocument?.filename}
+    </p>
+    <p className="text-sm text-slate-500">
+      Signing as: {envelope?.recipient?.name || 'Loading...'}
+    </p>
+  </div>
+</div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
                 {currentDocSignatures.length} / {currentDocFields.length} fields completed
@@ -344,26 +355,26 @@ export default function EnvelopeSigningPage() {
             <div className="relative" style={{ minHeight: '800px' }}>
               {pdfUrls[currentDocument.documentId] ? (
                 <>
-                 <embed
+                  <embed
   src={`${pdfUrls[currentDocument.documentId]}#toolbar=0&navpanes=0&scrollbar=1`}
   type="application/pdf"
   className="w-full"
   style={{
-    height: '800px',
+    height: `${297 * currentDocument.numPages}mm`, // ⭐ Dynamic height
     border: 'none',
-    pointerEvents: 'auto',  // ✅ ALLOW SCROLLING
+    pointerEvents: 'auto',
     display: 'block',
-    margin: '0 auto',
   }}
 />
 
 
                   {/* Signature Field Overlays */}
                   <div className="absolute inset-0 pointer-events-none">
-                    {currentDocFields.map(field => {
-                      const isFilled = signatures[field.id];
-                      const pageHeight = 297 * 3.78;
-                      const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
+                   {currentDocFields.map(field => {
+  const isFilled = signatures[field.id];
+  const pageHeight = 297 * 3.78; // A4 height in pixels
+  //   FIX: Position relative to current document only (no cumulative offset)
+  const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
 
                       return (
                         <div
@@ -373,14 +384,22 @@ export default function EnvelopeSigningPage() {
                               ? 'bg-transparent border-0'
                               : 'bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80 cursor-pointer'
                           }`}
-                          style={{
-                            left: `${field.x}%`,
-                            top: `${topPosition}px`,
-                            width: field.type === 'signature' ? '200px' : '150px',
-                            height: field.type === 'signature' ? '60px' : '40px',
-                            transform: 'translate(-50%, 0%)',
-                            zIndex: 10,
-                          }}
+                         style={{
+  left: `${field.x}%`,
+  top: `${topPosition}px`,
+  width: field.width ? `${field.width}px` : 
+         field.type === 'signature' ? '200px' : 
+         field.type === 'checkbox' ? '30px' : 
+         field.type === 'attachment' ? '200px' : '150px',
+  height: field.height ? `${field.height}px` : 
+          field.type === 'signature' ? '60px' : 
+          field.type === 'checkbox' ? '30px' : 
+          field.type === 'attachment' ? '50px' : '40px',
+  transform: 'translate(-50%, 0%)',
+  cursor: !isFilled && field.type === 'signature' ? 'pointer' : 'default',
+  pointerEvents: 'auto', // ⭐ ENABLE INTERACTION
+  zIndex: 10,
+}}
                           onClick={() => {
                             if (!isFilled && field.type === 'signature') {
                               setActiveField(field);
@@ -388,28 +407,32 @@ export default function EnvelopeSigningPage() {
                           }}
                         >
                           {isFilled ? (
-                            <div className="h-full flex items-center justify-center">
-                              {field.type === 'signature' && (
-                                <img
-                                  src={signatures[field.id].data}
-                                  alt="Signature"
-                                  className="max-h-full max-w-full object-contain"
-                                />
-                              )}
-                              {field.type === 'date' && (
-                                <span className="text-sm font-medium">{signatures[field.id].data}</span>
-                              )}
-                              {field.type === 'text' && (
-                                <span className="text-sm">{signatures[field.id].data}</span>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="h-full flex flex-col items-center justify-center text-center">
-                              <span className="text-xs font-semibold text-yellow-700">
-                                {field.type === 'signature' ? '✍️ Click to Sign' : '📝 Click to Fill'}
-                              </span>
-                            </div>
-                          )}
+  <div className="h-full flex items-center justify-center">
+    {field.type === 'signature' && (
+      <img
+        src={signatures[field.id].data}
+        alt="Signature"
+        className="max-h-full max-w-full object-contain"
+      />
+    )}
+    {field.type === 'date' && (
+      <span className="text-sm font-medium">{signatures[field.id].data}</span>
+    )}
+    {field.type === 'text' && (
+      <span className="text-sm">{signatures[field.id].data}</span>
+    )}
+  </div>
+) : (
+  <div className="h-full flex flex-col items-center justify-center text-center">
+    <span className="text-xs font-semibold text-yellow-700">
+      {field.type === 'signature' ? '✍️ Click to Sign' : '📝 Click to Fill'}
+    </span>
+    {/* ⭐ ADD RECIPIENT NAME */}
+    <p className="text-xs text-slate-600 mt-1 font-semibold">
+      {envelope?.recipient?.name || 'Your Signature'}
+    </p>
+  </div>
+)}
                         </div>
                       );
                     })}

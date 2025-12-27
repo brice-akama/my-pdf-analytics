@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,6 +103,14 @@ const [sortBy, setSortBy] = useState("createdAt");
 const [sortOrder, setSortOrder] = useState(-1); // -1 for desc, 1 for asc
 const [totalPages, setTotalPages] = useState(1);
 const [totalDocuments, setTotalDocuments] = useState(0);
+const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+const [uploadMessage, setUploadMessage] = useState('');
+const fileInputRef = useRef<HTMLInputElement>(null);
+
+
+
+
+
 
 
  useEffect(() => {
@@ -124,6 +132,25 @@ const fetchPdfForPreview = async (docId: string) => {
     console.error("Failed to fetch PDF:", error);
   }
 };
+
+// ⭐ ADD THIS - Calculate document page offsets (for multi-doc positioning)
+const documentPageOffsets = useMemo(() => {
+  const offsets: Record<string, number> = {};
+  let cumulativePages = 0;
+  
+  if (!selectedDocs || selectedDocs.length === 0) {
+    return offsets;
+  }
+  
+  selectedDocs.forEach((doc) => {
+    if (doc && doc._id && doc.numPages) {
+      offsets[doc._id] = cumulativePages;
+      cumulativePages += doc.numPages;
+    }
+  });
+  
+  return offsets;
+}, [selectedDocs]);
 
 
   const fetchDocuments = async () => {
@@ -164,6 +191,69 @@ const fetchPdfForPreview = async (docId: string) => {
     }
   };
 
+  const handleFileUpload = async (file: File) => {
+  if (!file) return;
+
+  if (file.type !== 'application/pdf') {
+    setUploadStatus('error');
+    setUploadMessage('Please upload a PDF file');
+    setTimeout(() => {
+      setUploadStatus('idle');
+      setUploadMessage('');
+    }, 3000);
+    return;
+  }
+
+  setUploadStatus('uploading');
+  setUploadMessage('Uploading your document...');
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await fetch("/api/upload", {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+  setUploadStatus('success');
+  setUploadMessage(`Successfully uploaded ${file.name}`);
+  
+  // ⭐ Refresh document list to show new upload
+  await fetchDocuments();
+  
+  // ⭐ Auto-select the newly uploaded document (with safety check)
+  if (data.document && data.document._id) {
+    setSelectedDocs(prev => [...(prev || []), data.document]);
+  }
+      
+      // Reset status after 3 seconds
+      setTimeout(() => {
+        setUploadStatus('idle');
+        setUploadMessage('');
+      }, 3000);
+    } else {
+      setUploadStatus('error');
+      setUploadMessage(data.message || 'Upload failed');
+      setTimeout(() => {
+        setUploadStatus('idle');
+        setUploadMessage('');
+      }, 3000);
+    }
+  } catch (error) {
+    setUploadStatus('error');
+    setUploadMessage('Upload failed. Please try again.');
+    setTimeout(() => {
+      setUploadStatus('idle');
+      setUploadMessage('');
+    }, 3000);
+  }
+};
+
   const handleContinue = async () => {
     if (step === 1) {
       if (selectedDocs.length < 2) {
@@ -171,22 +261,24 @@ const fetchPdfForPreview = async (docId: string) => {
         return;
       }
       setStep(2);
-    } else if (step === 2) {
-      const validRecipients = recipients.filter((r) => r.name && r.email);
-      if (validRecipients.length === 0) {
-        alert("Please add at least one recipient");
-        return;
-      }
-      
-      const urls: Record<string, string> = {};
-for (const doc of selectedDocs) {
-  try {
-    await fetchPdfForPreview(doc._id);
-  } catch (err) {
-    console.error(`Failed to load PDF for ${doc.filename}:`, err);
+
+   } else if (step === 2) {
+  const validRecipients = recipients.filter((r) => r.name && r.email);
+  if (validRecipients.length === 0) {
+    alert("Please add at least one recipient");
+    return;
   }
-}
-setStep(3);
+  
+  // ⭐ Go to Step 3 immediately
+  setStep(3);
+  
+  // ⭐ Fetch PDFs in background (non-blocking)
+  Promise.all(
+    selectedDocs.map(doc => fetchPdfForPreview(doc._id))
+  ).catch(err => {
+    console.error("Failed to load PDFs:", err);
+  });
+
 
     } else if (step === 3) {
       const fieldsPerDoc: Record<string, number> = {};
@@ -320,7 +412,7 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
 };
 
 
-  const currentDocument = selectedDocs[currentDocIndex];
+  const currentDocument = selectedDocs[currentDocIndex] || null;
   const currentDocFields = signatureFields.filter(
     (f) => f.documentId === currentDocument?._id
   );
@@ -479,6 +571,108 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
                     </div>
                   );
                 })}
+              </div>
+              .{/*   UPLOAD SECTION - ADD THIS */}
+              <div className="mt-8 mb-6">
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                  className="hidden"
+                />
+
+                {/* Upload Area */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) handleFileUpload(file);
+                  }}
+                  className={`relative border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer ${
+                    uploadStatus === 'uploading'
+                      ? 'border-purple-400 bg-purple-50'
+                      : uploadStatus === 'success'
+                      ? 'border-green-400 bg-green-50'
+                      : uploadStatus === 'error'
+                      ? 'border-red-400 bg-red-50'
+                      : 'border-slate-300 hover:border-purple-400 hover:bg-purple-50/50'
+                  }`}
+                >
+                  <div className="flex flex-col items-center justify-center text-center">
+                    {/* Upload Icon */}
+                    {uploadStatus === 'uploading' ? (
+                      <Loader2 className="h-12 w-12 text-purple-600 animate-spin mb-4" />
+                    ) : uploadStatus === 'success' ? (
+                      <CheckCircle className="h-12 w-12 text-green-600 mb-4" />
+                    ) : uploadStatus === 'error' ? (
+                      <svg className="h-12 w-12 text-red-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    ) : (
+                      <div className="relative mb-4">
+                        <div className="h-16 w-16 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
+                          <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                        </div>
+                        <div className="absolute -top-1 -right-1 h-6 w-6 bg-green-500 rounded-full flex items-center justify-center shadow-md">
+                          <Plus className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Upload Text */}
+                    <div className="space-y-2">
+                      {uploadStatus === 'idle' ? (
+                        <>
+                          <h3 className="text-lg font-semibold text-slate-900">
+                            Upload Additional Document
+                          </h3>
+                          <p className="text-sm text-slate-600">
+                            Click to browse or drag and drop PDF files here
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Maximum file size: 10MB
+                          </p>
+                        </>
+                      ) : (
+                        <p className={`text-sm font-medium ${
+                          uploadStatus === 'uploading' ? 'text-purple-700' :
+                          uploadStatus === 'success' ? 'text-green-700' :
+                          'text-red-700'
+                        }`}>
+                          {uploadMessage}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Upload Button (Alternative to clicking area) */}
+                    {uploadStatus === 'idle' && (
+                      <Button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                        className="mt-4 bg-purple-600 hover:bg-purple-700"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Choose File
+                      </Button>
+                    )}
+                  </div>
+                </div>
               </div>
               {/* Sorting and Pagination Controls */}
 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6">
@@ -703,8 +897,18 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
         )}
 
         {step === 3 && (
-          <div className="grid grid-cols-12 gap-6">
-            <div className="col-span-3 bg-white rounded-xl shadow-sm border p-6">
+  <>
+    {/* ⭐ ADD THIS SAFETY CHECK */}
+    {!currentDocument ? (
+      <div className="col-span-12 flex items-center justify-center py-12">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
+          <p className="text-slate-600">Loading document...</p>
+        </div>
+      </div>
+    ) : (
+      <div className="grid grid-cols-12 gap-6 items-start">
+            <div className="col-span-3 bg-white rounded-xl shadow-sm border p-6 sticky top-24 self-start max-h-[calc(100vh-7rem)] overflow-y-auto">
               <h3 className="font-bold text-slate-900 mb-6 text-lg">
                 Signature Fields
               </h3>
@@ -737,8 +941,8 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
                             {doc.filename}
                           </p>
                           <p className="text-xs text-slate-500">
-                            {currentDocFields.filter((f: SignatureField) => f.documentId === doc._id).length} fields
-                          </p>
+  {signatureFields.filter((f: SignatureField) => f.documentId === doc._id).length} fields
+</p>
                         </div>
                       </div>
                     </button>
@@ -827,11 +1031,14 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
                       }}
                     />
 
-                    <div className="absolute inset-0 pointer-events-none">
+                    
+
+                   <div className="absolute inset-0 pointer-events-none">
   {signatureFields
-    .filter((field) => field.documentId === currentDocument._id)
+    .filter((field) => field.documentId === currentDocument._id) // ⭐ Only current doc
     .map((field) => {
       const pageHeight = 297 * 3.78;
+      // ⭐ SIMPLIFIED: No offset needed since we only show current document
       const topPosition = (field.page - 1) * pageHeight + (field.y / 100) * pageHeight;
       const recipient = recipients[field.recipientIndex];
 
@@ -930,6 +1137,7 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
             </div>
           </div>
         )}
+    </>        )}
 
         {step === 4 && (
           <div className="max-w-4xl mx-auto space-y-6">

@@ -1077,7 +1077,7 @@ export async function generateEnvelopeSignedPDF(
 
     for (let i = 0; i < envelope.documents.length; i++) {
       const doc = envelope.documents[i];
-      const signedDoc = signedDocuments.find(sd => sd.documentId === doc.documentId);
+      const signedDoc = signedDocuments.find(sd => sd.documentId === doc.documentId.toString()); // ADD .toString()
 
       // Document number circle
       coverPage.drawCircle({
@@ -1108,7 +1108,7 @@ export async function generateEnvelopeSignedPDF(
       yPos -= 15;
 
       // Status
-      const statusText = signedDoc ? '✓ Signed' : '✗ Not signed';
+      const statusText = signedDoc ? '[SIGNED]' : '[PENDING]';
       const statusColor = signedDoc ? rgb(0, 0.6, 0) : rgb(0.8, 0, 0);
       
       coverPage.drawText(statusText, {
@@ -1136,7 +1136,7 @@ export async function generateEnvelopeSignedPDF(
     });
     yPos -= 15;
 
-    coverPage.drawText('🔒 This package is digitally signed and tamper-proof', {
+    coverPage.drawText('SECURE: This package is digitally signed and tamper-proof', {
       x: 50,
       y: yPos,
       size: 9,
@@ -1215,18 +1215,42 @@ export async function generateEnvelopeSignedPDF(
       const pages = originalPdf.getPages();
 
       for (const signedField of signedDoc.signedFields) {
-        const pageIndex = signedField.page - 1;
-        if (pageIndex < 0 || pageIndex >= pages.length) continue;
+  // Find field definition
+  const fieldDef = envelope.signatureFields.find(
+    (f: any) => f.id === signedField.id
+  );
 
-        const page = pages[pageIndex];
-        const { width, height } = page.getSize();
+  if (!fieldDef) {
+    console.warn(`⚠️ Field ${signedField.id} not found in signature fields`);
+    continue;
+  }
 
-        // Find field definition
-        const fieldDef = envelope.signatureFields.find(
-          (f: any) => f.id === signedField.id
-        );
+  // Check if this field belongs to THIS document
+  if (fieldDef.documentId !== signedDoc.documentId) {
+    console.log(`⏭️ Skipping field ${signedField.id} - belongs to different document`);
+    continue;
+  }
 
-        if (!fieldDef) continue;
+  // ✅ Use fieldDef.page (not signedField.page)
+  const pageIndex = fieldDef.page - 1;
+  
+  // Validate page index
+  if (pageIndex < 0 || pageIndex >= pages.length) {
+    console.warn(`⚠️ Field ${signedField.id} page ${fieldDef.page} out of range (doc has ${pages.length} pages)`);
+    continue;
+  }
+
+  const page = pages[pageIndex];
+  
+  // Extra safety check
+  if (!page) {
+    console.error(`❌ Page is undefined at index ${pageIndex}`);
+    continue;
+  }
+
+  const { width, height } = page.getSize();
+
+   
 
         const fieldWidth = fieldDef.width || (fieldDef.type === 'signature' ? 200 : 150);
         const fieldHeight = fieldDef.height || (fieldDef.type === 'signature' ? 60 : 40);
@@ -1297,13 +1321,13 @@ export async function generateEnvelopeSignedPDF(
               borderWidth: 2,
             });
 
-            page.drawText('✓', {
-              x: x + 8,
-              y: y + 8,
-              size: 16,
-              font: boldFont,
-              color: rgb(0.4, 0.2, 0.6),
-            });
+            page.drawText('X', {
+  x: x + 8,
+  y: y + 8,
+  size: 16,
+  font: boldFont,
+  color: rgb(0.4, 0.2, 0.6),
+});
           } else {
             page.drawRectangle({
               x: x + 5,

@@ -1,3 +1,4 @@
+// app/api/envelope/[uniqueId]/download/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "@/app/api/lib/mongodb";
 import { generateEnvelopeSignedPDF } from "@/lib/pdfGenerator";
@@ -53,41 +54,21 @@ export async function GET(
       );
     }
 
-    // Check if signed PDF already exists
-    let signedPdfUrl = recipient.signedPdfUrl;
+    // ⭐ ALWAYS REGENERATE PDF (like single signature download does)
+    console.log('🎨 Regenerating signed envelope PDF...');
+    
+    const signedPdfUrl = await generateEnvelopeSignedPDF(
+      envelope.envelopeId,
+      recipient.signedDocuments,
+      recipient
+    );
 
-    if (!signedPdfUrl) {
-      console.log('🎨 Generating signed envelope PDF (first time)...');
-      
-      // Generate signed PDF package
-      signedPdfUrl = await generateEnvelopeSignedPDF(
-        envelope.envelopeId,
-        recipient.signedDocuments,
-        recipient
-      );
+    console.log('✅ Signed PDF generated:', signedPdfUrl);
 
-      // Save to database
-      await db.collection("envelopes").updateOne(
-        { 
-          envelopeId: envelope.envelopeId, 
-          "recipients.uniqueId": uniqueId 
-        },
-        {
-          $set: {
-            "recipients.$.signedPdfUrl": signedPdfUrl,
-          }
-        }
-      );
-
-      console.log('✅ Signed PDF generated and saved:', signedPdfUrl);
-    } else {
-      console.log('✅ Using existing signed PDF:', signedPdfUrl);
-    }
-
-    // Extract public_id from the generated URL
+    // ⭐ Extract public_id from the NEWLY generated URL
     const urlMatch = signedPdfUrl.match(/\/signed_envelopes\/(.+?)\.pdf/);
     if (!urlMatch) {
-      console.error('❌ Could not extract public_id from URL');
+      console.error('❌ Could not extract public_id from URL:', signedPdfUrl);
       return NextResponse.json(
         { success: false, message: "Invalid PDF URL format" },
         { status: 500 }
@@ -97,7 +78,7 @@ export async function GET(
     const publicId = `signed_envelopes/${urlMatch[1]}`;
     console.log('🔑 PDF Public ID:', publicId);
 
-    // Generate authenticated download URL
+    // ⭐ Generate authenticated download URL
     const authenticatedUrl = cloudinary.v2.utils.private_download_url(
       publicId,
       'pdf',
@@ -108,13 +89,39 @@ export async function GET(
       }
     );
 
-    console.log('✅ Fetching with authenticated URL');
+    console.log('🔐 Generated authenticated URL');
 
-    // Fetch the PDF
-    const pdfResponse = await fetch(authenticatedUrl);
+    // ⭐ Fetch the PDF with timeout handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    let pdfResponse;
+    try {
+      pdfResponse = await fetch(authenticatedUrl, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      console.error('❌ Fetch error:', fetchError.message);
+      
+      // ⭐ Fallback: Try direct URL if authenticated fails
+      console.log('🔄 Trying direct URL fallback...');
+      try {
+        pdfResponse = await fetch(signedPdfUrl, {
+          signal: controller.signal,
+        });
+      } catch (fallbackError) {
+        console.error('❌ Fallback also failed:', fallbackError);
+        return NextResponse.json(
+          { success: false, message: "Failed to fetch PDF from Cloudinary" },
+          { status: 500 }
+        );
+      }
+    }
 
     if (!pdfResponse.ok) {
-      console.error('❌ Failed:', pdfResponse.status, pdfResponse.statusText);
+      console.error('❌ PDF fetch failed:', pdfResponse.status, pdfResponse.statusText);
       return NextResponse.json(
         { success: false, message: "Failed to retrieve signed envelope" },
         { status: 500 }
@@ -125,20 +132,22 @@ export async function GET(
     console.log('✅ Downloaded:', pdfBuffer.byteLength, 'bytes');
 
     // Create filename
-    const filename = `envelope_${envelope.envelopeId}_signed.pdf`;
+    const filename = `envelope_${envelope.envelopeId.replace(/[^a-zA-Z0-9]/g, '_')}_signed.pdf`;
 
     return new NextResponse(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': pdfBuffer.byteLength.toString(),
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Envelope download error:', error);
+    console.error('❌ Error stack:', error.stack);
     return NextResponse.json(
-      { success: false, message: "Server error" },
+      { success: false, message: `Server error: ${error.message}` },
       { status: 500 }
     );
   }

@@ -37,13 +37,18 @@ export async function POST(
         { status: 404 }
       );
     }
-
-    if (recipient.status === 'completed') {
-      return NextResponse.json(
-        { success: false, message: "Envelope already signed" },
-        { status: 400 }
-      );
-    }
+//   Only block if PDF was already generated (true completion)
+if (recipient.status === 'completed' && recipient.signedPdfUrl) {
+  return NextResponse.json(
+    { 
+      success: true, // Changed to true since it's already done
+      message: "Envelope already completed",
+      signedPdfUrl: recipient.signedPdfUrl,
+      downloadLink: `/envelope/${uniqueId}/download`
+    },
+    { status: 200 } // Changed to 200, not an error
+  );
+}
 
     const now = new Date();
 
@@ -81,22 +86,32 @@ if (remainingDocs.length > 0) {
 }
 
     // Generate signed PDFs for all documents
-    console.log(' Generating signed envelope PDF package...');
-    const signedPdfUrls: string[] = [];
-    for (const signedDoc of signedDocuments) {
-      const pdfUrl = await generateEnvelopeSignedPDF(
-        signedDoc.documentId,
-        signedDoc.signedFields,
-        recipient
-      );
-      
-      signedPdfUrls.push(pdfUrl);
-    }
-    console.log('Signed PDFs generated:', signedPdfUrls);
+    // Generate ONE signed PDF package for the ENTIRE envelope
+console.log('📄 Generating signed envelope PDF package...');
+
+// ⭐ Generate a single PDF containing ALL documents
+const signedEnvelopePdfUrl = await generateEnvelopeSignedPDF(
+  envelope.envelopeId,    // ✅ Pass envelope ID
+  signedDocuments,        // ✅ Pass ALL signed documents
+  recipient               // ✅ Pass recipient
+);
+
+console.log('✅ Signed envelope PDF generated:', signedEnvelopePdfUrl);
     // Check if all recipients completed
-    const updatedEnvelope = await db.collection("envelopes").findOne({
-      envelopeId: envelope.envelopeId,
-    });
+    // ⭐ Store the signed PDF URL in the envelope record
+await db.collection("envelopes").updateOne(
+  { envelopeId: envelope.envelopeId, "recipients.uniqueId": uniqueId },
+  {
+    $set: {
+      "recipients.$.signedPdfUrl": signedEnvelopePdfUrl, // Store the signed PDF
+    }
+  }
+);
+
+//   ADD THIS: Fetch the updated envelope to check completion status
+const updatedEnvelope = await db.collection("envelopes").findOne({
+  envelopeId: envelope.envelopeId,
+});
 
     if (!updatedEnvelope) {
       return NextResponse.json(
@@ -126,11 +141,12 @@ if (remainingDocs.length > 0) {
       }).catch(err => console.error('Failed to send completion email:', err));
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "Envelope signed successfully",
-      signedPdfUrls: signedPdfUrls,
-    });
+   return NextResponse.json({
+  success: true,
+  message: "Envelope signed successfully",
+  signedPdfUrl: signedEnvelopePdfUrl, //   Return single URL
+  downloadLink: `/envelope/${uniqueId}/download`, //   Add download link
+});
 
   } catch (error) {
     console.error("❌ Error signing envelope:", error);
