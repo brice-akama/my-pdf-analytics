@@ -1,11 +1,13 @@
+// app/api/spaces/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const user = await verifyUserFromRequest(authHeader);
+    // ✅ CHANGED: Remove authHeader, use request directly
+    const user = await verifyUserFromRequest(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -32,8 +34,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const user = await verifyUserFromRequest(authHeader);
+    // ✅ CHANGED: Remove authHeader, use request directly
+    const user = await verifyUserFromRequest(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

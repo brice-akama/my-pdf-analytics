@@ -242,3 +242,17 @@ li {
   margin-bottom: 1rem;
   line-height: 1.6;
 }
+
+
+/* Remove horizontal scrollbar globally */
+html, body {
+  overflow-x: hidden;
+}
+
+/* Ensure proper scrolling for main content */
+#__next {
+  overflow-x: hidden;
+}
+main {
+  overflow-x: hidden;
+}

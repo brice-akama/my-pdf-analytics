@@ -1,6 +1,8 @@
+
+
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,7 +45,9 @@ import {
   ChevronRight,
   Filter,
   Grid,
-  List as ListIcon
+  List as ListIcon,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react"
 
 type FolderType = {
@@ -62,6 +66,7 @@ type DocumentType = {
   downloads: number
   lastUpdated: string
   folderId: string | null
+  cloudinaryPdfUrl: string 
 }
 
 export default function SpaceDetailPage() {
@@ -90,6 +95,15 @@ const [newFolderName, setNewFolderName] = useState("")
 const [creatingFolder, setCreatingFolder] = useState(false)
 const [isSearching, setIsSearching] = useState(false)
 const [searchResults, setSearchResults] = useState<DocumentType[]>([])
+const [showRenameDialog, setShowRenameDialog] = useState(false)
+const [showMoveDialog, setShowMoveDialog] = useState(false)
+const [selectedFile, setSelectedFile] = useState<DocumentType | null>(null)
+const [newFilename, setNewFilename] = useState('')
+const [targetFolderId, setTargetFolderId] = useState<string | null>(null)
+const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle')
+const [uploadMessage, setUploadMessage] = useState('')
+const [isDragging, setIsDragging] = useState(false)
+const fileInputRef = useRef<HTMLInputElement>(null)
 
 
 
@@ -100,142 +114,304 @@ const [searchResults, setSearchResults] = useState<DocumentType[]>([])
 
 const handleSearch = async (query: string) => {
   if (!query.trim()) {
-    setSearchResults([])
-    setIsSearching(false)
-    return
+    setSearchResults([]);
+    setIsSearching(false);
+    return;
   }
 
-  setIsSearching(true)
-  const token = localStorage.getItem("token")
+  setIsSearching(true);
 
   try {
-    const res = await fetch(`/api/documents/search?spaceId=${params.id}&query=${encodeURIComponent(query)}`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
-    })
-
-    if (res.ok) {
-      const data = await res.json()
-      if (data.success) {
-        setSearchResults(data.documents)
+    const res = await fetch(
+      `/api/documents/search?spaceId=${params.id}&query=${encodeURIComponent(query)}`,
+      {
+        method: "GET",
+        credentials: "include", // ✅ REQUIRED for http-only cookies
+        headers: {
+          "Content-Type": "application/json",
+        },
       }
+    );
+
+    if (!res.ok) {
+      throw new Error("Search request failed");
+    }
+
+    const data = await res.json();
+
+    if (data.success) {
+      setSearchResults(data.documents);
+    } else {
+      setSearchResults([]);
     }
   } catch (error) {
-    console.error("Search failed:", error)
+    console.error("Search failed:", error);
   } finally {
-    setIsSearching(false)
+    setIsSearching(false);
   }
-}
+};
+
 
 const handleCreateFolder = async () => {
-  if (!newFolderName.trim()) return
+  if (!newFolderName.trim()) return;
 
-  setCreatingFolder(true)
-  const token = localStorage.getItem("token")
+  setCreatingFolder(true);
 
   try {
     const res = await fetch('/api/folders', {
       method: 'POST',
+      credentials: 'include', //   send http-only cookies
       headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         spaceId: params.id,
         name: newFolderName.trim(),
       }),
-    })
+    });
 
-    if (res.ok) {
-      const data = await res.json()
-      if (data.success) {
-        // Add the new folder to the state
-        setFolders([...folders, {
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to create folder');
+    }
+
+    if (data.success) {
+      // Add the new folder to the state
+      setFolders([
+        ...folders,
+        {
           id: data.folder.id,
           name: data.folder.name,
           documentCount: 0,
-          lastUpdated: 'Just now'
-        }])
-        setNewFolderName("")
-        setShowCreateFolderDialog(false)
-        
-        // Optional: Show success message
-        alert("Folder created successfully!")
-      }
-    } else {
-      const errorData = await res.json()
-      alert(errorData.message || "Failed to create folder")
+          lastUpdated: 'Just now',
+        },
+      ]);
+
+      setNewFolderName('');
+      setShowCreateFolderDialog(false);
+
+      // Optional UX feedback
+      alert('Folder created successfully!');
     }
   } catch (error) {
-    console.error("Failed to create folder:", error)
-    alert("Failed to create folder")
+    console.error('Failed to create folder:', error);
+    alert('Failed to create folder');
   } finally {
-    setCreatingFolder(false)
+    setCreatingFolder(false);
+  }
+};
+
+// File upload handler
+const handleFileUpload = async (file: File) => {
+  if (!file) return
+
+  setUploadStatus('uploading')
+  setUploadMessage(`Uploading ${file.name}...`)
+
+  const formData = new FormData()
+  formData.append('file', file)
+  if (selectedFolder) {
+    formData.append('folderId', selectedFolder)
+  }
+
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/upload`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    })
+
+    const data = await res.json()
+
+    if (res.ok && data.success) {
+      setUploadStatus('success')
+      setUploadMessage(`${file.name} uploaded successfully!`)
+      fetchSpace() // Refresh
+      
+      setTimeout(() => {
+        setUploadStatus('idle')
+        setUploadMessage('')
+        setShowUploadDialog(false)
+      }, 2000)
+    } else {
+      setUploadStatus('error')
+      setUploadMessage(data.error || 'Upload failed')
+      setTimeout(() => setUploadStatus('idle'), 3000)
+    }
+  } catch (error) {
+    setUploadStatus('error')
+    setUploadMessage('Upload failed. Please try again.')
+    setTimeout(() => setUploadStatus('idle'), 3000)
+  }
+}
+
+// Drag and drop handlers
+const handleDragOver = (e: React.DragEvent) => {
+  e.preventDefault()
+  setIsDragging(true)
+}
+
+const handleDragLeave = (e: React.DragEvent) => {
+  e.preventDefault()
+  setIsDragging(false)
+}
+
+const handleDrop = (e: React.DragEvent) => {
+  e.preventDefault()
+  setIsDragging(false)
+  
+  const droppedFiles = e.dataTransfer.files
+  if (droppedFiles.length > 0) {
+    handleFileUpload(droppedFiles[0])
+  }
+}
+
+// Rename file
+const handleRenameFile = async () => {
+  if (!selectedFile || !newFilename.trim()) return
+
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/files/${selectedFile.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        action: 'rename',
+        filename: newFilename
+      }),
+    })
+
+    const data = await res.json()
+
+    if (res.ok && data.success) {
+      alert(data.message)
+      setShowRenameDialog(false)
+      setSelectedFile(null)
+      setNewFilename('')
+      fetchSpace()
+    } else {
+      alert(data.error || 'Failed to rename file')
+    }
+  } catch (error) {
+    alert('Failed to rename file')
+  }
+}
+
+// Move file
+const handleMoveFile = async () => {
+  if (!selectedFile) return
+
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/files/${selectedFile.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        action: 'move',
+        folderId: targetFolderId
+      }),
+    })
+
+    const data = await res.json()
+
+    if (res.ok && data.success) {
+      alert(data.message)
+      setShowMoveDialog(false)
+      setSelectedFile(null)
+      setTargetFolderId(null)
+      fetchSpace()
+    } else {
+      alert(data.error || 'Failed to move file')
+    }
+  } catch (error) {
+    alert('Failed to move file')
+  }
+}
+
+// Delete file
+const handleDeleteFile = async (fileId: string, filename: string) => {
+  if (!confirm(`Move "${filename}" to trash?`)) return
+
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/files/${fileId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+
+    const data = await res.json()
+
+    if (res.ok && data.success) {
+      alert(data.message)
+      fetchSpace()
+    } else {
+      alert(data.error || 'Failed to delete file')
+    }
+  } catch (error) {
+    alert('Failed to delete file')
   }
 }
 
 const handleAddContact = async () => {
-  if (!contactEmail.trim()) return
+  if (!contactEmail.trim()) return;
 
-  setAddingContact(true)
-  const token = localStorage.getItem("token")
+  setAddingContact(true);
 
   try {
     const res = await fetch('/api/spaces/contacts', {
       method: 'POST',
+      credentials: 'include', // ✅ send http-only cookies
       headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         spaceId: params.id,
         email: contactEmail.trim(),
         role: contactRole,
       }),
-    })
+    });
 
-    if (res.ok) {
-      const data = await res.json()
-      if (data.success) {
-        setContactEmail("")
-        setContactRole('viewer')
-        setShowAddContactDialog(false)
-        // You can add a success toast here
-        alert("Contact added successfully!")
-      }
-    } else {
-      const data = await res.json()
-      alert(data.message || "Failed to add contact")
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to add contact');
+    }
+
+    if (data.success) {
+      setContactEmail('');
+      setContactRole('viewer');
+      setShowAddContactDialog(false);
+
+      // Optional success feedback
+      alert('Contact added successfully!');
     }
   } catch (error) {
-    console.error("Failed to add contact:", error)
-    alert("Failed to add contact")
+    console.error('Failed to add contact:', error);
+    alert('Failed to add contact');
   } finally {
-    setAddingContact(false)
+    setAddingContact(false);
   }
-}
+};
 
 const fetchRecentFiles = async () => {
-  const token = localStorage.getItem("token")
-  
   try {
-    const res = await fetch(`/api/documents/recent?spaceId=${params.id}&limit=10`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
-    })
-
-    if (res.ok) {
-      const data = await res.json()
-      if (data.success) {
-        setRecentFiles(data.documents)
+    const res = await fetch(
+      `/api/documents/recent?spaceId=${params.id}&limit=10`,
+      {
+        credentials: 'include', // ✅ http-only cookies
       }
+    );
+
+    if (!res.ok) return;
+
+    const data = await res.json();
+    if (data.success) {
+      setRecentFiles(data.documents);
     }
   } catch (error) {
-    console.error("Failed to fetch recent files:", error)
+    console.error('Failed to fetch recent files:', error);
   }
-}
+};
 
 const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
   const sorted = [...documents].sort((a, b) => {
@@ -266,59 +442,72 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
 }
 
   useEffect(() => {
-    fetchSpace()
-  }, [params.id])
+  fetchSpace();
+}, [params.id]);
 
-  const fetchSpace = async () => {
-    const token = localStorage.getItem("token")
-    if (!token) {
-      router.push('/login')
-      return
+const fetchSpace = async () => {
+  try {
+    const res = await fetch(`/api/spaces/${params.id}`, {
+      credentials: 'include', // ✅
+    });
+
+    if (res.status === 401) {
+      router.push('/login');
+      return;
     }
 
-    try {
-      const res = await fetch(`/api/spaces/${params.id}`, {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      })
+    if (!res.ok) {
+      throw new Error('Failed to fetch space');
+    }
 
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success) {
-          setSpace(data.space)
-          
-          // Fetch documents from API
-          const docsRes = await fetch(`/api/documents?spaceId=${params.id}`, {
-            headers: {
-              "Authorization": `Bearer ${token}`,
-            },
-          })
+    const data = await res.json();
 
-          if (docsRes.ok) {
-            const docsData = await docsRes.json()
-            if (docsData.success) {
-              setDocuments(docsData.documents)
-              
-              // Initialize folders with actual document counts
-              if (data.space.template) {
-                initializeFolders(data.space.template, docsData.documents)
-              }
-            }
-          } else {
-            // If documents fetch fails, still initialize folders with 0 count
-            if (data.space.template) {
-              initializeFolders(data.space.template, [])
-            }
+    if (data.success) {
+      setSpace(data.space);
+
+      // Fetch documents
+      const docsRes = await fetch(
+        `/api/documents?spaceId=${params.id}`,
+        {
+          credentials: 'include', // ✅
+        }
+      );
+
+      if (docsRes.ok) {
+        const docsData = await docsRes.json();
+        console.log('🔍 API Response:', docsData); 
+        if (docsData.success) {
+          const validDocuments = Array.isArray(docsData.documents) 
+  ? docsData.documents.filter((doc: { id: any }) => doc && doc.id)
+  : [];
+console.log('Fetched documents:', validDocuments);
+setDocuments(validDocuments);
+
+          if (data.space.template) {
+            initializeFolders(
+              data.space.template,
+              docsData.documents
+            );
           }
         }
+      } else {
+        // Still initialize folders if docs fail
+        if (data.space.template) {
+          initializeFolders(
+            data.space.template,
+            []
+          );
+        }
       }
-    } catch (error) {
-      console.error("Failed to fetch space:", error)
-    } finally {
-      setLoading(false)
     }
+  } catch (error) {
+    setDocuments([]);
+    console.error('Failed to fetch space:', error);
+  } finally {
+    setLoading(false);
   }
+};
+
 
   const initializeFolders = (templateId: string, docs: DocumentType[]) => {
     // Map of template folders
@@ -346,10 +535,10 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
   }
 
   const filteredDocuments = searchQuery.trim() 
-  ? searchResults
+  ? searchResults.filter(doc => doc && doc.id)
   : selectedFolder
-    ? documents.filter(doc => doc.folderId === selectedFolder)
-    : documents
+    ? documents.filter(doc => doc && doc.id && doc.folderId === selectedFolder)
+    : documents.filter(doc => doc && doc.id)
 
   if (loading) {
     return (
@@ -376,6 +565,21 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
+      {/* Drag & Drop Overlay */}
+      {isDragging && (
+        <div
+          className="fixed inset-0 bg-purple-600/10 backdrop-blur-sm z-50 flex items-center justify-center"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <div className="bg-white rounded-2xl border-4 border-dashed border-purple-600 p-12 text-center">
+            <Upload className="h-16 w-16 text-purple-600 mx-auto mb-4" />
+            <p className="text-2xl font-bold text-slate-900 mb-2">Drop file here</p>
+            <p className="text-slate-600">Release to upload to this space</p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
         <div className="flex items-center justify-between h-16 px-6">
@@ -746,7 +950,7 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
                             </thead>
                             <tbody className="divide-y">
                               {documents.filter(d => !d.folderId).map((doc) => (
-                                <tr key={doc.id} className="hover:bg-slate-50">
+                                <tr key={`doc-home-${doc.id}`} className="hover:bg-slate-50">
                                   <td className="px-6 py-4">
                                     <input type="checkbox" className="rounded" />
                                   </td>
@@ -795,16 +999,35 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
                                         </Button>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="end">
-                                        <DropdownMenuItem>
+                                        <DropdownMenuItem key="view" onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
                                           <Eye className="mr-2 h-4 w-4" />
                                           View
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem>
+                                        <DropdownMenuItem key="download" onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
                                           <Download className="mr-2 h-4 w-4" />
                                           Download
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-red-600">
+                                        <DropdownMenuItem key="rename" onClick={() => {
+                                          setSelectedFile(doc)
+                                          setNewFilename(doc.name)
+                                          setShowRenameDialog(true)
+                                        }}>
+                                          <Edit className="mr-2 h-4 w-4" />
+                                          Rename
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem key="move" onClick={() => {
+                                          setSelectedFile(doc)
+                                          setShowMoveDialog(true)
+                                        }}>
+                                          <Activity className="mr-2 h-4 w-4" />
+                                          Move
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem  key="delete"
+                                          className="text-red-600"
+                                          onClick={() => handleDeleteFile(doc.id, doc.name)}
+                                        >
                                           <Trash2 className="mr-2 h-4 w-4" />
                                           Delete
                                         </DropdownMenuItem>
@@ -855,7 +1078,7 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
                         </thead>
                         <tbody className="divide-y">
                           {filteredDocuments.map((doc) => (
-                            <tr key={doc.id} className="hover:bg-slate-50">
+                            <tr key={`filtered-${doc.id}`} className="hover:bg-slate-50">
                               <td className="px-6 py-4">
                                 <input type="checkbox" className="rounded" />
                               </td>
@@ -904,16 +1127,16 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem>
+                                    <DropdownMenuItem key="view">
                                       <Eye className="mr-2 h-4 w-4" />
                                       View
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem>
+                                    <DropdownMenuItem key="download">
                                       <Download className="mr-2 h-4 w-4" />
                                       Download
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-red-600">
+                                    <DropdownMenuItem key="delete" className="text-red-600">
                                       <Trash2 className="mr-2 h-4 w-4" />
                                       Delete
                                     </DropdownMenuItem>
@@ -976,7 +1199,7 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
       ) : (
         recentFiles.map((doc) => (
           <div
-            key={doc.id}
+            key={`recent-${doc.id}`}
             className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 border"
           >
             <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
@@ -1129,39 +1352,190 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
 </Dialog>
 
       {/* Upload Dialog */}
+      {/* Upload Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent className="max-w-xl bg-white">
+        <DialogContent className="max-w-xl bg-white scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Upload Documents</DialogTitle>
             <DialogDescription>
               Add documents to {selectedFolder ? folders.find(f => f.id === selectedFolder)?.name : 'this space'}
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="py-6">
-            <div className="border-2 border-dashed border-slate-300 rounded-xl p-12 text-center hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer">
-              <Upload className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-              <p className="text-lg font-semibold text-slate-900 mb-2">Drop files here to upload</p>
-              <p className="text-sm text-slate-500 mb-4">or click to browse</p>
-              <Button variant="outline">Select Files</Button>
-            </div>
-            {selectedFolder && (
-              <div className="mt-4 p-3 bg-slate-50 rounded-lg border">
-                <p className="text-sm text-slate-600">
-                  Files will be uploaded to: <span className="font-semibold text-slate-900">
-                    {folders.find(f => f.id === selectedFolder)?.name}
-                  </span>
+
+          {uploadStatus === 'idle' && (
+            <div className="py-6">
+              <div
+                className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all ${
+                  isDragging ? 'border-purple-500 bg-purple-50' : 'border-slate-300 hover:border-purple-400 hover:bg-purple-50/30'
+                }`}
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <Upload className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                <p className="text-lg font-semibold text-slate-900 mb-2">
+                  {isDragging ? 'Drop file here' : 'Drop files here to upload'}
                 </p>
+                <p className="text-sm text-slate-500 mb-4">or click to browse</p>
+                <Button variant="outline">Select Files</Button>
               </div>
-            )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleFileUpload(file)
+                }}
+              />
+              {selectedFolder && (
+                <div className="mt-4 p-3 bg-slate-50 rounded-lg border">
+                  <p className="text-sm text-slate-600">
+                    Files will be uploaded to: <span className="font-semibold text-slate-900">
+                      {folders.find(f => f.id === selectedFolder)?.name}
+                    </span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {uploadStatus === 'uploading' && (
+            <div className="text-center py-12">
+              <div className="animate-spin h-12 w-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-slate-900 font-semibold">{uploadMessage}</p>
+            </div>
+          )}
+
+          {uploadStatus === 'success' && (
+            <div className="text-center py-12">
+              <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              </div>
+              <p className="text-slate-900 font-semibold">{uploadMessage}</p>
+            </div>
+          )}
+
+          {uploadStatus === 'error' && (
+            <div className="text-center py-12">
+              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="h-8 w-8 text-red-600" />
+              </div>
+              <p className="text-red-900 font-semibold">{uploadMessage}</p>
+              <Button
+                onClick={() => setUploadStatus('idle')}
+                variant="outline"
+                className="mt-4"
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
+
+          {uploadStatus === 'idle' && (
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
+                Cancel
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Dialog */}
+      <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Rename File</DialogTitle>
+            <DialogDescription>
+              Enter a new name for "{selectedFile?.name}"
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">New Filename</label>
+              <Input
+                placeholder="Enter new filename"
+                value={newFilename}
+                onChange={(e) => setNewFilename(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newFilename.trim()) {
+                    handleRenameFile()
+                  }
+                }}
+                autoFocus
+              />
+            </div>
           </div>
 
           <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRenameDialog(false)
+                setSelectedFile(null)
+                setNewFilename('')
+              }}
+            >
               Cancel
             </Button>
-            <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-              Upload
+            <Button
+              onClick={handleRenameFile}
+              disabled={!newFilename.trim()}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              Rename
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move Dialog */}
+      <Dialog open={showMoveDialog} onOpenChange={setShowMoveDialog}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Move File</DialogTitle>
+            <DialogDescription>
+              Choose a destination folder for "{selectedFile?.name}"
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Destination Folder</label>
+              <select
+                value={targetFolderId || 'root'}
+                onChange={(e) => setTargetFolderId(e.target.value === 'root' ? null : e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="root">📁 Root (No folder)</option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    📂 {folder.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowMoveDialog(false)
+                setSelectedFile(null)
+                setTargetFolderId(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleMoveFile}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              Move File
             </Button>
           </div>
         </DialogContent>

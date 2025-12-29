@@ -344,7 +344,13 @@ useEffect(() => {
   }, [router]);
 
 
-
+// Add this with your other useEffects
+useEffect(() => {
+  // Redirect to /spaces page when activePage is 'spaces'
+  if (activePage === 'spaces') {
+    router.push('/spaces')
+  }
+}, [activePage, router])
 
 // Handle document sharing
 const handleShareDocument = async () => {
@@ -1511,10 +1517,16 @@ case 'dashboard':
         )
 
   
-        case 'spaces':
-  // Redirect to dedicated spaces page
-  router.push('/spaces')
-  return null
+      case 'spaces':
+  // Show loading state while redirecting
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
+        <p className="text-slate-600">Redirecting to Spaces...</p>
+      </div>
+    </div>
+  )
         
 
      case 'agreements':
