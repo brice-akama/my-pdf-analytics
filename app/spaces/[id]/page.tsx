@@ -104,6 +104,10 @@ const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success
 const [uploadMessage, setUploadMessage] = useState('')
 const [isDragging, setIsDragging] = useState(false)
 const fileInputRef = useRef<HTMLInputElement>(null)
+const [showShareDialog, setShowShareDialog] = useState(false)
+const [shareLink, setShareLink] = useState('')
+const [sharingStatus, setSharingStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle')
+const [shareError, setShareError] = useState('')
 
 
 
@@ -177,6 +181,7 @@ const handleCreateFolder = async () => {
     }
 
     if (data.success) {
+      await fetchFolders();
       // Add the new folder to the state
       setFolders([
         ...folders,
@@ -464,6 +469,7 @@ const fetchSpace = async () => {
 
     if (data.success) {
       setSpace(data.space);
+      await fetchFolders();
 
       // Fetch documents
       const docsRes = await fetch(
@@ -509,30 +515,94 @@ setDocuments(validDocuments);
 };
 
 
-  const initializeFolders = (templateId: string, docs: DocumentType[]) => {
-    // Map of template folders
-    const templateFolders: { [key: string]: string[] } = {
-      'client-portal': ['Company Information', 'Proposals', 'Contracts', 'Invoices', 'Reports'],
-      'ma-deal': ['Financial Statements', 'Legal Documents', 'Customer Contracts', 'Employee Information'],
-      'fundraising': ['Pitch Deck', 'Financial Projections', 'Cap Table', 'Product Demo'],
-      'simple-data-room': ['Documents', 'Financials', 'Legal', 'Presentations'],
-    }
-
-    const folderNames = templateFolders[templateId] || ['Documents']
-    const initialFolders = folderNames.map((name) => {
-      const folderId = name.toLowerCase().replace(/\s+/g, '-')
-      const docCount = docs.filter(d => d.folderId === folderId).length
-      
-      return {
-        id: folderId,
-        name,
-        documentCount: docCount,
-        lastUpdated: '6d ago'
-      }
+// ✅ NEW: Handle share with client
+const handleShareWithClient = async () => {
+  setSharingStatus('generating')
+  setShowShareDialog(true)
+  setShareError('')
+  
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/public-access`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requireEmail: true,
+        requirePassword: false
+      })
     })
-
-    setFolders(initialFolders)
+    
+    const data = await res.json()
+    
+    if (data.success) {
+      setShareLink(data.publicUrl)
+      setSharingStatus('success')
+    } else {
+      setShareError(data.error || 'Failed to create share link')
+      setSharingStatus('error')
+    }
+  } catch (error) {
+    console.error('Share error:', error)
+    setShareError('Failed to create share link. Please try again.')
+    setSharingStatus('error')
   }
+}
+
+//   NEW: Copy link to clipboard
+const handleCopyLink = async () => {
+  try {
+    await navigator.clipboard.writeText(shareLink)
+    alert('Link copied to clipboard!')
+  } catch (error) {
+    console.error('Copy error:', error)
+    alert('❌ Failed to copy. Please copy manually.')
+  }
+}
+
+const initializeFolders = (templateId: string, docs: DocumentType[] = []) => {
+  const templateFolders: Record<string, string[]> = {
+    'client-portal': ['Company Information', 'Proposals', 'Contracts', 'Invoices', 'Reports'],
+    'ma-deal': ['Financial Statements', 'Legal Documents', 'Customer Contracts', 'Employee Information'],
+    'fundraising': ['Pitch Deck', 'Financial Projections', 'Cap Table', 'Product Demo'],
+    'simple-data-room': ['Documents', 'Financials', 'Legal', 'Presentations'],
+    'custom': ['General Documents']
+  };
+
+  const folderNames = templateFolders[templateId] || templateFolders['custom'];
+
+  const initialFolders = folderNames.map((name) => {
+    const folderId = name.toLowerCase().replace(/\s+/g, '-');
+    const docCount = docs.filter(d => d.folderId === folderId).length;
+
+    return {
+      id: folderId,
+      name,
+      documentCount: docCount,
+      lastUpdated: docCount > 0 ? 'Today' : 'Never'
+    };
+  });
+
+  setFolders(initialFolders);
+  console.log('✅ Folders initialized:', initialFolders);
+};
+  // Fetch folders from database
+const fetchFolders = async () => {
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/folders`, {
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        setFolders(data.folders);
+        console.log('✅ Loaded folders:', data.folders);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch folders:', error);
+  }
+};
 
   const filteredDocuments = searchQuery.trim() 
   ? searchResults.filter(doc => doc && doc.id)
@@ -592,17 +662,14 @@ setDocuments(validDocuments);
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-3">
-              <div 
-                className="h-10 w-10 rounded-xl flex items-center justify-center"
-                style={{ background: space.color }}
-              >
-                <FolderOpen className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-slate-900">{space.name}</h1>
-                <p className="text-xs text-slate-500">Last updated 6d ago</p>
-              </div>
-            </div>
+  <div 
+    className="h-9 w-9 rounded-lg flex items-center justify-center shadow-sm"
+    style={{ background: space.color }}
+  >
+    <FolderOpen className="h-4 w-4 text-white" />
+  </div>
+  <h1 className="text-base font-semibold text-slate-900">{space.name}</h1>
+</div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -693,23 +760,9 @@ setDocuments(validDocuments);
   Recent files
 </Button>
 
-<Button 
-  variant="outline" 
-  className="gap-2"
-  onClick={() => setShowCreateFolderDialog(true)}
->
-  <Folder className="h-4 w-4" />
-  Create folder
-</Button>
 
-<Button 
-  variant="outline" 
-  className="gap-2"
-  onClick={() => setShowAddContactDialog(true)}
->
-  <Users className="h-4 w-4" />
-  Add contact
-</Button>
+
+
 
             <Button 
               onClick={() => setShowUploadDialog(true)}
@@ -726,10 +779,18 @@ setDocuments(validDocuments);
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Share space
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowCreateFolderDialog(true)}>
+    <Folder className="mr-2 h-4 w-4" />
+    Create Folder
+  </DropdownMenuItem>
+  <DropdownMenuItem onClick={() => setShowAddContactDialog(true)}>
+    <Users className="mr-2 h-4 w-4" />
+    Add Contact
+  </DropdownMenuItem>
+               <DropdownMenuItem onClick={handleShareWithClient}>
+  <Share2 className="mr-2 h-4 w-4" />
+  Share with Client
+</DropdownMenuItem>
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   Space settings
@@ -882,46 +943,91 @@ setDocuments(validDocuments);
                         </div>
                         <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
                           {folders.map((folder) => (
-                            <button
-                              key={folder.id}
-                              onClick={() => setSelectedFolder(folder.id)}
-                              className="bg-white border rounded-xl p-6 hover:shadow-lg hover:border-purple-200 transition-all text-left group"
-                            >
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                                  <Folder className="h-6 w-6 text-blue-600" />
-                                </div>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-    <button 
-      onClick={(e) => e.stopPropagation()}
-      className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity"
-    >
-      <MoreVertical className="h-4 w-4" />
-    </button>
-  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem>
-                                      <Edit className="mr-2 h-4 w-4" />
-                                      Rename
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem>
-                                      <Share2 className="mr-2 h-4 w-4" />
-                                      Share
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-red-600">
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                              <h3 className="font-semibold text-slate-900 mb-1">{folder.name}</h3>
-                              <p className="text-sm text-slate-500">
-                                {folder.documentCount} {folder.documentCount === 1 ? 'item' : 'items'}
-                              </p>
-                            </button>
+                           <div
+  key={folder.id}
+  onClick={() => setSelectedFolder(folder.id)}
+  className="relative bg-gradient-to-br from-white to-slate-50 border border-slate-200 rounded-2xl p-6 hover:shadow-xl hover:border-purple-300 hover:-translate-y-1 transition-all duration-300 cursor-pointer group overflow-hidden"
+>
+  {/* Decorative background element */}
+  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-100/30 to-blue-100/30 rounded-full blur-2xl -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+  
+  <div className="relative z-10">
+    <div className="flex items-start justify-between mb-4">
+      <div className="relative">
+        <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-purple-200 group-hover:scale-110 transition-all duration-300">
+          <Folder className="h-7 w-7 text-white" />
+        </div>
+        {/* Document count badge */}
+        {folder.documentCount > 0 && (
+          <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-green-500 border-2 border-white flex items-center justify-center">
+            <span className="text-xs font-bold text-white">{folder.documentCount}</span>
+          </div>
+        )}
+      </div>
+      
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button 
+            onClick={(e) => e.stopPropagation()}
+            className="h-9 w-9 inline-flex items-center justify-center rounded-lg hover:bg-white/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-200 border border-slate-200 bg-white"
+          >
+            <MoreVertical className="h-4 w-4 text-slate-600" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48 bg-white">
+          <DropdownMenuItem>
+            <Eye className="mr-2 h-4 w-4" />
+            Open Folder
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Edit className="mr-2 h-4 w-4" />
+            Rename
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Share2 className="mr-2 h-4 w-4" />
+            Share
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-red-600">
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Folder
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+    
+    <div className="space-y-2">
+      <h3 className="font-bold text-slate-900 text-lg leading-tight group-hover:text-purple-700 transition-colors">
+        {folder.name}
+      </h3>
+      
+      <div className="flex items-center gap-4 text-sm text-slate-600">
+        <span className="flex items-center gap-1.5">
+          <FileText className="h-4 w-4" />
+          {folder.documentCount} {folder.documentCount === 1 ? 'file' : 'files'}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Clock className="h-4 w-4" />
+          {folder.lastUpdated}
+        </span>
+      </div>
+    </div>
+    
+    {/* Progress indicator (optional - shows folder status) */}
+    <div className="mt-4 pt-4 border-t border-slate-200">
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        <span>Storage</span>
+        <span className="font-medium">2.4 MB</span>
+      </div>
+      <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-gradient-to-r from-purple-500 to-blue-600 rounded-full transition-all duration-500"
+          style={{ width: `${Math.min((folder.documentCount / 10) * 100, 100)}%` }}
+        ></div>
+      </div>
+    </div>
+  </div>
+</div>
                           ))}
                         </div>
                       </div>
@@ -1540,6 +1646,145 @@ setDocuments(validDocuments);
           </div>
         </DialogContent>
       </Dialog>
+      {/* Share with Client Dialog */}
+<Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+  <DialogContent className="max-w-lg bg-white scrollball-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 max-h-[80vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <Share2 className="h-5 w-5 text-purple-600" />
+        Share Space with Client
+      </DialogTitle>
+      <DialogDescription>
+        Generate a secure link to share this space with clients
+      </DialogDescription>
+    </DialogHeader>
+
+    {/* Generating State */}
+    {sharingStatus === 'generating' && (
+      <div className="text-center py-12">
+        <div className="animate-spin h-12 w-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-slate-900 font-semibold">Generating secure link...</p>
+        <p className="text-sm text-slate-500 mt-2">This will only take a moment</p>
+      </div>
+    )}
+
+    {/* Success State */}
+    {sharingStatus === 'success' && (
+      <div className="py-4">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-green-900 mb-1">Share link created!</p>
+              <p className="text-sm text-green-700">
+                Send this link to your client. They can view all documents without logging in.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Link Display */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-slate-700 block">
+            Secure Share Link
+          </label>
+          <div className="flex gap-2">
+            <Input
+              value={shareLink}
+              readOnly
+              className="flex-1 font-mono text-sm bg-slate-50"
+              onClick={(e) => e.currentTarget.select()}
+            />
+            <Button
+              onClick={handleCopyLink}
+              className="gap-2 bg-purple-600 hover:bg-purple-700"
+            >
+              <Globe className="h-4 w-4" />
+              Copy Link
+            </Button>
+          </div>
+        </div>
+
+        {/* Settings Info */}
+        <div className="mt-6 p-4 bg-slate-50 rounded-lg border">
+          <p className="text-sm font-semibold text-slate-900 mb-2">Current Settings:</p>
+          <ul className="text-sm text-slate-600 space-y-1">
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="h-3 w-3 text-green-600" />
+              Email required before viewing
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="h-3 w-3 text-green-600" />
+              No password protection
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="h-3 w-3 text-green-600" />
+              Link never expires
+            </li>
+          </ul>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 justify-end mt-6">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowShareDialog(false)
+              setSharingStatus('idle')
+              setShareLink('')
+            }}
+          >
+            Done
+          </Button>
+          <Button
+            onClick={() => {
+              handleCopyLink()
+              // Optional: Open email client
+              window.location.href = `mailto:?subject=Documents shared with you&body=View the documents here: ${shareLink}`
+            }}
+            className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          >
+            <Globe className="h-4 w-4" />
+            Copy & Email
+          </Button>
+        </div>
+      </div>
+    )}
+
+    {/* Error State */}
+    {sharingStatus === 'error' && (
+      <div className="py-4">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+            <div>
+              <p className="font-semibold text-red-900 mb-1">Failed to create link</p>
+              <p className="text-sm text-red-700">{shareError}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2 justify-end">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowShareDialog(false)
+              setSharingStatus('idle')
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleShareWithClient}
+            className="gap-2 bg-purple-600 hover:bg-purple-700"
+          >
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
     </div>
   )
 }

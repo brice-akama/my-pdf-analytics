@@ -1,83 +1,115 @@
 import { NextRequest, NextResponse } from "next/server"
 import { verifyUserFromRequest } from "@/lib/auth"
 import { ObjectId } from "mongodb"
-import { dbPromise } from "../../lib/mongodb"
+import { dbPromise } from "@/app/api/lib/mongodb"
 
+/* ----------------------------------------
+   ADD CONTACT TO SPACE
+---------------------------------------- */
 export async function POST(req: NextRequest) {
   try {
-    // ✅ Extract the Authorization header properly
-    const authHeader = req.headers.get("authorization")
-    const user = await verifyUserFromRequest(authHeader)
-
+    // ✅ HTTP-only cookie auth (Next.js 15 safe)
+    const user = await verifyUserFromRequest(req)
     if (!user) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      )
     }
 
     const body = await req.json()
     const { spaceId, email, role } = body
 
     if (!spaceId || !email || !role) {
-      return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 })
+      return NextResponse.json(
+        { success: false, message: "Missing required fields" },
+        { status: 400 }
+      )
+    }
+
+    // ✅ Validate ObjectId early
+    if (!ObjectId.isValid(spaceId)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid spaceId" },
+        { status: 400 }
+      )
     }
 
     // ✅ Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
-      return NextResponse.json({ success: false, message: "Invalid email format" }, { status: 400 })
+      return NextResponse.json(
+        { success: false, message: "Invalid email format" },
+        { status: 400 }
+      )
     }
 
     // ✅ Validate role
     if (!["viewer", "editor", "admin"].includes(role)) {
-      return NextResponse.json({ success: false, message: "Invalid role" }, { status: 400 })
+      return NextResponse.json(
+        { success: false, message: "Invalid role" },
+        { status: 400 }
+      )
     }
 
     const db = await dbPromise
+    const spaceObjectId = new ObjectId(spaceId)
 
-    // ✅ FIXED: match the correct field name (`user.id` from auth)
+    // ✅ FIXED: userId is STRING (not ObjectId)
     const space = await db.collection("spaces").findOne({
-      _id: new ObjectId(spaceId),
-      userId: new ObjectId(user.id)
+      _id: spaceObjectId,
+      userId: user.id
     })
 
     if (!space) {
-      return NextResponse.json({ success: false, message: "Space not found or you don't have permission" }, { status: 404 })
+      return NextResponse.json(
+        { success: false, message: "Space not found or permission denied" },
+        { status: 404 }
+      )
     }
 
-    // Check if contact user exists
+    // ✅ Ensure invited user exists
     const contactUser = await db.collection("users").findOne({ email })
     if (!contactUser) {
-      return NextResponse.json({ success: false, message: "User with this email not found" }, { status: 404 })
+      return NextResponse.json(
+        { success: false, message: "User with this email not found" },
+        { status: 404 }
+      )
     }
 
-    // Check if already a member
+    // ✅ Prevent duplicate membership
     const existingMember = await db.collection("spaceMembers").findOne({
-      spaceId: new ObjectId(spaceId),
+      spaceId: spaceObjectId,
       userId: contactUser._id
     })
+
     if (existingMember) {
-      return NextResponse.json({ success: false, message: "User is already a member of this space" }, { status: 400 })
+      return NextResponse.json(
+        { success: false, message: "User already belongs to this space" },
+        { status: 400 }
+      )
     }
 
     // ✅ Add member
     const member = {
-      spaceId: new ObjectId(spaceId),
+      spaceId: spaceObjectId,
       userId: contactUser._id,
       role,
-      invitedBy: new ObjectId(user.id),
-      createdAt: new Date(),
-      status: "active"
+      invitedBy: user.id, // store as string (consistent)
+      status: "active",
+      createdAt: new Date()
     }
 
     const result = await db.collection("spaceMembers").insertOne(member)
 
-    // Log activity
+    // ✅ Activity log
     await db.collection("activityLogs").insertOne({
-      spaceId: new ObjectId(spaceId),
-      userId: new ObjectId(user.id),
+      spaceId: spaceObjectId,
+      userId: user.id,
       action: "member_added",
       details: {
         memberEmail: email,
-        role: role
+        role
       },
       createdAt: new Date()
     })
@@ -89,47 +121,61 @@ export async function POST(req: NextRequest) {
         id: result.insertedId.toString(),
         email: contactUser.email,
         name: contactUser.name || contactUser.email,
-        role: member.role
+        role
       }
     })
   } catch (error) {
     console.error("Add contact error:", error)
-    return NextResponse.json({ success: false, message: "Failed to add contact" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, message: "Failed to add contact" },
+      { status: 500 }
+    )
   }
 }
 
+/* ----------------------------------------
+   GET SPACE MEMBERS
+---------------------------------------- */
 export async function GET(req: NextRequest) {
   try {
-    // ✅ FIX: same header extraction
-    const authHeader = req.headers.get("authorization")
-    const user = await verifyUserFromRequest(authHeader)
-
+    const user = await verifyUserFromRequest(req)
     if (!user) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      )
     }
 
-    const { searchParams } = new URL(req.url)
-    const spaceId = searchParams.get("spaceId")
+    const url = new URL(req.url)
+    const spaceId = url.searchParams.get("spaceId")
 
-    if (!spaceId) {
-      return NextResponse.json({ success: false, message: "Missing spaceId" }, { status: 400 })
+    if (!spaceId || !ObjectId.isValid(spaceId)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid or missing spaceId" },
+        { status: 400 }
+      )
     }
 
     const db = await dbPromise
+    const spaceObjectId = new ObjectId(spaceId)
 
+    // ✅ FIXED: string userId
     const space = await db.collection("spaces").findOne({
-      _id: new ObjectId(spaceId),
-      userId: new ObjectId(user.id)
+      _id: spaceObjectId,
+      userId: user.id
     })
 
     if (!space) {
-      return NextResponse.json({ success: false, message: "Space not found or access denied" }, { status: 404 })
+      return NextResponse.json(
+        { success: false, message: "Space not found or access denied" },
+        { status: 404 }
+      )
     }
 
     const members = await db
       .collection("spaceMembers")
       .aggregate([
-        { $match: { spaceId: new ObjectId(spaceId) } },
+        { $match: { spaceId: spaceObjectId } },
         {
           $lookup: {
             from: "users",
@@ -154,6 +200,9 @@ export async function GET(req: NextRequest) {
     })
   } catch (error) {
     console.error("Get members error:", error)
-    return NextResponse.json({ success: false, message: "Failed to fetch members" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, message: "Failed to fetch members" },
+      { status: 500 }
+    )
   }
 }
