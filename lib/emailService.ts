@@ -1702,3 +1702,38 @@ export async function sendEnvelopeProgressEmail({
   });
 }
 
+// ===================================
+// SPACE INVITATION EMAIL
+// ===================================
+export async function sendSpaceInvitation({
+  toEmail,
+  spaceName,
+  inviterName,
+  role,
+  inviteToken
+}: {
+  toEmail: string;
+  spaceName: string;
+  inviterName: string;
+  role: string;
+  inviteToken: string;
+}) {
+  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${inviteToken}`;
+
+  await resend.emails.send({
+    from: 'Your App <noreply@yourdomain.com>',
+    to: toEmail,
+    subject: `You've been invited to ${spaceName}`,
+    html: `
+      <h2>You've been invited!</h2>
+      <p>${inviterName} has invited you to collaborate on <strong>${spaceName}</strong></p>
+      <p>Your role: <strong>${role}</strong></p>
+      <a href="${inviteUrl}" style="background: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block; margin-top: 16px;">
+        Accept Invitation
+      </a>
+      <p style="color: #64748b; font-size: 14px; margin-top: 24px;">
+        Or copy this link: ${inviteUrl}
+      </p>
+    `
+  });
+}

@@ -108,6 +108,14 @@ const [showShareDialog, setShowShareDialog] = useState(false)
 const [shareLink, setShareLink] = useState('')
 const [sharingStatus, setSharingStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle')
 const [shareError, setShareError] = useState('')
+const [showMembersDialog, setShowMembersDialog] = useState(false)
+const [contacts, setContacts] = useState<Array<{
+  id: string
+  email: string
+  role: 'viewer' | 'editor' | 'admin'
+  addedAt: string
+}>>([])
+const [user, setUser] = useState<{ email: string } | null>(null)
 
 
 
@@ -153,6 +161,24 @@ const handleSearch = async (query: string) => {
     console.error("Search failed:", error);
   } finally {
     setIsSearching(false);
+  }
+};
+
+const fetchContacts = async () => {
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/contacts`, {
+      credentials: 'include',
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        setContacts(data.contacts);
+        console.log('✅ Loaded contacts:', data.contacts);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch contacts:', error);
   }
 };
 
@@ -351,14 +377,13 @@ const handleAddContact = async () => {
   setAddingContact(true);
 
   try {
-    const res = await fetch('/api/spaces/contacts', {
+    const res = await fetch(`/api/spaces/${params.id}/contacts`, {  // ✅ CORRECT ENDPOINT
       method: 'POST',
-      credentials: 'include', // ✅ send http-only cookies
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        spaceId: params.id,
         email: contactEmail.trim(),
         role: contactRole,
       }),
@@ -367,20 +392,21 @@ const handleAddContact = async () => {
     const data = await res.json();
 
     if (!res.ok) {
-      throw new Error(data.message || 'Failed to add contact');
+      throw new Error(data.error || 'Failed to add contact');
     }
 
     if (data.success) {
+      // ✅ Refresh contacts list
+      await fetchContacts();
+      
       setContactEmail('');
       setContactRole('viewer');
       setShowAddContactDialog(false);
-
-      // Optional success feedback
       alert('Contact added successfully!');
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to add contact:', error);
-    alert('Failed to add contact');
+    alert(error.message || 'Failed to add contact');
   } finally {
     setAddingContact(false);
   }
@@ -436,7 +462,22 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
 
   useEffect(() => {
   fetchSpace();
+  fetchCurrentUser();
 }, [params.id]);
+
+const fetchCurrentUser = async () => {
+  try {
+    const res = await fetch('/api/auth/me', {
+      credentials: 'include',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setUser(data.user);
+    }
+  } catch (error) {
+    console.error('Failed to fetch user:', error);
+  }
+};
 
 const fetchSpace = async () => {
   try {
@@ -458,6 +499,7 @@ const fetchSpace = async () => {
     if (data.success) {
       setSpace(data.space);
       await fetchFolders();
+      await fetchContacts();
 
       // Fetch documents
       const docsRes = await fetch(
@@ -649,6 +691,7 @@ const fetchFolders = async () => {
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
+            
             <div className="flex items-center gap-3">
   <div 
     className="h-9 w-9 rounded-lg flex items-center justify-center shadow-sm"
@@ -746,6 +789,14 @@ const fetchFolders = async () => {
 >
   <Clock className="h-4 w-4" />
   Recent files
+</Button>
+<Button 
+  variant="outline" 
+  className="gap-2"
+  onClick={() => setShowMembersDialog(true)} //   NEW
+>
+  <Users className="h-4 w-4" />
+  Members ({contacts.length})
 </Button>
 
 
@@ -1020,31 +1071,52 @@ const fetchFolders = async () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm text-slate-600">{doc.type}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-slate-600">{doc.lastUpdated}</span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Download
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
+  <span className="text-sm text-slate-600">{doc.lastUpdated}</span>
+</td>
+<td className="px-6 py-4 text-right">
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button variant="ghost" size="icon">
+        <MoreVertical className="h-4 w-4" />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="w-48 bg-white">
+      <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+        <Eye className="mr-2 h-4 w-4" />
+        View
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+        <Download className="mr-2 h-4 w-4" />
+        Download
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={() => {
+        setSelectedFile(doc)
+        setNewFilename(doc.name)
+        setShowRenameDialog(true)
+      }}>
+        <Edit className="mr-2 h-4 w-4" />
+        Rename
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => {
+        setSelectedFile(doc)
+        setShowMoveDialog(true)
+      }}>
+        <Activity className="mr-2 h-4 w-4" />
+        Move to Folder
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem 
+        className="text-red-600"
+        onClick={() => handleDeleteFile(doc.id, doc.name)}
+      >
+        <Trash2 className="mr-2 h-4 w-4" />
+        Delete
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+</td>
+</tr>
                 ))
               )}
             </tbody>
@@ -1186,6 +1258,49 @@ const fetchFolders = async () => {
                           <Eye className="h-4 w-4" />
                         </Button>
                       </td>
+                      <td className=" text-right">
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button variant="ghost" size="icon">
+        <MoreVertical className="h-4 w-4" />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" className="w-48 bg-white">
+      <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+        <Eye className="mr-2 h-4 w-4" />
+        View
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+        <Download className="mr-2 h-4 w-4" />
+        Download
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem onClick={() => {
+        setSelectedFile(doc)
+        setNewFilename(doc.name)
+        setShowRenameDialog(true)
+      }}>
+        <Edit className="mr-2 h-4 w-4" />
+        Rename
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => {
+        setSelectedFile(doc)
+        setShowMoveDialog(true)
+      }}>
+        <Activity className="mr-2 h-4 w-4" />
+        Move to Folder
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem 
+        className="text-red-600"
+        onClick={() => handleDeleteFile(doc.id, doc.name)}
+      >
+        <Trash2 className="mr-2 h-4 w-4" />
+        Delete
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1959,6 +2074,116 @@ const fetchFolders = async () => {
         </div>
       </div>
     )}
+  </DialogContent>
+</Dialog>
+{/* Members Dialog */}
+<Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
+  <DialogContent className="max-w-2xl bg-white scrollball-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 max-h-[80vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <Users className="h-5 w-5 text-purple-600" />
+        Space Members ({contacts.length})
+      </DialogTitle>
+      <DialogDescription>
+        People who have access to this space
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="space-y-3">
+      {contacts.length === 0 ? (
+        <div className="text-center py-12">
+          <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-600">No contacts added yet</p>
+          <Button 
+            onClick={() => {
+              setShowMembersDialog(false)
+              setShowAddContactDialog(true)
+            }}
+            className="mt-4"
+          >
+            Add First Contact
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* Owner */}
+          <div className="border rounded-lg p-4 bg-purple-50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-semibold">
+                  {user?.email?.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900">{user?.email}</p>
+                  <p className="text-sm text-slate-600">Space Owner</p>
+                </div>
+              </div>
+              <span className="bg-purple-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                Owner
+              </span>
+            </div>
+          </div>
+
+          {/* Contacts */}
+          {contacts.map((contact) => (
+            <div key={contact.id} className="border rounded-lg p-4 hover:bg-slate-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-semibold">
+                    {contact.email.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900">{contact.email}</p>
+                    <p className="text-sm text-slate-600">
+                      Added {new Date(contact.addedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                    contact.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                    contact.role === 'editor' ? 'bg-blue-100 text-blue-700' :
+                    'bg-slate-100 text-slate-700'
+                  }`}>
+                    {contact.role.charAt(0).toUpperCase() + contact.role.slice(1)}
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem>Change Role</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-red-600">
+                        Remove Access
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+
+    <div className="flex gap-2 justify-end pt-4 border-t">
+      <Button variant="outline" onClick={() => setShowMembersDialog(false)}>
+        Close
+      </Button>
+      <Button 
+        onClick={() => {
+          setShowMembersDialog(false)
+          setShowAddContactDialog(true)
+        }}
+        className="bg-gradient-to-r from-purple-600 to-blue-600"
+      >
+        <Plus className="h-4 w-4 mr-2" />
+        Add Contact
+      </Button>
+    </div>
   </DialogContent>
 </Dialog>
     </div>

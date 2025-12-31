@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { sendSpaceInvitation } from '@/lib/emailService';
 
 // GET: List all contacts in a space
 export async function GET(
@@ -24,10 +25,7 @@ export async function GET(
     // Check if user has access to this space
     const space = await db.collection('spaces').findOne({
       _id: new ObjectId(spaceId),
-      $or: [
-        { ownerId: user.id },
-        { 'members.userId': user.id }
-      ]
+      userId: user.id
     });
 
     if (!space) {
@@ -37,11 +35,11 @@ export async function GET(
       }, { status: 403 });
     }
 
-    // Get all members/contacts for this space
-    const members = space.members || [];
+// Get all members/contacts for this space
+const members = space.members || [];
 
-    // Format the response
-    const contacts = members.map((member: any) => ({
+// Format the response
+const contacts = members.map((member: any) => ({
       id: member.userId || member._id,
       email: member.email,
       role: member.role || 'viewer',
@@ -82,28 +80,17 @@ export async function POST(
 
     const db = await dbPromise;
 
-    // Check if user is owner or admin of this space
+    // ✅ FIXED: Check if user is owner using userId field
     const space = await db.collection('spaces').findOne({
-      _id: new ObjectId(spaceId)
+      _id: new ObjectId(spaceId),
+      userId: user.id  // ✅ Use userId (not ownerId)
     });
 
     if (!space) {
       return NextResponse.json({ 
         success: false,
-        error: 'Space not found' 
+        error: 'Space not found or access denied' 
       }, { status: 404 });
-    }
-
-    const isOwner = space.ownerId === user.id;
-    const isAdmin = space.members?.some(
-      (m: any) => m.userId === user.id && m.role === 'admin'
-    );
-
-    if (!isOwner && !isAdmin) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Only owners and admins can add contacts' 
-      }, { status: 403 });
     }
 
     // Get request body
@@ -121,6 +108,14 @@ export async function POST(
       return NextResponse.json({ 
         success: false,
         error: 'Invalid email format' 
+      }, { status: 400 });
+    }
+
+    // Validate role
+    if (role && !['viewer', 'editor', 'admin'].includes(role)) {
+      return NextResponse.json({ 
+        success: false,
+        error: 'Invalid role' 
       }, { status: 400 });
     }
 
