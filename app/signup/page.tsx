@@ -118,7 +118,18 @@ export default function OnboardingFlow() {
     )
   }
 
-
+// At the top of your OnboardingFlow component, add this useEffect:
+useEffect(() => {
+  // ✅ Check if there's a redirect parameter (from invitation)
+  const redirect = searchParams?.get('redirect');
+  if (redirect && redirect.includes('/invite/')) {
+    // Extract the token from the redirect URL
+    const token = redirect.split('/invite/')[1];
+    if (token) {
+      sessionStorage.setItem('pendingInvite', token);
+    }
+  }
+}, [searchParams]);
 
 // ...existing code...
   // If OAuth returns the user with ?step=2 (or any step), pick 
@@ -191,8 +202,10 @@ export default function OnboardingFlow() {
 
  const handleUseCaseNext = async () => {
   if (selectedUseCases.length === 0) return
+
   setSignupError(null)
   setLoading(true)
+
   try {
     const payload = {
       firstName: formData.firstName,
@@ -205,26 +218,51 @@ export default function OnboardingFlow() {
       industry: selectedIndustry,
       companySize: selectedCompanySize,
       useCases: selectedUseCases
-    };
+    }
 
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      credentials: 'include'
+      credentials: "include" // ✅ HTTP-only cookies
     })
-    
+
     const data = await res.json()
-    
+
     if (!res.ok) {
       setSignupError(data?.error || "Signup failed")
       setLoading(false)
       return
     }
 
-    // ✅ Wait a moment for cookie to propagate, then use window.location
-    await new Promise(resolve => setTimeout(resolve, 100));
-    window.location.href = "/dashboard"; // Use window.location instead of router.push
+    // Allow cookie/session to settle
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    /* ======================================================
+       ✅ Priority 1: Pending invitation
+    ====================================================== */
+    const pendingInvite = sessionStorage.getItem("pendingInvite")
+    if (pendingInvite) {
+      sessionStorage.removeItem("pendingInvite")
+      router.push(`/invite/${pendingInvite}`)
+      return
+    }
+
+    /* ======================================================
+       ✅ Priority 2: Redirect from query params
+    ====================================================== */
+    const searchParams = new URLSearchParams(window.location.search)
+    const redirect = searchParams.get("redirect")
+    if (redirect) {
+      router.push(redirect)
+      return
+    }
+
+    /* ======================================================
+       ✅ Priority 3: Default redirect
+    ====================================================== */
+    router.push("/spaces")
+
   } catch (err) {
     console.error("Signup request failed", err)
     setSignupError("Network error. Please try again.")
@@ -232,6 +270,7 @@ export default function OnboardingFlow() {
     setLoading(false)
   }
 }
+
   // Progress calculation
   const progress = (step / 4) * 100
 

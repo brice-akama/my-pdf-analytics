@@ -99,6 +99,7 @@ export default function SpacesPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false)
   const [selectedSpace, setSelectedSpace] = useState<SpaceType | null>(null)
+  const [memberSpaces, setMemberSpaces] = useState<any[]>([])
 
 
 
@@ -183,23 +184,32 @@ export default function SpacesPage() {
   }, [])
 
   const fetchSpaces = async () => {
-    try {
-      const res = await fetch("/api/spaces", {
-        credentials: 'include',
-      })
+  try {
+    const res = await fetch('/api/spaces', {
+      credentials: 'include',
+    })
 
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success) {
-          setSpaces(data.spaces)
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch spaces:", error)
-    } finally {
-      setLoading(false)
+    if (res.status === 401) {
+      router.push('/login')
+      return
     }
+
+    const data = await res.json()
+
+    if (data.success) {
+      // ✅ Separate owned spaces and member spaces
+      const owned = data.spaces.filter((s: any) => s.isOwner)
+      const member = data.spaces.filter((s: any) => !s.isOwner)
+      
+      setSpaces(owned)
+      setMemberSpaces(member) // You'll need to add this state
+    }
+  } catch (error) {
+    console.error('Failed to fetch spaces:', error)
+  } finally {
+    setLoading(false)
   }
+}
 
   // Create new space
   const handleCreateSpace = async () => {
@@ -304,7 +314,7 @@ const getInitial = (user: any) => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.push('/app')}
+                onClick={() => router.push('/dashboard')}
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
@@ -600,6 +610,58 @@ const getInitial = (user: any) => {
       </tbody>
     </table>
     
+    {/* Shared with You */}
+{memberSpaces.length > 0 && (
+  <div className="mt-12">
+    <h2 className="text-xl font-semibold text-slate-900 mb-4">
+      Shared with You
+    </h2>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {memberSpaces.map((space) => (
+        <div
+          key={space._id}
+          onClick={() => router.push(`/spaces/${space._id}`)}
+          className="bg-white rounded-xl border shadow-sm hover:shadow-xl transition-all cursor-pointer p-6"
+        >
+          <div className="flex items-start justify-between mb-4">
+            <div
+              className="h-12 w-12 rounded-xl flex items-center justify-center"
+              style={{ background: space.color || '#6366f1' }}
+            >
+              <FolderOpen className="h-6 w-6 text-white" />
+            </div>
+
+            <span className="text-xs font-semibold px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+              {space.role || 'Member'}
+            </span>
+          </div>
+
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">
+            {space.name}
+          </h3>
+
+          <p className="text-sm text-slate-600 mb-4 line-clamp-2">
+            {space.description}
+          </p>
+
+          <div className="flex items-center gap-4 text-sm text-slate-600">
+            <span className="flex items-center gap-1">
+              <FileText className="h-4 w-4" />
+              {space.documentsCount || 0}
+            </span>
+
+            <span className="flex items-center gap-1">
+              <Users className="h-4 w-4" />
+              {space.teamMembers || 0}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
     {/* Table Footer with Stats */}
     <div className="border-t bg-slate-50 px-6 py-3">
       <div className="flex items-center justify-between text-sm">

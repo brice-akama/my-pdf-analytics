@@ -377,7 +377,7 @@ const handleAddContact = async () => {
   setAddingContact(true);
 
   try {
-    const res = await fetch(`/api/spaces/${params.id}/contacts`, {  // ✅ CORRECT ENDPOINT
+    const res = await fetch(`/api/spaces/${params.id}/contacts`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -399,10 +399,14 @@ const handleAddContact = async () => {
       // ✅ Refresh contacts list
       await fetchContacts();
       
+      // ✅ Show popup with invitation link
+      setShareLink(data.invitationLink); // Store the link
+      setSharingStatus('success'); // Reuse existing dialog state
+      setShowShareDialog(true); // Show the share dialog
+      
       setContactEmail('');
       setContactRole('viewer');
       setShowAddContactDialog(false);
-      alert('Contact added successfully!');
     }
   } catch (error: any) {
     console.error('Failed to add contact:', error);
@@ -1940,6 +1944,18 @@ const fetchFolders = async () => {
       {/* Share with Client Dialog */}
 <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
   <DialogContent className="max-w-lg bg-white scrollball-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 max-h-[80vh] overflow-y-auto">
+   <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <Share2 className="h-5 w-5 text-purple-600" />
+        {shareLink.includes('/invite/') ? 'Invitation Sent!' : 'Share Space with Client'}
+      </DialogTitle>
+      <DialogDescription>
+        {shareLink.includes('/invite/') 
+          ? 'Share this invitation link with your contact'
+          : 'Generate a secure link to share this space with clients'
+        }
+      </DialogDescription>
+    </DialogHeader>
     <DialogHeader>
       <DialogTitle className="flex items-center gap-2">
         <Share2 className="h-5 w-5 text-purple-600" />
@@ -1965,10 +1981,16 @@ const fetchFolders = async () => {
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+           
             <div>
-              <p className="font-semibold text-green-900 mb-1">Share link created!</p>
+              <p className="font-semibold text-green-900 mb-1">
+                {shareLink.includes('/invite/') ? 'Invitation created!' : 'Share link created!'}
+              </p>
               <p className="text-sm text-green-700">
-                Send this link to your client. They can view all documents without logging in.
+                {shareLink.includes('/invite/')
+                  ? 'An email has been sent. You can also copy this link and send it manually.'
+                  : 'Send this link to your client. They can view all documents without logging in.'
+                }
               </p>
             </div>
           </div>
@@ -1977,7 +1999,7 @@ const fetchFolders = async () => {
         {/* Link Display */}
         <div className="space-y-3">
           <label className="text-sm font-medium text-slate-700 block">
-            Secure Share Link
+            {shareLink.includes('/invite/') ? 'Invitation Link' : 'Secure Share Link'}
           </label>
           <div className="flex gap-2">
             <Input
@@ -2028,16 +2050,28 @@ const fetchFolders = async () => {
             Done
           </Button>
           <Button
-            onClick={() => {
-              handleCopyLink()
-              // Optional: Open email client
-              window.location.href = `mailto:?subject=Documents shared with you&body=View the documents here: ${shareLink}`
-            }}
-            className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-          >
-            <Globe className="h-4 w-4" />
-            Copy & Email
-          </Button>
+              variant="outline"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                window.open(shareLink, '_blank');
+              }}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Open link in new tab
+            </Button>
+          <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => {
+                handleCopyLink();
+                window.location.href = `mailto:${shareLink.includes('/invite/') ? contactEmail : ''}?subject=You've been invited&body=Click here to access: ${shareLink}`;
+              }}
+            >
+              <Globe className="h-4 w-4 mr-2" />
+              Copy & open email
+            </Button>
         </div>
       </div>
     )}

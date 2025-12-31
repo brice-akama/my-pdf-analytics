@@ -36,7 +36,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         email: email.trim().toLowerCase(),
         password,
       }),
-      credentials: 'include' // ✅ Important: include cookies
+      credentials: 'include'
     });
 
     const data = await res.json();
@@ -46,8 +46,25 @@ const handleSubmit = async (e: React.FormEvent) => {
       return;
     }
 
-    // ✅ Token is already stored in HTTP-only cookie, just redirect
+    // ✅ Priority 1: Check for pending invitation first
+    const pendingInvite = sessionStorage.getItem('pendingInvite');
+    if (pendingInvite) {
+      sessionStorage.removeItem('pendingInvite');
+      router.push(`/invite/${pendingInvite}`); // ✅ Fixed syntax
+      return;
+    }
+
+    // ✅ Priority 2: Check for redirect URL from query params
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirect = searchParams.get('redirect');
+    if (redirect) {
+      router.push(redirect);
+      return;
+    }
+
+    // ✅ Priority 3: Default redirect to dashboard (for owners)
     router.push("/dashboard");
+    
   } catch (err) {
     console.error("Login error", err);
     setError("Network error. Please try again.");
