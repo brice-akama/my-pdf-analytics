@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
       template: template || null,
       color: color || '#8B5CF6',
       active: true,
+      status: 'active',
 
       // 👥 Members (KEEP OLD MODEL)
       members: [

@@ -95,7 +95,6 @@ export default function SpacesPage() {
   const [spaces, setSpaces] = useState<SpaceType[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [filterType, setFilterType] = useState<FilterType>('all')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false)
@@ -204,20 +203,23 @@ export default function SpacesPage() {
 
   // Create new space
   const handleCreateSpace = async () => {
-    if (!newSpace.name.trim()) {
-      alert('Please enter a space name')
-      return
-    }
+  if (!newSpace.name.trim()) {
+    alert('Please enter a space name')
+    return
+  }
 
-    try {
-      const res = await fetch("/api/spaces", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(newSpace),
-      })
+  try {
+    const res = await fetch("/api/spaces", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        ...newSpace,
+        status: 'active' //  Set default status
+      }),
+    })
 
       const data = await res.json()
 
@@ -371,22 +373,7 @@ const getInitial = (user: any) => {
                 Archived
               </Button>
               
-              <div className="ml-2 border-l pl-2 flex gap-1">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                  size="icon"
-                  onClick={() => setViewMode('grid')}
-                >
-                  <Grid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
-                  size="icon"
-                  onClick={() => setViewMode('list')}
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-              </div>
+              {/* Remove view toggle - always use table view */}
             </div>
           </div>
         </div>
@@ -423,224 +410,222 @@ const getInitial = (user: any) => {
         )}
 
         {/* Spaces Grid/List */}
-        {filteredSpaces.length > 0 && (
-          <div className={viewMode === 'grid' 
-            ? 'grid md:grid-cols-2 lg:grid-cols-3 gap-6' 
-            : 'space-y-4'
-          }>
-            {filteredSpaces.map((space) => (
-              <div
-                key={space._id}
-                className="bg-white rounded-xl border shadow-sm hover:shadow-lg transition-all overflow-hidden cursor-pointer group"
-                onClick={() => router.push(`/spaces/${space._id}`)}
-              >
-                {viewMode === 'grid' ? (
-  <>
-    {spaces.map((space) => (
-      <div
-        key={space._id}
-        className="group bg-white rounded-lg border border-slate-200 hover:border-slate-300 hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer relative"
-        onClick={() => router.push(`/spaces/${space._id}`)}
-      >
-        {/* Status Badge - Top Right */}
-        {space.status && (
-          <div className="absolute top-4 right-4 z-10">
-            <span className={`
-              px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm
-              ${space.status === 'active'
-                ? 'bg-green-100 text-green-700 border border-green-200'
-                : space.status === 'archived'
-                ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                : 'bg-amber-100 text-amber-700 border border-amber-200'
-              }
-            `}>
-              {formatStatus(space.status)}
-            </span>
-          </div>
-        )}
+       {/* Spaces Table - Professional View */}
+{filteredSpaces.length > 0 && (
+  <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <table className="w-full">
+      <thead className="bg-slate-50 border-b">
+        <tr>
+          <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider w-12">
+            <input type="checkbox" className="rounded" />
+          </th>
+          <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+            Name
+          </th>
+          <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+            Type
+          </th>
+          <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+            Documents
+          </th>
+          <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+            Members
+          </th>
+          <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+            Activity
+          </th>
+          <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+            Status
+          </th>
+          <th className="text-right px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+            Actions
+          </th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100">
+        {filteredSpaces.map((space) => (
+          <tr
+            key={space._id}
+            className="hover:bg-slate-50 transition-colors cursor-pointer group"
+            onClick={() => router.push(`/spaces/${space._id}`)}
+          >
+            {/* Checkbox */}
+            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+              <input type="checkbox" className="rounded" />
+            </td>
+            
+            {/* Name & Description */}
+            <td className="px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className={`
+                  h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm
+                  ${space.type === 'deal' ? 'bg-blue-100 text-blue-600' :
+                    space.type === 'fundraising' ? 'bg-green-100 text-green-600' :
+                    space.type === 'client' ? 'bg-cyan-100 text-cyan-600' :
+                    'bg-purple-100 text-purple-600'}
+                `}>
+                  {getSpaceIcon(space.type)}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-900 truncate group-hover:text-purple-600 transition-colors">
+                    {space.name}
+                  </p>
 
-        {/* Header Section with Icon */}
-        <div className="p-6 pb-4 border-b border-slate-100">
-          <div className="flex items-start gap-4">
-            {/* Icon with Type-based Color */}
-            <div className={`
-              h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0
-              ${space.type === 'deal' ? 'bg-blue-100 text-blue-600' :
-                space.type === 'fundraising' ? 'bg-green-100 text-green-600' :
-                space.type === 'client' ? 'bg-cyan-100 text-cyan-600' :
-                'bg-purple-100 text-purple-600'}
-            `}>
-              {getSpaceIcon(space.type)}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-slate-900 text-lg mb-1 line-clamp-1 group-hover:text-purple-600 transition-colors">
-                {space.name}
-              </h3>
-              <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
-                {space.description || 'No description'}
-              </p>
-            </div>
-
-            {/* Actions Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                </div>
+              </div>
+            </td>
+            
+            {/* Type */}
+            <td className="px-6 py-4">
+              <span className={`
+                inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+                ${space.type === 'deal' ? 'bg-blue-50 text-blue-700' :
+                  space.type === 'fundraising' ? 'bg-green-50 text-green-700' :
+                  space.type === 'client' ? 'bg-cyan-50 text-cyan-700' :
+                  'bg-purple-50 text-purple-700'}
+              `}>
+                {space.type === 'deal' ? 'Deal Room' :
+                 space.type === 'fundraising' ? 'Fundraising' :
+                 space.type === 'client' ? 'Client' :
+                 'Custom'}
+              </span>
+            </td>
+            
+            {/* Documents */}
+            <td className="px-6 py-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-slate-400" />
+                <span className="text-sm font-medium text-slate-900">
+                  {space.documentsCount || 0}
+                </span>
+                <span className="text-xs text-slate-500">files</span>
+              </div>
+            </td>
+            
+            {/* Members */}
+            <td className="px-6 py-4">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-slate-400" />
+                <span className="text-sm font-medium text-slate-900">
+                  {space.teamMembers || 0}
+                </span>
+                <span className="text-xs text-slate-500">members</span>
+              </div>
+            </td>
+            
+            {/* Activity */}
+            <td className="px-6 py-4">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                  <Eye className="h-3 w-3 text-slate-400" />
+                  <span className="font-medium">{space.viewsCount || 0}</span>
+                  <span className="text-slate-500">views</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <Clock className="h-3 w-3" />
+                  {formatTimeAgo(space.lastActivity || space.createdAt)}
+                </div>
+              </div>
+            </td>
+            
+            {/* Status */}
+            <td className="px-6 py-4">
+              <span className={`
+                inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+                ${space.status === 'active'
+                  ? 'bg-green-100 text-green-700'
+                  : space.status === 'archived'
+                  ? 'bg-slate-100 text-slate-700'
+                  : 'bg-amber-100 text-amber-700'}
+              `}>
+                {formatStatus(space.status)}
+              </span>
+            </td>
+            
+            {/* Actions */}
+            <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-end gap-2">
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                  size="sm"
+                  className="gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    router.push(`/spaces/${space._id}`)
+                  }}
                 >
-                  <MoreVertical className="h-4 w-4 text-slate-500" />
+                  <Eye className="h-4 w-4" />
+                  Open
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Analytics
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Share Access
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/spaces/${space._id}`)
+                      }}
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Open Space
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      View Analytics
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Share2 className="mr-2 h-4 w-4" />
+                      Share Access
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    
+    {/* Table Footer with Stats */}
+    <div className="border-t bg-slate-50 px-6 py-3">
+      <div className="flex items-center justify-between text-sm">
+        <p className="text-slate-600">
+          Showing <span className="font-medium text-slate-900">{filteredSpaces.length}</span> spaces
+        </p>
+        <div className="flex items-center gap-6 text-slate-600">
+          <span className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            <span className="font-medium">
+              {filteredSpaces.reduce((sum, s) => sum + (s.documentsCount || 0), 0)}
+            </span>
+            total documents
+          </span>
+          <span className="flex items-center gap-2">
+            <Eye className="h-4 w-4" />
+            <span className="font-medium">
+              {filteredSpaces.reduce((sum, s) => sum + (s.viewsCount || 0), 0)}
+            </span>
+            total views
+          </span>
         </div>
-
-        {/* Metrics Section */}
-        <div className="p-6 pb-4">
-          <div className="grid grid-cols-3 gap-4">
-            {/* Files */}
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-blue-50 mb-2">
-                <FileText className="h-5 w-5 text-blue-600" />
-              </div>
-              <div className="text-2xl font-bold text-slate-900">
-                {space.documentsCount || 0}
-              </div>
-              <div className="text-xs text-slate-500 font-medium">Documents</div>
-            </div>
-
-            {/* Views */}
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-purple-50 mb-2">
-                <Eye className="h-5 w-5 text-purple-600" />
-              </div>
-              <div className="text-2xl font-bold text-slate-900">
-                {space.viewsCount || 0}
-              </div>
-              <div className="text-xs text-slate-500 font-medium">Total Views</div>
-            </div>
-
-            {/* Members */}
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-green-50 mb-2">
-                <Users className="h-5 w-5 text-green-600" />
-              </div>
-              <div className="text-2xl font-bold text-slate-900">
-                {space.teamMembers || 0}
-              </div>
-              <div className="text-xs text-slate-500 font-medium">Members</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 pb-6 pt-4 border-t border-slate-100 bg-slate-50/50">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-slate-600">
-              <Clock className="h-3.5 w-3.5" />
-              <span className="font-medium">
-                Updated {formatTimeAgo(space.lastActivity || space.createdAt)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                <span className="text-xs font-bold text-white">
-                  {getInitial(space.owner)}
-                </span>
-              </div>
-              
-            </div>
-          </div>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white/90 to-transparent pt-12 pb-4 px-6 opacity-0 group-hover:opacity-100 transition-opacity">
-    <Button
-      className="w-full bg-white border border-slate-200 hover:bg-slate-50 shadow-sm"
-      onClick={(e) => {
-        e.stopPropagation(); // Prevent card click
-        router.push(`/spaces/${space._id}`);
-      }}
-    >
-      <Eye className="h-4 w-4 mr-2" />
-      View Details
-    </Button>
-  </div>
-
-        {/* Hover Effect Overlay */}
-        <div className="absolute inset-0 border-2 border-transparent group-hover:border-purple-500 rounded-lg pointer-events-none transition-colors" />
       </div>
-    ))}
-  </>
-) : (
- 
-
-                  // List View
-                  <div className="p-6 flex items-center gap-6">
-                    <div className={`h-16 w-16 rounded-xl bg-gradient-to-br ${space.color} flex items-center justify-center text-white flex-shrink-0`}>
-                      {getSpaceIcon(space.type)}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-slate-900 text-lg mb-1">
-                        {space.name}
-                      </h3>
-                      <p className="text-sm text-slate-600 line-clamp-1">
-                        {space.description}
-                      </p>
-                    </div>
-                    
-                    <div className="flex items-center gap-8 text-sm">
-                      <div className="text-center">
-                        <div className="font-bold text-slate-900">{space.documentsCount}</div>
-                        <div className="text-xs text-slate-500">Files</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-slate-900">{space.viewsCount}</div>
-                        <div className="text-xs text-slate-500">Views</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-bold text-slate-900">{space.teamMembers}</div>
-                        <div className="text-xs text-slate-500">Members</div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
-                        <Share2 className="h-4 w-4" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Analytics</DropdownMenuItem>
-                          <DropdownMenuItem>Settings</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+    </div>
+  </div>
+)}
       </div>
 
       {/* Templates Dialog */}

@@ -74,7 +74,7 @@ export default function SpaceDetailPage() {
   const router = useRouter()
   const [space, setSpace] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'home' | 'qa' | 'analytics' | 'audit'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'folders'  | 'qa' | 'analytics' | 'audit'>('home')
   const [folders, setFolders] = useState<FolderType[]>([])
   const [documents, setDocuments] = useState<DocumentType[]>([])
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
@@ -108,6 +108,7 @@ const [showShareDialog, setShowShareDialog] = useState(false)
 const [shareLink, setShareLink] = useState('')
 const [sharingStatus, setSharingStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle')
 const [shareError, setShareError] = useState('')
+
 
 
 
@@ -162,42 +163,29 @@ const handleCreateFolder = async () => {
   setCreatingFolder(true);
 
   try {
-    const res = await fetch('/api/folders', {
+    // ✅ CORRECT: Use space-specific route
+    const res = await fetch(`/api/spaces/${params.id}/folders`, {
       method: 'POST',
-      credentials: 'include', //   send http-only cookies
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        spaceId: params.id,
         name: newFolderName.trim(),
       }),
     });
 
     const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.message || 'Failed to create folder');
-    }
-
-    if (data.success) {
+    if (res.ok && data.success) {
+      // ✅ Refresh folders from database
       await fetchFolders();
-      // Add the new folder to the state
-      setFolders([
-        ...folders,
-        {
-          id: data.folder.id,
-          name: data.folder.name,
-          documentCount: 0,
-          lastUpdated: 'Just now',
-        },
-      ]);
-
+      
       setNewFolderName('');
       setShowCreateFolderDialog(false);
-
-      // Optional UX feedback
       alert('Folder created successfully!');
+    } else {
+      alert(data.error || 'Failed to create folder');
     }
   } catch (error) {
     console.error('Failed to create folder:', error);
@@ -808,456 +796,644 @@ const fetchFolders = async () => {
 
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Sidebar */}
-        <aside className="w-64 border-r bg-white/50 backdrop-blur overflow-y-auto">
-          <div className="p-4 space-y-1">
-            <button
-              onClick={() => {
-                setActiveTab('home')
-                setSelectedFolder(null)
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'home' && !selectedFolder
-                  ? 'bg-purple-50 text-purple-700'
-                  : 'text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <Home className="h-4 w-4" />
-              <span>Home</span>
-            </button>
+          
+<aside className="w-64 border-r bg-white/50 backdrop-blur overflow-y-auto">
+  <div className="p-4 space-y-1">
+    {/* Home */}
+    <button
+      onClick={() => {
+        setActiveTab('home')
+        setSelectedFolder(null)
+      }}
+      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+        activeTab === 'home' && !selectedFolder
+          ? 'bg-purple-50 text-purple-700'
+          : 'text-slate-700 hover:bg-slate-50'
+      }`}
+    >
+      <Home className="h-4 w-4" />
+      <span>Home</span>
+    </button>
 
-            <button
-              onClick={() => setActiveTab('qa')}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'qa'
-                  ? 'bg-purple-50 text-purple-700'
-                  : 'text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <Activity className="h-4 w-4" />
-              <span>Q&A</span>
-            </button>
+    {/* Analytics */}
+    <button
+      onClick={() => setActiveTab('analytics')}
+      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+        activeTab === 'analytics'
+          ? 'bg-purple-50 text-purple-700'
+          : 'text-slate-700 hover:bg-slate-50'
+      }`}
+    >
+      <BarChart3 className="h-4 w-4" />
+      <span>Analytics</span>
+    </button>
 
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'analytics'
-                  ? 'bg-purple-50 text-purple-700'
-                  : 'text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span>Analytics</span>
-            </button>
+    {/* Audit Log */}
+    <button
+      onClick={() => setActiveTab('audit')}
+      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+        activeTab === 'audit'
+          ? 'bg-purple-50 text-purple-700'
+          : 'text-slate-700 hover:bg-slate-50'
+      }`}
+    >
+      <FileText className="h-4 w-4" />
+      <span>Audit log</span>
+    </button>
+  </div>
 
-            <button
-              onClick={() => setActiveTab('audit')}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'audit'
-                  ? 'bg-purple-50 text-purple-700'
-                  : 'text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <FileText className="h-4 w-4" />
-              <span>Audit log</span>
-            </button>
+  {/* ✅ NEW: Folders Section */}
+  <div className="p-4 border-t">
+    <div className="flex items-center justify-between mb-3">
+      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        Folders
+      </h3>
+      <button
+        onClick={() => setShowCreateFolderDialog(true)}
+        className="h-6 w-6 rounded-md hover:bg-slate-200 flex items-center justify-center transition-colors"
+        title="Create new folder"
+      >
+        <Plus className="h-4 w-4 text-slate-600" />
+      </button>
+    </div>
+    
+    <div className="space-y-1">
+      {/* All Folders Button */}
+      <button
+        onClick={() => {
+          setActiveTab('folders')
+          setSelectedFolder(null)
+        }}
+        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+          activeTab === 'folders' && !selectedFolder
+            ? 'bg-purple-50 text-purple-700 font-medium'
+            : 'text-slate-700 hover:bg-slate-50'
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <FolderOpen className="h-4 w-4" />
+          <span>All Folders</span>
+        </div>
+        {folders.length > 0 && (
+          <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-medium">
+            {folders.length}
+          </span>
+        )}
+      </button>
+
+      {/* Show first 5 folders as quick access */}
+      {folders.slice(0, 5).map((folder) => (
+        <button
+          key={folder.id}
+          onClick={() => {
+            setSelectedFolder(folder.id)
+            setActiveTab('home')
+          }}
+          className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+            selectedFolder === folder.id
+              ? 'bg-purple-50 text-purple-700 font-medium'
+              : 'text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Folder className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">{folder.name}</span>
           </div>
+          {folder.documentCount > 0 && (
+            <span className="text-xs text-slate-500 flex-shrink-0">
+              {folder.documentCount}
+            </span>
+          )}
+        </button>
+      ))}
 
-          {/* Space Content Folders */}
-          <div className="p-4 border-t">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-semibold text-slate-500 uppercase">Space content</h3>
-            </div>
-            
-            <div className="space-y-1">
-              <button
-                onClick={() => setSelectedFolder(null)}
-                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  !selectedFolder && activeTab === 'home'
-                    ? 'bg-purple-50 text-purple-700 font-medium'
-                    : 'text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Home className="h-4 w-4" />
-                  <span>Home</span>
-                </div>
-              </button>
+      {/* "View All" if more than 5 folders */}
+      {folders.length > 5 && (
+        <button
+          onClick={() => {
+            setActiveTab('folders')
+            setSelectedFolder(null)
+          }}
+          className="w-full flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm text-purple-600 hover:bg-purple-50 transition-colors font-medium"
+        >
+          <span>View all {folders.length} folders</span>
+          <ChevronRight className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  </div>
 
-              {folders.map((folder) => (
-                <div
-                  key={folder.id}
-                  onClick={() => {
-                    setSelectedFolder(folder.id)
-                    setActiveTab('home')
-                  }}
-                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    selectedFolder === folder.id
-                      ? 'bg-purple-50 text-purple-700 font-medium'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Folder className="h-4 w-4" />
-                    <span>{folder.name}</span>
-                  </div>
-                  {folder.documentCount > 0 && (
-                    <span className="text-xs text-slate-500">{folder.documentCount}</span>
-                  )}
-                </div>
-              ))}
-
-              <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-slate-50 transition-colors">
-                <Trash2 className="h-4 w-4" />
-                <span>Trash</span>
-                <span className="ml-auto text-xs">(0)</span>
-              </button>
-            </div>
-          </div>
-        </aside>
+  {/* Trash */}
+  <div className="p-4 border-t">
+    <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-slate-50 transition-colors">
+      <Trash2 className="h-4 w-4" />
+      <span>Trash</span>
+      <span className="ml-auto text-xs">(0)</span>
+    </button>
+  </div>
+</aside>
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="p-8">
-            {activeTab === 'home' && (
-              <>
-                {/* Breadcrumb */}
-                <div className="flex items-center gap-2 text-sm text-slate-600 mb-6">
-                  <span className="font-medium text-slate-900">Home</span>
-                  {selectedFolder && (
-                    <>
-                      <ChevronRight className="h-4 w-4" />
-                      <span className="font-medium text-slate-900">
-                        {folders.find(f => f.id === selectedFolder)?.name}
-                      </span>
-                    </>
-                  )}
-                </div>
 
-                {!selectedFolder ? (
-                  <>
-                    {/* Folders Grid */}
-                    {folders.length > 0 && (
-                      <div className="mb-8">
-                        <div className="flex items-center justify-between mb-4">
-                          <h2 className="text-lg font-semibold text-slate-900">Folders</h2>
-                        </div>
-                        <div className="grid md:grid-cols-3 lg:grid-cols-4 gap-4">
-                          {folders.map((folder) => (
-                           <div
-  key={folder.id}
-  onClick={() => setSelectedFolder(folder.id)}
-  className="relative bg-gradient-to-br from-white to-slate-50 border border-slate-200 rounded-2xl p-6 hover:shadow-xl hover:border-purple-300 hover:-translate-y-1 transition-all duration-300 cursor-pointer group overflow-hidden"
->
-  {/* Decorative background element */}
-  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-100/30 to-blue-100/30 rounded-full blur-2xl -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
-  
-  <div className="relative z-10">
-    <div className="flex items-start justify-between mb-4">
-      <div className="relative">
-        <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-purple-200 group-hover:scale-110 transition-all duration-300">
-          <Folder className="h-7 w-7 text-white" />
-        </div>
-        {/* Document count badge */}
-        {folder.documentCount > 0 && (
-          <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-green-500 border-2 border-white flex items-center justify-center">
-            <span className="text-xs font-bold text-white">{folder.documentCount}</span>
-          </div>
-        )}
-      </div>
+             
+
+{activeTab === 'home' && (
+  <>
+    {/* Breadcrumb */}
+    <div className="flex items-center gap-2 text-sm text-slate-600 mb-6">
       
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button 
-            onClick={(e) => e.stopPropagation()}
-            className="h-9 w-9 inline-flex items-center justify-center rounded-lg hover:bg-white/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-200 border border-slate-200 bg-white"
+      {selectedFolder && (
+        <>
+          <ChevronRight className="h-4 w-4" />
+          <span className="font-medium text-slate-900">
+            {folders.find(f => f.id === selectedFolder)?.name}
+          </span>
+        </>
+      )}
+    </div>
+
+    {selectedFolder ? (
+      /* ✅ Folder View - Show documents in selected folder */
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-slate-900">
+            {folders.find(f => f.id === selectedFolder)?.name}
+          </h2>
+          <Button
+            onClick={() => setShowUploadDialog(true)}
+            className="gap-2 bg-slate-900 hover:bg-slate-800 text-white"
           >
-            <MoreVertical className="h-4 w-4 text-slate-600" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48 bg-white">
-          <DropdownMenuItem>
-            <Eye className="mr-2 h-4 w-4" />
-            Open Folder
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Edit className="mr-2 h-4 w-4" />
-            Rename
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Share2 className="mr-2 h-4 w-4" />
-            Share
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-red-600">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete Folder
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-    
-    <div className="space-y-2">
-      <h3 className="font-bold text-slate-900 text-lg leading-tight group-hover:text-purple-700 transition-colors">
-        {folder.name}
-      </h3>
-      
-      <div className="flex items-center gap-4 text-sm text-slate-600">
-        <span className="flex items-center gap-1.5">
-          <FileText className="h-4 w-4" />
-          {folder.documentCount} {folder.documentCount === 1 ? 'file' : 'files'}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Clock className="h-4 w-4" />
-          {folder.lastUpdated}
-        </span>
-      </div>
-    </div>
-    
-    {/* Progress indicator (optional - shows folder status) */}
-    <div className="mt-4 pt-4 border-t border-slate-200">
-      <div className="flex items-center justify-between text-xs text-slate-500">
-        <span>Storage</span>
-        <span className="font-medium">2.4 MB</span>
-      </div>
-      <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-        <div 
-          className="h-full bg-gradient-to-r from-purple-500 to-blue-600 rounded-full transition-all duration-500"
-          style={{ width: `${Math.min((folder.documentCount / 10) * 100, 100)}%` }}
-        ></div>
-      </div>
-    </div>
-  </div>
-</div>
-                          ))}
+            <Upload className="h-4 w-4 text-white" />
+            Upload to Folder
+          </Button>
+        </div>
+        
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b">
+              <tr>
+                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase w-12">
+                  <input type="checkbox" className="rounded" />
+                </th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Name</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Activity</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Type</th>
+                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Last updated</th>
+                <th className="text-right px-6 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {filteredDocuments.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <Folder className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-600 font-medium">This folder is empty</p>
+                    <p className="text-sm text-slate-500 mt-1">Upload documents to get started</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredDocuments.map((doc) => (
+                  <tr key={`folder-doc-${doc.id}`} className="hover:bg-slate-50">
+                    <td className="px-6 py-4">
+                      <input type="checkbox" className="rounded" />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-red-600" />
                         </div>
+                        <span className="font-medium text-slate-900">{doc.name}</span>
                       </div>
-                    )}
-
-                    {/* Documents Table */}
-                    {documents.filter(d => !d.folderId).length > 0 && (
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
-                        </div>
-                        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                          <table className="w-full">
-                            <thead className="bg-slate-50 border-b">
-                              <tr>
-                                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase w-12">
-                                  <input type="checkbox" className="rounded" />
-                                </th>
-                                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Name</th>
-                                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Activity</th>
-                                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Type</th>
-                                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Last updated</th>
-                                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Status</th>
-                                <th className="text-right px-6 py-3"></th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                              {documents.filter(d => !d.folderId).map((doc) => (
-                                <tr key={`doc-home-${doc.id}`} className="hover:bg-slate-50">
-                                  <td className="px-6 py-4">
-                                    <input type="checkbox" className="rounded" />
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <div className="flex items-center gap-3">
-                                      <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-                                        <FileText className="h-5 w-5 text-red-600" />
-                                      </div>
-                                      <span className="font-medium text-slate-900">{doc.name}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <div className="flex items-center gap-3 text-sm text-slate-600">
-                                      <span className="flex items-center gap-1">
-                                        <Eye className="h-3 w-3" />
-                                        {doc.views}
-                                      </span>
-                                      <span className="flex items-center gap-1">
-                                        <Download className="h-3 w-3" />
-                                        {doc.downloads}
-                                      </span>
-                                      <span className="flex items-center gap-1">
-                                        <Users className="h-3 w-3" />
-                                        0
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <span className="text-sm text-slate-600">{doc.type}</span>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <span className="text-sm text-slate-600">{doc.lastUpdated}</span>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                      <input type="checkbox" defaultChecked className="sr-only peer" />
-                                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                      <span className="ml-2 text-sm font-medium text-slate-700">Yes</span>
-                                    </label>
-                                  </td>
-                                  <td className="px-6 py-4 text-right">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon">
-                                          <MoreVertical className="h-4 w-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuItem key="view" onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-                                          <Eye className="mr-2 h-4 w-4" />
-                                          View
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem key="download" onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-                                          <Download className="mr-2 h-4 w-4" />
-                                          Download
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem key="rename" onClick={() => {
-                                          setSelectedFile(doc)
-                                          setNewFilename(doc.name)
-                                          setShowRenameDialog(true)
-                                        }}>
-                                          <Edit className="mr-2 h-4 w-4" />
-                                          Rename
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem key="move" onClick={() => {
-                                          setSelectedFile(doc)
-                                          setShowMoveDialog(true)
-                                        }}>
-                                          <Activity className="mr-2 h-4 w-4" />
-                                          Move
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem  key="delete"
-                                          className="text-red-600"
-                                          onClick={() => handleDeleteFile(doc.id, doc.name)}
-                                        >
-                                          <Trash2 className="mr-2 h-4 w-4" />
-                                          Delete
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3 text-sm text-slate-600">
+                        <span className="flex items-center gap-1">
+                          <Eye className="h-3 w-3" />
+                          {doc.views}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Download className="h-3 w-3" />
+                          {doc.downloads}
+                        </span>
                       </div>
-                    )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-slate-600">{doc.type}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-slate-600">{doc.lastUpdated}</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ) : (
+      /* ✅ Home View - Recent documents + Quick stats (NO FOLDER GRID!) */
+      <div>
+        {/* Quick Stats */}
+        <div className="grid grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-xl border p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                <FileText className="h-5 w-5 text-blue-600" />
+              </div>
+              <p className="text-2xl font-bold text-slate-900">{documents.length}</p>
+            </div>
+            <p className="text-sm text-slate-600">Total Documents</p>
+          </div>
+          
+          <div className="bg-white rounded-xl border p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                <Folder className="h-5 w-5 text-purple-600" />
+              </div>
+              <p className="text-2xl font-bold text-slate-900">{folders.length}</p>
+            </div>
+            <p className="text-sm text-slate-600">Folders</p>
+          </div>
+          
+          <div className="bg-white rounded-xl border p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <Eye className="h-5 w-5 text-green-600" />
+              </div>
+              <p className="text-2xl font-bold text-slate-900">
+                {documents.reduce((sum, d) => sum + d.views, 0)}
+              </p>
+            </div>
+            <p className="text-sm text-slate-600">Total Views</p>
+          </div>
+          
+          <div className="bg-white rounded-xl border p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                <Download className="h-5 w-5 text-orange-600" />
+              </div>
+              <p className="text-2xl font-bold text-slate-900">
+                {documents.reduce((sum, d) => sum + d.downloads, 0)}
+              </p>
+            </div>
+            <p className="text-sm text-slate-600">Downloads</p>
+          </div>
+        </div>
 
-                    {/* Empty State */}
-                    {folders.length === 0 && documents.length === 0 && (
-                      <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
-                        <Upload className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-slate-900 mb-2">No documents yet</h3>
-                        <p className="text-slate-600 mb-6">Upload documents to get started</p>
-                        <Button 
-                          onClick={() => setShowUploadDialog(true)}
-                          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+        {/* Recent Documents */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-900">Recent Documents</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setActiveTab('folders')}
+              className="gap-2"
+            >
+              <Folder className="h-4 w-4" />
+              View All Folders
+            </Button>
+          </div>
+          
+          {documents.length === 0 ? (
+            <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
+              <Upload className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-slate-900 mb-2">No documents yet</h3>
+              <p className="text-slate-600 mb-6">Upload documents to get started</p>
+              <Button 
+                onClick={() => setShowUploadDialog(true)}
+                className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              >
+                <Upload className="h-4 w-4" />
+                Upload Document
+              </Button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b">
+                  <tr>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Name</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Folder</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Activity</th>
+                    <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Last updated</th>
+                    <th className="text-right px-6 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {documents.slice(0, 10).map((doc) => (
+                    <tr key={`recent-${doc.id}`} className="hover:bg-slate-50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+                            <FileText className="h-5 w-5 text-red-600" />
+                          </div>
+                          <span className="font-medium text-slate-900">{doc.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {doc.folderId ? (
+                          <span className="text-sm text-slate-600 flex items-center gap-1">
+                            <Folder className="h-3 w-3" />
+                            {folders.find(f => f.id === doc.folderId)?.name || 'Unknown'}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-slate-400">No folder</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3 text-sm text-slate-600">
+                          <span className="flex items-center gap-1">
+                            <Eye className="h-3 w-3" />
+                            {doc.views}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Download className="h-3 w-3" />
+                            {doc.downloads}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-slate-600">{doc.lastUpdated}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}
                         >
-                          <Upload className="h-4 w-4" />
-                          Upload Document
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  /* Folder View */
-                  <div>
-                    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                      <table className="w-full">
-                        <thead className="bg-slate-50 border-b">
-                          <tr>
-                            <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase w-12">
-                              <input type="checkbox" className="rounded" />
-                            </th>
-                            <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Name</th>
-                            <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Activity</th>
-                            <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Type</th>
-                            <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Last updated</th>
-                            <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Status</th>
-                            <th className="text-right px-6 py-3"></th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {filteredDocuments.map((doc) => (
-                            <tr key={`filtered-${doc.id}`} className="hover:bg-slate-50">
-                              <td className="px-6 py-4">
-                                <input type="checkbox" className="rounded" />
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-                                    <FileText className="h-5 w-5 text-red-600" />
-                                  </div>
-                                  <span className="font-medium text-slate-900">{doc.name}</span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-3 text-sm text-slate-600">
-                                  <span className="flex items-center gap-1">
-                                    <Eye className="h-3 w-3" />
-                                    {doc.views}
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <Download className="h-3 w-3" />
-                                    {doc.downloads}
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    <Users className="h-3 w-3" />
-                                    0
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className="text-sm text-slate-600">{doc.type}</span>
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className="text-sm text-slate-600">{doc.lastUpdated}</span>
-                              </td>
-                              <td className="px-6 py-4">
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input type="checkbox" defaultChecked className="sr-only peer" />
-                                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                  <span className="ml-2 text-sm font-medium text-slate-700">Yes</span>
-                                </label>
-                              </td>
-                              <td className="px-6 py-4 text-right">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem key="view">
-                                      <Eye className="mr-2 h-4 w-4" />
-                                      View
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem key="download">
-                                      <Download className="mr-2 h-4 w-4" />
-                                      Download
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem key="delete" className="text-red-600">
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+  </>
+)}
+
+            {activeTab === 'folders' && (
+  <div>
+    {/* Header */}
+    <div className="flex items-center justify-between mb-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">All Folders</h2>
+        <p className="text-sm text-slate-600 mt-1">
+          {folders.length} {folders.length === 1 ? 'folder' : 'folders'} in this space
+        </p>
+      </div>
+      <Button
+        onClick={() => setShowCreateFolderDialog(true)}
+        className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+      >
+        <Plus className="h-4 w-4" />
+        New Folder
+      </Button>
+    </div>
+
+    {/* Empty State */}
+    {folders.length === 0 ? (
+      <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
+        <div className="h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+          <Folder className="h-10 w-10 text-slate-400" />
+        </div>
+        <h3 className="text-xl font-semibold text-slate-900 mb-2">No folders yet</h3>
+        <p className="text-slate-600 mb-6 max-w-md mx-auto">
+          Create folders to organize your documents and keep everything tidy
+        </p>
+        <Button
+          onClick={() => setShowCreateFolderDialog(true)}
+          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+        >
+          <Plus className="h-4 w-4" />
+          Create Your First Folder
+        </Button>
+      </div>
+    ) : (
+      /*   Professional Table View (Like Dropbox/Google Drive) */
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-slate-50 border-b">
+            <tr>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider w-12">
+                <input type="checkbox" className="rounded" />
+              </th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+                Name
+              </th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+                Items
+              </th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+                Last Modified
+              </th>
+              <th className="text-right px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {folders.map((folder) => (
+              <tr
+                key={folder.id}
+                className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                onClick={() => {
+                  setSelectedFolder(folder.id)
+                  setActiveTab('home')
+                }}
+              >
+                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" className="rounded" />
+                </td>
+                
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <Folder className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900 truncate group-hover:text-purple-600 transition-colors">
+                        {folder.name}
+                      </p>
+                      <p className="text-xs text-slate-500">Folder</p>
                     </div>
                   </div>
-                )}
-              </>
-            )}
+                </td>
+                
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-slate-400" />
+                    <span className="text-sm text-slate-700 font-medium">
+                      {folder.documentCount}
+                    </span>
+                    <span className="text-sm text-slate-500">
+                      {folder.documentCount === 1 ? 'file' : 'files'}
+                    </span>
+                  </div>
+                </td>
+                
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <Clock className="h-3.5 w-3.5 text-slate-400" />
+                    {folder.lastUpdated}
+                  </div>
+                </td>
+                
+                <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedFolder(folder.id)
+                        setActiveTab('home')
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                      Open
+                    </Button>
+                    
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedFolder(folder.id)
+                            setActiveTab('home')
+                          }}
+                        >
+                          <FolderOpen className="mr-2 h-4 w-4" />
+                          Open Folder
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // TODO: Add rename functionality
+                            alert('Rename coming soon!')
+                          }}
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // TODO: Add share functionality
+                            alert('Share coming soon!')
+                          }}
+                        >
+                          <Share2 className="mr-2 h-4 w-4" />
+                          Share
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (confirm(`Delete "${folder.name}"? This cannot be undone.`)) {
+                              // TODO: Add delete functionality
+                              alert('Delete coming soon!')
+                            }
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Folder
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+
+    {/* Folder Stats */}
+    {folders.length > 0 && (
+      <div className="grid grid-cols-3 gap-4 mt-6">
+        <div className="bg-white rounded-xl border p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <Folder className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">{folders.length}</p>
+              <p className="text-sm text-slate-600">Total Folders</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl border p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">
+                {folders.reduce((sum, f) => sum + f.documentCount, 0)}
+              </p>
+              <p className="text-sm text-slate-600">Files in Folders</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl border p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Activity className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-slate-900">
+                {folders.filter(f => f.documentCount > 0).length}
+              </p>
+              <p className="text-sm text-slate-600">Active Folders</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
             {activeTab === 'qa' && (
               <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
