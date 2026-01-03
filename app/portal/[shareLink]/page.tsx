@@ -399,10 +399,28 @@ export default function PortalPage() {
                             variant="outline"
                             size="sm"
                             className="gap-2"
-                            onClick={() => {
-  handleDocumentView(doc.id, doc.name)
-  window.open(`/api/portal/${shareLink}/documents/${doc.id}`, '_blank')
-}}
+                            onClick={async () => {
+    handleDocumentView(doc.id, doc.name)
+    
+    // Open window immediately (prevents pop-up blocking)
+    const newWindow = window.open('about:blank', '_blank')
+    
+    try {
+      const response = await fetch(`/api/portal/${shareLink}/documents/${doc.id}`)
+      if (!response.ok) throw new Error('View failed')
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      
+      // Load PDF into the already-opened window
+      if (newWindow) {
+        newWindow.location.href = url
+      }
+    } catch (err) {
+      console.error('View error:', err)
+      if (newWindow) newWindow.close()
+      alert('Failed to open document. Please try again.')
+    }
+  }}
                           >
                             <Eye className="h-4 w-4" />
                             View
@@ -411,10 +429,23 @@ export default function PortalPage() {
                             variant="outline"
                             size="sm"
                             className="gap-2"
-                            onClick={() => {
-   
-  const downloadUrl = `/api/portal/${shareLink}/documents/${doc.id}?download=true`;
-  window.open(downloadUrl, '_blank')
+                            onClick={async () => {
+  try {
+    const response = await fetch(`/api/portal/${shareLink}/documents/${doc.id}?download=true`)
+    if (!response.ok) throw new Error('Download failed')
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = doc.name
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  } catch (err) {
+    console.error('Download error:', err)
+    alert('Download failed. Please try again.')
+  }
 }}
                           >
                             <Download className="h-4 w-4" />
@@ -454,10 +485,28 @@ export default function PortalPage() {
                           variant="outline"
                           size="sm"
                           className="gap-2"
-                          onClick={() => {
-                            handleDocumentView(doc.id, doc.name)
-                            window.open(doc.cloudinaryPdfUrl, '_blank')
-                          }}
+                          onClick={async () => {
+    handleDocumentView(doc.id, doc.name)
+    
+    // Open window immediately (prevents pop-up blocking)
+    const newWindow = window.open('about:blank', '_blank')
+    
+    try {
+      const response = await fetch(`/api/portal/${shareLink}/documents/${doc.id}`)
+      if (!response.ok) throw new Error('View failed')
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      
+      // Load PDF into the already-opened window
+      if (newWindow) {
+        newWindow.location.href = url
+      }
+    } catch (err) {
+      console.error('View error:', err)
+      if (newWindow) newWindow.close()
+      alert('Failed to open document. Please try again.')
+    }
+  }}
                         >
                           <Eye className="h-4 w-4" />
                           View
@@ -466,7 +515,24 @@ export default function PortalPage() {
                           variant="outline"
                           size="sm"
                           className="gap-2"
-                          onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}
+                           onClick={async () => {
+  try {
+    const response = await fetch(`/api/portal/${shareLink}/documents/${doc.id}?download=true`)
+    if (!response.ok) throw new Error('Download failed')
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = doc.name
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  } catch (err) {
+    console.error('Download error:', err)
+    alert('Download failed. Please try again.')
+  }
+}}
                         >
                           <Download className="h-4 w-4" />
                           Download

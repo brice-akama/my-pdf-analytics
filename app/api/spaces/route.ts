@@ -7,32 +7,123 @@ import { verifyUserFromRequest } from '@/lib/auth';
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyUserFromRequest(request);
+    
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Unauthorized' 
+      }, { status: 401 });
     }
 
     const db = await dbPromise;
 
-    // ✅ KEEP OLD LOGIC
-    const spaces = await db.collection('spaces')
+    // ✅ Get spaces owned by user
+    const ownedSpaces = await db.collection('spaces')
       .find({ userId: user.id })
       .sort({ updatedAt: -1 })
       .toArray();
 
+    // ✅ Get spaces where user is a member
+    const memberSpaces = await db.collection('spaces')
+      .find({ 
+        'members.email': user.email,
+        userId: { $ne: user.id } // Exclude owned spaces
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    // Format owned spaces to match frontend expectations
+    const formattedOwned = ownedSpaces.map(space => ({
+      _id: space._id.toString(),
+      name: space.name,
+      description: space.description || '',
+      type: space.type || 'custom',
+      status: space.status || 'active',
+      template: space.template,
+      color: space.color || '#8B5CF6',
+      
+      // Owner info
+      owner: {
+        name: user.email,
+        email: user.email
+      },
+      
+      // Counters
+      documentsCount: space.documentsCount || 0,
+      teamMembers: space.teamMembers || space.members?.length || 1,
+      viewsCount: space.viewsCount || 0,
+      
+      // Timestamps
+      lastActivity: space.lastActivity || space.updatedAt || space.createdAt,
+      createdAt: space.createdAt,
+      
+      // Permissions (for owner, all are true)
+      permissions: {
+        canView: true,
+        canEdit: true,
+        canShare: true,
+        canDownload: true
+      },
+      
+      // Flags
+      isOwner: true,
+      role: 'owner'
+    }));
+
+    // Format member spaces
+    const formattedMember = memberSpaces.map(space => {
+      // Find user's role in this space
+      const member = space.members?.find((m: any) => m.email === user.email);
+      const role = member?.role || 'viewer';
+      
+      return {
+        _id: space._id.toString(),
+        name: space.name,
+        description: space.description || '',
+        type: space.type || 'custom',
+        status: space.status || 'active',
+        template: space.template,
+        color: space.color || '#8B5CF6',
+        
+        // Counters
+        documentsCount: space.documentsCount || 0,
+        teamMembers: space.teamMembers || space.members?.length || 1,
+        viewsCount: space.viewsCount || 0,
+        
+        // Timestamps
+        lastActivity: space.lastActivity || space.updatedAt || space.createdAt,
+        createdAt: space.createdAt,
+        
+        // Permissions based on role
+        permissions: {
+          canView: true,
+          canEdit: role === 'editor' || role === 'admin',
+          canShare: role === 'admin',
+          canDownload: space.settings?.allowDownloads !== false
+        },
+        
+        // Flags
+        isOwner: false,
+        role: role
+      };
+    });
+
+    // ✅ Combine both arrays
+    const allSpaces = [...formattedOwned, ...formattedMember];
+
+    console.log(`✅ Returning ${allSpaces.length} spaces (${formattedOwned.length} owned, ${formattedMember.length} member)`);
+
     return NextResponse.json({
       success: true,
-      spaces: spaces.map(space => ({
-        ...space,
-        _id: space._id.toString()
-      }))
+      spaces: allSpaces
     });
 
   } catch (error) {
-    console.error('Get spaces error:', error);
-    return NextResponse.json(
-      { error: 'Failed to get spaces' },
-      { status: 500 }
-    );
+    console.error('❌ Fetch spaces error:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Server error' 
+    }, { status: 500 });
   }
 }
 

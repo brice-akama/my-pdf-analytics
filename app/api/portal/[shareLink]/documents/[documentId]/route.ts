@@ -22,7 +22,11 @@ export async function GET(
     
     const { shareLink, documentId } = params;
     
-    console.log('🔍 Fetching document:', { shareLink, documentId });
+    // Check if this is a download request
+    const url = new URL(request.url);
+    const isDownload = url.searchParams.get('download') === 'true';
+    
+    console.log('🔍 Document request:', { shareLink, documentId, isDownload });
     
     const db = await dbPromise;
 
@@ -62,6 +66,14 @@ export async function GET(
     // Extract public_id from Cloudinary URL
     const fileUrl = document.cloudinaryPdfUrl;
     const urlParts = fileUrl.split('/upload/');
+    if (urlParts.length < 2) {
+      console.error('❌ Invalid Cloudinary URL format');
+      return NextResponse.json(
+        { success: false, message: "Invalid file URL" },
+        { status: 500 }
+      );
+    }
+    
     const afterUpload = urlParts[1];
     const pathParts = afterUpload.split('/');
     pathParts.shift(); // remove version
@@ -77,7 +89,7 @@ export async function GET(
       {
         resource_type: 'image',
         type: 'upload',
-        attachment: false, // inline for viewing
+        attachment: isDownload, // true for download, false for inline view
         expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour
       }
     );
@@ -87,34 +99,40 @@ export async function GET(
     // Fetch the file from Cloudinary
     const cloudinaryResponse = await fetch(downloadUrl);
     
-    console.log('📡 Response status:', cloudinaryResponse.status);
+    console.log('📡 Cloudinary response status:', cloudinaryResponse.status);
 
     if (!cloudinaryResponse.ok) {
-      console.error('❌ Private download failed');
+      console.error('❌ Cloudinary fetch failed:', cloudinaryResponse.status, cloudinaryResponse.statusText);
       return NextResponse.json({ 
         error: 'Failed to fetch file from Cloudinary',
         status: cloudinaryResponse.status,
+        details: cloudinaryResponse.statusText
       }, { status: 500 });
     }
 
     const arrayBuffer = await cloudinaryResponse.arrayBuffer();
     console.log('✅ File fetched:', arrayBuffer.byteLength, 'bytes');
 
-    // Log the view (don't await, let it run in background)
+    // Log the view/download (don't await, let it run in background)
     db.collection('document_views').insertOne({
       documentId: documentId,
       spaceId: space._id,
       shareLink: shareLink,
+      action: isDownload ? 'download' : 'view',
       timestamp: new Date(),
       userAgent: request.headers.get('user-agent'),
       ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
     }).catch(err => console.error('Failed to log view:', err));
 
     // Return the PDF file
+    const filename = document.originalFilename || document.filename || 'document.pdf';
+    
     return new NextResponse(arrayBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${document.originalFilename}"`,
+        'Content-Disposition': isDownload 
+          ? `attachment; filename="${filename}"`
+          : `inline; filename="${filename}"`,
         'Content-Length': arrayBuffer.byteLength.toString(),
         'Cache-Control': 'private, max-age=3600',
         'Access-Control-Allow-Origin': '*',
@@ -124,7 +142,7 @@ export async function GET(
   } catch (error) {
     console.error('❌ Error fetching document:', error);
     return NextResponse.json(
-      { success: false, message: "Server error" },
+      { success: false, message: "Server error", error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

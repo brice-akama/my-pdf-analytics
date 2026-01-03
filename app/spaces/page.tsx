@@ -1,3 +1,5 @@
+  //app/spaces/page.tsx
+  
   "use client"
 
 import { useState, useEffect } from "react"
@@ -61,6 +63,7 @@ import {
   Copy,
   ExternalLink
 } from "lucide-react"
+import Link from "next/link"
 
 type SpaceType = {
   _id: string
@@ -100,6 +103,8 @@ export default function SpacesPage() {
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false)
   const [selectedSpace, setSelectedSpace] = useState<SpaceType | null>(null)
   const [memberSpaces, setMemberSpaces] = useState<any[]>([])
+  const [creating, setCreating] = useState(false)
+   
 
 
 
@@ -218,6 +223,8 @@ export default function SpacesPage() {
     return
   }
 
+  setCreating(true)
+
   try {
     const res = await fetch("/api/spaces", {
       method: 'POST',
@@ -231,23 +238,25 @@ export default function SpacesPage() {
       }),
     })
 
-      const data = await res.json()
+    const data = await res.json()
 
-      if (res.ok && data.success) {
-        alert('Space created successfully!')
-        setShowCreateDialog(false)
-        setShowTemplatesDialog(false)
-        fetchSpaces()
-        // Navigate to the new space
-        router.push(`/spaces/${data.space._id}`)
-      } else {
-        alert(data.error || 'Failed to create space')
-      }
-    } catch (error) {
-      console.error('Create error:', error)
-      alert('Failed to create space. Please try again.')
+    if (res.ok && data.success) {
+      alert('Space created successfully!')
+      setShowCreateDialog(false)
+      setShowTemplatesDialog(false)
+      // Navigate to the new space (no immediate fetch to avoid racey updates)
+      router.push(`/spaces/${data.space._id}`)
+    } else {
+      alert(data.error || 'Failed to create space')
     }
+  } catch (error) {
+    console.error('Create error:', error)
+    alert('Failed to create space. Please try again.')
+  } finally {
+    setCreating(false)
   }
+}
+  
 
   // Filter spaces
   const filteredSpaces = spaces.filter(space => {
@@ -580,15 +589,17 @@ const getInitial = (user: any) => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        router.push(`/spaces/${space._id}`)
-                      }}
-                    >
-                      <Eye className="mr-2 h-4 w-4" />
-                      Open Space
-                    </DropdownMenuItem>
+                      <DropdownMenuItem
+  onClick={(e) => {
+    e.stopPropagation();
+    console.log("Navigating to space ID:", space._id); // Add this line
+    router.push(`/spaces/${space._id}`);
+  }}
+>
+  <Eye className="mr-2 h-4 w-4" />
+  Open Space
+</DropdownMenuItem>
+
                     <DropdownMenuItem>
                       <BarChart3 className="mr-2 h-4 w-4" />
                       View Analytics
@@ -927,9 +938,10 @@ newSpace.privacy === 'link'
         </Button>
         <Button
           onClick={handleCreateSpace}
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover\:from-purple-700 hover\:to-blue-700"
+          disabled={creating}
+          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
         >
-          Create Space
+          {creating ? 'Creating...' : 'Create Space'}
         </Button>
       </div>
     </DialogContent>

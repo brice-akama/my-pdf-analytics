@@ -1956,15 +1956,7 @@ const fetchFolders = async () => {
         }
       </DialogDescription>
     </DialogHeader>
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <Share2 className="h-5 w-5 text-purple-600" />
-        Share Space with Client
-      </DialogTitle>
-      <DialogDescription>
-        Generate a secure link to share this space with clients
-      </DialogDescription>
-    </DialogHeader>
+   
 
     {/* Generating State */}
     {sharingStatus === 'generating' && (
