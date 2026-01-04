@@ -600,18 +600,33 @@ const getInitial = (user: any) => {
   Open Space
 </DropdownMenuItem>
 
-                    <DropdownMenuItem>
-                      <BarChart3 className="mr-2 h-4 w-4" />
-                      View Analytics
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Share2 className="mr-2 h-4 w-4" />
-                      Share Access
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Settings className="mr-2 h-4 w-4" />
-                      Settings
-                    </DropdownMenuItem>
+                    <DropdownMenuItem
+  onClick={(e) => {
+    e.stopPropagation();
+    router.push(`/spaces/${space._id}?tab=analytics`);
+  }}
+>
+  <BarChart3 className="mr-2 h-4 w-4" />
+  View Analytics
+</DropdownMenuItem>
+                    <DropdownMenuItem
+  onClick={(e) => {
+    e.stopPropagation();
+    router.push(`/spaces/${space._id}?action=share`);
+  }}
+>
+  <Share2 className="mr-2 h-4 w-4" />
+  Share Access
+</DropdownMenuItem>
+                    <DropdownMenuItem
+  onClick={(e) => {
+    e.stopPropagation();
+    router.push(`/spaces/${space._id}?action=settings`);
+  }}
+>
+  <Settings className="mr-2 h-4 w-4" />
+  Settings
+</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

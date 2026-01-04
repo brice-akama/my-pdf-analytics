@@ -49,6 +49,45 @@ export async function GET(
       );
     }
 
+
+    //   NEW: Check if document belongs to a space
+    if (document.belongsToSpace && document.spaceId) {
+      // Verify user has access to this space
+      const space = await db.collection('spaces').findOne({
+        _id: new ObjectId(document.spaceId)
+      });
+
+      if (!space) {
+        return NextResponse.json(
+          { error: "Space not found" },
+          { status: 404 }
+        );
+      }
+
+      // Check if user is owner or member
+      const isOwner = space.userId === user.id;
+      const isMember = space.members?.some((m: any) => 
+        m.email === user.email || m.userId === user.id
+      );
+
+      if (!isOwner && !isMember) {
+        return NextResponse.json(
+          { error: "Access denied to this document" },
+          { status: 403 }
+        );
+      }
+
+      console.log("✅ Space document access granted");
+    } else {
+      // Personal document - check ownership
+      if (document.userId !== user.id) {
+        return NextResponse.json(
+          { error: "Access denied to this document" },
+          { status: 403 }
+        );
+      }
+    }
+
     // Return document
     return NextResponse.json({
       success: true,

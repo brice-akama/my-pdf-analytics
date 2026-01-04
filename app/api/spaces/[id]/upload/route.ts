@@ -100,51 +100,46 @@ export async function POST(
       members: spaceExists.members || []
     });
 
-    // ✅ Check user access - handle both ownerId and members array patterns
-    let hasAccess = false;
-    
-    // Check if user is the owner (if ownerId exists)
-    if (spaceExists.ownerId) {
-      const ownerIdStr = typeof spaceExists.ownerId === 'string' 
-        ? spaceExists.ownerId 
-        : spaceExists.ownerId.toString();
-      
-      if (ownerIdStr === user.id) {
-        hasAccess = true;
-        console.log('✅ Access granted: User is owner via ownerId');
-      }
-    }
-    
-    // Check if user is in members array (by email or userId)
-    if (!hasAccess && spaceExists.members && Array.isArray(spaceExists.members)) {
-      const userMember = spaceExists.members.find((member: any) => {
-        // Check by email
-        if (member.email && user.email && member.email === user.email) {
-          return true;
-        }
-        // Check by userId
-        if (member.userId && member.userId === user.id) {
-          return true;
-        }
-        return false;
-      });
-      
-      if (userMember) {
-        hasAccess = true;
-        console.log('✅ Access granted: User is member with role:', userMember.role);
-      }
-    }
+    //   Check user access AND role
+let hasAccess = false;
+let userRole = 'viewer';
 
-    if (!hasAccess) {
-      console.log('❌ User does not have access to this space');
-      console.log('   User ID:', user.id);
-      console.log('   User Email:', user.email);
-      console.log('   Space ownerId:', spaceExists.ownerId);
-      console.log('   Space members:', JSON.stringify(spaceExists.members, null, 2));
-      return NextResponse.json({ 
-        error: 'Access denied to this space' 
-      }, { status: 403 });
+//   Owner check
+if (spaceExists.userId === user.id) {
+  hasAccess = true;
+  userRole = 'owner';
+  console.log('Access granted: User is owner');
+} 
+//   Member check
+else if (spaceExists.members && Array.isArray(spaceExists.members)) {
+  const userMember = spaceExists.members.find((member: any) => 
+    member.email === user.email || member.userId === user.id
+  );
+
+  if (userMember) {
+    userRole = userMember.role || 'viewer';
+
+    //   Only editor, admin, owner can upload
+    if (['editor', 'admin', 'owner'].includes(userRole)) {
+      hasAccess = true;
+      console.log('Access granted: User is', userRole);
+    } else {
+      console.log('❌ Access denied: Viewer cannot upload');
+      return NextResponse.json(
+        { error: 'You do not have permission to upload files. Editor role required.' },
+        { status: 403 }
+      );
     }
+  }
+}
+
+if (!hasAccess) {
+  console.log('❌ User does not have access to this space');
+  return NextResponse.json(
+    { error: 'Access denied to this space' },
+    { status: 403 }
+  );
+}
 
     const space = spaceExists;
 

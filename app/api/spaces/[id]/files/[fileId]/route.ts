@@ -12,10 +12,12 @@ cloudinary.v2.config({
 });
 
 // ✅ HELPER: Check if user has permission in space
+// ✅ HELPER: Check if user has permission in space
 async function checkSpacePermission(
   db: any,
   spaceId: string,
   userId: string,
+  userEmail: string, // ✅ ADD email parameter
   requiredRole: 'viewer' | 'editor' | 'admin' | 'owner'
 ): Promise<{ allowed: boolean; space: any; userRole: string | null }> {
   const space = await db.collection('spaces').findOne({
@@ -26,13 +28,16 @@ async function checkSpacePermission(
     return { allowed: false, space: null, userRole: null };
   }
 
-  // Owner has all permissions
-  if (space.ownerId === userId) {
+  // ✅ Check if user is owner by userId
+  if (space.userId === userId) {
     return { allowed: true, space, userRole: 'owner' };
   }
 
-  // Check if user is a member
-  const member = space.members?.find((m: any) => m.userId === userId);
+  // ✅ Check if user is a member by email OR userId
+  const member = space.members?.find((m: any) => 
+    m.email === userEmail || m.userId === userId
+  );
+  
   if (!member) {
     return { allowed: false, space, userRole: null };
   }
@@ -98,7 +103,7 @@ export async function GET(
     const db = await dbPromise;
 
     // Check permission (viewer can view)
-    const { allowed, space } = await checkSpacePermission(db, spaceId, user.id, 'viewer');
+   const { allowed, space } = await checkSpacePermission(db, spaceId, user.id, user.email, 'viewer');
     if (!allowed) {
       return NextResponse.json({ 
         success: false,
@@ -183,7 +188,7 @@ export async function PATCH(
     const db = await dbPromise;
 
     // Check permission (editor required for modifications)
-    const { allowed, userRole } = await checkSpacePermission(db, spaceId, user.id, 'editor');
+    const { allowed } = await checkSpacePermission(db, spaceId, user.id, user.email, 'editor');
     if (!allowed) {
       return NextResponse.json({ 
         success: false,
@@ -377,7 +382,7 @@ export async function DELETE(
     const db = await dbPromise;
 
     // Check permission (editor required for deletion)
-    const { allowed, userRole } = await checkSpacePermission(db, spaceId, user.id, 'editor');
+    const { allowed, userRole } = await checkSpacePermission(db, spaceId, user.id, user.email, 'editor');
     if (!allowed) {
       return NextResponse.json({ 
         success: false,

@@ -21,6 +21,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
   ArrowLeft,
   Upload,
   FolderOpen,
@@ -47,8 +55,80 @@ import {
   Grid,
   List as ListIcon,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Archive
 } from "lucide-react"
+import { useSearchParams } from 'next/navigation'
+import { Switch } from "@radix-ui/react-switch"
+
+// Role Badge Component
+const RoleBadge = ({ role }: { role: string }) => {
+  const roleConfig = {
+    owner: {
+      bg: 'bg-purple-100',
+      text: 'text-purple-700',
+      border: 'border-purple-300',
+      icon: '👑',
+      label: 'Owner'
+    },
+    admin: {
+      bg: 'bg-blue-100',
+      text: 'text-blue-700',
+      border: 'border-blue-300',
+      icon: '⚡',
+      label: 'Admin'
+    },
+    editor: {
+      bg: 'bg-green-100',
+      text: 'text-green-700',
+      border: 'border-green-300',
+      icon: '✏️',
+      label: 'Editor'
+    },
+    viewer: {
+      bg: 'bg-slate-100',
+      text: 'text-slate-700',
+      border: 'border-slate-300',
+      icon: '👁️',
+      label: 'Viewer'
+    }
+  };
+
+  const config = roleConfig[role as keyof typeof roleConfig] || roleConfig.viewer;
+
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border ${config.bg} ${config.text} ${config.border} text-xs font-semibold`}>
+      <span>{config.icon}</span>
+      <span>{config.label}</span>
+    </div>
+  );
+};
+
+// Permission descriptions for tooltip
+const PermissionTooltip = ({ role }: { role: string }) => {
+  const permissions = {
+    owner: ['Full control', 'Manage members', 'Delete space', 'All editor permissions'],
+    admin: ['Manage members', 'Delete files/folders', 'All editor permissions'],
+    editor: ['Upload files', 'Create folders', 'Rename & move files', 'View & download'],
+    viewer: ['View documents', 'Download files', 'Read-only access']
+  };
+
+  const rolePermissions = permissions[role as keyof typeof permissions] || permissions.viewer;
+
+  return (
+    <div className="bg-slate-900 text-white text-xs rounded-lg p-3 shadow-lg max-w-xs">
+      <p className="font-semibold mb-2">Your permissions:</p>
+      <ul className="space-y-1">
+        {rolePermissions.map((permission, index) => (
+          <li key={index} className="flex items-center gap-2">
+            <span className="text-green-400">✓</span>
+            <span>{permission}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
 
 type FolderType = {
   id: string
@@ -118,10 +198,41 @@ const [contacts, setContacts] = useState<Array<{
 const [user, setUser] = useState<{ email: string } | null>(null)
 const [isOwner, setIsOwner] = useState(false)
 const [userRole, setUserRole] = useState<string>('viewer')
+const canUpload = ['owner', 'admin', 'editor'].includes(userRole);
+const canEdit = ['owner', 'admin', 'editor'].includes(userRole);
+const canDelete = ['owner', 'admin', 'editor'].includes(userRole);
+const canManageContacts = ['owner', 'admin'].includes(userRole);
+const canManageSpace = userRole === 'owner';
+const canCreateFolders = ['owner', 'admin', 'editor'].includes(userRole);
+const canShareSpace = ['owner', 'admin'].includes(userRole);
+const searchParams = useSearchParams();
+const [showSettingsDialog, setShowSettingsDialog] = useState(false)
+const [showSignatureDialog, setShowSignatureDialog] = useState(false)
+
+
+useEffect(() => {
+  const tabParam = searchParams.get('tab')
+  if (tabParam === 'analytics') {
+    setActiveTab('analytics')
+  }
+}, [searchParams])
 
 
 
-
+// Handle URL actions (share, settings)
+useEffect(() => {
+  const action = searchParams.get('action')
+  
+  if (action === 'share' && canShareSpace) {
+    // ✅ Automatically trigger share generation
+    handleShareWithClient()
+    // Clear the URL parameter after opening
+    router.replace(`/spaces/${params.id}`, { scroll: false })
+  } else if (action === 'settings' && canManageSpace) {
+    setShowSettingsDialog(true)
+    router.replace(`/spaces/${params.id}`, { scroll: false })
+  }
+}, [searchParams, canShareSpace, canManageSpace])
 
 
 
@@ -711,6 +822,9 @@ const fetchFolders = async () => {
     <FolderOpen className="h-4 w-4 text-white" />
   </div>
   <h1 className="text-base font-semibold text-slate-900">{space.name}</h1>
+  <div className="flex items-center gap-2 mt-0.5">
+            <RoleBadge role={userRole} />
+          </div>
 </div>
           </div>
 
@@ -814,13 +928,15 @@ const fetchFolders = async () => {
 
 
 
-            <Button 
-              onClick={() => setShowUploadDialog(true)}
-              className="gap-2 bg-slate-900 hover:bg-slate-800 text-white"
-            >
-              <Upload className="h-4 w-4" />
-              Upload
-            </Button>
+           {canUpload && (
+  <Button 
+    onClick={() => setShowUploadDialog(true)}
+    className="gap-2 bg-slate-900 hover:bg-slate-800 text-white"
+  >
+    <Upload className="h-4 w-4" />
+    Upload
+  </Button>
+)}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -829,28 +945,38 @@ const fetchFolders = async () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setShowCreateFolderDialog(true)}>
-    <Folder className="mr-2 h-4 w-4" />
-    Create Folder
-  </DropdownMenuItem>
-  <DropdownMenuItem onClick={() => setShowAddContactDialog(true)}>
-    <Users className="mr-2 h-4 w-4" />
-    Add Contact
-  </DropdownMenuItem>
-               <DropdownMenuItem onClick={handleShareWithClient}>
-  <Share2 className="mr-2 h-4 w-4" />
-  Share with Client
-</DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Space settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600">
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete space
-                </DropdownMenuItem>
-              </DropdownMenuContent>
+  {canCreateFolders && (
+    <DropdownMenuItem onClick={() => setShowCreateFolderDialog(true)}>
+      <Folder className="mr-2 h-4 w-4" />
+      Create Folder
+    </DropdownMenuItem>
+  )}
+  {canManageContacts && (
+    <DropdownMenuItem onClick={() => setShowAddContactDialog(true)}>
+      <Users className="mr-2 h-4 w-4" />
+      Add Contact
+    </DropdownMenuItem>
+  )}
+  {canShareSpace && (
+    <DropdownMenuItem onClick={handleShareWithClient}>
+      <Share2 className="mr-2 h-4 w-4" />
+      Share with Client
+    </DropdownMenuItem>
+  )}
+  {canManageSpace && (
+    <>
+      <DropdownMenuItem>
+        <Settings className="mr-2 h-4 w-4" />
+        Space settings
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem className="text-red-600">
+        <Trash2 className="mr-2 h-4 w-4" />
+        Delete space
+      </DropdownMenuItem>
+    </>
+  )}
+</DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
@@ -985,6 +1111,19 @@ const fetchFolders = async () => {
     </div>
   </div>
 
+  {/* Settings - Only for Owner/Admin */}
+{canManageSpace && (
+  <div className="p-4 border-t">
+    <button 
+      onClick={() => setShowSettingsDialog(true)}
+      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+    >
+      <Settings className="h-4 w-4" />
+      <span>Space Settings</span>
+    </button>
+  </div>
+)}
+
   {/* Trash */}
   <div className="p-4 border-t">
     <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-slate-50 transition-colors">
@@ -999,7 +1138,20 @@ const fetchFolders = async () => {
         <main className="flex-1 overflow-y-auto">
           <div className="p-8">
 
-             
+              
+{!canUpload && activeTab === 'home' && (
+  <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <div className="flex items-start gap-3">
+      <Eye className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+      <div>
+        <p className="font-semibold text-blue-900 mb-1">Viewer Mode</p>
+        <p className="text-sm text-blue-700">
+          You have read-only access to this space. You can view and download documents, but cannot upload, edit, or delete files.
+        </p>
+      </div>
+    </div>
+  </div>
+)}
 
 {activeTab === 'home' && (
   <>
@@ -1023,13 +1175,15 @@ const fetchFolders = async () => {
           <h2 className="text-lg font-semibold text-slate-900">
             {folders.find(f => f.id === selectedFolder)?.name}
           </h2>
-          <Button
-            onClick={() => setShowUploadDialog(true)}
-            className="gap-2 bg-slate-900 hover:bg-slate-800 text-white"
-          >
-            <Upload className="h-4 w-4 text-white" />
-            Upload to Folder
-          </Button>
+          {canUpload && (
+  <Button
+    onClick={() => setShowUploadDialog(true)}
+    className="gap-2 bg-slate-900 hover:bg-slate-800 text-white"
+  >
+    <Upload className="h-4 w-4 text-white" />
+    Upload to Folder
+  </Button>
+)}
         </div>
         
         <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
@@ -1092,14 +1246,34 @@ const fetchFolders = async () => {
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="w-48 bg-white">
-      <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-        <Eye className="mr-2 h-4 w-4" />
-        View
+  <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+    <Eye className="mr-2 h-4 w-4" />
+    View
+  </DropdownMenuItem>
+  <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+    <Download className="mr-2 h-4 w-4" />
+    Download
+  </DropdownMenuItem>
+
+  {/* ✅ NEW: Send for Signature */}
+  {canEdit && (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem 
+        onClick={() => {
+          setSelectedFile(doc)
+          setShowSignatureDialog(true)
+        }}
+        className="text-blue-600"
+      >
+        <Edit className="mr-2 h-4 w-4" />
+        Send for Signature
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-        <Download className="mr-2 h-4 w-4" />
-        Download
-      </DropdownMenuItem>
+    </>
+  )}
+  
+  {canEdit && (
+    <>
       <DropdownMenuSeparator />
       <DropdownMenuItem onClick={() => {
         setSelectedFile(doc)
@@ -1116,6 +1290,10 @@ const fetchFolders = async () => {
         <Activity className="mr-2 h-4 w-4" />
         Move to Folder
       </DropdownMenuItem>
+    </>
+  )}
+  {canDelete && (
+    <>
       <DropdownMenuSeparator />
       <DropdownMenuItem 
         className="text-red-600"
@@ -1124,7 +1302,9 @@ const fetchFolders = async () => {
         <Trash2 className="mr-2 h-4 w-4" />
         Delete
       </DropdownMenuItem>
-    </DropdownMenuContent>
+    </>
+  )}
+</DropdownMenuContent>
   </DropdownMenu>
 </td>
 </tr>
@@ -1277,14 +1457,34 @@ const fetchFolders = async () => {
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="w-48 bg-white">
-      <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-        <Eye className="mr-2 h-4 w-4" />
-        View
+  <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+    <Eye className="mr-2 h-4 w-4" />
+    View
+  </DropdownMenuItem>
+  <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+    <Download className="mr-2 h-4 w-4" />
+    Download
+  </DropdownMenuItem>
+  
+  {/*  NEW: Send for Signature */}
+  {canEdit && (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem 
+        onClick={() => {
+          setSelectedFile(doc)
+          setShowSignatureDialog(true)
+        }}
+        className="text-blue-600"
+      >
+        <Edit className="mr-2 h-4 w-4" />
+        Send for Signature
       </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-        <Download className="mr-2 h-4 w-4" />
-        Download
-      </DropdownMenuItem>
+    </>
+  )}
+  
+  {canEdit && (
+    <>
       <DropdownMenuSeparator />
       <DropdownMenuItem onClick={() => {
         setSelectedFile(doc)
@@ -1301,6 +1501,10 @@ const fetchFolders = async () => {
         <Activity className="mr-2 h-4 w-4" />
         Move to Folder
       </DropdownMenuItem>
+    </>
+  )}
+  {canDelete && (
+    <>
       <DropdownMenuSeparator />
       <DropdownMenuItem 
         className="text-red-600"
@@ -1309,7 +1513,9 @@ const fetchFolders = async () => {
         <Trash2 className="mr-2 h-4 w-4" />
         Delete
       </DropdownMenuItem>
-    </DropdownMenuContent>
+    </>
+  )}
+</DropdownMenuContent>
   </DropdownMenu>
 </td>
                     </tr>
@@ -1334,13 +1540,15 @@ const fetchFolders = async () => {
           {folders.length} {folders.length === 1 ? 'folder' : 'folders'} in this space
         </p>
       </div>
-      <Button
-        onClick={() => setShowCreateFolderDialog(true)}
-        className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-      >
-        <Plus className="h-4 w-4" />
-        New Folder
-      </Button>
+      {canCreateFolders && (
+  <Button
+    onClick={() => setShowCreateFolderDialog(true)}
+    className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+  >
+    <Plus className="h-4 w-4" />
+    New Folder
+  </Button>
+)}
     </div>
 
     {/* Empty State */}
@@ -2215,6 +2423,293 @@ const fetchFolders = async () => {
       >
         <Plus className="h-4 w-4 mr-2" />
         Add Contact
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Settings Dialog */}
+<Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
+  <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <Settings className="h-5 w-5 text-purple-600" />
+        Space Settings
+      </DialogTitle>
+      <DialogDescription>
+        Manage settings and preferences for "{space?.name}"
+      </DialogDescription>
+    </DialogHeader>
+
+    <Tabs defaultValue="general" className="w-full">
+      <TabsList className="grid w-full grid-cols-4">
+        <TabsTrigger value="general">General</TabsTrigger>
+        <TabsTrigger value="security">Security</TabsTrigger>
+        <TabsTrigger value="permissions">Permissions</TabsTrigger>
+        <TabsTrigger value="danger">Danger Zone</TabsTrigger>
+      </TabsList>
+
+      {/* General Settings */}
+      <TabsContent value="general" className="space-y-4 mt-4">
+        <div className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium text-slate-700">Space Name</Label>
+            <Input
+              defaultValue={space?.name}
+              placeholder="Enter space name"
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium text-slate-700">Description</Label>
+            <Textarea
+              defaultValue={space?.description}
+              placeholder="What is this space for?"
+              rows={3}
+              className="mt-2"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium text-slate-700">Space Color</Label>
+            <div className="flex gap-2 mt-2">
+              {['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'].map((color) => (
+                <button
+                  key={color}
+                  className="h-10 w-10 rounded-lg border-2 border-slate-200 hover:border-slate-400 transition-colors"
+                  style={{ backgroundColor: color }}
+                  onClick={() => {
+                    // TODO: Update space color
+                    console.log('Update color to:', color)
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-4">
+            <Button className="bg-purple-600 hover:bg-purple-700">
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      </TabsContent>
+
+      {/* Security Settings */}
+      <TabsContent value="security" className="space-y-4 mt-4">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <p className="font-medium text-slate-900">Require NDA</p>
+              <p className="text-sm text-slate-500">Visitors must sign NDA before accessing</p>
+            </div>
+            <Switch defaultChecked={space?.settings?.requireNDA} />
+          </div>
+
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <p className="font-medium text-slate-900">Dynamic Watermarks</p>
+              <p className="text-sm text-slate-500">Add viewer email to all documents</p>
+            </div>
+            <Switch defaultChecked={space?.settings?.enableWatermark} />
+          </div>
+
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <p className="font-medium text-slate-900">View Notifications</p>
+              <p className="text-sm text-slate-500">Get notified when someone views documents</p>
+            </div>
+            <Switch defaultChecked={space?.settings?.notifyOnView} />
+          </div>
+
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <p className="font-medium text-slate-900">Auto-Expire Access</p>
+              <p className="text-sm text-slate-500">Automatically revoke access after a date</p>
+            </div>
+            <Switch defaultChecked={space?.settings?.autoExpiry} />
+          </div>
+
+          {space?.settings?.autoExpiry && (
+            <div className="ml-4 space-y-2">
+              <Label>Expiry Date</Label>
+              <Input
+                type="date"
+                defaultValue={space?.settings?.expiryDate}
+              />
+            </div>
+          )}
+
+          <div className="pt-4">
+            <Button className="bg-purple-600 hover:bg-purple-700">
+              Update Security Settings
+            </Button>
+          </div>
+        </div>
+      </TabsContent>
+
+      {/* Permissions Settings */}
+      <TabsContent value="permissions" className="space-y-4 mt-4">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <p className="font-medium text-slate-900">Allow Downloads</p>
+              <p className="text-sm text-slate-500">Members can download documents</p>
+            </div>
+            <Switch defaultChecked={space?.settings?.allowDownloads} />
+          </div>
+
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-slate-700">Privacy Level</Label>
+            <div className="space-y-2">
+              <button className="w-full flex items-start gap-3 p-4 border border-purple-500 bg-purple-50 rounded-lg">
+                <Lock className="h-5 w-5 text-purple-700 mt-0.5" />
+                <div className="text-left">
+                  <div className="font-medium text-slate-900">Private</div>
+                  <div className="text-sm text-slate-600">Only invited people can access</div>
+                </div>
+              </button>
+
+              <button className="w-full flex items-start gap-3 p-4 border border-slate-200 hover:border-purple-300 rounded-lg">
+                <Globe className="h-5 w-5 text-slate-700 mt-0.5" />
+                <div className="text-left">
+                  <div className="font-medium text-slate-900">Link Access</div>
+                  <div className="text-sm text-slate-600">Anyone with the link can access</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-4">
+            <Button className="bg-purple-600 hover:bg-purple-700">
+              Update Permissions
+            </Button>
+          </div>
+        </div>
+      </TabsContent>
+
+      {/* Danger Zone */}
+      <TabsContent value="danger" className="space-y-4 mt-4">
+        <div className="space-y-4">
+          <div className="border border-red-200 bg-red-50 rounded-lg p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-semibold text-red-900 mb-1">Archive Space</h3>
+                <p className="text-sm text-red-700">
+                  Archive this space to hide it from active spaces. You can restore it later.
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+              <Archive className="h-4 w-4 mr-2" />
+              Archive Space
+            </Button>
+          </div>
+
+          <div className="border border-red-200 bg-red-50 rounded-lg p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-semibold text-red-900 mb-1">Delete Space</h3>
+                <p className="text-sm text-red-700 mb-2">
+                  Permanently delete this space and all its documents. This action cannot be undone.
+                </p>
+                <p className="text-xs text-red-600 font-medium">
+                  ⚠️ {documents.length} documents and {folders.length} folders will be deleted
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="destructive"
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (confirm(`Are you sure you want to delete "${space?.name}"? This cannot be undone!`)) {
+                  // TODO: Implement delete space
+                  console.log('Delete space:', space?._id)
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Space Permanently
+            </Button>
+          </div>
+        </div>
+      </TabsContent>
+    </Tabs>
+  </DialogContent>
+</Dialog>
+{/* Send for Signature Dialog */}
+<Dialog open={showSignatureDialog} onOpenChange={setShowSignatureDialog}>
+  <DialogContent className="max-w-md bg-white scrollball-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 max-h-[80vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <Edit className="h-5 w-5 text-blue-600" />
+        Send for Signature
+      </DialogTitle>
+      <DialogDescription>
+        Request signatures for "{selectedFile?.name}"
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="space-y-4 py-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+        <p className="text-sm text-blue-800">
+          <strong>📝 Note:</strong> Recipients will receive an email with a secure link to sign this document.
+        </p>
+      </div>
+
+      <div>
+        <Label className="text-sm font-medium text-slate-700">Signer Email(s)</Label>
+        <Input 
+          type="email"
+          placeholder="email@example.com"
+          className="mt-2"
+        />
+        <p className="text-xs text-slate-500 mt-1">
+          Separate multiple emails with commas
+        </p>
+      </div>
+      
+      <div>
+        <Label className="text-sm font-medium text-slate-700">Message (Optional)</Label>
+        <Textarea
+          placeholder="Please review and sign this document..."
+          rows={3}
+          className="mt-2"
+        />
+      </div>
+
+      <div>
+        <Label className="text-sm font-medium text-slate-700">Signature Type</Label>
+        <select className="w-full mt-2 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="simple">Simple E-Signature</option>
+          <option value="advanced">Advanced E-Signature (with ID verification)</option>
+        </select>
+      </div>
+    </div>
+    
+    <div className="flex gap-2 justify-end">
+      <Button 
+        variant="outline" 
+        onClick={() => {
+          setShowSignatureDialog(false)
+          setSelectedFile(null)
+        }}
+      >
+        Cancel
+      </Button>
+      <Button 
+        className="bg-blue-600 hover:bg-blue-700"
+        onClick={() => {
+          // TODO: Implement send for signature
+          console.log('Send for signature:', selectedFile)
+          alert('E-signature feature coming soon!')
+          setShowSignatureDialog(false)
+        }}
+      >
+        Send for Signature
       </Button>
     </div>
   </DialogContent>
