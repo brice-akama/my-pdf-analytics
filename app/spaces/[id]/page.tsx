@@ -116,6 +116,9 @@ const [contacts, setContacts] = useState<Array<{
   addedAt: string
 }>>([])
 const [user, setUser] = useState<{ email: string } | null>(null)
+const [isOwner, setIsOwner] = useState(false)
+const [userRole, setUserRole] = useState<string>('viewer')
+
 
 
 
@@ -486,7 +489,7 @@ const fetchCurrentUser = async () => {
 const fetchSpace = async () => {
   try {
     const res = await fetch(`/api/spaces/${params.id}`, {
-      credentials: 'include', // ✅
+      credentials: 'include',
     });
 
     if (res.status === 401) {
@@ -502,6 +505,9 @@ const fetchSpace = async () => {
 
     if (data.success) {
       setSpace(data.space);
+      setIsOwner(data.space.isOwner); // ✅ Capture from backend
+      setUserRole(data.space.role);    // ✅ Capture from backend
+      
       await fetchFolders();
       await fetchContacts();
 
@@ -509,7 +515,7 @@ const fetchSpace = async () => {
       const docsRes = await fetch(
         `/api/documents?spaceId=${params.id}`,
         {
-          credentials: 'include', // ✅
+          credentials: 'include',
         }
       );
 
@@ -518,10 +524,10 @@ const fetchSpace = async () => {
         console.log('🔍 API Response:', docsData); 
         if (docsData.success) {
           const validDocuments = Array.isArray(docsData.documents) 
-  ? docsData.documents.filter((doc: { id: any }) => doc && doc.id)
-  : [];
-console.log('Fetched documents:', validDocuments);
-setDocuments(validDocuments);
+            ? docsData.documents.filter((doc: { id: any }) => doc && doc.id)
+            : [];
+          console.log('Fetched documents:', validDocuments);
+          setDocuments(validDocuments);
 
           if (data.space.template) {
             initializeFolders(
@@ -531,7 +537,6 @@ setDocuments(validDocuments);
           }
         }
       } else {
-        // Still initialize folders if docs fail
         if (data.space.template) {
           initializeFolders(
             data.space.template,
@@ -688,13 +693,15 @@ const fetchFolders = async () => {
       <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
         <div className="flex items-center justify-between h-16 px-6">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push('/spaces')}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+            {isOwner && (
+  <Button
+    variant="ghost"
+    size="icon"
+    onClick={() => router.push('/spaces')}
+  >
+    <ArrowLeft className="h-5 w-5" />
+  </Button>
+)}
             
             <div className="flex items-center gap-3">
   <div 

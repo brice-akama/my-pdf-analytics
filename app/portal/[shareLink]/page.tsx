@@ -328,6 +328,7 @@ export default function PortalPage() {
         <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              
               {spaceData.branding.logoUrl ? (
                 <img src={spaceData.branding.logoUrl} alt="Logo" className="h-8" />
               ) : (
