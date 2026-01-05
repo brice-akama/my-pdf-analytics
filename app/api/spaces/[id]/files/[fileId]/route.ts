@@ -1,23 +1,15 @@
-//app/api/spaces/[id]/files/[fileId]/route.ts
+// app/api/spaces/[id]/files/[fileId]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
-import cloudinary from 'cloudinary';
 
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_SECRET_KEY,
-});
-
-// ✅ HELPER: Check if user has permission in space
 // ✅ HELPER: Check if user has permission in space
 async function checkSpacePermission(
   db: any,
   spaceId: string,
   userId: string,
-  userEmail: string, // ✅ ADD email parameter
+  userEmail: string,
   requiredRole: 'viewer' | 'editor' | 'admin' | 'owner'
 ): Promise<{ allowed: boolean; space: any; userRole: string | null }> {
   const space = await db.collection('spaces').findOne({
@@ -28,12 +20,12 @@ async function checkSpacePermission(
     return { allowed: false, space: null, userRole: null };
   }
 
-  // ✅ Check if user is owner by userId
+  // Check if user is owner
   if (space.userId === userId) {
     return { allowed: true, space, userRole: 'owner' };
   }
 
-  // ✅ Check if user is a member by email OR userId
+  // Check if user is a member
   const member = space.members?.find((m: any) => 
     m.email === userEmail || m.userId === userId
   );
@@ -42,7 +34,6 @@ async function checkSpacePermission(
     return { allowed: false, space, userRole: null };
   }
 
-  // Role hierarchy: owner > admin > editor > viewer
   const roleHierarchy: Record<string, number> = {
     owner: 4,
     admin: 3,
@@ -60,122 +51,17 @@ async function checkSpacePermission(
   };
 }
 
-// ✅ HELPER: Log activity for audit trail
-async function logSpaceActivity(
-  db: any,
-  spaceId: string,
-  userId: string,
-  action: string,
-  details: any
-) {
-  try {
-    await db.collection('space_activity_logs').insertOne({
-      spaceId,
-      userId,
-      action,
-      details,
-      timestamp: new Date(),
-      ipAddress: details.ipAddress || null,
-      userAgent: details.userAgent || null
-    });
-  } catch (error) {
-    console.error('Failed to log activity:', error);
-    // Don't throw - logging failure shouldn't break the operation
-  }
-}
-
-// ✅ GET: Get file details
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string; fileId: string }> }
-) {
-  try {
-    const { id: spaceId, fileId } = await params;
-    
-    const user = await verifyUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Unauthorized' 
-      }, { status: 401 });
-    }
-
-    const db = await dbPromise;
-
-    // Check permission (viewer can view)
-   const { allowed, space } = await checkSpacePermission(db, spaceId, user.id, user.email, 'viewer');
-    if (!allowed) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Access denied' 
-      }, { status: 403 });
-    }
-
-    // Get file
-    const spaceFile = await db.collection('space_files').findOne({
-      _id: new ObjectId(fileId),
-      spaceId: spaceId,
-      deleted: { $ne: true } // Don't show deleted files
-    });
-
-    if (!spaceFile) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'File not found' 
-      }, { status: 404 });
-    }
-
-    // Get document details
-    const document = await db.collection('documents').findOne({
-      _id: new ObjectId(spaceFile.documentId)
-    });
-
-    // Get folder name if in folder
-    let folderName = null;
-    if (spaceFile.folderId) {
-      const folder = await db.collection('space_folders').findOne({
-        _id: new ObjectId(spaceFile.folderId)
-      });
-      folderName = folder?.name || null;
-    }
-
-    return NextResponse.json({
-      success: true,
-      file: {
-        _id: spaceFile._id,
-        filename: spaceFile.filename,
-        size: spaceFile.size,
-        mimeType: spaceFile.mimeType,
-        numPages: spaceFile.numPages,
-        folderId: spaceFile.folderId,
-        folderName,
-        viewsInSpace: spaceFile.viewsInSpace,
-        downloadsInSpace: spaceFile.downloadsInSpace,
-        lastViewedInSpace: spaceFile.lastViewedInSpace,
-        addedBy: spaceFile.addedBy,
-        addedAt: spaceFile.addedAt,
-        cloudinaryPdfUrl: document?.cloudinaryPdfUrl,
-        cloudinaryOriginalUrl: document?.cloudinaryOriginalUrl,
-        analytics: document?.analytics
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Get file error:', error);
-    return NextResponse.json({ 
-      success: false,
-      error: 'Server error' 
-    }, { status: 500 });
-  }
-}
-
 // ✅ PATCH: Update file (rename, move, update metadata)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; fileId: string }> }
 ) {
   try {
-    const { id: spaceId, fileId } = await params;
+    const resolvedParams = await params;
+    const spaceId = resolvedParams.id;
+    const fileId = resolvedParams.fileId;
+    
+    console.log('🔍 PATCH request received:', { spaceId, fileId });
     
     const user = await verifyUserFromRequest(request);
     if (!user) {
@@ -187,8 +73,15 @@ export async function PATCH(
 
     const db = await dbPromise;
 
-    // Check permission (editor required for modifications)
-    const { allowed } = await checkSpacePermission(db, spaceId, user.id, user.email, 'editor');
+    // Check permission (editor required)
+    const { allowed } = await checkSpacePermission(
+      db, 
+      spaceId, 
+      user.id, 
+      user.email, 
+      'editor'
+    );
+    
     if (!allowed) {
       return NextResponse.json({ 
         success: false,
@@ -199,23 +92,37 @@ export async function PATCH(
     const body = await request.json();
     const { action, filename, folderId, metadata } = body;
 
-    // Get current file
-    const spaceFile = await db.collection('space_files').findOne({
+    console.log('📝 Action details:', { action, filename, folderId });
+
+    // ✅ Find file in documents collection
+    let document = await db.collection('documents').findOne({
       _id: new ObjectId(fileId),
-      spaceId: spaceId,
-      deleted: { $ne: true }
+      spaceId: spaceId
     });
 
-    if (!spaceFile) {
+    // Try with ObjectId spaceId
+    if (!document) {
+      document = await db.collection('documents').findOne({
+        _id: new ObjectId(fileId),
+        spaceId: new ObjectId(spaceId)
+      });
+    }
+
+    if (!document) {
+      console.error('❌ Document not found');
       return NextResponse.json({ 
         success: false,
-        error: 'File not found' 
+        error: 'Document not found'
       }, { status: 404 });
     }
 
+    console.log('✅ Document found:', {
+      filename: document.originalFilename,
+      currentFolder: document.folder
+    });
+
     const updates: any = {
-      updatedAt: new Date(),
-      updatedBy: user.id
+      updatedAt: new Date()
     };
 
     let activityMessage = '';
@@ -229,13 +136,12 @@ export async function PATCH(
         }, { status: 400 });
       }
 
-      // Check for duplicate filename in same folder
-      const duplicate = await db.collection('space_files').findOne({
-        spaceId,
-        folderId: spaceFile.folderId,
-        filename: filename.trim(),
-        _id: { $ne: new ObjectId(fileId) },
-        deleted: { $ne: true }
+      // Check for duplicate in same folder
+      const duplicate = await db.collection('documents').findOne({
+        spaceId: spaceId,
+        folder: document.folder,
+        originalFilename: filename.trim(),
+        _id: { $ne: new ObjectId(fileId) }
       });
 
       if (duplicate) {
@@ -245,25 +151,15 @@ export async function PATCH(
         }, { status: 400 });
       }
 
-      updates.filename = filename.trim();
-      
-      // Also update the main document record
-      await db.collection('documents').updateOne(
-        { _id: new ObjectId(spaceFile.documentId) },
-        { 
-          $set: { 
-            originalFilename: filename.trim(),
-            updatedAt: new Date()
-          } 
-        }
-      );
-
-      activityMessage = `Renamed file from "${spaceFile.filename}" to "${filename.trim()}"`;
+      updates.originalFilename = filename.trim();
+      activityMessage = `Renamed file from "${document.originalFilename}" to "${filename.trim()}"`;
     }
 
-    // ✅ MOVE FILE TO DIFFERENT FOLDER
+    // ✅ MOVE FILE TO FOLDER
     if (action === 'move' && folderId !== undefined) {
-      // Validate folder exists if not moving to root
+      console.log('🚀 Moving file to folder:', folderId);
+      
+      // Validate folder exists (if not moving to root)
       if (folderId !== null) {
         const targetFolder = await db.collection('space_folders').findOne({
           _id: new ObjectId(folderId),
@@ -271,19 +167,19 @@ export async function PATCH(
         });
 
         if (!targetFolder) {
+          console.error('❌ Target folder not found:', folderId);
           return NextResponse.json({ 
             success: false,
             error: 'Target folder not found' 
           }, { status: 404 });
         }
 
-        // Check for duplicate filename in target folder
-        const duplicate = await db.collection('space_files').findOne({
-          spaceId,
-          folderId: folderId,
-          filename: spaceFile.filename,
-          _id: { $ne: new ObjectId(fileId) },
-          deleted: { $ne: true }
+        // Check for duplicate in target folder
+        const duplicate = await db.collection('documents').findOne({
+          spaceId: spaceId,
+          folder: folderId,
+          originalFilename: document.originalFilename,
+          _id: { $ne: new ObjectId(fileId) }
         });
 
         if (duplicate) {
@@ -294,46 +190,68 @@ export async function PATCH(
         }
       }
 
-      const oldFolderName = spaceFile.folderId 
-        ? (await db.collection('space_folders').findOne({ _id: new ObjectId(spaceFile.folderId) }))?.name || 'Root'
+      // Get folder names for logging
+      const oldFolderName = document.folder 
+        ? (await db.collection('space_folders').findOne({ _id: new ObjectId(document.folder) }))?.name || 'Root'
         : 'Root';
       
       const newFolderName = folderId
         ? (await db.collection('space_folders').findOne({ _id: new ObjectId(folderId) }))?.name || 'Root'
         : 'Root';
 
-      updates.folderId = folderId;
+      updates.folder = folderId; // ✅ Use 'folder' not 'folderId'
       activityMessage = `Moved file from "${oldFolderName}" to "${newFolderName}"`;
+      
+      console.log('✅ Move prepared:', { oldFolderName, newFolderName });
     }
 
     // ✅ UPDATE METADATA
     if (action === 'updateMetadata' && metadata) {
       updates.metadata = {
-        ...spaceFile.metadata,
+        ...document.metadata,
         ...metadata
       };
       activityMessage = 'Updated file metadata';
     }
 
-    // Apply updates
-    const result = await db.collection('space_files').updateOne(
+    console.log('💾 Applying updates:', updates);
+
+    // ✅ Apply updates to documents collection
+    const result = await db.collection('documents').updateOne(
       { _id: new ObjectId(fileId) },
       { $set: updates }
     );
 
+    console.log('📊 Update result:', {
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount
+    });
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ 
+        success: false,
+        error: 'Document not found during update' 
+      }, { status: 404 });
+    }
+
     if (result.modifiedCount === 0) {
       return NextResponse.json({ 
         success: false,
-        error: 'No changes made' 
+        error: 'No changes made - document may already have these values' 
       }, { status: 400 });
     }
 
     // Log activity
-    await logSpaceActivity(db, spaceId, user.id, action || 'update_file', {
-      fileId,
-      filename: spaceFile.filename,
-      message: activityMessage,
-      changes: updates
+    await db.collection('analytics_logs').insertOne({
+      documentId: fileId,
+      spaceId: spaceId,
+      action: action || 'update_document',
+      userId: user.id,
+      details: {
+        message: activityMessage,
+        changes: updates
+      },
+      timestamp: new Date()
     });
 
     // Update space last activity
@@ -342,19 +260,19 @@ export async function PATCH(
       { $set: { lastActivity: new Date() } }
     );
 
-    console.log(`✅ File updated in space ${spaceId}: ${activityMessage}`);
+    console.log(`✅ Document updated successfully: ${activityMessage}`);
 
     return NextResponse.json({
       success: true,
-      message: activityMessage || 'File updated successfully',
-      file: {
-        ...spaceFile,
+      message: activityMessage || 'Document updated successfully',
+      document: {
+        ...document,
         ...updates
       }
     });
 
   } catch (error) {
-    console.error('❌ Update file error:', error);
+    console.error('❌ PATCH handler error:', error);
     return NextResponse.json({ 
       success: false,
       error: 'Server error',
@@ -363,13 +281,15 @@ export async function PATCH(
   }
 }
 
-// ✅ DELETE: Soft delete file
+// ✅ DELETE: Soft delete document
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; fileId: string }> }
 ) {
   try {
-    const { id: spaceId, fileId } = await params;
+    const resolvedParams = await params;
+    const spaceId = resolvedParams.id;
+    const fileId = resolvedParams.fileId;
     
     const user = await verifyUserFromRequest(request);
     if (!user) {
@@ -381,8 +301,15 @@ export async function DELETE(
 
     const db = await dbPromise;
 
-    // Check permission (editor required for deletion)
-    const { allowed, userRole } = await checkSpacePermission(db, spaceId, user.id, user.email, 'editor');
+    // Check permission
+    const { allowed, userRole } = await checkSpacePermission(
+      db, 
+      spaceId, 
+      user.id, 
+      user.email, 
+      'editor'
+    );
+    
     if (!allowed) {
       return NextResponse.json({ 
         success: false,
@@ -390,66 +317,42 @@ export async function DELETE(
       }, { status: 403 });
     }
 
-    // Get file
-    const spaceFile = await db.collection('space_files').findOne({
+    // Get document
+    let document = await db.collection('documents').findOne({
       _id: new ObjectId(fileId),
-      spaceId: spaceId,
-      deleted: { $ne: true }
+      spaceId: spaceId
     });
 
-    if (!spaceFile) {
+    if (!document) {
+      document = await db.collection('documents').findOne({
+        _id: new ObjectId(fileId),
+        spaceId: new ObjectId(spaceId)
+      });
+    }
+
+    if (!document) {
       return NextResponse.json({ 
         success: false,
-        error: 'File not found' 
+        error: 'Document not found' 
       }, { status: 404 });
     }
 
-    // Check query param for permanent deletion
     const { searchParams } = new URL(request.url);
     const permanent = searchParams.get('permanent') === 'true';
 
+    if (permanent && userRole !== 'owner' && userRole !== 'admin') {
+      return NextResponse.json({ 
+        success: false,
+        error: 'Only owners and admins can permanently delete files' 
+      }, { status: 403 });
+    }
+
     if (permanent) {
-      // ⚠️ PERMANENT DELETE - Only owners and admins
-      if (userRole !== 'owner' && userRole !== 'admin') {
-        return NextResponse.json({ 
-          success: false,
-          error: 'Only owners and admins can permanently delete files' 
-        }, { status: 403 });
-      }
-
-      // Delete from Cloudinary
-      try {
-        const document = await db.collection('documents').findOne({
-          _id: new ObjectId(spaceFile.documentId)
-        });
-
-        if (document?.cloudinaryOriginalUrl) {
-          const publicId = document.cloudinaryOriginalUrl.split('/').slice(-1)[0].split('.')[0];
-          await cloudinary.v2.uploader.destroy(publicId);
-        }
-
-        if (document?.cloudinaryPdfUrl) {
-          const publicId = document.cloudinaryPdfUrl.split('/').slice(-1)[0].split('.')[0];
-          await cloudinary.v2.uploader.destroy(publicId);
-        }
-      } catch (cloudinaryError) {
-        console.error('Cloudinary deletion failed:', cloudinaryError);
-        // Continue with database deletion even if Cloudinary fails
-      }
-
-      // Delete from space_files
-      await db.collection('space_files').deleteOne({
+      // Permanent delete
+      await db.collection('documents').deleteOne({
         _id: new ObjectId(fileId)
       });
 
-      // Delete main document if it only belonged to this space
-      await db.collection('documents').deleteOne({
-        _id: new ObjectId(spaceFile.documentId),
-        belongsToSpace: true,
-        spaceId: spaceId
-      });
-
-      // Update space document count
       await db.collection('spaces').updateOne(
         { _id: new ObjectId(spaceId) },
         { 
@@ -458,59 +361,136 @@ export async function DELETE(
         }
       );
 
-      await logSpaceActivity(db, spaceId, user.id, 'permanent_delete_file', {
-        fileId,
-        filename: spaceFile.filename
-      });
-
-      console.log(`✅ File permanently deleted from space ${spaceId}: ${spaceFile.filename}`);
-
       return NextResponse.json({
         success: true,
-        message: `File "${spaceFile.filename}" permanently deleted`
+        message: `Document "${document.originalFilename}" permanently deleted`
       });
-
     } else {
-      // ✅ SOFT DELETE - Recoverable
-      await db.collection('space_files').updateOne(
+      // Soft delete
+      await db.collection('documents').updateOne(
         { _id: new ObjectId(fileId) },
         { 
           $set: { 
-            deleted: true,
-            deletedAt: new Date(),
-            deletedBy: user.id
+            archived: true,
+            archivedAt: new Date(),
+            archivedBy: user.id
           } 
         }
       );
 
-      // Update space document count
-      await db.collection('spaces').updateOne(
-        { _id: new ObjectId(spaceId) },
-        { 
-          $inc: { documentsCount: -1 },
-          $set: { lastActivity: new Date() }
-        }
-      );
-
-      await logSpaceActivity(db, spaceId, user.id, 'soft_delete_file', {
-        fileId,
-        filename: spaceFile.filename
-      });
-
-      console.log(`✅ File soft deleted from space ${spaceId}: ${spaceFile.filename}`);
-
       return NextResponse.json({
         success: true,
-        message: `File "${spaceFile.filename}" moved to trash. Can be restored within 30 days.`
+        message: `Document "${document.originalFilename}" moved to trash`
       });
     }
 
   } catch (error) {
-    console.error('❌ Delete file error:', error);
+    console.error('❌ Delete error:', error);
     return NextResponse.json({ 
       success: false,
       error: 'Server error',
       details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+}
+
+// ✅ GET: Get file details
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; fileId: string }> }
+) {
+  try {
+    const resolvedParams = await params;
+    const spaceId = resolvedParams.id;
+    const fileId = resolvedParams.fileId;
+    
+    const user = await verifyUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json({ 
+        success: false,
+        error: 'Unauthorized' 
+      }, { status: 401 });
+    }
+
+    const db = await dbPromise;
+
+    // Check permission (viewer can view)
+    const { allowed } = await checkSpacePermission(
+      db, 
+      spaceId, 
+      user.id, 
+      user.email, 
+      'viewer'
+    );
+    
+    if (!allowed) {
+      return NextResponse.json({ 
+        success: false,
+        error: 'Access denied' 
+      }, { status: 403 });
+    }
+
+    // Get document from documents collection
+    let document = await db.collection('documents').findOne({
+      _id: new ObjectId(fileId),
+      spaceId: spaceId,
+      archived: { $ne: true }
+    });
+
+    // Try with ObjectId spaceId
+    if (!document) {
+      document = await db.collection('documents').findOne({
+        _id: new ObjectId(fileId),
+        spaceId: new ObjectId(spaceId),
+        archived: { $ne: true }
+      });
+    }
+
+    if (!document) {
+      return NextResponse.json({ 
+        success: false,
+        error: 'Document not found' 
+      }, { status: 404 });
+    }
+
+    // Get folder name if in folder
+    let folderName = null;
+    if (document.folder) {
+      const folder = await db.collection('space_folders').findOne({
+        _id: new ObjectId(document.folder)
+      });
+      folderName = folder?.name || null;
+    }
+
+    return NextResponse.json({
+      success: true,
+      file: {
+        _id: document._id,
+        filename: document.originalFilename,
+        originalFilename: document.originalFilename,
+        size: document.size,
+        mimeType: document.mimeType,
+        numPages: document.numPages,
+        folder: document.folder,
+        folderName,
+        cloudinaryPdfUrl: document.cloudinaryPdfUrl,
+        cloudinaryOriginalUrl: document.cloudinaryOriginalUrl,
+        tracking: {
+          views: document.tracking?.views || 0,
+          downloads: document.tracking?.downloads || 0,
+          lastViewed: document.tracking?.lastViewed || null
+        },
+        analytics: document.analytics || {},
+        createdAt: document.createdAt,
+        updatedAt: document.updatedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Get file error:', error);
+    return NextResponse.json({ 
+      success: false,
+      error: 'Server error' 
     }, { status: 500 });
   }
 }

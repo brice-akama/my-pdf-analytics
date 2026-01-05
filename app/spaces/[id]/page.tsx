@@ -146,6 +146,7 @@ type DocumentType = {
   downloads: number
   lastUpdated: string
   folderId: string | null
+  folder: string
   cloudinaryPdfUrl: string 
 }
 
@@ -216,6 +217,18 @@ useEffect(() => {
     setActiveTab('analytics')
   }
 }, [searchParams])
+
+
+// In /app/spaces/[id]/page.tsx
+useEffect(() => {
+  console.log('🔍 Current user role state:', {
+    userRole,
+    isOwner,
+    canUpload,
+    canEdit,
+    canDelete
+  });
+}, [userRole, isOwner]);
 
 
 
@@ -757,7 +770,7 @@ const fetchFolders = async () => {
   const filteredDocuments = searchQuery.trim() 
   ? searchResults.filter(doc => doc && doc.id)
   : selectedFolder
-    ? documents.filter(doc => doc && doc.id && doc.folderId === selectedFolder)
+    ? documents.filter(doc => doc && doc.id && doc.folderId && doc.folder === selectedFolder)
     : documents.filter(doc => doc && doc.id)
 
   if (loading) {
@@ -1368,15 +1381,29 @@ const fetchFolders = async () => {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-slate-900">Recent Documents</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setActiveTab('folders')}
-              className="gap-2"
-            >
-              <Folder className="h-4 w-4" />
-              View All Folders
-            </Button>
+           <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // Show only unfiled documents
+              setDocuments(documents.filter(d => !d.folder))
+            }}
+            className="gap-2"
+          >
+            <FileText className="h-4 w-4" />
+            Unfiled Only
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveTab('folders')}
+            className="gap-2"
+          >
+            <Folder className="h-4 w-4" />
+            View All Folders
+          </Button>
+        </div>
           </div>
           
           {documents.length === 0 ? (
@@ -1405,50 +1432,53 @@ const fetchFolders = async () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {documents.slice(0, 10).map((doc) => (
-                    <tr key={`recent-${doc.id}`} className="hover:bg-slate-50">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-                            <FileText className="h-5 w-5 text-red-600" />
-                          </div>
-                          <span className="font-medium text-slate-900">{doc.name}</span>
+                 {documents
+                .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
+                .slice(0, 10)
+                .map((doc) => (
+                  <tr key={`recent-${doc.id}`} className="hover:bg-slate-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-red-600" />
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {doc.folderId ? (
-                          <span className="text-sm text-slate-600 flex items-center gap-1">
-                            <Folder className="h-3 w-3" />
-                            {folders.find(f => f.id === doc.folderId)?.name || 'Unknown'}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-slate-400">No folder</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3 text-sm text-slate-600">
-                          <span className="flex items-center gap-1">
-                            <Eye className="h-3 w-3" />
-                            {doc.views}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Download className="h-3 w-3" />
-                            {doc.downloads}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-slate-600">{doc.lastUpdated}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}
+                        <span className="font-medium text-slate-900">{doc.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {doc.folder ? (
+                        <button
+                          onClick={() => {
+                            setSelectedFolder(doc.folder)
+                            setActiveTab('home')
+                          }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors text-sm text-blue-700"
                         >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </td>
+                          <Folder className="h-3 w-3" />
+                          <span>{folders.find(f => f.id === doc.folder)?.name || 'Unknown'}</span>
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-sm text-slate-600">
+                          <Home className="h-3 w-3" />
+                          <span>Unfiled</span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3 text-sm text-slate-600">
+                        <span className="flex items-center gap-1">
+                          <Eye className="h-3 w-3" />
+                          {doc.views}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Download className="h-3 w-3" />
+                          {doc.downloads}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-slate-600">{doc.lastUpdated}</span>
+                    </td>
                       <td className=" text-right">
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
@@ -2318,8 +2348,9 @@ const fetchFolders = async () => {
   </DialogContent>
 </Dialog>
 {/* Members Dialog */}
+ 
 <Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
-  <DialogContent className="max-w-2xl bg-white scrollball-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 max-h-[80vh] overflow-y-auto">
+  <DialogContent className="max-w-2xl bg-white max-h-[85vh] overflow-y-auto">
     <DialogHeader>
       <DialogTitle className="flex items-center gap-2">
         <Users className="h-5 w-5 text-purple-600" />
@@ -2335,19 +2366,10 @@ const fetchFolders = async () => {
         <div className="text-center py-12">
           <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
           <p className="text-slate-600">No contacts added yet</p>
-          <Button 
-            onClick={() => {
-              setShowMembersDialog(false)
-              setShowAddContactDialog(true)
-            }}
-            className="mt-4"
-          >
-            Add First Contact
-          </Button>
         </div>
       ) : (
         <>
-          {/* Owner */}
+          {/* Owner Section */}
           <div className="border rounded-lg p-4 bg-purple-50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -2360,52 +2382,48 @@ const fetchFolders = async () => {
                 </div>
               </div>
               <span className="bg-purple-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                Owner
+                👑 Owner
               </span>
             </div>
           </div>
 
-          {/* Contacts */}
-          {contacts.map((contact) => (
-            <div key={contact.id} className="border rounded-lg p-4 hover:bg-slate-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-semibold">
-                    {contact.email.charAt(0).toUpperCase()}
+          {/* All Contacts - TEST VERSION */}
+          {contacts.map((contact, index) => {
+            // ✅ Log each contact as we render it
+            console.log(`Rendering contact ${index}:`, contact);
+            
+            return (
+              <div key={contact.email} className="border rounded-lg p-4 hover:bg-slate-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-semibold">
+                      {contact.email.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900">{contact.email}</p>
+                      <p className="text-sm text-slate-600">
+                        Added {new Date(contact.addedAt).toLocaleDateString()}
+                      </p>
+                      {/* ✅ DEBUG INFO */}
+                      <p className="text-xs font-mono bg-slate-100 px-2 py-1 mt-1 rounded">
+                        role: "{contact.role}"
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-900">{contact.email}</p>
-                    <p className="text-sm text-slate-600">
-                      Added {new Date(contact.addedAt).toLocaleDateString()}
-                    </p>
+                  
+                  {/* ✅ Direct role display - no conditionals */}
+                  <div className="text-right">
+                    <div className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-100 text-blue-700 mb-1">
+                      {contact.role}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Index: {index}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                    contact.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                    contact.role === 'editor' ? 'bg-blue-100 text-blue-700' :
-                    'bg-slate-100 text-slate-700'
-                  }`}>
-                    {contact.role.charAt(0).toUpperCase() + contact.role.slice(1)}
-                  </span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Change Role</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-red-600">
-                        Remove Access
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </>
       )}
     </div>
@@ -2427,7 +2445,6 @@ const fetchFolders = async () => {
     </div>
   </DialogContent>
 </Dialog>
-
 {/* Settings Dialog */}
 <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
   <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white">
