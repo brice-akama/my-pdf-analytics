@@ -57,7 +57,14 @@ import {
   List as ListIcon,
   CheckCircle2,
   AlertCircle,
-  Archive
+  Archive,
+  Loader2,
+  ShieldCheck,
+  Key,
+  Mail,
+  X,
+  Calendar,
+  Copy
 } from "lucide-react"
 import { useSearchParams } from 'next/navigation'
 import { Switch } from "@radix-ui/react-switch"
@@ -212,6 +219,15 @@ const [showSettingsDialog, setShowSettingsDialog] = useState(false)
 const [showSignatureDialog, setShowSignatureDialog] = useState(false)
 const [showUnfiledOnly, setShowUnfiledOnly] = useState(false)
 const [allDocuments, setAllDocuments] = useState<DocumentType[]>([])
+const [securityLevel, setSecurityLevel] = useState<'open' | 'password' | 'whitelist'>('password')
+const [allowedEmails, setAllowedEmails] = useState<string[]>([])
+const [emailInput, setEmailInput] = useState('')
+const [allowedDomains, setAllowedDomains] = useState<string[]>([])
+const [domainInput, setDomainInput] = useState('')
+const [password, setPassword] = useState('')
+const [expiresAt, setExpiresAt] = useState('')
+const [viewLimit, setViewLimit] = useState('')
+const [showPassword, setShowPassword] = useState(false)
 
 
 useEffect(() => {
@@ -348,6 +364,22 @@ const handleCreateFolder = async () => {
     alert('Failed to create folder');
   } finally {
     setCreatingFolder(false);
+  }
+};
+
+// Add email to whitelist
+const handleAddEmail = () => {
+  if (emailInput.trim() && !allowedEmails.includes(emailInput.toLowerCase())) {
+    setAllowedEmails([...allowedEmails, emailInput.toLowerCase()]);
+    setEmailInput('');
+  }
+};
+
+// Add domain to whitelist
+const handleAddDomain = () => {
+  if (domainInput.trim() && !allowedDomains.includes(domainInput.toLowerCase())) {
+    setAllowedDomains([...allowedDomains, domainInput.toLowerCase()]);
+    setDomainInput('');
   }
 };
 
@@ -684,11 +716,28 @@ const fetchSpace = async () => {
 
 
 
-// ✅ NEW: Handle share with client
-const handleShareWithClient = async () => {
-  setSharingStatus('generating')
-  setShowShareDialog(true)
-  setShareError('')
+//  NEW: Handle share with client
+const handleShareWithClient = () => {
+  // ✅ Just open the dialog - no validation yet!
+  setShowShareDialog(true);
+  setSharingStatus('idle'); // Start in idle state
+  setShareError('');
+}
+
+const handleGenerateShareLink = async () => {
+  // ✅ NOW do validation when user clicks "Generate Share Link" button
+  if ((securityLevel === 'password' || securityLevel === 'whitelist') && !password) {
+    setShareError('Password is required for this security level');
+    return;
+  }
+
+  if (securityLevel === 'whitelist' && allowedEmails.length === 0 && allowedDomains.length === 0) {
+    setShareError('Add at least one email or domain for whitelist security');
+    return;
+  }
+
+  setSharingStatus('generating');
+  setShareError('');
   
   try {
     const res = await fetch(`/api/spaces/${params.id}/public-access`, {
@@ -696,24 +745,28 @@ const handleShareWithClient = async () => {
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        requireEmail: true,
-        requirePassword: false
+        securityLevel,
+        password: (securityLevel === 'password' || securityLevel === 'whitelist') ? password : undefined,
+        allowedEmails: securityLevel === 'whitelist' ? allowedEmails : [],
+        allowedDomains: securityLevel === 'whitelist' ? allowedDomains : [],
+        expiresAt: expiresAt || null,
+        viewLimit: viewLimit ? parseInt(viewLimit) : null
       })
-    })
+    });
     
-    const data = await res.json()
+    const data = await res.json();
     
     if (data.success) {
-      setShareLink(data.publicUrl)
-      setSharingStatus('success')
+      setShareLink(data.publicUrl);
+      setSharingStatus('success');
     } else {
-      setShareError(data.error || 'Failed to create share link')
-      setSharingStatus('error')
+      setShareError(data.error || 'Failed to create share link');
+      setSharingStatus('error');
     }
   } catch (error) {
-    console.error('Share error:', error)
-    setShareError('Failed to create share link. Please try again.')
-    setSharingStatus('error')
+    console.error('Share error:', error);
+    setShareError('Failed to create share link. Please try again.');
+    setSharingStatus('error');
   }
 }
 
@@ -2285,57 +2338,301 @@ const fetchFolders = async () => {
         </DialogContent>
       </Dialog>
       {/* Share with Client Dialog */}
+{/* Share with Client Dialog */}
 <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-  <DialogContent className="max-w-lg bg-white scrollball-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 max-h-[80vh] overflow-y-auto">
-   <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
+  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2 text-xl">
         <Share2 className="h-5 w-5 text-purple-600" />
-        {shareLink.includes('/invite/') ? 'Invitation Sent!' : 'Share Space with Client'}
+        Share Space with Client
       </DialogTitle>
       <DialogDescription>
-        {shareLink.includes('/invite/') 
-          ? 'Share this invitation link with your contact'
-          : 'Generate a secure link to share this space with clients'
-        }
+        Choose security level and generate a secure share link
       </DialogDescription>
     </DialogHeader>
-   
 
     {/* Generating State */}
     {sharingStatus === 'generating' && (
       <div className="text-center py-12">
-        <div className="animate-spin h-12 w-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
         <p className="text-slate-900 font-semibold">Generating secure link...</p>
-        <p className="text-sm text-slate-500 mt-2">This will only take a moment</p>
       </div>
     )}
 
+    {/* Configuration Form (idle state) */}
+    {sharingStatus === 'idle' && (
+      <div className="space-y-6 py-4">
+        {/* Security Level Selector */}
+        <div>
+          <Label className="text-sm font-semibold text-slate-900 mb-3 block">
+            Security Level
+          </Label>
+          <div className="grid grid-cols-3 gap-3">
+            {/* Open Level */}
+            <button
+              onClick={() => setSecurityLevel('open')}
+              className={`p-4 border-2 rounded-lg text-left transition-all ${
+                securityLevel === 'open'
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-slate-200 hover:border-purple-300'
+              }`}
+            >
+              <Globe className="h-5 w-5 text-slate-700 mb-2" />
+              <div className="font-semibold text-slate-900 text-sm">Open</div>
+              <div className="text-xs text-slate-600 mt-1">Email only</div>
+            </button>
+
+            {/* Password Level */}
+            <button
+              onClick={() => setSecurityLevel('password')}
+              className={`p-4 border-2 rounded-lg text-left transition-all ${
+                securityLevel === 'password'
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-slate-200 hover:border-purple-300'
+              }`}
+            >
+              <Lock className="h-5 w-5 text-slate-700 mb-2" />
+              <div className="font-semibold text-slate-900 text-sm">Password</div>
+              <div className="text-xs text-slate-600 mt-1">Email + Password</div>
+            </button>
+
+            {/* Whitelist Level */}
+            <button
+              onClick={() => setSecurityLevel('whitelist')}
+              className={`p-4 border-2 rounded-lg text-left transition-all ${
+                securityLevel === 'whitelist'
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-slate-200 hover:border-purple-300'
+              }`}
+            >
+              <ShieldCheck className="h-5 w-5 text-slate-700 mb-2" />
+              <div className="font-semibold text-slate-900 text-sm">Whitelist</div>
+              <div className="text-xs text-slate-600 mt-1">Specific emails only</div>
+            </button>
+          </div>
+        </div>
+
+        {/* Password Field (for password and whitelist levels) */}
+        {(securityLevel === 'password' || securityLevel === 'whitelist') && (
+          <div>
+  <Label className="text-sm font-medium text-slate-700 mb-2 block">
+    <Key className="inline h-4 w-4 mr-1" />
+    Password *
+  </Label>
+  <div className="relative">
+    <Input
+      type={showPassword ? "text" : "password"}
+      placeholder="Enter a secure password"
+      value={password}
+      onChange={(e) => setPassword(e.target.value)}
+      className="font-mono pr-10"
+    />
+    <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+    >
+      {showPassword ? (
+        <Eye className="h-4 w-4" />
+      ) : (
+        <Lock className="h-4 w-4" />
+      )}
+    </button>
+  </div>
+  <p className="text-xs text-slate-500 mt-1">
+    Visitors will need this password to access documents
+  </p>
+</div>
+        )}
+
+        {/* Whitelist Settings (only for whitelist level) */}
+        {securityLevel === 'whitelist' && (
+          <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div>
+              <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                <Mail className="inline h-4 w-4 mr-1" />
+                Allowed Emails
+              </Label>
+              <div className="flex gap-2 mb-2">
+  <Input
+    type="email"
+    placeholder="john@client.com"
+    value={emailInput}
+    onChange={(e) => setEmailInput(e.target.value)}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault(); // ✅ Prevent form submission
+        handleAddEmail();
+      }
+    }}
+  />
+  <Button
+    type="button"
+    onClick={(e) => {
+      e.preventDefault(); // ✅ Prevent form submission
+      handleAddEmail();
+    }}
+    variant="outline"
+    size="sm"
+    disabled={!emailInput.trim()}
+  >
+    <Plus className="h-4 w-4" />
+  </Button>
+</div>
+              {allowedEmails.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {allowedEmails.map((email) => (
+                    <span
+                      key={email}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-white border rounded-full text-sm"
+                    >
+                      {email}
+                      <button
+                        onClick={() => setAllowedEmails(allowedEmails.filter(e => e !== email))}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                Allowed Domains (Optional)
+              </Label>
+              <div className="flex gap-2 mb-2">
+                <Input
+                  placeholder="client.com"
+                  value={domainInput}
+                  onChange={(e) => setDomainInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddDomain()}
+                />
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (domainInput.trim() && !allowedDomains.includes(domainInput.toLowerCase())) {
+                      setAllowedDomains([...allowedDomains, domainInput.toLowerCase()])
+                      setDomainInput('')
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {allowedDomains.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {allowedDomains.map((domain) => (
+                    <span
+                      key={domain}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-white border rounded-full text-sm"
+                    >
+                      @{domain}
+                      <button
+                        onClick={() => setAllowedDomains(allowedDomains.filter(d => d !== domain))}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-slate-500 mt-2">
+                Anyone with email @domain.com can access
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Expiration Date */}
+        <div>
+          <Label className="text-sm font-medium text-slate-700 mb-2 block">
+            <Calendar className="inline h-4 w-4 mr-1" />
+            Expiration Date (Optional)
+          </Label>
+          <Input
+            type="datetime-local"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Link will automatically expire after this date
+          </p>
+        </div>
+
+        {/* View Limit */}
+        <div>
+          <Label className="text-sm font-medium text-slate-700 mb-2 block">
+            <Eye className="inline h-4 w-4 mr-1" />
+            View Limit (Optional)
+          </Label>
+          <Input
+            type="number"
+            placeholder="e.g., 100"
+            value={viewLimit}
+            onChange={(e) => setViewLimit(e.target.value)}
+            min="1"
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Maximum number of times this link can be accessed
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 justify-end pt-4 border-t">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowShareDialog(false)
+              setSharingStatus('idle')
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+           onClick={handleGenerateShareLink}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          >
+            Generate Share Link
+          </Button>
+        </div>
+      </div>
+    )}
+
+    {/* Error Message Display */}
+{shareError && sharingStatus === 'idle' && (
+  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+    <div className="flex items-start gap-2">
+      <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+      <p className="text-sm text-red-800">{shareError}</p>
+    </div>
+  </div>
+)}
+
     {/* Success State */}
     {sharingStatus === 'success' && (
-      <div className="py-4">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+      <div className="py-4 space-y-4">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-           
+            <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
             <div>
-              <p className="font-semibold text-green-900 mb-1">
-                {shareLink.includes('/invite/') ? 'Invitation created!' : 'Share link created!'}
-              </p>
+              <p className="font-semibold text-green-900 mb-1">Share link created!</p>
               <p className="text-sm text-green-700">
-                {shareLink.includes('/invite/')
-                  ? 'An email has been sent. You can also copy this link and send it manually.'
-                  : 'Send this link to your client. They can view all documents without logging in.'
-                }
+                Copy and send this link to your client
               </p>
             </div>
           </div>
         </div>
 
-        {/* Link Display */}
-        <div className="space-y-3">
-          <label className="text-sm font-medium text-slate-700 block">
-            {shareLink.includes('/invite/') ? 'Invitation Link' : 'Secure Share Link'}
-          </label>
+        <div>
+          <Label className="text-sm font-medium text-slate-700 mb-2 block">
+            Secure Share Link
+          </Label>
           <div className="flex gap-2">
             <Input
               value={shareLink}
@@ -2343,70 +2640,63 @@ const fetchFolders = async () => {
               className="flex-1 font-mono text-sm bg-slate-50"
               onClick={(e) => e.currentTarget.select()}
             />
-            <Button
-              onClick={handleCopyLink}
-              className="gap-2 bg-purple-600 hover:bg-purple-700"
-            >
-              <Globe className="h-4 w-4" />
-              Copy Link
+            <Button onClick={handleCopyLink} className="gap-2">
+              <Copy className="h-4 w-4" />
+              Copy
             </Button>
           </div>
         </div>
 
-        {/* Settings Info */}
-        <div className="mt-6 p-4 bg-slate-50 rounded-lg border">
-          <p className="text-sm font-semibold text-slate-900 mb-2">Current Settings:</p>
+        {/* Security Summary */}
+        <div className="p-4 bg-slate-50 rounded-lg border">
+          <p className="text-sm font-semibold text-slate-900 mb-2">Security Settings:</p>
           <ul className="text-sm text-slate-600 space-y-1">
             <li className="flex items-center gap-2">
               <CheckCircle2 className="h-3 w-3 text-green-600" />
-              Email required before viewing
+              Security Level: <span className="font-semibold capitalize">{securityLevel}</span>
             </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-3 w-3 text-green-600" />
-              No password protection
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-3 w-3 text-green-600" />
-              Link never expires
-            </li>
+            {(securityLevel === 'password' || securityLevel === 'whitelist') && (
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                Password protected
+              </li>
+            )}
+            {securityLevel === 'whitelist' && (
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                {allowedEmails.length} email(s) whitelisted
+              </li>
+            )}
+            {expiresAt && (
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                Expires: {new Date(expiresAt).toLocaleString()}
+              </li>
+            )}
+            {viewLimit && (
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                View limit: {viewLimit}
+              </li>
+            )}
           </ul>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-2 justify-end mt-6">
+        <div className="flex gap-2 justify-end pt-4 border-t">
           <Button
             variant="outline"
             onClick={() => {
               setShowShareDialog(false)
               setSharingStatus('idle')
-              setShareLink('')
+              setPassword('')
+              setAllowedEmails([])
+              setAllowedDomains([])
+              setExpiresAt('')
+              setViewLimit('')
             }}
           >
             Done
           </Button>
-          <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => {
-                window.open(shareLink, '_blank');
-              }}
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              Open link in new tab
-            </Button>
-          <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => {
-                handleCopyLink();
-                window.location.href = `mailto:${shareLink.includes('/invite/') ? contactEmail : ''}?subject=You've been invited&body=Click here to access: ${shareLink}`;
-              }}
-            >
-              <Globe className="h-4 w-4 mr-2" />
-              Copy & open email
-            </Button>
         </div>
       </div>
     )}
@@ -2435,8 +2725,8 @@ const fetchFolders = async () => {
             Cancel
           </Button>
           <Button
-            onClick={handleShareWithClient}
-            className="gap-2 bg-purple-600 hover:bg-purple-700"
+            onClick={() => setSharingStatus('idle')}
+            className="bg-purple-600 hover:bg-purple-700"
           >
             Try Again
           </Button>

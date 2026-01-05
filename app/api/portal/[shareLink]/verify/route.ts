@@ -42,7 +42,7 @@ export async function POST(
     const body = await request.json();
     const { email, password } = body;
 
-    console.log('🔐 Verifying access:', { shareLink, email });
+    console.log('🔐 Verifying access:', { shareLink, email: email?.substring(0, 3) + '***' });
 
     const db = await dbPromise;
 
@@ -55,11 +55,64 @@ export async function POST(
     if (!space) {
       return NextResponse.json({
         success: false,
-        error: 'Invalid link'
+        error: 'Invalid or expired link'
       }, { status: 404 });
     }
 
-    // Check password if required
+    // Check if link expired
+    if (space.publicAccess.expiresAt && new Date(space.publicAccess.expiresAt) < new Date()) {
+      return NextResponse.json({
+        success: false,
+        error: 'This link has expired'
+      }, { status: 403 });
+    }
+
+    // Check view limit
+    if (space.publicAccess.viewLimit && space.publicAccess.currentViews >= space.publicAccess.viewLimit) {
+      return NextResponse.json({
+        success: false,
+        error: 'This link has reached its view limit'
+      }, { status: 403 });
+    }
+
+    // 🆕 Get security level
+    const securityLevel = space.publicAccess.securityLevel || 'open';
+    console.log(`🔒 Security level: ${securityLevel}`);
+
+    // 🆕 STEP 1: Check email whitelist (for 'whitelist' level)
+    if (securityLevel === 'whitelist') {
+      if (!email) {
+        return NextResponse.json({
+          success: false,
+          error: 'Email required'
+        }, { status: 401 });
+      }
+
+      const emailLower = email.toLowerCase();
+      const allowedEmails = space.publicAccess.allowedEmails || [];
+      const allowedDomains = space.publicAccess.allowedDomains || [];
+      
+      // Check exact email match
+      const emailAllowed = allowedEmails.includes(emailLower);
+      
+      // Check domain match (e.g., any @client.com)
+      const emailDomain = emailLower.split('@')[1];
+      const domainAllowed = allowedDomains.length > 0 && allowedDomains.includes(emailDomain);
+      
+      if (!emailAllowed && !domainAllowed) {
+        console.log(`❌ Email not whitelisted: ${email}`);
+        console.log(`   Allowed emails:`, allowedEmails);
+        console.log(`   Allowed domains:`, allowedDomains);
+        return NextResponse.json({
+          success: false,
+          error: 'This email is not authorized to access this space'
+        }, { status: 403 });
+      }
+
+      console.log(`✅ Email whitelisted: ${email}`);
+    }
+
+    // 🆕 STEP 2: Check password (for 'password' and 'whitelist' levels)
     if (space.publicAccess.requirePassword) {
       if (!password) {
         return NextResponse.json({
@@ -72,17 +125,22 @@ export async function POST(
       const passwordMatch = await bcrypt.compare(password, space.publicAccess.password);
       
       if (!passwordMatch) {
+        console.log(`❌ Incorrect password attempt for: ${email}`);
         return NextResponse.json({
           success: false,
           error: 'Incorrect password'
         }, { status: 401 });
       }
+
+      console.log(`✅ Password verified`);
     }
+
+    console.log(`✅ All security checks passed for: ${email} (level: ${securityLevel})`);
 
     // Generate visitor ID
     const visitorId = crypto.randomBytes(16).toString('hex');
 
-    // Save visitor info (for tracking in Step 5)
+    // Save visitor info
     const visitor = {
       id: visitorId,
       email: email || 'anonymous',
@@ -96,7 +154,7 @@ export async function POST(
     };
 
     // Update space with new visitor
-    await db.collection<Space>('spaces').updateOne(
+    await db.collection('spaces').updateOne(
       { _id: space._id },
       {
         $push: { visitors: visitor },

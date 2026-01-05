@@ -20,7 +20,7 @@ function generateShareLink(spaceName: string): string {
   return `${slug}-${randomSuffix}`;
 }
 
-// POST - Enable public access
+// POST - Enable public access with hybrid security
 export async function POST(
   request: NextRequest,
   context: { params: { id: string } | Promise<{ id: string }> }
@@ -40,13 +40,27 @@ export async function POST(
     
     const body = await request.json();
     const {
-      requireEmail = true,
-      requirePassword = false,
+      securityLevel = 'open', // 'open', 'password', 'whitelist'
+      allowedEmails = [], // Array of pre-approved emails
+      allowedDomains = [], // Array of allowed domains (e.g., ["client.com"])
       password,
       expiresAt,
       viewLimit,
       branding
     } = body;
+
+    // ✅ Validate security level
+    if (securityLevel === 'whitelist' && (!allowedEmails || allowedEmails.length === 0)) {
+      return NextResponse.json({
+        error: 'Whitelist security requires at least one allowed email'
+      }, { status: 400 });
+    }
+
+    if ((securityLevel === 'password' || securityLevel === 'whitelist') && !password) {
+      return NextResponse.json({
+        error: 'Password required for this security level'
+      }, { status: 400 });
+    }
     
     const db = await dbPromise;
     
@@ -71,23 +85,33 @@ export async function POST(
     // Generate unique share link (or reuse existing)
     const shareLink = space.publicAccess?.shareLink || generateShareLink(space.name);
     
-    // Hash password if provided
-    let hashedPassword;
-    if (requirePassword && password) {
+    // ✅ Hash password if needed (based on security level)
+    let hashedPassword = null;
+    if ((securityLevel === 'password' || securityLevel === 'whitelist') && password) {
       const bcrypt = require('bcryptjs');
       hashedPassword = await bcrypt.hash(password, 10);
     }
     
-    // Update space with public access settings
+    // ✅ Build public access config with all security settings
     const publicAccessConfig = {
       enabled: true,
       shareLink,
-      requireEmail,
-      requirePassword,
+      
+      // Security settings
+      securityLevel, // 'open', 'password', 'whitelist'
+      requireEmail: true, // Always require email for tracking
+      requirePassword: securityLevel === 'password' || securityLevel === 'whitelist',
       password: hashedPassword,
+      
+      // Whitelist settings (only for whitelist mode)
+      allowedEmails: securityLevel === 'whitelist' ? allowedEmails.map((e: string) => e.toLowerCase()) : [],
+      allowedDomains: allowedDomains || [],
+      
+      // Limits
       expiresAt: expiresAt ? new Date(expiresAt) : null,
       viewLimit: viewLimit || null,
       currentViews: space.publicAccess?.currentViews || 0,
+      
       enabledAt: new Date(),
       enabledBy: user.id
     };
@@ -109,7 +133,11 @@ export async function POST(
     );
     
     console.log(`✅ Public access enabled for space: ${spaceId}`);
+    console.log(`   Security level: ${securityLevel}`);
     console.log(`   Share link: ${shareLink}`);
+    if (securityLevel === 'whitelist') {
+      console.log(`   Allowed emails: ${allowedEmails.join(', ')}`);
+    }
     
     return NextResponse.json({
       success: true,
@@ -117,8 +145,10 @@ export async function POST(
       shareLink,
       publicUrl: `${process.env.NEXT_PUBLIC_APP_URL}/portal/${shareLink}`,
       settings: {
-        requireEmail,
-        requirePassword,
+        securityLevel,
+        requireEmail: true,
+        requirePassword: securityLevel === 'password' || securityLevel === 'whitelist',
+        allowedEmails: securityLevel === 'whitelist' ? allowedEmails : [],
         expiresAt,
         viewLimit
       }
@@ -158,12 +188,26 @@ export async function PATCH(
       updatedAt: new Date()
     };
     
+    // ✅ Update security level
+    if (updates.securityLevel !== undefined) {
+      updateFields['publicAccess.securityLevel'] = updates.securityLevel;
+      updateFields['publicAccess.requirePassword'] = 
+        updates.securityLevel === 'password' || updates.securityLevel === 'whitelist';
+    }
+    
     if (updates.requireEmail !== undefined) {
       updateFields['publicAccess.requireEmail'] = updates.requireEmail;
     }
     
-    if (updates.requirePassword !== undefined) {
-      updateFields['publicAccess.requirePassword'] = updates.requirePassword;
+    // ✅ Update allowed emails (whitelist)
+    if (updates.allowedEmails !== undefined) {
+      updateFields['publicAccess.allowedEmails'] = 
+        updates.allowedEmails.map((e: string) => e.toLowerCase());
+    }
+    
+    // ✅ Update allowed domains
+    if (updates.allowedDomains !== undefined) {
+      updateFields['publicAccess.allowedDomains'] = updates.allowedDomains;
     }
     
     if (updates.password) {
@@ -171,8 +215,8 @@ export async function PATCH(
       updateFields['publicAccess.password'] = await bcrypt.hash(updates.password, 10);
     }
     
-    if (updates.expiresAt) {
-      updateFields['publicAccess.expiresAt'] = new Date(updates.expiresAt);
+    if (updates.expiresAt !== undefined) {
+      updateFields['publicAccess.expiresAt'] = updates.expiresAt ? new Date(updates.expiresAt) : null;
     }
     
     if (updates.viewLimit !== undefined) {

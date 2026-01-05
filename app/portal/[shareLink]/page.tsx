@@ -47,19 +47,19 @@ export default function PortalPage() {
   const params = useParams()
   const router = useRouter()
   const shareLink = params.shareLink as string
-
-  // States
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [spaceData, setSpaceData] = useState<SpaceData | null>(null)
   const [requiresEmail, setRequiresEmail] = useState(false)
   const [requiresPassword, setRequiresPassword] = useState(false)
   const [emailSubmitted, setEmailSubmitted] = useState(false)
-  
-  // Form states
-  const [visitorEmail, setVisitorEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [submitting, setSubmitting] = useState(false)
+const [visitorEmail, setVisitorEmail] = useState("")
+const [password, setPassword] = useState("")
+const [submitting, setSubmitting] = useState(false)
+const [verificationError, setVerificationError] = useState("")
+const [downloadingAll, setDownloadingAll] = useState(false)
+const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 })
+const [showPassword, setShowPassword] = useState(false)
 
   // Fetch space data
   useEffect(() => {
@@ -112,47 +112,116 @@ export default function PortalPage() {
 
   // Submit email/password
   const handleAccessSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (requiresEmail && !visitorEmail.trim()) {
-      alert("Please enter your email address")
-      return
-    }
-
-    if (requiresPassword && !password.trim()) {
-      alert("Please enter the password")
-      return
-    }
-
-    setSubmitting(true)
-
-    try {
-      const res = await fetch(`/api/portal/${shareLink}/verify`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: visitorEmail,
-          password: password
-        })
-      })
-
-      const data = await res.json()
-
-      if (data.success) {
-        setEmailSubmitted(true)
-        // Track the visitor
-        trackVisit()
-      } else {
-        alert(data.error || "Access denied")
-      }
-    } catch (err) {
-      console.error("Verification error:", err)
-      alert("Failed to verify access. Please try again.")
-    } finally {
-      setSubmitting(false)
-    }
+  e.preventDefault()
+  setVerificationError("")
+  
+  // Validation based on requirements
+  if (requiresEmail && !visitorEmail.trim()) {
+    setVerificationError("Please enter your email address")
+    return
   }
+
+  if (requiresPassword && !password.trim()) {
+    setVerificationError("Please enter the password")
+    return
+  }
+
+  setSubmitting(true)
+
+  try {
+    const res = await fetch(`/api/portal/${shareLink}/verify`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: visitorEmail.trim(),
+        password: password.trim()
+      })
+    })
+
+    const data = await res.json()
+
+    if (data.success) {
+      setEmailSubmitted(true)
+      trackVisit()
+    } else {
+      // Handle specific error messages
+      if (res.status === 403) {
+        setVerificationError("This email is not authorized to access this space. Please contact the space owner.")
+      } else if (res.status === 401) {
+        setVerificationError("Incorrect password. Please try again.")
+      } else {
+        setVerificationError(data.error || "Access denied. Please check your credentials.")
+      }
+    }
+  } catch (err) {
+    console.error("Verification error:", err)
+    setVerificationError("Connection error. Please check your internet and try again.")
+  } finally {
+    setSubmitting(false)
+  }
+}
+
+// Download all documents
+const handleDownloadAll = async () => {
+  if (!spaceData || spaceData.documents.length === 0) {
+    alert('No documents to download');
+    return;
+  }
+
+  setDownloadingAll(true);
+  setDownloadProgress({ current: 0, total: spaceData.documents.length });
+
+  try {
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+
+    // Download each document
+    for (let i = 0; i < spaceData.documents.length; i++) {
+      const doc = spaceData.documents[i];
+      
+      try {
+        setDownloadProgress({ current: i + 1, total: spaceData.documents.length });
+        
+        const response = await fetch(`/api/portal/${shareLink}/documents/${doc.id}?download=true`);
+        if (!response.ok) throw new Error(`Failed to download ${doc.name}`);
+        
+        const blob = await response.blob();
+        
+        // Organize by folder
+        const folderName = doc.folderId 
+          ? spaceData.folders.find(f => f.id === doc.folderId)?.name || 'Unfiled'
+          : 'Unfiled';
+        
+        zip.folder(folderName)?.file(doc.name, blob);
+      } catch (err) {
+        console.error(`Failed to download ${doc.name}:`, err);
+        // Continue with other files
+      }
+    }
+
+    // Generate zip file
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    
+    // Download zip
+    const url = window.URL.createObjectURL(zipBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${spaceData.name} - All Documents.zip`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+
+    alert('✅ All documents downloaded successfully!');
+  } catch (error) {
+    console.error('Download all error:', error);
+    alert('❌ Failed to download all documents. Please try again.');
+  } finally {
+    setDownloadingAll(false);
+    setDownloadProgress({ current: 0, total: 0 });
+  }
+}
 
   // Track visit (we'll implement this in Step 5)
   const trackVisit = async () => {
@@ -223,102 +292,154 @@ export default function PortalPage() {
   }
 
   // Email/Password gate (before showing documents)
-  if (!emailSubmitted) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl border shadow-lg p-8 max-w-md w-full">
-          {/* Logo/Branding */}
-          {spaceData.branding.logoUrl ? (
-            <img 
-              src={spaceData.branding.logoUrl} 
-              alt="Logo" 
-              className="h-12 mx-auto mb-6"
-            />
-          ) : (
-            <div 
-              className="h-12 w-12 rounded-xl flex items-center justify-center mx-auto mb-6"
-              style={{ backgroundColor: spaceData.branding.primaryColor }}
-            >
-              <FolderOpen className="h-6 w-6 text-white" />
+  
+            {/* Email/Password gate (before showing documents) */}
+if (!emailSubmitted) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30 flex items-center justify-center p-6">
+      <div className="bg-white rounded-2xl border shadow-lg p-8 max-w-md w-full">
+        {/* Logo/Branding */}
+        {spaceData.branding.logoUrl ? (
+          <img 
+            src={spaceData.branding.logoUrl} 
+            alt="Logo" 
+            className="h-12 mx-auto mb-6"
+          />
+        ) : (
+          <div 
+            className="h-12 w-12 rounded-xl flex items-center justify-center mx-auto mb-6"
+            style={{ backgroundColor: spaceData.branding.primaryColor }}
+          >
+            <FolderOpen className="h-6 w-6 text-white" />
+          </div>
+        )}
+
+        {/* Welcome Message */}
+        <h1 className="text-2xl font-bold text-slate-900 text-center mb-2">
+          {spaceData.name}
+        </h1>
+        <p className="text-slate-600 text-center mb-6">
+          {spaceData.branding.welcomeMessage}
+        </p>
+
+        {/* Security Level Indicator */}
+        {requiresPassword && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6 flex items-start gap-2">
+            <Lock className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-blue-800">
+              This space is password protected. Enter the credentials provided by the owner.
+            </p>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {verificationError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-red-800">{verificationError}</p>
+          </div>
+        )}
+
+        {/* Email/Password Form */}
+        <form onSubmit={handleAccessSubmit} className="space-y-4">
+          {requiresEmail && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Email Address *
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={visitorEmail}
+                  onChange={(e) => {
+                    setVisitorEmail(e.target.value)
+                    setVerificationError("")
+                  }}
+                  className="pl-10"
+                  required
+                  autoFocus
+                />
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Enter the email address authorized by the space owner
+              </p>
             </div>
           )}
 
-          {/* Welcome Message */}
-          <h1 className="text-2xl font-bold text-slate-900 text-center mb-2">
-            {spaceData.name}
-          </h1>
-          <p className="text-slate-600 text-center mb-6">
-            {spaceData.branding.welcomeMessage}
-          </p>
-
-          {/* Email/Password Form */}
-          <form onSubmit={handleAccessSubmit} className="space-y-4">
-            {requiresEmail && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                  <Input
-                    type="email"
-                    placeholder="your@email.com"
-                    value={visitorEmail}
-                    onChange={(e) => setVisitorEmail(e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
+          {requiresPassword && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Password *
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    setVerificationError("")
+                  }}
+                  className="pl-10"
+                  required
+                />
+                <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+    >
+      {showPassword ? (
+        <Eye className="h-4 w-4" />
+      ) : (
+        <Lock className="h-4 w-4" />
+      )}
+    </button>
               </div>
+              
+              <p className="text-xs text-slate-500 mt-1">
+                Enter the password provided by the space owner
+              </p>
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            className="w-full gap-2"
+            style={{ backgroundColor: spaceData.branding.primaryColor }}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Verifying...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                Access Documents
+              </>
             )}
+          </Button>
+        </form>
 
-            {requiresPassword && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                  <Input
-                    type="password"
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              className="w-full gap-2"
-              style={{ backgroundColor: spaceData.branding.primaryColor }}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  Access Documents
-                </>
-              )}
-            </Button>
-          </form>
-
-          {/* Privacy Note */}
-          <p className="text-xs text-slate-500 text-center mt-6">
-            🔒 Your information is secure and will only be used to provide access to these documents.
+        {/* Help Text */}
+        <div className="mt-6 p-3 bg-slate-50 rounded-lg border">
+          <p className="text-xs text-slate-600 text-center">
+            <strong>Need help?</strong> Contact the person who shared this link with you if you're having trouble accessing.
           </p>
         </div>
+
+        {/* Privacy Note */}
+        <p className="text-xs text-slate-500 text-center mt-4">
+          🔒 Your information is secure and will only be used to provide access to these documents.
+        </p>
       </div>
-    )
-  }
+    </div>
+  )
+}
 
   // Main portal view (after email submitted)
   return (
@@ -327,33 +448,57 @@ export default function PortalPage() {
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              
-              {spaceData.branding.logoUrl ? (
-                <img src={spaceData.branding.logoUrl} alt="Logo" className="h-8" />
-              ) : (
-                <div 
-                  className="h-10 w-10 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: spaceData.branding.primaryColor }}
-                >
-                  <FolderOpen className="h-5 w-5 text-white" />
-                </div>
-              )}
-              <div>
-                <h1 className="font-bold text-slate-900">{spaceData.name}</h1>
-                {spaceData.branding.companyName && (
-                  <p className="text-xs text-slate-500">{spaceData.branding.companyName}</p>
-                )}
-              </div>
-            </div>
-            
-            {visitorEmail && (
-              <div className="text-sm text-slate-600">
-                <Mail className="inline h-3 w-3 mr-1" />
-                {visitorEmail}
-              </div>
-            )}
-          </div>
+  <div className="flex items-center gap-3">
+    {/* Logo and title */}
+    {spaceData.branding.logoUrl ? (
+      <img src={spaceData.branding.logoUrl} alt="Logo" className="h-8" />
+    ) : (
+      <div 
+        className="h-10 w-10 rounded-xl flex items-center justify-center"
+        style={{ backgroundColor: spaceData.branding.primaryColor }}
+      >
+        <FolderOpen className="h-5 w-5 text-white" />
+      </div>
+    )}
+    <div>
+      <h1 className="font-bold text-slate-900">{spaceData.name}</h1>
+      {spaceData.branding.companyName && (
+        <p className="text-xs text-slate-500">{spaceData.branding.companyName}</p>
+      )}
+    </div>
+  </div>
+  
+  <div className="flex items-center gap-3">
+    {/* Download All Button */}
+    {spaceData.documents.length > 0 && (
+      <Button
+        onClick={handleDownloadAll}
+        disabled={downloadingAll}
+        variant="outline"
+        className="gap-2"
+      >
+        {downloadingAll ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Downloading ({downloadProgress.current}/{downloadProgress.total})
+          </>
+        ) : (
+          <>
+            <Download className="h-4 w-4" />
+            Download All ({spaceData.documents.length})
+          </>
+        )}
+      </Button>
+    )}
+    
+    {visitorEmail && (
+      <div className="text-sm text-slate-600">
+        <Mail className="inline h-3 w-3 mr-1" />
+        {visitorEmail}
+      </div>
+    )}
+  </div>
+</div>
         </div>
       </header>
 
