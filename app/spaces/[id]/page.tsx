@@ -1,5 +1,6 @@
 
 
+//app/spaces/[id]/page.tsx
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -209,6 +210,8 @@ const canShareSpace = ['owner', 'admin'].includes(userRole);
 const searchParams = useSearchParams();
 const [showSettingsDialog, setShowSettingsDialog] = useState(false)
 const [showSignatureDialog, setShowSignatureDialog] = useState(false)
+const [showUnfiledOnly, setShowUnfiledOnly] = useState(false)
+const [allDocuments, setAllDocuments] = useState<DocumentType[]>([])
 
 
 useEffect(() => {
@@ -650,6 +653,8 @@ const fetchSpace = async () => {
           const validDocuments = Array.isArray(docsData.documents) 
             ? docsData.documents.filter((doc: { id: any }) => doc && doc.id)
             : [];
+            setAllDocuments(validDocuments); // ✅ Store all documents
+        setDocuments(validDocuments);
           console.log('Fetched documents:', validDocuments);
           setDocuments(validDocuments);
 
@@ -676,6 +681,7 @@ const fetchSpace = async () => {
     setLoading(false);
   }
 };
+
 
 
 // ✅ NEW: Handle share with client
@@ -721,6 +727,30 @@ const handleCopyLink = async () => {
     alert('❌ Failed to copy. Please copy manually.')
   }
 }
+
+const getFilteredDocuments = () => {
+  if (searchQuery.trim()) {
+    return searchResults.filter(doc => doc && doc.id);
+  }
+  
+  if (selectedFolder) {
+    // When viewing a folder, ALWAYS show folder contents (ignore unfiled filter)
+    return allDocuments.filter(doc => 
+      doc && doc.id && doc.folder === selectedFolder
+    );
+  }
+  
+  if (showUnfiledOnly) {
+    // Only show documents WITHOUT a folder
+    return allDocuments.filter(doc => 
+      doc && doc.id && !doc.folder
+    );
+  }
+  
+  // Default: show all documents
+  return allDocuments.filter(doc => doc && doc.id);
+};
+const displayedFilterDocuments = getFilteredDocuments();
 
 const initializeFolders = (templateId: string, docs: DocumentType[] = []) => {
   const templateFolders: Record<string, string[]> = {
@@ -1087,9 +1117,10 @@ const fetchFolders = async () => {
         <button
           key={folder.id}
           onClick={() => {
-            setSelectedFolder(folder.id)
-            setActiveTab('home')
-          }}
+      setSelectedFolder(folder.id);
+      setShowUnfiledOnly(false); // ✅ Clear filter when selecting folder
+      setActiveTab('home');
+    }}
           className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
             selectedFolder === folder.id
               ? 'bg-purple-50 text-purple-700 font-medium'
@@ -1263,10 +1294,37 @@ const fetchFolders = async () => {
     <Eye className="mr-2 h-4 w-4" />
     View
   </DropdownMenuItem>
-  <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-    <Download className="mr-2 h-4 w-4" />
-    Download
-  </DropdownMenuItem>
+   <DropdownMenuItem onClick={async () => {
+                try {
+                  const response = await fetch(
+                    `/api/spaces/${params.id}/files/${doc.id}/download`,
+                    {
+                      method: 'GET',
+                      credentials: 'include',
+                    }
+                  );
+
+                  if (!response.ok) {
+                    throw new Error('Download failed');
+                  }
+
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = doc.name;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                } catch (err) {
+                  console.error('Download error:', err);
+                  alert('Download failed. Please try again.');
+                }
+              }}>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </DropdownMenuItem>
 
   {/* ✅ NEW: Send for Signature */}
   {canEdit && (
@@ -1383,17 +1441,17 @@ const fetchFolders = async () => {
             <h2 className="text-lg font-semibold text-slate-900">Recent Documents</h2>
            <div className="flex gap-2">
           <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              // Show only unfiled documents
-              setDocuments(documents.filter(d => !d.folder))
-            }}
-            className="gap-2"
-          >
-            <FileText className="h-4 w-4" />
-            Unfiled Only
-          </Button>
+  variant={showUnfiledOnly ? 'default' : 'outline'}
+  size="sm"
+  onClick={() => {
+    setShowUnfiledOnly(!showUnfiledOnly);
+    setSelectedFolder(null); // Clear folder selection when toggling filter
+  }}
+  className="gap-2"
+>
+  <FileText className="h-4 w-4" />
+  {showUnfiledOnly ? 'Show All' : 'Unfiled Only'}
+</Button>
           <Button
             variant="outline"
             size="sm"
@@ -1431,126 +1489,166 @@ const fetchFolders = async () => {
                     <th className="text-right px-6 py-3"></th>
                   </tr>
                 </thead>
+                
                 <tbody className="divide-y">
-                 {documents
-                .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
-                .slice(0, 10)
-                .map((doc) => (
-                  <tr key={`recent-${doc.id}`} className="hover:bg-slate-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-                          <FileText className="h-5 w-5 text-red-600" />
-                        </div>
-                        <span className="font-medium text-slate-900">{doc.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {doc.folder ? (
-                        <button
-                          onClick={() => {
-                            setSelectedFolder(doc.folder)
-                            setActiveTab('home')
-                          }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors text-sm text-blue-700"
-                        >
-                          <Folder className="h-3 w-3" />
-                          <span>{folders.find(f => f.id === doc.folder)?.name || 'Unknown'}</span>
-                        </button>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-sm text-slate-600">
-                          <Home className="h-3 w-3" />
-                          <span>Unfiled</span>
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3 text-sm text-slate-600">
-                        <span className="flex items-center gap-1">
-                          <Eye className="h-3 w-3" />
-                          {doc.views}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Download className="h-3 w-3" />
-                          {doc.downloads}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-slate-600">{doc.lastUpdated}</span>
-                    </td>
-                      <td className=" text-right">
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="icon">
-        <MoreVertical className="h-4 w-4" />
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" className="w-48 bg-white">
-  <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-    <Eye className="mr-2 h-4 w-4" />
-    View
-  </DropdownMenuItem>
-  <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-    <Download className="mr-2 h-4 w-4" />
-    Download
-  </DropdownMenuItem>
-  
-  {/*  NEW: Send for Signature */}
-  {canEdit && (
-    <>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem 
-        onClick={() => {
-          setSelectedFile(doc)
-          setShowSignatureDialog(true)
-        }}
-        className="text-blue-600"
-      >
-        <Edit className="mr-2 h-4 w-4" />
-        Send for Signature
-      </DropdownMenuItem>
-    </>
-  )}
-  
-  {canEdit && (
-    <>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={() => {
-        setSelectedFile(doc)
-        setNewFilename(doc.name)
-        setShowRenameDialog(true)
-      }}>
-        <Edit className="mr-2 h-4 w-4" />
-        Rename
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => {
-        setSelectedFile(doc)
-        setShowMoveDialog(true)
-      }}>
-        <Activity className="mr-2 h-4 w-4" />
-        Move to Folder
-      </DropdownMenuItem>
-    </>
-  )}
-  {canDelete && (
-    <>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem 
-        className="text-red-600"
-        onClick={() => handleDeleteFile(doc.id, doc.name)}
-      >
-        <Trash2 className="mr-2 h-4 w-4" />
-        Delete
-      </DropdownMenuItem>
-    </>
-  )}
-</DropdownMenuContent>
-  </DropdownMenu>
-</td>
-                    </tr>
-                  ))}
-                </tbody>
+  {getFilteredDocuments() // ✅ Use the filtered documents
+    .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
+    .slice(0, 10)
+    .map((doc) => (
+      <tr key={`recent-${doc.id}`} className="hover:bg-slate-50">
+        <td className="px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-red-600" />
+            </div>
+            <span className="font-medium text-slate-900">{doc.name}</span>
+          </div>
+        </td>
+        <td className="px-6 py-4">
+          {doc.folder ? (
+            <button
+              onClick={() => {
+                setSelectedFolder(doc.folder);
+                setShowUnfiledOnly(false); // ✅ Clear filter when clicking folder badge
+                setActiveTab('home');
+              }}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors text-sm text-blue-700"
+            >
+              <Folder className="h-3 w-3" />
+              <span>{folders.find(f => f.id === doc.folder)?.name || 'Unknown'}</span>
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-sm text-slate-600">
+              <Home className="h-3 w-3" />
+              <span>Unfiled</span>
+            </span>
+          )}
+        </td>
+        <td className="px-6 py-4">
+          <div className="flex items-center gap-3 text-sm text-slate-600">
+            <span className="flex items-center gap-1">
+              <Eye className="h-3 w-3" />
+              {doc.views}
+            </span>
+            <span className="flex items-center gap-1">
+              <Download className="h-3 w-3" />
+              {doc.downloads}
+            </span>
+          </div>
+        </td>
+        <td className="px-6 py-4">
+          <span className="text-sm text-slate-600">{doc.lastUpdated}</span>
+        </td>
+        <td className="text-right">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-white">
+              {/* ✅ FIX 3: Proper View handler */}
+              <DropdownMenuItem onClick={async () => {
+                try {
+                  window.open(`/api/spaces/${params.id}/files/${doc.id}/view`, '_blank');
+                } catch (err) {
+                  console.error('View error:', err);
+                  alert('Failed to open document');
+                }
+              }}>
+                <Eye className="mr-2 h-4 w-4" />
+                View
+              </DropdownMenuItem>
+
+              {/* ✅ FIX 4: Proper Download handler */}
+              <DropdownMenuItem onClick={async () => {
+                try {
+                  const response = await fetch(
+                    `/api/spaces/${params.id}/files/${doc.id}/download`,
+                    {
+                      method: 'GET',
+                      credentials: 'include',
+                    }
+                  );
+
+                  if (!response.ok) {
+                    throw new Error('Download failed');
+                  }
+
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = doc.name;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                } catch (err) {
+                  console.error('Download error:', err);
+                  alert('Download failed. Please try again.');
+                }
+              }}>
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </DropdownMenuItem>
+
+              {/* Rest of the menu items... */}
+              {canEdit && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      setSelectedFile(doc);
+                      setShowSignatureDialog(true);
+                    }}
+                    className="text-blue-600"
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Send for Signature
+                  </DropdownMenuItem>
+                </>
+              )}
+              
+              {canEdit && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => {
+                    setSelectedFile(doc);
+                    setNewFilename(doc.name);
+                    setShowRenameDialog(true);
+                  }}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setSelectedFile(doc);
+                    setShowMoveDialog(true);
+                  }}>
+                    <Activity className="mr-2 h-4 w-4" />
+                    Move to Folder
+                  </DropdownMenuItem>
+                </>
+              )}
+              
+              {canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="text-red-600"
+                    onClick={() => handleDeleteFile(doc.id, doc.name)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </td>
+      </tr>
+    ))}
+</tbody>
               </table>
             </div>
           )}
