@@ -163,7 +163,7 @@ export default function SpaceDetailPage() {
   const router = useRouter()
   const [space, setSpace] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'home' | 'folders'  | 'qa' | 'analytics' | 'audit'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'folders'  | 'qa' | 'trash' | 'analytics' | 'audit'>('home')
   const [folders, setFolders] = useState<FolderType[]>([])
   const [documents, setDocuments] = useState<DocumentType[]>([])
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
@@ -228,6 +228,7 @@ const [password, setPassword] = useState('')
 const [expiresAt, setExpiresAt] = useState('')
 const [viewLimit, setViewLimit] = useState('')
 const [showPassword, setShowPassword] = useState(false)
+const [trashedDocuments, setTrashedDocuments] = useState<DocumentType[]>([])
 
 
 useEffect(() => {
@@ -524,7 +525,13 @@ const handleDeleteFile = async (fileId: string, filename: string) => {
 
     if (res.ok && data.success) {
       alert(data.message)
-      fetchSpace()
+      
+      // ✅ FIX: Remove deleted document from state immediately
+      setDocuments(prev => prev.filter(doc => doc.id !== fileId))
+      setAllDocuments(prev => prev.filter(doc => doc.id !== fileId))
+      
+      // Optional: Also refresh to update counts
+      await fetchFolders()
     } else {
       alert(data.error || 'Failed to delete file')
     }
@@ -532,6 +539,98 @@ const handleDeleteFile = async (fileId: string, filename: string) => {
     alert('Failed to delete file')
   }
 }
+
+// Fetch trashed documents
+const fetchTrashedDocuments = async () => {
+  try {
+    const res = await fetch(
+      `/api/documents?spaceId=${params.id}&archived=true`,
+      {
+        credentials: 'include',
+      }
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        setTrashedDocuments(data.documents || []);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch trashed documents:', error);
+  }
+};
+
+// Restore document from trash
+const handleRestoreDocument = async (fileId: string) => {
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/files/${fileId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ action: 'restore' }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      alert(data.message);
+      // Refresh both lists
+      await fetchSpace();
+      await fetchTrashedDocuments();
+    } else {
+      alert(data.error || 'Failed to restore document');
+    }
+  } catch (error) {
+    console.error('Restore error:', error);
+    alert('Failed to restore document');
+  }
+};
+
+// Permanently delete document
+const handlePermanentDelete = async (fileId: string) => {
+  try {
+    const res = await fetch(
+      `/api/spaces/${params.id}/files/${fileId}?permanent=true`,
+      {
+        method: 'DELETE',
+        credentials: 'include',
+      }
+    );
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      alert(data.message);
+      await fetchTrashedDocuments();
+    } else {
+      alert(data.error || 'Failed to delete permanently');
+    }
+  } catch (error) {
+    console.error('Permanent delete error:', error);
+    alert('Failed to delete permanently');
+  }
+};
+
+// Empty entire trash
+const handleEmptyTrash = async () => {
+  try {
+    // Delete all trashed documents one by one
+    const deletePromises = trashedDocuments.map(doc =>
+      fetch(`/api/spaces/${params.id}/files/${doc.id}?permanent=true`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+    );
+
+    await Promise.all(deletePromises);
+    alert('Trash emptied successfully');
+    await fetchTrashedDocuments();
+  } catch (error) {
+    console.error('Empty trash error:', error);
+    alert('Failed to empty trash');
+  }
+};
 
 const handleAddContact = async () => {
   if (!contactEmail.trim()) return;
@@ -725,13 +824,41 @@ const handleShareWithClient = () => {
 }
 
 const handleGenerateShareLink = async () => {
-  // ✅ NOW do validation when user clicks "Generate Share Link" button
+  // ✅ Auto-add email if user typed one but didn't click Plus
+  let finalAllowedEmails = [...allowedEmails];
+  if (securityLevel === 'whitelist' && emailInput.trim()) {
+    const trimmedEmail = emailInput.trim().toLowerCase();
+    if (!finalAllowedEmails.includes(trimmedEmail)) {
+      console.log('📧 Auto-adding typed email:', trimmedEmail);
+      finalAllowedEmails.push(trimmedEmail);
+      setAllowedEmails(finalAllowedEmails); // Update state
+      setEmailInput(''); // Clear input
+    }
+  }
+
+  // ✅ Auto-add domain if user typed one but didn't click Plus
+  let finalAllowedDomains = [...allowedDomains];
+  if (securityLevel === 'whitelist' && domainInput.trim()) {
+    const trimmedDomain = domainInput.trim().toLowerCase();
+    if (!finalAllowedDomains.includes(trimmedDomain)) {
+      console.log('🌐 Auto-adding typed domain:', trimmedDomain);
+      finalAllowedDomains.push(trimmedDomain);
+      setAllowedDomains(finalAllowedDomains); // Update state
+      setDomainInput(''); // Clear input
+    }
+  }
+
+  // ✅ Password validation
   if ((securityLevel === 'password' || securityLevel === 'whitelist') && !password) {
     setShareError('Password is required for this security level');
     return;
   }
 
-  if (securityLevel === 'whitelist' && allowedEmails.length === 0 && allowedDomains.length === 0) {
+  // ✅ Whitelist validation (now using finalAllowedEmails)
+  if (securityLevel === 'whitelist' && finalAllowedEmails.length === 0 && finalAllowedDomains.length === 0) {
+    console.log('❌ Whitelist validation failed');
+    console.log('📧 finalAllowedEmails:', finalAllowedEmails);
+    console.log('🌐 finalAllowedDomains:', finalAllowedDomains);
     setShareError('Add at least one email or domain for whitelist security');
     return;
   }
@@ -747,8 +874,8 @@ const handleGenerateShareLink = async () => {
       body: JSON.stringify({
         securityLevel,
         password: (securityLevel === 'password' || securityLevel === 'whitelist') ? password : undefined,
-        allowedEmails: securityLevel === 'whitelist' ? allowedEmails : [],
-        allowedDomains: securityLevel === 'whitelist' ? allowedDomains : [],
+        allowedEmails: securityLevel === 'whitelist' ? finalAllowedEmails : [], // ✅ Use final array
+        allowedDomains: securityLevel === 'whitelist' ? finalAllowedDomains : [], // ✅ Use final array
         expiresAt: expiresAt || null,
         viewLimit: viewLimit ? parseInt(viewLimit) : null
       })
@@ -1222,18 +1349,122 @@ const fetchFolders = async () => {
 )}
 
   {/* Trash */}
-  <div className="p-4 border-t">
-    <button className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-500 hover:bg-slate-50 transition-colors">
-      <Trash2 className="h-4 w-4" />
-      <span>Trash</span>
-      <span className="ml-auto text-xs">(0)</span>
-    </button>
-  </div>
+<div className="p-4 border-t">
+  <button 
+    onClick={() => {
+      setActiveTab('trash')
+      fetchTrashedDocuments()
+    }}
+    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+      activeTab === 'trash' 
+        ? 'bg-red-50 text-red-700' 
+        : 'text-slate-500 hover:bg-slate-50'
+    }`}
+  >
+    <Trash2 className="h-4 w-4" />
+    <span>Trash</span>
+    <span className="ml-auto text-xs">({trashedDocuments.length})</span>
+  </button>
+</div>
+ 
 </aside>
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="p-8">
+
+             {activeTab === 'trash' && (
+  <div>
+    <div className="flex items-center justify-between mb-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">Trash</h2>
+        <p className="text-sm text-slate-600 mt-1">
+          {trashedDocuments.length} deleted {trashedDocuments.length === 1 ? 'item' : 'items'}
+        </p>
+      </div>
+      {trashedDocuments.length > 0 && (
+        <Button 
+          variant="destructive"
+          onClick={() => {
+            if (confirm('Permanently delete ALL items in trash? This cannot be undone!')) {
+              handleEmptyTrash()
+            }
+          }}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Empty Trash
+        </Button>
+      )}
+    </div>
+
+    {trashedDocuments.length === 0 ? (
+      <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
+        <Trash2 className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-slate-900 mb-2">Trash is empty</h3>
+        <p className="text-slate-600">Deleted files will appear here</p>
+      </div>
+    ) : (
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-slate-50 border-b">
+            <tr>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Name</th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Original Folder</th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Deleted</th>
+              <th className="text-right px-6 py-3"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {trashedDocuments.map((doc) => (
+              <tr key={doc.id} className="hover:bg-slate-50">
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
+                      <FileText className="h-5 w-5 text-red-600" />
+                    </div>
+                    <span className="font-medium text-slate-900">{doc.name}</span>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <span className="text-sm text-slate-600">
+                    {doc.folder ? folders.find(f => f.id === doc.folder)?.name : 'Root'}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <span className="text-sm text-slate-600">{doc.lastUpdated}</span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRestoreDocument(doc.id)}
+                      className="gap-2"
+                    >
+                      <Activity className="h-4 w-4" />
+                      Restore
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm(`Permanently delete "${doc.name}"? This cannot be undone!`)) {
+                          handlePermanentDelete(doc.id)
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+)}
 
               
 {!canUpload && activeTab === 'home' && (

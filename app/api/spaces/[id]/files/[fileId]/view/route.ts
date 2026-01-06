@@ -1,11 +1,17 @@
  // app/api/spaces/[id]/files/[fileId]/view/route.ts
-// ======================================
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import cloudinary from 'cloudinary';
 
-// Helper function (same as in your main route.ts)
+// Configure Cloudinary
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_SECRET_KEY,
+});
+
 async function checkSpacePermission(
   db: any,
   spaceId: string,
@@ -44,6 +50,8 @@ export async function GET(
     const spaceId = resolvedParams.id;
     const fileId = resolvedParams.fileId;
 
+    console.log('👁️ View request:', { spaceId, fileId });
+
     const user = await verifyUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -51,7 +59,6 @@ export async function GET(
 
     const db = await dbPromise;
 
-    // Check permission
     const { allowed } = await checkSpacePermission(
       db, 
       spaceId, 
@@ -83,21 +90,79 @@ export async function GET(
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    // Update view count
-    await db.collection('documents').updateOne(
+    console.log('✅ Document found:', document.originalFilename);
+
+    // Extract public_id from Cloudinary URL
+    const fileUrl = document.cloudinaryPdfUrl;
+    const urlParts = fileUrl.split('/upload/');
+    if (urlParts.length < 2) {
+      console.error('❌ Invalid Cloudinary URL format');
+      return NextResponse.json({ error: 'Invalid file URL' }, { status: 500 });
+    }
+    
+    const afterUpload = urlParts[1];
+    const pathParts = afterUpload.split('/');
+    pathParts.shift(); // remove version
+    let publicId = pathParts.join('/').replace('.pdf', '');
+    publicId = decodeURIComponent(publicId);
+
+    console.log('📝 Public ID:', publicId);
+
+    // Generate authenticated download URL
+    const downloadUrl = cloudinary.v2.utils.private_download_url(
+      publicId,
+      'pdf',
+      {
+        resource_type: 'image',
+        type: 'upload',
+        attachment: false, // inline view, not download
+        expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour
+      }
+    );
+
+    console.log('🔐 Generated private download URL');
+
+    // Fetch the file from Cloudinary
+    const cloudinaryResponse = await fetch(downloadUrl);
+    
+    if (!cloudinaryResponse.ok) {
+      console.error('❌ Cloudinary fetch failed:', cloudinaryResponse.status);
+      return NextResponse.json({ 
+        error: 'Failed to fetch file from Cloudinary'
+      }, { status: 500 });
+    }
+
+    const arrayBuffer = await cloudinaryResponse.arrayBuffer();
+    console.log('✅ File fetched:', arrayBuffer.byteLength, 'bytes');
+
+    // Update view count (async, don't await)
+    db.collection('documents').updateOne(
       { _id: new ObjectId(fileId) },
       {
         $inc: { 'tracking.views': 1 },
         $set: { 'tracking.lastViewed': new Date() },
         $addToSet: { 'tracking.uniqueVisitors': user.id }
       }
-    );
+    ).catch(err => console.error('Failed to update view count:', err));
 
-    // Redirect to Cloudinary URL
-    return NextResponse.redirect(document.cloudinaryPdfUrl);
+    // Return the PDF file
+    const filename = document.originalFilename || 'document.pdf';
+    
+    return new NextResponse(arrayBuffer, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${filename}"`,
+        'Content-Length': arrayBuffer.byteLength.toString(),
+        'Cache-Control': 'private, max-age=3600',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
 
   } catch (error) {
-    console.error('View error:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    console.error('❌ View error:', error);
+    return NextResponse.json({ 
+      error: 'Server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

@@ -127,6 +127,49 @@ export async function PATCH(
 
     let activityMessage = '';
 
+    // ✅ RESTORE FROM TRASH
+if (action === 'restore') {
+  console.log('🔄 Restoring document from trash');
+  
+  const result = await db.collection('documents').updateOne(
+    { _id: new ObjectId(fileId) },
+    { 
+      $unset: { 
+        archived: "",
+        archivedAt: "",
+        archivedBy: ""
+      },
+      $set: {
+        updatedAt: new Date()
+      }
+    }
+  );
+
+  if (result.matchedCount === 0) {
+    return NextResponse.json({ 
+      success: false,
+      error: 'Document not found' 
+    }, { status: 404 });
+  }
+
+  // Log activity
+  await db.collection('analytics_logs').insertOne({
+    documentId: fileId,
+    spaceId: spaceId,
+    action: 'restore_document',
+    userId: user.id,
+    details: {
+      message: `Restored "${document.originalFilename}" from trash`
+    },
+    timestamp: new Date()
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: `Document "${document.originalFilename}" restored successfully`
+  });
+}
+
     // ✅ RENAME FILE
     if (action === 'rename' && filename) {
       if (!filename.trim()) {

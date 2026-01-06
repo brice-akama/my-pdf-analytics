@@ -22,14 +22,26 @@ export async function GET(request: NextRequest) {
     // ✅ Build query based on whether spaceId is provided
     let query: any;
     
-    if (spaceId) {
-      // If spaceId provided, fetch documents belonging to that space
-      console.log('🔍 Fetching documents for space:', spaceId);
-      query = { 
-        spaceId: spaceId,
-        belongsToSpace: true 
-      };
-    } else {
+if (spaceId) {
+  // If spaceId provided, fetch documents belonging to that space
+  console.log('🔍 Fetching documents for space:', spaceId);
+  query = { 
+    spaceId: spaceId,
+    belongsToSpace: true 
+  };
+  
+  // ✅ NEW: Handle archived filter for spaces
+  const archived = searchParams.get('archived');
+  if (archived === 'true') {
+    // Show only archived/trashed documents
+    query.archived = true;
+    console.log('📁 Fetching TRASHED documents');
+  } else {
+    // Show only active documents (exclude archived)
+    query.archived = { $ne: true };
+    console.log('📄 Fetching ACTIVE documents (excluding trash)');
+  }
+} else {
       // Otherwise, fetch user's personal documents (not in any space)
       console.log('🔍 Fetching personal documents for user:', user.id);
       query = { 
