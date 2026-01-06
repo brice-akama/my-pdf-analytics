@@ -504,203 +504,107 @@ if (!emailSubmitted) {
 
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-6 py-8">
-        {spaceData.description && (
-          <div className="bg-white rounded-xl border p-6 mb-6">
-            <p className="text-slate-700">{spaceData.description}</p>
-          </div>
-        )}
+  {spaceData.description && (
+    <div className="bg-white rounded-xl border p-6 mb-6">
+      <p className="text-slate-700">{spaceData.description}</p>
+    </div>
+  )}
 
-        {/* Documents by Folder */}
-        {spaceData.folders.map((folder) => {
-          const folderDocs = spaceData.documents.filter(doc => doc.folderId === folder.id)
-          
-          if (folderDocs.length === 0) return null
-          
+  {/* Simple Flat Document List */}
+  {spaceData.documents.length > 0 ? (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-slate-900">
+          All Documents ({spaceData.documents.length})
+        </h2>
+      </div>
 
-          return (
-            <div key={folder.id} className="mb-8">
-              <div className="flex items-center gap-2 mb-4">
-                <FolderOpen className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-bold text-slate-900">{folder.name}</h2>
-                <span className="text-sm text-slate-500">({folderDocs.length})</span>
-              </div>
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className="divide-y">
+          {spaceData.documents.map((doc) => (
+            <div key={doc.id} className="p-4 hover:bg-slate-50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <FileText className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900 truncate">{doc.name}</p>
+                    <p className="text-sm text-slate-500">{doc.type} • {doc.size}</p>
+                  </div>
+                </div>
 
-              <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                <div className="divide-y">
-                  {folderDocs.map((doc) => (
-                    <div key={doc.id} className="p-4 hover:bg-slate-50 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 flex-1">
-                          <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                            <FileText className="h-5 w-5 text-red-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-900 truncate">{doc.name}</p>
-                            <p className="text-sm text-slate-500">{doc.type} • {doc.size}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={async () => {
-    handleDocumentView(doc.id, doc.name)
-    
-    // Open window immediately (prevents pop-up blocking)
-    const newWindow = window.open('about:blank', '_blank')
-    
-    try {
-      const response = await fetch(`/api/portal/${shareLink}/documents/${doc.id}`)
-      if (!response.ok) throw new Error('View failed')
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      
-      // Load PDF into the already-opened window
-      if (newWindow) {
-        newWindow.location.href = url
-      }
-    } catch (err) {
-      console.error('View error:', err)
-      if (newWindow) newWindow.close()
-      alert('Failed to open document. Please try again.')
-    }
-  }}
-                          >
-                            <Eye className="h-4 w-4" />
-                            View
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={async () => {
-  try {
-    const response = await fetch(`/api/portal/${shareLink}/documents/${doc.id}?download=true`)
-    if (!response.ok) throw new Error('Download failed')
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = doc.name
-    document.body.appendChild(a)
-    a.click()
-    window.URL.revokeObjectURL(url)
-    document.body.removeChild(a)
-  } catch (err) {
-    console.error('Download error:', err)
-    alert('Download failed. Please try again.')
-  }
-}}
-                          >
-                            <Download className="h-4 w-4" />
-                            Download
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={async () => {
+                      handleDocumentView(doc.id, doc.name)
+                      
+                      const newWindow = window.open('about:blank', '_blank')
+                      
+                      try {
+                        const response = await fetch(`/api/portal/${shareLink}/documents/${doc.id}`)
+                        if (!response.ok) throw new Error('View failed')
+                        const blob = await response.blob()
+                        const url = window.URL.createObjectURL(blob)
+                        
+                        if (newWindow) {
+                          newWindow.location.href = url
+                        }
+                      } catch (err) {
+                        console.error('View error:', err)
+                        if (newWindow) newWindow.close()
+                        alert('Failed to open document. Please try again.')
+                      }
+                    }}
+                  >
+                    <Eye className="h-4 w-4" />
+                    View
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`/api/portal/${shareLink}/documents/${doc.id}?download=true`)
+                        if (!response.ok) throw new Error('Download failed')
+                        const blob = await response.blob()
+                        const url = window.URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = doc.name
+                        document.body.appendChild(a)
+                        a.click()
+                        window.URL.revokeObjectURL(url)
+                        document.body.removeChild(a)
+                      } catch (err) {
+                        console.error('Download error:', err)
+                        alert('Download failed. Please try again.')
+                      }
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
                 </div>
               </div>
             </div>
-          )
-        })}
-
-        {/* Documents without folder */}
-        {spaceData.documents.filter(doc => !doc.folderId).length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">Documents</h2>
-            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-              <div className="divide-y">
-                {spaceData.documents.filter(doc => !doc.folderId).map((doc) => (
-                  <div key={doc.id} className="p-4 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-                          <FileText className="h-5 w-5 text-red-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-900 truncate">{doc.name}</p>
-                          <p className="text-sm text-slate-500">{doc.type} • {doc.size}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2"
-                          onClick={async () => {
-    handleDocumentView(doc.id, doc.name)
-    
-    // Open window immediately (prevents pop-up blocking)
-    const newWindow = window.open('about:blank', '_blank')
-    
-    try {
-      const response = await fetch(`/api/portal/${shareLink}/documents/${doc.id}`)
-      if (!response.ok) throw new Error('View failed')
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      
-      // Load PDF into the already-opened window
-      if (newWindow) {
-        newWindow.location.href = url
-      }
-    } catch (err) {
-      console.error('View error:', err)
-      if (newWindow) newWindow.close()
-      alert('Failed to open document. Please try again.')
-    }
-  }}
-                        >
-                          <Eye className="h-4 w-4" />
-                          View
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2"
-                           onClick={async () => {
-  try {
-    const response = await fetch(`/api/portal/${shareLink}/documents/${doc.id}?download=true`)
-    if (!response.ok) throw new Error('Download failed')
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = doc.name
-    document.body.appendChild(a)
-    a.click()
-    window.URL.revokeObjectURL(url)
-    document.body.removeChild(a)
-  } catch (err) {
-    console.error('Download error:', err)
-    alert('Download failed. Please try again.')
-  }
-}}
-                        >
-                          <Download className="h-4 w-4" />
-                          Download
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Empty state */}
-        {spaceData.documents.length === 0 && (
-          <div className="bg-white rounded-xl border p-12 text-center">
-            <FolderOpen className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">No documents yet</h3>
-            <p className="text-slate-600">Documents will appear here when they are added.</p>
-          </div>
-        )}
-      </main>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : (
+    /* Empty state */
+    <div className="bg-white rounded-xl border p-12 text-center">
+      <FolderOpen className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+      <h3 className="text-xl font-semibold text-slate-900 mb-2">No documents yet</h3>
+      <p className="text-slate-600">Documents will appear here when they are added.</p>
+    </div>
+  )}
+</main>
 
       {/* Footer */}
       <footer className="border-t bg-white mt-12">
