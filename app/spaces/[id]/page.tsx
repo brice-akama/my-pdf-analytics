@@ -523,16 +523,17 @@ const handleDeleteFile = async (fileId: string, filename: string) => {
 
     const data = await res.json()
 
-    if (res.ok && data.success) {
-      alert(data.message)
-      
-      // ✅ FIX: Remove deleted document from state immediately
-      setDocuments(prev => prev.filter(doc => doc.id !== fileId))
-      setAllDocuments(prev => prev.filter(doc => doc.id !== fileId))
-      
-      // Optional: Also refresh to update counts
-      await fetchFolders()
-    } else {
+   if (res.ok && data.success) {
+  alert(data.message)
+  
+  // ✅ Remove deleted document from state immediately
+  setDocuments(prev => prev.filter(doc => doc.id !== fileId))
+  setAllDocuments(prev => prev.filter(doc => doc.id !== fileId))
+  
+  // ✅ FIX: Immediately fetch trashed documents to update count
+  await fetchTrashedDocuments()
+  await fetchFolders()
+} else {
       alert(data.error || 'Failed to delete file')
     }
   } catch (error) {
@@ -728,6 +729,7 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
   useEffect(() => {
   fetchSpace();
   fetchCurrentUser();
+  fetchTrashedDocuments();
 }, [params.id]);
 
 const fetchCurrentUser = async () => {
