@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
+import { checkFolderAccess } from '@/lib/folderPermissions';
 import { ObjectId } from 'mongodb';
 import cloudinary from 'cloudinary';
 
@@ -18,26 +19,30 @@ async function checkSpacePermission(
   userId: string,
   userEmail: string,
   requiredRole: 'viewer' | 'editor' | 'admin' | 'owner'
-): Promise<{ allowed: boolean }> {
+): Promise<{ allowed: boolean; userRole: string | null }> {
   const space = await db.collection('spaces').findOne({
     _id: new ObjectId(spaceId)
   });
 
-  if (!space) return { allowed: false };
-  if (space.userId === userId) return { allowed: true };
+  if (!space) return { allowed: false, userRole: null };
+  if (space.userId === userId) return { allowed: true, userRole: 'owner' };
 
   const member = space.members?.find((m: any) => 
     m.email === userEmail || m.userId === userId
   );
   
-  if (!member) return { allowed: false };
+  if (!member) return { allowed: false, userRole: null };
 
   const roleHierarchy: Record<string, number> = {
     owner: 4, admin: 3, editor: 2, viewer: 1
   };
 
+  const userLevel = roleHierarchy[member.role] || 0;
+  const requiredLevel = roleHierarchy[requiredRole] || 0;
+
   return {
-    allowed: (roleHierarchy[member.role] || 0) >= (roleHierarchy[requiredRole] || 0)
+    allowed: userLevel >= requiredLevel,
+    userRole: member.role
   };
 }
 
@@ -59,6 +64,7 @@ export async function GET(
 
     const db = await dbPromise;
 
+    // Check space-level permission first
     const { allowed } = await checkSpacePermission(
       db, 
       spaceId, 
@@ -68,7 +74,7 @@ export async function GET(
     );
 
     if (!allowed) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied to space' }, { status: 403 });
     }
 
     // Get document
@@ -88,6 +94,25 @@ export async function GET(
 
     if (!document || !document.cloudinaryPdfUrl) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+    }
+
+    // ✅ NEW: Check folder-level permission if document is in a folder
+    if (document.folder) {
+      const folderAccess = await checkFolderAccess(
+        db,
+        document.folder,
+        spaceId,
+        user.email
+      );
+
+      if (!folderAccess.hasAccess) {
+        console.log(`❌ Folder access denied: ${folderAccess.reason}`);
+        return NextResponse.json({ 
+          error: folderAccess.reason || 'Access denied to this folder' 
+        }, { status: 403 });
+      }
+
+      console.log('✅ Folder access granted:', folderAccess.permission.role);
     }
 
     console.log('✅ Document found:', document.originalFilename);
@@ -144,6 +169,20 @@ export async function GET(
         $addToSet: { 'tracking.uniqueVisitors': user.id }
       }
     ).catch(err => console.error('Failed to update view count:', err));
+
+    // ✅ NEW: Update folder permission last accessed
+    if (document.folder) {
+      db.collection('folder_permissions').updateOne(
+        {
+          folderId: document.folder,
+          spaceId,
+          grantedTo: user.email.toLowerCase()
+        },
+        {
+          $set: { lastAccessed: new Date() }
+        }
+      ).catch(err => console.error('Failed to update folder permission:', err));
+    }
 
     // Return the PDF file
     const filename = document.originalFilename || 'document.pdf';

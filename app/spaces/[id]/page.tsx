@@ -229,6 +229,27 @@ const [expiresAt, setExpiresAt] = useState('')
 const [viewLimit, setViewLimit] = useState('')
 const [showPassword, setShowPassword] = useState(false)
 const [trashedDocuments, setTrashedDocuments] = useState<DocumentType[]>([])
+const [showFolderPermissionsDialog, setShowFolderPermissionsDialog] = useState(false)
+const [selectedFolderForPermissions, setSelectedFolderForPermissions] = useState<string | null>(null)
+const [folderPermissions, setFolderPermissions] = useState<Array<{
+  id: string
+  grantedTo: string
+  role: string
+  canDownload: boolean
+  canUpload: boolean
+  expiresAt: Date | null
+  watermarkEnabled: boolean
+  grantedBy: string
+  grantedAt: Date
+  isExpired: boolean
+}>>([])
+const [loadingPermissions, setLoadingPermissions] = useState(false)
+const [newPermissionEmail, setNewPermissionEmail] = useState('')
+const [newPermissionRole, setNewPermissionRole] = useState<'viewer' | 'editor' | 'restricted'>('viewer')
+const [newPermissionCanDownload, setNewPermissionCanDownload] = useState(true)
+const [newPermissionExpiresAt, setNewPermissionExpiresAt] = useState('')
+const [newPermissionWatermark, setNewPermissionWatermark] = useState(false)
+const [addingPermission, setAddingPermission] = useState(false)
 
 
 useEffect(() => {
@@ -269,7 +290,106 @@ useEffect(() => {
 
 
 
+// ✅ Fetch folder permissions
+const fetchFolderPermissions = async (folderId: string) => {
+  setLoadingPermissions(true)
+  try {
+    const res = await fetch(
+      `/api/spaces/${params.id}/folders/${folderId}/permissions`,
+      {
+        credentials: 'include',
+      }
+    )
 
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        setFolderPermissions(data.permissions)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch folder permissions:', error)
+  } finally {
+    setLoadingPermissions(false)
+  }
+}
+
+//  Grant folder permission
+const handleGrantFolderPermission = async () => {
+  if (!newPermissionEmail.trim() || !selectedFolderForPermissions) return
+
+  setAddingPermission(true)
+
+  try {
+    const res = await fetch(
+      `/api/spaces/${params.id}/folders/${selectedFolderForPermissions}/permissions`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          grantedTo: newPermissionEmail.trim(),
+          role: newPermissionRole,
+          canDownload: newPermissionCanDownload,
+          canUpload: newPermissionRole === 'editor',
+          expiresAt: newPermissionExpiresAt || null,
+          watermarkEnabled: newPermissionWatermark,
+        }),
+      }
+    )
+
+    const data = await res.json()
+
+    if (res.ok && data.success) {
+      alert(data.message)
+      // Refresh permissions list
+      await fetchFolderPermissions(selectedFolderForPermissions)
+      // Reset form
+      setNewPermissionEmail('')
+      setNewPermissionRole('viewer')
+      setNewPermissionCanDownload(true)
+      setNewPermissionExpiresAt('')
+      setNewPermissionWatermark(false)
+    } else {
+      alert(data.error || 'Failed to grant permission')
+    }
+  } catch (error) {
+    console.error('Failed to grant permission:', error)
+    alert('Failed to grant permission')
+  } finally {
+    setAddingPermission(false)
+  }
+}
+
+//   Revoke folder permission
+const handleRevokeFolderPermission = async (email: string) => {
+  if (!selectedFolderForPermissions) return
+  if (!confirm(`Revoke access from ${email}?`)) return
+
+  try {
+    const res = await fetch(
+      `/api/spaces/${params.id}/folders/${selectedFolderForPermissions}/permissions/${encodeURIComponent(email)}`,
+      {
+        method: 'DELETE',
+        credentials: 'include',
+      }
+    )
+
+    const data = await res.json()
+
+    if (res.ok && data.success) {
+      alert(data.message)
+      await fetchFolderPermissions(selectedFolderForPermissions)
+    } else {
+      alert(data.error || 'Failed to revoke permission')
+    }
+  } catch (error) {
+    console.error('Failed to revoke permission:', error)
+    alert('Failed to revoke permission')
+  }
+}
 
 
 const handleSearch = async (query: string) => {
@@ -1425,6 +1545,13 @@ const fetchFolders = async () => {
                       <FileText className="h-5 w-5 text-red-600" />
                     </div>
                     <span className="font-medium text-slate-900">{doc.name}</span>
+                    {/*   NEW: View-Only Indicator */}
+      {doc.folder && (
+        <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
+          <Eye className="h-3 w-3" />
+          View Only
+        </span>
+      )}
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -1580,6 +1707,7 @@ const fetchFolders = async () => {
     <Eye className="mr-2 h-4 w-4" />
     View
   </DropdownMenuItem>
+  {Download && (
    <DropdownMenuItem onClick={async () => {
                 try {
                   const response = await fetch(
@@ -1611,6 +1739,33 @@ const fetchFolders = async () => {
                 <Download className="mr-2 h-4 w-4" />
                 Download
               </DropdownMenuItem>
+  )}
+  {/* Show message if download blocked */}
+  {!Download && (
+    <DropdownMenuItem disabled className="text-slate-400">
+      <Lock className="mr-2 h-4 w-4" />
+      Download Restricted
+    </DropdownMenuItem>
+  )}
+
+               {/* ✅ NEW: Manage Access */}
+  {canManageContacts && (
+    <DropdownMenuItem
+      onClick={(e) => {
+        e.stopPropagation()
+        setSelectedFile(doc);
+        const folder = folders.find(f => f.id === doc.folder);
+        if (folder) {
+          setSelectedFolderForPermissions(folder.id);
+          fetchFolderPermissions(folder.id)
+        }
+        setShowFolderPermissionsDialog(true)
+      }}
+    >
+      <Lock className="mr-2 h-4 w-4" />
+      Manage Access
+    </DropdownMenuItem>
+  )}
 
   {/* ✅ NEW: Send for Signature */}
   {canEdit && (
@@ -1895,6 +2050,25 @@ const fetchFolders = async () => {
                   </DropdownMenuItem>
                 </>
               )}
+
+              {/* ✅ NEW: Manage Access */}
+  {canManageContacts && (
+    <DropdownMenuItem
+      onClick={(e) => {
+        e.stopPropagation()
+        setSelectedFile(doc);
+        const folder = folders.find(f => f.id === doc.folder);
+        if (folder) {
+          setSelectedFolderForPermissions(folder.id);
+          fetchFolderPermissions(folder.id)
+        }
+        setShowFolderPermissionsDialog(true)
+      }}
+    >
+      <Lock className="mr-2 h-4 w-4" />
+      Manage Access
+    </DropdownMenuItem>
+  )}
               
               {canEdit && (
                 <>
@@ -1984,7 +2158,7 @@ const fetchFolders = async () => {
         </Button>
       </div>
     ) : (
-      /*   Professional Table View (Like Dropbox/Google Drive) */
+      /*     Table View */
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
         <table className="w-full">
           <thead className="bg-slate-50 border-b">
@@ -2091,6 +2265,20 @@ const fetchFolders = async () => {
                           <FolderOpen className="mr-2 h-4 w-4" />
                           Open Folder
                         </DropdownMenuItem>
+                        {/*   NEW: Manage Access */}
+  {canManageContacts && (
+    <DropdownMenuItem
+      onClick={(e) => {
+        e.stopPropagation()
+        setSelectedFolderForPermissions(folder.id)
+        fetchFolderPermissions(folder.id)
+        setShowFolderPermissionsDialog(true)
+      }}
+    >
+      <Lock className="mr-2 h-4 w-4" />
+      Manage Access
+    </DropdownMenuItem>
+  )}
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation()
@@ -3352,6 +3540,327 @@ const fetchFolders = async () => {
     </div>
   </DialogContent>
 </Dialog>
+
+{/* ✅ Folder Permissions Dialog */}
+<Dialog open={showFolderPermissionsDialog} onOpenChange={setShowFolderPermissionsDialog}>
+  <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto bg-white">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <Lock className="h-5 w-5 text-purple-600" />
+        Manage Folder Access
+      </DialogTitle>
+      <DialogDescription>
+        Control who can access "{folders.find(f => f.id === selectedFolderForPermissions)?.name}"
+      </DialogDescription>
+    </DialogHeader>
+
+    <Tabs defaultValue="permissions" className="w-full">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="permissions">Current Access</TabsTrigger>
+        <TabsTrigger value="grant">Grant Access</TabsTrigger>
+      </TabsList>
+
+      {/* Current Permissions Tab */}
+      <TabsContent value="permissions" className="space-y-4 mt-4">
+        {loadingPermissions ? (
+          <div className="text-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-2" />
+            <p className="text-slate-600">Loading permissions...</p>
+          </div>
+        ) : folderPermissions.length === 0 ? (
+          <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
+            <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-600 font-medium">No specific permissions set</p>
+            <p className="text-sm text-slate-500 mt-1">
+              Space members with editor/admin roles can access this folder
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {folderPermissions.map((permission) => (
+              <div
+                key={permission.id}
+                className={`border rounded-lg p-4 ${
+                  permission.isExpired ? 'bg-red-50 border-red-200' : 'bg-white'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="h-10 w-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-semibold flex-shrink-0">
+                      {permission.grantedTo.charAt(0).toUpperCase()}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-semibold text-slate-900 truncate">
+                          {permission.grantedTo}
+                        </p>
+                        {permission.isExpired && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
+                            <AlertCircle className="h-3 w-3" />
+                            Expired
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {/* Role Badge */}
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-medium ${
+                          permission.role === 'editor' ? 'bg-green-100 text-green-700' :
+                          permission.role === 'viewer' ? 'bg-blue-100 text-blue-700' :
+                          'bg-orange-100 text-orange-700'
+                        }`}>
+                          {permission.role === 'editor' && '✏️'}
+                          {permission.role === 'viewer' && '👁️'}
+                          {permission.role === 'restricted' && '🔒'}
+                          {permission.role.charAt(0).toUpperCase() + permission.role.slice(1)}
+                        </span>
+
+                        {/* Download Permission */}
+                        {permission.canDownload ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 text-slate-700">
+                            <Download className="h-3 w-3" />
+                            Can Download
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-100 text-yellow-700">
+                            <Eye className="h-3 w-3" />
+                            View Only
+                          </span>
+                        )}
+
+                        {/* Watermark */}
+                        {permission.watermarkEnabled && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-purple-100 text-purple-700">
+                            <ShieldCheck className="h-3 w-3" />
+                            Watermark
+                          </span>
+                        )}
+
+                        {/* Expiration */}
+                        {permission.expiresAt && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 text-slate-700">
+                            <Calendar className="h-3 w-3" />
+                            Expires {new Date(permission.expiresAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-slate-500 mt-2">
+                        Granted by {permission.grantedBy} on {new Date(permission.grantedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRevokeFolderPermission(permission.grantedTo)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </TabsContent>
+
+      {/* Grant Access Tab */}
+      <TabsContent value="grant" className="space-y-4 mt-4">
+        <div className="space-y-4">
+          {/* Email Input */}
+          <div>
+            <Label className="text-sm font-medium text-slate-700">Email Address *</Label>
+            <Input
+              type="email"
+              placeholder="user@example.com"
+              value={newPermissionEmail}
+              onChange={(e) => setNewPermissionEmail(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+
+          {/* Role Selection */}
+          <div>
+            <Label className="text-sm font-medium text-slate-700 mb-3 block">
+              Access Level *
+            </Label>
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={() => {
+                  setNewPermissionRole('viewer')
+                  setNewPermissionCanDownload(true)
+                }}
+                className={`p-4 border-2 rounded-lg text-left transition-all ${
+                  newPermissionRole === 'viewer'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-slate-200 hover:border-blue-300'
+                }`}
+              >
+                <Eye className="h-5 w-5 text-blue-600 mb-2" />
+                <div className="font-semibold text-slate-900 text-sm">Viewer</div>
+                <div className="text-xs text-slate-600 mt-1">View & Download</div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setNewPermissionRole('editor')
+                  setNewPermissionCanDownload(true)
+                }}
+                className={`p-4 border-2 rounded-lg text-left transition-all ${
+                  newPermissionRole === 'editor'
+                    ? 'border-green-500 bg-green-50'
+                    : 'border-slate-200 hover:border-green-300'
+                }`}
+              >
+                <Edit className="h-5 w-5 text-green-600 mb-2" />
+                <div className="font-semibold text-slate-900 text-sm">Editor</div>
+                <div className="text-xs text-slate-600 mt-1">Upload & Edit</div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setNewPermissionRole('restricted')
+                  setNewPermissionCanDownload(false)
+                }}
+                className={`p-4 border-2 rounded-lg text-left transition-all ${
+                  newPermissionRole === 'restricted'
+                    ? 'border-orange-500 bg-orange-50'
+                    : 'border-slate-200 hover:border-orange-300'
+                }`}
+              >
+                <Lock className="h-5 w-5 text-orange-600 mb-2" />
+                <div className="font-semibold text-slate-900 text-sm">Restricted</div>
+                <div className="text-xs text-slate-600 mt-1">View Only (No Download)</div>
+              </button>
+            </div>
+          </div>
+
+          {/* Download Permission Toggle */}
+          {newPermissionRole !== 'restricted' && (
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50">
+              <div>
+                <p className="font-medium text-slate-900">Allow Downloads</p>
+                <p className="text-sm text-slate-600">User can download files from this folder</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newPermissionCanDownload}
+                  onChange={(e) => setNewPermissionCanDownload(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              </label>
+            </div>
+          )}
+
+          {/* Watermark Toggle */}
+          <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50">
+            <div>
+              <p className="font-medium text-slate-900">Enable Watermark</p>
+              <p className="text-sm text-slate-600">Show user's email on viewed documents</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={newPermissionWatermark}
+                onChange={(e) => setNewPermissionWatermark(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+          </div>
+
+          {/* Expiration Date */}
+          <div>
+            <Label className="text-sm font-medium text-slate-700">
+              Expiration Date (Optional)
+            </Label>
+            <Input
+              type="datetime-local"
+              value={newPermissionExpiresAt}
+              onChange={(e) => setNewPermissionExpiresAt(e.target.value)}
+              className="mt-2"
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Access will automatically expire after this date
+            </p>
+          </div>
+
+          {/* Info Box */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-800">
+                <p className="font-semibold mb-1">Access Summary:</p>
+                <ul className="space-y-1">
+                  <li>• Role: <strong>{newPermissionRole}</strong></li>
+                  <li>• Download: <strong>{newPermissionCanDownload ? 'Allowed' : 'Blocked'}</strong></li>
+                  <li>• Watermark: <strong>{newPermissionWatermark ? 'Enabled' : 'Disabled'}</strong></li>
+                  {newPermissionExpiresAt && (
+                    <li>• Expires: <strong>{new Date(newPermissionExpiresAt).toLocaleString()}</strong></li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 justify-end pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNewPermissionEmail('')
+                setNewPermissionRole('viewer')
+                setNewPermissionCanDownload(true)
+                setNewPermissionExpiresAt('')
+                setNewPermissionWatermark(false)
+              }}
+              disabled={addingPermission}
+            >
+              Clear
+            </Button>
+            <Button
+              onClick={handleGrantFolderPermission}
+              disabled={!newPermissionEmail.trim() || addingPermission}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              {addingPermission ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Granting...
+                </>
+              ) : (
+                <>
+                  <Key className="h-4 w-4 mr-2" />
+                  Grant Access
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </TabsContent>
+    </Tabs>
+
+    <div className="flex justify-end pt-4 border-t">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowFolderPermissionsDialog(false)
+          setSelectedFolderForPermissions(null)
+          setFolderPermissions([])
+        }}
+      >
+        Close
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   )
 }
+
+
