@@ -1737,3 +1737,133 @@ export async function sendSpaceInvitation({
     `
   });
 }
+
+
+// ===================================
+// MEMBER ROLE CHANGED EMAIL
+// ===================================
+export async function sendMemberRoleChangedEmail({
+  toEmail,
+  spaceName,
+  oldRole,
+  newRole,
+  changedBy
+}: {
+  toEmail: string;
+  spaceName: string;
+  oldRole: string;
+  newRole: string;
+  changedBy: string;
+}) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocuShare <onboarding@resend.dev>',
+      to: [toEmail],
+      subject: `Your role in "${spaceName}" has been updated`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white; }
+            .content { padding: 30px; }
+            .role-change { background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 20px 0; border-radius: 8px; }
+            .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin: 0; font-size: 24px;">🔄 Role Updated</h1>
+            </div>
+            <div class="content">
+              <p>Your permissions in <strong>${spaceName}</strong> have been updated.</p>
+              <div class="role-change">
+                <p style="margin: 0;"><strong>Previous Role:</strong> ${oldRole}</p>
+                <p style="margin: 10px 0 0 0;"><strong>New Role:</strong> ${newRole}</p>
+              </div>
+              <p style="font-size: 14px; color: #6b7280;">Updated by: ${changedBy}</p>
+              <a href="${process.env.NEXT_PUBLIC_APP_URL}/spaces" style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin-top: 20px;">
+                View Space
+              </a>
+            </div>
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    });
+
+    if (error) throw error;
+    console.log('✅ Role change email sent to:', toEmail);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Email service error:', error);
+    throw error;
+  }
+}
+
+// ===================================
+// MEMBER REMOVED EMAIL
+// ===================================
+export async function sendMemberRemovedEmail({
+  toEmail,
+  spaceName,
+  removedBy
+}: {
+  toEmail: string;
+  spaceName: string;
+  removedBy: string;
+}) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocuShare <onboarding@resend.dev>',
+      to: [toEmail],
+      subject: `Access removed from "${spaceName}"`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+            .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 30px; text-align: center; color: white; }
+            .content { padding: 30px; }
+            .info-box { background: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 20px 0; border-radius: 8px; }
+            .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin: 0; font-size: 24px;">❌ Access Removed</h1>
+            </div>
+            <div class="content">
+              <p>Your access to <strong>${spaceName}</strong> has been removed.</p>
+              <div class="info-box">
+                <p style="margin: 0;">You no longer have access to documents in this space.</p>
+                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6b7280;">Removed by: ${removedBy}</p>
+              </div>
+              <p style="font-size: 14px; color: #6b7280;">If you believe this was done in error, please contact ${removedBy}.</p>
+            </div>
+            <div class="footer">
+              <p>© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    });
+
+    if (error) throw error;
+    console.log('✅ Removal email sent to:', toEmail);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Email service error:', error);
+    throw error;
+  }
+}

@@ -1143,7 +1143,7 @@ const fetchFolders = async () => {
 <Button 
   variant="outline" 
   className="gap-2"
-  onClick={() => setShowMembersDialog(true)} //   NEW
+  onClick={() => router.push(`/spaces/${params.id}/members`)}
 >
   <Users className="h-4 w-4" />
   Members ({contacts.length})
