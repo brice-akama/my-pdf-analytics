@@ -175,6 +175,10 @@ export default function MembersPage() {
   const [newMemberEmail, setNewMemberEmail] = useState('')
   const [newMemberRole, setNewMemberRole] = useState<'viewer' | 'editor' | 'admin'>('viewer')
   const [addingMember, setAddingMember] = useState(false)
+  const [showBulkRoleDialog, setShowBulkRoleDialog] = useState(false)
+  const [showBulkRemoveDialog, setShowBulkRemoveDialog] = useState(false)
+  const [bulkNewRole, setBulkNewRole] = useState<'viewer' | 'editor' | 'admin'>('viewer')
+  const [bulkProcessing, setBulkProcessing] = useState(false)
 
   useEffect(() => {
     fetchSpace()
@@ -406,12 +410,203 @@ export default function MembersPage() {
     setSelectedMembers(newSelected)
   }
 
-  const handleSelectAll = () => {
+const handleSelectAll = () => {
     if (selectedMembers.size === filteredMembers.length) {
       setSelectedMembers(new Set())
     } else {
       setSelectedMembers(new Set(filteredMembers.map(m => m.id)))
     }
+  }
+
+  // ✨ NEW: Bulk role change handler
+  const handleBulkRoleChange = async () => {
+    if (selectedMembers.size === 0 || !bulkNewRole) return
+
+    setBulkProcessing(true)
+
+    // Get emails of selected members
+    const selectedMemberEmails = filteredMembers
+      .filter(m => selectedMembers.has(m.id))
+      .map(m => m.email)
+
+    try {
+      const res = await fetch(`/api/spaces/${params.id}/members/bulk`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'change_role',
+          memberEmails: selectedMemberEmails,
+          newRole: bulkNewRole
+        })
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        const { results } = data
+        
+        let message = `✅ ${results.successful} member(s) updated successfully!`
+        
+        if (results.failed > 0) {
+          message += `\n\n❌ ${results.failed} failed:\n${results.errors.join('\n')}`
+        }
+        
+        alert(message)
+        
+        setShowBulkRoleDialog(false)
+        setSelectedMembers(new Set())
+        setBulkNewRole('viewer')
+        fetchMembers()
+      } else {
+        alert(data.error || 'Bulk role change failed')
+      }
+    } catch (error) {
+      console.error('Bulk role change error:', error)
+      alert('Failed to change roles')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  // ✨ NEW: Bulk remove handler
+  const handleBulkRemove = async () => {
+    if (selectedMembers.size === 0) return
+
+    const selectedMemberEmails = filteredMembers
+      .filter(m => selectedMembers.has(m.id))
+      .map(m => m.email)
+
+    if (!confirm(`Remove ${selectedMembers.size} member(s) from this space?\n\nThis action cannot be undone.`)) {
+      return
+    }
+
+    setBulkProcessing(true)
+
+    try {
+      const res = await fetch(`/api/spaces/${params.id}/members/bulk`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'remove_members',
+          memberEmails: selectedMemberEmails
+        })
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        const { results } = data
+        
+        let message = `✅ ${results.successful} member(s) removed successfully!`
+        
+        if (results.failed > 0) {
+          message += `\n\n❌ ${results.failed} failed:\n${results.errors.join('\n')}`
+        }
+        
+        alert(message)
+        
+        setShowBulkRemoveDialog(false)
+        setSelectedMembers(new Set())
+        fetchMembers()
+      } else {
+        alert(data.error || 'Bulk remove failed')
+      }
+    } catch (error) {
+      console.error('Bulk remove error:', error)
+      alert('Failed to remove members')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  // ✨ NEW: Bulk toggle status handler
+  const handleBulkToggleStatus = async () => {
+    if (selectedMembers.size === 0) return
+
+    const selectedMemberEmails = filteredMembers
+      .filter(m => selectedMembers.has(m.id))
+      .map(m => m.email)
+
+    setBulkProcessing(true)
+
+    try {
+      const res = await fetch(`/api/spaces/${params.id}/members/bulk`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'toggle_status',
+          memberEmails: selectedMemberEmails
+        })
+      })
+
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        const { results } = data
+        
+        let message = `✅ ${results.successful} member(s) status updated!`
+        
+        if (results.failed > 0) {
+          message += `\n\n❌ ${results.failed} failed:\n${results.errors.join('\n')}`
+        }
+        
+        alert(message)
+        
+        setSelectedMembers(new Set())
+        fetchMembers()
+      } else {
+        alert(data.error || 'Bulk status update failed')
+      }
+    } catch (error) {
+      console.error('Bulk status update error:', error)
+      alert('Failed to update status')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  // ✨ NEW: Export to CSV handler
+  const handleExportToCSV = () => {
+    const selectedMembersList = filteredMembers.filter(m => selectedMembers.has(m.id))
+    
+    // Create CSV content
+    const headers = ['Email', 'Role', 'Status', 'Added Date', 'Last Access', 'Views', 'Downloads']
+    const rows = selectedMembersList.map(m => [
+      m.email,
+      m.role,
+      m.status,
+      new Date(m.addedAt).toLocaleDateString(),
+      m.lastAccessedAt ? new Date(m.lastAccessedAt).toLocaleDateString() : 'Never',
+      m.viewsCount.toString(),
+      m.downloadsCount.toString()
+    ])
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n')
+    
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${space?.name || 'space'}-members-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+    
+    alert(`Exported ${selectedMembersList.length} member(s) to CSV`)
   }
 
   if (loading) {
@@ -608,68 +803,7 @@ export default function MembersPage() {
 
         
                 
-        {/* ✨ NEW: Bulk Action Bar */}
-        {selectedMembers.size > 0 && (
-          <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-semibold">
-                  {selectedMembers.size}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">
-                    {selectedMembers.size} member{selectedMembers.size > 1 ? 's' : ''} selected
-                  </p>
-                  <p className="text-xs text-slate-600">
-                    Choose an action to apply to all selected members
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => alert('Bulk email coming soon!')}
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Email All
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => alert('Bulk role change coming soon!')}
-                >
-                  <Shield className="h-4 w-4 mr-2" />
-                  Change Role
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => alert('Export coming soon!')}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  onClick={() => {
-                    if (confirm(`Remove ${selectedMembers.size} members from this space?`)) {
-                      alert('Bulk remove coming soon!')
-                    }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Remove
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Filters & Search */}
-
+        
 
         {/* Filters & Search */}
         <div className="bg-white rounded-xl border p-4 mb-6">
@@ -715,26 +849,22 @@ export default function MembersPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={() => alert('Bulk role change coming soon!')}>
+                  <DropdownMenuItem onClick={() => setShowBulkRoleDialog(true)}>
                     <Shield className="mr-2 h-4 w-4" />
                     Change Role
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => alert('Bulk email coming soon!')}>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Send Email
+                  <DropdownMenuItem onClick={handleBulkToggleStatus}>
+                    <Activity className="mr-2 h-4 w-4" />
+                    Toggle Status
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => alert('Export coming soon!')}>
+                  <DropdownMenuItem onClick={handleExportToCSV}>
                     <Download className="mr-2 h-4 w-4" />
                     Export to CSV
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     className="text-red-600"
-                    onClick={() => {
-                      if (confirm(`Remove ${selectedMembers.size} members?`)) {
-                        alert('Bulk remove coming soon!')
-                      }
-                    }}
+                    onClick={() => setShowBulkRemoveDialog(true)}
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Remove Selected
@@ -1020,6 +1150,156 @@ export default function MembersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ✨ NEW: Bulk Role Change Dialog */}
+      <Dialog open={showBulkRoleDialog} onOpenChange={setShowBulkRoleDialog}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle>Bulk Role Change</DialogTitle>
+            <DialogDescription>
+              Change role for {selectedMembers.size} selected member{selectedMembers.size > 1 ? 's' : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800 font-medium mb-2">
+                Selected Members:
+              </p>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {filteredMembers
+                  .filter(m => selectedMembers.has(m.id))
+                  .map(m => (
+                    <div key={m.id} className="text-xs text-blue-700 flex items-center justify-between">
+                      <span>{m.email}</span>
+                      <RoleBadge role={m.role} />
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-2 block">
+                New Role for All Selected
+              </label>
+              <select
+                value={bulkNewRole}
+                onChange={(e) => setBulkNewRole(e.target.value as 'viewer' | 'editor' | 'admin')}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="viewer">Viewer - Can view documents</option>
+                <option value="editor">Editor - Can upload and edit</option>
+                <option value="admin">Admin - Full access</option>
+              </select>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-sm text-yellow-800">
+                ⚠️ All selected members will be notified via email about their role change.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowBulkRoleDialog(false)
+                setBulkNewRole('viewer')
+              }}
+              disabled={bulkProcessing}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkRoleChange}
+              disabled={bulkProcessing}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              {bulkProcessing ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                  Processing...
+                </>
+              ) : (
+                'Update All'
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ✨ NEW: Bulk Remove Confirmation Dialog */}
+      <Dialog open={showBulkRemoveDialog} onOpenChange={setShowBulkRemoveDialog}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />
+              Confirm Bulk Removal
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-900 font-semibold mb-2">
+                You are about to remove {selectedMembers.size} member{selectedMembers.size > 1 ? 's' : ''}:
+              </p>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {filteredMembers
+                  .filter(m => selectedMembers.has(m.id))
+                  .map(m => (
+                    <div key={m.id} className="text-xs text-red-800 flex items-center justify-between">
+                      <span>{m.email}</span>
+                      <RoleBadge role={m.role} />
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <p className="text-sm text-yellow-800">
+                ⚠️ Removed members will:
+              </p>
+              <ul className="text-xs text-yellow-700 mt-2 space-y-1 ml-4 list-disc">
+                <li>Lose access to all documents in this space</li>
+                <li>Be notified via email</li>
+                <li>Be able to re-join only if re-invited</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkRemoveDialog(false)}
+              disabled={bulkProcessing}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkRemove}
+              disabled={bulkProcessing}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {bulkProcessing ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                  Removing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remove All
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    
     </div>
   )
 }
