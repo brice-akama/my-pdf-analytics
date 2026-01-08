@@ -49,39 +49,31 @@ export async function PATCH(
     const db = await dbPromise;
     const { action, role, status } = await request.json();
 
-    // Check if user has permission (owner or admin)
     // Get space and check membership
-const space = await db.collection('spaces').findOne({
-  _id: new ObjectId(spaceId)
-});
-
-if (!space) {
-  return NextResponse.json(
-    { success: false, error: 'Space not found' },
-    { status: 404 }
-  );
-}
-
-// Determine user's role in this space
-let userRole = 'none'
-if (space.userId === user.id || space.userId === user.email) {
-  userRole = 'owner'
-} else {
-  const userMember = space.members?.find((m: any) => m.email === user.email || m.userId === user.id)
-  userRole = userMember?.role || 'none'
-}
-
-// Check if user has permission for this action
-if (!canPerformAction(userRole, action)) {
-  return NextResponse.json(
-    { success: false, error: `Only ${userRole === 'none' ? 'members' : 'owners/admins'} can ${action.replace('_', ' ')}` },
-    { status: 403 }
-  );
-}
+    const space = await db.collection('spaces').findOne({
+      _id: new ObjectId(spaceId)
+    });
 
     if (!space) {
       return NextResponse.json(
-        { success: false, error: 'Access denied' },
+        { success: false, error: 'Space not found' },
+        { status: 404 }
+      );
+    }
+
+    // Determine user's role in this space
+    let userRole = 'none'
+    if (space.userId === user.id || space.userId === user.email) {
+      userRole = 'owner'
+    } else {
+      const userMember = space.members?.find((m: any) => m.email === user.email || m.userId === user.id)
+      userRole = userMember?.role || 'none'
+    }
+
+    // Check if user has permission for this action
+    if (!canPerformAction(userRole, action)) {
+      return NextResponse.json(
+        { success: false, error: `Only ${userRole === 'none' ? 'members' : 'owners/admins'} can ${action.replace('_', ' ')}` },
         { status: 403 }
       );
     }
@@ -109,31 +101,29 @@ if (!canPerformAction(userRole, action)) {
     }
 
     // Handle different actions
-if (action === 'change_role') {
-  if (!['viewer', 'editor', 'admin'].includes(role)) {
-    return NextResponse.json(
-      { success: false, error: 'Invalid role' },
-      { status: 400 }
-    );
-  }
+    if (action === 'change_role') {
+      if (!['viewer', 'editor', 'admin'].includes(role)) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid role' },
+          { status: 400 }
+        );
+      }
 
-  // Check if user can modify this member
-  if (!canModifyMember(userRole, member.role)) {
-    return NextResponse.json(
-      { success: false, error: `${userRole}s cannot modify ${member.role}s` },
-      { status: 403 }
-    );
-  }
+      // Check if user can modify this member
+      if (!canModifyMember(userRole, member.role)) {
+        return NextResponse.json(
+          { success: false, error: `${userRole}s cannot modify ${member.role}s` },
+          { status: 403 }
+        );
+      }
 
-  // Admins cannot promote to admin (only owner can)
-  if (userRole === 'admin' && role === 'admin') {
-    return NextResponse.json(
-      { success: false, error: 'Only space owners can promote to admin' },
-      { status: 403 }
-    );
-  }
-
-   
+      // Admins cannot promote to admin (only owner can)
+      if (userRole === 'admin' && role === 'admin') {
+        return NextResponse.json(
+          { success: false, error: 'Only space owners can promote to admin' },
+          { status: 403 }
+        );
+      }
 
       const oldRole = member.role;
 
@@ -164,14 +154,19 @@ if (action === 'change_role') {
         timestamp: new Date()
       });
 
-      // Send email notification
-      await sendMemberRoleChangedEmail({
-        toEmail: member.email,
-        spaceName: space.name,
-        oldRole,
-        newRole: role,
-        changedBy: user.email
-      });
+      // Send email notification (non-blocking)
+      try {
+        await sendMemberRoleChangedEmail({
+          toEmail: member.email,
+          spaceName: space.name,
+          oldRole,
+          newRole: role,
+          changedBy: user.email
+        });
+      } catch (emailError) {
+        // Log but don't fail the request
+        console.log('⚠️ Email notification failed (non-critical):', emailError);
+      }
 
       return NextResponse.json({
         success: true,
@@ -249,35 +244,34 @@ export async function DELETE(
 
     const db = await dbPromise;
 
-    // Check permission
     // Get space and check membership
-const space = await db.collection('spaces').findOne({
-  _id: new ObjectId(spaceId)
-});
+    const space = await db.collection('spaces').findOne({
+      _id: new ObjectId(spaceId)
+    });
 
-if (!space) {
-  return NextResponse.json(
-    { success: false, error: 'Space not found' },
-    { status: 404 }
-  );
-}
+    if (!space) {
+      return NextResponse.json(
+        { success: false, error: 'Space not found' },
+        { status: 404 }
+      );
+    }
 
-// Determine user's role
-let userRole = 'none'
-if (space.userId === user.id || space.userId === user.email) {
-  userRole = 'owner'
-} else {
-  const userMember = space.members?.find((m: any) => m.email === user.email || m.userId === user.id)
-  userRole = userMember?.role || 'none'
-}
+    // Determine user's role
+    let userRole = 'none'
+    if (space.userId === user.id || space.userId === user.email) {
+      userRole = 'owner'
+    } else {
+      const userMember = space.members?.find((m: any) => m.email === user.email || m.userId === user.id)
+      userRole = userMember?.role || 'none'
+    }
 
-// Check permission
-if (!canPerformAction(userRole, 'remove_member')) {
-  return NextResponse.json(
-    { success: false, error: 'Only owners and admins can remove members' },
-    { status: 403 }
-  );
-}
+    // Check permission
+    if (!canPerformAction(userRole, 'remove_member')) {
+      return NextResponse.json(
+        { success: false, error: 'Only owners and admins can remove members' },
+        { status: 403 }
+      );
+    }
 
     // Find member
     const member = space.members?.find(
@@ -292,12 +286,12 @@ if (!canPerformAction(userRole, 'remove_member')) {
     }
 
     // Check if user can remove this member
-if (!canModifyMember(userRole, member.role)) {
-  return NextResponse.json(
-    { success: false, error: `${userRole}s cannot remove ${member.role}s` },
-    { status: 403 }
-  );
-}
+    if (!canModifyMember(userRole, member.role)) {
+      return NextResponse.json(
+        { success: false, error: `${userRole}s cannot remove ${member.role}s` },
+        { status: 403 }
+      );
+    }
 
     // Prevent removing owner
     if (member.role === 'owner' || space.userId === member.email) {
@@ -329,12 +323,16 @@ if (!canModifyMember(userRole, member.role)) {
       timestamp: new Date()
     });
 
-    // Send email notification
-    await sendMemberRemovedEmail({
-      toEmail: member.email,
-      spaceName: space.name,
-      removedBy: user.email
-    });
+    // Send email notification (non-blocking)
+    try {
+      await sendMemberRemovedEmail({
+        toEmail: member.email,
+        spaceName: space.name,
+        removedBy: user.email
+      });
+    } catch (emailError) {
+      console.log('⚠️ Email notification failed (non-critical):', emailError);
+    }
 
     return NextResponse.json({
       success: true,

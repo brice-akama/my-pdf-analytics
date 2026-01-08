@@ -156,6 +156,7 @@ type DocumentType = {
   folderId: string | null
   folder: string
   cloudinaryPdfUrl: string 
+  canDownload?: boolean
 }
 
 export default function SpaceDetailPage() {
@@ -1707,38 +1708,44 @@ const fetchFolders = async () => {
     <Eye className="mr-2 h-4 w-4" />
     View
   </DropdownMenuItem>
-  {Download && (
-   <DropdownMenuItem onClick={async () => {
-                try {
-                  const response = await fetch(
-                    `/api/spaces/${params.id}/files/${doc.id}/download`,
-                    {
-                      method: 'GET',
-                      credentials: 'include',
-                    }
-                  );
+ {/* ✅ Show download only if allowed */}
+  {doc.canDownload !== false ? (
+    <DropdownMenuItem onClick={async () => {
+      try {
+        const response = await fetch(
+          `/api/spaces/${params.id}/files/${doc.id}/download`,
+          {
+            method: 'GET',
+            credentials: 'include',
+          }
+        );
 
-                  if (!response.ok) {
-                    throw new Error('Download failed');
-                  }
+        if (!response.ok) {
+          throw new Error('Download failed');
+        }
 
-                  const blob = await response.blob();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = doc.name;
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
-                } catch (err) {
-                  console.error('Download error:', err);
-                  alert('Download failed. Please try again.');
-                }
-              }}>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </DropdownMenuItem>
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doc.name;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (err) {
+        console.error('Download error:', err);
+        alert('Download failed. Please try again.');
+      }
+    }}>
+      <Download className="mr-2 h-4 w-4" />
+      Download
+    </DropdownMenuItem>
+  ) : (
+    <DropdownMenuItem disabled className="text-slate-400">
+      <Lock className="mr-2 h-4 w-4" />
+      Download Restricted
+    </DropdownMenuItem>
   )}
   {/* Show message if download blocked */}
   {!Download && (
@@ -2002,37 +2009,45 @@ const fetchFolders = async () => {
               </DropdownMenuItem>
 
               {/* ✅ FIX 4: Proper Download handler */}
-              <DropdownMenuItem onClick={async () => {
-                try {
-                  const response = await fetch(
-                    `/api/spaces/${params.id}/files/${doc.id}/download`,
-                    {
-                      method: 'GET',
-                      credentials: 'include',
-                    }
-                  );
+              {/* ✅ Show download only if allowed */}
+  {doc.canDownload !== false ? (
+    <DropdownMenuItem onClick={async () => {
+      try {
+        const response = await fetch(
+          `/api/spaces/${params.id}/files/${doc.id}/download`,
+          {
+            method: 'GET',
+            credentials: 'include',
+          }
+        );
 
-                  if (!response.ok) {
-                    throw new Error('Download failed');
-                  }
+        if (!response.ok) {
+          throw new Error('Download failed');
+        }
 
-                  const blob = await response.blob();
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = doc.name;
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
-                } catch (err) {
-                  console.error('Download error:', err);
-                  alert('Download failed. Please try again.');
-                }
-              }}>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </DropdownMenuItem>
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doc.name;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (err) {
+        console.error('Download error:', err);
+        alert('Download failed. Please try again.');
+      }
+    }}>
+      <Download className="mr-2 h-4 w-4" />
+      Download
+    </DropdownMenuItem>
+  ) : (
+    <DropdownMenuItem disabled className="text-slate-400">
+      <Lock className="mr-2 h-4 w-4" />
+      Download Restricted
+    </DropdownMenuItem>
+  )}
 
               {/* Rest of the menu items... */}
               {canEdit && (
