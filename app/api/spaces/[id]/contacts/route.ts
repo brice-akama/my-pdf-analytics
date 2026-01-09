@@ -130,24 +130,29 @@ export async function POST(
       );
     }
 
+    
     /* ======================================================
-       1. Add member to space
-    ====================================================== */
-    const newMember = {
-      email: email.trim(),
-      role: role || 'viewer',
-      addedBy: user.id,
-      addedAt: new Date(),
-      lastAccessedAt: null
-    };
+   1. Add member to space
+====================================================== */
+const newMember = {
+  email: email.trim().toLowerCase(), // Always lowercase
+  role: String(role || 'viewer'), // Force new string
+  addedBy: user.id,
+  addedAt: new Date(),
+  lastAccessedAt: null,
+  status: 'active',
+  userId: null // Will be filled when they accept invite
+};
 
-    await db.collection('spaces').updateOne(
-      { _id: new ObjectId(spaceId) },
-      {
-        $push: { members: newMember as any },
-        $inc: { teamMembers: 1 }
-      } as any
-    );
+await db.collection('spaces').updateOne(
+  { _id: new ObjectId(spaceId) },
+  {
+    $push: { 
+      members: newMember
+    },
+    $inc: { teamMembers: 1 }
+  } as any
+);
 
     /* ======================================================
        2. Generate invitation token

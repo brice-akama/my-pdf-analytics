@@ -207,7 +207,7 @@ const [contacts, setContacts] = useState<Array<{
 }>>([])
 const [user, setUser] = useState<{ email: string } | null>(null)
 const [isOwner, setIsOwner] = useState(false)
-const [userRole, setUserRole] = useState<string>('viewer')
+const [userRole, setUserRole] = useState<string>(''); // ← Initialize as empty
 const canUpload = ['owner', 'admin', 'editor'].includes(userRole);
 const canEdit = ['owner', 'admin', 'editor'].includes(userRole);
 const canDelete = ['owner', 'admin', 'editor'].includes(userRole);
@@ -251,6 +251,12 @@ const [newPermissionCanDownload, setNewPermissionCanDownload] = useState(true)
 const [newPermissionExpiresAt, setNewPermissionExpiresAt] = useState('')
 const [newPermissionWatermark, setNewPermissionWatermark] = useState(false)
 const [addingPermission, setAddingPermission] = useState(false)
+const [myRole, setMyRole] = useState<string>('');
+const [permissions, setPermissions] = useState({
+  canManageMembers: false,
+  canUpload: false,
+  canDelete: false
+});
 
 
 useEffect(() => {
@@ -261,7 +267,7 @@ useEffect(() => {
 }, [searchParams])
 
 
-// In /app/spaces/[id]/page.tsx
+ 
 useEffect(() => {
   console.log('🔍 Current user role state:', {
     userRole,
@@ -271,6 +277,45 @@ useEffect(() => {
     canDelete
   });
 }, [userRole, isOwner]);
+
+
+useEffect(() => {
+  let cancelled = false; // ✅ Prevent race conditions
+
+  const fetchMyRole = async () => {
+    try {
+      const res = await fetch(`/api/spaces/${params.id}/my-role`, {
+        credentials: 'include'
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        
+        // ✅ ONLY update if this fetch wasn't cancelled
+        if (!cancelled) {
+          console.log('✅ Setting role from /my-role:', data.role);
+          setUserRole(data.role);
+          setIsOwner(data.role === 'owner');
+          setMyRole(data.role);
+          setPermissions({
+            canManageMembers: data.canManageMembers || false,
+            canUpload: data.canUpload || false,
+            canDelete: data.canDelete || false
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch role:', error);
+    }
+  };
+
+  fetchMyRole();
+
+  // ✅ Cleanup function - prevents stale updates
+  return () => {
+    cancelled = true;
+  };
+}, [params.id]);
 
 
 
@@ -442,7 +487,6 @@ const fetchContacts = async () => {
       const data = await res.json();
       if (data.success) {
         setContacts(data.contacts);
-        console.log('✅ Loaded contacts:', data.contacts);
       }
     }
   } catch (error) {
@@ -886,9 +930,7 @@ const fetchSpace = async () => {
 
     if (data.success) {
       setSpace(data.space);
-      setIsOwner(data.space.isOwner); // ✅ Capture from backend
-      setUserRole(data.space.role);    // ✅ Capture from backend
-      
+
       await fetchFolders();
       await fetchContacts();
 
@@ -902,14 +944,11 @@ const fetchSpace = async () => {
 
       if (docsRes.ok) {
         const docsData = await docsRes.json();
-        console.log('🔍 API Response:', docsData); 
         if (docsData.success) {
-          const validDocuments = Array.isArray(docsData.documents) 
+          const validDocuments = Array.isArray(docsData.documents)
             ? docsData.documents.filter((doc: { id: any }) => doc && doc.id)
             : [];
-            setAllDocuments(validDocuments); // ✅ Store all documents
-        setDocuments(validDocuments);
-          console.log('Fetched documents:', validDocuments);
+          setAllDocuments(validDocuments);
           setDocuments(validDocuments);
 
           if (data.space.template) {
