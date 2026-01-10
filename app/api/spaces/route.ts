@@ -1,8 +1,11 @@
+ 
+
 // app/api/spaces/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
+import { ObjectId } from 'mongodb';
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,24 +18,71 @@ export async function GET(request: NextRequest) {
       }, { status: 401 });
     }
 
+    // ✅ NEW: Get organizationId from query params
+    const { searchParams } = new URL(request.url);
+    const organizationId = searchParams.get('organizationId');
+
     const db = await dbPromise;
 
-    // ✅ Get spaces owned by user
-    const ownedSpaces = await db.collection('spaces')
-      .find({ userId: user.id })
-      .sort({ updatedAt: -1 })
-      .toArray();
+    let ownedSpaces = [];
+    let memberSpaces = [];
 
-    // ✅ Get spaces where user is a member
-    const memberSpaces = await db.collection('spaces')
-      .find({ 
-        'members.email': user.email,
-        userId: { $ne: user.id } // Exclude owned spaces
-      })
-      .sort({ createdAt: -1 })
-      .toArray();
+    if (organizationId) {
+      // ✅ ORGANIZATION MODE: Fetch spaces for specific organization
+      
+      // Check if user is member of this organization
+      const orgMembership = await db.collection('organization_members').findOne({
+        organizationId,
+        userId: user.id,
+        status: 'active'
+      });
 
-    // Format owned spaces to match frontend expectations
+      if (!orgMembership) {
+        return NextResponse.json({ 
+          error: 'Access denied to this organization' 
+        }, { status: 403 });
+      }
+
+      // Get spaces based on organization permissions
+      if (orgMembership.permissions.canViewAllSpaces) {
+        // Admin/Owner sees all org spaces
+        ownedSpaces = await db.collection('spaces')
+          .find({ organizationId })
+          .sort({ updatedAt: -1 })
+          .toArray();
+      } else {
+        // Members see only their spaces + spaces shared with them
+        // ✅ ALL organization members can see ALL org spaces
+ownedSpaces = await db.collection('spaces')
+  .find({ organizationId })
+  .sort({ updatedAt: -1 })
+  .toArray();
+
+      }
+    } else {
+      // ✅ PERSONAL MODE: Fetch user's personal spaces (no organization)
+      
+      // Owned personal spaces
+      ownedSpaces = await db.collection('spaces')
+        .find({ 
+          userId: user.id,
+          organizationId: { $exists: false }  // ✅ Only personal spaces
+        })
+        .sort({ updatedAt: -1 })
+        .toArray();
+
+      // Member of personal spaces
+      memberSpaces = await db.collection('spaces')
+        .find({ 
+          'members.email': user.email,
+          userId: { $ne: user.id },
+          organizationId: { $exists: false }  // ✅ Only personal spaces
+        })
+        .sort({ createdAt: -1 })
+        .toArray();
+    }
+
+    // Format owned spaces
     const formattedOwned = ownedSpaces.map(space => ({
       _id: space._id.toString(),
       name: space.name,
@@ -41,6 +91,10 @@ export async function GET(request: NextRequest) {
       status: space.status || 'active',
       template: space.template,
       color: space.color || '#8B5CF6',
+      
+      // ✅ NEW: Organization info
+      organizationId: space.organizationId || null,
+      createdBy: space.createdBy || space.userId,
       
       // Owner info
       owner: {
@@ -66,13 +120,12 @@ export async function GET(request: NextRequest) {
       },
       
       // Flags
-      isOwner: true,
-      role: 'owner'
+      isOwner: space.userId === user.id || space.createdBy === user.id,
+      role: space.userId === user.id ? 'owner' : 'admin'
     }));
 
     // Format member spaces
     const formattedMember = memberSpaces.map(space => {
-      // Find user's role in this space
       const member = space.members?.find((m: any) => m.email === user.email);
       const role = member?.role || 'viewer';
       
@@ -84,6 +137,10 @@ export async function GET(request: NextRequest) {
         status: space.status || 'active',
         template: space.template,
         color: space.color || '#8B5CF6',
+        
+        // ✅ NEW: Organization info
+        organizationId: space.organizationId || null,
+        createdBy: space.createdBy || space.userId,
         
         // Counters
         documentsCount: space.documentsCount || 0,
@@ -108,10 +165,10 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // ✅ Combine both arrays
+    // Combine both arrays
     const allSpaces = [...formattedOwned, ...formattedMember];
 
-    console.log(`✅ Returning ${allSpaces.length} spaces (${formattedOwned.length} owned, ${formattedMember.length} member)`);
+    console.log(`✅ Returning ${allSpaces.length} spaces (${formattedOwned.length} owned, ${formattedMember.length} member)${organizationId ? ` for org ${organizationId}` : ''}`);
 
     return NextResponse.json({
       success: true,
@@ -139,8 +196,6 @@ export async function POST(request: NextRequest) {
       name,
       template,
       color,
-
-      // ✅ NEW optional fields (safe defaults)
       description,
       type,
       privacy,
@@ -149,7 +204,10 @@ export async function POST(request: NextRequest) {
       requireNDA,
       enableWatermark,
       allowDownloads,
-      notifyOnView
+      notifyOnView,
+      
+      // ✅ NEW: Organization support
+      organizationId
     } = body;
 
     if (!name?.trim()) {
@@ -161,10 +219,51 @@ export async function POST(request: NextRequest) {
 
     const db = await dbPromise;
 
-    // ✅ KEEP OLD STRUCTURE + ADD NEW SCHEMA FIELDS
+    // ✅ NEW: Verify organization membership and permissions
+    if (organizationId) {
+      const membership = await db.collection('organization_members').findOne({
+        organizationId,
+        userId: user.id,
+        status: 'active'
+      });
+
+      if (!membership) {
+        return NextResponse.json({ 
+          error: 'You are not a member of this organization' 
+        }, { status: 403 });
+      }
+
+      if (!membership.permissions.canCreateSpaces) {
+        return NextResponse.json({ 
+          error: 'You do not have permission to create spaces in this organization' 
+        }, { status: 403 });
+      }
+
+      // ✅ Check organization space limit
+      const org = await db.collection('organizations').findOne({
+        _id: new ObjectId(organizationId)
+      });
+
+      if (org && org.settings.maxSpaces !== -1) {
+        const currentSpaces = await db.collection('spaces')
+          .countDocuments({ organizationId });
+        
+        if (currentSpaces >= org.settings.maxSpaces) {
+          return NextResponse.json({ 
+            error: `Space limit reached (${org.settings.maxSpaces}). Upgrade your plan.` 
+          }, { status: 400 });
+        }
+      }
+    }
+
+    // Create space with organization link
     const space = {
       // 🔒 Ownership
       userId: user.id,
+      createdBy: user.id,  // ✅ NEW: Track who created it
+      
+      // ✅ NEW: Organization link
+      organizationId: organizationId || null,
 
       // 🏷️ Basic info
       name: name.trim(),
@@ -175,27 +274,29 @@ export async function POST(request: NextRequest) {
       active: true,
       status: 'active',
 
-      // 👥 Members (KEEP OLD MODEL)
+      // 👥 Members
       members: [
         {
           email: user.email,
+          userId: user.id, 
           role: 'owner',
-          addedAt: new Date()
+          addedAt: new Date(),
+          status: 'active' 
         }
       ],
 
-      // ⚙️ NEW SETTINGS BLOCK
+      // ⚙️ Settings
       settings: {
         privacy: privacy || 'private',
         autoExpiry: autoExpiry || false,
         expiryDate: expiryDate ? new Date(expiryDate) : null,
         requireNDA: requireNDA || false,
         enableWatermark: enableWatermark || false,
-        allowDownloads: allowDownloads !== false, // default true
-        notifyOnView: notifyOnView !== false       // default true
+        allowDownloads: allowDownloads !== false,
+        notifyOnView: notifyOnView !== false
       },
 
-      // 🌍 Public access (NEW)
+      // 🌍 Public access
       publicAccess: {
         enabled: false,
         shareLink: null,
@@ -207,7 +308,7 @@ export async function POST(request: NextRequest) {
         currentViews: 0
       },
 
-      // 🎨 Branding (NEW)
+      // 🎨 Branding
       branding: {
         logoUrl: null,
         primaryColor: color || '#8B5CF6',
@@ -216,12 +317,12 @@ export async function POST(request: NextRequest) {
         coverImageUrl: null
       },
 
-      // 📊 Counters (NEW)
+      // 📊 Counters
       documentsCount: 0,
       viewsCount: 0,
       teamMembers: 1,
 
-      // 🧾 Logs (NEW)
+      // 🧾 Logs
       visitors: [],
       activityLog: [],
 
@@ -232,6 +333,17 @@ export async function POST(request: NextRequest) {
     };
 
     const result = await db.collection('spaces').insertOne(space);
+
+    // ✅ NEW: Update organization space count
+    if (organizationId) {
+      await db.collection('organizations').updateOne(
+        { _id: new ObjectId(organizationId) },
+        { 
+          $inc: { spaceCount: 1 },
+          $set: { updatedAt: new Date() }
+        }
+      );
+    }
 
     return NextResponse.json({
       success: true,

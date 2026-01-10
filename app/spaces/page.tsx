@@ -63,7 +63,7 @@ import {
   Copy,
   ExternalLink
 } from "lucide-react"
-import Link from "next/link"
+import { OrganizationSwitcher } from '@/components/OrganizationSwitcher'
 
 type SpaceType = {
   _id: string
@@ -188,9 +188,17 @@ export default function SpacesPage() {
     fetchSpaces()
   }, [])
 
-  const fetchSpaces = async () => {
+  // Around line 152
+const fetchSpaces = async () => {
   try {
-    const res = await fetch('/api/spaces', {
+    // ✅ Get current organization from OrganizationSwitcher
+    const currentOrgId = (window as any).getCurrentOrgId?.();
+    
+    const url = currentOrgId 
+      ? `/api/spaces?organizationId=${currentOrgId}`
+      : '/api/spaces'; // Personal spaces only
+    
+    const res = await fetch(url, {
       credentials: 'include',
     })
 
@@ -202,12 +210,11 @@ export default function SpacesPage() {
     const data = await res.json()
 
     if (data.success) {
-      // ✅ Separate owned spaces and member spaces
       const owned = data.spaces.filter((s: any) => s.isOwner)
       const member = data.spaces.filter((s: any) => !s.isOwner)
       
       setSpaces(owned)
-      setMemberSpaces(member) // You'll need to add this state
+      setMemberSpaces(member)
     }
   } catch (error) {
     console.error('Failed to fetch spaces:', error)
@@ -217,7 +224,11 @@ export default function SpacesPage() {
 }
 
   // Create new space
-  const handleCreateSpace = async () => {
+   
+const handleCreateSpace = async () => {
+  // ✅ FIX: Get organizationId from OrganizationSwitcher
+  const currentOrgId = (window as any).getCurrentOrgId?.();
+  
   if (!newSpace.name.trim()) {
     alert('Please enter a space name')
     return
@@ -234,7 +245,8 @@ export default function SpacesPage() {
       credentials: 'include',
       body: JSON.stringify({
         ...newSpace,
-        status: 'active' //  Set default status
+        status: 'active',
+        organizationId: currentOrgId, // ✅ This is already correct
       }),
     })
 
@@ -244,7 +256,11 @@ export default function SpacesPage() {
       alert('Space created successfully!')
       setShowCreateDialog(false)
       setShowTemplatesDialog(false)
-      // Navigate to the new space (no immediate fetch to avoid racey updates)
+      
+      // ✅ FIX: Fetch spaces again to refresh the list
+      await fetchSpaces() 
+      
+      // Then navigate to the new space
       router.push(`/spaces/${data.space._id}`)
     } else {
       alert(data.error || 'Failed to create space')
@@ -265,6 +281,15 @@ export default function SpacesPage() {
     const matchesFilter = filterType === 'all' || space.status === filterType
     return matchesSearch && matchesFilter
   })
+
+  // Filter member spaces too
+const filteredMemberSpaces = memberSpaces.filter(space => {
+  const matchesSearch = space.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                       space.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  const matchesFilter = filterType === 'all' || space.status === filterType
+  return matchesSearch && matchesFilter
+})
+  
 
   // Format status text (capitalize first letter)
 const formatStatus = (status: string) => {
@@ -327,6 +352,10 @@ const getInitial = (user: any) => {
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
+              {/*   NEW: Add Organization Switcher */}
+        <OrganizationSwitcher />
+        
+        <div className="h-8 w-px bg-slate-200" /> {/* Divider */}
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">Data Rooms</h1>
                 <p className="text-sm text-slate-600">Secure spaces for deals, fundraising, and collaboration</p>
@@ -637,53 +666,114 @@ const getInitial = (user: any) => {
     </table>
     
     {/* Shared with You */}
-{memberSpaces.length > 0 && (
-  <div className="mt-12">
-    <h2 className="text-xl font-semibold text-slate-900 mb-4">
-      Shared with You
+{/* Shared with You - Table View */}
+{filteredMemberSpaces.length > 0 && (
+  <div className="mt-8">
+    <h2 className="text-xl font-semibold text-slate-900 mb-4 px-6">
+     Shared with You ({filteredMemberSpaces.length})
     </h2>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {memberSpaces.map((space) => (
-        <div
-          key={space._id}
-          onClick={() => router.push(`/spaces/${space._id}`)}
-          className="bg-white rounded-xl border shadow-sm hover:shadow-xl transition-all cursor-pointer p-6"
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div
-              className="h-12 w-12 rounded-xl flex items-center justify-center"
-              style={{ background: space.color || '#6366f1' }}
+    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <table className="w-full">
+        <thead className="bg-slate-50 border-b">
+          <tr>
+            <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider w-12">
+              <input type="checkbox" className="rounded" />
+            </th>
+            <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+              Name
+            </th>
+            <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+              Your Role
+            </th>
+            <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+              Documents
+            </th>
+            <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+              Members
+            </th>
+            <th className="text-right px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {filteredMemberSpaces.map((space) => (
+            <tr
+              key={space._id}
+              className="hover:bg-slate-50 transition-colors cursor-pointer group"
+              onClick={() => router.push(`/spaces/${space._id}`)}
             >
-              <FolderOpen className="h-6 w-6 text-white" />
-            </div>
-
-            <span className="text-xs font-semibold px-2 py-1 rounded-full bg-blue-100 text-blue-700">
-              {space.role || 'Member'}
-            </span>
-          </div>
-
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">
-            {space.name}
-          </h3>
-
-          <p className="text-sm text-slate-600 mb-4 line-clamp-2">
-            {space.description}
-          </p>
-
-          <div className="flex items-center gap-4 text-sm text-slate-600">
-            <span className="flex items-center gap-1">
-              <FileText className="h-4 w-4" />
-              {space.documentsCount || 0}
-            </span>
-
-            <span className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
-              {space.teamMembers || 0}
-            </span>
-          </div>
-        </div>
-      ))}
+              <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                <input type="checkbox" className="rounded" />
+              </td>
+              
+              <td className="px-6 py-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="h-11 w-11 rounded-xl flex items-center justify-center"
+                    style={{ background: space.color || '#6366f1' }}
+                  >
+                    <FolderOpen className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900 group-hover:text-purple-600 transition-colors">
+                      {space.name}
+                    </p>
+                    {space.description && (
+                      <p className="text-xs text-slate-500 truncate max-w-md">
+                        {space.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </td>
+              
+              <td className="px-6 py-4">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                  {space.role === 'admin' && '⚡'}
+                  {space.role === 'editor' && '✏️'}
+                  {space.role === 'viewer' && '👁️'}
+                  {space.role || 'Member'}
+                </span>
+              </td>
+              
+              <td className="px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-slate-400" />
+                  <span className="text-sm font-medium text-slate-900">
+                    {space.documentsCount || 0}
+                  </span>
+                </div>
+              </td>
+              
+              <td className="px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-slate-400" />
+                  <span className="text-sm font-medium text-slate-900">
+                    {space.teamMembers || 0}
+                  </span>
+                </div>
+              </td>
+              
+              <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 opacity-0 group-hover:opacity-100"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    router.push(`/spaces/${space._id}`)
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                  Open
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   </div>
 )}

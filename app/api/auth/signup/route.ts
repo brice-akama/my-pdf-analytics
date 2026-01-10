@@ -113,6 +113,39 @@ if (!isOAuthSignup) {
     const insertResult = await users.insertOne(userDoc);
     const insertedUserId = insertResult.insertedId.toString();
 
+    /* ======================================================
+     AUTO-ACCEPT PENDING ORGANIZATION INVITATIONS
+   ====================================================== */
+
+const pendingInvitations = await db
+  .collection('organization_members')
+  .find({
+    email: sanitizedEmail,
+    status: 'invited'
+  })
+  .toArray();
+
+if (pendingInvitations.length > 0) {
+  for (const invite of pendingInvitations) {
+    await db.collection('organization_members').updateOne(
+      { _id: invite._id },
+      {
+        $set: {
+          userId: insertedUserId,
+          status: 'active',
+          joinedAt: new Date(),
+          lastActiveAt: new Date()
+        }
+      }
+    );
+  }
+
+  console.log(
+    `  Auto-accepted ${pendingInvitations.length} pending invitation(s) for ${sanitizedEmail}`
+  );
+}
+
+
     const profileDoc = {
       _id: new ObjectId(insertedUserId),
       user_id: insertedUserId,
