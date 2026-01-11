@@ -71,6 +71,11 @@ ownedSpaces = await db.collection('spaces')
         .sort({ updatedAt: -1 })
         .toArray();
 
+        // ✅ ADD DEBUG LOGGING HERE:
+  console.log('🔍 DEBUG - User ID:', user.id);
+  console.log('🔍 DEBUG - Organization ID from params:', organizationId);
+  console.log('🔍 DEBUG - Found owned spaces:', ownedSpaces.length);
+
       // Member of personal spaces
       memberSpaces = await db.collection('spaces')
         .find({ 
@@ -275,15 +280,38 @@ export async function POST(request: NextRequest) {
       status: 'active',
 
       // 👥 Members
-      members: [
-        {
-          email: user.email,
-          userId: user.id, 
-          role: 'owner',
-          addedAt: new Date(),
-          status: 'active' 
-        }
-      ],
+      // ✅ NEW CODE: Add creator + all org members
+members: await (async () => {
+  const membersList = [
+    {
+      email: user.email,
+      role: 'owner',
+      addedAt: new Date()
+    }
+  ];
+
+  // ✅ If space belongs to organization, add all org members
+  if (organizationId) {
+    const orgMembers = await db.collection('organization_members')
+      .find({
+        organizationId,
+        status: 'active',
+        email: { $ne: user.email } // Don't duplicate creator
+      })
+      .toArray();
+
+    // Add each org member to space members with their org role
+    orgMembers.forEach(orgMember => {
+      membersList.push({
+        email: orgMember.email,
+        role: orgMember.role === 'owner' || orgMember.role === 'admin' ? 'admin' : 'editor',
+        addedAt: new Date()
+      });
+    });
+  }
+
+  return membersList;
+})(),
 
       // ⚙️ Settings
       settings: {

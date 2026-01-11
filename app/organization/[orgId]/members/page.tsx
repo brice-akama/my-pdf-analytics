@@ -107,11 +107,89 @@ export default function OrganizationMembersPage() {
   const [inviting, setInviting] = useState(false)
   const [invitationLink, setInvitationLink] = useState('')
 const [showLinkDialog, setShowLinkDialog] = useState(false)
+const [currentUser, setCurrentUser] = useState<any>(null)
+const [currentUserRole, setCurrentUserRole] = useState<string>('')
+const [showRoleDialog, setShowRoleDialog] = useState(false)
+const [selectedMember, setSelectedMember] = useState<OrgMember | null>(null)
+const [newRole, setNewRole] = useState<'member' | 'admin' | 'viewer'>('member')
+const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
-    fetchOrganization()
-    fetchMembers()
-  }, [params.orgId])
+  fetchOrganization()
+  fetchMembers()
+  fetchCurrentUser()
+}, [params.orgId])
+
+// Add another useEffect to update role when members change
+useEffect(() => {
+  if (currentUser && members.length > 0) {
+    const member = members.find(m => m.userId === currentUser.id)
+    if (member) {
+      setCurrentUserRole(member.role)
+    }
+  }
+}, [members, currentUser])
+
+
+
+const handleChangeRole = async () => {
+  if (!selectedMember) return
+
+  setUpdating(true)
+
+  try {
+    const res = await fetch(`/api/organizations/${params.orgId}/members/${selectedMember.id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: newRole })
+    })
+
+    const data = await res.json()
+
+    if (res.ok && data.success) {
+      alert('✅ Role updated successfully!')
+      setShowRoleDialog(false)
+      setSelectedMember(null)
+      fetchMembers()
+    } else {
+      alert(data.error || 'Failed to update role')
+    }
+  } catch (error) {
+    console.error('Role change error:', error)
+    alert('Failed to update role')
+  } finally {
+    setUpdating(false)
+  }
+}
+
+const openRoleDialog = (member: OrgMember) => {
+  setSelectedMember(member)
+  setNewRole(member.role as 'member' | 'admin' | 'viewer')
+  setShowRoleDialog(true)
+}
+
+
+  const fetchCurrentUser = async () => {
+  try {
+    const res = await fetch('/api/auth/me', {
+      credentials: 'include'
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setCurrentUser(data.user)
+      
+      // Get current user's role in this org
+      const member = members.find(m => m.userId === data.user.id)
+      if (member) {
+        setCurrentUserRole(member.role)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch current user:', error)
+  }
+}
+
 
   const fetchOrganization = async () => {
     try {
@@ -404,23 +482,29 @@ const handleCopyLink = async () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Shield className="mr-2 h-4 w-4" />
-                            Change Role
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Mail className="mr-2 h-4 w-4" />
-                            Resend Invitation
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => handleRemoveMember(member.id, member.email)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Remove Member
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
+  <DropdownMenuItem
+    onClick={() => openRoleDialog(member)}
+    disabled={currentUserRole !== 'owner'}
+  >
+    <Shield className="mr-2 h-4 w-4" />
+    Change Role
+  </DropdownMenuItem>
+  <DropdownMenuItem
+    disabled={currentUserRole !== 'owner' && currentUserRole !== 'admin'}
+  >
+    <Mail className="mr-2 h-4 w-4" />
+    Resend Invitation
+  </DropdownMenuItem>
+  <DropdownMenuSeparator />
+  <DropdownMenuItem
+    className="text-red-600"
+    onClick={() => handleRemoveMember(member.id, member.email)}
+    disabled={currentUserRole !== 'owner' && currentUserRole !== 'admin'}
+  >
+    <Trash2 className="mr-2 h-4 w-4" />
+    Remove Member
+  </DropdownMenuItem>
+</DropdownMenuContent>
                       </DropdownMenu>
                     )}
                   </td>
@@ -550,6 +634,75 @@ const handleCopyLink = async () => {
     </div>
   </DialogContent>
 </Dialog>
+
+{/* Role Change Dialog */}
+<Dialog open={showRoleDialog} onOpenChange={setShowRoleDialog}>
+  <DialogContent className="max-w-md bg-white">
+    <DialogHeader>
+      <DialogTitle>Change Member Role</DialogTitle>
+      <DialogDescription>
+        Update role for {selectedMember?.email}
+      </DialogDescription>
+    </DialogHeader>
+
+    {currentUserRole !== 'owner' ? (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-sm text-red-800">
+          ⛔ Only the organization owner can change member roles.
+        </p>
+      </div>
+    ) : (
+      <>
+        <div className="space-y-4 py-4">
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-2 block">
+              Current Role: <RoleBadge role={selectedMember?.role || 'member'} />
+            </label>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-2 block">New Role</label>
+            <select
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value as 'member' | 'admin' | 'viewer')}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+            >
+              <option value="viewer">Viewer - Read-only access</option>
+              <option value="member">Member - Create and manage spaces</option>
+              <option value="admin">Admin - Full organization access</option>
+            </select>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-xs text-blue-800">
+              <strong>Note:</strong> Changing roles will update member permissions immediately.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-2 justify-end">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setShowRoleDialog(false)
+              setSelectedMember(null)
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleChangeRole}
+            disabled={updating || newRole === selectedMember?.role}
+            className="bg-gradient-to-r from-purple-600 to-blue-600"
+          >
+            {updating ? 'Updating...' : 'Update Role'}
+          </Button>
+        </div>
+      </>
+    )}
+  </DialogContent>
+</Dialog>
+
     </div>
   )
 }

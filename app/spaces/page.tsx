@@ -104,6 +104,7 @@ export default function SpacesPage() {
   const [selectedSpace, setSelectedSpace] = useState<SpaceType | null>(null)
   const [memberSpaces, setMemberSpaces] = useState<any[]>([])
   const [creating, setCreating] = useState(false)
+  
    
 
 
