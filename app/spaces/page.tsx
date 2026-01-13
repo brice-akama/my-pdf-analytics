@@ -26,6 +26,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -61,7 +62,8 @@ import {
   Link as LinkIcon,
   Mail,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Trash2 
 } from "lucide-react"
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher'
 
@@ -221,6 +223,43 @@ const fetchSpaces = async () => {
     console.error('Failed to fetch spaces:', error)
   } finally {
     setLoading(false)
+  }
+}
+
+
+//   NEW: Delete space handler
+const handleDeleteSpace = async (spaceId: string, spaceName: string, e: React.MouseEvent) => {
+  e.stopPropagation() // Prevent row click
+  
+  const confirmMessage = `⚠️ Delete "${spaceName}"?\n\nThis will permanently delete:\n• The space\n• All documents inside\n• All shared access\n\nThis action CANNOT be undone!`
+  
+  if (!confirm(confirmMessage)) return
+  
+  try {
+    const res = await fetch(`/api/spaces/${spaceId}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    })
+    
+    if (!res.ok) {
+      const data = await res.json()
+      alert(data.error || '❌ Failed to delete space')
+      return
+    }
+    
+    const data = await res.json()
+    
+    if (data.success) {
+      alert(`✅ Space "${spaceName}" deleted successfully!`)
+      
+      // Refresh the spaces list
+      fetchSpaces()
+    } else {
+      alert('❌ Failed to delete space')
+    }
+  } catch (error) {
+    console.error('Delete error:', error)
+    alert('❌ Network error. Please try again.')
   }
 }
 
@@ -618,7 +657,7 @@ const getInitial = (user: any) => {
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-48 font-semi-bold">
                       <DropdownMenuItem
   onClick={(e) => {
     e.stopPropagation();
@@ -657,6 +696,16 @@ const getInitial = (user: any) => {
   <Settings className="mr-2 h-4 w-4" />
   Settings
 </DropdownMenuItem>
+{/* ✅ NEW: Delete option with separator */}
+  <DropdownMenuSeparator />
+  
+  <DropdownMenuItem
+    onClick={(e) => handleDeleteSpace(space._id, space.name, e)}
+    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+  >
+    <Trash2 className="mr-2 h-4 w-4" />
+    Delete Space
+  </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

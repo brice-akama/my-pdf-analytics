@@ -64,7 +64,9 @@ import {
   Mail,
   X,
   Calendar,
-  Copy
+  Copy,
+  FileSignature,
+  Package
 } from "lucide-react"
 import { useSearchParams } from 'next/navigation'
 import { Switch } from "@radix-ui/react-switch"
@@ -157,7 +159,22 @@ type DocumentType = {
   folder: string
   cloudinaryPdfUrl: string 
   canDownload?: boolean
+  signatureRequestId?: string | null
+  signatureStatus?: 
+  | 'draft'
+  | 'sent'
+  | 'viewed'
+  | 'signed'
+  | 'declined'
+  | 'expired'
+  | 'pending'        
+  | 'completed'      
+  | null
+  | undefined
+
 }
+
+
 
 export default function SpaceDetailPage() {
   const params = useParams()
@@ -251,6 +268,8 @@ const [newPermissionCanDownload, setNewPermissionCanDownload] = useState(true)
 const [newPermissionExpiresAt, setNewPermissionExpiresAt] = useState('')
 const [newPermissionWatermark, setNewPermissionWatermark] = useState(false)
 const [addingPermission, setAddingPermission] = useState(false)
+const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
+const [selectAll, setSelectAll] = useState(false);
 const [myRole, setMyRole] = useState<string>('');
 const [permissions, setPermissions] = useState({
   canManageMembers: false,
@@ -333,6 +352,34 @@ useEffect(() => {
     router.replace(`/spaces/${params.id}`, { scroll: false })
   }
 }, [searchParams, canShareSpace, canManageSpace])
+
+
+
+const getUnsignedDocs = () => {
+  return displayedFilterDocuments.filter(doc => 
+    !doc.signatureRequestId || doc.signatureStatus !== 'completed'
+  );
+};
+
+// Handle select all
+const handleSelectAll = () => {
+  if (selectAll) {
+    setSelectedDocs([]);
+  } else {
+    const unsignedDocIds = getUnsignedDocs().map(d => d.id);
+    setSelectedDocs(unsignedDocIds);
+  }
+  setSelectAll(!selectAll);
+};
+
+// Handle individual checkbox
+const handleSelectDoc = (docId: string) => {
+  setSelectedDocs(prev => 
+    prev.includes(docId) 
+      ? prev.filter(id => id !== docId)
+      : [...prev, docId]
+  );
+};
 
 
 
@@ -1570,6 +1617,16 @@ const fetchFolders = async () => {
         <table className="w-full">
           <thead className="bg-slate-50 border-b">
             <tr>
+              {/*  Select All Checkbox */}
+    <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider w-12">
+      <input 
+        type="checkbox" 
+        className="rounded"
+        checked={selectAll}
+        onChange={handleSelectAll}
+        disabled={getUnsignedDocs().length === 0}
+      />
+    </th>
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Name</th>
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Original Folder</th>
               <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Deleted</th>
@@ -1585,6 +1642,21 @@ const fetchFolders = async () => {
                       <FileText className="h-5 w-5 text-red-600" />
                     </div>
                     <span className="font-medium text-slate-900">{doc.name}</span>
+
+                    {/* Signature Status Badge */}
+      {doc.signatureRequestId && (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+          doc.signatureStatus === 'completed' 
+            ? 'bg-green-100 text-green-700'
+            : doc.signatureStatus === 'declined'
+            ? 'bg-red-100 text-red-700'
+            : 'bg-yellow-100 text-yellow-700'
+        }`}>
+          {doc.signatureStatus === 'completed' && '✅ Signed'}
+          {doc.signatureStatus === 'pending' && '🖊️ Awaiting Signature'}
+          {doc.signatureStatus === 'declined' && '❌ Declined'}
+        </span>
+      )}
                     {/*   NEW: View-Only Indicator */}
       {doc.folder && (
         <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium">
@@ -1718,6 +1790,20 @@ const fetchFolders = async () => {
                           <FileText className="h-5 w-5 text-red-600" />
                         </div>
                         <span className="font-medium text-slate-900">{doc.name}</span>
+                        {/* Signature Status Badge */}
+      {doc.signatureRequestId && (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+          doc.signatureStatus === 'completed' 
+            ? 'bg-green-100 text-green-700'
+            : doc.signatureStatus === 'declined'
+            ? 'bg-red-100 text-red-700'
+            : 'bg-yellow-100 text-yellow-700'
+        }`}>
+          {doc.signatureStatus === 'completed' && '✅ Signed'}
+          {doc.signatureStatus === 'pending' && '🖊️ Awaiting Signature'}
+          {doc.signatureStatus === 'declined' && '❌ Declined'}
+        </span>
+      )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -1818,15 +1904,11 @@ const fetchFolders = async () => {
     <>
       <DropdownMenuSeparator />
       <DropdownMenuItem 
-        onClick={() => {
-          setSelectedFile(doc)
-          setShowSignatureDialog(true)
-        }}
-        className="text-blue-600"
-      >
-        <Edit className="mr-2 h-4 w-4" />
-        Send for Signature
-      </DropdownMenuItem>
+  onClick={() => router.push(`/documents/${doc.id}/signature?mode=send&returnTo=/spaces/${params.id}`)}
+>
+  <FileSignature className="mr-2 h-4 w-4" />
+  Send for Signature
+</DropdownMenuItem>
     </>
   )}
   
@@ -1983,12 +2065,35 @@ const fetchFolders = async () => {
     .slice(0, 10)
     .map((doc) => (
       <tr key={`recent-${doc.id}`} className="hover:bg-slate-50">
+        {/*   ADD: Individual Checkbox */}
+      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+        <input 
+          type="checkbox" 
+          className="rounded"
+          checked={selectedDocs.includes(doc.id)}
+          onChange={() => handleSelectDoc(doc.id)}
+          disabled={doc.signatureStatus === 'completed'}
+        />
+      </td>
         <td className="px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
               <FileText className="h-5 w-5 text-red-600" />
             </div>
             <span className="font-medium text-slate-900">{doc.name}</span>
+            {doc.signatureRequestId && (
+  <span className={`ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+    doc.signatureStatus === 'completed' 
+      ? 'bg-green-100 text-green-700'
+      : doc.signatureStatus === 'declined'
+      ? 'bg-red-100 text-red-700'
+      : 'bg-yellow-100 text-yellow-700'
+  }`}>
+    {doc.signatureStatus === 'completed' && '✅ Signed'}
+    {doc.signatureStatus === 'pending' && '🖊️ Awaiting Signature'}
+    {doc.signatureStatus === 'declined' && '❌ Declined'}
+  </span>
+)}
           </div>
         </td>
         <td className="px-6 py-4">
@@ -2093,15 +2198,11 @@ const fetchFolders = async () => {
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
-                    onClick={() => {
-                      setSelectedFile(doc);
-                      setShowSignatureDialog(true);
-                    }}
-                    className="text-blue-600"
-                  >
-                    <Edit className="mr-2 h-4 w-4" />
-                    Send for Signature
-                  </DropdownMenuItem>
+  onClick={() => router.push(`/documents/${doc.id}/signature?mode=send&returnTo=/spaces/${params.id}`)}
+>
+  <FileSignature className="mr-2 h-4 w-4" />
+  Send for Signature
+</DropdownMenuItem>
                 </>
               )}
 
@@ -3913,6 +4014,70 @@ const fetchFolders = async () => {
     </div>
   </DialogContent>
 </Dialog>
+
+ 
+
+{/* Floating Action Bar */}
+{selectedDocs.length > 0 && (
+  <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 animate-slide-up">
+    <div className="bg-slate-900 text-white rounded-xl shadow-2xl px-6 py-4 flex items-center gap-6 border border-slate-700">
+      {/* Selection Count */}
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center font-bold">
+          {selectedDocs.length}
+        </div>
+        <span className="font-medium">
+          {selectedDocs.length} document{selectedDocs.length !== 1 ? 's' : ''} selected
+        </span>
+      </div>
+
+      <div className="h-8 w-px bg-slate-700" />
+
+      {/* Actions */}
+      <div className="flex items-center gap-3">
+        {/* ✅ SINGLE DOCUMENT - Go to individual signature page */}
+        {selectedDocs.length === 1 ? (
+          <Button
+            onClick={() => {
+              const docId = selectedDocs[0];
+              router.push(`/documents/${docId}/signature?mode=send&returnTo=/spaces/${params.id}`);
+            }}
+            className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
+          >
+            <FileSignature className="h-4 w-4" />
+            Send for Signature
+          </Button>
+        ) : (
+          /*   MULTIPLE DOCUMENTS - Go to envelope/batch page */
+          <Button
+            onClick={() => {
+              const docIds = selectedDocs.join(',');
+              router.push(`/documents/envelope/create?docs=${docIds}&spaceId=${params.id}`);
+            }}
+            className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
+          >
+            <Package className="h-4 w-4" />
+            {/* ⭐ CLEAR BUTTON TEXT */}
+            Bundle & Send for Signatures ({selectedDocs.length})
+          </Button>
+        )}
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setSelectedDocs([]);
+            setSelectAll(false);
+          }}
+          className="text-slate-300 hover:text-white"
+        >
+          <X className="h-4 w-4 mr-1" />
+          Clear
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   )
 }

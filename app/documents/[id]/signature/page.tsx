@@ -114,6 +114,7 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{ recipient: string; 
 const [editingFieldLogic, setEditingFieldLogic] = useState<SignatureField | null>(null);
 const [editingLabelField, setEditingLabelField] = useState<SignatureField | null>(null);
 const [showAccessCode, setShowAccessCode] = useState(false);
+const returnTo = searchParams.get('returnTo');
 
 
   const [signatureRequest, setSignatureRequest] = useState<SignatureRequest>({
@@ -1796,12 +1797,11 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
         >
           Close
         </Button>
-        <Button
+       <Button
   onClick={() => {
     setShowSuccessDialog(false);
-    router.push("/SignatureDashboard");
+    router.push(returnTo || "/SignatureDashboard"); // ← Use returnTo if present
   }}
-  className="bg-purple-600 hover:bg-purple-700"
 >
   Track Status
 </Button>

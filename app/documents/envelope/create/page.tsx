@@ -1,3 +1,5 @@
+
+//app/documents/envelope/create/page.tsx
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -106,12 +108,11 @@ const [totalDocuments, setTotalDocuments] = useState(0);
 const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
 const [uploadMessage, setUploadMessage] = useState('');
 const fileInputRef = useRef<HTMLInputElement>(null);
+const spaceId = searchParams?.get("spaceId"); //  Get space ID from URL
 
 
 
-
-
-
+ 
 
  useEffect(() => {
   fetchDocuments();
@@ -156,22 +157,42 @@ const documentPageOffsets = useMemo(() => {
   const fetchDocuments = async () => {
   try {
     setLoading(true);
+    
+    // ✅ If we have preselected IDs, fetch those specific documents first
+    if (preselectedDocIds.length > 0) {
+      console.log('🔍 Fetching preselected docs:', preselectedDocIds);
+      
+      const preselectedPromises = preselectedDocIds.map(id =>
+        fetch(`/api/documents/${id}`, { credentials: "include" })
+          .then(res => res.ok ? res.json() : null)
+          .then(data => data?.success ? data.document : null)
+      );
+      
+      const preselectedDocs = (await Promise.all(preselectedPromises)).filter(Boolean);
+      
+      console.log('✅ Loaded preselected docs:', preselectedDocs.length);
+      
+      if (preselectedDocs.length >= 2) {
+        setSelectedDocs(preselectedDocs);
+        setAllDocuments(preselectedDocs);
+        setStep(2); // ✅ Skip to step 2 immediately
+        setLoading(false);
+        return; // Don't fetch all documents
+      }
+    }
+    
+    // ✅ Otherwise fetch paginated list
     const res = await fetch(
       `/api/documents?page=${currentPage}&limit=${documentsPerPage}&sortBy=${sortBy}&sortOrder=${sortOrder}`,
       { credentials: "include" }
     );
+    
     if (res.ok) {
       const data = await res.json();
       if (data.success) {
         setAllDocuments(data.documents);
         setTotalDocuments(data.totalDocuments);
         setTotalPages(data.totalPages);
-        if (preselectedDocIds.length > 0) {
-          const preselected = data.documents.filter((doc: Document) =>
-            preselectedDocIds.includes(doc._id)
-          );
-          setSelectedDocs(preselected);
-        }
       }
     }
   } catch (err) {
@@ -180,7 +201,6 @@ const documentPageOffsets = useMemo(() => {
     setLoading(false);
   }
 };
-
 
 
   const toggleDocSelection = (doc: Document) => {
@@ -363,10 +383,14 @@ const documentPageOffsets = useMemo(() => {
   if (!container || !currentDocument) return;
 
   const rect = container.getBoundingClientRect();
-  const y = e.clientY - rect.top;
-  const pageHeight = 297 * 3.78;
-  const pageNumber = Math.floor(y / pageHeight) + 1;
-  const yPercent = ((y % pageHeight) / pageHeight) * 100;
+  
+  //  Calculate position in millimeters
+  const containerHeightMm = (currentDocument?.numPages || 1) * 297;
+  const clickYMm = ((e.clientY - rect.top) / rect.height) * containerHeightMm;
+  
+  const pageHeightMm = 297;
+  const pageNumber = Math.floor(clickYMm / pageHeightMm) + 1;
+  const yPercent = ((clickYMm % pageHeightMm) / pageHeightMm) * 100;
   const x = ((e.clientX - rect.left) / rect.width) * 100;
 
   const newField: SignatureField = {
@@ -394,15 +418,20 @@ const documentPageOffsets = useMemo(() => {
   setSignatureFields([...signatureFields, newField]);
 };
 
+
 const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField) => {
   const container = document.getElementById("pdf-container");
-  if (!container) return;
+  if (!container || !currentDocument) return;
 
   const rect = container.getBoundingClientRect();
-  const y = e.clientY - rect.top;
-  const pageHeight = 297 * 3.78;
-  const pageNumber = Math.floor(y / pageHeight) + 1;
-  const yPercent = ((y % pageHeight) / pageHeight) * 100;
+  
+  // ✅ FIX: Use millimeters
+  const containerHeightMm = (currentDocument?.numPages || 1) * 297;
+  const clickYMm = ((e.clientY - rect.top) / rect.height) * containerHeightMm;
+  
+  const pageHeightMm = 297;
+  const pageNumber = Math.floor(clickYMm / pageHeightMm) + 1;
+  const yPercent = ((clickYMm % pageHeightMm) / pageHeightMm) * 100;
   const newX = ((e.clientX - rect.left) / rect.width) * 100;
 
   const updated = signatureFields.map((f) =>
@@ -428,6 +457,21 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b shadow-sm sticky top-0 z-50">
+        
+{spaceId && (
+  <div className="mb-4 flex items-center gap-2 text-sm text-slate-600">
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => router.push(`/spaces/${spaceId}`)}
+      className="gap-1"
+    >
+      <ArrowLeft className="h-3 w-3" />
+      Back to Space
+    </Button>
+     
+  </div>
+)}
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -896,22 +940,22 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
           </div>
         )}
 
-        {step === 3 && (
-  <>
-    {/* ⭐ ADD THIS SAFETY CHECK */}
+{step === 3 && (
+  <div className="grid grid-cols-12 gap-6 h-[calc(100vh-200px)]">
     {!currentDocument ? (
-      <div className="col-span-12 flex items-center justify-center py-12">
+      <div className="col-span-12 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
           <p className="text-slate-600">Loading document...</p>
         </div>
       </div>
     ) : (
-      <div className="grid grid-cols-12 gap-6 items-start">
-            <div className="col-span-3 bg-white rounded-xl shadow-sm border p-6 sticky top-24 self-start max-h-[calc(100vh-7rem)] overflow-y-auto">
-              <h3 className="font-bold text-slate-900 mb-6 text-lg">
-                Signature Fields
-              </h3>
+      <>
+        {/* Left Sidebar - NOW STICKY */}
+       <div className="col-span-3 bg-white rounded-xl shadow-sm border p-6 overflow-y-auto sticky top-24 self-start" style={{ maxHeight: "calc(100vh - 8rem)" }}>
+          <h3 className="font-bold text-slate-900 mb-6 text-lg">
+            Signature Fields
+          </h3>
 
               <div className="mb-6">
                 <Label className="text-sm font-medium text-slate-700 mb-3 block">
@@ -1008,11 +1052,14 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
               </div>
             </div>
 
-            <div className="col-span-9 bg-white rounded-xl shadow-sm border p-6">
-             <div
+           <div className="col-span-9 bg-white rounded-xl shadow-sm border p-6 overflow-y-auto">
+<div
   id="pdf-container"
   className="relative bg-slate-100 rounded-lg mx-auto"
-  style={{ width: "210mm", minHeight: `${297 * (currentDocument?.numPages || 1)}mm` }}
+  style={{ 
+    width: "210mm", 
+    minHeight: `${(currentDocument?.numPages || 1) * 297}mm` 
+  }}
   onDragOver={(e) => e.preventDefault()}
   onDrop={handleDropField}
 >
@@ -1033,13 +1080,14 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
 
                     
 
-                   <div className="absolute inset-0 pointer-events-none">
+                  
+{/* Signature Field Overlays */}
   {signatureFields
-    .filter((field) => field.documentId === currentDocument._id) // ⭐ Only current doc
+    .filter((field) => field.documentId === currentDocument._id)
     .map((field) => {
-      const pageHeight = 297 * 3.78;
-      // ⭐ SIMPLIFIED: No offset needed since we only show current document
-      const topPosition = (field.page - 1) * pageHeight + (field.y / 100) * pageHeight;
+      
+      const pageHeightMm = 297; // A4 page height in mm
+      const topPositionMm = (field.page - 1) * pageHeightMm + (field.y / 100) * pageHeightMm;
       const recipient = recipients[field.recipientIndex];
 
       return (
@@ -1048,7 +1096,7 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
           className="absolute border-2 rounded cursor-move bg-white/95 shadow-xl group hover:shadow-2xl transition-all hover:z-50 pointer-events-auto"
           style={{
             left: `${field.x}%`,
-            top: `${topPosition}px`,
+            top: `${topPositionMm}mm`, 
             borderColor: recipient?.color || "#9333ea",
             width: `${field.width || 180}px`,
             height: `${field.height || 45}px`,
@@ -1125,19 +1173,20 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
         </div>
       );
     })}
-</div>
+
 
                   </>
                 ) : (
                   <div className="h-full flex items-center justify-center" style={{ minHeight: "297mm" }}>
                     <Loader2 className="h-12 w-12 animate-spin text-purple-600" />
                   </div>
-                )}
+               )}
               </div>
             </div>
-          </div>
+          </>
         )}
-    </>        )}
+      </div>
+        )}
 
         {step === 4 && (
           <div className="max-w-4xl mx-auto space-y-6">
@@ -1357,6 +1406,21 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
           >
             Create Another Envelope
           </Button>
+           
+<Button
+  variant="outline"
+  onClick={() => {
+    setShowSuccessDialog(false);
+    if (spaceId) {
+      router.push(`/spaces/${spaceId}`); //   Return to space
+    } else {
+      router.push("/SignatureDashboard");
+    }
+  }}
+  className="flex-1"
+>
+  {spaceId ? 'Back to Space' : 'View Dashboard'}
+</Button>
         </div>
       </div>
     </DialogContent>

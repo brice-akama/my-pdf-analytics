@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const { documentId, recipients, signatureFields, message, dueDate, viewMode , signingOrder, expirationDays, ccRecipients, accessCodeRequired,
   accessCodeType,
   accessCodeHint, scheduledSendDate,
-  accessCode  } = await request.json();
+  accessCode, spaceId  } = await request.json();
 
     const db = await dbPromise;
 
@@ -104,6 +104,7 @@ const shouldSendNow = !scheduledDate || scheduledDate <= now;
       const signatureRequest = {
         uniqueId,
         documentId: documentId,
+        spaceId: spaceId || null,
         ownerId: ownerId,
         ownerEmail: ownerEmail,
         recipient: {
@@ -250,6 +251,8 @@ if (!shouldSendNow) {
           totalRecipients: recipients.length,
           signedCount: 0,
           scheduledSendDate: scheduledSendDate ? new Date(scheduledSendDate) : null,
+          signatureRequestId: signatureRequests[0].id.toString(), //  ADD THIS
+      signatureStatus: 'pending', //  ADD THIS
           
         },
       }

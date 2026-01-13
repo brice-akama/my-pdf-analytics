@@ -18,6 +18,7 @@ import {
   Settings,
   Users,
   Check,
+  Trash2,
   LayoutDashboard  // ✅ NEW ICON
 } from 'lucide-react'
 
@@ -64,6 +65,59 @@ export function OrganizationSwitcher() {
       setLoading(false)
     }
   }
+
+   
+
+//   NEW: Delete organization handler
+const handleDeleteOrg = async (org: Organization, e: React.MouseEvent) => {
+  e.stopPropagation()
+  
+  if (!org.isOwner) {
+    alert('⛔ Only the organization owner can delete it.')
+    return
+  }
+  
+  // ✅ Simple single confirmation
+  const confirmMessage = `⚠️ Delete "${org.name}"?\n\nThis will permanently delete:\n• The organization\n• All ${org.spaceCount} spaces\n• All documents\n• All member access\n\nThis action CANNOT be undone!`
+  
+  if (!confirm(confirmMessage)) return
+  
+  try {
+    const res = await fetch(`/api/organizations/${org.id}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    })
+    
+    if (!res.ok) {
+      const data = await res.json()
+      alert(data.error || '❌ Failed to delete organization')
+      return
+    }
+    
+    const data = await res.json()
+    
+    // ✅ Check for success
+    if (data.success) {
+      alert(`✅ Organization "${org.name}" deleted successfully!`)
+      
+      // ✅ If deleted org was current, clear selection and go to personal
+      if (currentOrg?.id === org.id) {
+        setCurrentOrg(null)
+        sessionStorage.setItem('currentOrgId', 'personal')
+        window.dispatchEvent(new Event('organizationChanged'))
+        router.push('/spaces')
+      }
+      
+      // Refresh org list
+      fetchOrganizations()
+    } else {
+      alert('❌ Failed to delete organization')
+    }
+  } catch (error) {
+    console.error('Delete error:', error)
+    alert('❌ Network error. Please try again.')
+  }
+}
 
   const switchOrganization = (org: Organization) => {
     setCurrentOrg(org)
@@ -119,28 +173,39 @@ if (typeof window !== 'undefined') {
         </div>
         
         {organizations.map((org) => (
-          <DropdownMenuItem
-            key={org.id}
-            onClick={() => switchOrganization(org)}
-            className="flex items-center justify-between py-3 cursor-pointer"
-          >
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                {org.name.charAt(0)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 truncate">{org.name}</p>
-                <p className="text-xs text-slate-500">
-                  {org.memberCount} members · {org.spaceCount} spaces
-                </p>
-              </div>
-            </div>
-            {currentOrg?.id === org.id && (
-              <Check className="h-4 w-4 text-purple-600 flex-shrink-0" />
-            )}
-          </DropdownMenuItem>
-        ))}
-        
+  <div key={org.id} className="relative group">
+    <DropdownMenuItem
+      onClick={() => switchOrganization(org)}
+      className="flex items-center justify-between py-3 cursor-pointer pr-10"
+    >
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
+          {org.name.charAt(0)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-slate-900 truncate">{org.name}</p>
+          <p className="text-xs text-slate-500">
+            {org.memberCount} members · {org.spaceCount} spaces
+          </p>
+        </div>
+      </div>
+      {currentOrg?.id === org.id && (
+        <Check className="h-4 w-4 text-purple-600 flex-shrink-0 mr-2" />
+      )}
+    </DropdownMenuItem>
+    
+    {/*   NEW: Delete button (only for owners) */}
+    {org.isOwner && (
+      <button
+        onClick={(e) => handleDeleteOrg(org, e)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-red-100 rounded-md"
+        title="Delete organization"
+      >
+        <Trash2 className="h-4 w-4 text-red-600" />
+      </button>
+    )}
+  </div>
+))}
         <DropdownMenuSeparator />
         
         {currentOrg && (

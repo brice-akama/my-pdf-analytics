@@ -60,32 +60,43 @@ ownedSpaces = await db.collection('spaces')
 
       }
     } else {
-      // ✅ PERSONAL MODE: Fetch user's personal spaces (no organization)
-      
-      // Owned personal spaces
-      ownedSpaces = await db.collection('spaces')
-        .find({ 
-          userId: user.id,
-          organizationId: { $exists: false }  // ✅ Only personal spaces
-        })
-        .sort({ updatedAt: -1 })
-        .toArray();
+  // ✅ PERSONAL MODE: Fetch user's personal spaces (no organization)
+  
+  console.log('🔍 DEBUG - Searching personal spaces for user:', user.id);
+  console.log('🔍 DEBUG - User email:', user.email);
+  
+  // ✅ FIX: Match BOTH null and non-existent organizationId
+  ownedSpaces = await db.collection('spaces')
+    .find({ 
+      userId: user.id,
+      $or: [
+        { organizationId: null },
+        { organizationId: { $exists: false } }
+      ]
+    })
+    .sort({ updatedAt: -1 })
+    .toArray();
 
-        // ✅ ADD DEBUG LOGGING HERE:
-  console.log('🔍 DEBUG - User ID:', user.id);
-  console.log('🔍 DEBUG - Organization ID from params:', organizationId);
-  console.log('🔍 DEBUG - Found owned spaces:', ownedSpaces.length);
+  console.log('🔍 DEBUG - Found owned personal spaces:', ownedSpaces.length);
+  if (ownedSpaces.length > 0) {
+    console.log('🔍 DEBUG - First space:', ownedSpaces[0].name, '| orgId:', ownedSpaces[0].organizationId);
+  }
 
       // Member of personal spaces
-      memberSpaces = await db.collection('spaces')
-        .find({ 
-          'members.email': user.email,
-          userId: { $ne: user.id },
-          organizationId: { $exists: false }  // ✅ Only personal spaces
-        })
-        .sort({ createdAt: -1 })
-        .toArray();
-    }
+  memberSpaces = await db.collection('spaces')
+    .find({ 
+      'members.email': user.email,
+      userId: { $ne: user.id },
+      $or: [
+        { organizationId: null },
+        { organizationId: { $exists: false } }
+      ]
+    })
+    .sort({ createdAt: -1 })
+    .toArray();
+    
+  console.log('🔍 DEBUG - Found member personal spaces:', memberSpaces.length);
+}
 
     // Format owned spaces
     const formattedOwned = ownedSpaces.map(space => ({
