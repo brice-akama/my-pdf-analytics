@@ -998,21 +998,9 @@ const fetchSpace = async () => {
           setAllDocuments(validDocuments);
           setDocuments(validDocuments);
 
-          if (data.space.template) {
-            initializeFolders(
-              data.space.template,
-              docsData.documents
-            );
-          }
+          
         }
-      } else {
-        if (data.space.template) {
-          initializeFolders(
-            data.space.template,
-            []
-          );
-        }
-      }
+      } 
     }
   } catch (error) {
     setDocuments([]);
@@ -1141,32 +1129,7 @@ const getFilteredDocuments = () => {
 };
 const displayedFilterDocuments = getFilteredDocuments();
 
-const initializeFolders = (templateId: string, docs: DocumentType[] = []) => {
-  const templateFolders: Record<string, string[]> = {
-    'client-portal': ['Company Information', 'Proposals', 'Contracts', 'Invoices', 'Reports'],
-    'ma-deal': ['Financial Statements', 'Legal Documents', 'Customer Contracts', 'Employee Information'],
-    'fundraising': ['Pitch Deck', 'Financial Projections', 'Cap Table', 'Product Demo'],
-    'simple-data-room': ['Documents', 'Financials', 'Legal', 'Presentations'],
-    'custom': ['General Documents']
-  };
 
-  const folderNames = templateFolders[templateId] || templateFolders['custom'];
-
-  const initialFolders = folderNames.map((name) => {
-    const folderId = name.toLowerCase().replace(/\s+/g, '-');
-    const docCount = docs.filter(d => d.folderId === folderId).length;
-
-    return {
-      id: folderId,
-      name,
-      documentCount: docCount,
-      lastUpdated: docCount > 0 ? 'Today' : 'Never'
-    };
-  });
-
-  setFolders(initialFolders);
-  console.log('✅ Folders initialized:', initialFolders);
-};
   // Fetch folders from database
 const fetchFolders = async () => {
   try {

@@ -7,6 +7,9 @@ import { dbPromise } from '../lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
+
+
+
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyUserFromRequest(request);
@@ -24,8 +27,9 @@ export async function GET(request: NextRequest) {
 
     const db = await dbPromise;
 
-    let ownedSpaces = [];
-    let memberSpaces = [];
+    let ownedSpaces: any[] = [];
+let memberSpaces: any[] = [];
+
 
     if (organizationId) {
       // ✅ ORGANIZATION MODE: Fetch spaces for specific organization
@@ -278,6 +282,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       createdBy: user.id,  // ✅ NEW: Track who created it
       
+      
       // ✅ NEW: Organization link
       organizationId: organizationId || null,
 
@@ -372,6 +377,71 @@ members: await (async () => {
     };
 
     const result = await db.collection('spaces').insertOne(space);
+    const spaceId = result.insertedId.toString();
+
+    // 2️⃣ CREATE FOLDERS FROM TEMPLATE
+    if (template) {
+      // ✅ TEMPLATE BLUEPRINTS (match your frontend templates)
+      const TEMPLATE_FOLDERS: Record<string, string[]> = {
+        'sales-proposal': [
+          'Proposal & Pricing',
+          'Case Studies & Testimonials',
+          'Product Demos & Specs',
+          'Contract & Terms',
+          'Company Info & Credentials'
+        ],
+        'client-portal': [
+          'Welcome & Getting Started',
+          'Active Contracts & SOWs',
+          'Project Deliverables',
+          'Invoices & Payments',
+          'Support & Resources'
+        ],
+        'partnership-deal': [
+          'Partnership Proposal',
+          'Legal & Agreements',
+          'Integration & Technical Docs',
+          'Marketing & Co-Branding',
+          'Pricing & Commission'
+        ],
+        'rfp-response': [
+          'RFP Requirements',
+          'Technical Response',
+          'Pricing & Budget',
+          'Company Qualifications',
+          'References & Past Work',
+          'Compliance & Certifications'
+        ],
+        'quick-nda': [
+          'NDA Document',
+          'Confidential Materials'
+        ],
+        'employee-onboarding': [
+          'Offer Letter & Contract',
+          'Company Policies & Handbook',
+          'Benefits & Payroll Forms',
+          'Training Materials',
+          'Equipment & Access'
+        ]
+      };
+      const folderNames = TEMPLATE_FOLDERS[template] || ['General Documents'];
+
+       // Create folders in database
+      const folders = folderNames.map((name, index) => ({
+        spaceId,
+        name,
+        parentId: null,  // Root level
+        order: index + 1,
+        documentCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }));
+
+      await db.collection('space_folders').insertMany(folders);
+      
+      console.log(`✅ Created ${folders.length} folders for template "${template}"`);
+    }
+
 
     // ✅ NEW: Update organization space count
     if (organizationId) {

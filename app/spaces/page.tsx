@@ -75,7 +75,7 @@ type SpaceType = {
   status: 'active' | 'archived' | 'draft'
   owner?: {  //   Make optional
     name: string
-    email: string
+    email: string        
   }
   teamMembers: number
   documentsCount: number
@@ -128,64 +128,98 @@ export default function SpacesPage() {
     notifyOnView: true
   })
 
-  // Template Categories for Data Rooms
-  const templates = [
-    {
-      id: 'ma-deal',
-      name: 'M&A Deal Room',
-      description: 'Complete due diligence data room for mergers and acquisitions',
-      icon: '🤝',
-      color: 'from-blue-500 to-blue-600',
-      type: 'deal',
-      folders: ['Financial Statements', 'Legal Documents', 'HR & Personnel', 'IP & Technology', 'Customer Data', 'Operations']
-    },
-    {
-      id: 'fundraising',
-      name: 'Fundraising Room',
-      description: 'Investor data room for Series A-C fundraising rounds',
-      icon: '💰',
-      color: 'from-green-500 to-green-600',
-      type: 'fundraising',
-      folders: ['Pitch Deck', 'Financial Model', 'Cap Table', 'Legal Docs', 'Product Demo', 'Market Research']
-    },
-    {
-      id: 'client-portal',
-      name: 'Client Portal',
-      description: 'Secure portal for ongoing client collaboration',
-      icon: '🎯',
-      color: 'from-cyan-500 to-cyan-600',
-      type: 'client',
-      folders: ['Project Files', 'Contracts', 'Invoices', 'Reports', 'Communications']
-    },
-    {
-      id: 'board-room',
-      name: 'Board Room',
-      description: 'Confidential space for board meetings and governance',
-      icon: '👔',
-      color: 'from-purple-500 to-purple-600',
-      type: 'custom',
-      folders: ['Board Decks', 'Minutes', 'Resolutions', 'Financial Reports', 'Strategic Plans']
-    },
-    {
-      id: 'sales-room',
-      name: 'Sales Deal Room',
-      description: 'Organized space for enterprise sales processes',
-      icon: '📊',
-      color: 'from-orange-500 to-orange-600',
-      type: 'deal',
-      folders: ['Proposals', 'Pricing', 'Case Studies', 'Product Info', 'Contracts', 'Security Docs']
-    },
-    {
-      id: 'audit-room',
-      name: 'Audit & Compliance',
-      description: 'Secure repository for audit documentation',
-      icon: '🔍',
-      color: 'from-red-500 to-red-600',
-      type: 'custom',
-      folders: ['Audit Reports', 'Compliance Docs', 'Certifications', 'Policies', 'Risk Assessment']
-    }
-  ]
-
+   
+  // Template Categories for Data Rooms -   for Sales Teams & SMBs
+const templates = [
+  {
+    id: 'sales-proposal',
+    name: 'Sales Proposal Room',
+    description: 'Professional space for closing deals with prospects and clients',
+    icon: '💼',
+    color: 'from-blue-500 to-blue-600',
+    type: 'deal',
+    folders: [
+      'Proposal & Pricing',
+      'Case Studies & Testimonials',
+      'Product Demos & Specs',
+      'Contract & Terms',
+      'Company Info & Credentials'
+    ]
+  },
+  {
+    id: 'client-portal',
+    name: 'Client Portal',
+    description: 'Ongoing collaboration space for client projects and deliverables',
+    icon: '🎯',
+    color: 'from-cyan-500 to-cyan-600',
+    type: 'client',
+    folders: [
+      'Welcome & Getting Started',
+      'Active Contracts & SOWs',
+      'Project Deliverables',
+      'Invoices & Payments',
+      'Support & Resources'
+    ]
+  },
+  {
+    id: 'partnership-deal',
+    name: 'Partnership Deal Room',
+    description: 'Secure space for vendor partnerships and B2B collaborations',
+    icon: '🤝',
+    color: 'from-purple-500 to-purple-600',
+    type: 'deal',
+    folders: [
+      'Partnership Proposal',
+      'Legal & Agreements',
+      'Integration & Technical Docs',
+      'Marketing & Co-Branding',
+      'Pricing & Commission'
+    ]
+  },
+  {
+    id: 'rfp-response',
+    name: 'RFP Response Room',
+    description: 'Organized workspace for responding to RFPs and tender documents',
+    icon: '📋',
+    color: 'from-orange-500 to-orange-600',
+    type: 'deal',
+    folders: [
+      'RFP Requirements',
+      'Technical Response',
+      'Pricing & Budget',
+      'Company Qualifications',
+      'References & Past Work',
+      'Compliance & Certifications'
+    ]
+  },
+  {
+    id: 'quick-nda',
+    name: 'Quick NDA Share',
+    description: 'Simple, fast setup for confidential document sharing with NDA',
+    icon: '🔒',
+    color: 'from-green-500 to-green-600',
+    type: 'custom',
+    folders: [
+      'NDA Document',
+      'Confidential Materials'
+    ]
+  },
+  {
+    id: 'employee-onboarding',
+    name: 'Employee Onboarding',
+    description: 'Streamlined space for new hire paperwork and training materials',
+    icon: '👥',
+    color: 'from-indigo-500 to-indigo-600',
+    type: 'custom',
+    folders: [
+      'Offer Letter & Contract',
+      'Company Policies & Handbook',
+      'Benefits & Payroll Forms',
+      'Training Materials',
+      'Equipment & Access'
+    ]
+  }
+]
   // Fetch spaces
   useEffect(() => {
     fetchSpaces()
@@ -938,30 +972,8 @@ const getInitial = (user: any) => {
                 />
               </div>
               
-              <div className="space-y-2">
-                <Label>Space Type</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { value: 'deal', label: 'Deal Room', icon: Briefcase },
-                    { value: 'fundraising', label: 'Fundraising', icon: DollarSign },
-                    { value: 'client', label: 'Client Portal', icon: Target },
-                    { value: 'custom', label: 'Custom', icon: FolderOpen }
-                  ].map((type) => (
-                    <button
-                      key={type.value}
-                      onClick={() => setNewSpace({ ...newSpace, type: type.value as SpaceType['type'] })}
-                      className={`flex items-center gap-3 p-4 border rounded-lg transition-all ${
-                        newSpace.type === type.value
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-slate-200 hover:border-purple-300'
-                      }`}
-                    >
-                      <type.icon className="h-5 w-5 text-slate-700" />
-                      <span className="font-medium text-slate-900">{type.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+             
+              
             </TabsContent>
             
             <TabsContent value="security" className="space-y-4 mt-4">

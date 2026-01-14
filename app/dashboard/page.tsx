@@ -2801,7 +2801,7 @@ case 'dashboard':
 
 {/* Upload Agreement Dialog */}
 <Dialog open={showUploadAgreementDialog} onOpenChange={setShowUploadAgreementDialog}>
-  <DialogContent className="max-w-2xl bg-white">
+  <DialogContent className="max-w-2xl bg-white scrollbar-thin max-h-[80vh] overflow-y-auto">
     <DialogHeader>
       <DialogTitle>Upload Agreement</DialogTitle>
       <DialogDescription>Upload an NDA or other legal document that viewers must sign</DialogDescription>
