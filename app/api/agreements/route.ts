@@ -3,10 +3,9 @@ import { verifyUserFromRequest } from "@/lib/auth"
 import { ObjectId } from "mongodb"
 import { dbPromise } from "../lib/mongodb"
 
-// ✅ Helper function to extract user from NextRequest
+// ✅ Helper function: extract user from NextRequest (cookies handled inside auth)
 async function getVerifiedUser(req: NextRequest) {
-  const authHeader = req.headers.get("authorization")
-  return await verifyUserFromRequest(authHeader)
+  return await verifyUserFromRequest(req)
 }
 
 // ✅ GET - Fetch all agreements for user
@@ -19,33 +18,38 @@ export async function GET(req: NextRequest) {
 
     const db = await dbPromise
     const agreements = await db
-      .collection("agreements")
-      .find({ userId: new ObjectId(user.id) })
+      .collection("documents")
+      .find({ 
+        userId: new ObjectId(user.id),
+        type: "agreement",
+        status: "uploaded"
+      })
       .sort({ createdAt: -1 })
       .toArray()
 
     return NextResponse.json({
       success: true,
-      agreements: agreements.map((agreement) => ({
-        id: agreement._id.toString(),
-        title: agreement.title,
-        type: agreement.type,
-        documentId: agreement.documentId?.toString() || null,
-        signedCount: agreement.signatures?.filter((s: any) => s.signed).length || 0,
+      agreements: agreements.map((agreement: any) => ({
+        _id: agreement._id.toString(),
+        title: agreement.title || agreement.filename,
+        type: agreement.type || 'NDA',
+        signedCount: agreement.signers?.filter((s: any) => s.signed).length || 0,
         totalSigners: agreement.signers?.length || 0,
         status: agreement.status,
         createdAt: agreement.createdAt,
-        expiresAt: agreement.expiresAt,
-        signers: agreement.signers,
+        expiresAt: agreement.expiresAt || null,
       })),
     })
   } catch (error) {
-    console.error("GET agreements error:", error)
-    return NextResponse.json({ error: "Failed to fetch agreements" }, { status: 500 })
+    console.error("❌ GET agreements error:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch agreements" },
+      { status: 500 }
+    )
   }
 }
-
-// ✅ POST - Create new agreement
+ 
+//   POST - Create/Configure agreement and send for signature
 export async function POST(req: NextRequest) {
   try {
     const user = await getVerifiedUser(req)
@@ -54,43 +58,68 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { title, type, documentId, signers, message, requireSignature } = body
+    const { agreementId, title, type, signers, message, requireSignature } = body
 
-    if (!title || !Array.isArray(signers) || signers.length === 0) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    if (!agreementId || !title || !Array.isArray(signers) || signers.length === 0) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      )
     }
 
     const db = await dbPromise
-    const agreement = {
-      userId: new ObjectId(user.id),
-      title: title.trim(),
-      type: type || "NDA",
-      documentId: documentId ? new ObjectId(documentId) : null,
-      signers: signers.map((email: string) => ({
-        email: email.trim(),
-        signed: false,
-        signedAt: null,
-        ipAddress: null,
-      })),
-      message: message || "",
-      requireSignature: requireSignature !== false,
-      status: "pending",
-      createdAt: new Date(),
-      expiresAt: null,
-      signatures: [],
+
+    // Update the uploaded agreement with configuration
+    const result = await db.collection("documents").updateOne(
+      { 
+        _id: new ObjectId(agreementId),
+        userId: new ObjectId(user.id) 
+      },
+      {
+        $set: {
+          title: title.trim(),
+          type: type || "NDA",
+          signers: signers.map((email: string) => ({
+            email: email.trim(),
+            signed: false,
+            signedAt: null,
+            ipAddress: null,
+            signatureToken: generateSignatureToken() // Unique token for each signer
+          })),
+          message: message || "",
+          requireSignature: requireSignature !== false,
+          status: "pending_signatures",
+          sentAt: new Date()
+          
+        }
+      }
+    )
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json(
+        { error: "Agreement not found" },
+        { status: 404 }
+      )
     }
 
-    const result = await db.collection("agreements").insertOne(agreement)
-
-    // TODO: Send email notifications to signers
+    // TODO: Send email notifications to signers with signing links
+    // Each signer gets: /agreements/{agreementId}/sign?token={theirUniqueToken}
 
     return NextResponse.json({
       success: true,
-      agreementId: result.insertedId.toString(),
-      message: "Agreement created successfully",
+      agreementId: agreementId,
+      message: "Agreement sent for signature successfully",
     })
   } catch (error) {
-    console.error("POST agreement error:", error)
-    return NextResponse.json({ error: "Failed to create agreement" }, { status: 500 })
+    console.error("❌ POST agreement error:", error)
+    return NextResponse.json(
+      { error: "Failed to send agreement" },
+      { status: 500 }
+    )
   }
+}
+
+// Helper function to generate unique signing tokens
+function generateSignatureToken(): string {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
 }

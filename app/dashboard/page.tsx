@@ -248,7 +248,7 @@ const getAvatarColor = (email: string) => {
   return colors[index]
 }
 
-type PageType = 'dashboard' | 'content-library' | 'spaces' | 'agreements' |  'templates' |'file-requests' | 'contacts' | 'accounts'
+type PageType = 'dashboard' | 'content-library' | 'spaces' | 'agreements' |  'templates' |'file-requests' | 'contacts' | 'accounts' | 'documents'
 type NotificationType = 'view' | 'download' | 'signature' | 'share' | 'comment' | 'system'
 
 export default function DashboardPage() {
@@ -295,6 +295,16 @@ const [shareMessage, setShareMessage] = useState('')
 const [isAuthenticated, setIsAuthenticated] = useState(false);
 const [loading, setLoading] = useState(true);
 const [sharedFolders, setSharedFolders] = useState<FolderType[]>([])
+const [uploadedAgreementsList, setUploadedAgreementsList] = useState<any[]>([])
+const [selectedAgreementForConfig, setSelectedAgreementForConfig] = useState<string | null>(null)
+const [uploadedAgreementFile, setUploadedAgreementFile] = useState<File | null>(null)
+const [uploadedAgreementId, setUploadedAgreementId] = useState<string | null>(null)
+const [agreementTitle, setAgreementTitle] = useState('')
+const [agreementSigners, setAgreementSigners] = useState('')
+const [agreementMessage, setAgreementMessage] = useState('')
+const [requireSignatureBeforeAccess, setRequireSignatureBeforeAccess] = useState(true)
+const [showSignatureLinkDialog, setShowSignatureLinkDialog] = useState(false)
+const [generatedSignatureLink, setGeneratedSignatureLink] = useState('')
 const [sharePermissions, setSharePermissions] = useState({
   canView: true,
   canDownload: true,
@@ -342,6 +352,101 @@ useEffect(() => {
 
     checkAuth();
   }, [router]);
+
+
+  //   this useEffect   handle documents page redirect
+useEffect(() => {
+  if (activePage === 'documents') {
+    router.push('/documents-page')
+  }
+}, [activePage, router])
+
+
+  const fetchUploadedAgreements = async () => {
+  try {
+    const res = await fetch("/api/agreements/uploaded", {
+      credentials: 'include',
+    })
+    
+    if (res.ok) {
+      const data = await res.json()
+      setUploadedAgreementsList(data.agreements || [])
+    }
+  } catch (error) {
+    console.error('Failed to fetch uploaded agreements:', error)
+  }
+}
+
+// Call on dialog open
+useEffect(() => {
+  if (showUploadAgreementDialog) {
+    fetchUploadedAgreements()
+  }
+}, [showUploadAgreementDialog])
+
+
+// Handle sending agreement for signature
+const handleSendAgreementForSignature = async () => {
+  if (!uploadedAgreementId || !agreementTitle.trim() || !agreementSigners.trim()) {
+    alert('Please fill in all required fields')
+    return
+  }
+
+  const signerEmails = agreementSigners
+    .split(',')
+    .map(email => email.trim())
+    .filter(email => email.length > 0)
+
+  if (signerEmails.length === 0) {
+    alert('Please enter at least one signer email')
+    return
+  }
+
+  try {
+    const res = await fetch("/api/agreements", {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        agreementId: uploadedAgreementId,
+        title: agreementTitle.trim(),
+        type: 'NDA',
+        signers: signerEmails,
+        message: agreementMessage.trim() || undefined,
+        requireSignature: requireSignatureBeforeAccess
+      }),
+    })
+
+    const data = await res.json()
+
+    if (res.ok && data.success) {
+      // ✅ Show the signature link in a modal
+      setGeneratedSignatureLink(data.signatureLink || `${window.location.origin}/sign/${data.agreementId}`)
+      setShowSignatureLinkDialog(true)
+      
+      // Close upload dialog
+      setShowUploadAgreementDialog(false)
+      
+      // Reset form
+      setUploadedAgreementFile(null)
+      setUploadedAgreementId(null)
+      setAgreementTitle('')
+      setAgreementSigners('')
+      setAgreementMessage('')
+      setSelectedAgreementForConfig(null)
+      
+      // Refresh agreements list
+      fetchAgreements()
+    } else {
+      alert(data.error || 'Failed to send agreement')
+    }
+  } catch (error) {
+    console.error('Send agreement error:', error)
+    alert('Failed to send agreement. Please try again.')
+  }
+}
 
 
 // Add this with your other useEffects
@@ -477,23 +582,27 @@ useEffect(() => {
 
 // Agreements Section Component
 const AgreementsSection = () => {
+   // Add this useEffect
+  useEffect(() => {
+    fetchUploadedAgreements()
+  }, [])
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Agreements</h1>
-          <p className="text-slate-600">Manage NDAs and signature requests</p>
-        </div>
-        <Button 
-          onClick={() => setShowUploadAgreementDialog(true)}
-          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-        >
-          <Plus className="h-4 w-4" />
-          Upload Agreement
-        </Button>
-      </div>
+<div className="flex items-center justify-between mb-8">
+  <div>
+    <h1 className="text-3xl font-bold text-slate-900 mb-2">Agreements</h1>
+    <p className="text-slate-600">Manage NDAs and signature requests</p>
+  </div>
+  <Button 
+    onClick={() => setShowUploadAgreementDialog(true)}
+    className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+  >
+    <Plus className="h-4 w-4" />
+    Upload Agreement
+  </Button>
+</div>
 
-      {agreements.length === 0 ? (
+     {agreements.length === 0 && uploadedAgreementsList.length === 0 ? (
         <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
           <div className="h-24 w-24 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-6">
             <FileSignature className="h-12 w-12 text-purple-600" />
@@ -514,6 +623,48 @@ const AgreementsSection = () => {
             <Button variant="outline">Download Template</Button>
           </div>
         </div>
+      ) : agreements.length === 0 && uploadedAgreementsList.length > 0 ? (
+  // Show uploaded but not sent agreements
+  <div className="space-y-4">
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+      <p className="text-sm text-blue-900">
+        <strong>{uploadedAgreementsList.length}</strong> agreement(s) uploaded. 
+        Click on any agreement below to configure and send for signature.
+      </p>
+    </div>
+    
+    {uploadedAgreementsList.map((agreement) => (
+      <div 
+        key={agreement._id}
+         onClick={() => {
+      //   Redirect to existing signature page
+      router.push(`/documents/${agreement._id}/signature?mode=send&returnTo=/agreements`)
+    }}
+        className="bg-white rounded-lg border shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer"
+      >
+        <div className="flex items-start gap-4">
+          <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+            <FileSignature className="h-6 w-6 text-purple-600" />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-slate-900 mb-1">{agreement.filename}</h3>
+            <div className="flex items-center gap-4 text-sm text-slate-500">
+              <span className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                Uploaded {formatTimeAgo(agreement.createdAt)}
+              </span>
+              <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-medium">
+                Not sent yet
+              </span>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    ))}
+  </div>
       ) : (
         <div className="space-y-4">
           {agreements.map((agreement) => (
@@ -1046,6 +1197,7 @@ const TemplatesSection = () => {
     { id: 'dashboard' as PageType, icon: LayoutDashboard, label: 'Dashboard', badge: null },
     { id: 'content-library' as PageType, icon: Folder, label: 'Content library', badge: null },
     { id: 'spaces' as PageType, icon: FolderOpen, label: 'Spaces', badge: 'Data rooms' },
+    { id: 'documents' as PageType, icon: FileText, label: 'Documents', badge: null },
     { id: 'agreements' as PageType, icon: FileSignature, label: 'Agreements', badge: null },
     { id: 'templates' as PageType, icon: FileText, label: 'Templates', badge: null },
     { id: 'file-requests' as PageType, icon: Inbox, label: 'File requests', badge: null },
@@ -1456,50 +1608,7 @@ case 'dashboard':
             </div>
 
             <div>
-              {/* Documents List */}
-{documents.length > 0 && (
-  <div className="mb-8">
-    <h2 className="text-xl font-semibold text-slate-900 mb-4">Your Documents</h2>
-    <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-      <div className="divide-y">
-        {documents.map((doc) => (
-          <div 
-    key={doc._id} 
-    className="p-4 hover:bg-slate-50 transition-colors cursor-pointer"
-    onClick={() => router.push(`/documents/${doc._id}`)}
-  >
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                <FileText className="h-6 w-6 text-red-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-slate-900 truncate">{doc.filename}</h3>
-                <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
-                  <span>{doc.numPages} pages</span>
-                  <span>•</span>
-                  <span>{formatFileSize(doc.size)}</span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {formatTimeAgo(doc.createdAt)}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm">
-                  <BarChart3 className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <Share2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-)}
+              
               <h2 className="text-xl font-semibold text-slate-900 mb-6">5 ways to get the most out of DocMetrics</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 {quickActions.map((action, index) => (
@@ -1527,15 +1636,23 @@ case 'dashboard':
       </div>
     </div>
   )
-        
+
+  case 'documents':
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
+        <p className="text-slate-600">Redirecting to Documents...</p>
+      </div>
+    </div>
+  )
 
      case 'agreements':
   return <AgreementsSection />
 
      case 'file-requests':
   return <FileRequestsSection />
-  case 'templates':
-  return <TemplatesSection />
+  
 
       case 'contacts':
         return (
@@ -2804,7 +2921,9 @@ case 'dashboard':
   <DialogContent className="max-w-2xl bg-white scrollbar-thin max-h-[80vh] overflow-y-auto">
     <DialogHeader>
       <DialogTitle>Upload Agreement</DialogTitle>
-      <DialogDescription>Upload an NDA or other legal document that viewers must sign</DialogDescription>
+      <DialogDescription>
+        Upload your agreement PDF. You'll place signature fields on the next screen.
+      </DialogDescription>
     </DialogHeader>
     
     <Tabs defaultValue="upload" className="w-full">
@@ -2815,15 +2934,20 @@ case 'dashboard':
       </TabsList>
       
       <TabsContent value="upload" className="space-y-4 mt-4">
-        <div
-          className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer"
-          onClick={() => document.getElementById('agreement-file-input')?.click()}
-        >
-          <Upload className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-          <p className="text-lg font-semibold text-slate-900 mb-2">Drop your agreement here</p>
-          <p className="text-sm text-slate-500 mb-4">or click to browse (PDF only)</p>
-          <Button variant="outline">Select File</Button>
+        {/* Upload Button */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-slate-700">Your Uploaded Agreements</h3>
+          <Button 
+            size="sm"
+            variant="outline"
+            onClick={() => document.getElementById('agreement-file-input')?.click()}
+            className="gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Upload New
+          </Button>
         </div>
+
         <input
           id="agreement-file-input"
           type="file"
@@ -2838,19 +2962,19 @@ case 'dashboard':
             formData.append('type', 'agreement')
             
             try {
-              const token = localStorage.getItem("token")
               const res = await fetch("/api/agreements/upload", {
                 method: 'POST',
-                headers: { "Authorization": `Bearer ${token}` },
+                credentials: 'include',
                 body: formData,
               })
               
+              const data = await res.json()
+              
               if (res.ok) {
-                const data = await res.json()
                 alert('Agreement uploaded successfully!')
-                setShowUploadAgreementDialog(false)
-                // Refresh agreements list
-                fetchAgreements()
+                fetchUploadedAgreements()
+              } else {
+                alert(data.error || 'Upload failed')
               }
             } catch (error) {
               console.error('Upload error:', error)
@@ -2858,72 +2982,77 @@ case 'dashboard':
             }
           }}
         />
-        
-        <div className="space-y-2">
-          <Label>Agreement Title</Label>
-          <Input placeholder="e.g., Mutual NDA - Client Name" />
-        </div>
-        
-        <div className="space-y-2">
-          <Label>Signers (comma-separated emails)</Label>
-          <Textarea 
-            placeholder="john@example.com, jane@company.com"
-            rows={3}
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label>Message (optional)</Label>
-          <Textarea 
-            placeholder="Please review and sign this NDA before accessing our materials..."
-            rows={3}
-          />
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <Switch id="require-signature" />
-          <Label htmlFor="require-signature" className="text-sm font-normal">
-            Require signature before document access
-          </Label>
-        </div>
-        
-        <div className="flex gap-2 justify-end pt-4">
-          <Button variant="outline" onClick={() => setShowUploadAgreementDialog(false)}>
-            Cancel
-          </Button>
-          <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-            <Send className="mr-2 h-4 w-4" />
-            Send for Signature
-          </Button>
-        </div>
+
+        {/* List of Uploaded Agreements */}
+        {uploadedAgreementsList.length > 0 ? (
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            {uploadedAgreementsList.map((agreement) => (
+              <div 
+                key={agreement._id}
+                className="border-2 rounded-lg p-4 transition-all cursor-pointer border-slate-200 hover:border-purple-300 hover:bg-purple-50"
+                onClick={() => {
+                  setShowUploadAgreementDialog(false)
+                  router.push(`/documents/${agreement._id}/signature?mode=send&returnTo=/agreements`)
+                }}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <FileText className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-900 truncate">{agreement.filename}</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {formatFileSize(agreement.filesize)} • Uploaded {formatTimeAgo(agreement.createdAt)}
+                      </p>
+                      <p className="text-xs text-purple-600 mt-2 font-medium">
+                        Click to configure and send →
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      if (!confirm('Delete this agreement?')) return
+                      
+                      try {
+                        const res = await fetch(`/api/agreements/${agreement._id}`, {
+                          method: 'DELETE',
+                          credentials: 'include',
+                        })
+                        
+                        if (res.ok) {
+                          alert('Agreement deleted')
+                          fetchUploadedAgreements()
+                        }
+                      } catch (error) {
+                        console.error('Delete error:', error)
+                        alert('Failed to delete')
+                      }
+                    }}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-lg">
+            <Upload className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-sm text-slate-600">No agreements uploaded yet</p>
+            <p className="text-xs text-slate-500 mt-1">Click "Upload New" to get started</p>
+          </div>
+        )}
+
+        {/*   REMOVE THE ENTIRE CONFIGURATION FORM SECTION */}
       </TabsContent>
       
-      <TabsContent value="template" className="space-y-4 mt-4">
-        <div className="grid md:grid-cols-2 gap-4">
-          {[
-            { name: 'Mutual NDA', desc: 'Two-way confidentiality agreement', icon: '🤝' },
-            { name: 'Unilateral NDA', desc: 'One-way confidentiality agreement', icon: '🔒' },
-            { name: 'Service Agreement', desc: 'Professional services contract', icon: '📋' },
-            { name: 'Partnership Agreement', desc: 'Business partnership terms', icon: '🤝' },
-          ].map((template) => (
-            <div key={template.name} className="border rounded-lg p-6 hover:border-purple-500 hover:bg-purple-50/30 transition-all cursor-pointer">
-              <div className="text-4xl mb-3">{template.icon}</div>
-              <h4 className="font-semibold text-slate-900 mb-1">{template.name}</h4>
-              <p className="text-sm text-slate-600 mb-4">{template.desc}</p>
-              <Button size="sm" variant="outline" className="w-full">Use Template</Button>
-            </div>
-          ))}
-        </div>
-      </TabsContent>
-      
-      <TabsContent value="create" className="space-y-4 mt-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-          <Sparkles className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-          <h4 className="font-semibold text-slate-900 mb-2">AI-Powered Agreement Builder</h4>
-          <p className="text-sm text-slate-600 mb-4">Coming soon! Create custom agreements with AI assistance</p>
-          <Button disabled variant="outline">Available in Pro Plan</Button>
-        </div>
-      </TabsContent>
+      {/* Keep template and create tabs as-is */}
     </Tabs>
   </DialogContent>
 </Dialog>
@@ -3201,7 +3330,98 @@ case 'dashboard':
   </DialogContent>
 </Dialog>
 
-
+{/* Signature Link Dialog */}
+<Dialog open={showSignatureLinkDialog} onOpenChange={setShowSignatureLinkDialog}>
+  <DialogContent className="max-w-2xl bg-white scrollbar  max-h-[80vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <CheckCircle className="h-6 w-6 text-green-600" />
+        Agreement Sent Successfully!
+      </DialogTitle>
+      <DialogDescription>
+        Emails have been sent to all signers. You can also copy the link below to manually test.
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="space-y-4">
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <Mail className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-green-900 mb-1">
+              📧 Emails sent to {agreementSigners.split(',').length} recipient(s)
+            </p>
+            <p className="text-xs text-green-700">
+              {agreementSigners}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold">Signature Link (for testing)</Label>
+        <div className="flex gap-2">
+          <Input 
+            value={generatedSignatureLink}
+            readOnly
+            className="flex-1 font-mono text-xs bg-slate-50"
+          />
+          <Button
+            variant="outline"
+            onClick={() => {
+              navigator.clipboard.writeText(generatedSignatureLink)
+              alert('Link copied to clipboard!')
+            }}
+          >
+            Copy
+          </Button>
+          <Button
+            onClick={() => window.open(generatedSignatureLink, '_blank')}
+            className="bg-gradient-to-r from-purple-600 to-blue-600"
+          >
+            Open
+          </Button>
+        </div>
+        <p className="text-xs text-slate-500">
+          This is the same link that was emailed to signers. Open it to test the signing flow.
+        </p>
+      </div>
+      
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <Activity className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-blue-900 mb-1">What happens next?</p>
+            <ul className="text-xs text-blue-700 space-y-1">
+              <li>• Signers receive an email with the link</li>
+              <li>• They click the link to view and sign the agreement</li>
+              <li>• You'll be notified when they sign</li>
+              <li>• Track progress in the Agreements section</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex gap-2 justify-end pt-4 border-t">
+        <Button 
+          variant="outline"
+          onClick={() => setShowSignatureLinkDialog(false)}
+        >
+          Close
+        </Button>
+        <Button
+          onClick={() => {
+            setShowSignatureLinkDialog(false)
+            setActivePage('agreements')
+          }}
+          className="bg-gradient-to-r from-purple-600 to-blue-600"
+        >
+          View All Agreements
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   )
 }

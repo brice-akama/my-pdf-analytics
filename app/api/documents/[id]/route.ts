@@ -296,6 +296,9 @@ export async function DELETE(
       );
     }
 
+      
+    console.log("🔍 User ID:", user.id); // ✅ ADD THIS
+
     // Validate document ID
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
