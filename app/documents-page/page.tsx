@@ -20,14 +20,24 @@ import {
   MoreVertical,
   ArrowLeft,
   FolderOpen,
+  Eye,
 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 type DocumentType = {
   _id: string
   filename: string
   size: number
+  originalFilename?: string 
+  archived?: boolean 
   numPages: number
   createdAt: string
+    isTemplate?: boolean
 }
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
@@ -60,6 +70,10 @@ export default function DocumentsPage() {
   const [uploadMessage, setUploadMessage] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [templates, setTemplates] = useState<DocumentType[]>([])
+const [archivedDocuments, setArchivedDocuments] = useState<DocumentType[]>([])
+const [activeView, setActiveView] = useState<'documents' | 'templates' | 'archive'>('documents')
+
 
   // Fetch documents
   const fetchDocuments = async () => {
@@ -80,11 +94,143 @@ export default function DocumentsPage() {
     }
   }
 
-  useEffect(() => {
+  const fetchArchivedDocuments = async () => {
+  try {
+    const res = await fetch("/api/documents?deleted=true", {
+      method: "GET",
+      credentials: "include",
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        setArchivedDocuments(data.documents)
+      }
+    }
+  } catch (error) {
+    console.error("Failed to fetch archived documents:", error)
+  }
+}
+
+const handleRestoreDocument = async (docId: string, docName: string) => {
+  try {
+    const res = await fetch(`/api/documents/${docId}/restore`, {
+      method: 'PATCH',
+      credentials: 'include',
+    })
+
+    if (res.ok) {
+      alert(`✅ "${docName}" restored successfully`)
+      // Refresh all lists
+      fetchDocuments()
+      fetchTemplates()
+      fetchArchivedDocuments()
+    } else {
+      alert('Failed to restore document')
+    }
+  } catch (error) {
+    console.error('Restore error:', error)
+    alert('Failed to restore document')
+  }
+}
+
+ useEffect(() => {
+  fetchDocuments()
+  fetchTemplates()  
+  fetchArchivedDocuments()
+  const interval = setInterval(() => {
     fetchDocuments()
-    const interval = setInterval(fetchDocuments, 30000)
-    return () => clearInterval(interval)
-  }, [])
+    fetchTemplates()  
+    fetchArchivedDocuments() 
+  }, 30000)
+  return () => clearInterval(interval)
+}, [])
+
+
+const handleSearch = async (query: string) => {
+  setSearchQuery(query);
+  
+  if (!query.trim()) {
+    // If empty, fetch all
+    fetchDocuments();
+    fetchTemplates();
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/documents?search=${encodeURIComponent(query)}`, {
+      method: "GET",
+      credentials: "include",
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        const searchResults = data.documents;
+        
+        // IMPORTANT: Handle empty results properly
+        const regularDocs = searchResults.filter((doc: DocumentType) => !doc.isTemplate);
+        const templateDocs = searchResults.filter((doc: DocumentType) => doc.isTemplate);
+        
+        setDocuments(regularDocs);
+        setTemplates(templateDocs);
+      }
+    }
+  } catch (error) {
+    console.error("Search error:", error);
+    // On error, show all documents
+    fetchDocuments();
+    fetchTemplates();
+  }
+};
+
+// fetch templates
+  const fetchTemplates = async () => {
+  try {
+    const res = await fetch("/api/documents?templates=true", {
+      method: "GET",
+      credentials: "include",
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        setTemplates(data.documents.filter((doc: DocumentType) => doc.isTemplate))
+      }
+    }
+  } catch (error) {
+    console.error("Failed to fetch templates:", error)
+  }
+}
+
+
+
+    // Handle document deletion
+const handleDeleteDocument = async (docId: string, docName: string) => {
+  if (!confirm(`Move "${docName}" to archive?`)) {
+    return
+  }
+
+  try {
+    const res = await fetch(`/api/documents/${docId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+
+    if (res.ok) {
+      alert('✅ Document moved to archive')
+      // Refresh all lists
+      fetchDocuments()
+      fetchTemplates()
+      fetchArchivedDocuments()
+    } else {
+      alert('Failed to delete document')
+    }
+  } catch (error) {
+    console.error('Delete error:', error)
+    alert('Failed to delete document')
+  }
+}
 
   // Handle file upload
   const handleFileUpload = async (file: File) => {
@@ -200,12 +346,15 @@ export default function DocumentsPage() {
             <div className="relative w-full max-w-xl">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
-                type="search"
-                placeholder="Search documents..."
-                className="w-full pl-10 bg-slate-50 border-slate-200"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+  type="search"
+  placeholder="Search documents..."
+  className="w-full pl-10 bg-slate-50 border-slate-200"
+  value={searchQuery}
+  onChange={(e) => {
+    setSearchQuery(e.target.value);
+    handleSearch(e.target.value);
+  }}
+/>
             </div>
           </div>
 
@@ -224,9 +373,16 @@ export default function DocumentsPage() {
         <aside className="hidden lg:flex w-64 flex-col border-r bg-white/80 backdrop-blur min-h-screen">
           <nav className="flex-1 space-y-1 p-4">
             <div className="mb-4">
-              <h2 className="text-sm font-semibold text-slate-900 px-3 mb-2">PERSONAL</h2>
+               
               
-              <button className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium bg-purple-50 text-purple-700">
+              <button 
+  onClick={() => setActiveView('documents')}
+  className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium ${
+    activeView === 'documents' 
+      ? 'bg-purple-50 text-purple-700' 
+      : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors'
+  }`}
+>
                 <div className="flex items-center gap-3">
                   <FileText className="h-5 w-5" />
                   <span>Documents</span>
@@ -234,52 +390,38 @@ export default function DocumentsPage() {
                 <span className="text-xs">{documents.length}</span>
               </button>
               
-              <button className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors mt-1">
-                <div className="flex items-center gap-3">
-                  <FolderOpen className="h-5 w-5" />
-                  <span>Templates</span>
-                </div>
-                <span className="text-xs">0</span>
-              </button>
+              <button 
+  onClick={() => setActiveView('templates')}
+  className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+    activeView === 'templates' 
+      ? 'bg-purple-50 text-purple-700' 
+      : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
+  }`}
+>
+  <div className="flex items-center gap-3">
+    <FolderOpen className="h-5 w-5" />
+    <span>Templates</span>
+  </div>
+  <span className="text-xs">{templates.length}</span>
+</button>
               
-              <button className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors mt-1">
-                <div className="flex items-center gap-3">
-                  <Trash2 className="h-5 w-5" />
-                  <span>Archive</span>
-                </div>
-                <span className="text-xs">0</span>
-              </button>
+             <button 
+  onClick={() => setActiveView('archive')}
+  className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium transition-colors mt-1 ${
+    activeView === 'archive' 
+      ? 'bg-purple-50 text-purple-700' 
+      : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
+  }`}
+>
+  <div className="flex items-center gap-3">
+    <Trash2 className="h-5 w-5" />
+    <span>Archive</span>
+  </div>
+  <span className="text-xs">{archivedDocuments.length}</span>
+</button>
             </div>
 
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900 px-3 mb-2 flex items-center justify-between">
-                <span>TEAM</span>
-                <div className="flex items-center gap-1">
-                  <div className="h-6 w-6 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-xs font-semibold">
-                    M
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-6 w-6">
-                    <span className="text-lg">+</span>
-                  </Button>
-                </div>
-              </h2>
-              
-              <button className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5" />
-                  <span>Documents</span>
-                </div>
-                <span className="text-xs">0</span>
-              </button>
-              
-              <button className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors mt-1">
-                <div className="flex items-center gap-3">
-                  <FolderOpen className="h-5 w-5" />
-                  <span>Templates</span>
-                </div>
-                <span className="text-xs">0</span>
-              </button>
-            </div>
+             
           </nav>
         </aside>
 
@@ -287,16 +429,22 @@ export default function DocumentsPage() {
         <main className="flex-1 p-8">
           <div className="max-w-7xl mx-auto">
             {/* Page Header */}
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">Documents</h1>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <span>My Documents</span>
-                  <span>•</span>
-                  <span>{documents.length} documents</span>
-                </div>
-              </div>
-            </div>
+           <div className="flex items-center justify-between mb-8">
+  <div>
+    <h1 className="text-3xl font-bold text-slate-900 mb-2">
+      {activeView === 'documents' ? 'Documents' : activeView === 'templates' ? 'Templates' : 'Archive'}
+    </h1>
+    <div className="flex items-center gap-2 text-sm text-slate-600">
+      <span>
+        {activeView === 'documents' ? 'My Documents' : activeView === 'templates' ? 'Signable Templates' : 'Deleted Documents'}
+      </span>
+      <span>•</span>
+      <span>
+        {activeView === 'documents' ? documents.length : activeView === 'templates' ? templates.length : archivedDocuments.length} {activeView === 'documents' ? 'documents' : activeView === 'templates' ? 'templates' : 'archived'}
+      </span>
+    </div>
+  </div>
+</div>
 
             {/* Upload Status Message */}
             {uploadStatus !== 'idle' && (
@@ -319,99 +467,201 @@ export default function DocumentsPage() {
             )}
 
             {/* Upload Area */}
-            <div className="mb-8">
-              <div 
-                className={`bg-white rounded-lg border-2 border-dashed p-12 text-center transition-all cursor-pointer group ${
-                  isDragging 
-                    ? 'border-purple-500 bg-purple-50' 
-                    : 'border-slate-300 hover:border-purple-400 hover:bg-purple-50/30'
-                }`}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <div className="flex flex-col items-center gap-4">
-                  <div className={`h-16 w-16 rounded-full flex items-center justify-center transition-colors ${
-                    isDragging ? 'bg-purple-200' : 'bg-purple-100 group-hover:bg-purple-200'
-                  }`}>
-                    <Upload className="h-8 w-8 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold text-slate-900 mb-1">
-                      {isDragging ? 'Drop your PDF here' : 'Drop files here to upload'}
-                    </p>
-                    <p className="text-sm text-slate-500">or click to browse (PDF only)</p>
-                  </div>
-                  <Button variant="outline" className="mt-2">Upload PDF</Button>
+          {activeView === 'archive' ? (
+  /* Archive View */
+  archivedDocuments.length > 0 ? (
+    <div className="mb-8">
+      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+        <p className="text-sm text-orange-900">
+          📦 <strong>{archivedDocuments.length}</strong> document(s) in archive. 
+          Archived documents can be restored anytime.
+        </p>
+      </div>
+      
+      <h2 className="text-xl font-semibold text-slate-900 mb-4">Archived Documents</h2>
+      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+        <div className="divide-y">
+          {archivedDocuments.map((doc) => (
+            <div 
+              key={doc._id} 
+              className="p-4 hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-6 w-6 text-slate-400" />
                 </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                     <h3 className="font-semibold text-slate-900 truncate">
+  {doc.originalFilename || doc.filename}
+</h3>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
+                      Archived
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                    <span>{doc.numPages} pages</span>
+                    <span>•</span>
+                    <span>{formatFileSize(doc.size)}</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      Deleted {formatTimeAgo(doc.createdAt)}
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => handleRestoreDocument(doc._id, doc.originalFilename || doc.filename)}
+                  className="bg-green-600 hover:bg-green-700 gap-2"
+                >
+                  <Upload className="h-4 w-4 rotate-180" />
+                  Restore
+                </Button>
               </div>
-              
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/pdf"
-                onChange={handleFileInputChange}
-                className="hidden"
-              />
             </div>
-
-            {/* Documents List */}
-            {documents.length > 0 ? (
-              <div className="mb-8">
-                <h2 className="text-xl font-semibold text-slate-900 mb-4">Your Documents</h2>
-                <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-                  <div className="divide-y">
-                    {documents.map((doc) => (
-                      <div 
-                        key={doc._id} 
-                        className="p-4 hover:bg-slate-50 transition-colors cursor-pointer"
-                        onClick={() => router.push(`/documents/${doc._id}`)}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                            <FileText className="h-6 w-6 text-red-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-slate-900 truncate">{doc.filename}</h3>
-                            <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
-                              <span>{doc.numPages} pages</span>
-                              <span>•</span>
-                              <span>{formatFileSize(doc.size)}</span>
-                              <span>•</span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {formatTimeAgo(doc.createdAt)}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
-                              <BarChart3 className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
+      <Trash2 className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+      <h3 className="text-xl font-semibold text-slate-900 mb-2">No archived documents</h3>
+      <p className="text-slate-600 mb-6">Deleted documents will appear here</p>
+    </div>
+  )
+) : (
+  /* Documents/Templates View */
+  (activeView === 'documents' ? documents : templates).length > 0 ? (
+    <div className="mb-8">
+      <h2 className="text-xl font-semibold text-slate-900 mb-4">
+        {activeView === 'documents' ? 'Your Documents' : 'Your Templates'}
+      </h2>
+      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+        <div className="divide-y">
+          {(activeView === 'documents' ? documents : templates).map((doc) => (
+            <div 
+              key={doc._id} 
+              className="p-4 hover:bg-slate-50 transition-colors cursor-pointer"
+              onClick={() => router.push(`/documents/${doc._id}`)}
+            >
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-slate-900 truncate">{doc.originalFilename || doc.filename}</h3>
+                    {doc.isTemplate && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                        Template
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                    <span>{doc.numPages} pages</span>
+                    <span>•</span>
+                    <span>{formatFileSize(doc.size)}</span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {formatTimeAgo(doc.createdAt)}
+                    </span>
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      router.push(`/documents/${doc._id}`)
+                    }}
+                    title="View analytics"
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={(e) => e.stopPropagation()}
+                    title="Share"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/documents/${doc._id}`)
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteDocument(doc._id, doc.originalFilename || doc.filename)
+                        }}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-            ) : uploadStatus === 'idle' && (
-              <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
-                <Folder className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-slate-900 mb-2">No documents yet</h3>
-                <p className="text-slate-600 mb-6">Upload your first document to get started</p>
-              </div>
-            )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div 
+      className={`bg-white rounded-xl border-2 border-dashed shadow-sm p-12 text-center transition-colors cursor-pointer ${
+        isDragging ? 'border-purple-500 bg-purple-50' : 'border-slate-300 hover:border-purple-400 hover:bg-slate-50'
+      }`}
+      onClick={() => fileInputRef.current?.click()}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <Upload className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+      <h3 className="text-xl font-semibold text-slate-900 mb-2">
+        {activeView === 'documents' ? 'Drop your PDF here' : 'No templates yet'}
+      </h3>
+      <p className="text-slate-600 mb-6">
+        {activeView === 'documents' 
+          ? 'or click the Upload button above' 
+          : 'Convert a document to a signable template to see it here'}
+      </p>
+    </div>
+  )
+)}
           </div>
         </main>
       </div>
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf"
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
     </div>
   )
 }

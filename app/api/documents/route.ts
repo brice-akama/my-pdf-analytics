@@ -184,13 +184,45 @@ const transformedDocuments = paginatedDocuments.map(doc => {
     } else {
       // Personal documents (not in a space)
       console.log('🔍 Fetching personal documents for user:', user.id);
-      query = { 
-        userId: user.id,
+      //   Get query parameters
+  const showArchived = searchParams.get('deleted') === 'true' || searchParams.get('archived') === 'true';
+  const showTemplates = searchParams.get('templates') === 'true';
+  const searchQuery = searchParams.get('search') || '';
+  
+  // Build base query
+  query = { 
+    userId: user.id,
+    $or: [
+      { belongsToSpace: { $exists: false } },
+      { belongsToSpace: false }
+    ]
+  };
+  
+  // ✅ Filter by archived status
+  if (showArchived) {
+    query.archived = true; // Only show archived
+  } else {
+    query.archived = { $ne: true }; // Exclude archived
+  }
+  
+  // ✅ Filter by templates
+  if (showTemplates) {
+    query.isTemplate = true;
+  }
+  
+  // ✅ Add search filter
+  if (searchQuery) {
+    query.$and = [
+      ...(query.$and || []),
+      {
         $or: [
-          { belongsToSpace: { $exists: false } },
-          { belongsToSpace: false }
+          { originalFilename: { $regex: searchQuery, $options: 'i' } },
+          { filename: { $regex: searchQuery, $options: 'i' } },
+          { tags: { $regex: searchQuery, $options: 'i' } },
         ]
-      };
+      }
+    ];
+  }
 
       const documents = await db.collection('documents')
         .find(query, { projection: { fileData: 0 } })

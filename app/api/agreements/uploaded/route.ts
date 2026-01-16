@@ -14,12 +14,12 @@ export async function GET(req: NextRequest) {
 
     const db = await dbPromise;
     
-    // ✅ QUERY DOCUMENTS COLLECTION WITH TYPE FILTER
+    // ✅ QUERY WITH STRING userId (matching documents format)
     const agreements = await db
       .collection("documents")
       .find({ 
-        userId: new ObjectId(user.id),
-        type: "agreement", // ✅ FILTER BY TYPE
+        userId: user.id,  // ✅ STRING (not ObjectId!)
+        type: "agreement",
         status: "uploaded"
       })
       .sort({ createdAt: -1 })
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
       agreements: agreements.map((a: any) => ({
         _id: a._id.toString(),
         filename: a.filename,
-        filesize: a.filesize,
+        filesize: a.filesize || a.size,
         filepath: a.filepath,
         status: a.status,
         createdAt: a.createdAt,
@@ -41,3 +41,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch agreements" }, { status: 500 });
   }
 }
+ 
+
+ 

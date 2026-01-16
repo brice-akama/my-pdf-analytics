@@ -278,33 +278,20 @@ export async function PATCH(
 
 
 // ✅ DELETE - Delete document and cleanup
-// ✅ DELETE - Delete document and cleanup
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Await params (your requested logic)
     const { id } = await context.params;
 
-    // Verify user via cookie/token
     const user = await verifyUserFromRequest(request);
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-      
-    console.log("🔍 User ID:", user.id); // ✅ ADD THIS
-
-    // Validate document ID
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { error: "Invalid document ID" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid document ID" }, { status: 400 });
     }
 
     const db = await dbPromise;
@@ -317,62 +304,50 @@ export async function DELETE(
     });
 
     if (!document) {
-      return NextResponse.json(
-        { error: "Document not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
 
-    // Delete document from MongoDB
-    await db.collection("documents").deleteOne({ _id: documentId });
-
-    // Delete analytics logs
-    await db.collection("analytics_logs")
-      .deleteMany({ documentId: id })
-      .catch((err) => console.error("Failed to delete analytics logs:", err));
-
-    // Delete document views
-    await db.collection("document_views")
-      .deleteMany({ documentId })
-      .catch((err) => console.error("Failed to delete document views:", err));
-
-    // Delete shares
-    await db.collection("shares")
-      .deleteMany({ documentId })
-      .catch((err) => console.error("Failed to delete shares:", err));
+    // ✅ Use 'archived' field (matching your existing logic)
+    await db.collection("documents").updateOne(
+      { _id: documentId },
+      { 
+        $set: { 
+          archived: true,        // Use archived, not deleted
+          archivedAt: new Date(),
+          updatedAt: new Date()
+        } 
+      }
+    );
 
     // Log deletion
     await db.collection("analytics_logs").insertOne({
       documentId: id,
-      action: "document_deleted",
+      action: "document_archived",
       userId: user.id,
       documentInfo: {
-        filename: document.originalFilename,
+        filename: document.originalFilename || document.filename,
         format: document.originalFormat,
         size: document.size,
       },
       timestamp: new Date(),
       userAgent: request.headers.get("user-agent"),
-      ip:
-        request.headers.get("x-forwarded-for") ||
-        request.headers.get("x-real-ip"),
+      ip: request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip"),
     });
 
     return NextResponse.json({
       success: true,
-      message: "Document deleted successfully",
+      message: "Document moved to archive",
       deletedDocument: {
         id: document._id.toString(),
-        filename: document.originalFilename,
+        filename: document.originalFilename || document.filename,
       },
     });
   } catch (error) {
-    console.error("❌ Delete document error:", error);
+    console.error("❌ Archive document error:", error);
     return NextResponse.json(
       {
-        error: "Failed to delete document",
-        details:
-          error instanceof Error ? error.message : "Unknown error",
+        error: "Failed to archive document",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );
