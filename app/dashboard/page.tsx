@@ -39,7 +39,8 @@ import {
   CheckCircle,
   Download,
   Plus, Grid ,
-  Eye
+  Eye,
+  User
 } from "lucide-react"
 
 
@@ -209,6 +210,7 @@ type FileRequestType = {
   status: string
   dueDate: string
   createdAt: string
+  recipients: { email: string }[]
 }
 
 const getInitials = (email: string) => {
@@ -305,6 +307,15 @@ const [agreementMessage, setAgreementMessage] = useState('')
 const [requireSignatureBeforeAccess, setRequireSignatureBeforeAccess] = useState(true)
 const [showSignatureLinkDialog, setShowSignatureLinkDialog] = useState(false)
 const [generatedSignatureLink, setGeneratedSignatureLink] = useState('')
+const [fileRequestTitle, setFileRequestTitle] = useState('')
+const [fileRequestDescription, setFileRequestDescription] = useState('')
+const [fileRequestRecipient, setFileRequestRecipient] = useState('')
+const [fileRequestDueDate, setFileRequestDueDate] = useState('')
+const [fileRequestExpectedFiles, setFileRequestExpectedFiles] = useState(1)
+const [showFileRequestLinkDialog, setShowFileRequestLinkDialog] = useState(false)
+const [generatedFileRequestLink, setGeneratedFileRequestLink] = useState('')
+const [fileRequestEmailSent, setFileRequestEmailSent] = useState(false)
+const [createdFileRequestId, setCreatedFileRequestId] = useState<string | null>(null)
 const [sharePermissions, setSharePermissions] = useState({
   canView: true,
   canDownload: true,
@@ -328,6 +339,11 @@ const [sharePermissions, setSharePermissions] = useState({
     default: return <Bell className="h-4 w-4 text-slate-500" />
   }
 }
+
+useEffect(() => {
+  console.log('📊 File Requests State:', fileRequests)
+  console.log('📊 Total Requests:', fileRequests.length)
+}, [fileRequests])
 
 useEffect(() => {
     // Check authentication on mount
@@ -509,6 +525,63 @@ const handleShareDocument = async () => {
   } catch (error) {
     console.error('Share error:', error)
     alert('Failed to share document. Please try again.')
+  }
+}
+
+
+const handleCreateFileRequest = async () => {
+  if (!fileRequestTitle.trim() || !fileRequestRecipient.trim()) {
+    alert('Please fill in required fields')
+    return
+  }
+
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(fileRequestRecipient.trim())) {
+    alert('Please enter a valid email address')
+    return
+  }
+
+  try {
+    const res = await fetch("/api/file-requests", {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: fileRequestTitle.trim(),
+        description: fileRequestDescription.trim() || undefined,
+        recipients: [fileRequestRecipient.trim()],
+        dueDate: fileRequestDueDate || undefined,
+        expectedFiles: fileRequestExpectedFiles,
+      }),
+    })
+
+    const data = await res.json()
+
+    if (res.ok && data.success) {
+      setCreatedFileRequestId(data.requestId)
+      setGeneratedFileRequestLink(`${window.location.origin}/public/file-request/${data.shareToken}`)
+      setFileRequestEmailSent(data.emailSent || false)
+      setShowCreateFileRequestDialog(false)
+      setShowFileRequestLinkDialog(true)
+      
+      // Reset form
+      setFileRequestTitle('')
+      setFileRequestDescription('')
+      setFileRequestRecipient('')
+      setFileRequestDueDate('')
+      setFileRequestExpectedFiles(1)
+      
+      // Refresh list
+      fetchFileRequests()
+    } else {
+      alert(data.error || 'Failed to create file request')
+    }
+  } catch (error) {
+    console.error('Create file request error:', error)
+    alert('Failed to create file request. Please try again.')
   }
 }
 
@@ -728,6 +801,13 @@ const FileRequestsSection = () => {
         </Button>
       </div>
 
+      {/* 🟢 SHOW TOTAL COUNT */}
+      {fileRequests.length > 0 && (
+        <div className="mb-6 text-sm text-slate-600">
+          Showing {fileRequests.length} file request{fileRequests.length !== 1 ? 's' : ''}
+        </div>
+      )}
+
       {fileRequests.length === 0 ? (
         <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
           <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-6">
@@ -746,32 +826,57 @@ const FileRequestsSection = () => {
         </div>
       ) : (
         <div className="space-y-4">
+          {/* 🟢 LOOP THROUGH ALL REQUESTS */}
           {fileRequests.map((request) => (
-            <div key={request._id} className="bg-white rounded-lg border shadow-sm p-6 hover:shadow-md transition-shadow">
+            <div 
+              key={request._id}
+              onClick={() => router.push(`/file-requests/${request._id}`)}
+              className="bg-white rounded-lg border shadow-sm p-6 hover:shadow-md transition-all cursor-pointer hover:border-purple-300"
+            >
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4 flex-1">
                   <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
                     <Inbox className="h-6 w-6 text-blue-600" />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-slate-900 mb-1">{request.title}</h3>
-                    <div className="flex items-center gap-4 text-sm text-slate-500">
-                      <span>{request.filesReceived}/{request.totalFiles} files received</span>
+                    <p className="text-sm text-slate-600 mb-3 line-clamp-1">
+                      {request.description || 'No description'}
+                    </p>
+                    
+                     
+                    <div className="flex items-center gap-4 text-sm text-slate-500 mb-2">
                       <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        Due {formatTimeAgo(request.dueDate)}
+                        <User className="h-4 w-4" />
+                        {request.recipients && request.recipients.length > 0 
+                          ? request.recipients.map((r: any) => r.email).join(', ')
+                          : 'No recipients'
+                        }
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-sm text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <Upload className="h-4 w-4" />
+                        {request.filesReceived}/{request.totalFiles} files
+                      </span>
+                      {request.dueDate && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          Due {formatTimeAgo(request.dueDate)}
+                        </span>
+                      )}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        request.status === 'active' ? 'bg-green-100 text-green-700' :
+                        request.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                        'bg-slate-100 text-slate-700'
+                      }`}>
+                        {request.status}
                       </span>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm">
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                <ChevronRight className="h-5 w-5 text-slate-400 flex-shrink-0 mt-3" />
               </div>
             </div>
           ))}
@@ -780,7 +885,6 @@ const FileRequestsSection = () => {
     </div>
   )
 }
-
 // Templates Section Component
 // Templates Section Component with BEAUTIFUL REALISTIC PREVIEWS
 const TemplatesSection = () => {
@@ -1199,7 +1303,6 @@ const TemplatesSection = () => {
     { id: 'spaces' as PageType, icon: FolderOpen, label: 'Spaces', badge: 'Data rooms' },
     { id: 'documents' as PageType, icon: FileText, label: 'Documents', badge: null },
     { id: 'agreements' as PageType, icon: FileSignature, label: 'Agreements', badge: null },
-    { id: 'templates' as PageType, icon: FileText, label: 'Templates', badge: null },
     { id: 'file-requests' as PageType, icon: Inbox, label: 'File requests', badge: null },
     { id: 'contacts' as PageType, icon: Users, label: 'Contacts', badge: null },
     { id: 'accounts' as PageType, icon: UserCircle, label: 'Accounts', badge: null },
@@ -1230,26 +1333,35 @@ const fetchAgreements = async () => {
 
 // Fetch file requests
 const fetchFileRequests = async () => {
-  const token = localStorage.getItem("token")
-  if (!token) return
-
   try {
+    console.log('🔍 Fetching file requests...')
+    
     const res = await fetch("/api/file-requests", {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
+      method: "GET",
+      credentials: "include", // ✅ Important for cookies
     })
+
+    console.log('📡 Response status:', res.status)
 
     if (res.ok) {
       const data = await res.json()
+      console.log('📦 Received data:', data)
+      
       if (data.success) {
+        console.log('✅ File requests:', data.fileRequests)
         setFileRequests(data.fileRequests)
+      } else {
+        console.error('❌ Success=false:', data)
       }
+    } else {
+      console.error('❌ Failed to fetch:', await res.text())
     }
   } catch (error) {
-    console.error("Failed to fetch file requests:", error)
+    console.error("❌ Fetch error:", error)
   }
 }
+ 
+ 
 
   // Handle logout
 const handleLogout = () => {
@@ -3059,7 +3171,7 @@ case 'dashboard':
 
 {/* Create File Request Dialog */}
 <Dialog open={showCreateFileRequestDialog} onOpenChange={setShowCreateFileRequestDialog}>
-  <DialogContent className="max-w-2xl bg-white">
+  <DialogContent className="max-w-2xl bg-white scrollbar-thin max-h-[80vh] overflow-y-auto">
     <DialogHeader>
       <DialogTitle>Create File Request</DialogTitle>
       <DialogDescription>Request files from clients, partners, or team members</DialogDescription>
@@ -3067,8 +3179,12 @@ case 'dashboard':
     
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Request Title</Label>
-        <Input placeholder="e.g., Client Onboarding Documents" />
+        <Label>Request Title *</Label>
+        <Input 
+          placeholder="e.g., Client Onboarding Documents" 
+          value={fileRequestTitle}
+          onChange={(e) => setFileRequestTitle(e.target.value)}
+        />
       </div>
       
       <div className="space-y-2">
@@ -3076,71 +3192,41 @@ case 'dashboard':
         <Textarea 
           placeholder="What files do you need? Include any specific requirements..."
           rows={4}
+          value={fileRequestDescription}
+          onChange={(e) => setFileRequestDescription(e.target.value)}
         />
       </div>
       
       <div className="space-y-2">
-        <Label>Recipients (comma-separated emails)</Label>
-        <Textarea 
-          placeholder="client@company.com, partner@business.com"
-          rows={2}
+        <Label>Recipient Email *</Label>
+        <Input 
+          type="email"
+          placeholder="client@company.com"
+          value={fileRequestRecipient}
+          onChange={(e) => setFileRequestRecipient(e.target.value)}
         />
+        <p className="text-xs text-slate-500">Enter one email address</p>
       </div>
       
       <div className="grid md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Due Date</Label>
-          <Input type="date" />
+          <Label>Due Date (Optional)</Label>
+          <Input 
+            type="date" 
+            value={fileRequestDueDate}
+            onChange={(e) => setFileRequestDueDate(e.target.value)}
+          />
         </div>
         
         <div className="space-y-2">
           <Label>Expected Files</Label>
-          <Input type="number" placeholder="Number of files" defaultValue={1} />
-        </div>
-      </div>
-      
-      <div className="space-y-3">
-        <Label>Requested Files</Label>
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <Input placeholder="e.g., Driver's License" className="flex-1" />
-            <Button variant="outline" size="sm">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex gap-2">
-            <Input placeholder="e.g., Proof of Address" className="flex-1" />
-            <Button variant="outline" size="sm">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        <Button variant="ghost" size="sm" className="w-full">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Another File Type
-        </Button>
-      </div>
-      
-      <div className="border-t pt-4 space-y-3">
-        <div className="flex items-center space-x-2">
-          <Switch id="require-account" />
-          <Label htmlFor="require-account" className="text-sm font-normal">
-            Recipients must have DocMetrics account
-          </Label>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <Switch id="send-reminders" defaultChecked />
-          <Label htmlFor="send-reminders" className="text-sm font-normal">
-            Send automatic reminders
-          </Label>
-        </div>
-        
-        <div className="flex items-center space-x-2">
-          <Switch id="allow-multiple" />
-          <Label htmlFor="allow-multiple" className="text-sm font-normal">
-            Allow multiple file uploads per type
-          </Label>
+          <Input 
+  type="number"
+  min={1}
+  value={fileRequestExpectedFiles}
+  onChange={(e) => setFileRequestExpectedFiles(Number(e.target.value))}
+/>
+          <p className="text-xs text-slate-500">Number of files you expect to receive</p>
         </div>
       </div>
       
@@ -3150,8 +3236,8 @@ case 'dashboard':
           <div className="flex-1">
             <p className="text-sm font-medium text-slate-900 mb-1">How it works</p>
             <ul className="text-xs text-slate-600 space-y-1">
-              <li>• Recipients receive an email with a secure upload link</li>
-              <li>• They can upload files without creating an account (unless required)</li>
+              <li>• Recipient receives an email with a secure upload link</li>
+              <li>• They can upload files without creating an account</li>
               <li>• You'll get notified when files are uploaded</li>
               <li>• All files are encrypted and stored securely</li>
             </ul>
@@ -3160,50 +3246,118 @@ case 'dashboard':
       </div>
       
       <div className="flex gap-2 justify-end pt-4">
-        <Button variant="outline" onClick={() => setShowCreateFileRequestDialog(false)}>
+        <Button variant="outline" onClick={() => {
+          setShowCreateFileRequestDialog(false)
+          setFileRequestTitle('')
+          setFileRequestDescription('')
+          setFileRequestRecipient('')
+          setFileRequestDueDate('')
+          setFileRequestExpectedFiles(1)
+        }}>
           Cancel
         </Button>
         <Button 
           className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-          onClick={async () => {
-            try {
-              const token = localStorage.getItem("token")
-              const res = await fetch("/api/file-requests", {
-                method: 'POST',
-                headers: {
-                  "Authorization": `Bearer ${token}`,
-                  "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                  title: "New File Request",
-                  description: "Please upload the requested files",
-                  recipients: [],
-                  dueDate: new Date(),
-                  expectedFiles: 1
-                })
-              })
-              
-              if (res.ok) {
-                alert('File request created successfully!')
-                setShowCreateFileRequestDialog(false)
-                fetchFileRequests()
-              }
-            } catch (error) {
-              console.error('Create error:', error)
-              alert('Failed to create file request')
-            }
-          }}
+          onClick={handleCreateFileRequest}
+          disabled={!fileRequestTitle.trim() || !fileRequestRecipient.trim()}
         >
           <Send className="mr-2 h-4 w-4" />
-          Create & Send Request
+          Create Request
         </Button>
       </div>
     </div>
   </DialogContent>
 </Dialog>
+
+{/* File Request Link Dialog */}
+<Dialog open={showFileRequestLinkDialog} onOpenChange={setShowFileRequestLinkDialog}>
+  <DialogContent className="max-w-2xl bg-white">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <CheckCircle className="h-6 w-6 text-green-600" />
+        File Request Created!
+      </DialogTitle>
+      <DialogDescription>
+        {fileRequestEmailSent 
+          ? `Email sent to ${fileRequestRecipient}. You can also copy the link below.`
+          : 'Copy the link below and send it to the recipient manually.'
+        }
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="space-y-4">
+      {fileRequestEmailSent && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Mail className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-green-900 mb-1">
+                📧 Email sent to {fileRequestRecipient}
+              </p>
+              <p className="text-xs text-green-700">
+                They'll receive instructions and the upload link.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold">Upload Link</Label>
+        <div className="flex gap-2">
+          <Input 
+            value={generatedFileRequestLink}
+            readOnly
+            className="flex-1 font-mono text-xs bg-slate-50"
+          />
+          <Button
+            variant="outline"
+            onClick={() => {
+              navigator.clipboard.writeText(generatedFileRequestLink)
+              alert('Link copied to clipboard!')
+            }}
+          >
+            Copy
+          </Button>
+          <Button
+            onClick={() => window.open(generatedFileRequestLink, '_blank')}
+            className="bg-gradient-to-r from-purple-600 to-blue-600"
+          >
+            Open
+          </Button>
+        </div>
+        <p className="text-xs text-slate-500">
+          Share this link with anyone to collect files securely.
+        </p>
+      </div>
+      
+      <div className="flex gap-2 justify-end pt-4 border-t">
+        <Button 
+          variant="outline"
+          onClick={() => {
+            setShowFileRequestLinkDialog(false)
+            router.push(`/file-requests/${createdFileRequestId}`)
+          }}
+        >
+          View Request
+        </Button>
+        <Button
+          onClick={() => {
+            setShowFileRequestLinkDialog(false)
+            setActivePage('file-requests')
+          }}
+          className="bg-gradient-to-r from-purple-600 to-blue-600"
+        >
+          Back to Requests
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
 {/* Share Document Dialog */}
 <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-  <DialogContent className="max-w-2xl bg-white">
+  <DialogContent className="max-w-2xl bg-white scrollbar  max-h-[80vh] overflow-y-auto">
     <DialogHeader>
       <DialogTitle>Share Document</DialogTitle>
       <DialogDescription>

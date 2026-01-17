@@ -351,8 +351,9 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
   className="w-full pl-10 bg-slate-50 border-slate-200"
   value={searchQuery}
   onChange={(e) => {
-    setSearchQuery(e.target.value);
-    handleSearch(e.target.value);
+    const value = e.target.value;
+    setSearchQuery(value);
+    handleSearch(value);
   }}
 />
             </div>

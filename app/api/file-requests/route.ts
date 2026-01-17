@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "../lib/mongodb"
-import { verifyUserFromRequest } from "@/lib/auth"
 import { ObjectId } from "mongodb"
+import crypto from "crypto"
+import { verifyUserFromRequest } from "@/lib/auth"
 
-// ✅ Helper to safely extract and verify the user
-async function getVerifiedUser(req: NextRequest) {
-  const authHeader = req.headers.get("authorization")
-  return await verifyUserFromRequest(authHeader)
-}
-
-// 🟢 GET - Fetch all file requests for the authenticated user
+// GET - Fetch all file requests
 export async function GET(req: NextRequest) {
   try {
-    const user = await getVerifiedUser(req)
+    const user = await verifyUserFromRequest(req)
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -44,20 +39,22 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 🟢 POST - Create new file request
+// POST - Create new file request
 export async function POST(req: NextRequest) {
   try {
-    const user = await getVerifiedUser(req)
+    const user = await verifyUserFromRequest(req)
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const body = await req.json()
-    const { title, description, recipients, dueDate, expectedFiles, requestedFileTypes } = body
+    const { title, description, recipients, dueDate, expectedFiles } = body
 
     if (!title || !recipients || recipients.length === 0) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
+
+    const shareToken = crypto.randomBytes(32).toString('hex')
 
     const db = await dbPromise
     const fileRequest = {
@@ -71,20 +68,23 @@ export async function POST(req: NextRequest) {
       })),
       dueDate: dueDate ? new Date(dueDate) : null,
       expectedFiles: expectedFiles || 1,
-      requestedFileTypes: requestedFileTypes || [],
       uploadedFiles: [],
       status: "active",
+      shareToken,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
     const result = await db.collection("fileRequests").insertOne(fileRequest)
 
-    // TODO: Add email notifications later (sendGrid / nodemailer)
+    // TODO: Send email notification (optional)
+    // await sendFileRequestEmail(recipients, shareToken, title)
 
     return NextResponse.json({
       success: true,
       requestId: result.insertedId.toString(),
+      shareToken,
+      emailSent: false,
       message: "File request created successfully",
     })
   } catch (error) {
