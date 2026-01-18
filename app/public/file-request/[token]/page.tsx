@@ -44,6 +44,8 @@ export default function PublicFileRequestPage() {
     fetchRequest()
   }, [token])
 
+
+  
   const fetchRequest = async () => {
     try {
       const res = await fetch(`/api/public/file-request/${token}`)
@@ -69,6 +71,13 @@ export default function PublicFileRequestPage() {
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return
     const newFiles = Array.from(files)
+    const totalFiles = selectedFiles.length + newFiles.length
+    // 🟢 VALIDATE: Check against expectedFiles limit
+  if (request && totalFiles > request.expectedFiles) {
+    alert(`You can only upload ${request.expectedFiles} file(s). You currently have ${selectedFiles.length} file(s) selected.`)
+    return
+  }
+  
     setSelectedFiles((prev) => [...prev, ...newFiles])
   }
 
@@ -99,6 +108,17 @@ export default function PublicFileRequestPage() {
       alert('Please select at least one file')
       return
     }
+
+    //   VALIDATE: Exact count or less
+  if (selectedFiles.length > (request?.expectedFiles || 1)) {
+    alert(`You can only upload ${request?.expectedFiles} file(s)`)
+    return
+  }
+
+  if (!uploaderName.trim() || !uploaderEmail.trim()) {
+    alert('Please enter your name and email')
+    return
+  }
 
     if (!uploaderName.trim() || !uploaderEmail.trim()) {
       alert('Please enter your name and email')
@@ -273,18 +293,19 @@ export default function PublicFileRequestPage() {
                   {isDragging ? 'Drop files here' : 'Click to upload or drag and drop'}
                 </p>
                 <p className="text-sm text-slate-500">
-                  {request.expectedFiles > 1
-                    ? `Upload up to ${request.expectedFiles} files`
-                    : 'Upload your file'}
-                </p>
+  {request.expectedFiles > 1
+    ? `Upload up to ${request.expectedFiles} files (${selectedFiles.length}/${request.expectedFiles} selected)`
+    : 'Upload your file'}
+</p>
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                onChange={(e) => handleFileSelect(e.target.files)}
-                className="hidden"
-              />
+              
+<input
+  ref={fileInputRef}
+  type="file"
+  multiple  // ✅ All file types allowed
+  onChange={(e) => handleFileSelect(e.target.files)}
+  className="hidden"
+/>
             </div>
 
             {/* Selected Files */}

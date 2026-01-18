@@ -11,7 +11,6 @@ export async function POST(
   context: { params: Promise<{ token: string }> }
 ) {
   try {
-    // ✅ Next.js 15: await params
     const { token } = await context.params
     
     const formData = await req.formData()
@@ -43,6 +42,41 @@ export async function POST(
     }
 
     console.log('✅ [UPLOAD] Found request:', request.title)
+
+    // 🟢 VALIDATE: Check if uploader email matches one of the recipients
+    const isAuthorizedRecipient = request.recipients.some(
+      (r: any) => r.email.toLowerCase() === uploaderEmail.toLowerCase().trim()
+    )
+
+    if (!isAuthorizedRecipient) {
+      console.log('❌ [UPLOAD] Unauthorized email:', uploaderEmail)
+      return NextResponse.json({ 
+        error: "This email address is not authorized to upload files to this request. Please use the email address that received the upload link." 
+      }, { status: 403 })
+    }
+
+    // 🟢 VALIDATE: Check if expected file count is met
+    const currentFileCount = request.uploadedFiles?.length || 0
+    const totalAfterUpload = currentFileCount + files.length
+    
+    if (totalAfterUpload > request.expectedFiles) {
+      console.log('❌ [UPLOAD] Too many files')
+      return NextResponse.json({ 
+        error: `This request expects ${request.expectedFiles} file(s). You're trying to upload ${files.length} file(s), but ${currentFileCount} file(s) have already been uploaded. Only ${request.expectedFiles - currentFileCount} more file(s) can be uploaded.` 
+      }, { status: 400 })
+    }
+
+    // 🟢 CHECK: Has this email already uploaded?
+    const hasAlreadyUploaded = request.uploadedFiles?.some(
+      (f: any) => f.uploadedBy?.email.toLowerCase() === uploaderEmail.toLowerCase()
+    )
+
+    if (hasAlreadyUploaded) {
+      console.log('⚠️ [UPLOAD] Email has already uploaded files')
+      return NextResponse.json({ 
+        error: "You have already uploaded files to this request. If you need to upload additional files, please contact the requester." 
+      }, { status: 400 })
+    }
 
     // Save files
     const uploadDir = path.join(process.cwd(), 'uploads', 'file-requests', token)
@@ -95,3 +129,9 @@ export async function POST(
     return NextResponse.json({ error: "Upload failed" }, { status: 500 })
   }
 }
+
+
+
+
+
+

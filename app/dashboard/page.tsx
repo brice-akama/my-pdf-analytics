@@ -40,7 +40,8 @@ import {
   Download,
   Plus, Grid ,
   Eye,
-  User
+  User,
+  Edit
 } from "lucide-react"
 
 
@@ -55,6 +56,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
@@ -316,6 +318,23 @@ const [showFileRequestLinkDialog, setShowFileRequestLinkDialog] = useState(false
 const [generatedFileRequestLink, setGeneratedFileRequestLink] = useState('')
 const [fileRequestEmailSent, setFileRequestEmailSent] = useState(false)
 const [createdFileRequestId, setCreatedFileRequestId] = useState<string | null>(null)
+const [fileRequestRecipients, setFileRequestRecipients] = useState('')
+const [contacts, setContacts] = useState<any[]>([])
+const [showAddContactDrawer, setShowAddContactDrawer] = useState(false)
+const [showEditContactDrawer, setShowEditContactDrawer] = useState(false)
+const [selectedContact, setSelectedContact] = useState<any>(null)
+const [contactName, setContactName] = useState('')
+const [contactEmail, setContactEmail] = useState('')
+const [contactCompany, setContactCompany] = useState('')
+const [contactPhone, setContactPhone] = useState('')
+const [contactNotes, setContactNotes] = useState('')
+const [createdFileRequests, setCreatedFileRequests] = useState<Array<{
+  email: string
+  requestId: string
+  shareToken: string
+  link: string
+}>>([])
+const [showBulkFileRequestLinksDialog, setShowBulkFileRequestLinksDialog] = useState(false)
 const [sharePermissions, setSharePermissions] = useState({
   canView: true,
   canDownload: true,
@@ -340,10 +359,7 @@ const [sharePermissions, setSharePermissions] = useState({
   }
 }
 
-useEffect(() => {
-  console.log('📊 File Requests State:', fileRequests)
-  console.log('📊 Total Requests:', fileRequests.length)
-}, [fileRequests])
+ 
 
 useEffect(() => {
     // Check authentication on mount
@@ -401,68 +417,86 @@ useEffect(() => {
 }, [showUploadAgreementDialog])
 
 
-// Handle sending agreement for signature
-const handleSendAgreementForSignature = async () => {
-  if (!uploadedAgreementId || !agreementTitle.trim() || !agreementSigners.trim()) {
-    alert('Please fill in all required fields')
-    return
+const fetchContacts = async () => {
+  try {
+    const res = await fetch("/api/contacts", {
+      credentials: 'include',
+    })
+    
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        setContacts(data.contacts)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch contacts:', error)
   }
+}
 
-  const signerEmails = agreementSigners
-    .split(',')
-    .map(email => email.trim())
-    .filter(email => email.length > 0)
-
-  if (signerEmails.length === 0) {
-    alert('Please enter at least one signer email')
+const handleAddContact = async () => {
+  if (!contactName.trim() || !contactEmail.trim()) {
+    alert('Please enter name and email')
     return
   }
 
   try {
-    const res = await fetch("/api/agreements", {
+    const res = await fetch("/api/contacts", {
       method: 'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        agreementId: uploadedAgreementId,
-        title: agreementTitle.trim(),
-        type: 'NDA',
-        signers: signerEmails,
-        message: agreementMessage.trim() || undefined,
-        requireSignature: requireSignatureBeforeAccess
+        name: contactName.trim(),
+        email: contactEmail.trim(),
+        company: contactCompany.trim() || undefined,
+        phone: contactPhone.trim() || undefined,
+        notes: contactNotes.trim() || undefined,
       }),
     })
 
-    const data = await res.json()
-
-    if (res.ok && data.success) {
-      // ✅ Show the signature link in a modal
-      setGeneratedSignatureLink(data.signatureLink || `${window.location.origin}/sign/${data.agreementId}`)
-      setShowSignatureLinkDialog(true)
-      
-      // Close upload dialog
-      setShowUploadAgreementDialog(false)
-      
-      // Reset form
-      setUploadedAgreementFile(null)
-      setUploadedAgreementId(null)
-      setAgreementTitle('')
-      setAgreementSigners('')
-      setAgreementMessage('')
-      setSelectedAgreementForConfig(null)
-      
-      // Refresh agreements list
-      fetchAgreements()
+    if (res.ok) {
+      alert('Contact added successfully!')
+      setShowAddContactDrawer(false)
+      resetContactForm()
+      fetchContacts()
     } else {
-      alert(data.error || 'Failed to send agreement')
+      const data = await res.json()
+      alert(data.error || 'Failed to add contact')
     }
   } catch (error) {
-    console.error('Send agreement error:', error)
-    alert('Failed to send agreement. Please try again.')
+    console.error('Add contact error:', error)
+    alert('Failed to add contact')
   }
 }
+
+const handleDeleteContact = async (contactId: string) => {
+  if (!confirm('Delete this contact?')) return
+
+  try {
+    const res = await fetch(`/api/contacts/${contactId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+
+    if (res.ok) {
+      alert('Contact deleted')
+      fetchContacts()
+    }
+  } catch (error) {
+    console.error('Delete contact error:', error)
+    alert('Failed to delete contact')
+  }
+}
+
+const resetContactForm = () => {
+  setContactName('')
+  setContactEmail('')
+  setContactCompany('')
+  setContactPhone('')
+  setContactNotes('')
+  setSelectedContact(null)
+}
+
 
 
 // Add this with your other useEffects
@@ -530,58 +564,110 @@ const handleShareDocument = async () => {
 
 
 const handleCreateFileRequest = async () => {
-  if (!fileRequestTitle.trim() || !fileRequestRecipient.trim()) {
-    alert('Please fill in required fields')
+  if (!fileRequestTitle.trim()) {
+    alert('Please enter a title')
     return
   }
 
-  // Basic email validation
+  // 🟢 HANDLE BOTH SINGLE AND MULTIPLE
+  let emailList: string[] = []
+  
+  if (fileRequestRecipients.trim()) {
+    // Multiple recipients mode
+    emailList = fileRequestRecipients
+      .split(',')
+      .map(email => email.trim())
+      .filter(email => email.length > 0)
+  } else if (fileRequestRecipient.trim()) {
+    // Single recipient mode
+    emailList = [fileRequestRecipient.trim()]
+  }
+
+  if (emailList.length === 0) {
+    alert('Please enter at least one email address')
+    return
+  }
+
+  // Validate all emails
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(fileRequestRecipient.trim())) {
-    alert('Please enter a valid email address')
+  const invalidEmails = emailList.filter(email => !emailRegex.test(email))
+  
+  if (invalidEmails.length > 0) {
+    alert(`Invalid email(s): ${invalidEmails.join(', ')}`)
     return
   }
 
   try {
-    const res = await fetch("/api/file-requests", {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        title: fileRequestTitle.trim(),
-        description: fileRequestDescription.trim() || undefined,
-        recipients: [fileRequestRecipient.trim()],
-        dueDate: fileRequestDueDate || undefined,
-        expectedFiles: fileRequestExpectedFiles,
-      }),
-    })
+    setUploadStatus('uploading')
+    setUploadMessage(`Creating ${emailList.length} file request(s)...`)
 
-    const data = await res.json()
+    // 🟢 CREATE MULTIPLE REQUESTS
+    const results = []
+    for (let i = 0; i < emailList.length; i++) {
+      const email = emailList[i]
+      
+      const res = await fetch("/api/file-requests", {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: fileRequestTitle.trim(),
+          description: fileRequestDescription.trim() || undefined,
+          recipients: [email],
+          dueDate: fileRequestDueDate || undefined,
+          expectedFiles: fileRequestExpectedFiles,
+        }),
+      })
 
-    if (res.ok && data.success) {
-      setCreatedFileRequestId(data.requestId)
-      setGeneratedFileRequestLink(`${window.location.origin}/public/file-request/${data.shareToken}`)
-      setFileRequestEmailSent(data.emailSent || false)
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        results.push({
+          email,
+          requestId: data.requestId,
+          shareToken: data.shareToken,
+          link: `${window.location.origin}/public/file-request/${data.shareToken}`
+        })
+        
+        setUploadMessage(`Created ${i + 1}/${emailList.length} requests...`)
+      } else {
+        console.error(`Failed for ${email}:`, data.error)
+      }
+    }
+
+    if (results.length > 0) {
+      setUploadStatus('success')
+      setUploadMessage(`Successfully created ${results.length} file request(s)!`)
+      
+      // 🟢 SHOW ALL LINKS IN DIALOG
+      setCreatedFileRequests(results)
       setShowCreateFileRequestDialog(false)
-      setShowFileRequestLinkDialog(true)
+      setShowBulkFileRequestLinksDialog(true)
       
       // Reset form
       setFileRequestTitle('')
       setFileRequestDescription('')
       setFileRequestRecipient('')
+      setFileRequestRecipients('')
       setFileRequestDueDate('')
       setFileRequestExpectedFiles(1)
       
       // Refresh list
       fetchFileRequests()
+      
+      setTimeout(() => setUploadStatus('idle'), 3000)
     } else {
-      alert(data.error || 'Failed to create file request')
+      setUploadStatus('error')
+      setUploadMessage('Failed to create file requests')
+      setTimeout(() => setUploadStatus('idle'), 3000)
     }
   } catch (error) {
     console.error('Create file request error:', error)
-    alert('Failed to create file request. Please try again.')
+    setUploadStatus('error')
+    setUploadMessage('Failed to create file request. Please try again.')
+    setTimeout(() => setUploadStatus('idle'), 3000)
   }
 }
 
@@ -643,15 +729,51 @@ useEffect(() => {
   fetchDocuments()
   fetchAgreements()
   fetchFileRequests()
+  fetchContacts()
   const interval = setInterval(() => {
     fetchDocuments()
     fetchAgreements()
     fetchFileRequests()
+    fetchContacts()
   }, 30000)
   return () => clearInterval(interval)
 }, [])
 
 
+const handleUpdateContact = async () => {
+  if (!contactName.trim() || !contactEmail.trim() || !selectedContact) {
+    alert('Please enter name and email')
+    return
+  }
+
+  try {
+    const res = await fetch(`/api/contacts/${selectedContact._id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: contactName.trim(),
+        email: contactEmail.trim(),
+        company: contactCompany.trim() || undefined,
+        phone: contactPhone.trim() || undefined,
+        notes: contactNotes.trim() || undefined,
+      }),
+    })
+
+    if (res.ok) {
+      alert('Contact updated successfully!')
+      setShowEditContactDrawer(false)
+      resetContactForm()
+      fetchContacts()
+    } else {
+      const data = await res.json()
+      alert(data.error || 'Failed to update contact')
+    }
+  } catch (error) {
+    console.error('Update contact error:', error)
+    alert('Failed to update contact')
+  }
+}
 
 // Agreements Section Component
 const AgreementsSection = () => {
@@ -1399,39 +1521,68 @@ const handleFeedbackSubmit = async () => {
 }
 
   const quickActions = [
-    {
-      icon: FileText,
-      title: "Share content with secure file sharing",
-      description: "Share content",
-      color: "from-blue-500 to-blue-600"
-    },
-    {
-      icon: BarChart3,
-      title: "Track viewer analytics to see who engages with your file",
-      description: "View analytics",
-      color: "from-purple-500 to-purple-600"
-    },
-    {
-      icon: FolderOpen,
-      title: "Manage large projects and organize deals in one place",
-      description: "Create a data room",
-      color: "from-indigo-500 to-indigo-600"
-    },
-    {
-      icon: FileSignature,
-      title: "Collect eSignatures on contracts and agreements",
-      description: "Request signatures",
-      color: "from-pink-500 to-pink-600"
-    },
-    {
-      icon: Clock,
-      title: "Safely receive files in one place with file requests",
-      description: "Request files",
-      color: "from-orange-500 to-orange-600"
+  {
+    icon: Share2,
+    title: "Share content with secure file sharing",
+    description: "Share content",
+    color: "from-blue-500 to-blue-600",
+    onClick: () => {
+      // If user has documents, show share dialog for first document
+      if (documents.length > 0) {
+        setSelectedDocumentToShare(documents[0]._id)
+        setShowShareDialog(true)
+      } else {
+        alert('Upload a document first to share it')
+      }
     }
-  ]
+  },
+  {
+    icon: BarChart3,
+    title: "Track viewer analytics to see who engages with your file",
+    description: "View analytics",
+    color: "from-purple-500 to-purple-600",
+    onClick: () => {
+      // Navigate to first document's analytics
+      if (documents.length > 0) {
+        router.push(`/documents/${documents[0]._id}`)
+      } else {
+        alert('Upload a document first to view analytics')
+      }
+    }
+  },
+  {
+    icon: FolderOpen,
+    title: "Manage large projects and organize deals in one place",
+    description: "Create a data room",
+    color: "from-indigo-500 to-indigo-600",
+    onClick: () => {
+      // Navigate to spaces (data rooms)
+      router.push('/spaces')
+    }
+  },
+  {
+    icon: FileSignature,
+    title: "Collect eSignatures on contracts and agreements",
+    description: "Request signatures",
+    color: "from-pink-500 to-pink-600",
+    onClick: () => {
+      // Open upload agreement dialog
+      setShowUploadAgreementDialog(true)
+    }
+  },
+  {
+    icon: Inbox,
+    title: "Safely receive files in one place with file requests",
+    description: "Request files",
+    color: "from-orange-500 to-orange-600",
+    onClick: () => {
+      // Open create file request dialog
+      setShowCreateFileRequestDialog(true)
+    }
+  }
+]
 
-  // Replace your entire useEffect with this:
+// Fetch user data
 
 useEffect(() => {
   const fetchUser = async () => {
@@ -1723,8 +1874,12 @@ case 'dashboard':
               
               <h2 className="text-xl font-semibold text-slate-900 mb-6">5 ways to get the most out of DocMetrics</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                {quickActions.map((action, index) => (
-                  <div key={index} className="bg-white rounded-xl border shadow-sm p-6 hover:shadow-lg transition-all cursor-pointer group">
+  {quickActions.map((action, index) => (
+    <div 
+      key={index} 
+      onClick={action.onClick}  // ✅ Add click handler
+      className="bg-white rounded-xl border shadow-sm p-6 hover:shadow-lg transition-all cursor-pointer group"
+    >
                     <div className={`h-16 w-16 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                       <action.icon className="h-8 w-8 text-white" />
                     </div>
@@ -1766,21 +1921,109 @@ case 'dashboard':
   return <FileRequestsSection />
   
 
-      case 'contacts':
-        return (
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-6">Contacts</h1>
-            <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
-              <Users className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">No contacts yet</h3>
-              <p className="text-slate-600 mb-6">Add contacts to share documents quickly</p>
-              <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                Add Contact
-              </Button>
-            </div>
-          </div>
-        )
+   case 'contacts':
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Contacts</h1>
+          <p className="text-slate-600">Manage your contacts for quick document sharing</p>
+        </div>
+        <Button 
+          onClick={() => setShowAddContactDrawer(true)}
+          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+        >
+          <Plus className="h-4 w-4" />
+          Add Contact
+        </Button>
+      </div>
 
+      {contacts.length === 0 ? (
+        <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
+          <div className="h-24 w-24 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-6">
+            <Users className="h-12 w-12 text-purple-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">No contacts yet</h3>
+          <p className="text-slate-600 mb-6">Add contacts to save their details for quick reference</p>
+          <Button 
+            onClick={() => setShowAddContactDrawer(true)}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Contact
+          </Button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+          {/* Table Header */}
+          <div className="bg-slate-50 border-b px-6 py-3 grid grid-cols-12 gap-4 text-sm font-semibold text-slate-700">
+            <div className="col-span-4">Contact</div>
+            <div className="col-span-3">Company</div>
+            <div className="col-span-3">Phone</div>
+            <div className="col-span-2 text-right">Actions</div>
+          </div>
+
+          {/* Table Rows */}
+          <div className="divide-y">
+            {contacts.map((contact) => (
+              <div key={contact._id} className="px-6 py-4 grid grid-cols-12 gap-4 items-center hover:bg-slate-50 transition-colors">
+                {/* Contact Info */}
+                <div className="col-span-4 flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(contact.email)} flex items-center justify-center text-white font-semibold flex-shrink-0`}>
+                    {contact.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-900 truncate">{contact.name}</p>
+                    <p className="text-sm text-slate-600 truncate">{contact.email}</p>
+                  </div>
+                </div>
+
+                {/* Company */}
+                <div className="col-span-3">
+                  <p className="text-sm text-slate-700 truncate">{contact.company || '—'}</p>
+                </div>
+
+                {/* Phone */}
+                <div className="col-span-3">
+                  <p className="text-sm text-slate-700 truncate">{contact.phone || '—'}</p>
+                </div>
+
+                {/* Actions */}
+                <div className="col-span-2 flex items-center justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedContact(contact)
+                      setContactName(contact.name)
+                      setContactEmail(contact.email)
+                      setContactCompany(contact.company || '')
+                      setContactPhone(contact.phone || '')
+                      setContactNotes(contact.notes || '')
+                      setShowEditContactDrawer(true)
+                    }}
+                    className="gap-1"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteContact(contact._id)}
+                    className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
       case 'accounts':
         return (
           <div>
@@ -2253,23 +2496,7 @@ case 'dashboard':
             ))}
           </nav>
 
-          <div className="border-t p-4">
-            {documents.map((doc) => (
-  <button
-    key={doc._id}
-    onClick={(e) => {
-      e.stopPropagation()
-      setSelectedDocumentToShare(doc._id)
-      setShowShareDialog(true)
-    }}
-    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-  >
-    <Share2 className="h-5 w-5" />
-    <span>Share document</span>
-  </button>
-))}
-
-          </div>
+          
         </aside>
 
         {/* Main Content */}
@@ -3170,6 +3397,7 @@ case 'dashboard':
 </Dialog>
 
 {/* Create File Request Dialog */}
+{/* Create File Request Dialog */}
 <Dialog open={showCreateFileRequestDialog} onOpenChange={setShowCreateFileRequestDialog}>
   <DialogContent className="max-w-2xl bg-white scrollbar-thin max-h-[80vh] overflow-y-auto">
     <DialogHeader>
@@ -3197,16 +3425,67 @@ case 'dashboard':
         />
       </div>
       
-      <div className="space-y-2">
-        <Label>Recipient Email *</Label>
-        <Input 
-          type="email"
-          placeholder="client@company.com"
-          value={fileRequestRecipient}
-          onChange={(e) => setFileRequestRecipient(e.target.value)}
-        />
-        <p className="text-xs text-slate-500">Enter one email address</p>
-      </div>
+      {/* 🟢 MODE SELECTOR */}
+      <Tabs defaultValue="single" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="single">Single Recipient</TabsTrigger>
+          <TabsTrigger value="multiple">Multiple Recipients</TabsTrigger>
+        </TabsList>
+        
+        {/* 🟢 SINGLE RECIPIENT MODE */}
+        <TabsContent value="single" className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label>Recipient Email *</Label>
+            <Input 
+              type="email"
+              placeholder="client@company.com"
+              value={fileRequestRecipient}
+              onChange={(e) => setFileRequestRecipient(e.target.value)}
+            />
+            <p className="text-xs text-slate-500">
+              One unique link will be created for this recipient
+            </p>
+          </div>
+        </TabsContent>
+        
+        {/* 🟢 MULTIPLE RECIPIENTS MODE */}
+        <TabsContent value="multiple" className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label>Recipient Emails *</Label>
+            <Textarea 
+              placeholder="client1@company.com, client2@company.com, client3@company.com"
+              rows={4}
+              value={fileRequestRecipients}
+              onChange={(e) => setFileRequestRecipients(e.target.value)}
+            />
+            <p className="text-xs text-slate-500">
+              Enter multiple emails separated by commas. Each person gets their own unique upload link.
+            </p>
+          </div>
+          
+          {/* 🟢 PREVIEW */}
+          {fileRequestRecipients.trim() && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm font-semibold text-blue-900 mb-2">
+                Will create {fileRequestRecipients.split(',').filter(e => e.trim()).length} file requests:
+              </p>
+              <div className="space-y-1">
+                {fileRequestRecipients.split(',').filter(e => e.trim()).slice(0, 5).map((email, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm text-blue-800">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>{email.trim()}</span>
+                  </div>
+                ))}
+                {fileRequestRecipients.split(',').filter(e => e.trim()).length > 5 && (
+                  <p className="text-sm text-blue-700 mt-2">
+                    + {fileRequestRecipients.split(',').filter(e => e.trim()).length - 5} more...
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
       
       <div className="grid md:grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -3221,12 +3500,13 @@ case 'dashboard':
         <div className="space-y-2">
           <Label>Expected Files</Label>
           <Input 
-  type="number"
-  min={1}
-  value={fileRequestExpectedFiles}
-  onChange={(e) => setFileRequestExpectedFiles(Number(e.target.value))}
-/>
-          <p className="text-xs text-slate-500">Number of files you expect to receive</p>
+            type="number" 
+            placeholder="Number of files" 
+            defaultValue={1}
+            min={1}
+            value={fileRequestExpectedFiles}
+            onChange={(e) => setFileRequestExpectedFiles(Number(e.target.value))}
+          />
         </div>
       </div>
       
@@ -3236,7 +3516,7 @@ case 'dashboard':
           <div className="flex-1">
             <p className="text-sm font-medium text-slate-900 mb-1">How it works</p>
             <ul className="text-xs text-slate-600 space-y-1">
-              <li>• Recipient receives an email with a secure upload link</li>
+              <li>• Each recipient gets their own unique upload link</li>
               <li>• They can upload files without creating an account</li>
               <li>• You'll get notified when files are uploaded</li>
               <li>• All files are encrypted and stored securely</li>
@@ -3251,6 +3531,7 @@ case 'dashboard':
           setFileRequestTitle('')
           setFileRequestDescription('')
           setFileRequestRecipient('')
+          setFileRequestRecipients('')
           setFileRequestDueDate('')
           setFileRequestExpectedFiles(1)
         }}>
@@ -3259,7 +3540,7 @@ case 'dashboard':
         <Button 
           className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
           onClick={handleCreateFileRequest}
-          disabled={!fileRequestTitle.trim() || !fileRequestRecipient.trim()}
+          disabled={!fileRequestTitle.trim() || (!fileRequestRecipient.trim() && !fileRequestRecipients.trim())}
         >
           <Send className="mr-2 h-4 w-4" />
           Create Request
@@ -3576,6 +3857,272 @@ case 'dashboard':
     </div>
   </DialogContent>
 </Dialog>
+
+{/* 🟢 BULK FILE REQUEST LINKS DIALOG */}
+<Dialog open={showBulkFileRequestLinksDialog} onOpenChange={setShowBulkFileRequestLinksDialog}>
+  <DialogContent className="max-w-3xl bg-white max-h-[80vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <CheckCircle className="h-6 w-6 text-green-600" />
+        {createdFileRequests.length} File Request(s) Created!
+      </DialogTitle>
+      <DialogDescription>
+        Each recipient has their own unique upload link
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="space-y-4">
+      {createdFileRequests.map((request, index) => (
+        <div key={index} className="border rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
+                {request.email.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">{request.email}</p>
+                <p className="text-xs text-slate-500">Request #{index + 1}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <Input
+              value={request.link}
+              readOnly
+              className="flex-1 font-mono text-xs bg-slate-50"
+            />
+            <Button
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard.writeText(request.link)
+                alert('Link copied!')
+              }}
+            >
+              Copy
+            </Button>
+            <Button
+              onClick={() => window.open(request.link, '_blank')}
+              className="bg-gradient-to-r from-purple-600 to-blue-600"
+            >
+              Open
+            </Button>
+          </div>
+        </div>
+      ))}
+      
+      <div className="flex gap-2 justify-end pt-4 border-t">
+        <Button
+          variant="outline"
+          onClick={() => {
+            const allLinks = createdFileRequests.map(r => `${r.email}: ${r.link}`).join('\n')
+            navigator.clipboard.writeText(allLinks)
+            alert('All links copied to clipboard!')
+          }}
+        >
+          Copy All Links
+        </Button>
+        <Button
+          onClick={() => setShowBulkFileRequestLinksDialog(false)}
+          className="bg-gradient-to-r from-purple-600 to-blue-600"
+        >
+          Done
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* 🟢 ADD CONTACT DRAWER */}
+<Sheet open={showAddContactDrawer} onOpenChange={setShowAddContactDrawer}>
+  <SheetContent side="right" className="w-full sm:w-[640px] lg:w-[800px] p-0 flex flex-col bg-white "
+>
+    {/* Sticky Header */}
+    <SheetHeader className="px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+      <SheetTitle className="text-xl">Add New Contact</SheetTitle>
+      <SheetDescription>
+        Save contact details for quick document sharing
+      </SheetDescription>
+    </SheetHeader>
+
+    {/* Scrollable Content */}
+    <div className="flex-1 overflow-y-auto">
+      <div className="px-6 py-6 space-y-6">
+        <div className="space-y-2">
+          <Label>Full Name *</Label>
+          <Input
+            placeholder="John Doe"
+            value={contactName}
+            onChange={(e) => setContactName(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Email Address *</Label>
+          <Input
+            type="email"
+            placeholder="john@company.com"
+            value={contactEmail}
+            onChange={(e) => setContactEmail(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Company (Optional)</Label>
+          <Input
+            placeholder="Acme Inc."
+            value={contactCompany}
+            onChange={(e) => setContactCompany(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Phone (Optional)</Label>
+          <Input
+            type="tel"
+            placeholder="+1 (555) 123-4567"
+            value={contactPhone}
+            onChange={(e) => setContactPhone(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Notes (Optional)</Label>
+          <Textarea
+            placeholder="Add any additional notes about this contact..."
+            rows={4}
+            value={contactNotes}
+            onChange={(e) => setContactNotes(e.target.value)}
+          />
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex gap-3">
+            <Users className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-blue-900 mb-1">Quick Sharing</p>
+              <p className="text-xs text-blue-700">
+                Once added, you can quickly share documents with this contact from anywhere in the app.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Sticky Footer */}
+    <div className="px-6 py-4 border-t bg-white sticky bottom-0 z-10 shadow-lg">
+      <div className="flex gap-3 justify-end">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowAddContactDrawer(false)
+            resetContactForm()
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleAddContact}
+          disabled={!contactName.trim() || !contactEmail.trim()}
+          className="bg-gradient-to-r from-purple-600 to-blue-600"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add Contact
+        </Button>
+      </div>
+    </div>
+  </SheetContent>
+</Sheet>
+
+{/* 🟢 EDIT CONTACT DRAWER */}
+<Sheet open={showEditContactDrawer} onOpenChange={setShowEditContactDrawer}>
+  <SheetContent side="right" className="w-full sm:w-[500px] p-0 flex flex-col bg-white">
+    {/* Sticky Header */}
+    <SheetHeader className="px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+      <SheetTitle className="text-xl">Edit Contact</SheetTitle>
+      <SheetDescription>
+        Update contact information
+      </SheetDescription>
+    </SheetHeader>
+
+    {/* Scrollable Content */}
+    <div className="flex-1 overflow-y-auto">
+      <div className="px-6 py-6 space-y-6">
+        <div className="space-y-2">
+          <Label>Full Name *</Label>
+          <Input
+            placeholder="John Doe"
+            value={contactName}
+            onChange={(e) => setContactName(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Email Address *</Label>
+          <Input
+            type="email"
+            placeholder="john@company.com"
+            value={contactEmail}
+            onChange={(e) => setContactEmail(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Company (Optional)</Label>
+          <Input
+            placeholder="Acme Inc."
+            value={contactCompany}
+            onChange={(e) => setContactCompany(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Phone (Optional)</Label>
+          <Input
+            type="tel"
+            placeholder="+1 (555) 123-4567"
+            value={contactPhone}
+            onChange={(e) => setContactPhone(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Notes (Optional)</Label>
+          <Textarea
+            placeholder="Add any additional notes about this contact..."
+            rows={4}
+            value={contactNotes}
+            onChange={(e) => setContactNotes(e.target.value)}
+          />
+        </div>
+      </div>
+    </div>
+
+    {/* Sticky Footer */}
+    <div className="px-6 py-4 border-t bg-white sticky bottom-0 z-10 shadow-lg">
+      <div className="flex gap-3 justify-end">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowEditContactDrawer(false)
+            resetContactForm()
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleUpdateContact}
+          disabled={!contactName.trim() || !contactEmail.trim()}
+          className="bg-gradient-to-r from-purple-600 to-blue-600"
+        >
+          Save Changes
+        </Button>
+      </div>
+    </div>
+  </SheetContent>
+</Sheet>
+ 
     </div>
   )
 }

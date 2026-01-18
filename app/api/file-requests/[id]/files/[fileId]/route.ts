@@ -65,16 +65,81 @@ export async function GET(
 
     try {
       const fileBuffer = await readFile(filePath)
-const uint8Array = new Uint8Array(fileBuffer)
+      
+      console.log('✅ [DOWNLOAD] File read successfully, size:', fileBuffer.length)
 
-return new NextResponse(uint8Array, {
-  headers: {
-    "Content-Type": "application/octet-stream",
-    "Content-Disposition": `attachment; filename="${file.originalName}"`,
-    "Content-Length": uint8Array.byteLength.toString(),
-  },
-})
+      // 🟢 Detect proper MIME type
+      const getContentType = (filename: string): string => {
+        const ext = filename.toLowerCase().split('.').pop()
+        
+        const mimeTypes: Record<string, string> = {
+          // Images
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'gif': 'image/gif',
+          'webp': 'image/webp',
+          'svg': 'image/svg+xml',
+          'bmp': 'image/bmp',
+          'ico': 'image/x-icon',
+          
+          // Documents
+          'pdf': 'application/pdf',
+          'doc': 'application/msword',
+          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'xls': 'application/vnd.ms-excel',
+          'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'ppt': 'application/vnd.ms-powerpoint',
+          'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          
+          // Text
+          'txt': 'text/plain',
+          'md': 'text/markdown',
+          'csv': 'text/csv',
+          'json': 'application/json',
+          'xml': 'application/xml',
+          'html': 'text/html',
+          'css': 'text/css',
+          'js': 'application/javascript',
+          'ts': 'application/typescript',
+          
+          // Video
+          'mp4': 'video/mp4',
+          'webm': 'video/webm',
+          'ogg': 'video/ogg',
+          'mov': 'video/quicktime',
+          
+          // Audio
+          'mp3': 'audio/mpeg',
+          'wav': 'audio/wav',
+          'm4a': 'audio/mp4',
+          
+          // Archives
+          'zip': 'application/zip',
+          'rar': 'application/x-rar-compressed',
+          '7z': 'application/x-7z-compressed',
+          'tar': 'application/x-tar',
+          'gz': 'application/gzip',
+        }
+        
+        return mimeTypes[ext || ''] || 'application/octet-stream'
+      }
 
+      const contentType = getContentType(file.originalName)
+      console.log('📄 [DOWNLOAD] Content-Type:', contentType)
+
+      // ✅ Convert Buffer to Uint8Array for Next.js
+      const uint8Array = new Uint8Array(fileBuffer)
+
+      // Return file with proper content type
+      return new NextResponse(uint8Array, {
+        headers: {
+          'Content-Type': contentType,
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(file.originalName)}"`,
+          'Content-Length': fileBuffer.length.toString(),
+          'Cache-Control': 'no-cache',
+        },
+      })
     } catch (fileError) {
       console.error('❌ [DOWNLOAD] File read error:', fileError)
       return NextResponse.json({ 
@@ -87,4 +152,4 @@ return new NextResponse(uint8Array, {
       error: "Failed to download file" 
     }, { status: 500 })
   }
-} 
+}

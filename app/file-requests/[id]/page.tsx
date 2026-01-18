@@ -169,26 +169,35 @@ const handleClosePreview = () => {
     }
   }
 
-  const handleDownloadFile = async (fileId: string, filename: string) => {
-    try {
-      const res = await fetch(`/api/file-requests/${requestId}/files/${fileId}`, {
-        credentials: 'include',
-      })
+const handleDownloadFile = async (fileId: string, filename: string) => {
+  try {
+    console.log('📥 Downloading file:', filename)
+    
+    const res = await fetch(`/api/file-requests/${requestId}/files/${fileId}`, {
+      credentials: 'include',
+    })
 
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = filename
-        a.click()
-        window.URL.revokeObjectURL(url)
-      }
-    } catch (error) {
-      console.error('Download error:', error)
+    if (res.ok) {
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a) // ✅ Add to DOM
+      a.click()
+      document.body.removeChild(a) // ✅ Remove from DOM
+      window.URL.revokeObjectURL(url)
+      
+      console.log('✅ Download complete')
+    } else {
+      console.error('❌ Download failed:', res.status)
       alert('Failed to download file')
     }
+  } catch (error) {
+    console.error('Download error:', error)
+    alert('Failed to download file')
   }
+}
 
   const handleDownloadAll = async () => {
     try {
@@ -520,7 +529,10 @@ const handleClosePreview = () => {
                 {file.uploadedBy && (
                   <>
                     <span>•</span>
-                    <span>{file.uploadedBy.email}</span>
+                    <span className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                {file.uploadedBy.name} ({file.uploadedBy.email})
+              </span>
                   </>
                 )}
               </div>
@@ -591,63 +603,202 @@ const handleClosePreview = () => {
           </SheetHeader>
 
           {/* Content */}
-          <div className="flex-1 overflow-auto bg-slate-100 p-6">
-            {previewLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+          {/* Content */}
+<div className="flex-1 overflow-auto bg-slate-100 p-6">
+  {previewLoading ? (
+    <div className="flex items-center justify-center h-full">
+      <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+    </div>
+  ) : previewUrl ? (
+    <motion.div
+      initial={{ scale: 0.95, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.2 }}
+      className="bg-white rounded-lg shadow-lg overflow-hidden"
+    >
+      {(() => {
+        const fileName = previewFile.originalName.toLowerCase()
+        
+        // 🟢 IMAGE PREVIEW
+        if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i)) {
+          return (
+            <div className="p-4">
+              <img 
+                src={previewUrl} 
+                alt={previewFile.originalName}
+                className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+                onError={() => {
+                  console.error('Image failed to load')
+                  alert('Failed to load image')
+                }}
+              />
+            </div>
+          )
+        }
+        
+        // 🟢 PDF PREVIEW
+        if (fileName.match(/\.pdf$/i)) {
+          return (
+            <div className="w-full" style={{ height: 'calc(100vh - 250px)' }}>
+              <iframe
+                src={`${previewUrl}#toolbar=1&navpanes=1&scrollbar=1`}
+                className="w-full h-full border-0"
+                title={previewFile.originalName}
+                onError={() => {
+                  console.error('PDF failed to load')
+                }}
+              />
+            </div>
+          )
+        }
+        
+        // 🟢 TEXT FILES PREVIEW
+        if (fileName.match(/\.(txt|md|csv|json|xml|log|html|css|js|jsx|ts|tsx|py|java|c|cpp|h|sh|yaml|yml)$/i)) {
+          return (
+            <div className="w-full" style={{ height: 'calc(100vh - 250px)' }}>
+              <iframe
+                src={previewUrl}
+                className="w-full h-full border-0 bg-white"
+                title={previewFile.originalName}
+              />
+            </div>
+          )
+        }
+        
+        // 🟢 OFFICE DOCUMENTS (Word, Excel, PowerPoint)
+        if (fileName.match(/\.(docx?|xlsx?|pptx?|odt|ods|odp)$/i)) {
+          return (
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+              <div className="h-20 w-20 rounded-full bg-blue-100 flex items-center justify-center mb-6">
+                <FileText className="h-10 w-10 text-blue-600" />
               </div>
-            ) : previewUrl ? (
-              <motion.div
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.2 }}
-                className="bg-white rounded-lg shadow-lg overflow-hidden"
+              <p className="text-lg font-semibold text-slate-900 mb-2">
+                Microsoft Office Document
+              </p>
+              <p className="text-sm text-slate-600 mb-6">
+                {previewFile.originalName}
+              </p>
+              <p className="text-sm text-slate-500 mb-6">
+                Office documents cannot be previewed in the browser. Download to view in Microsoft Office or Google Docs.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => handleDownloadFile(previewFile._id, previewFile.originalName)}
+                  className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
+                >
+                  <Download className="h-4 w-4" />
+                  Download to View
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Open in Google Docs viewer (works for most Office formats)
+                    const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(window.location.origin + '/api/file-requests/' + requestId + '/files/' + previewFile._id)}&embedded=true`
+                    window.open(googleViewerUrl, '_blank')
+                  }}
+                  className="gap-2"
+                >
+                  <Eye className="h-4 w-4" />
+                  Try Google Viewer
+                </Button>
+              </div>
+            </div>
+          )
+        }
+        
+        // 🟢 VIDEO FILES
+        if (fileName.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i)) {
+          return (
+            <div className="p-4">
+              <video 
+                src={previewUrl} 
+                controls 
+                className="w-full h-auto max-h-[80vh] rounded-lg bg-black"
+                onError={() => {
+                  console.error('Video failed to load')
+                  alert('Failed to load video')
+                }}
               >
-                {/* Check file type and render accordingly */}
-                {previewFile.originalName.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                  // Image preview
-                  <img 
-                    src={previewUrl} 
-                    alt={previewFile.originalName}
-                    className="w-full h-auto"
-                  />
-                ) : previewFile.originalName.match(/\.pdf$/i) ? (
-                  // PDF preview
-                  <iframe
-                    src={previewUrl}
-                    className="w-full h-[calc(100vh-200px)]"
-                    title={previewFile.originalName}
-                  />
-                ) : previewFile.originalName.match(/\.(txt|md|csv)$/i) ? (
-                  // Text file preview
-                  <iframe
-                    src={previewUrl}
-                    className="w-full h-[calc(100vh-200px)]"
-                    title={previewFile.originalName}
-                  />
-                ) : (
-                  // Unsupported preview
-                  <div className="flex flex-col items-center justify-center p-12 text-center">
-                    <FileText className="h-16 w-16 text-slate-300 mb-4" />
-                    <p className="text-lg font-semibold text-slate-900 mb-2">
-                      Preview not available
-                    </p>
-                    <p className="text-sm text-slate-600 mb-6">
-                      This file type cannot be previewed in the browser
-                    </p>
-                    <Button
-                      onClick={() => handleDownloadFile(previewFile._id, previewFile.originalName)}
-                      className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download to View
-                    </Button>
-                  </div>
-                )}
-              </motion.div>
-            ) : null}
+                Your browser does not support video playback.
+              </video>
+            </div>
+          )
+        }
+        
+        // 🟢 AUDIO FILES
+        if (fileName.match(/\.(mp3|wav|ogg|m4a|flac|aac)$/i)) {
+          return (
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+              <div className="h-20 w-20 rounded-full bg-purple-100 flex items-center justify-center mb-6">
+                <FileText className="h-10 w-10 text-purple-600" />
+              </div>
+              <p className="text-lg font-semibold text-slate-900 mb-6">
+                {previewFile.originalName}
+              </p>
+              <audio 
+                src={previewUrl} 
+                controls 
+                className="w-full max-w-md"
+              >
+                Your browser does not support audio playback.
+              </audio>
+            </div>
+          )
+        }
+        
+        // 🟢 ARCHIVE FILES (ZIP, RAR, etc)
+        if (fileName.match(/\.(zip|rar|7z|tar|gz|bz2)$/i)) {
+          return (
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+              <div className="h-20 w-20 rounded-full bg-orange-100 flex items-center justify-center mb-6">
+                <FileText className="h-10 w-10 text-orange-600" />
+              </div>
+              <p className="text-lg font-semibold text-slate-900 mb-2">
+                Archive File
+              </p>
+              <p className="text-sm text-slate-600 mb-6">
+                {previewFile.originalName}
+              </p>
+              <p className="text-sm text-slate-500 mb-6">
+                Archive files cannot be previewed. Download to extract contents.
+              </p>
+              <Button
+                onClick={() => handleDownloadFile(previewFile._id, previewFile.originalName)}
+                className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
+              >
+                <Download className="h-4 w-4" />
+                Download Archive
+              </Button>
+            </div>
+          )
+        }
+        
+        // 🟢 FALLBACK - UNSUPPORTED FILE TYPE
+        return (
+          <div className="flex flex-col items-center justify-center p-12 text-center">
+            <FileText className="h-16 w-16 text-slate-300 mb-4" />
+            <p className="text-lg font-semibold text-slate-900 mb-2">
+              Preview not available
+            </p>
+            <p className="text-sm text-slate-600 mb-2">
+              {previewFile.originalName}
+            </p>
+            <p className="text-xs text-slate-500 mb-6">
+              File type: {fileName.split('.').pop()?.toUpperCase() || 'Unknown'}
+            </p>
+            <Button
+              onClick={() => handleDownloadFile(previewFile._id, previewFile.originalName)}
+              className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
+            >
+              <Download className="h-4 w-4" />
+              Download to View
+            </Button>
           </div>
-
+        )
+      })()}
+    </motion.div>
+  ) : null}
+</div>
           {/* Footer Actions */}
           <div className="px-6 py-4 border-t bg-white sticky bottom-0">
             <div className="flex items-center justify-between gap-4">
