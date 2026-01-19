@@ -92,6 +92,7 @@ import {
   Send,
   X
 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
 
 type UserType = {
   email: string
@@ -252,7 +253,7 @@ const getAvatarColor = (email: string) => {
   return colors[index]
 }
 
-type PageType = 'dashboard' | 'content-library' | 'spaces' | 'agreements' |  'templates' |'file-requests' | 'contacts' | 'accounts' | 'documents'
+type PageType = 'dashboard' | 'content-library' | 'spaces' | 'agreements' |'file-requests' | 'contacts' | 'documents' | 'reports'
 type NotificationType = 'view' | 'download' | 'signature' | 'share' | 'comment' | 'system'
 
 export default function DashboardPage() {
@@ -328,6 +329,7 @@ const [contactEmail, setContactEmail] = useState('')
 const [contactCompany, setContactCompany] = useState('')
 const [contactPhone, setContactPhone] = useState('')
 const [contactNotes, setContactNotes] = useState('')
+const [uploadingAvatar, setUploadingAvatar] = useState(false)
 const [createdFileRequests, setCreatedFileRequests] = useState<Array<{
   email: string
   requestId: string
@@ -416,6 +418,50 @@ useEffect(() => {
   }
 }, [showUploadAgreementDialog])
 
+
+const handleAvatarUpload = async (file: File) => {
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    alert('Please upload an image file');
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    alert('Image must be less than 5MB');
+    return;
+  }
+
+  setUploadingAvatar(true);
+
+  const formData = new FormData();
+  formData.append('avatar', file);
+
+  try {
+    const res = await fetch("/api/user/avatar", {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      // Force cache busting with timestamp
+      const avatarUrl = `${data.avatarUrl}?t=${Date.now()}`;
+      setUser(prev => prev ? { ...prev, profile_image: avatarUrl } : null);
+      
+      alert('Avatar updated successfully!');
+    } else {
+      alert(data.error || 'Failed to upload avatar');
+    }
+  } catch (error) {
+    console.error('Avatar upload error:', error);
+    alert('Failed to upload avatar. Please try again.');
+  } finally {
+    setUploadingAvatar(false);
+  }
+};
 
 const fetchContacts = async () => {
   try {
@@ -561,6 +607,41 @@ const handleShareDocument = async () => {
     alert('Failed to share document. Please try again.')
   }
 }
+
+
+const handleSaveProfileChanges = async () => {
+  // Get current values from inputs
+  const firstName = (document.querySelector('input[value="' + user?.first_name + '"]') as HTMLInputElement)?.value;
+  const lastName = (document.querySelector('input[value="' + user?.last_name + '"]') as HTMLInputElement)?.value;
+  const companyName = (document.querySelector('input[value="' + user?.company_name + '"]') as HTMLInputElement)?.value;
+
+  try {
+    const res = await fetch("/api/user/profile", {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firstName, lastName, companyName }),
+    });
+
+    if (res.ok) {
+      // Update local state
+      setUser(prev => prev ? {
+        ...prev,
+        first_name: firstName,
+        last_name: lastName,
+        company_name: companyName
+      } : null);
+      
+      alert('Profile updated successfully!');
+      setShowSettingsDialog(false);
+    } else {
+      alert('Failed to update profile');
+    }
+  } catch (error) {
+    console.error('Save error:', error);
+    alert('Failed to save changes');
+  }
+};
 
 
 const handleCreateFileRequest = async () => {
@@ -1419,15 +1500,15 @@ const TemplatesSection = () => {
       </div>
   )
 }
-  const sidebarItems = [
-    { id: 'dashboard' as PageType, icon: LayoutDashboard, label: 'Dashboard', badge: null },
-    { id: 'content-library' as PageType, icon: Folder, label: 'Content library', badge: null },
-    { id: 'spaces' as PageType, icon: FolderOpen, label: 'Spaces', badge: 'Data rooms' },
-    { id: 'documents' as PageType, icon: FileText, label: 'Documents', badge: null },
-    { id: 'agreements' as PageType, icon: FileSignature, label: 'Agreements', badge: null },
-    { id: 'file-requests' as PageType, icon: Inbox, label: 'File requests', badge: null },
-    { id: 'contacts' as PageType, icon: Users, label: 'Contacts', badge: null },
-    { id: 'accounts' as PageType, icon: UserCircle, label: 'Accounts', badge: null },
+  const sidebarItems: Array<{ id: PageType; icon: any; label: string; badge: string | null }> = [
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', badge: null },
+    { id: 'content-library', icon: Folder, label: 'Content library', badge: null },
+    { id: 'reports', icon: BarChart3, label: 'Reports', badge: 'Analytics' },
+    { id: 'spaces', icon: FolderOpen, label: 'Spaces', badge: 'Data rooms' },
+    { id: 'documents', icon: FileText, label: 'Documents', badge: null },
+    { id: 'agreements', icon: FileSignature, label: 'Agreements', badge: null },
+    { id: 'file-requests', icon: Inbox, label: 'File requests', badge: null },
+    { id: 'contacts', icon: Users, label: 'Contacts', badge: null },
   ]
 
   // Fetch agreements
@@ -2024,30 +2105,7 @@ case 'dashboard':
       )}
     </div>
   )
-      case 'accounts':
-        return (
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-6">Accounts</h1>
-            <div className="bg-white rounded-xl border shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-slate-900 mb-4">Account Settings</h2>
-              <div className="space-y-4">
-                <div className="p-4 border rounded-lg">
-                  <h3 className="font-semibold text-slate-900 mb-1">Email</h3>
-                  <p className="text-slate-600">{user?.email}</p>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <h3 className="font-semibold text-slate-900 mb-1">Plan</h3>
-                  <p className="text-slate-600">{user?.plan}</p>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <h3 className="font-semibold text-slate-900 mb-1">Company</h3>
-                  <p className="text-slate-600">{user?.company_name}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-
+      
       default:
         return null
     }
@@ -2221,20 +2279,22 @@ case 'dashboard':
     <div className="text-xs text-slate-600">{user?.email}</div>
   </div>
   <div
-    className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md`}
-  >
-    {user?.profile_image ? (
-      <Image
-        src={user.profile_image}
-        alt="Profile"
-        width={40}
-        height={40}
-        className="rounded-full object-cover"
-      />
-    ) : (
-      getInitials(user?.email || "")
-    )}
-  </div>
+  className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden`}
+>
+  {user?.profile_image ? (
+    <Image
+      src={user.profile_image}
+      alt="Profile"
+      width={40}
+      height={40}
+      className="rounded-full object-cover w-full h-full"
+      key={user.profile_image} // ✅ Forces re-render on URL change
+      unoptimized // ✅ Prevents Next.js caching issues
+    />
+  ) : (
+    getInitials(user?.email || "")
+  )}
+</div>
 </button>
 
               </DropdownMenuTrigger>
@@ -2330,20 +2390,22 @@ case 'dashboard':
           {/* Mobile User Avatar */}
          <div className="md:hidden ml-auto">
   <div
-    className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md`}
-  >
-    {user?.profile_image ? (
-      <Image
-        src={user.profile_image}
-        alt="Profile"
-        width={40}
-        height={40}
-        className="rounded-full object-cover"
-      />
-    ) : (
-      getInitials(user?.email || "")
-    )}
-  </div>
+  className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden`}
+>
+  {user?.profile_image ? (
+    <Image
+      src={user.profile_image}
+      alt="Profile"
+      width={40}
+      height={40}
+      className="rounded-full object-cover w-full h-full"
+      key={user.profile_image}
+      unoptimized
+    />
+  ) : (
+    getInitials(user?.email || "")
+  )}
+</div>
 </div>
 
         </div>
@@ -2507,84 +2569,230 @@ case 'dashboard':
         </main>
       </div>
       {/* Settings Dialog */}
-<Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-  <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white">
-    <DialogHeader>
-      <DialogTitle>Settings</DialogTitle>
-      <DialogDescription>Manage your account settings and preferences</DialogDescription>
-    </DialogHeader>
-    
-    <Tabs defaultValue="profile" className="w-full">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="profile">Profile</TabsTrigger>
-        <TabsTrigger value="notifications">Notifications</TabsTrigger>
-        <TabsTrigger value="security">Security</TabsTrigger>
-      </TabsList>
-      
-      <TabsContent value="profile" className="space-y-4 mt-4">
-        <div className="space-y-2">
-          <Label>First Name</Label>
-          <Input defaultValue={user?.first_name} />
-        </div>
-        <div className="space-y-2">
-          <Label>Last Name</Label>
-          <Input defaultValue={user?.last_name} />
-        </div>
-        <div className="space-y-2">
-          <Label>Email</Label>
-          <Input defaultValue={user?.email} type="email" />
-        </div>
-        <div className="space-y-2">
-          <Label>Company Name</Label>
-          <Input defaultValue={user?.company_name} />
-        </div>
-        <Button className="w-full">Save Changes</Button>
-      </TabsContent>
-      
-      <TabsContent value="notifications" className="space-y-4 mt-4">
-        <div className="flex items-center justify-between py-3">
-          <div>
-            <p className="font-medium">Email Notifications</p>
-            <p className="text-sm text-slate-500">Receive email when someone views your document</p>
-          </div>
-          <Switch defaultChecked />
-        </div>
-        <div className="flex items-center justify-between py-3">
-          <div>
-            <p className="font-medium">Document Reminders</p>
-            <p className="text-sm text-slate-500">Get reminders about pending signatures</p>
-          </div>
-          <Switch defaultChecked />
-        </div>
-        <div className="flex items-center justify-between py-3">
-          <div>
-            <p className="font-medium">Marketing Emails</p>
-            <p className="text-sm text-slate-500">Receive updates about new features</p>
-          </div>
-          <Switch />
-        </div>
-      </TabsContent>
-      
-      <TabsContent value="security" className="space-y-4 mt-4">
-        <div className="space-y-2">
-          <Label>Current Password</Label>
-          <Input type="password" placeholder="Enter current password" />
-        </div>
-        <div className="space-y-2">
-          <Label>New Password</Label>
-          <Input type="password" placeholder="Enter new password" />
-        </div>
-        <div className="space-y-2">
-          <Label>Confirm New Password</Label>
-          <Input type="password" placeholder="Confirm new password" />
-        </div>
-        <Button className="w-full">Update Password</Button>
-      </TabsContent>
-    </Tabs>
-  </DialogContent>
-</Dialog>
+{/* Settings Drawer - Modern Cart-Style */}
+<AnimatePresence>
+  {showSettingsDialog && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowSettingsDialog(false)}
+        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
+      />
 
-{/* Billing Dialog */}
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[800px] bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
+            <p className="text-sm text-slate-600 mt-1">Manage your account settings and preferences</p>
+          </div>
+          <button
+            onClick={() => setShowSettingsDialog(false)}
+            className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
+          >
+            <X className="h-5 w-5 text-slate-600" />
+          </button>
+          <input
+  id="settings-avatar-upload"
+  type="file"
+  accept="image/jpeg,image/png,image/gif,image/webp"
+  className="hidden"
+  onChange={(e) => {
+    const file = e.target.files?.[0];
+    if (file) handleAvatarUpload(file);
+  }}
+/>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          <Tabs defaultValue="profile" className="w-full">
+            <div className="sticky top-0 bg-white border-b px-6 pt-4 z-10">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="profile">Profile</TabsTrigger>
+                <TabsTrigger value="notifications">Notifications</TabsTrigger>
+                <TabsTrigger value="security">Security</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <div className="px-6 py-6">
+              <TabsContent value="profile" className="space-y-6 mt-0">
+                {/* ✅ AVATAR SECTION */}
+                <div className="space-y-4 pb-6 border-b">
+                  <Label className="text-base font-semibold">Profile Picture</Label>
+                  <div className="flex items-center gap-6">
+                    {/* Large Avatar Preview */}
+                    <div className="relative">
+                      <div className={`h-28 w-28 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-bold text-4xl shadow-lg overflow-hidden ring-4 ring-slate-100`}>
+                        {user?.profile_image ? (
+                          <Image
+                            src={user.profile_image}
+                            alt="Profile"
+                            width={112}
+                            height={112}
+                            className="rounded-full object-cover w-full h-full"
+                          />
+                        ) : (
+                          getInitials(user?.email || "")
+                        )}
+                      </div>
+                      {/* Status indicator */}
+                      <div className="absolute bottom-2 right-2 h-7 w-7 bg-green-500 rounded-full border-4 border-white"></div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col gap-3 flex-1">
+                      <div>
+                        <p className="text-base font-semibold text-slate-900 mb-1">
+                          {user?.first_name} {user?.last_name}
+                        </p>
+                        <p className="text-sm text-slate-500 mb-3">{user?.email}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => document.getElementById('settings-avatar-upload')?.click()}
+  disabled={uploadingAvatar}
+                          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                        >
+                          <Upload className="h-4 w-4" />
+                          Upload Photo
+                        </Button>
+                        {user?.profile_image && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              if (!confirm('Remove your profile picture? Your initials will be shown instead.')) return;
+                              
+                              try {
+                                const res = await fetch("/api/user/avatar", {
+                                  method: 'DELETE',
+                                  credentials: 'include',
+                                });
+
+                                if (res.ok) {
+                                  setUser(prev => prev ? { ...prev, profile_image: null } : null);
+                                  alert('Profile picture removed');
+                                }
+                              } catch (error) {
+                                console.error('Remove avatar error:', error);
+                                alert('Failed to remove picture');
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Recommended: Square image, at least 400x400px
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Profile Fields */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>First Name</Label>
+                    <Input defaultValue={user?.first_name} className="h-11" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Last Name</Label>
+                    <Input defaultValue={user?.last_name} className="h-11" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input defaultValue={user?.email} type="email" className="h-11" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Company Name</Label>
+                    <Input defaultValue={user?.company_name} className="h-11" />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="notifications" className="space-y-4 mt-0">
+                <div className="flex items-center justify-between py-4 border-b">
+                  <div>
+                    <p className="font-medium text-slate-900">Email Notifications</p>
+                    <p className="text-sm text-slate-500 mt-1">Receive email when someone views your document</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+                <div className="flex items-center justify-between py-4 border-b">
+                  <div>
+                    <p className="font-medium text-slate-900">Document Reminders</p>
+                    <p className="text-sm text-slate-500 mt-1">Get reminders about pending signatures</p>
+                  </div>
+                  <Switch defaultChecked />
+                </div>
+                <div className="flex items-center justify-between py-4">
+                  <div>
+                    <p className="font-medium text-slate-900">Marketing Emails</p>
+                    <p className="text-sm text-slate-500 mt-1">Receive updates about new features</p>
+                  </div>
+                  <Switch />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="security" className="space-y-4 mt-0">
+                <div className="space-y-2">
+                  <Label>Current Password</Label>
+                  <Input type="password" placeholder="Enter current password" className="h-11" />
+                </div>
+                <div className="space-y-2">
+                  <Label>New Password</Label>
+                  <Input type="password" placeholder="Enter new password" className="h-11" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Confirm New Password</Label>
+                  <Input type="password" placeholder="Confirm new password" className="h-11" />
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowSettingsDialog(false)}
+              className="h-11"
+            >
+              Cancel
+            </Button>
+            <Button
+  onClick={handleSaveProfileChanges}
+  className="h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+>
+  Save Changes
+</Button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
+ 
 {/* Billing Dialog - SMART VERSION */}
 <Dialog open={showBillingDialog} onOpenChange={setShowBillingDialog}>
   <DialogContent className="max-w-2xl">
@@ -4122,6 +4330,8 @@ case 'dashboard':
     </div>
   </SheetContent>
 </Sheet>
+
+
  
     </div>
   )
