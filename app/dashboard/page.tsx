@@ -90,7 +90,8 @@ import {
   Sparkles,
   MoreVertical,  
   Send,
-  X
+  X,
+  EyeOff,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -330,6 +331,9 @@ const [contactCompany, setContactCompany] = useState('')
 const [contactPhone, setContactPhone] = useState('')
 const [contactNotes, setContactNotes] = useState('')
 const [uploadingAvatar, setUploadingAvatar] = useState(false)
+const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+const [showNewPassword, setShowNewPassword] = useState(false)
+const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 const [createdFileRequests, setCreatedFileRequests] = useState<Array<{
   email: string
   requestId: string
@@ -608,28 +612,81 @@ const handleShareDocument = async () => {
   }
 }
 
+const handlePasswordChange = async () => {
+  const currentPassword = (document.getElementById('current-password') as HTMLInputElement)?.value;
+  const newPassword = (document.getElementById('new-password') as HTMLInputElement)?.value;
+  const confirmPassword = (document.getElementById('confirm-password') as HTMLInputElement)?.value;
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    alert('Please fill in all password fields');
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    alert('New passwords do not match');
+    return;
+  }
+
+  if (newPassword.length < 8) {
+    alert('Password must be at least 8 characters');
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/user/password", {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      alert('Password updated successfully!');
+      // Clear fields
+      (document.getElementById('current-password') as HTMLInputElement).value = '';
+      (document.getElementById('new-password') as HTMLInputElement).value = '';
+      (document.getElementById('confirm-password') as HTMLInputElement).value = '';
+    } else {
+      alert(data.error || 'Failed to update password');
+    }
+  } catch (error) {
+    console.error('Password change error:', error);
+    alert('Failed to update password');
+  }
+};
 
 const handleSaveProfileChanges = async () => {
-  // Get current values from inputs
-  const firstName = (document.querySelector('input[value="' + user?.first_name + '"]') as HTMLInputElement)?.value;
-  const lastName = (document.querySelector('input[value="' + user?.last_name + '"]') as HTMLInputElement)?.value;
-  const companyName = (document.querySelector('input[value="' + user?.company_name + '"]') as HTMLInputElement)?.value;
+  const fullName = (document.getElementById('profile-full-name') as HTMLInputElement)?.value?.trim();
+  const companyName = (document.getElementById('profile-company-name') as HTMLInputElement)?.value?.trim() || '';
+
+  if (!fullName) {
+    alert('Please enter your full name');
+    return;
+  }
 
   try {
     const res = await fetch("/api/user/profile", {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ firstName, lastName, companyName }),
+      body: JSON.stringify({ 
+        fullName,
+        companyName: companyName || '' // Allow empty company name
+      }),
     });
 
     if (res.ok) {
-      // Update local state
+      const nameParts = fullName.split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
       setUser(prev => prev ? {
         ...prev,
         first_name: firstName,
         last_name: lastName,
-        company_name: companyName
+        company_name: companyName || ''
       } : null);
       
       alert('Profile updated successfully!');
@@ -642,7 +699,6 @@ const handleSaveProfileChanges = async () => {
     alert('Failed to save changes');
   }
 };
-
 
 const handleCreateFileRequest = async () => {
   if (!fileRequestTitle.trim()) {
@@ -2709,21 +2765,29 @@ case 'dashboard':
                 {/* Profile Fields */}
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>First Name</Label>
-                    <Input defaultValue={user?.first_name} className="h-11" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Last Name</Label>
-                    <Input defaultValue={user?.last_name} className="h-11" />
-                  </div>
+  <Label>Full Name *</Label>
+  <Input 
+    id="profile-full-name"
+    defaultValue={user?.first_name && user?.last_name 
+      ? `${user.first_name} ${user.last_name}`.trim() 
+      : ''}
+    className="h-11" 
+    placeholder="John Doe"
+  />
+</div>
                   <div className="space-y-2">
                     <Label>Email</Label>
                     <Input defaultValue={user?.email} type="email" className="h-11" />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Company Name</Label>
-                    <Input defaultValue={user?.company_name} className="h-11" />
-                  </div>
+                   <div className="space-y-2">
+  <Label>Company Name</Label>
+  <Input 
+    id="profile-company-name"
+    defaultValue={user?.company_name || ''} 
+    className="h-11" 
+    placeholder="Acme Inc."
+  />
+</div>
                 </div>
               </TabsContent>
 
@@ -2752,19 +2816,70 @@ case 'dashboard':
               </TabsContent>
 
               <TabsContent value="security" className="space-y-4 mt-0">
-                <div className="space-y-2">
-                  <Label>Current Password</Label>
-                  <Input type="password" placeholder="Enter current password" className="h-11" />
-                </div>
-                <div className="space-y-2">
-                  <Label>New Password</Label>
-                  <Input type="password" placeholder="Enter new password" className="h-11" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Confirm New Password</Label>
-                  <Input type="password" placeholder="Confirm new password" className="h-11" />
-                </div>
-              </TabsContent>
+  <div className="space-y-2">
+    <Label>Current Password</Label>
+    <div className="relative">
+      <Input 
+        id="current-password"
+        type={showCurrentPassword ? "text" : "password"}
+        placeholder="Enter current password" 
+        className="h-11 pr-10" 
+      />
+      <button
+        type="button"
+        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+      >
+        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  </div>
+  
+  <div className="space-y-2">
+    <Label>New Password</Label>
+    <div className="relative">
+      <Input 
+        id="new-password"
+        type={showNewPassword ? "text" : "password"}
+        placeholder="Enter new password" 
+        className="h-11 pr-10" 
+      />
+      <button
+        type="button"
+        onClick={() => setShowNewPassword(!showNewPassword)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+      >
+        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  </div>
+  
+  <div className="space-y-2">
+    <Label>Confirm New Password</Label>
+    <div className="relative">
+      <Input 
+        id="confirm-password"
+        type={showConfirmPassword ? "text" : "password"}
+        placeholder="Confirm new password" 
+        className="h-11 pr-10" 
+      />
+      <button
+        type="button"
+        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+      >
+        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  </div>
+  
+  <Button
+    onClick={handlePasswordChange}
+    className="w-full bg-gradient-to-r from-purple-600 to-blue-600"
+  >
+    Update Password
+  </Button>
+</TabsContent>
             </div>
           </Tabs>
         </div>
