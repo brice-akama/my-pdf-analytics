@@ -113,9 +113,9 @@ if (!isOAuthSignup) {
     const insertResult = await users.insertOne(userDoc);
     const insertedUserId = insertResult.insertedId.toString();
 
-    /* ======================================================
-     AUTO-ACCEPT PENDING ORGANIZATION INVITATIONS
-   ====================================================== */
+   /* ======================================================
+   AUTO-ACCEPT PENDING ORGANIZATION INVITATIONS
+====================================================== */
 
 const pendingInvitations = await db
   .collection('organization_members')
@@ -125,10 +125,18 @@ const pendingInvitations = await db
   })
   .toArray();
 
+let organizationId = insertedUserId; // Default: user creates own org
+let userRole = 'owner'; // Default role
+
 if (pendingInvitations.length > 0) {
-  for (const invite of pendingInvitations) {
+  // ✅ JOIN EXISTING ORGANIZATION - DON'T CREATE NEW ONE
+  const invite = pendingInvitations[0]; // Take first invitation
+  organizationId = invite.organizationId; // Use inviter's org
+  userRole = invite.role ; // Use invited role
+
+  for (const inv of pendingInvitations) {
     await db.collection('organization_members').updateOne(
-      { _id: invite._id },
+      { _id: inv._id },
       {
         $set: {
           userId: insertedUserId,
@@ -140,11 +148,10 @@ if (pendingInvitations.length > 0) {
     );
   }
 
-  console.log(
-    `  Auto-accepted ${pendingInvitations.length} pending invitation(s) for ${sanitizedEmail}`
-  );
+  console.log(`✅ User ${sanitizedEmail} joined organization ${organizationId} as ${userRole}`);
+} else {
+  console.log(`✅ User ${sanitizedEmail} created new organization as owner`);
 }
-
 
     const profileDoc = {
       _id: new ObjectId(insertedUserId),
@@ -155,6 +162,8 @@ if (pendingInvitations.length > 0) {
       last_name: sanitizedLastName || null,
       avatar_url: sanitizedAvatar || null,
       company_name: sanitizedCompanyName || null,
+      organization_id: organizationId, //   ADD THIS
+  role: userRole, //   ADD THIS
       created_at: now
     };
 

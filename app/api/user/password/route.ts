@@ -1,11 +1,10 @@
+//app/api/user/password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
- 
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import { dbPromise } from '../../lib/mongodb';
 
-// ✅ Named export (not default)
 export async function PATCH(request: NextRequest) {
   try {
     // Verify user
@@ -32,18 +31,38 @@ export async function PATCH(request: NextRequest) {
 
     // Get user from database
     const db = await dbPromise;
-    const userDoc = await db.collection('users').findOne({ 
-      _id: new ObjectId(user.id) 
-    });
+    
+    // Try to find user by ObjectId
+    let userDoc;
+    try {
+      userDoc = await db.collection('users').findOne({ 
+        _id: new ObjectId(user.id) 
+      });
+    } catch (error) {
+      // Fallback to string ID
+      userDoc = await db.collection('users').findOne({ 
+        id: user.id 
+      });
+    }
 
-    if (!userDoc || !userDoc.password) {
+    if (!userDoc) {
       return NextResponse.json({ 
         error: 'User not found' 
       }, { status: 404 });
     }
 
+    // Check for password field (might be 'password' or 'passwordHash')
+    const passwordField = userDoc.password || userDoc.passwordHash;
+    
+    if (!passwordField) {
+      return NextResponse.json({ 
+        error: 'Password not set for this account' 
+      }, { status: 404 });
+    }
+
     // Verify current password
-    const isValid = await bcrypt.compare(currentPassword, userDoc.password);
+    const isValid = await bcrypt.compare(currentPassword, passwordField);
+    
     if (!isValid) {
       return NextResponse.json({ 
         error: 'Current password is incorrect' 
@@ -53,16 +72,31 @@ export async function PATCH(request: NextRequest) {
     // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update password
-    await db.collection('users').updateOne(
-      { _id: new ObjectId(user.id) },
-      { 
-        $set: { 
-          password: hashedPassword,
-          updated_at: new Date()
-        } 
-      }
-    );
+    // Update password in database
+    let updateResult;
+    try {
+      updateResult = await db.collection('users').updateOne(
+        { _id: new ObjectId(user.id) },
+        { 
+          $set: { 
+            password: hashedPassword,
+            passwordHash: hashedPassword,
+            updated_at: new Date()
+          } 
+        }
+      );
+    } catch (error) {
+      updateResult = await db.collection('users').updateOne(
+        { id: user.id },
+        { 
+          $set: { 
+            password: hashedPassword,
+            passwordHash: hashedPassword,
+            updated_at: new Date()
+          } 
+        }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -77,4 +111,3 @@ export async function PATCH(request: NextRequest) {
     }, { status: 500 });
   }
 }
- 

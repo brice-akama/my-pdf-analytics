@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import BackToTop from "@/components/BackToTop";
 import CookieConsent from "@/components/cookies";
+import { Toaster } from 'sonner'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,6 +31,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <Toaster 
+          position="top-right"
+          richColors
+          closeButton
+          expand={false}
+          duration={4000}
+        />
         <BackToTop />
         <CookieConsent />
       </body>

@@ -11,6 +11,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const db = await dbPromise;
+
+// ✅ Resolve organization (team-aware)
+const profile = await db.collection('profiles').findOne({
+  user_id: user.id,
+});
+
+// Personal workspace fallback
+const organizationId = profile?.organization_id || user.id;
+
+console.log('🏢 Active organization:', organizationId);
+
+
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -18,7 +31,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = parseInt(searchParams.get('sortOrder') || '-1');
     const spaceId = searchParams.get('spaceId');
 
-    const db = await dbPromise;
+     
 
     let query: any;
     
@@ -27,7 +40,8 @@ export async function GET(request: NextRequest) {
       
       // ✅ STEP 1: Check user's role in the space
       const space = await db.collection('spaces').findOne({
-        _id: new ObjectId(spaceId)
+        _id: new ObjectId(spaceId),
+         organizationId,
       });
 
       if (!space) {
@@ -52,9 +66,11 @@ export async function GET(request: NextRequest) {
 
       // ✅ STEP 2: Build base query for space documents
       query = { 
-        spaceId: spaceId,
-        belongsToSpace: true 
-      };
+  spaceId,
+  belongsToSpace: true,
+  organizationId, // ✅ ENSURE TEAM OWNERSHIP
+};
+
       
       // Handle archived filter
       const archived = searchParams.get('archived');
@@ -191,7 +207,7 @@ const transformedDocuments = paginatedDocuments.map(doc => {
   
   // Build base query
   query = { 
-    userId: user.id,
+    organizationId,
     $or: [
       { belongsToSpace: { $exists: false } },
       { belongsToSpace: false }

@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 
 
@@ -18,6 +18,30 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
  const [error, setError] = useState<string | null>(null)
  const router = useRouter()
+
+ 
+const searchParams = useSearchParams();
+
+useEffect(() => {
+  // ✅ Detect invitation type from URL
+  const redirect = searchParams?.get('redirect');
+  
+  // Team invitation
+  if (redirect && redirect.includes('/invite-team/')) {
+    const token = redirect.split('/invite-team/')[1];
+    if (token) {
+      sessionStorage.setItem('pendingTeamInvite', token);
+    }
+  }
+  
+  // Space invitation
+  if (redirect && redirect.includes('/invite/') && !redirect.includes('/invite-team/')) {
+    const token = redirect.split('/invite/')[1];
+    if (token) {
+      sessionStorage.setItem('pendingSpaceInvite', token);
+    }
+  }
+}, [searchParams]);
 
   
     
@@ -46,7 +70,15 @@ const handleSubmit = async (e: React.FormEvent) => {
       return;
     }
 
-    // ✅ Priority 1: Check for pending invitation first
+    // ✅ Priority 1a: Team invitation
+    const pendingTeamInvite = sessionStorage.getItem('pendingTeamInvite');
+    if (pendingTeamInvite) {
+      sessionStorage.removeItem('pendingTeamInvite');
+      router.push(`/invite-team/${pendingTeamInvite}`);
+      return;
+    }
+
+    // ✅ Priority 1b: Check for pending invitation first
     const pendingInvite = sessionStorage.getItem('pendingInvite');
     if (pendingInvite) {
       sessionStorage.removeItem('pendingInvite');

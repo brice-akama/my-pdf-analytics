@@ -28,6 +28,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import { toast } from 'sonner'
 import { 
   CreditCard, 
   Building, 
@@ -334,6 +335,14 @@ const [uploadingAvatar, setUploadingAvatar] = useState(false)
 const [showCurrentPassword, setShowCurrentPassword] = useState(false)
 const [showNewPassword, setShowNewPassword] = useState(false)
 const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+const [showTeamDrawer, setShowTeamDrawer] = useState(false)
+const [teamMembers, setTeamMembers] = useState<any[]>([])
+const [inviteEmail, setInviteEmail] = useState('')
+const [inviteRole, setInviteRole] = useState('member')
+const [generatedInviteLink, setGeneratedInviteLink] = useState('')
+const [showInviteLinkDialog, setShowInviteLinkDialog] = useState(false)
+const [selectedMember, setSelectedMember] = useState<any>(null)
+const [loadingTeam, setLoadingTeam] = useState(false)
 const [createdFileRequests, setCreatedFileRequests] = useState<Array<{
   email: string
   requestId: string
@@ -366,6 +375,9 @@ const [sharePermissions, setSharePermissions] = useState({
 }
 
  
+useEffect(() => {
+  fetchPreferences();
+}, []);
 
 useEffect(() => {
     // Check authentication on mount
@@ -422,6 +434,135 @@ useEffect(() => {
   }
 }, [showUploadAgreementDialog])
 
+useEffect(() => {
+  if (showTeamDrawer) {
+    fetchTeamMembers()
+  }
+}, [showTeamDrawer])
+
+
+const fetchTeamMembers = async () => {
+  setLoadingTeam(true)
+  try {
+    const res = await fetch("/api/team", {
+      credentials: 'include',
+    })
+    
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        setTeamMembers(data.members)
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch team:', error)
+  } finally {
+    setLoadingTeam(false)
+  }
+}
+
+const handleInviteMember = async () => {
+  if (!inviteEmail.trim()) {
+    toast.error('Email required', {
+      description: 'Please enter an email address'
+    })
+    return
+  }
+
+  const loadingToast = toast.loading('Sending invitation...')
+
+  try {
+    const res = await fetch("/api/team", {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        email: inviteEmail.trim(),
+        role: inviteRole 
+      }),
+    })
+
+    const data = await res.json()
+
+    if (res.ok) {
+      toast.success('Invitation sent!', {
+        id: loadingToast,
+        description: `Invite sent to ${inviteEmail}`
+      })
+      
+      setGeneratedInviteLink(data.inviteLink)
+      setShowInviteLinkDialog(true)
+      setInviteEmail('')
+      setInviteRole('member')
+      fetchTeamMembers()
+    } else {
+      toast.error(data.error || 'Failed to send invitation', {
+        id: loadingToast
+      })
+    }
+  } catch (error) {
+    console.error('Invite error:', error)
+    toast.error('Network error', {
+      id: loadingToast
+    })
+  }
+}
+
+const handleRemoveMember = async (memberId: string) => {
+  if (!confirm('Remove this team member?')) return
+
+  const loadingToast = toast.loading('Removing member...')
+
+  try {
+    const res = await fetch(`/api/team/${memberId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+
+    if (res.ok) {
+      toast.success('Member removed', {
+        id: loadingToast
+      })
+      fetchTeamMembers()
+    } else {
+      toast.error('Failed to remove member', {
+        id: loadingToast
+      })
+    }
+  } catch (error) {
+    toast.error('Network error', {
+      id: loadingToast
+    })
+  }
+}
+
+const handleUpdateRole = async (memberId: string, newRole: string) => {
+  const loadingToast = toast.loading('Updating role...')
+
+  try {
+    const res = await fetch(`/api/team/${memberId}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: newRole }),
+    })
+
+    if (res.ok) {
+      toast.success('Role updated', {
+        id: loadingToast
+      })
+      fetchTeamMembers()
+    } else {
+      toast.error('Failed to update role', {
+        id: loadingToast
+      })
+    }
+  } catch (error) {
+    toast.error('Network error', {
+      id: loadingToast
+    })
+  }
+}
 
 const handleAvatarUpload = async (file: File) => {
   if (!file) return;
@@ -451,20 +592,27 @@ const handleAvatarUpload = async (file: File) => {
     const data = await res.json();
 
     if (res.ok && data.success) {
-      // Force cache busting with timestamp
-      const avatarUrl = `${data.avatarUrl}?t=${Date.now()}`;
-      setUser(prev => prev ? { ...prev, profile_image: avatarUrl } : null);
-      
-      alert('Avatar updated successfully!');
-    } else {
-      alert(data.error || 'Failed to upload avatar');
-    }
+  const avatarUrl = `${data.avatarUrl}?t=${Date.now()}`;
+  setUser(prev => prev ? { ...prev, profile_image: avatarUrl } : null);
+  
+   
+  
+  toast.success('Avatar updated!', {
+    description: 'Your profile picture has been changed'
+  });
+} else {
+  toast.error(data.error || 'Failed to upload avatar', {
+    description: 'Please try again with a different image'
+  });
+}
   } catch (error) {
-    console.error('Avatar upload error:', error);
-    alert('Failed to upload avatar. Please try again.');
-  } finally {
-    setUploadingAvatar(false);
-  }
+  console.error('Avatar upload error:', error);
+  toast.error('Upload failed', {
+    description: 'Please check your connection and try again'
+  });
+} finally {
+  setUploadingAvatar(false);
+}
 };
 
 const fetchContacts = async () => {
@@ -612,25 +760,80 @@ const handleShareDocument = async () => {
   }
 }
 
+const [notificationPreferences, setNotificationPreferences] = useState({
+  emailNotifications: true,
+  documentReminders: true,
+  marketingEmails: true,
+});
+
+// Fetch preferences
+const fetchPreferences = async () => {
+  try {
+    const res = await fetch("/api/user/preferences", {
+      credentials: 'include',
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        setNotificationPreferences(data.preferences);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch preferences:', error);
+  }
+};
+
+// Update preferences
+const updatePreferences = async (preferences: any) => {
+  try {
+    const res = await fetch("/api/user/preferences", {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ preferences }),
+    });
+    
+    if (res.ok) {
+      toast.success('Preferences saved', {
+        duration: 2000
+      });
+    } else {
+      toast.error('Failed to save preferences');
+    }
+  } catch (error) {
+    console.error('Failed to update preferences:', error);
+    toast.error('Network error');
+  }
+};
+
 const handlePasswordChange = async () => {
   const currentPassword = (document.getElementById('current-password') as HTMLInputElement)?.value;
   const newPassword = (document.getElementById('new-password') as HTMLInputElement)?.value;
   const confirmPassword = (document.getElementById('confirm-password') as HTMLInputElement)?.value;
 
   if (!currentPassword || !newPassword || !confirmPassword) {
-    alert('Please fill in all password fields');
+    toast.error('All password fields are required');
     return;
   }
 
   if (newPassword !== confirmPassword) {
-    alert('New passwords do not match');
+    toast.error('Passwords do not match', {
+      description: 'Please make sure both new password fields are the same'
+    });
     return;
   }
 
   if (newPassword.length < 8) {
-    alert('Password must be at least 8 characters');
+    toast.error('Password too short', {
+      description: 'Password must be at least 8 characters'
+    });
     return;
   }
+
+  const loadingToast = toast.loading('Updating password...');
 
   try {
     const res = await fetch("/api/user/password", {
@@ -643,17 +846,27 @@ const handlePasswordChange = async () => {
     const data = await res.json();
 
     if (res.ok) {
-      alert('Password updated successfully!');
+      toast.success('Password updated!', {
+        id: loadingToast,
+        description: 'Your password has been changed successfully'
+      });
+      
       // Clear fields
       (document.getElementById('current-password') as HTMLInputElement).value = '';
       (document.getElementById('new-password') as HTMLInputElement).value = '';
       (document.getElementById('confirm-password') as HTMLInputElement).value = '';
     } else {
-      alert(data.error || 'Failed to update password');
+      toast.error(data.error || 'Failed to update password', {
+        id: loadingToast,
+        description: 'Please check your current password and try again'
+      });
     }
   } catch (error) {
     console.error('Password change error:', error);
-    alert('Failed to update password');
+    toast.error('Network error', {
+      id: loadingToast,
+      description: 'Please check your connection'
+    });
   }
 };
 
@@ -662,9 +875,13 @@ const handleSaveProfileChanges = async () => {
   const companyName = (document.getElementById('profile-company-name') as HTMLInputElement)?.value?.trim() || '';
 
   if (!fullName) {
-    alert('Please enter your full name');
+    toast.error('Name required', {
+      description: 'Please enter your full name'
+    });
     return;
   }
+
+  const loadingToast = toast.loading('Updating profile...');
 
   try {
     const res = await fetch("/api/user/profile", {
@@ -673,7 +890,7 @@ const handleSaveProfileChanges = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         fullName,
-        companyName: companyName || '' // Allow empty company name
+        companyName: companyName || ''
       }),
     });
 
@@ -689,14 +906,24 @@ const handleSaveProfileChanges = async () => {
         company_name: companyName || ''
       } : null);
       
-      alert('Profile updated successfully!');
+      toast.success('Profile updated!', {
+        id: loadingToast,
+        description: 'Your changes have been saved'
+      });
+      
       setShowSettingsDialog(false);
     } else {
-      alert('Failed to update profile');
+      toast.error('Update failed', {
+        id: loadingToast,
+        description: 'Please try again'
+      });
     }
   } catch (error) {
     console.error('Save error:', error);
-    alert('Failed to save changes');
+    toast.error('Network error', {
+      id: loadingToast,
+      description: 'Please check your connection'
+    });
   }
 };
 
@@ -1747,7 +1974,7 @@ useEffect(() => {
           email: data.user.email,
           first_name: data.user.profile.firstName,
           last_name: data.user.profile.lastName,
-          company_name: data.user.profile.companyName,
+          company_name: data.user.profile.companyName || "My Team",
           profile_image: data.user.profile.avatarUrl || null,
           plan: data.user.profile.plan || "Free Plan"
         });
@@ -2389,7 +2616,7 @@ case 'dashboard':
     <span>Switch Company</span>
   </DropdownMenuItem>
   
-  <DropdownMenuItem onClick={() => setShowTeamDialog(true)}>
+  <DropdownMenuItem onClick={() => setShowTeamDrawer(true)}>
     <UsersIcon className="mr-2 h-4 w-4" />
     <span>Team</span>
   </DropdownMenuItem>
@@ -2740,9 +2967,11 @@ case 'dashboard':
                                 });
 
                                 if (res.ok) {
-                                  setUser(prev => prev ? { ...prev, profile_image: null } : null);
-                                  alert('Profile picture removed');
-                                }
+  setUser(prev => prev ? { ...prev, profile_image: null } : null);
+  toast.success('Profile picture removed', {
+    description: 'Your initials will be shown instead'
+  });
+}
                               } catch (error) {
                                 console.error('Remove avatar error:', error);
                                 alert('Failed to remove picture');
@@ -2792,28 +3021,61 @@ case 'dashboard':
               </TabsContent>
 
               <TabsContent value="notifications" className="space-y-4 mt-0">
-                <div className="flex items-center justify-between py-4 border-b">
-                  <div>
-                    <p className="font-medium text-slate-900">Email Notifications</p>
-                    <p className="text-sm text-slate-500 mt-1">Receive email when someone views your document</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between py-4 border-b">
-                  <div>
-                    <p className="font-medium text-slate-900">Document Reminders</p>
-                    <p className="text-sm text-slate-500 mt-1">Get reminders about pending signatures</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between py-4">
-                  <div>
-                    <p className="font-medium text-slate-900">Marketing Emails</p>
-                    <p className="text-sm text-slate-500 mt-1">Receive updates about new features</p>
-                  </div>
-                  <Switch />
-                </div>
-              </TabsContent>
+  {notificationPreferences && (
+    <>
+      <div className="flex items-center justify-between py-4 border-b">
+        <div>
+          <p className="font-medium text-slate-900">Email Notifications</p>
+          <p className="text-sm text-slate-500 mt-1">Receive email when someone views your document</p>
+        </div>
+        <Switch 
+          checked={notificationPreferences.emailNotifications}
+          onCheckedChange={(checked) => {
+            setNotificationPreferences({
+              ...notificationPreferences,
+              emailNotifications: checked
+            });
+            updatePreferences({ ...notificationPreferences, emailNotifications: checked });
+          }}
+        />
+      </div>
+      
+      <div className="flex items-center justify-between py-4 border-b">
+        <div>
+          <p className="font-medium text-slate-900">Document Reminders</p>
+          <p className="text-sm text-slate-500 mt-1">Get reminders about pending signatures</p>
+        </div>
+        <Switch 
+          checked={notificationPreferences.documentReminders}
+          onCheckedChange={(checked) => {
+            setNotificationPreferences({
+              ...notificationPreferences,
+              documentReminders: checked
+            });
+            updatePreferences({ ...notificationPreferences, documentReminders: checked });
+          }}
+        />
+      </div>
+      
+      <div className="flex items-center justify-between py-4">
+        <div>
+          <p className="font-medium text-slate-900">Marketing Emails</p>
+          <p className="text-sm text-slate-500 mt-1">Receive updates about new features</p>
+        </div>
+        <Switch 
+          checked={notificationPreferences.marketingEmails}
+          onCheckedChange={(checked) => {
+            setNotificationPreferences({
+              ...notificationPreferences,
+              marketingEmails: checked
+            });
+            updatePreferences({ ...notificationPreferences, marketingEmails: checked });
+          }}
+        />
+      </div>
+    </>
+  )}
+</TabsContent>
 
               <TabsContent value="security" className="space-y-4 mt-0">
   <div className="space-y-2">
@@ -3162,44 +3424,367 @@ case 'dashboard':
     </div>
   </DialogContent>
 </Dialog>
-{/* Team Dialog */}
-<Dialog open={showTeamDialog} onOpenChange={setShowTeamDialog}>
+
+{/* Team Drawer */}
+{/* Team Drawer - IMPROVED WIDTH & STYLING */}
+<Sheet open={showTeamDrawer} onOpenChange={setShowTeamDrawer}>
+  <SheetContent 
+    side="right" 
+    className="w-full sm:max-w-2xl lg:max-w-4xl p-0 flex flex-col bg-white overflow-hidden"
+  >
+    {/* Header */}
+    <SheetHeader className="px-8 py-5 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+      <SheetTitle className="text-2xl font-bold">Team Members</SheetTitle>
+      <SheetDescription className="text-base mt-1">
+        Invite colleagues and manage team permissions
+      </SheetDescription>
+    </SheetHeader>
+
+    {/* Content */}
+    <div className="flex-1 overflow-y-auto">
+      <div className="px-8 py-6 space-y-6">
+        {/* IMPROVED Invite Section */}
+        <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6 space-y-4">
+          <div className="flex items-start gap-3 mb-3">
+            <div className="h-10 w-10 rounded-lg bg-purple-600 flex items-center justify-center flex-shrink-0">
+              <Mail className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <Label className="text-lg font-bold text-slate-900 block mb-1">
+                Invite Team Member
+              </Label>
+              <p className="text-sm text-slate-600">
+                Enter their email address and select a role to send an invitation
+              </p>
+            </div>
+          </div>
+          
+          {/* Input Row */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 space-y-2">
+                <Label className="text-sm font-medium text-slate-700">
+                  Email Address <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  type="email"
+                  placeholder="colleague@company.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="h-12 text-base bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500"
+                />
+              </div>
+              
+              <div className="w-full sm:w-48 space-y-2">
+                <Label className="text-sm font-medium text-slate-700">
+                  Role <span className="text-red-500">*</span>
+                </Label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  className="w-full h-12 px-4 border border-slate-300 rounded-lg text-base bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                >
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+            </div>
+            
+            {/* Send Button - Full Width on Mobile */}
+            <Button
+              onClick={handleInviteMember}
+              disabled={!inviteEmail.trim()}
+              className="w-full h-12 text-base font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg"
+            >
+              <Send className="h-5 w-5 mr-2" />
+              Send Invitation
+            </Button>
+          </div>
+          
+          {/* Role Descriptions */}
+          <div className="bg-white/80 backdrop-blur border border-purple-200 rounded-lg p-4 space-y-2">
+            <p className="text-xs font-semibold text-slate-900 mb-2">Role Permissions:</p>
+            <div className="grid sm:grid-cols-3 gap-3 text-xs text-slate-700">
+              <div className="flex items-start gap-2">
+                <div className="h-5 w-5 rounded bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="h-3 w-3 text-purple-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-purple-900">Admin</p>
+                  <p className="text-slate-600">Full access + team management</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="h-5 w-5 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="h-3 w-3 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-blue-900">Member</p>
+                  <p className="text-slate-600">Create, edit, share documents</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="h-5 w-5 rounded bg-slate-100 flex items-center justify-center flex-shrink-0">
+                  <Eye className="h-3 w-3 text-slate-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900">Viewer</p>
+                  <p className="text-slate-600">View documents only</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Team Members List */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-lg font-bold text-slate-900">
+              Team Members ({teamMembers.length})
+            </Label>
+            {teamMembers.some(m => m.status === 'invited') && (
+              <span className="text-xs text-orange-600 font-medium bg-orange-50 px-3 py-1 rounded-full">
+                {teamMembers.filter(m => m.status === 'invited').length} pending
+              </span>
+            )}
+          </div>
+          
+          {loadingTeam ? (
+            <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
+              <Loader2 className="h-10 w-10 animate-spin text-purple-600 mx-auto mb-3" />
+              <p className="text-sm text-slate-600">Loading team members...</p>
+            </div>
+          ) : teamMembers.length > 0 ? (
+            <div className="border-2 border-slate-200 rounded-xl divide-y divide-slate-200 overflow-hidden">
+              {teamMembers.map((member) => (
+                <div key={member.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    {/* Avatar */}
+                    <div className={`h-12 w-12 rounded-full bg-gradient-to-br ${getAvatarColor(member.email)} flex items-center justify-center text-white font-bold text-lg flex-shrink-0 shadow-md`}>
+                      {member.avatarUrl ? (
+                        <Image
+                          src={member.avatarUrl}
+                          alt={member.name}
+                          width={48}
+                          height={48}
+                          className="rounded-full object-cover"
+                        />
+                      ) : (
+                        member.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-900 truncate text-base">
+                        {member.name}
+                      </p>
+                      <p className="text-sm text-slate-500 truncate">
+                        {member.email}
+                      </p>
+                      {member.status === 'invited' && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Clock className="h-3 w-3 text-orange-500" />
+                          <p className="text-xs text-orange-600 font-medium">
+                            Invitation pending • Sent {formatTimeAgo(member.invitedAt)}
+                          </p>
+                        </div>
+                      )}
+                      {member.lastActiveAt && member.status === 'active' && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          Last active {formatTimeAgo(member.lastActiveAt)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Actions */}
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {member.role === 'owner' ? (
+                      <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md">
+                        Owner
+                      </span>
+                    ) : (
+                      <>
+                        <select
+                          value={member.role}
+                          onChange={(e) => handleUpdateRole(member.id, e.target.value)}
+                          className="px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-medium bg-white hover:border-purple-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none transition-colors"
+                          disabled={member.status === 'invited'}
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="member">Member</option>
+                          <option value="viewer">Viewer</option>
+                        </select>
+                        
+                        {member.status === 'invited' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              const loadingToast = toast.loading('Resending invitation...')
+                              
+                              const res = await fetch("/api/team/resend-invite", {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ memberId: member.id }),
+                              })
+                              
+                              if (res.ok) {
+                                const data = await res.json()
+                                toast.success('Invitation resent!', {
+                                  id: loadingToast,
+                                  description: 'Check your clipboard for the link'
+                                })
+                                setGeneratedInviteLink(data.inviteLink)
+                                setShowInviteLinkDialog(true)
+                              } else {
+                                toast.error('Failed to resend', {
+                                  id: loadingToast
+                                })
+                              }
+                            }}
+                            className="gap-2"
+                          >
+                            <Mail className="h-4 w-4" />
+                            Resend
+                          </Button>
+                        )}
+                        
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveMember(member.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remove
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
+              <UsersIcon className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+              <p className="text-base font-medium text-slate-900 mb-1">No team members yet</p>
+              <p className="text-sm text-slate-500">Invite your first team member above</p>
+            </div>
+          )}
+        </div>
+
+        {/* Upgrade Prompt */}
+        {teamMembers.length >= 3 && user?.plan === 'free' && (
+          <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl p-6 shadow-lg">
+            <div className="flex items-start gap-4">
+              <div className="h-12 w-12 rounded-xl bg-yellow-500 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-lg font-bold text-yellow-900 mb-1">
+                  🎯 Reached Free Plan Limit
+                </p>
+                <p className="text-sm text-yellow-800 mb-4">
+                  Upgrade to Pro for unlimited team members, advanced analytics, and priority support
+                </p>
+                <Button
+                  size="lg"
+                  onClick={() => {
+                    setShowTeamDrawer(false)
+                    router.push('/plan')
+                  }}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold shadow-md"
+                >
+                  ⚡ Upgrade Now
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* Footer */}
+    <div className="px-8 py-4 border-t bg-slate-50 sticky bottom-0 shadow-lg">
+      <Button
+        variant="outline"
+        onClick={() => setShowTeamDrawer(false)}
+        className="w-full h-12 text-base font-semibold"
+      >
+        Close
+      </Button>
+    </div>
+  </SheetContent>
+</Sheet>
+
+{/* Invite Link Dialog */}
+<Dialog open={showInviteLinkDialog} onOpenChange={setShowInviteLinkDialog}>
   <DialogContent className="max-w-2xl bg-white">
     <DialogHeader>
-      <DialogTitle>Team Members</DialogTitle>
-      <DialogDescription>Invite and manage team members</DialogDescription>
+      <DialogTitle className="flex items-center gap-2">
+        <CheckCircle className="h-6 w-6 text-green-600" />
+        Invitation Sent!
+      </DialogTitle>
+      <DialogDescription>
+        Email sent. You can also copy the link below to manually share it.
+      </DialogDescription>
     </DialogHeader>
     
     <div className="space-y-4">
-      {/* Invite Section */}
-      <div className="flex gap-2">
-        <Input placeholder="Enter email address" type="email" />
-        <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-          Invite
-        </Button>
-      </div>
-
-      {/* Team Members List */}
-      <div className="border rounded-lg divide-y">
-        <div className="p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
-              {getInitials(user?.email || "")}
-            </div>
-            <div>
-              <p className="font-medium text-slate-900">{user?.first_name} {user?.last_name}</p>
-              <p className="text-sm text-slate-500">{user?.email}</p>
-            </div>
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <Mail className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-green-900 mb-1">
+              📧 Invitation email sent to {inviteEmail}
+            </p>
+            <p className="text-xs text-green-700">
+              They'll receive instructions to join your team.
+            </p>
           </div>
-          <span className="text-sm text-slate-600 bg-slate-100 px-3 py-1 rounded-full">Owner</span>
         </div>
       </div>
-
-      {/* Upgrade prompt for more team members */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-900 font-medium mb-2">Need more team members?</p>
-        <p className="text-sm text-blue-800 mb-3">Upgrade to Pro to add unlimited team members</p>
-        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">Upgrade Now</Button>
+      
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold">Invitation Link (for manual sharing)</Label>
+        <div className="flex gap-2">
+          <Input 
+            value={generatedInviteLink}
+            readOnly
+            className="flex-1 font-mono text-xs bg-slate-50"
+          />
+          <Button
+            variant="outline"
+            onClick={() => {
+              navigator.clipboard.writeText(generatedInviteLink)
+              toast.success('Link copied!')
+            }}
+          >
+            Copy
+          </Button>
+          <Button
+            onClick={() => window.open(generatedInviteLink, '_blank')}
+            className="bg-gradient-to-r from-purple-600 to-blue-600"
+          >
+            Test
+          </Button>
+        </div>
+        <p className="text-xs text-slate-500">
+          Link expires in 7 days. You can resend if needed.
+        </p>
+      </div>
+      
+      <div className="flex justify-end pt-4 border-t">
+        <Button
+          onClick={() => setShowInviteLinkDialog(false)}
+          variant="outline"
+        >
+          Done
+        </Button>
       </div>
     </div>
   </DialogContent>
@@ -4451,3 +5036,7 @@ case 'dashboard':
     </div>
   )
 }
+
+ 
+// Remove this entire function - it's a duplicate and not needed
+

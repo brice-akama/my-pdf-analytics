@@ -56,6 +56,18 @@ export async function POST(request: NextRequest) {
     // ✅ Verify user
     const user = await verifyUserFromRequest(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // ✅ Resolve organization (team logic)
+const db = await dbPromise;
+
+const profile = await db.collection('profiles').findOne({
+  user_id: user.id,
+});
+
+// If user belongs to a team → use organizationId
+// Else fallback to personal workspace
+const organizationId = profile?.organization_id || user.id;
+
     // ✅ Get file
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -102,10 +114,11 @@ const summary = generateSummary(extractedText);
       uploadToCloudinary(pdfBuffer, file.name.replace(/\.[^/.]+$/, ".pdf"), folder)
     ]);
     // ✅ Store document in MongoDB
-    const db = await dbPromise;
+     
     const doc = {
       userId: user.id,
       plan: user.plan,
+      organizationId,
       originalFilename: file.name,
       originalFormat: fileType,
       mimeType: file.type,

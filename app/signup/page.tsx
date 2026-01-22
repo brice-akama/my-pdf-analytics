@@ -72,6 +72,7 @@ export default function OnboardingFlow() {
 
   const [loading, setLoading] = useState(false)
  const [signupError, setSignupError] = useState<string | null>(null)
+ 
 
   // Calculate trial dates dynamically
   const trialInfo = useMemo(() => {
@@ -117,6 +118,42 @@ export default function OnboardingFlow() {
         : [...prev, value]
     )
   }
+
+   
+useEffect(() => {
+  // ✅ Detect invitation type from URL
+  
+  // Check for Team Invitation (/invite-team/)
+  const redirect = searchParams?.get('redirect');
+  if (redirect && redirect.includes('/invite-team/')) {
+    const token = redirect.split('/invite-team/')[1];
+    if (token) {
+      sessionStorage.setItem('pendingTeamInvite', token);
+      console.log('📧 Team invitation detected:', token);
+    }
+  }
+  
+  // Check for Space Invitation (/invite/)
+  if (redirect && redirect.includes('/invite/') && !redirect.includes('/invite-team/')) {
+    const token = redirect.split('/invite/')[1];
+    if (token) {
+      sessionStorage.setItem('pendingSpaceInvite', token);
+      console.log('🏢 Space invitation detected:', token);
+    }
+  }
+
+  // Direct token parameters (backup method)
+  const teamInviteParam = searchParams?.get('team_invite');
+  if (teamInviteParam) {
+    sessionStorage.setItem('pendingTeamInvite', teamInviteParam);
+  }
+
+  const spaceInviteParam = searchParams?.get('space_invite');
+  if (spaceInviteParam) {
+    sessionStorage.setItem('pendingSpaceInvite', spaceInviteParam);
+  }
+
+}, [searchParams]);
 
 // At the top of your OnboardingFlow component, add this useEffect:
 useEffect(() => {
@@ -238,8 +275,18 @@ useEffect(() => {
     // Allow cookie/session to settle
     await new Promise(resolve => setTimeout(resolve, 100))
 
+     /* ======================================================
+       ✅ Priority 1a: Team invitation (invite-team)
+    ====================================================== */
+    const pendingTeamInvite = sessionStorage.getItem("pendingTeamInvite")
+    if (pendingTeamInvite) {
+      sessionStorage.removeItem("pendingTeamInvite")
+      router.push(`/invite-team/${pendingTeamInvite}`)
+      return
+    }
+
     /* ======================================================
-       ✅ Priority 1: Pending invitation
+       ✅ Priority 1b: Pending invitation
     ====================================================== */
     const pendingInvite = sessionStorage.getItem("pendingInvite")
     if (pendingInvite) {
@@ -261,7 +308,8 @@ useEffect(() => {
     /* ======================================================
        ✅ Priority 3: Default redirect
     ====================================================== */
-    router.push("/spaces")
+    router.push("/dashboard")
+
 
   } catch (err) {
     console.error("Signup request failed", err)
