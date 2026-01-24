@@ -1,14 +1,18 @@
+//app/api/agreements/route.ts
+
 import { NextRequest, NextResponse } from "next/server"
 import { verifyUserFromRequest } from "@/lib/auth"
 import { ObjectId } from "mongodb"
 import { dbPromise } from "../lib/mongodb"
+import { getTeamMemberIds } from "../lib/teamHelpers"
 
 // ✅ Helper function: extract user from NextRequest (cookies handled inside auth)
 async function getVerifiedUser(req: NextRequest) {
   return await verifyUserFromRequest(req)
 }
 
-// ✅ GET - Fetch all agreements for user
+//   GET - Fetch all agreements for user
+//   UPDATED GET - Team isolation
 export async function GET(req: NextRequest) {
   try {
     const user = await getVerifiedUser(req)
@@ -17,10 +21,20 @@ export async function GET(req: NextRequest) {
     }
 
     const db = await dbPromise
+    
+    //   GET USER ROLE
+    const profile = await db.collection("profiles").findOne({ user_id: user.id })
+    const userRole = profile?.role || "owner"
+    
+    //   GET VISIBLE USER IDS (owner/admin see all, members see only their own)
+    const visibleUserIds = await getTeamMemberIds(user.id, userRole)
+    
+    console.log(`👥 User ${user.email} (${userRole}) can see agreements from:`, visibleUserIds)
+    
     const agreements = await db
       .collection("documents")
       .find({ 
-        userId: new ObjectId(user.id),
+        userId: { $in: visibleUserIds }, //   TEAM ISOLATION
         type: "agreement",
         status: "uploaded"
       })
@@ -38,6 +52,7 @@ export async function GET(req: NextRequest) {
         status: agreement.status,
         createdAt: agreement.createdAt,
         expiresAt: agreement.expiresAt || null,
+        uploadedBy: agreement.userId, //   ADD THIS to show who uploaded
       })),
     })
   } catch (error) {

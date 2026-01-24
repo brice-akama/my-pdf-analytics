@@ -103,6 +103,8 @@ type UserType = {
   company_name: string
   profile_image: string | null
   plan?: string
+
+  
 }
 
 type DocumentType = {
@@ -1207,6 +1209,14 @@ const AgreementsSection = () => {
           </div>
           <div className="flex-1">
             <h3 className="font-semibold text-slate-900 mb-1">{agreement.filename}</h3>
+            {/* ✅ Show uploader if not current user */}
+    {agreement.uploadedBy?.userId !== user?.email && (
+      <p className="text-xs text-slate-500">
+        Uploaded by {agreement.uploadedBy?.name || 'team member'}
+        {agreement.uploadedBy?.role === 'admin' && ' (Admin)'}
+      </p>
+    )}
+    
             <div className="flex items-center gap-4 text-sm text-slate-500">
               <span className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
@@ -2339,6 +2349,12 @@ case 'dashboard':
                   <div className="min-w-0">
                     <p className="font-medium text-slate-900 truncate">{contact.name}</p>
                     <p className="text-sm text-slate-600 truncate">{contact.email}</p>
+                    {/* ✅ Show who added it if not current user */}
+    {contact.addedBy !== user?.email && (
+      <p className="text-xs text-slate-500 mt-1">
+        Added by team member
+      </p>
+    )}
                   </div>
                 </div>
 

@@ -1,3 +1,5 @@
+
+//app/api/file-requests/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "../../lib/mongodb"
 import { ObjectId } from "mongodb"
@@ -22,10 +24,27 @@ export async function GET(
     console.log('🔍 Fetching file request:', id, 'for user:', user.id)
 
     const db = await dbPromise
-    const request = await db.collection("fileRequests").findOne({
-      _id: new ObjectId(id),
-      userId: new ObjectId(user.id)
-    })
+    // ✅ Resolve organization
+ 
+
+const profile = await db.collection('profiles').findOne({
+  user_id: user.id,
+})
+
+const organizationId = profile?.organization_id || user.id
+const isOrgOwner = organizationId === user.id
+    // ✅ ROLE-BASED QUERY
+let query: any = {
+  _id: new ObjectId(id),
+  organizationId
+}
+
+if (!isOrgOwner) {
+  // Members can only access their own requests
+  query.userId = new ObjectId(user.id)
+}
+
+const request = await db.collection("fileRequests").findOne(query)
 
     if (!request) {
       console.log('❌ Request not found or unauthorized')

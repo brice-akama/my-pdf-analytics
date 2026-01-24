@@ -144,23 +144,49 @@ export async function GET(req: NextRequest) {
     const currentPlan = planLimits[userPlan as keyof typeof planLimits] || planLimits.free;
     const storageLimit = currentPlan.storage;
 
-    // ✅ Format user data
-    const userData = {
-      id: userIdForQuery,
-      email: user.email,
-      name: user.name || profile?.full_name || profile?.first_name || user.email.split("@")[0],
-      plan: userPlan,
-      
-      // Profile info
-      profile: {
-        firstName: profile?.first_name || user.profile?.firstName || "",
-        lastName: profile?.last_name || user.profile?.lastName || "",
-        fullName: profile?.full_name || user.profile?.fullName || 
-          `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
-          user.name || user.email.split("@")[0],
-        companyName: profile?.company_name || user.profile?.companyName || "",
-        avatarUrl: profile?.avatar_url || user.profile?.avatarUrl || "",
-      },
+    // ✅ GET ORGANIZATION INFO
+const organizationId = profile?.organization_id || userIdForQuery;
+const isOwner = organizationId === userIdForQuery;
+
+let organizationName = profile?.company_name || "My Team";
+let organizationRole = profile?.role || "owner";
+
+if (!isOwner) {
+  // ✅ FETCH OWNER'S COMPANY NAME
+  const ownerProfile = await db.collection("profiles").findOne({ 
+    user_id: organizationId 
+  });
+  
+  if (ownerProfile) {
+    organizationName = ownerProfile.company_name || "Team";
+  }
+}
+
+// ✅ Format user data
+const userData = {
+  id: userIdForQuery,
+  email: user.email,
+  name: user.name || profile?.full_name || profile?.first_name || user.email.split("@")[0],
+  plan: userPlan,
+  
+  // Profile info
+  profile: {
+    firstName: profile?.first_name || user.profile?.firstName || "",
+    lastName: profile?.last_name || user.profile?.lastName || "",
+    fullName: profile?.full_name || user.profile?.fullName || 
+      `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
+      user.name || user.email.split("@")[0],
+    companyName: organizationName, // ✅ OWNER'S COMPANY NAME
+    avatarUrl: profile?.avatar_url || user.profile?.avatarUrl || "",
+  },
+  
+  // ✅ ADD ORGANIZATION INFO
+  organization: {
+    id: organizationId,
+    name: organizationName,
+    role: organizationRole,
+    isOwner: isOwner,
+  },
 
       // Statistics
       stats: {

@@ -1,3 +1,4 @@
+//app/file-requests/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "../lib/mongodb"
 import { ObjectId } from "mongodb"
@@ -12,12 +13,36 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const db = await dbPromise
-    const fileRequests = await db
-      .collection("fileRequests")
-      .find({ userId: new ObjectId(user.id) })
-      .sort({ createdAt: -1 })
-      .toArray()
+     
+    // ✅ Resolve organization (team logic)
+const db = await dbPromise
+
+const profile = await db.collection('profiles').findOne({
+  user_id: user.id,
+})
+
+const organizationId = profile?.organization_id || user.id
+const userOrgRole = profile?.role || 'owner'
+const isOrgOwner = organizationId === user.id
+
+console.log('👤 User org role:', userOrgRole, 'Is owner:', isOrgOwner)
+    //   ROLE-BASED QUERY
+let query: any = { organizationId }
+
+if (!isOrgOwner) {
+  // Members ONLY see their own file requests
+  query.userId = new ObjectId(user.id)
+  console.log(' Team member - showing only own file requests')
+} else {
+  // Owner sees ALL organization file requests
+  console.log(' Organization owner - showing all file requests')
+}
+
+const fileRequests = await db
+  .collection("fileRequests")
+  .find(query)
+  .sort({ createdAt: -1 })
+  .toArray()
 
     return NextResponse.json({
       success: true,
@@ -56,9 +81,18 @@ export async function POST(req: NextRequest) {
 
     const shareToken = crypto.randomBytes(32).toString('hex')
 
+    // ✅ Get organization from profile
     const db = await dbPromise
+const profile = await db.collection('profiles').findOne({
+  user_id: user.id,
+})
+
+const organizationId = profile?.organization_id || user.id
+
+    
     const fileRequest = {
       userId: new ObjectId(user.id),
+      organizationId,
       title: title.trim(),
       description: description || "",
       recipients: recipients.map((email: string) => ({

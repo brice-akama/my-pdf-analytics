@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyUserFromRequest } from "@/lib/auth"
 import { ObjectId } from "mongodb"
 import { dbPromise } from "../../lib/mongodb"
+import { getTeamMemberIds } from "../../lib/teamHelpers"
 
  
 
@@ -14,11 +15,19 @@ export async function GET(req: NextRequest) {
 
     const db = await dbPromise;
     
-    // ✅ QUERY WITH STRING userId (matching documents format)
+    // ✅ GET USER ROLE
+    const profile = await db.collection("profiles").findOne({ user_id: user.id })
+    const userRole = profile?.role || "owner"
+    
+    // ✅ GET VISIBLE USER IDS
+    const visibleUserIds = await getTeamMemberIds(user.id, userRole)
+    
+    console.log(`📄 User ${user.email} (${userRole}) fetching uploaded agreements from:`, visibleUserIds)
+    
     const agreements = await db
       .collection("documents")
       .find({ 
-        userId: user.id,  // ✅ STRING (not ObjectId!)
+        userId: { $in: visibleUserIds }, //   TEAM ISOLATION
         type: "agreement",
         status: "uploaded"
       })
@@ -34,6 +43,7 @@ export async function GET(req: NextRequest) {
         filepath: a.filepath,
         status: a.status,
         createdAt: a.createdAt,
+        uploadedBy: a.userId, //   ADD THIS
       })),
     });
   } catch (error) {
@@ -41,6 +51,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch agreements" }, { status: 500 });
   }
 }
- 
-
- 

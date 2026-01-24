@@ -1,3 +1,4 @@
+//app/api/file-requests/[id]/files/[fileId]/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "@/app/api/lib/mongodb"
 import { ObjectId } from "mongodb"
@@ -25,13 +26,30 @@ export async function GET(
     console.log('📥 [DOWNLOAD] File ID:', fileId)
     console.log('📥 [DOWNLOAD] User:', user.id)
 
-    const db = await dbPromise
+     
+
+    // ✅ Resolve organization
+const db = await dbPromise
+
+const profile = await db.collection('profiles').findOne({
+  user_id: user.id,
+})
+
+const organizationId = profile?.organization_id || user.id
+const isOrgOwner = organizationId === user.id
     
     // Find the file request and verify ownership
-    const request = await db.collection("fileRequests").findOne({
-      _id: new ObjectId(id),
-      userId: new ObjectId(user.id)
-    })
+    // ✅ ROLE-BASED QUERY
+let query: any = {
+  _id: new ObjectId(id),
+  organizationId
+}
+
+if (!isOrgOwner) {
+  query.userId = new ObjectId(user.id)
+}
+
+const request = await db.collection("fileRequests").findOne(query)
 
     if (!request) {
       console.log('❌ [DOWNLOAD] Request not found or unauthorized')

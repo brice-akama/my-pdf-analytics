@@ -1,11 +1,14 @@
+ 
+ //app/api/contacts/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "../../lib/mongodb"
 import { ObjectId } from "mongodb"
 import { verifyUserFromRequest } from "@/lib/auth"
+import { getTeamMemberIds } from "../../lib/teamHelpers" // ✅ ADD THIS
 
 export const dynamic = 'force-dynamic'
 
-// DELETE - Delete contact
+//   UPDATED DELETE - Team isolation
 export async function DELETE(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -17,11 +20,44 @@ export async function DELETE(
     }
 
     const { id } = await context.params
-
     const db = await dbPromise
+    
+    //   GET USER ROLE
+    const profile = await db.collection("profiles").findOne({ user_id: user.id })
+    const userRole = profile?.role || "owner"
+    
+    //   Check permissions
+    const contact = await db.collection("contacts").findOne({
+      _id: new ObjectId(id)
+    })
+    
+    if (!contact) {
+      return NextResponse.json({ error: "Contact not found" }, { status: 404 })
+    }
+    
+    const contactOwnerId = contact.userId.toString()
+    
+    //   PERMISSION LOGIC:
+    // - Owner/Admin can delete ANY team contact
+    // - Members can only delete their own contacts
+    if (userRole === "member" && contactOwnerId !== user.id) {
+      return NextResponse.json({ 
+        error: "You can only delete your own contacts" 
+      }, { status: 403 })
+    }
+    
+    //   For owner/admin, verify contact belongs to team
+    if (userRole !== "member") {
+      const visibleUserIds = await getTeamMemberIds(user.id, userRole)
+      if (!visibleUserIds.includes(contactOwnerId)) {
+        return NextResponse.json({ 
+          error: "Contact not found" 
+        }, { status: 404 })
+      }
+    }
+
     const result = await db.collection("contacts").deleteOne({
-      _id: new ObjectId(id),
-      userId: new ObjectId(user.id)
+      _id: new ObjectId(id)
     })
 
     if (result.deletedCount === 0) {
@@ -35,7 +71,7 @@ export async function DELETE(
   }
 }
 
-// PATCH - Update contact
+//   UPDATED PATCH - Team isolation
 export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -51,10 +87,44 @@ export async function PATCH(
     const { name, email, company, phone, notes } = body
 
     const db = await dbPromise
+    
+    //   GET USER ROLE
+    const profile = await db.collection("profiles").findOne({ user_id: user.id })
+    const userRole = profile?.role || "owner"
+    
+    //   Check permissions
+    const contact = await db.collection("contacts").findOne({
+      _id: new ObjectId(id)
+    })
+    
+    if (!contact) {
+      return NextResponse.json({ error: "Contact not found" }, { status: 404 })
+    }
+    
+    const contactOwnerId = contact.userId.toString()
+    
+    //   PERMISSION LOGIC:
+    // - Owner/Admin can edit ANY team contact
+    // - Members can only edit their own contacts
+    if (userRole === "member" && contactOwnerId !== user.id) {
+      return NextResponse.json({ 
+        error: "You can only edit your own contacts" 
+      }, { status: 403 })
+    }
+    
+    // ✅ For owner/admin, verify contact belongs to team
+    if (userRole !== "member") {
+      const visibleUserIds = await getTeamMemberIds(user.id, userRole)
+      if (!visibleUserIds.includes(contactOwnerId)) {
+        return NextResponse.json({ 
+          error: "Contact not found" 
+        }, { status: 404 })
+      }
+    }
+
     const result = await db.collection("contacts").updateOne(
       {
-        _id: new ObjectId(id),
-        userId: new ObjectId(user.id)
+        _id: new ObjectId(id)
       },
       {
         $set: {

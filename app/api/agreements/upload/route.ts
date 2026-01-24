@@ -27,6 +27,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // ✅ OPTIONAL: Get uploader's name for better UI
+  const db = await dbPromise
+  const profile = await db.collection("profiles").findOne({ user_id: user.id })
+
     // 📥 Parse multipart form data
     const formData = await req.formData()
     const file = formData.get("file") as File | null
@@ -75,7 +79,7 @@ export async function POST(req: NextRequest) {
     console.log("✅ Cloudinary upload successful:", cloudinaryResult.secure_url)
 
     // 🗄️ Save metadata to MongoDB
-    const db = await dbPromise
+     
     
     const agreementDoc = {
       userId: user.id,
@@ -93,6 +97,14 @@ export async function POST(req: NextRequest) {
       mimeType: "application/pdf",
       createdAt: new Date(),
       updatedAt: new Date(),
+
+      uploadedBy: {
+      userId: user.id,
+      name: profile?.full_name || user.email,
+      email: user.email,
+      role: profile?.role || "owner"
+    },
+    
     }
 
     console.log("💾 Saving agreement to database...")

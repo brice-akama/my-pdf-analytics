@@ -24,11 +24,26 @@ export async function GET(
 
     console.log('📦 [DOWNLOAD-ALL] Request ID:', id)
 
-    const db = await dbPromise
-    const request = await db.collection("fileRequests").findOne({
-      _id: new ObjectId(id),
-      userId: new ObjectId(user.id)
-    })
+    // ✅ Resolve organization
+const db = await dbPromise
+
+const profile = await db.collection('profiles').findOne({
+  user_id: user.id,
+})
+
+const organizationId = profile?.organization_id || user.id
+const isOrgOwner = organizationId === user.id
+    // ✅ ROLE-BASED QUERY
+let query: any = {
+  _id: new ObjectId(id),
+  organizationId
+}
+
+if (!isOrgOwner) {
+  query.userId = new ObjectId(user.id)
+}
+
+const request = await db.collection("fileRequests").findOne(query)
 
     if (!request) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 })

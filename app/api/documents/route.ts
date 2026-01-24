@@ -23,6 +23,12 @@ const organizationId = profile?.organization_id || user.id;
 
 console.log('🏢 Active organization:', organizationId);
 
+// ✅ Get user's role in organization
+const userOrgRole = profile?.role || 'owner'; // 'owner' for personal workspace
+const isOrgOwner = organizationId === user.id; // True if personal workspace OR they own the org
+
+console.log('👤 User org role:', userOrgRole, 'Is owner:', isOrgOwner);
+
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -213,6 +219,16 @@ const transformedDocuments = paginatedDocuments.map(doc => {
       { belongsToSpace: false }
     ]
   };
+
+  // ✅ ROLE-BASED FILTERING FOR TEAM DOCUMENTS
+if (!isOrgOwner) {
+  // Members ONLY see their own uploads
+  query.userId = user.id;
+  console.log(' Team member - showing only own documents');
+} else {
+  // Owner sees ALL organization documents
+  console.log('  Organization owner - showing all documents');
+}
   
   // ✅ Filter by archived status
   if (showArchived) {
