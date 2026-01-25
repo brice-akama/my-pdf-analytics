@@ -28,6 +28,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Drawer } from "@/components/ui/drawer"
+import { motion } from "framer-motion"
+import { AnimatePresence } from "framer-motion"
 
 type DocumentType = {
   _id: string
@@ -73,6 +76,9 @@ export default function DocumentsPage() {
   const [templates, setTemplates] = useState<DocumentType[]>([])
 const [archivedDocuments, setArchivedDocuments] = useState<DocumentType[]>([])
 const [activeView, setActiveView] = useState<'documents' | 'templates' | 'archive'>('documents')
+const [previewDrawerOpen, setPreviewDrawerOpen] = useState(false)
+const [previewDocumentId, setPreviewDocumentId] = useState<string | null>(null)
+const [hoveredDocId, setHoveredDocId] = useState<string | null>(null)
 
 
   // Fetch documents
@@ -540,93 +546,137 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       </h2>
       <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
         <div className="divide-y">
-          {(activeView === 'documents' ? documents : templates).map((doc) => (
-            <div 
-              key={doc._id} 
-              className="p-4 hover:bg-slate-50 transition-colors cursor-pointer"
-              onClick={() => router.push(`/documents/${doc._id}`)}
+         {(activeView === 'documents' ? documents : templates).map((doc) => (
+  <div 
+    key={doc._id} 
+    className="p-4 hover:bg-slate-50 transition-colors relative group"
+    onMouseEnter={() => setHoveredDocId(doc._id)}
+    onMouseLeave={() => setHoveredDocId(null)}
+  >
+    <div className="flex items-center gap-4">
+      {/* Document Preview Thumbnail */}
+      {/* Document Preview Thumbnail - Shows actual PDF content */}
+<div 
+  className="relative h-32 w-24 rounded-lg overflow-hidden flex-shrink-0 bg-white border border-slate-200 shadow-sm cursor-pointer"
+  onClick={(e) => {
+    e.stopPropagation()
+    setPreviewDocumentId(doc._id)
+    setPreviewDrawerOpen(true)
+  }}
+>
+  {/* PDF Preview */}
+  <div className="absolute inset-0 overflow-hidden">
+    <iframe
+      src={`/api/documents/${doc._id}/file?serve=blob#page=1&view=FitH&toolbar=0&navpanes=0&scrollbar=0&zoom=85`}
+      className="absolute border-0 pointer-events-none"
+      style={{
+        width: '500px',
+        height: '650px',
+        left: '50%',
+        top: '0',
+        transform: 'translateX(-50%) scale(0.2)',
+        transformOrigin: 'top center',
+        imageRendering: 'crisp-edges',
+      }}
+      scrolling="no"
+      title={`Preview of ${doc.originalFilename || doc.filename}`}
+    />
+  </div>
+  
+  {/* Hover Overlay */}
+  <AnimatePresence>
+    {hoveredDocId === doc._id && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-[2px]"
+      >
+        <Eye className="h-6 w-6 text-white" />
+      </motion.div>
+    )}
+  </AnimatePresence>
+</div>
+      {/* Document Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-slate-900 truncate">{doc.originalFilename || doc.filename}</h3>
+          {doc.isTemplate && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+              Template
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+          <span>{doc.numPages} pages</span>
+          <span>•</span>
+          <span>{formatFileSize(doc.size)}</span>
+          <span>•</span>
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {formatTimeAgo(doc.createdAt)}
+          </span>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex items-center gap-2">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/documents/${doc._id}`)
+          }}
+          title="View analytics"
+        >
+          <BarChart3 className="h-4 w-4" />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={(e) => e.stopPropagation()}
+          title="Share"
+        >
+          <Share2 className="h-4 w-4" />
+        </Button>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                  <FileText className="h-6 w-6 text-red-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-slate-900 truncate">{doc.originalFilename || doc.filename}</h3>
-                    {doc.isTemplate && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                        Template
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
-                    <span>{doc.numPages} pages</span>
-                    <span>•</span>
-                    <span>{formatFileSize(doc.size)}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatTimeAgo(doc.createdAt)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      router.push(`/documents/${doc._id}`)
-                    }}
-                    title="View analytics"
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={(e) => e.stopPropagation()}
-                    title="Share"
-                  >
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/documents/${doc._id}`)
-                        }}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteDocument(doc._id, doc.originalFilename || doc.filename)
-                        }}
-                        className="text-red-600 focus:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </div>
-          ))}
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                router.push(`/documents/${doc._id}`)
+              }}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              View
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDeleteDocument(doc._id, doc.originalFilename || doc.filename)
+              }}
+              className="text-red-600 focus:text-red-600"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  </div>
+))}
         </div>
       </div>
     </div>
@@ -663,6 +713,115 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
         onChange={handleFileInputChange}
         className="hidden"
       />
+
+      {/* Preview Drawer */}
+<Drawer open={previewDrawerOpen} onOpenChange={setPreviewDrawerOpen}>
+  {previewDocumentId && (
+    <div className="h-full flex">
+      {/* Sidebar with document info */}
+      <div className="w-64 border-r bg-white flex flex-col">
+        <div className="p-4 border-b">
+          <h3 className="font-semibold text-slate-900 mb-1">Document</h3>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Owner */}
+          <div>
+            <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Owner</label>
+            <div className="mt-2 flex items-center gap-2">
+              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <span className="text-sm font-medium text-blue-600">
+                  {documents.find(d => d._id === previewDocumentId)?.originalFilename?.charAt(0) || 
+                   templates.find(d => d._id === previewDocumentId)?.originalFilename?.charAt(0) || 'D'}
+                </span>
+              </div>
+              <span className="text-sm text-slate-700">You</span>
+            </div>
+          </div>
+
+          {/* Document Info */}
+          <div>
+            <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Details</label>
+            <div className="mt-2 space-y-2 text-sm text-slate-700">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-slate-400" />
+                <span>
+                  {documents.find(d => d._id === previewDocumentId)?.numPages || 
+                   templates.find(d => d._id === previewDocumentId)?.numPages || 0} pages
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-slate-400" />
+                <span>
+                  {formatTimeAgo(documents.find(d => d._id === previewDocumentId)?.createdAt || 
+                                 templates.find(d => d._id === previewDocumentId)?.createdAt || '')}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="p-4 border-t space-y-2">
+          <Button
+            onClick={async () => {
+              try {
+                const response = await fetch(`/api/documents/${previewDocumentId}/file?action=download&serve=blob`)
+                const blob = await response.blob()
+                const url = window.URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = documents.find(d => d._id === previewDocumentId)?.originalFilename || 
+                            templates.find(d => d._id === previewDocumentId)?.originalFilename || 
+                            'document.pdf'
+                document.body.appendChild(a)
+                a.click()
+                window.URL.revokeObjectURL(url)
+                document.body.removeChild(a)
+              } catch (error) {
+                console.error('Download failed:', error)
+                alert('Failed to download document')
+              }
+            }}
+            className="w-full gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download PDF
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setPreviewDrawerOpen(false)
+              router.push(`/documents/${previewDocumentId}`)
+            }}
+            className="w-full gap-2"
+          >
+            <BarChart3 className="h-4 w-4" />
+            View Analytics
+          </Button>
+        </div>
+      </div>
+
+      {/* Main PDF Viewer - NO TOOLBAR */}
+      <div className="flex-1 flex flex-col bg-slate-100">
+        <div className="flex-1 p-6 overflow-auto">
+          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+            <embed
+              src={`/api/documents/${previewDocumentId}/file?serve=blob#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+              type="application/pdf"
+              className="w-full border-0"
+              style={{ height: 'calc(100vh - 120px)' }}
+            />
+          </div>
+        </div>
+      </div>
     </div>
+  )}
+</Drawer>
+    </div>
+
+    
   )
 }

@@ -442,6 +442,12 @@ useEffect(() => {
   }
 }, [showTeamDrawer])
 
+useEffect(() => {
+  if (activePage === 'reports') {
+    router.push('/reports')
+  }
+}, [activePage, router])
+
 
 const fetchTeamMembers = async () => {
   setLoadingTeam(true)
@@ -1297,7 +1303,7 @@ const FileRequestsSection = () => {
         </Button>
       </div>
 
-      {/* 🟢 SHOW TOTAL COUNT */}
+      {/*   SHOW TOTAL COUNT */}
       {fileRequests.length > 0 && (
         <div className="mb-6 text-sm text-slate-600">
           Showing {fileRequests.length} file request{fileRequests.length !== 1 ? 's' : ''}
@@ -1322,7 +1328,7 @@ const FileRequestsSection = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* 🟢 LOOP THROUGH ALL REQUESTS */}
+          {/*   LOOP THROUGH ALL REQUESTS */}
           {fileRequests.map((request) => (
             <div 
               key={request._id}
@@ -2274,6 +2280,18 @@ case 'dashboard':
       <div className="text-center">
         <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
         <p className="text-slate-600">Redirecting to Spaces...</p>
+      </div>
+    </div>
+  )
+
+
+  case 'reports':
+  // Show loading state while redirecting
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
+        <p className="text-slate-600">Redirecting to Reports...</p>
       </div>
     </div>
   )

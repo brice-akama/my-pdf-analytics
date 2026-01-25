@@ -95,3 +95,47 @@ export async function POST(
     );
   }
 }
+
+
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await verifyUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = await context.params
+
+    if (!ObjectId.isValid(id)) {
+      return NextResponse.json({ error: 'Invalid document ID' }, { status: 400 })
+    }
+
+    const db = await dbPromise
+    const document = await db.collection('documents').findOne({
+      _id: new ObjectId(id),
+      userId: user.id,
+    })
+
+    if (!document || !document.cloudinaryPdfUrl) {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    }
+
+    // Generate thumbnail URL from Cloudinary
+    // Cloudinary can automatically generate thumbnails from PDFs
+    const thumbnailUrl = document.cloudinaryPdfUrl.replace(
+      '/upload/',
+      '/upload/c_thumb,w_200,h_260,f_jpg,pg_1/' // First page as thumbnail
+    )
+
+    return NextResponse.json({
+      success: true,
+      thumbnailUrl,
+    })
+  } catch (error) {
+    console.error('Thumbnail error:', error)
+    return NextResponse.json({ error: 'Failed to get thumbnail' }, { status: 500 })
+  }
+}

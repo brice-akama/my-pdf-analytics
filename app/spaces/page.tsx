@@ -226,40 +226,49 @@ const templates = [
   }, [])
 
   // Around line 152
-const fetchSpaces = async () => {
+ const fetchSpaces = async () => {
   try {
-    // ✅ Get current organization from OrganizationSwitcher
-    const currentOrgId = (window as any).getCurrentOrgId?.();
-    
-    const url = currentOrgId 
-      ? `/api/spaces?organizationId=${currentOrgId}`
-      : '/api/spaces'; // Personal spaces only
-    
-    const res = await fetch(url, {
+    const res = await fetch('/api/spaces', {
       credentials: 'include',
-    })
+    });
 
     if (res.status === 401) {
-      router.push('/login')
-      return
+      router.push('/login');
+      return;
     }
 
-    const data = await res.json()
-
+    const data = await res.json();
+    
+    console.log('📦 Received spaces:', data.spaces);
+    
     if (data.success) {
-      const owned = data.spaces.filter((s: any) => s.isOwner)
-      const member = data.spaces.filter((s: any) => !s.isOwner)
+      // ✅ FIX: Separate by role, not by isOwner
+      // - "Owned" = spaces in MY team (owner or member role)
+      // - "Member" = spaces I was INVITED to (from outside my team)
       
-      setSpaces(owned)
-      setMemberSpaces(member)
+      const myTeamSpaces = data.spaces.filter((s: any) => {
+        // If space has organizationId, it's a team space
+        // Show it in "owned" if user has owner/admin/member role in their team
+        return s.role === 'owner' || s.role === 'admin' || s.role === 'member' || s.isOwner;
+      });
+      
+      const invitedSpaces = data.spaces.filter((s: any) => {
+        // Only spaces where user is explicitly invited (not part of their team)
+        return s.role === 'viewer' || s.role === 'editor';
+      });
+      
+      console.log(`✅ My Team Spaces: ${myTeamSpaces.length}`);
+      console.log(`✅ Invited Spaces: ${invitedSpaces.length}`);
+      
+      setSpaces(myTeamSpaces);
+      setMemberSpaces(invitedSpaces);
     }
   } catch (error) {
-    console.error('Failed to fetch spaces:', error)
+    console.error('❌ Failed to fetch spaces:', error);
   } finally {
-    setLoading(false)
+    setLoading(false);
   }
-}
-
+};
 
 //   NEW: Delete space handler
 const handleDeleteSpace = async (spaceId: string, spaceName: string, e: React.MouseEvent) => {
@@ -300,9 +309,6 @@ const handleDeleteSpace = async (spaceId: string, spaceName: string, e: React.Mo
   // Create new space
    
 const handleCreateSpace = async () => {
-  // ✅ FIX: Get organizationId from OrganizationSwitcher
-  const currentOrgId = (window as any).getCurrentOrgId?.();
-  
   if (!newSpace.name.trim()) {
     alert('Please enter a space name')
     return
@@ -320,7 +326,7 @@ const handleCreateSpace = async () => {
       body: JSON.stringify({
         ...newSpace,
         status: 'active',
-        organizationId: currentOrgId, // ✅ This is already correct
+        // ✅ REMOVE organizationId - backend will auto-detect from profile
       }),
     })
 
@@ -331,10 +337,8 @@ const handleCreateSpace = async () => {
       setShowCreateDialog(false)
       setShowTemplatesDialog(false)
       
-      // ✅ FIX: Fetch spaces again to refresh the list
       await fetchSpaces() 
       
-      // Then navigate to the new space
       router.push(`/spaces/${data.space._id}`)
     } else {
       alert(data.error || 'Failed to create space')
@@ -346,7 +350,6 @@ const handleCreateSpace = async () => {
     setCreating(false)
   }
 }
-  
 
   // Filter spaces
   const filteredSpaces = spaces.filter(space => {

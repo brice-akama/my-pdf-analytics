@@ -48,6 +48,25 @@ export async function GET(
       });
     }
 
+    //  Check if user is organization owner
+const userProfile = await db.collection('profiles').findOne({ user_id: user.id });
+const userOrgId = userProfile?.organization_id || user.id;
+const userOrgRole = userProfile?.role || 'owner';
+
+if (space.organizationId === userOrgId && userOrgRole === 'owner') {
+  console.log(`  ${user.email} is ORG OWNER - full access to space ${spaceId}`);
+  return NextResponse.json({
+    success: true,
+    role: 'owner',
+    email: user.email,
+    userId: user.id,
+    spaceName: space.name,
+    canManageMembers: true,
+    canUpload: true,
+    canDelete: true
+  });
+}
+
     // ✅ Find user in members array by email (primary) or userId (fallback)
     const member = space.members?.find(
       (m: any) => m.email?.toLowerCase() === user.email?.toLowerCase() || m.userId === user.id

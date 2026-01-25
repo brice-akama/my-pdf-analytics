@@ -33,33 +33,51 @@ export async function GET(
     const spaces = db.collection('spaces');
 
     // ✅ ALLOW OWNER OR MEMBER
-    const space = await spaces.findOne({
-      _id: new ObjectId(id),
-      $or: [
-        { userId: authUser.id },                 // owner
-        { 'members.email': authUser.email }      // member
-      ]
-    });
+    // ✅ First check if space exists
+const space = await spaces.findOne({
+  _id: new ObjectId(id)
+});
 
-    if (!space) {
-      return NextResponse.json(
-        { success: false, message: 'Space not found' },
-        { status: 404 }
-      );
-    }
+if (!space) {
+  return NextResponse.json(
+    { success: false, message: 'Space not found' },
+    { status: 404 }
+  );
+}
 
-    // ✅ Determine role
-    let role = 'owner';
-    let isOwner = true;
+// ✅ Get user's profile to check organization
+const userProfile = await profiles.findOne({ user_id: authUser.id });
+const userOrgId = userProfile?.organization_id || authUser.id;
 
-    if (space.userId !== authUser.id) {
-      const member = space.members?.find(
-        (m: any) => m.email === authUser.email
-      );
-      role = member?.role || 'viewer';
-      isOwner = false;
-    }
+// ✅ Check access: owner, org owner, or member
+const isSpaceOwner = space.userId === authUser.id;
+const isOrgOwner = space.organizationId && space.organizationId === userOrgId;
+const member = space.members?.find((m: any) => m.email === authUser.email);
 
+if (!isSpaceOwner && !isOrgOwner && !member) {
+  return NextResponse.json(
+    { success: false, message: 'Space not found' },
+    { status: 404 }
+  );
+}
+
+// ✅ Determine role with org hierarchy
+let role = 'owner';
+let isOwner = true;
+
+// Get user's role in organization
+const userOrgRole = userProfile?.role || 'owner';
+
+if (isOrgOwner && !isSpaceOwner) {
+  // Organization owner/admin viewing member's space
+  role = userOrgRole === 'owner' ? 'owner' : 'admin';
+  isOwner = userOrgRole === 'owner'; // Org owner = full owner rights
+  console.log(`🏢 Org ${userOrgRole} accessing team space - granted ${role} access`);
+} else if (!isSpaceOwner && member) {
+  // Regular member
+  role = member.role || 'viewer';
+  isOwner = false;
+}
     // ✅ Fetch owner email
     const dbUser = await users.findOne(
       { _id: new ObjectId(space.userId) },
