@@ -273,7 +273,22 @@ export async function POST(request: NextRequest) {
       active: true,
       status: 'active',
 
-      // ✅ Add creator + all team members
+
+      //     ndaSettings with this:
+  ndaSettings: {
+    enabled: false,                    // Owner toggles this on/off
+    ndaDocumentId: null,               // Reference to uploaded NDA PDF
+    ndaDocumentName: null,             // "Company_NDA.pdf"
+    ndaDocumentUrl: null,              // Cloudinary URL to NDA PDF
+    signingRequired: true,             // Always true for clients
+    uploadedAt: null,
+    uploadedBy: null
+  },
+
+  //   Track who signed (clients only)
+  ndaSignatures: [],
+
+      //  Add creator + all team members
       members: [
   {
     email: user.email,

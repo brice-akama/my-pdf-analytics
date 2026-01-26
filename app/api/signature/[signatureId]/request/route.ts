@@ -162,6 +162,9 @@ if (signatureRequest.scheduledSendDate) {
         selfieVerificationRequired: signatureRequest.selfieVerificationRequired || false,
         selfieVerifiedAt: signatureRequest.selfieVerifiedAt || null,
         selfieVerification: signatureRequest.selfieVerification || null,
+        intentVideoRequired: signatureRequest.intentVideoRequired || false,
+  intentVideoUrl: signatureRequest.intentVideoUrl || null,
+  intentVideoRecordedAt: signatureRequest.intentVideoRecordedAt || null,
         document: {
           _id: document._id.toString(),
           filename: document.originalFilename || document.filename,

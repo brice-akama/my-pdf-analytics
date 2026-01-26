@@ -7,6 +7,8 @@ import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Drawer } from "@/components/ui/drawer"
+import { motion } from "framer-motion"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -216,6 +218,21 @@ const [shareLink, setShareLink] = useState('')
 const [sharingStatus, setSharingStatus] = useState<'idle' | 'generating' | 'success' | 'error'>('idle')
 const [shareError, setShareError] = useState('')
 const [showMembersDialog, setShowMembersDialog] = useState(false)
+const [showBulkInviteDialog, setShowBulkInviteDialog] = useState(false)
+const [bulkEmails, setBulkEmails] = useState('')
+const [bulkRole, setBulkRole] = useState<'viewer' | 'editor' | 'admin'>('viewer')
+const [bulkInviting, setBulkInviting] = useState(false)
+const [showNDADialog, setShowNDADialog] = useState(false)
+const [ndaSettings, setNdaSettings] = useState<any>(null)
+const [ndaAccepted, setNdaAccepted] = useState(false)
+const [signingNDA, setSigningNDA] = useState(false)
+const ndaFileInputRef = useRef<HTMLInputElement>(null)
+const [showSignaturesDrawer, setShowSignaturesDrawer] = useState(false)
+const [showSettingsDrawer, setShowSettingsDrawer] = useState(false)
+const [bulkInviteResults, setBulkInviteResults] = useState<{
+  success: string[]
+  failed: { email: string; reason: string }[]
+} | null>(null)
 const [contacts, setContacts] = useState<Array<{
   id: string
   email: string
@@ -337,6 +354,43 @@ useEffect(() => {
 }, [params.id]);
 
 
+useEffect(() => {
+  const checkNDABeforeAccess = async () => {
+    if (!user || !params.id) return;
+
+    try {
+      const res = await fetch(`/api/spaces/${params.id}/nda`, {
+        credentials: 'include'
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        
+        // ✅ BLOCK ACCESS if NDA needed
+        if (data.needsNDA) {
+          setNdaSettings({
+            documentUrl: data.ndaDocumentUrl,
+            documentName: data.ndaDocumentName
+          });
+          setShowNDADialog(true);
+          setLoading(false); // Stop loading, show NDA modal
+          return; // DON'T fetch space data yet
+        }
+      }
+      
+      // ✅ If no NDA needed or already signed, load space
+      fetchSpace();
+      
+    } catch (error) {
+      console.error('NDA check error:', error);
+      fetchSpace(); // Fail open
+    }
+  };
+
+  checkNDABeforeAccess();
+}, [params.id, user]);
+
+
 
 // Handle URL actions (share, settings)
 useEffect(() => {
@@ -381,6 +435,62 @@ const handleSelectDoc = (docId: string) => {
   );
 };
 
+
+const handleBulkInvite = async () => {
+  // Parse emails
+  const emailList = bulkEmails
+    .split(/[,\n]/)
+    .map(e => e.trim())
+    .filter(e => e.length > 0)
+
+  if (emailList.length < 2) {
+    alert('Please enter at least 2 email addresses')
+    return
+  }
+
+  setBulkInviting(true)
+  setBulkInviteResults(null)
+
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/contacts/bulk`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        emails: emailList,
+        role: bulkRole
+      })
+    })
+
+    const data = await res.json()
+
+    if (data.success) {
+      setBulkInviteResults({
+        success: data.results.success,
+        failed: data.results.failed
+      })
+      
+      // Refresh contacts list
+      await fetchContacts()
+      
+      // Clear form if all succeeded
+      if (data.results.failed.length === 0) {
+        setBulkEmails('')
+        setTimeout(() => {
+          setShowBulkInviteDialog(false)
+          setBulkInviteResults(null)
+        }, 3000)
+      }
+    } else {
+      alert(data.error || 'Bulk invite failed')
+    }
+  } catch (error) {
+    console.error('Bulk invite error:', error)
+    alert('Failed to send invitations')
+  } finally {
+    setBulkInviting(false)
+  }
+}
 
 
 // ✅ Fetch folder permissions
@@ -541,6 +651,40 @@ const fetchContacts = async () => {
   }
 };
 
+const handleSignNDA = async () => {
+  if (!ndaAccepted) {
+    alert('Please accept the NDA to continue');
+    return;
+  }
+
+  setSigningNDA(true);
+
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/nda`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      setShowNDADialog(false);
+      setNdaAccepted(false);
+      
+      // ✅ NOW load the space
+      await fetchSpace();
+      
+    } else {
+      alert(data.error || 'Failed to sign NDA');
+    }
+  } catch (error) {
+    console.error('Sign NDA error:', error);
+    alert('Failed to sign NDA');
+  } finally {
+    setSigningNDA(false);
+  }
+};
+
 
 const handleCreateFolder = async () => {
   if (!newFolderName.trim()) return;
@@ -597,7 +741,7 @@ const handleAddDomain = () => {
 };
 
 // File upload handler
-const handleFileUpload = async (file: File) => {
+const handleFileUpload = async (file: File, isNDADocument = false) => {
   if (!file) return
 
   setUploadStatus('uploading')
@@ -605,8 +749,14 @@ const handleFileUpload = async (file: File) => {
 
   const formData = new FormData()
   formData.append('file', file)
+  
   if (selectedFolder) {
     formData.append('folderId', selectedFolder)
+  }
+
+  // ✅ NEW: Mark as NDA if specified
+  if (isNDADocument) {
+    formData.append('isNDA', 'true')
   }
 
   try {
@@ -621,7 +771,13 @@ const handleFileUpload = async (file: File) => {
     if (res.ok && data.success) {
       setUploadStatus('success')
       setUploadMessage(`${file.name} uploaded successfully!`)
-      fetchSpace() // Refresh
+      
+      // ✅ If NDA upload, update space NDA settings
+      if (isNDADocument && data.document) {
+        await updateSpaceNDA(data.document)
+      }
+      
+      fetchSpace()
       
       setTimeout(() => {
         setUploadStatus('idle')
@@ -637,6 +793,31 @@ const handleFileUpload = async (file: File) => {
     setUploadStatus('error')
     setUploadMessage('Upload failed. Please try again.')
     setTimeout(() => setUploadStatus('idle'), 3000)
+  }
+}
+
+const updateSpaceNDA = async (document: any) => {
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/nda`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        enabled: true,
+        ndaDocumentId: document.id,
+        ndaDocumentName: document.name,
+        ndaDocumentUrl: document.cloudinaryPdfUrl
+      })
+    })
+
+    const data = await res.json()
+    
+    if (data.success) {
+      alert('✅ NDA document set successfully!')
+      await fetchSpace() // Refresh to show new NDA
+    }
+  } catch (error) {
+    console.error('Failed to set NDA:', error)
   }
 }
 
@@ -1347,11 +1528,17 @@ const fetchFolders = async () => {
     </DropdownMenuItem>
   )}
   {canManageContacts && (
+  <>
     <DropdownMenuItem onClick={() => setShowAddContactDialog(true)}>
       <Users className="mr-2 h-4 w-4" />
-      Add Contact
+      Add Single Contact
     </DropdownMenuItem>
-  )}
+    <DropdownMenuItem onClick={() => setShowBulkInviteDialog(true)}>
+      <Users className="mr-2 h-4 w-4" />
+      Bulk Invite Contacts
+    </DropdownMenuItem>
+  </>
+)}
   {canShareSpace && (
     <DropdownMenuItem onClick={handleShareWithClient}>
       <Share2 className="mr-2 h-4 w-4" />
@@ -1360,9 +1547,9 @@ const fetchFolders = async () => {
   )}
   {canManageSpace && (
     <>
-      <DropdownMenuItem>
-        <Settings className="mr-2 h-4 w-4" />
-        Space settings
+      <DropdownMenuItem onClick={() => setShowSettingsDrawer(true)}>
+      <Settings className="mr-2 h-4 w-4" />
+      <span className="">Space Settings</span>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem className="text-red-600">
@@ -3372,218 +3559,242 @@ const fetchFolders = async () => {
     </div>
   </DialogContent>
 </Dialog>
-{/* Settings Dialog */}
-<Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-  <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white">
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <Settings className="h-5 w-5 text-purple-600" />
-        Space Settings
-      </DialogTitle>
-      <DialogDescription>
-        Manage settings and preferences for "{space?.name}"
-      </DialogDescription>
-    </DialogHeader>
+{/* Settings Drawer - Advanced UI */}
+<Drawer open={showSettingsDrawer} onOpenChange={setShowSettingsDrawer}>
+  <div className="h-[90vh] flex flex-col bg-gradient-to-br from-slate-50 to-slate-100">
+    {/* Header */}
+    <div className="border-b bg-white px-6 py-4 flex items-center justify-between">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+          <Settings className="h-6 w-6 text-purple-600" />
+          Space Settings
+        </h2>
+        <p className="text-sm text-slate-600 mt-1">
+          Manage settings for "{space?.name}"
+        </p>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setShowSettingsDrawer(false)}
+      >
+        <X className="h-5 w-5" />
+      </Button>
+    </div>
 
-    <Tabs defaultValue="general" className="w-full">
-      <TabsList className="grid w-full grid-cols-4">
-        <TabsTrigger value="general">General</TabsTrigger>
-        <TabsTrigger value="security">Security</TabsTrigger>
-        <TabsTrigger value="permissions">Permissions</TabsTrigger>
-        <TabsTrigger value="danger">Danger Zone</TabsTrigger>
-      </TabsList>
+    {/* Content */}
+    <div className="flex-1 overflow-y-auto p-6">
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 bg-white border">
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="nda">NDA</TabsTrigger>
+          <TabsTrigger value="danger">Danger Zone</TabsTrigger>
+        </TabsList>
 
-      {/* General Settings */}
-      <TabsContent value="general" className="space-y-4 mt-4">
-        <div className="space-y-4">
-          <div>
-            <Label className="text-sm font-medium text-slate-700">Space Name</Label>
-            <Input
-              defaultValue={space?.name}
-              placeholder="Enter space name"
-              className="mt-2"
-            />
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium text-slate-700">Description</Label>
-            <Textarea
-              defaultValue={space?.description}
-              placeholder="What is this space for?"
-              rows={3}
-              className="mt-2"
-            />
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium text-slate-700">Space Color</Label>
-            <div className="flex gap-2 mt-2">
-              {['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'].map((color) => (
-                <button
-                  key={color}
-                  className="h-10 w-10 rounded-lg border-2 border-slate-200 hover:border-slate-400 transition-colors"
-                  style={{ backgroundColor: color }}
-                  onClick={() => {
-                    // TODO: Update space color
-                    console.log('Update color to:', color)
-                  }}
-                />
-              ))}
+        {/* General Settings */}
+        <TabsContent value="general" className="space-y-4 mt-6">
+          <div className="bg-white rounded-xl border shadow-sm p-6 space-y-6">
+            <div>
+              <Label className="text-sm font-medium text-slate-700">Space Name</Label>
+              <Input
+                defaultValue={space?.name}
+                placeholder="Enter space name"
+                className="mt-2"
+              />
             </div>
-          </div>
 
-          <div className="pt-4">
+            <div>
+              <Label className="text-sm font-medium text-slate-700">Description</Label>
+              <Textarea
+                defaultValue={space?.description}
+                placeholder="What is this space for?"
+                rows={3}
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium text-slate-700">Space Color</Label>
+              <div className="flex gap-2 mt-2">
+                {['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'].map((color) => (
+                  <button
+                    key={color}
+                    className="h-10 w-10 rounded-lg border-2 border-slate-200 hover:border-slate-400 transition-colors"
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+
             <Button className="bg-purple-600 hover:bg-purple-700">
               Save Changes
             </Button>
           </div>
-        </div>
-      </TabsContent>
+        </TabsContent>
 
-      {/* Security Settings */}
-      <TabsContent value="security" className="space-y-4 mt-4">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <p className="font-medium text-slate-900">Require NDA</p>
-              <p className="text-sm text-slate-500">Visitors must sign NDA before accessing</p>
+        {/* Security Settings */}
+        <TabsContent value="security" className="space-y-4 mt-6">
+          <div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <p className="font-medium text-slate-900">Dynamic Watermarks</p>
+                <p className="text-sm text-slate-500">Add viewer email to all documents</p>
+              </div>
+              <Switch defaultChecked={space?.settings?.enableWatermark} />
             </div>
-            <Switch defaultChecked={space?.settings?.requireNDA} />
-          </div>
 
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <p className="font-medium text-slate-900">Dynamic Watermarks</p>
-              <p className="text-sm text-slate-500">Add viewer email to all documents</p>
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <p className="font-medium text-slate-900">View Notifications</p>
+                <p className="text-sm text-slate-500">Get notified when someone views documents</p>
+              </div>
+              <Switch defaultChecked={space?.settings?.notifyOnView} />
             </div>
-            <Switch defaultChecked={space?.settings?.enableWatermark} />
-          </div>
 
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <p className="font-medium text-slate-900">View Notifications</p>
-              <p className="text-sm text-slate-500">Get notified when someone views documents</p>
-            </div>
-            <Switch defaultChecked={space?.settings?.notifyOnView} />
-          </div>
-
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <p className="font-medium text-slate-900">Auto-Expire Access</p>
-              <p className="text-sm text-slate-500">Automatically revoke access after a date</p>
-            </div>
-            <Switch defaultChecked={space?.settings?.autoExpiry} />
-          </div>
-
-          {space?.settings?.autoExpiry && (
-            <div className="ml-4 space-y-2">
-              <Label>Expiry Date</Label>
-              <Input
-                type="date"
-                defaultValue={space?.settings?.expiryDate}
-              />
-            </div>
-          )}
-
-          <div className="pt-4">
             <Button className="bg-purple-600 hover:bg-purple-700">
               Update Security Settings
             </Button>
           </div>
-        </div>
-      </TabsContent>
+        </TabsContent>
 
-      {/* Permissions Settings */}
-      <TabsContent value="permissions" className="space-y-4 mt-4">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <p className="font-medium text-slate-900">Allow Downloads</p>
-              <p className="text-sm text-slate-500">Members can download documents</p>
-            </div>
-            <Switch defaultChecked={space?.settings?.allowDownloads} />
-          </div>
-
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-slate-700">Privacy Level</Label>
-            <div className="space-y-2">
-              <button className="w-full flex items-start gap-3 p-4 border border-purple-500 bg-purple-50 rounded-lg">
-                <Lock className="h-5 w-5 text-purple-700 mt-0.5" />
-                <div className="text-left">
-                  <div className="font-medium text-slate-900">Private</div>
-                  <div className="text-sm text-slate-600">Only invited people can access</div>
-                </div>
-              </button>
-
-              <button className="w-full flex items-start gap-3 p-4 border border-slate-200 hover:border-purple-300 rounded-lg">
-                <Globe className="h-5 w-5 text-slate-700 mt-0.5" />
-                <div className="text-left">
-                  <div className="font-medium text-slate-900">Link Access</div>
-                  <div className="text-sm text-slate-600">Anyone with the link can access</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="pt-4">
-            <Button className="bg-purple-600 hover:bg-purple-700">
-              Update Permissions
-            </Button>
-          </div>
-        </div>
-      </TabsContent>
-
-      {/* Danger Zone */}
-      <TabsContent value="danger" className="space-y-4 mt-4">
-        <div className="space-y-4">
-          <div className="border border-red-200 bg-red-50 rounded-lg p-6">
-            <div className="flex items-start gap-3 mb-4">
-              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+        {/* NDA Settings */}
+        <TabsContent value="nda" className="space-y-4 mt-6">
+          <div className="bg-white rounded-xl border shadow-sm p-6 space-y-6">
+            {/* Enable Toggle */}
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50">
               <div>
-                <h3 className="font-semibold text-red-900 mb-1">Archive Space</h3>
-                <p className="text-sm text-red-700">
-                  Archive this space to hide it from active spaces. You can restore it later.
-                </p>
+                <p className="font-medium text-slate-900">Require NDA Signature</p>
+                <p className="text-sm text-slate-500">Clients must sign before viewing documents</p>
               </div>
+              <Switch 
+                checked={space?.ndaSettings?.enabled} 
+                disabled={!space?.ndaSettings?.ndaDocumentUrl}
+              />
             </div>
-            <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
-              <Archive className="h-4 w-4 mr-2" />
-              Archive Space
-            </Button>
-          </div>
 
-          <div className="border border-red-200 bg-red-50 rounded-lg p-6">
-            <div className="flex items-start gap-3 mb-4">
-              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-red-900 mb-1">Delete Space</h3>
-                <p className="text-sm text-red-700 mb-2">
-                  Permanently delete this space and all its documents. This action cannot be undone.
-                </p>
-                <p className="text-xs text-red-600 font-medium">
-                  ⚠️ {documents.length} documents and {folders.length} folders will be deleted
-                </p>
+            {/* Current NDA Document */}
+            {space?.ndaSettings?.ndaDocumentUrl ? (
+              <div className="border rounded-lg p-4 bg-white">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
+                      <FileText className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">
+                        {space.ndaSettings.ndaDocumentName}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Uploaded {new Date(space.ndaSettings.uploadedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(space.ndaSettings.ndaDocumentUrl, '_blank')}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Preview
+                  </Button>
+                </div>
+
+                {/* Signatures Count */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-green-900 mb-1">
+                        NDA Signatures
+                      </p>
+                      <p className="text-sm text-green-700">
+                        <strong>{space.ndaSignatures?.length || 0}</strong> client{(space.ndaSignatures?.length || 0) !== 1 ? 's have' : ' has'} signed
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setShowSettingsDrawer(false)
+                        setShowSignaturesDrawer(true)
+                      }}
+                      className="gap-2"
+                    >
+                      <FileSignature className="h-4 w-4" />
+                      View Signatures
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-            <Button
-              variant="destructive"
-              className="bg-red-600 hover:bg-red-700"
-              onClick={() => {
-                if (confirm(`Are you sure you want to delete "${space?.name}"? This cannot be undone!`)) {
-                  // TODO: Implement delete space
-                  console.log('Delete space:', space?._id)
-                }
-              }}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Space Permanently
-            </Button>
+            ) : (
+              <div className="border-2 border-dashed rounded-lg p-8 text-center bg-slate-50">
+                <Upload className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+                <p className="text-slate-900 font-medium mb-1">No NDA document uploaded</p>
+                <p className="text-sm text-slate-500 mb-4">
+                  Upload a PDF NDA that clients must accept
+                </p>
+                <Button
+                  onClick={() => {
+                    setShowSettingsDrawer(false)
+                    setShowUploadDialog(true)
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload NDA Document
+                </Button>
+              </div>
+            )}
           </div>
-        </div>
-      </TabsContent>
-    </Tabs>
-  </DialogContent>
-</Dialog>
+        </TabsContent>
+
+        {/* Danger Zone */}
+        <TabsContent value="danger" className="space-y-4 mt-6">
+          <div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">
+            <div className="border border-red-200 bg-red-50 rounded-lg p-6">
+              <div className="flex items-start gap-3 mb-4">
+                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-red-900 mb-1">Archive Space</h3>
+                  <p className="text-sm text-red-700">
+                    Archive this space to hide it from active spaces
+                  </p>
+                </div>
+              </div>
+              <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+                <Archive className="h-4 w-4 mr-2" />
+                Archive Space
+              </Button>
+            </div>
+
+            <div className="border border-red-200 bg-red-50 rounded-lg p-6">
+              <div className="flex items-start gap-3 mb-4">
+                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-red-900 mb-1">Delete Space</h3>
+                  <p className="text-sm text-red-700 mb-2">
+                    Permanently delete this space and all its documents
+                  </p>
+                  <p className="text-xs text-red-600 font-medium">
+                    ⚠️ {documents.length} documents will be deleted
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Space Permanently
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  </div>
+</Drawer>
+
 {/* Send for Signature Dialog */}
 <Dialog open={showSignatureDialog} onOpenChange={setShowSignatureDialog}>
   <DialogContent className="max-w-md bg-white scrollball-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 max-h-[80vh] overflow-y-auto">
@@ -4041,6 +4252,624 @@ const fetchFolders = async () => {
     </div>
   </div>
 )}
+
+{/* Bulk Invite Dialog */}
+<Dialog open={showBulkInviteDialog} onOpenChange={setShowBulkInviteDialog}>
+  <DialogContent className="max-w-2xl bg-white max-h-[85vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <Users className="h-5 w-5 text-purple-600" />
+        Bulk Invite Contacts
+      </DialogTitle>
+      <DialogDescription>
+        Invite multiple people at once (comma or newline separated)
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="space-y-4 py-4">
+      {/* Email Input */}
+      <div>
+        <Label className="text-sm font-medium text-slate-700 mb-2 block">
+          Email Addresses (2 or more)
+        </Label>
+        <Textarea
+          placeholder="john@company.com, jane@company.com&#10;mike@company.com"
+          value={bulkEmails}
+          onChange={(e) => setBulkEmails(e.target.value)}
+          rows={8}
+          className="font-mono text-sm"
+        />
+        <p className="text-xs text-slate-500 mt-2">
+          Separate emails with commas or new lines. Minimum 2 emails.
+        </p>
+      </div>
+
+      {/* Role Selection */}
+      <div>
+        <Label className="text-sm font-medium text-slate-700 mb-2 block">
+          Role for All Invitees
+        </Label>
+        <select
+          value={bulkRole}
+          onChange={(e) => setBulkRole(e.target.value as 'viewer' | 'editor' | 'admin')}
+          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          <option value="viewer">Viewer - Can view documents</option>
+          <option value="editor">Editor - Can upload and edit</option>
+          <option value="admin">Admin - Full access</option>
+        </select>
+      </div>
+
+      {/* Results Display */}
+      {bulkInviteResults && (
+        <div className="space-y-3">
+          {bulkInviteResults.success.length > 0 && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="font-semibold text-green-900 mb-2">
+                ✅ Successfully invited ({bulkInviteResults.success.length})
+              </p>
+              <div className="space-y-1">
+                {bulkInviteResults.success.map((email) => (
+                  <div key={email} className="text-sm text-green-700">
+                    • {email}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {bulkInviteResults.failed.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="font-semibold text-red-900 mb-2">
+                ❌ Failed ({bulkInviteResults.failed.length})
+              </p>
+              <div className="space-y-1">
+                {bulkInviteResults.failed.map((item) => (
+                  <div key={item.email} className="text-sm text-red-700">
+                    • {item.email}: {item.reason}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Info Box */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <p className="text-sm text-blue-800">
+          <strong>📧 What happens next:</strong>
+          <br />• Each person receives an invitation email
+          <br />• They can accept and join the space
+          <br />• All invites have the same role initially
+        </p>
+      </div>
+    </div>
+
+    <div className="flex gap-2 justify-end">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowBulkInviteDialog(false)
+          setBulkEmails('')
+          setBulkInviteResults(null)
+        }}
+        disabled={bulkInviting}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleBulkInvite}
+        disabled={bulkInviting || bulkEmails.trim().length === 0}
+        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+      >
+        {bulkInviting ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Sending...
+          </>
+        ) : (
+          <>
+            <Mail className="h-4 w-4 mr-2" />
+            Send Invitations
+          </>
+        )}
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* NDA Dialog - BLOCKS ACCESS */}
+<Dialog open={showNDADialog} onOpenChange={() => {}}>
+  <DialogContent 
+    className="max-w-4xl bg-white max-h-[95vh] overflow-hidden" 
+    onInteractOutside={(e) => e.preventDefault()}
+    onEscapeKeyDown={(e) => e.preventDefault()}
+  >
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2 text-xl">
+        <FileSignature className="h-6 w-6 text-purple-600" />
+        Sign NDA to Continue
+      </DialogTitle>
+      <DialogDescription>
+        You must review and sign the NDA before accessing this space
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      {/* PDF Viewer */}
+      <div className="border rounded-lg bg-slate-50 overflow-hidden" style={{ height: '500px' }}>
+        {ndaSettings?.documentUrl ? (
+          <iframe
+            src={ndaSettings.documentUrl}
+            className="w-full h-full"
+            title="NDA Document"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          </div>
+        )}
+      </div>
+
+      {/* Document Info */}
+      <div className="flex items-center gap-2 text-sm text-slate-600">
+        <FileText className="h-4 w-4" />
+        <span>{ndaSettings?.documentName || 'NDA.pdf'}</span>
+        <a 
+          href={ndaSettings?.documentUrl} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="ml-auto text-purple-600 hover:text-purple-700 flex items-center gap-1"
+        >
+          <Download className="h-3 w-3" />
+          Download PDF
+        </a>
+      </div>
+
+      {/* Acceptance Checkbox */}
+      <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <input
+          type="checkbox"
+          id="nda-accept"
+          checked={ndaAccepted}
+          onChange={(e) => setNdaAccepted(e.target.checked)}
+          className="mt-1 h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+        />
+        <label htmlFor="nda-accept" className="text-sm text-slate-700 cursor-pointer">
+          <strong className="text-slate-900 text-base">I have read and agree to the terms of this Non-Disclosure Agreement.</strong>
+          <br />
+          <span className="text-xs text-slate-600 mt-2 block">
+            By checking this box and signing, you are legally bound to confidentiality obligations. 
+            Your signature will be timestamped, IP logged, and recorded.
+          </span>
+        </label>
+      </div>
+
+      {/* Legal Warning */}
+      <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-semibold text-yellow-900 text-sm">Legal Agreement</p>
+            <p className="text-sm text-yellow-800 mt-1">
+              This is a legally binding contract. You will not be able to access any documents until you sign. 
+              Violations may result in legal action.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="flex gap-2 justify-end pt-4 border-t">
+      <Button
+        variant="outline"
+        onClick={() => router.push('/spaces')}
+        disabled={signingNDA}
+      >
+        Cancel & Exit
+      </Button>
+      <Button
+        onClick={handleSignNDA}
+        disabled={!ndaAccepted || signingNDA}
+        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+      >
+        {signingNDA ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          <>
+            <FileSignature className="h-4 w-4 mr-2" />
+            Sign & Access Space
+          </>
+        )}
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+
+{/*  NDA SIGNATURES DRAWER - Modern Design */}
+<Drawer
+  open={showSignaturesDrawer}
+  onOpenChange={setShowSignaturesDrawer}
+>
+  <div className="p-6 space-y-6">
+    <div className="mb-6">
+      <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+        <FileSignature className="h-6 w-6 text-purple-600" />
+        NDA Signature Records
+      </h2>
+      <p className="text-sm text-slate-600 mt-1">Track who has signed your NDA and when</p>
+    </div>
+    {!space?.ndaSettings?.enabled ? (
+      /* No NDA Enabled State */
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center"
+      >
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-200 mb-4">
+          <FileSignature className="h-10 w-10 text-slate-400" />
+        </div>
+        <h3 className="text-xl font-semibold text-slate-900 mb-2">
+          NDA Not Enabled
+        </h3>
+        <p className="text-slate-600 mb-6 max-w-md mx-auto">
+          Enable NDA requirements in space settings to start tracking signatures
+        </p>
+        <Button
+          onClick={() => {
+            setShowSignaturesDrawer(false)
+            setShowSettingsDialog(true)
+          }}
+          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+        >
+          <Settings className="h-4 w-4 mr-2" />
+          Go to Settings
+        </Button>
+      </motion.div>
+    ) : !space?.ndaSignatures || space.ndaSignatures.length === 0 ? (
+      /* No Signatures Yet State */
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-2xl p-12 text-center"
+      >
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-100 mb-4">
+          <AlertCircle className="h-10 w-10 text-yellow-600" />
+        </div>
+        <h3 className="text-xl font-semibold text-slate-900 mb-2">
+          No Signatures Yet
+        </h3>
+        <p className="text-slate-600 mb-2 max-w-md mx-auto">
+          Clients will appear here after signing the NDA
+        </p>
+        <p className="text-sm text-slate-500">
+          Share your space or invite contacts to get started
+        </p>
+      </motion.div>
+    ) : (
+      /* Signatures List */
+      <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-4 gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-5"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-green-700">
+                  {space.ndaSignatures.length}
+                </p>
+                <p className="text-xs text-green-600 font-medium">
+                  Total Signatures
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-blue-700">
+                  {space.ndaSignatures.filter((s: any) => {
+                    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                    return new Date(s.signedAt) > dayAgo;
+                  }).length}
+                </p>
+                <p className="text-xs text-blue-600 font-medium">
+                  Last 24 Hours
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200 rounded-xl p-5"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                <Calendar className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-purple-700">
+                  {space.ndaSignatures.filter((s: any) => {
+                    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                    return new Date(s.signedAt) > weekAgo;
+                  }).length}
+                </p>
+                <p className="text-xs text-purple-600 font-medium">
+                  Last 7 Days
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-5"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                <Activity className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-orange-700">
+                  {(() => {
+                    const sorted = [...space.ndaSignatures].sort(
+                      (a: any, b: any) => 
+                        new Date(b.signedAt).getTime() - new Date(a.signedAt).getTime()
+                    );
+                    if (sorted.length === 0) return '-';
+                    const latest = new Date(sorted[0].signedAt);
+                    const hours = Math.floor((Date.now() - latest.getTime()) / (1000 * 60 * 60));
+                    return hours < 1 ? 'Now' : `${hours}h`;
+                  })()}
+                </p>
+                <p className="text-xs text-orange-600 font-medium">
+                  Latest Activity
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Actions Bar */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search signatures..."
+                className="pl-10 w-64"
+              />
+            </div>
+            <Button variant="outline" size="sm">
+              <Filter className="h-4 w-4 mr-2" />
+              Filter
+            </Button>
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={() => {
+              const csv = [
+                ['Email', 'Signed At', 'IP Address', 'User Agent'].join(','),
+                ...space.ndaSignatures.map((sig: any) => 
+                  [
+                    sig.email,
+                    new Date(sig.signedAt).toISOString(),
+                    sig.ipAddress,
+                    `"${sig.userAgent || 'N/A'}"`
+                  ].join(',')
+                )
+              ].join('\n');
+              
+              const blob = new Blob([csv], { type: 'text/csv' });
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `nda-signatures-${space.name}-${new Date().toISOString().split('T')[0]}.csv`;
+              a.click();
+            }}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+        </div>
+
+        {/* Signatures Table */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="bg-white rounded-xl border shadow-sm overflow-hidden"
+        >
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-slate-50 to-slate-100 border-b">
+              <tr>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Signer
+                </th>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Signed At
+                </th>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  IP Address
+                </th>
+                <th className="text-left px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Device
+                </th>
+                <th className="text-right px-6 py-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {space.ndaSignatures
+                .sort((a: any, b: any) => 
+                  new Date(b.signedAt).getTime() - new Date(a.signedAt).getTime()
+                )
+                .map((signature: any, index: number) => (
+                  <motion.tr
+                    key={index}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.6 + index * 0.05 }}
+                    className="hover:bg-slate-50 transition-colors"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-md">
+                          <span className="text-sm font-bold text-white">
+                            {signature.email.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-slate-900">
+                            {signature.email}
+                          </p>
+                          {signature.userId && (
+                            <p className="text-xs text-slate-500 font-mono">
+                              ID: {signature.userId.slice(0, 12)}...
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          {new Date(signature.signedAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {new Date(signature.signedAt).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                      <div className="mt-1">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium">
+                          <Clock className="h-3 w-3" />
+                          {(() => {
+                            const diff = Date.now() - new Date(signature.signedAt).getTime();
+                            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                            const hours = Math.floor(diff / (1000 * 60 * 60));
+                            const minutes = Math.floor(diff / (1000 * 60));
+                            
+                            if (days > 0) return `${days}d ago`;
+                            if (hours > 0) return `${hours}h ago`;
+                            return `${minutes}m ago`;
+                          })()}
+                        </span>
+                      </div>
+                    </td>
+                    
+                    <td className="px-6 py-4">
+                      <code className="text-xs bg-slate-100 px-2.5 py-1.5 rounded-md font-mono text-slate-700">
+                        {signature.ipAddress}
+                      </code>
+                    </td>
+                    
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-xs text-slate-600">
+                        {signature.userAgent?.includes('Mobile') ? (
+                          <span className="flex items-center gap-1">
+                            📱 Mobile
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            💻 Desktop
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    
+                    <td className="px-6 py-4 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              const details = `Signer: ${signature.email}\nSigned At: ${new Date(signature.signedAt).toLocaleString()}\nIP Address: ${signature.ipAddress}\nUser Agent: ${signature.userAgent || 'N/A'}`;
+                              navigator.clipboard.writeText(details);
+                              alert('✅ Signature details copied!');
+                            }}
+                          >
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy Details
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem
+                            onClick={() => {
+                              console.log('NDA Signature:', signature);
+                              alert('Details logged to console');
+                            }}
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Full Log
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuSeparator />
+                          
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => {
+                              if (confirm(`Revoke NDA signature from ${signature.email}?`)) {
+                                // TODO: Implement revoke
+                                alert('Revoke feature coming soon');
+                              }
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Revoke Access
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </motion.tr>
+                ))}
+            </tbody>
+          </table>
+        </motion.div>
+      </div>
+    )}
+  </div>
+</Drawer>
+
     </div>
   )
 }

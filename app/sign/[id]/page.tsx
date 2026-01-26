@@ -115,6 +115,11 @@ const [delegationInfo, setDelegationInfo] = useState<any>(null);
 const [isDelegatedMode, setIsDelegatedMode] = useState(false);
 const [isScheduled, setIsScheduled] = useState(false);
 const [scheduledDate, setScheduledDate] = useState<string | null>(null);
+const [showIntentVideoModal, setShowIntentVideoModal] = useState(false);
+const [intentVideoBlob, setIntentVideoBlob] = useState<string | null>(null); //   Changed from intentVideoUrl
+const [recordingIntentVideo, setRecordingIntentVideo] = useState(false);
+const [intentVideoRequired, setIntentVideoRequired] = useState(false);
+const [mediaRecorderRef, setMediaRecorderRef] = useState<MediaRecorder | null>(null); //   ADD THIS
 
 
 
@@ -239,8 +244,23 @@ if (!requestRes.ok) {
 const requestData = await requestRes.json();
 const signatureRequest = requestData.signatureRequest;
 
+ 
+//   FIXED: Check if intent video is required
+if (signatureRequest.intentVideoRequired) {
+  console.log('🎥 Intent video is required for this document');
+  setIntentVideoRequired(true);
+  
+  // Check if already recorded
+  if (signatureRequest.intentVideoUrl) {
+    console.log('✅ Intent video already recorded');
+    setIntentVideoBlob(signatureRequest.intentVideoUrl); // This will be Cloudinary URL
+  } else {
+    console.log('⚠️ Intent video not recorded yet');
+  }
+}
 
-// ⭐ CHECK IF SELFIE VERIFICATION IS REQUIRED
+
+//   CHECK IF SELFIE VERIFICATION IS REQUIRED
 // ONLY enable selfie if access code was USED and VERIFIED (check BOTH DB and local state)
 const accessWasVerified = signatureRequest.accessCodeVerifiedAt || accessCodeVerified;
 
@@ -739,6 +759,8 @@ useEffect(() => {
   console.log('🔍 selfieRequired:', selfieRequired);
   console.log('🔍 selfieVerified:', selfieVerified);
   console.log('🔍 accessCodeVerified:', accessCodeVerified);
+  console.log('🔍 intentVideoRequired:', intentVideoRequired);
+  console.log('🔍 intentVideoBlob:', intentVideoBlob);
   if (!allFieldsFilled) {
     alert('Please complete all required fields before submitting');
     return;
@@ -752,11 +774,18 @@ useEffect(() => {
     shouldShowSelfie: selfieRequired && !selfieVerified
   });
 
-  // ⭐ CHECK IF SELFIE VERIFICATION IS REQUIRED BUT NOT DONE
+  //   CHECK IF SELFIE VERIFICATION IS REQUIRED BUT NOT DONE
   if (selfieRequired && !selfieVerified) {
     console.log('📸 Selfie verification required - opening modal');
     setShowSelfieModal(true);
     return;
+  }
+
+  // ✅ Step 3: Check intent video (BEFORE submitting)
+  if (intentVideoRequired && !intentVideoBlob) {
+    console.log('🎥 Intent video required - opening modal');
+    setShowIntentVideoModal(true);
+    return; // ⭐ STOP HERE - don't submit yet
   }
 
   // Proceed with submission
@@ -799,6 +828,7 @@ const submitSignature = async () => {
         signedFields: signedFieldsArray,
         signedAt: new Date().toISOString(),
         ipAddress: ipAddress,
+        intentVideoUrl: intentVideoBlob,
       }),
     });
 
@@ -1601,12 +1631,43 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
     Delegate to Someone Else
   </button>
 )}
+
+{/* ⭐ NEW: Intent Video Status Indicator */}
+{intentVideoRequired && (
+  <div className={`mb-3 p-3 rounded-lg border ${
+    intentVideoBlob 
+      ? 'bg-green-50 border-green-200' 
+      : 'bg-yellow-50 border-yellow-200'
+  }`}>
+    <div className="flex items-center gap-2">
+      <Camera className={`h-5 w-5 ${
+        intentVideoBlob ? 'text-green-600' : 'text-yellow-600'
+      }`} />
+      <div className="flex-1">
+        <p className={`text-sm font-semibold ${
+          intentVideoBlob ? 'text-green-900' : 'text-yellow-900'
+        }`}>
+          {intentVideoBlob ? '✅ Video Recorded' : '📹 Video Recording Required'}
+        </p>
+        <p className={`text-xs ${
+          intentVideoBlob ? 'text-green-700' : 'text-yellow-700'
+        }`}>
+          {intentVideoBlob 
+            ? 'Your acknowledgement has been captured' 
+            : 'Click "Complete Signing" to record your video'
+          }
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+
              {/* Complete Signing Button */}
   <button
  onClick={completeSignature}
   disabled={!allFieldsFilled || submitting || isAwaitingTurn || viewOnlyMode || isDelegatedMode} // ⭐ ADD viewOnlyMode
   className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-    allFieldsFilled && !submitting && !isAwaitingTurn && !viewOnlyMode && !isDelegatedMode // ⭐ ADD viewOnlyMode
+    allFieldsFilled && !submitting && !isAwaitingTurn && !viewOnlyMode && !isDelegatedMode && !(intentVideoRequired && !intentVideoBlob) // ⭐ ADD viewOnlyMode
       ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
       : 'bg-slate-200 text-slate-400 cursor-not-allowed'
   }`}
@@ -1626,16 +1687,21 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
       <Clock className="h-5 w-5" />
       Waiting for Your Turn
     </>
-  ) : selfieRequired && !selfieVerified ? (
-    <>
-      <Camera className="h-5 w-5" />
-      Verify Identity & Sign
-    </>
-  ) : allFieldsFilled ? (
-    <>
-      <Check className="h-5 w-5" />
-      Complete Signing
-    </>
+ ) : selfieRequired && !selfieVerified ? (
+  <>
+    <Camera className="h-5 w-5" />
+    Verify Identity & Sign
+  </>
+) : intentVideoRequired && !intentVideoBlob ? ( //   ADD THIS
+  <>
+    <Camera className="h-5 w-5" />
+    Record Video & Sign
+  </>
+) : allFieldsFilled ? (
+  <>
+    <Check className="h-5 w-5" />
+    Complete Signing
+  </>
   ) : (
     'Complete All Fields'
   )}
@@ -2042,6 +2108,223 @@ router.push('/');
 />
 )}
 
+
+{/* Intent & Acknowledgement Video Modal */}
+{showIntentVideoModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="p-6 border-b">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <Camera className="h-5 w-5 text-purple-600" />
+              Record Intent & Acknowledgement
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Record a short video confirming your intent to sign this document
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6">
+        {!intentVideoBlob ? (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-900 font-medium mb-2">
+                📹 What to say in your video (30 seconds max):
+              </p>
+              <ul className="text-sm text-blue-800 space-y-1 ml-4">
+                <li>• State your full name: <strong>{recipient?.name}</strong></li>
+                <li>• Confirm you are signing: <strong>"{document?.filename}"</strong></li>
+                <li>• State today's date: <strong>{new Date().toLocaleDateString()}</strong></li>
+                <li>• Say: <em>"I acknowledge and agree to sign this document"</em></li>
+              </ul>
+            </div>
+
+            <video
+              id="intent-video-preview"
+              className="w-full rounded-lg bg-slate-900 aspect-video"
+              autoPlay
+              muted
+              playsInline
+            />
+
+            <div className="flex gap-3">
+              {!recordingIntentVideo ? (
+                <button
+                  onClick={async () => {
+                    try {
+                      const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'user', width: 1280, height: 720 },
+                        audio: true,
+                      });
+                      
+                      const video = globalThis.document.getElementById('intent-video-preview') as HTMLVideoElement;
+                      if (video) {
+                        video.srcObject = stream;
+                        video.muted = true;
+                      }
+
+                      // Try multiple codecs for compatibility
+                      let mimeType = 'video/webm;codecs=vp8,opus';
+                      if (!MediaRecorder.isTypeSupported(mimeType)) {
+                        mimeType = 'video/webm;codecs=vp9,opus';
+                      }
+                      if (!MediaRecorder.isTypeSupported(mimeType)) {
+                        mimeType = 'video/webm';
+                      }
+
+                      const mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: mimeType,
+                        videoBitsPerSecond: 2500000,
+                      });
+                      
+                      const chunks: Blob[] = [];
+
+                      mediaRecorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) {
+                          chunks.push(e.data);
+                        }
+                      };
+
+                      mediaRecorder.onstop = async () => {
+                        if (chunks.length === 0) {
+                          alert('No video data recorded. Please try again.');
+                          stream.getTracks().forEach((track) => track.stop());
+                          return;
+                        }
+
+                        const blob = new Blob(chunks, { type: mimeType });
+                        
+                        // Stop camera
+                        stream.getTracks().forEach((track) => track.stop());
+
+                        // Upload video
+                        try {
+                          const formData = new FormData();
+                          formData.append('video', blob, 'intent-video.webm');
+
+                          const res = await fetch(`/api/signature/${signatureId}/record-intent-video`, {
+                            method: 'POST',
+                            body: formData,
+                          });
+                          
+                          const data = await res.json();
+                          if (data.success) {
+                            console.log('✅ Intent video uploaded:', data.videoUrl);
+                            setIntentVideoBlob(data.videoUrl); // Store Cloudinary URL
+                          } else {
+                            alert('Failed to save video. Please try again.');
+                          }
+                        } catch (err) {
+                          console.error('❌ Upload error:', err);
+                          alert('Failed to save video. Please try again.');
+                        }
+                      };
+
+                      mediaRecorder.start(1000);
+                      setMediaRecorderRef(mediaRecorder);
+                      setRecordingIntentVideo(true);
+
+                      // Auto-stop after 30 seconds
+                      setTimeout(() => {
+                        if (mediaRecorder.state === 'recording') {
+                          mediaRecorder.stop();
+                          setRecordingIntentVideo(false);
+                        }
+                      }, 30000);
+
+                    } catch (err) {
+                      console.error('❌ Camera access error:', err);
+                      alert('Failed to access camera. Please check permissions and try again.');
+                    }
+                  }}
+                  className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium flex items-center justify-center gap-2"
+                >
+                  <Camera className="h-5 w-5" />
+                  Start Recording
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (mediaRecorderRef && mediaRecorderRef.state === 'recording') {
+                      mediaRecorderRef.stop();
+                      setRecordingIntentVideo(false);
+                    }
+                  }}
+                  className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center justify-center gap-2"
+                >
+                  <div className="h-3 w-3 bg-white rounded-full animate-pulse" />
+                  Stop Recording
+                </button>
+              )}
+            </div>
+
+            {recordingIntentVideo && (
+              <p className="text-xs text-center text-slate-600 animate-pulse">
+                🔴 Recording in progress... Speak clearly into your camera
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-sm text-green-900 font-medium flex items-center gap-2">
+                <Check className="h-4 w-4" />
+                Video recorded successfully!
+              </p>
+              <p className="text-xs text-green-700 mt-1">
+                Your intent and acknowledgement video has been saved.
+              </p>
+            </div>
+
+            {/* ⭐ REMOVED: Video preview - just show confirmation */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+              <Camera className="h-12 w-12 text-blue-600 mx-auto mb-2" />
+              <p className="text-sm text-blue-900 font-medium">
+                Recording Complete
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                You can now continue to sign the document.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setIntentVideoBlob(null);
+                }}
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 font-medium"
+              >
+                Re-record
+              </button>
+              <button
+                onClick={async () => {
+                  if (!intentVideoBlob) {
+                    alert('Please record your intent video first');
+                    return;
+                  }
+                  setShowIntentVideoModal(false);
+                  await submitSignature();
+                }}
+                disabled={!intentVideoBlob}
+                className={`flex-1 px-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
+                  intentVideoBlob
+                    ? 'bg-purple-600 text-white hover:bg-purple-700'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                <Check className="h-5 w-5" />
+                Continue to Sign
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

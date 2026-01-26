@@ -46,9 +46,23 @@ console.log('👤 User org role:', userOrgRole, 'Is owner:', isOrgOwner);
       
       // ✅ STEP 1: Check user's role in the space
       const space = await db.collection('spaces').findOne({
-        _id: new ObjectId(spaceId),
-         organizationId,
-      });
+  _id: new ObjectId(spaceId)
+  // ✅ Don't filter by organizationId here - check access separately
+});
+
+if (!space) {
+  return NextResponse.json({ error: 'Space not found' }, { status: 404 });
+}
+
+// ✅ THEN check if user has access
+const userHasAccess = 
+  space.userId === user.id ||  // Owner
+  space.organizationId === organizationId ||  // Same org
+  space.members?.some((m: { email: any; }) => m.email === user.email);  // Member
+
+if (!userHasAccess) {
+  return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+}
 
       if (!space) {
         return NextResponse.json({ 

@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const { documentId, recipients, signatureFields, message, dueDate, viewMode , signingOrder, expirationDays, ccRecipients, accessCodeRequired,
   accessCodeType,
   accessCodeHint, scheduledSendDate,
-  accessCode, spaceId  } = await request.json();
+  accessCode, spaceId, intentVideoRequired  } = await request.json();
 
     const db = await dbPromise;
 
@@ -139,6 +139,9 @@ const shouldSendNow = !scheduledDate || scheduledDate <= now;
       sendStatus: shouldSendNow ? 'sent' : 'scheduled',
       sendAt: shouldSendNow ? new Date() : null,
       notifiedAt: shouldSendNow ? new Date() : null,
+      intentVideoRequired: intentVideoRequired || false, //   ADD THIS
+  intentVideoUrl: null, //   ADD THIS (will be filled when signer records)
+  intentVideoRecordedAt: null, //   ADD THIS
 
       };
 
