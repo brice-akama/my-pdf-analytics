@@ -1,4 +1,4 @@
-  //app/documents/[id]/signature/page.tsx
+    //app/documents/[id]/signature/page.tsx
  
  "use client";
 import { useState, useEffect } from "react";
@@ -119,6 +119,8 @@ const [showAccessCode, setShowAccessCode] = useState(false);
 const returnTo = searchParams.get('returnTo');
 const [showEditDrawer, setShowEditDrawer] = useState(false);
 const [showReviewDrawer, setShowReviewDrawer] = useState(false);
+const [fieldHistory, setFieldHistory] = useState<SignatureField[][]>([]);
+const [historyIndex, setHistoryIndex] = useState(-1);
 
 
   const [signatureRequest, setSignatureRequest] = useState<SignatureRequest>({
@@ -134,6 +136,46 @@ const [showReviewDrawer, setShowReviewDrawer] = useState(false);
   useEffect(() => {
     fetchDocument();
   }, [params.id]);
+
+
+  useEffect(() => {
+  // Save to history whenever fields change
+  if (signatureRequest.signatureFields.length > 0) {
+    const newHistory = fieldHistory.slice(0, historyIndex + 1);
+    newHistory.push([...signatureRequest.signatureFields]);
+    setFieldHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }
+}, [signatureRequest.signatureFields]);
+
+useEffect(() => {
+  const handleKeyboard = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      // Undo
+      if (historyIndex > 0) {
+        setHistoryIndex(historyIndex - 1);
+        setSignatureRequest({
+          ...signatureRequest,
+          signatureFields: fieldHistory[historyIndex - 1],
+        });
+      }
+    } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+      e.preventDefault();
+      // Redo
+      if (historyIndex < fieldHistory.length - 1) {
+        setHistoryIndex(historyIndex + 1);
+        setSignatureRequest({
+          ...signatureRequest,
+          signatureFields: fieldHistory[historyIndex + 1],
+        });
+      }
+    }
+  };
+  
+  window.addEventListener('keydown', handleKeyboard);
+  return () => window.removeEventListener('keydown', handleKeyboard);
+}, [historyIndex, fieldHistory]);
 
 
   useEffect(() => {
@@ -990,12 +1032,15 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
         {/* Step 2: Place Signature Fields */}
         {signatureRequest.step === 2 && (
           <div className="grid grid-cols-12 gap-6 h-[calc(100vh-200px)]">
+            
             {/* Left Sidebar - Field Tools */}
             <div className="col-span-3 bg-white rounded-xl shadow-sm border p-6 overflow-y-auto">
               <h3 className="font-bold text-slate-900 mb-6 text-lg">Signature Fields</h3>
+              
               {/* Recipients */}
               <div className="space-y-3 mb-6">
   <div className="flex items-center justify-between mb-3">
+    
     <Label className="text-sm font-medium text-slate-700">Recipients</Label>
     <Button
       variant="outline"
@@ -1121,32 +1166,48 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
               </div>
               {/* Quick Actions */}
               <div className="mt-6 pt-6 border-t space-y-3">
-                <Label className="text-sm font-medium text-slate-700">Quick Actions</Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => {
-                    const newFields: SignatureField[] = signatureRequest.recipients.map(
-                      (_, index) => ({
-                        id: Date.now() + index,
-                        type: "signature",
-                        x: 25,
-                        y: 60 + index * 15,
-                        page: 1,
-                        recipientIndex: index,
-                      })
-                    );
-                    setSignatureRequest({
-                      ...signatureRequest,
-                      signatureFields: [...signatureRequest.signatureFields, ...newFields],
-                    });
-                  }}
-                >
-                  <FileSignature className="h-4 w-4 mr-2" />
-                  Auto-place Signatures
-                </Button>
-      
+                <div className="flex gap-2">
+  <Button
+    variant="outline"
+    size="sm"
+    className="flex-1"
+    disabled={historyIndex <= 0}
+    onClick={() => {
+      if (historyIndex > 0) {
+        setHistoryIndex(historyIndex - 1);
+        setSignatureRequest({
+          ...signatureRequest,
+          signatureFields: fieldHistory[historyIndex - 1],
+        });
+      }
+    }}
+  >
+    <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+    </svg>
+    Undo
+  </Button>
+  <Button
+    variant="outline"
+    size="sm"
+    className="flex-1"
+    disabled={historyIndex >= fieldHistory.length - 1}
+    onClick={() => {
+      if (historyIndex < fieldHistory.length - 1) {
+        setHistoryIndex(historyIndex + 1);
+        setSignatureRequest({
+          ...signatureRequest,
+          signatureFields: fieldHistory[historyIndex + 1],
+        });
+      }
+    }}
+  >
+    Redo
+    <svg className="h-4 w-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
+    </svg>
+  </Button>
+</div>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1252,17 +1313,21 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                         <div
                           key={field.id}
                           className="absolute border-2 rounded cursor-move bg-white/95 shadow-xl group hover:shadow-2xl transition-all hover:z-50"
-                          style={{
+                         style={{
   left: `${field.x}%`,
   top: `${topPosition}px`,
   borderColor: recipient?.color || "#9333ea",
-  width: field.type === "dropdown" ? "220px" :  // ⭐ ADD
-         field.type === "radio" ? "200px" :      // ⭐ ADD
-         "180px",
-  height: field.type === "signature" ? "70px" :
-          field.type === "dropdown" ? "45px" :   // ⭐ ADD
-          field.type === "radio" ? "auto" :      // ⭐ ADD (auto-height for options)
-          "45px",
+  width: field.type === "dropdown" ? "180px" :  // ← 220 → 180
+         field.type === "radio" ? "160px" :     // ← 200 → 160
+         field.type === "signature" ? "140px" :  // ← NEW
+         field.type === "attachment" ? "150px" : // ← NEW
+         "120px",  // ← 180 → 120 (for text, date, checkbox)
+  height: field.type === "signature" ? "50px" :  // ← 70 → 50
+          field.type === "dropdown" ? "36px" :   // ← 45 → 36
+          field.type === "radio" ? "auto" :
+          field.type === "text" ? "36px" :       // ← 45 → 36
+          field.type === "attachment" ? "36px" : // ← NEW
+          "32px",  // ← 45 → 32 (checkbox, date)
   transform: "translate(-50%, 0%)",
 }}
 

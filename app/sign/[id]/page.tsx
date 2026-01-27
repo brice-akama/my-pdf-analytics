@@ -119,12 +119,137 @@ const [showIntentVideoModal, setShowIntentVideoModal] = useState(false);
 const [intentVideoBlob, setIntentVideoBlob] = useState<string | null>(null); //   Changed from intentVideoUrl
 const [recordingIntentVideo, setRecordingIntentVideo] = useState(false);
 const [intentVideoRequired, setIntentVideoRequired] = useState(false);
-const [mediaRecorderRef, setMediaRecorderRef] = useState<MediaRecorder | null>(null); //   ADD THIS
+const [mediaRecorderRef, setMediaRecorderRef] = useState<MediaRecorder | null>(null); 
+const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+const [lastSaved, setLastSaved] = useState<Date | null>(null);
+const [navigatorTab, setNavigatorTab] = useState<'fields' | 'pages'>('fields');
+
+// ⭐ STEP 1: Load saved progress when page loads
+useEffect(() => {
+  const loadSavedProgress = async () => {
+    if (!signatureId) return;
+    
+    try {
+      const res = await fetch(`/api/signature/${signatureId}/autosave`);
+      const data = await res.json();
+      
+      if (data.success && data.draftSignatures) {
+        const hasSavedData = Object.keys(data.draftSignatures).length > 0;
+        
+        if (hasSavedData) {
+          // Ask user if they want to restore
+          const shouldRestore = window.confirm(
+            `We found your previous progress (${data.progress.completed}/${data.progress.total} fields completed). Would you like to continue where you left off?`
+          );
+          
+          if (shouldRestore) {
+            setSignatures(data.draftSignatures);
+            setFieldValues(data.draftFieldValues || {});
+            setLastSaved(new Date(data.lastAutoSaved));
+            console.log('✅ Restored saved progress');
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load saved progress:', err);
+    }
+  };
+  
+  // Only load once when document is ready
+  if (pdfUrl && !loading) {
+    loadSavedProgress();
+  }
+}, [signatureId, pdfUrl, loading]);
+
+// ⭐ STEP 2: Auto-save progress every 10 seconds
+useEffect(() => {
+  const autoSave = async () => {
+    if (Object.keys(signatures).length === 0) return; // Nothing to save yet
+    if (completed) return; // Don't save if already completed
+    
+    setAutoSaveStatus('saving');
+    
+    try {
+      const res = await fetch(`/api/signature/${signatureId}/autosave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          signatures, 
+          fieldValues 
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setAutoSaveStatus('saved');
+        setLastSaved(new Date());
+        console.log('💾 Auto-saved:', data.progress);
+      } else {
+        setAutoSaveStatus('error');
+      }
+    } catch (err) {
+      console.error('Auto-save failed:', err);
+      setAutoSaveStatus('error');
+    }
+    
+    // Reset status after 2 seconds
+    setTimeout(() => setAutoSaveStatus('idle'), 2000);
+  };
+  
+  const interval = setInterval(autoSave, 10000); // Every 10 seconds
+  return () => clearInterval(interval);
+}, [signatures, fieldValues, signatureId, completed]);
+
+// ⭐ STEP 3: Save before page unload
+useEffect(() => {
+  const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
+    if (Object.keys(signatures).length > 0 && !completed) {
+      // Quick save before leaving
+      navigator.sendBeacon(
+        `/api/signature/${signatureId}/autosave`,
+        new Blob([JSON.stringify({ signatures, fieldValues })], { type: 'application/json' })
+      );
+      
+      // Show warning
+      e.preventDefault();
+      e.returnValue = 'You have unsaved progress. Are you sure you want to leave?';
+    }
+  };
+  
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [signatures, fieldValues, signatureId, completed]);
 
 
 
 
-
+// Helper function to scroll to a specific field
+const scrollToField = (fieldId: string) => {
+  const field = signatureFields.find(f => f.id === fieldId);
+  if (!field) return;
+  
+  const pageHeight = 297 * 3.78; // mm to pixels
+  const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
+  
+  window.scrollTo({
+    top: topPosition - 100, // 100px offset for sticky header
+    behavior: 'smooth'
+  });
+  
+  // Highlight the field briefly
+  setTimeout(() => {
+    if (typeof window !== 'undefined') {
+      const fieldElement = window.document.querySelector(`[data-field-id="${fieldId}"]`);
+      if (fieldElement) {
+        fieldElement.classList.add('ring-4', 'ring-purple-500', 'ring-opacity-50');
+        setTimeout(() => {
+          fieldElement.classList.remove('ring-4', 'ring-purple-500', 'ring-opacity-50');
+        }, 2000);
+      }
+    }
+  }, 500);
+};
 
 
 
@@ -1227,6 +1352,34 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
     </div>
   </div>
 )}
+
+
+{/* Auto-Save Indicator */}
+<div className="flex items-center gap-2 text-sm">
+  {autoSaveStatus === 'saving' && (
+    <div className="flex items-center gap-2 text-slate-600">
+      <div className="animate-spin h-4 w-4 border-2 border-slate-400 border-t-transparent rounded-full" />
+      <span>Saving...</span>
+    </div>
+  )}
+  
+  {autoSaveStatus === 'saved' && lastSaved && (
+    <div className="flex items-center gap-2 text-green-600">
+      <Check className="h-4 w-4" />
+      <span>Saved {new Date().getTime() - lastSaved.getTime() < 60000 
+        ? 'just now' 
+        : `${Math.floor((new Date().getTime() - lastSaved.getTime()) / 60000)}m ago`}
+      </span>
+    </div>
+  )}
+  
+  {autoSaveStatus === 'error' && (
+    <div className="flex items-center gap-2 text-red-600">
+      <AlertCircle className="h-4 w-4" />
+      <span>Save failed</span>
+    </div>
+  )}
+</div>
           {/*   ADD WARNING BANNER if awaiting turn */}
           {isAwaitingTurn && (
             <div className="mb-3 bg-amber-50 border border-amber-300 rounded-lg p-3">
@@ -1299,6 +1452,7 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
     return (
       <div
         key={field.id}
+        data-field-id={field.id} 
         className={`absolute rounded transition-all ${
           isFilled
             ? "bg-transparent border-0"
@@ -1306,23 +1460,23 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
             ? "hidden" // ⭐ Hide if not visible
             : "bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80"
         }`}
-        style={{
-          left: `${field.x}%`,
-          top: `${topPosition}px`,
-          width: field.width ? `${field.width}px` : 
-                 field.type === "signature" ? "200px" :
-                 field.type === "checkbox" ? "30px" : 
-                 field.type === "attachment" ? "200px" :
-                 field.type === "dropdown" ? "250px" :
-                 field.type === "radio" ? "200px" :
-                 "150px",
-          height: field.height ? `${field.height}px` : 
-                  field.type === "signature" ? "60px" :
-                  field.type === "checkbox" ? "30px" :
-                  field.type === "attachment" ? "50px" :
-                  field.type === "dropdown" ? "45px" :
-                  field.type === "radio" ? "auto" :
-                   "40px",
+       style={{
+  left: `${field.x}%`,
+  top: `${topPosition}px`,
+  width: field.width ? `${field.width}px` : 
+         field.type === "signature" ? "150px" :      // ⭐ Reduced from 200px
+         field.type === "checkbox" ? "24px" :        // ⭐ Reduced from 30px
+         field.type === "attachment" ? "150px" :     // ⭐ Reduced from 200px
+         field.type === "dropdown" ? "180px" :       // ⭐ Reduced from 250px
+         field.type === "radio" ? "150px" :          // ⭐ Reduced from 200px
+         "120px",                                    // ⭐ Reduced from 150px (default text)
+  height: field.height ? `${field.height}px` : 
+          field.type === "signature" ? "45px" :      // ⭐ Reduced from 60px
+          field.type === "checkbox" ? "24px" :       // ⭐ Reduced from 30px
+          field.type === "attachment" ? "40px" :     // ⭐ Reduced from 50px
+          field.type === "dropdown" ? "35px" :       // ⭐ Reduced from 45px
+          field.type === "radio" ? "auto" :
+          "32px",                                    // ⭐ Reduced from 40px (default text)
           transform: "translate(-50%, 0%)",
           cursor: field.type === "signature" && !isFilled ? "pointer" :
           field.type === "attachment" && !isFilled ? "pointer" :
@@ -1662,6 +1816,29 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
   </div>
 )}
 
+{!allFieldsFilled && (
+  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+    <p className="text-sm font-semibold text-red-900 mb-2">
+      ⚠️ Missing Required Fields:
+    </p>
+    <ul className="text-xs text-red-700 space-y-1">
+      {myFields
+        .filter(f => !signatures[f.id])
+        .map(f => (
+          <li key={f.id}>
+            • Page {f.page}: {f.type} field
+            <button
+              onClick={() => scrollToField(f.id)}
+              className="ml-2 text-blue-600 underline"
+            >
+              Go there
+            </button>
+          </li>
+        ))}
+    </ul>
+  </div>
+)}
+
              {/* Complete Signing Button */}
   <button
  onClick={completeSignature}
@@ -1726,6 +1903,225 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
           </div>
         </div>
       </div>
+      {/* Floating Navigator - Fields & Pages */}
+<div className="fixed bottom-6 right-6 bg-white rounded-lg shadow-2xl z-50 max-w-xs">
+  {/* Tab Switcher */}
+  <div className="flex border-b">
+    <button
+      onClick={() => setNavigatorTab('fields')}
+      className={`flex-1 px-4 py-2 text-xs font-semibold transition-colors ${
+        navigatorTab === 'fields'
+          ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-600'
+          : 'text-slate-500 hover:text-slate-700'
+      }`}
+    >
+      Your Fields ({Object.keys(signatures).filter(id => myFields.some(f => f.id === id)).length}/{myFields.length})
+    </button>
+    <button
+      onClick={() => setNavigatorTab('pages')}
+      className={`flex-1 px-4 py-2 text-xs font-semibold transition-colors ${
+        navigatorTab === 'pages'
+          ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
+          : 'text-slate-500 hover:text-slate-700'
+      }`}
+    >
+      Pages (1-{document.numPages})
+    </button>
+  </div>
+
+  <div className="p-4">
+    {/* Fields Tab */}
+    {navigatorTab === 'fields' && (
+      <>
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {myFields.map((field, idx) => {
+            const isFilled = field.type === 'attachment' 
+              ? (attachments[field.id]?.length > 0) 
+              : signatures[field.id];
+            
+            return (
+              <button
+                key={field.id}
+                onClick={() => {
+                  // Calculate the exact position on the PDF
+                  const pageHeight = 297 * 3.78; // mm to pixels
+                  const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
+                  
+                  // Scroll to that position with offset for header
+                  window.scrollTo({
+                    top: topPosition - 100, // 100px offset for sticky header
+                    behavior: 'smooth'
+                  });
+                  
+                  // Highlight the field briefly
+                  setTimeout(() => {
+                    if (typeof window !== 'undefined') {
+                      const fieldElement = window.document.querySelector(`[data-field-id="${field.id}"]`);
+                      if (fieldElement) {
+                        fieldElement.classList.add('ring-4', 'ring-purple-500', 'ring-opacity-50');
+                        setTimeout(() => {
+                          fieldElement.classList.remove('ring-4', 'ring-purple-500', 'ring-opacity-50');
+                        }, 2000);
+                      }
+                    }
+                  }, 500);
+                }}
+                className={`w-full text-left px-3 py-2 rounded text-xs transition-colors ${
+                  isFilled
+                    ? 'bg-green-50 text-green-700 border border-green-200' 
+                    : 'bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span>
+                    {isFilled ? '✓' : '○'} Page {field.page}
+                  </span>
+                  <span className="text-xs opacity-75">
+                    {field.type === 'signature' ? '✍️' :
+                     field.type === 'date' ? '📅' :
+                     field.type === 'text' ? '📝' :
+                     field.type === 'checkbox' ? '☑️' :
+                     field.type === 'attachment' ? '📎' :
+                     field.type === 'dropdown' ? '📋' :
+                     field.type === 'radio' ? '⭕' : '📄'}
+                  </span>
+                </div>
+                <p className="text-xs opacity-60 mt-0.5 truncate">
+                  {field.type === 'signature' ? 'Signature' :
+                   field.type === 'date' ? 'Date' :
+                   field.type === 'text' ? 'Text Field' :
+                   field.type === 'checkbox' ? field.label || 'Checkbox' :
+                   field.type === 'attachment' ? field.attachmentLabel || 'Attachment' :
+                   field.type === 'dropdown' ? field.label || 'Dropdown' :
+                   field.type === 'radio' ? field.label || 'Radio Button' : 'Field'}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => {
+            const nextField = myFields.find(f => {
+              const isFilled = f.type === 'attachment' 
+                ? (attachments[f.id]?.length > 0) 
+                : signatures[f.id];
+              return !isFilled;
+            });
+            
+            if (nextField) {
+              const pageHeight = 297 * 3.78;
+              const topPosition = ((nextField.page - 1) * pageHeight) + (nextField.y / 100 * pageHeight);
+              
+              window.scrollTo({
+                top: topPosition - 100,
+                behavior: 'smooth'
+              });
+              
+              setTimeout(() => {
+                if (typeof window !== 'undefined') {
+                  const fieldElement = window.document.querySelector(`[data-field-id="${nextField.id}"]`);
+                  if (fieldElement) {
+                    fieldElement.classList.add('ring-4', 'ring-purple-500', 'ring-opacity-50');
+                    setTimeout(() => {
+                      fieldElement.classList.remove('ring-4', 'ring-purple-500', 'ring-opacity-50');
+                    }, 2000);
+                  }
+                }
+              }, 500);
+            }
+          }}
+          disabled={allFieldsFilled}
+          className="w-full mt-3 bg-purple-600 text-white py-2 rounded text-sm hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+        >
+          <span>Next Field</span>
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </>
+    )}
+
+    {/* Pages Tab */}
+    {navigatorTab === 'pages' && (
+      <>
+        <p className="text-xs text-slate-600 mb-3">
+          Jump to any page to read the document
+        </p>
+        <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
+          {Array.from({ length: document.numPages }, (_, i) => i + 1).map((pageNum) => {
+            // Check if this page has any of the user's fields
+            const hasMyField = myFields.some(f => f.page === pageNum);
+            const hasFilledField = myFields.some(f => 
+              f.page === pageNum && (
+                f.type === 'attachment' 
+                  ? (attachments[f.id]?.length > 0) 
+                  : signatures[f.id]
+              )
+            );
+            
+            return (
+              <button
+                key={pageNum}
+                onClick={() => {
+                  const pageHeight = 297 * 3.78; // mm to pixels
+                  const topPosition = (pageNum - 1) * pageHeight;
+                  
+                  window.scrollTo({
+                    top: topPosition - 80, // Offset for header
+                    behavior: 'smooth'
+                  });
+                }}
+                className={`relative px-3 py-4 rounded-lg text-sm font-medium transition-all ${
+                  hasFilledField
+                    ? 'bg-green-100 text-green-700 border-2 border-green-400'
+                    : hasMyField
+                    ? 'bg-yellow-100 text-yellow-700 border-2 border-yellow-400'
+                    : 'bg-slate-100 text-slate-700 border-2 border-slate-200 hover:bg-slate-200'
+                }`}
+              >
+                {pageNum}
+                {hasFilledField && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-white" />
+                )}
+                {hasMyField && !hasFilledField && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-yellow-500 rounded-full border-2 border-white" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Quick Jump Buttons */}
+        <div className="flex gap-2 mt-3">
+          <button
+            onClick={() => {
+              window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+              });
+            }}
+            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 flex items-center justify-center gap-1"
+          >
+            <ChevronLeft className="h-3 w-3" />
+            First Page
+          </button>
+          <button
+            onClick={() => {
+              const pageHeight = 297 * 3.78;
+              const lastPagePosition = (document.numPages - 1) * pageHeight;
+              window.scrollTo({
+                top: lastPagePosition - 80,
+                behavior: 'smooth'
+              });
+            }}
+            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 flex items-center justify-center gap-1"
+          >
+            Last Page
+            <ChevronRight className="h-3 w-3" />
+          </button>
+        </div>
+      </>
+    )}
+  </div>
+</div>
       <SignatureStyleModal
   isOpen={activeField !== null}
   onClose={() => {
@@ -1825,95 +2221,125 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
           </div>
         </div>
       )}
-      {/* Decline Modal */}
+     {/* Decline to Sign Drawer */}
 {showDeclineModal && (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full scrollball max-h-[90vh] overflow-y-auto">
-      <div className="p-6 border-b">
+  <>
+    {/* Backdrop - Click to close */}
+    <div 
+      className="fixed inset-0 bg-black/50 z-50 transition-opacity"
+      onClick={() => {
+        setShowDeclineModal(false);
+        setDeclineReason('');
+      }}
+    />
+    
+    {/* Drawer */}
+    <div className="fixed inset-y-0 right-0 w-full sm:w-[550px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out overflow-hidden">
+      {/* Header */}
+      <div className="sticky top-0 bg-gradient-to-r from-red-600 to-orange-600 text-white p-6 shadow-lg z-10">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <X className="h-5 w-5 text-red-600" />
-              Decline to Sign
-            </h3>
-            <p className="text-sm text-slate-500 mt-1">Please provide a reason for declining</p>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-white/20 rounded-lg flex items-center justify-center">
+              <X className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Decline to Sign</h2>
+              <p className="text-sm text-red-100 mt-1">
+                Please provide a reason for declining
+              </p>
+            </div>
           </div>
           <button
             onClick={() => {
               setShowDeclineModal(false);
               setDeclineReason('');
             }}
-            className="text-slate-400 hover:text-slate-600"
+            className="h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
       </div>
 
-      <div className="p-6">
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Reason for declining <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            value={declineReason}
-            onChange={(e) => setDeclineReason(e.target.value)}
-            placeholder="Please explain why you're declining to sign this document..."
-            className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-red-500 focus:outline-none resize-none"
-            rows={4}
-            autoFocus
-          />
-          <p className="text-xs text-slate-500 mt-1">
-            Minimum 10 characters • {declineReason.length}/500
-          </p>
-        </div>
+      {/* Content - Scrollable */}
+      <div className="h-[calc(100vh-120px)] overflow-y-auto p-6">
+        <div className="space-y-4">
+          {/* Reason Input */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Reason for declining <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Please explain why you're declining to sign this document..."
+              className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-red-500 focus:outline-none resize-none"
+              rows={5}
+              autoFocus
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              Minimum 10 characters • {declineReason.length}/500
+            </p>
+          </div>
 
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-          <p className="text-sm text-red-800">
-            <strong>⚠️ Warning:</strong> Declining this document will:
-          </p>
-          <ul className="text-xs text-red-700 mt-2 space-y-1 ml-4">
-            <li>• Cancel the entire signing process</li>
-            <li>• Notify all parties involved</li>
-            <li>• Prevent further signatures</li>
-            <li>• This action cannot be undone</li>
-          </ul>
-        </div>
+          {/* Warning Box */}
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-sm text-red-800 font-medium mb-2">
+              <strong>⚠️ Warning:</strong> Declining this document will:
+            </p>
+            <ul className="text-sm text-red-700 space-y-1 ml-4 list-disc">
+              <li>Cancel the entire signing process</li>
+              <li>Notify all parties involved</li>
+              <li>Prevent further signatures</li>
+              <li>This action cannot be undone</li>
+            </ul>
+          </div>
 
-        <div className="flex gap-3">
-          <button
-            onClick={() => {
-              setShowDeclineModal(false);
-              setDeclineReason('');
-            }}
-            disabled={decliningDocument}
-            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 font-medium disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleDecline}
-            disabled={declineReason.trim().length < 10 || decliningDocument}
-            className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
-          >
-            {decliningDocument ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Declining...
-              </>
-            ) : (
-              <>
-                <X className="h-4 w-4" />
-                Decline Document
-              </>
-            )}
-          </button>
+          {/* Document Info */}
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+            <p className="text-sm font-medium text-slate-700 mb-2">Document Details:</p>
+            <div className="text-sm text-slate-600 space-y-1">
+              <p><strong>Document:</strong> {document?.filename}</p>
+              <p><strong>Your Name:</strong> {recipient?.name}</p>
+              <p><strong>Your Email:</strong> {recipient?.email}</p>
+            </div>
+          </div>
+
+          {/* Actions - Sticky at bottom */}
+          <div className="sticky bottom-0 bg-white pt-4 pb-2 flex gap-3">
+            <button
+              onClick={() => {
+                setShowDeclineModal(false);
+                setDeclineReason('');
+              }}
+              disabled={decliningDocument}
+              className="flex-1 px-4 py-3 border-2 border-slate-300 rounded-lg hover:bg-slate-50 font-medium disabled:opacity-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDecline}
+              disabled={declineReason.trim().length < 10 || decliningDocument}
+              className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 transition-colors"
+            >
+              {decliningDocument ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Declining...
+                </>
+              ) : (
+                <>
+                  <X className="h-4 w-4" />
+                  Decline Document
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </>
 )}
-
 {/*   NEW: Attachment Upload Modal */}
 {showAttachmentModal && activeAttachmentField && (
   <AttachmentModal
@@ -2089,25 +2515,61 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
   </div>
 )}
 
-{/* Delegate Modal */}
+{/* Delegate Signing Drawer */}
 {showDelegateModal && recipient && (
-  <DelegateSigningModal
-    isOpen={showDelegateModal}
-onClose={() => setShowDelegateModal(false)}
-signatureId={signatureId!}
-currentRecipient={{
-name: recipient.name,
-email: recipient.email,
-}}
-onDelegated={() => {
-setShowDelegateModal(false);
-alert('✅ Signing authority delegated successfully! The delegate will receive an email.');
-// Optionally redirect
-router.push('/');
-}}
-/>
-)}
+  <>
+    {/* Backdrop - Click to close */}
+    <div 
+      className="fixed inset-0 bg-black/50 z-50 transition-opacity"
+      onClick={() => setShowDelegateModal(false)}
+    />
+    
+    {/* Drawer */}
+    <div className="fixed inset-y-0 right-0 w-full sm:w-[650px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out overflow-hidden">
+      {/* Header */}
+      <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 shadow-lg z-10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 bg-white/20 rounded-lg flex items-center justify-center">
+              <UserPlus className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">Delegate Signing Authority</h2>
+              <p className="text-sm text-purple-100 mt-1">
+                Transfer signing responsibility to someone else
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowDelegateModal(false)}
+            className="h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
 
+      {/* Content - Scrollable */}
+      <div className="h-[calc(100vh-120px)] overflow-y-auto p-6">
+        <DelegateSigningModal
+          isOpen={true}
+          onClose={() => setShowDelegateModal(false)}
+          signatureId={signatureId!}
+          currentRecipient={{
+            name: recipient.name,
+            email: recipient.email,
+          }}
+          onDelegated={() => {
+            setShowDelegateModal(false);
+            alert('✅ Signing authority delegated successfully! The delegate will receive an email.');
+            router.push('/');
+          }}
+          renderAsDrawer={true}
+        />
+      </div>
+    </div>
+  </>
+)}
 
 {/* Intent & Acknowledgement Video Modal */}
 {showIntentVideoModal && (
