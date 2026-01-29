@@ -21,6 +21,8 @@ import {
   ArrowLeft,
   FolderOpen,
   Eye,
+  Edit,
+  Mail, 
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -79,6 +81,13 @@ const [activeView, setActiveView] = useState<'documents' | 'templates' | 'archiv
 const [previewDrawerOpen, setPreviewDrawerOpen] = useState(false)
 const [previewDocumentId, setPreviewDocumentId] = useState<string | null>(null)
 const [hoveredDocId, setHoveredDocId] = useState<string | null>(null)
+const [drafts, setDrafts] = useState<Map<string, any>>(new Map()) 
+const [sentRequests, setSentRequests] = useState<Map<string, any>>(new Map()) // ⭐ NEW
+const [previewData, setPreviewData] = useState<{
+  recipients: any[];
+  signatureFields: any[];
+  viewMode: string;
+} | null>(null);
 
 
   // Fetch documents
@@ -100,6 +109,54 @@ const [hoveredDocId, setHoveredDocId] = useState<string | null>(null)
     }
   }
 
+
+  // ⭐ NEW: Fetch sent signature requests
+// ⭐ UPDATED: Fetch sent signature requests with status details
+const fetchSentRequests = async () => {
+  console.log('🔍 [DOCUMENTS PAGE] Fetching sent signature requests...');
+  try {
+    // Get all documents first
+    const allDocs = [...documents, ...templates];
+    
+    const requestMap = new Map();
+    
+    // Check each document for signature requests
+    for (const doc of allDocs) {
+      const res = await fetch(`/api/signature-requests/check/${doc._id}`, {
+        credentials: 'include',
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.hasSentRequest) {
+          // ⭐ Calculate signing status
+          const signedCount = data.recipients.filter((r: any) => r.status === 'signed').length;
+          const totalRecipients = data.recipients.length;
+          const allSigned = signedCount === totalRecipients;
+          const anySigned = signedCount > 0;
+          
+          requestMap.set(doc._id, {
+            ...data,
+            signedCount,
+            totalRecipients,
+            allSigned,
+            anySigned,
+          });
+          
+          console.log(`  ✅ Found signature request for: ${doc._id} (${signedCount}/${totalRecipients} signed)`);
+        }
+      }
+    }
+    
+    setSentRequests(requestMap);
+    console.log(`✅ [DOCUMENTS PAGE] Loaded ${requestMap.size} sent requests`);
+  } catch (error) {
+    console.error('❌ [DOCUMENTS PAGE] Failed to fetch sent requests:', error);
+  }
+};
+
+
+// Fetch archived documents
   const fetchArchivedDocuments = async () => {
   try {
     const res = await fetch("/api/documents?deleted=true", {
@@ -115,6 +172,45 @@ const [hoveredDocId, setHoveredDocId] = useState<string | null>(null)
     }
   } catch (error) {
     console.error("Failed to fetch archived documents:", error)
+  }
+}
+
+
+// ⭐ NEW: Fetch drafts for all documents
+const fetchDrafts = async () => {
+  console.log('🔍 [DOCUMENTS PAGE] Fetching drafts...');
+  try {
+    const res = await fetch("/api/signature-drafts", {
+      method: "GET",
+      credentials: "include",
+    })
+
+    console.log('📡 [DOCUMENTS PAGE] Draft fetch response status:', res.status);
+
+    if (res.ok) {
+      const data = await res.json()
+      console.log('📋 [DOCUMENTS PAGE] Draft data received:', data);
+      
+      if (data.success && data.drafts) {
+        const draftMap = new Map()
+        data.drafts.forEach((draft: any) => {
+          console.log(`  ➡️ Mapping draft for document: ${draft.documentId}`);
+          draftMap.set(draft.documentId, draft)
+        })
+        setDrafts(draftMap)
+        console.log(`✅ [DOCUMENTS PAGE] Loaded ${data.drafts.length} drafts into state`);
+        console.log(`📊 [DOCUMENTS PAGE] Draft map size: ${draftMap.size}`);
+        console.log(`📊 [DOCUMENTS PAGE] Draft document IDs:`, Array.from(draftMap.keys()));
+      } else {
+        console.log('⚠️ [DOCUMENTS PAGE] No drafts in response or success=false');
+      }
+    } else {
+      console.log('❌ [DOCUMENTS PAGE] Draft fetch failed with status:', res.status);
+      const errorText = await res.text();
+      console.log('❌ [DOCUMENTS PAGE] Error response:', errorText);
+    }
+  } catch (error) {
+    console.error("❌ [DOCUMENTS PAGE] Failed to fetch drafts:", error)
   }
 }
 
@@ -141,17 +237,34 @@ const handleRestoreDocument = async (docId: string, docName: string) => {
 }
 
  useEffect(() => {
-  fetchDocuments()
-  fetchTemplates()  
-  fetchArchivedDocuments()
+  const loadData = async () => {
+    await fetchDocuments();
+    await fetchTemplates();
+    await fetchArchivedDocuments();
+    await fetchDrafts();
+     
+  };
+  
+  loadData();
+  
   const interval = setInterval(() => {
-    fetchDocuments()
-    fetchTemplates()  
-    fetchArchivedDocuments() 
-  }, 30000)
-  return () => clearInterval(interval)
-}, [])
+    loadData();
+  }, 30000);
+  
+  return () => clearInterval(interval);
+}, []);
 
+//  Only fetch sent requests when documents/templates are FIRST loaded, not on every change
+useEffect(() => {
+  if (documents.length > 0 || templates.length > 0) {
+    // Add a small delay to prevent flickering
+    const timer = setTimeout(() => {
+      fetchSentRequests();
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }
+}, [documents.length, templates.length]); // ⭐ Only watch LENGTH, not entire array
 
 const handleSearch = async (query: string) => {
   setSearchQuery(query);
@@ -558,11 +671,43 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       {/* Document Preview Thumbnail - Shows actual PDF content */}
 <div 
   className="relative h-32 w-24 rounded-lg overflow-hidden flex-shrink-0 bg-white border border-slate-200 shadow-sm cursor-pointer"
-  onClick={(e) => {
-    e.stopPropagation()
-    setPreviewDocumentId(doc._id)
-    setPreviewDrawerOpen(true)
-  }}
+  onClick={async (e) => {
+  e.stopPropagation()
+  setPreviewDocumentId(doc._id)
+  
+  // ⭐ FIX: ALWAYS fetch fresh signature data when opening drawer
+  console.log('👁️ Opening preview for document:', doc._id);
+  
+  try {
+    const res = await fetch(`/api/signature-requests/check/${doc._id}`, {
+      credentials: 'include',
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      
+      if (data.hasSentRequest) {
+        console.log('✅ Signature data found:', data.recipients.length, 'recipients');
+        setPreviewData({
+          recipients: data.recipients || [],
+          signatureFields: data.signatureFields || [],
+          viewMode: data.viewMode || 'isolated',
+        });
+      } else {
+        console.log('ℹ️ No signature data for this document');
+        setPreviewData(null);
+      }
+    } else {
+      console.log('⚠️ Failed to fetch signature data');
+      setPreviewData(null);
+    }
+  } catch (error) {
+    console.error('❌ Error fetching signature data:', error);
+    setPreviewData(null);
+  }
+  
+  setPreviewDrawerOpen(true)
+}}
 >
   {/* PDF Preview */}
   <div className="absolute inset-0 overflow-hidden">
@@ -600,13 +745,26 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       {/* Document Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-slate-900 truncate">{doc.originalFilename || doc.filename}</h3>
-          {doc.isTemplate && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-              Template
-            </span>
-          )}
-        </div>
+  <h3 className="font-semibold text-slate-900 truncate">{doc.originalFilename || doc.filename}</h3>
+  {/*   NEW: Show "Signed" badge if all signed */}
+      {sentRequests.has(doc._id) && sentRequests.get(doc._id)?.allSigned && (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          Signed
+        </span>
+      )}
+  {doc.isTemplate && (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+      Template
+    </span>
+  )}
+  {/*   Draft badge */}
+  {drafts.has(doc._id) && (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+      🟠 Draft
+    </span>
+  )}
+</div>
         <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
           <span>{doc.numPages} pages</span>
           <span>•</span>
@@ -621,6 +779,89 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
 
       {/* Action Buttons */}
       <div className="flex items-center gap-2">
+        {/* ⭐ UPDATED: Only show "Continue Editing" if draft exists AND no sent request */}
+{/* ⭐ FIX 1: Only show "Continue Editing" if draft exists AND no sent request */}
+{drafts.has(doc._id) && !sentRequests.has(doc._id) && (
+  <Button 
+    size="sm"
+    onClick={(e) => {
+      e.stopPropagation()
+      router.push(`/documents/${doc._id}/signature?mode=draft`) //   CHANGED: edit → draft
+    }}
+    className="bg-orange-600 hover:bg-orange-700 text-white gap-2"
+    title="Continue editing signature request"
+  >
+    <Edit className="h-4 w-4" />
+    Continue Editing
+  </Button>
+)}
+
+{/* ⭐ FIX 2: Show "Resend" button if sent but not all signed */}
+{sentRequests.has(doc._id) && !sentRequests.get(doc._id)?.allSigned && (
+  <Button 
+    size="sm"
+    onClick={async (e) => {
+      e.stopPropagation()
+      const requestData = sentRequests.get(doc._id);
+      const firstPendingRecipient = requestData.recipients.find((r: any) => r.status !== 'signed');
+      
+      if (firstPendingRecipient) {
+        try {
+          const res = await fetch(`/api/signature/${firstPendingRecipient.uniqueId}/resend`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+          
+          if (res.ok) {
+            alert(`✅ Reminder sent to ${firstPendingRecipient.name}`);
+          } else {
+            alert('❌ Failed to send reminder');
+          }
+        } catch (error) {
+          alert('❌ Failed to send reminder');
+        }
+      }
+    }}
+    className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+    title="Resend signature request"
+  >
+    <Mail className="h-4 w-4" />
+    Resend
+  </Button>
+)}
+
+{/* ⭐ FIX 3: Show "View Status" if ANY signed BUT NOT all signed */}
+{sentRequests.has(doc._id) && sentRequests.get(doc._id)?.anySigned && !sentRequests.get(doc._id)?.allSigned && (
+  <Button 
+    size="sm"
+    onClick={(e) => {
+      e.stopPropagation()
+      router.push(`/SignatureDashboard?documentId=${doc._id}`)
+    }}
+    className="bg-green-600 hover:bg-green-700 text-white gap-2"
+    title="View signature status"
+  >
+    <CheckCircle2 className="h-4 w-4" />
+    View Status
+  </Button>
+)}
+
+{/* ⭐ NEW: Show "Export to Cloud" if ALL signed */}
+{sentRequests.has(doc._id) && sentRequests.get(doc._id)?.allSigned && (
+  <Button 
+    size="sm"
+    onClick={(e) => {
+      e.stopPropagation()
+      // TODO: Implement cloud export logic
+      alert('🚀 Export to Cloud feature coming soon!')
+    }}
+    className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
+    title="Export signed document to cloud"
+  >
+    <Upload className="h-4 w-4" />
+    Export to Cloud
+  </Button>
+)}
         <Button 
           variant="ghost" 
           size="sm" 
@@ -715,17 +956,59 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       />
 
       {/* Preview Drawer */}
-<Drawer open={previewDrawerOpen} onOpenChange={setPreviewDrawerOpen}>
+       <Drawer open={previewDrawerOpen} onOpenChange={setPreviewDrawerOpen}>
   {previewDocumentId && (
     <div className="h-full flex">
       {/* Sidebar with document info */}
-      <div className="w-64 border-r bg-white flex flex-col">
+      <div className="w-80 border-r bg-white flex flex-col">
         <div className="p-4 border-b">
-          <h3 className="font-semibold text-slate-900 mb-1">Document</h3>
+          <h3 className="font-semibold text-slate-900 mb-1">Document Preview</h3>
+          <p className="text-xs text-slate-600">
+            {documents.find(d => d._id === previewDocumentId)?.originalFilename || 
+             templates.find(d => d._id === previewDocumentId)?.originalFilename || 'Document'}
+          </p>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Owner */}
+          {/* ⭐ NEW: Recipients Section */}
+          {previewData && previewData.recipients.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">
+                Recipients ({previewData.recipients.length})
+              </label>
+              <div className="mt-2 space-y-2">
+                {previewData.recipients.map((recipient, idx) => (
+                  <div key={idx} className="p-3 bg-slate-50 rounded-lg border">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div 
+                        className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-semibold text-white"
+                        style={{ backgroundColor: `hsl(${idx * 60}, 70%, 50%)` }}
+                      >
+                        {recipient.name?.charAt(0) || idx + 1}
+                      </div>
+                      <span className="text-sm font-medium text-slate-900">
+                        {recipient.name}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600">{recipient.email}</p>
+                    <div className="mt-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        recipient.status === 'signed' ? 'bg-green-100 text-green-800' :
+                        recipient.status === 'viewed' ? 'bg-blue-100 text-blue-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {recipient.status === 'signed' ? '✓ Signed' :
+                         recipient.status === 'viewed' ? '👁 Viewed' :
+                         '⏳ Pending'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Original Document Info */}
           <div>
             <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">Owner</label>
             <div className="mt-2 flex items-center gap-2">
@@ -759,6 +1042,18 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               </div>
             </div>
           </div>
+
+          {/* ⭐ NEW: Signature Fields Count */}
+          {previewData && previewData.signatureFields.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-slate-600 uppercase tracking-wide">
+                Signature Fields
+              </label>
+              <div className="mt-2 text-sm text-slate-700">
+                {previewData.signatureFields.length} fields placed
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
@@ -804,22 +1099,58 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
         </div>
       </div>
 
-      {/* Main PDF Viewer - NO TOOLBAR */}
+      {/* Main PDF Viewer with Signature Field Overlays */}
       <div className="flex-1 flex flex-col bg-slate-100">
         <div className="flex-1 p-6 overflow-auto">
-          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+          <div 
+            id="preview-pdf-container"
+            className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden relative"
+          >
             <embed
               src={`/api/documents/${previewDocumentId}/file?serve=blob#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
               type="application/pdf"
               className="w-full border-0"
               style={{ height: 'calc(100vh - 120px)' }}
             />
+            
+            {/* ⭐ NEW: Signature Field Overlays */}
+            {previewData && previewData.signatureFields.map((field, idx) => {
+              const recipient = previewData.recipients[field.recipientIndex];
+              const pageHeight = 297 * 3.78; // A4 page height in pixels
+              const topPosition = (field.page - 1) * pageHeight + (field.y / 100) * pageHeight;
+              
+              return (
+                <div
+                  key={idx}
+                  className="absolute border-2 rounded bg-white/90 shadow-lg pointer-events-none"
+                  style={{
+                    left: `${field.x}%`,
+                    top: `${topPosition}px`,
+                    borderColor: `hsl(${field.recipientIndex * 60}, 70%, 50%)`,
+                    width: field.type === "signature" ? "140px" : "120px",
+                    height: field.type === "signature" ? "50px" : "36px",
+                    transform: "translate(-50%, 0%)",
+                  }}
+                >
+                  <div className="h-full flex items-center justify-center px-2">
+                    <span className="text-xs font-semibold truncate">
+                      {field.type === "signature" ? "✍️ Signature" :
+                       field.type === "date" ? "📅 Date" :
+                       field.type === "text" ? "📝 Text" :
+                       field.type === "checkbox" ? "☑️ Checkbox" :
+                       field.type}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
     </div>
   )}
 </Drawer>
+
     </div>
 
     

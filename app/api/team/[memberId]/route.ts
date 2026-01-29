@@ -19,6 +19,7 @@ async function verifyUser(request: NextRequest) {
 }
 
 // PATCH - Update member role
+// PATCH - Update member role
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ memberId: string }> }
@@ -39,6 +40,26 @@ export async function PATCH(
 
     const db = await dbPromise;
 
+    // ✅ CHECK IF USER HAS PERMISSION TO UPDATE ROLES
+    const userProfile = await db.collection("profiles").findOne({ user_id: user.id });
+    const organizationId = userProfile?.organization_id || user.id;
+
+    // Get current user's member record
+    const currentUserMember = await db.collection("organization_members").findOne({
+      organizationId,
+      userId: user.id,
+    });
+
+    // ✅ ONLY OWNER/ADMIN CAN UPDATE ROLES
+    const isOwner = organizationId === user.id;
+    const isAdmin = currentUserMember?.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json({ 
+        error: "Permission denied. Only owners and admins can update roles." 
+      }, { status: 403 });
+    }
+
     const result = await db.collection("organization_members").updateOne(
       { _id: new ObjectId(memberId) },
       { $set: { role, updatedAt: new Date() } }
@@ -54,8 +75,8 @@ export async function PATCH(
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
-
 // DELETE - Remove team member
+ 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ memberId: string }> }
@@ -68,6 +89,26 @@ export async function DELETE(
 
     const { memberId } = await params;
     const db = await dbPromise;
+
+    // ✅ CHECK IF USER HAS PERMISSION TO DELETE MEMBERS
+    const userProfile = await db.collection("profiles").findOne({ user_id: user.id });
+    const organizationId = userProfile?.organization_id || user.id;
+
+    // Get current user's member record
+    const currentUserMember = await db.collection("organization_members").findOne({
+      organizationId,
+      userId: user.id,
+    });
+
+    // ✅ ONLY OWNER/ADMIN CAN DELETE MEMBERS
+    const isOwner = organizationId === user.id;
+    const isAdmin = currentUserMember?.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json({ 
+        error: "Permission denied. Only owners and admins can remove members." 
+      }, { status: 403 });
+    }
 
     const result = await db.collection("organization_members").deleteOne({
       _id: new ObjectId(memberId),

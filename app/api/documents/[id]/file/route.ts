@@ -31,14 +31,45 @@ export async function GET(
     const db = await dbPromise;
     const documentId = new ObjectId(id);
 
-    const document = await db.collection('documents').findOne({
-      _id: documentId,
-      userId: user.id,
-    });
+   // ⭐ FIX: Allow access if user owns document OR has signature request for it
+const document = await db.collection('documents').findOne({
+  _id: documentId,
+});
 
-    if (!document) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
-    }
+if (!document) {
+  return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+}
+
+// ⭐ Check if user has access (owns document OR is a recipient)
+const isOwner = document.userId === user.id;
+const hasSignatureRequest = await db.collection('signature_requests').findOne({
+  documentId: id,
+  'recipient.email': user.email,
+});
+const isCCRecipient = await db.collection('cc_recipients').findOne({
+  documentId: id,
+  email: user.email,
+});
+
+const hasAccess = isOwner || hasSignatureRequest || isCCRecipient;
+
+if (!hasAccess) {
+  console.log('❌ Access denied for user:', user.email);
+  console.log('   Document owner:', document.userId);
+  console.log('   Has signature request:', !!hasSignatureRequest);
+  console.log('   Is CC recipient:', !!isCCRecipient);
+  
+  return NextResponse.json({ 
+    error: 'Access denied',
+    details: 'You do not have permission to view this document'
+  }, { status: 403 });
+}
+
+console.log('✅ Access granted:', {
+  isOwner,
+  hasSignatureRequest: !!hasSignatureRequest,
+  isCCRecipient: !!isCCRecipient,
+});
 
     if (!document.cloudinaryPdfUrl) {
       return NextResponse.json(

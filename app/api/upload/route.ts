@@ -51,70 +51,52 @@ async function uploadToCloudinary(buffer: Buffer, filename: string, folder: stri
     streamifier.createReadStream(buffer).pipe(uploadStream);
   });
 }
+
+
 export async function POST(request: NextRequest) {
   try {
-    // ✅ Verify user
     const user = await verifyUserFromRequest(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // ✅ Resolve organization (team logic)
-const db = await dbPromise;
+    const db = await dbPromise;
+    const profile = await db.collection('profiles').findOne({ user_id: user.id });
+    const organizationId = profile?.organization_id || user.id;
 
-const profile = await db.collection('profiles').findOne({
-  user_id: user.id,
-});
-
-// If user belongs to a team → use organizationId
-// Else fallback to personal workspace
-const organizationId = profile?.organization_id || user.id;
-
-    // ✅ Get file
     const formData = await request.formData();
     const file = formData.get('file') as File;
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
-    // ✅ Validate file type
+
     const fileType = SUPPORTED_FORMATS[file.type as keyof typeof SUPPORTED_FORMATS];
-    if (!fileType) return NextResponse.json({ 
-      error: 'Unsupported file type',
-      supported: Object.values(SUPPORTED_FORMATS)
-    }, { status: 400 });
+    if (!fileType) return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 });
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    // ✅ Check file size based on plan
+
     const maxSize = user.plan === 'premium' ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
     if (buffer.length > maxSize) {
-      return NextResponse.json({ 
-        error: `File too large. Maximum size is ${maxSize / (1024 * 1024)}MB for ${user.plan} plan` 
-      }, { status: 400 });
+      return NextResponse.json({ error: `File too large` }, { status: 400 });
     }
-    // ✅ Convert to PDF if needed
-    const pdfBuffer = fileType !== 'pdf'
-      ? await convertToPdf(buffer, fileType, file.name)
-      : buffer;
-    // ✅ Extract text & metadata
+
+    // ✅ STEP 1: Convert to PDF + Extract Metadata (PARALLEL)
+    const [pdfBuffer, metadata] = await Promise.all([
+      fileType !== 'pdf' ? convertToPdf(buffer, fileType, file.name) : Promise.resolve(buffer),
+      extractMetadata(buffer, fileType)
+    ]);
+
+    // ✅ STEP 2: Extract Text
     const extractedText = await extractTextFromPdf(pdfBuffer);
-    const analysis = await analyzeDocument(extractedText, user.plan);
-    const metadata = await extractMetadata(pdfBuffer, fileType);
+    const scannedPdf = !extractedText || extractedText.trim().length < 30;
+    const summary = generateSummary(extractedText);
 
-    // ✅ Detect scanned or image-only PDFs
-const scannedPdf = !extractedText || extractedText.trim().length < 30;
-
-// ✅ Generate quick text summary
-function generateSummary(text: string) {
-  const sentences = text.split(/[.!?]/).filter(Boolean);
-  if (sentences.length <= 3) return text;
-  return sentences.slice(0, 3).join(". ") + ".";
-}
-const summary = generateSummary(extractedText);
-
-    // ✅ Upload files to Cloudinary
+    // ✅ STEP 3: Analysis + Cloudinary Upload (PARALLEL)
     const folder = `users/${user.id}/documents`;
-    const [originalUrl, pdfUrl] = await Promise.all([
+    const [analysis, originalUrl, pdfUrl] = await Promise.all([
+      analyzeDocument(extractedText, user.plan),
       uploadToCloudinary(buffer, file.name, folder),
       uploadToCloudinary(pdfBuffer, file.name.replace(/\.[^/.]+$/, ".pdf"), folder)
     ]);
-    // ✅ Store document in MongoDB
-     
+
+    // ✅ STEP 4: Single DB Write
     const doc = {
       userId: user.id,
       plan: user.plan,
@@ -126,12 +108,12 @@ const summary = generateSummary(extractedText);
       pdfSize: pdfBuffer.length,
       cloudinaryOriginalUrl: originalUrl,
       cloudinaryPdfUrl: pdfUrl,
-      extractedText: extractedText.substring(0, 10000), // first 10k chars
+      extractedText: extractedText.substring(0, 10000),
       numPages: metadata.pageCount,
       wordCount: metadata.wordCount,
       charCount: metadata.charCount,
       summary,
-scannedPdf,
+      scannedPdf,
       analytics: {
         readabilityScore: analysis.readability,
         sentimentScore: analysis.sentiment,
@@ -169,7 +151,9 @@ scannedPdf,
       updatedAt: new Date(),
       lastAnalyzedAt: new Date(),
     };
+
     const result = await db.collection('documents').insertOne(doc);
+
     return NextResponse.json({
       success: true,
       documentId: result.insertedId.toString(),
@@ -193,6 +177,7 @@ scannedPdf,
       hasIssues: analysis.grammar.length > 0 || analysis.spelling.length > 0,
       issuesSummary: `Found ${analysis.grammar.length} grammar issues, ${analysis.spelling.length} spelling errors`,
     }, { status: 201 });
+
   } catch (error) {
     console.error('❌ Document upload error:', error);
     return NextResponse.json({
@@ -200,4 +185,10 @@ scannedPdf,
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
+}
+
+function generateSummary(text: string) {
+  const sentences = text.split(/[.!?]/).filter(Boolean);
+  if (sentences.length <= 3) return text;
+  return sentences.slice(0, 3).join(". ") + ".";
 }

@@ -104,6 +104,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+
 // POST - Invite team member
 export async function POST(request: NextRequest) {
   try {
@@ -121,11 +122,25 @@ export async function POST(request: NextRequest) {
 
     const db = await dbPromise;
     
-    // Get inviter's profile
     const inviterProfile = await db.collection("profiles").findOne({ 
       user_id: user.id 
     });
     const organizationId = inviterProfile?.organization_id || user.id;
+
+    // ✅ CHECK IF USER HAS PERMISSION TO INVITE
+    const currentUserMember = await db.collection("organization_members").findOne({
+      organizationId,
+      userId: user.id,
+    });
+
+    const isOwner = organizationId === user.id;
+    const isAdmin = currentUserMember?.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json({ 
+        error: "Permission denied. Only owners and admins can invite team members." 
+      }, { status: 403 });
+    }
 
     // Check if already exists
     const existing = await db.collection("organization_members").findOne({
@@ -153,22 +168,18 @@ export async function POST(request: NextRequest) {
       invitedBy: user.id,
       inviteToken,
       invitedAt: now,
-      expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
     };
 
     const result = await db.collection("organization_members").insertOne(memberDoc);
 
-    // Create invite link
     const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite-team/${inviteToken}`;
-
-    // Send email (you'll implement this)
-    // await sendInviteEmail(email, inviteLink, inviterProfile?.full_name);
 
     return NextResponse.json({
       success: true,
       message: "Invitation sent",
       inviteId: result.insertedId.toString(),
-      inviteLink, // Return for manual sharing
+      inviteLink,
     });
   } catch (error: any) {
     console.error("POST team error:", error);

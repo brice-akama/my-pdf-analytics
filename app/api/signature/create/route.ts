@@ -261,6 +261,20 @@ if (!shouldSendNow) {
       }
     );
 
+    // ⭐ ADD THIS: Delete draft after successful send
+try {
+  await db.collection('signature_request_drafts').deleteOne({
+    documentId: new ObjectId(documentId),
+    userId: ownerId,
+  });
+  console.log(`🗑️ Draft deleted for document ${documentId} after sending`);
+} catch (err) {
+  console.warn('⚠️ Failed to delete draft after send:', err);
+  // Don't fail the request if draft deletion fails
+}
+
+
+
     return NextResponse.json({
       success: true,
       signatureRequests,

@@ -1,7 +1,7 @@
-    //app/documents/[id]/signature/page.tsx
+//app/documents/[id]/signature/page.tsx
  
  "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -121,6 +121,10 @@ const [showEditDrawer, setShowEditDrawer] = useState(false);
 const [showReviewDrawer, setShowReviewDrawer] = useState(false);
 const [fieldHistory, setFieldHistory] = useState<SignatureField[][]>([]);
 const [historyIndex, setHistoryIndex] = useState(-1);
+const [draftSaving, setDraftSaving] = useState(false);
+const [draftLastSaved, setDraftLastSaved] = useState<Date | null>(null);
+const [draftLoaded, setDraftLoaded] = useState(false);
+const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
 
   const [signatureRequest, setSignatureRequest] = useState<SignatureRequest>({
@@ -138,45 +142,93 @@ const [historyIndex, setHistoryIndex] = useState(-1);
   }, [params.id]);
 
 
-  useEffect(() => {
-  // Save to history whenever fields change
-  if (signatureRequest.signatureFields.length > 0) {
-    const newHistory = fieldHistory.slice(0, historyIndex + 1);
-    newHistory.push([...signatureRequest.signatureFields]);
-    setFieldHistory(newHistory);
-    setHistoryIndex(newHistory.length - 1);
+ // ⭐ FIXED: Save to history on EVERY field change
+useEffect(() => {
+  // Skip if this is from an undo/redo action
+  if (fieldHistory[historyIndex] && 
+      JSON.stringify(fieldHistory[historyIndex]) === JSON.stringify(signatureRequest.signatureFields)) {
+    return;
   }
-}, [signatureRequest.signatureFields]);
+  
+  const newHistory = fieldHistory.slice(0, historyIndex + 1);
+  newHistory.push([...signatureRequest.signatureFields]);
+  setFieldHistory(newHistory);
+  setHistoryIndex(newHistory.length - 1);
+}, [signatureRequest.signatureFields, fieldHistory, historyIndex]); // ⭐ ADD ALL DEPS
+
+// ⭐ FIXED: Keyboard shortcuts with useRef to avoid dependency issues
+const signatureRequestRef = useRef(signatureRequest);
+
+
+// ⭐ NEW: Auto-save draft every 3 seconds when changes occur
+useEffect(() => {
+  // Clear existing timer
+  if (autoSaveTimerRef.current) {
+    clearTimeout(autoSaveTimerRef.current);
+  }
+  
+  // Only auto-save if we have recipients or fields
+  if (signatureRequest.recipients.length > 0 || signatureRequest.signatureFields.length > 0) {
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveDraft();
+    }, 3000); // 3 seconds delay
+  }
+  
+  return () => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+  };
+}, [
+  signatureRequest.recipients,
+  signatureRequest.signatureFields,
+  signatureRequest.viewMode,
+  signatureRequest.signingOrder,
+  signatureRequest.message,
+  signatureRequest.dueDate,
+  signatureRequest.ccRecipients,
+]);
+
+useEffect(() => {
+  signatureRequestRef.current = signatureRequest;
+}, [signatureRequest]);
 
 useEffect(() => {
   const handleKeyboard = (e: KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
       e.preventDefault();
       // Undo
-      if (historyIndex > 0) {
-        setHistoryIndex(historyIndex - 1);
-        setSignatureRequest({
-          ...signatureRequest,
-          signatureFields: fieldHistory[historyIndex - 1],
-        });
-      }
+      setHistoryIndex((currentIndex) => {
+        if (currentIndex > 0) {
+          const newIndex = currentIndex - 1;
+          setSignatureRequest({
+            ...signatureRequestRef.current,
+            signatureFields: fieldHistory[newIndex],
+          });
+          return newIndex;
+        }
+        return currentIndex;
+      });
     } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
       e.preventDefault();
       // Redo
-      if (historyIndex < fieldHistory.length - 1) {
-        setHistoryIndex(historyIndex + 1);
-        setSignatureRequest({
-          ...signatureRequest,
-          signatureFields: fieldHistory[historyIndex + 1],
-        });
-      }
+      setHistoryIndex((currentIndex) => {
+        if (currentIndex < fieldHistory.length - 1) {
+          const newIndex = currentIndex + 1;
+          setSignatureRequest({
+            ...signatureRequestRef.current,
+            signatureFields: fieldHistory[newIndex],
+          });
+          return newIndex;
+        }
+        return currentIndex;
+      });
     }
   };
   
   window.addEventListener('keydown', handleKeyboard);
   return () => window.removeEventListener('keydown', handleKeyboard);
-}, [historyIndex, fieldHistory]);
-
+}, []); // ⭐ EMPTY DEPS - stable now!
 
   useEffect(() => {
     if (doc && signatureRequest.step === 2 && !pdfUrl) {
@@ -184,7 +236,22 @@ useEffect(() => {
     }
   }, [doc, signatureRequest.step]);
 
-  const fetchDocument = async () => {
+
+  useEffect(() => {
+  if (doc && signatureRequest.step === 2 && !pdfUrl) {
+    fetchPdfForPreview();
+  }
+}, [doc, signatureRequest.step]);
+
+// ⭐ NEW: Load draft when document is loaded
+useEffect(() => {
+  if (doc && !draftLoaded) {
+    loadDraft();
+  }
+}, [doc, draftLoaded]);
+
+
+ const fetchDocument = async () => {
   try {
     const res = await fetch(`/api/documents/${params.id}`, {
       credentials: "include",
@@ -194,42 +261,58 @@ useEffect(() => {
       if (data.success) {
         setDoc(data.document);
         
-        // ⭐ CHECK: Is this already a template?
-       if (data.document.isTemplate) {
-  // Load existing template configuration
-  const templateRes = await fetch(`/api/documents/${params.id}/template`, {
-    credentials: "include",
-  });
-  if (templateRes.ok) {
-    const templateData = await templateRes.json();
-    setSignatureRequest({
-      recipientEmail: "",
-      recipientName: "",
-      message: "",
-      dueDate: "",
-      step: 1,
-      recipients: templateData.template.recipients || [],
-      signatureFields: templateData.template.signatureFields || [],
-      isTemplate: mode !== 'send', // ⭐ Only template mode if NOT sending
-      viewMode: 'isolated',
-    });
-  }
-} else {
-  // ⭐ NEW DOCUMENT
-  setSignatureRequest({
-    recipientEmail: "",
-    recipientName: "",
-    message: "",
-    dueDate: "",
-    step: 1,
-    recipients: [
-      { name: "Recipient 1", email: "", role: "Signer", color: "#9333ea" },
-    ],
-    signatureFields: [],
-    isTemplate: mode !== 'send', // ⭐ Template mode ONLY if mode is 'edit'
-    viewMode: 'isolated',
-  });
-}
+        console.log('📄 [SIGNATURE PAGE] Document loaded');
+        console.log('🏷️ [SIGNATURE PAGE] Is template?', data.document.isTemplate);
+        console.log('🎯 [SIGNATURE PAGE] Mode:', mode);
+        
+        // ⭐ CRITICAL FIX: Determine the correct mode
+        const isEditingRealTemplate = data.document.isTemplate === true && mode === 'edit';
+        const isDraftMode = mode === 'draft';
+        const isSendMode = mode === 'send' || !mode;
+        
+        console.log('✅ [SIGNATURE PAGE] Is editing real template?', isEditingRealTemplate);
+        console.log('✅ [SIGNATURE PAGE] Is draft mode?', isDraftMode);
+        console.log('✅ [SIGNATURE PAGE] Is send mode?', isSendMode);
+        
+        if (isEditingRealTemplate) {
+          // ✅ EDITING A REAL TEMPLATE
+          console.log('🎨 [SIGNATURE PAGE] Loading template configuration...');
+          const templateRes = await fetch(`/api/documents/${params.id}/template`, {
+            credentials: "include",
+          });
+          if (templateRes.ok) {
+            const templateData = await templateRes.json();
+            setSignatureRequest({
+              recipientEmail: "",
+              recipientName: "",
+              message: "",
+              dueDate: "",
+              step: 1,
+              recipients: templateData.template.recipients || [],
+              signatureFields: templateData.template.signatureFields || [],
+              isTemplate: true, // ✅ This IS a template
+              viewMode: 'isolated',
+            });
+            console.log('✅ [SIGNATURE PAGE] Template loaded, isTemplate=true');
+          }
+        } else {
+          // ✅ NEW DOCUMENT, DRAFT, or SEND MODE
+          console.log('📝 [SIGNATURE PAGE] Setting up for signature request...');
+          setSignatureRequest({
+            recipientEmail: "",
+            recipientName: "",
+            message: "",
+            dueDate: "",
+            step: 1,
+            recipients: [
+              { name: "Recipient 1", email: "", role: "Signer", color: "#9333ea" },
+            ],
+            signatureFields: [],
+            isTemplate: false, // ✅ NOT a template
+            viewMode: 'isolated',
+          });
+          console.log('✅ [SIGNATURE PAGE] Signature request mode, isTemplate=false');
+        }
       }
     }
   } catch (error) {
@@ -238,7 +321,6 @@ useEffect(() => {
     setLoading(false);
   }
 };
-
 
   const fetchPdfForPreview = async () => {
     try {
@@ -257,7 +339,140 @@ useEffect(() => {
   };
 
 
-  const handleSendSignature = async () => {
+// ⭐ NEW: Auto-save draft function
+const saveDraft = async () => {
+  console.log('💾 [SIGNATURE PAGE] saveDraft called');
+  console.log('📊 [SIGNATURE PAGE] Doc ID:', doc?._id);
+  console.log('📊 [SIGNATURE PAGE] Mode:', mode);
+  
+  if (!doc?._id) {
+    console.log('⚠️ [SIGNATURE PAGE] No document ID, skipping save');
+    return;
+  }
+  
+  console.log('✅ [SIGNATURE PAGE] Proceeding with draft save...');
+  
+  try {
+    setDraftSaving(true);
+    console.log('🔄 [SIGNATURE PAGE] Draft saving state: true');
+    
+    const draftData = {
+      recipients: signatureRequest.recipients,
+      signatureFields: signatureRequest.signatureFields,
+      viewMode: signatureRequest.viewMode,
+      signingOrder: signatureRequest.signingOrder,
+      expirationDays: signatureRequest.expirationDays,
+      accessCodeRequired: signatureRequest.accessCodeRequired,
+      accessCodeType: signatureRequest.accessCodeType,
+      accessCodeHint: signatureRequest.accessCodeHint,
+      accessCode: signatureRequest.accessCode,
+      intentVideoRequired: signatureRequest.intentVideoRequired,
+      message: signatureRequest.message,
+      dueDate: signatureRequest.dueDate,
+      scheduledSendDate: signatureRequest.scheduledSendDate,
+      ccRecipients: signatureRequest.ccRecipients,
+    };
+    
+    console.log('📦 [SIGNATURE PAGE] Draft data to save:', {
+      recipients: draftData.recipients.length,
+      fields: draftData.signatureFields.length,
+      viewMode: draftData.viewMode
+    });
+    
+    const response = await fetch(`/api/signature-drafts/${doc._id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(draftData),
+    });
+    
+    console.log('📡 [SIGNATURE PAGE] Save response status:', response.status);
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ [SIGNATURE PAGE] Draft saved successfully:', data);
+      setDraftLastSaved(new Date());
+      console.log('🕒 [SIGNATURE PAGE] Draft last saved updated');
+    } else {
+      const errorText = await response.text();
+      console.error('❌ [SIGNATURE PAGE] Save failed:', response.status, errorText);
+    }
+  } catch (error) {
+    console.error('❌ [SIGNATURE PAGE] Failed to save draft:', error);
+  } finally {
+    setDraftSaving(false);
+    console.log('🔄 [SIGNATURE PAGE] Draft saving state: false');
+  }
+};
+
+// ⭐ NEW: Load draft on page load
+const loadDraft = async () => {
+   console.log('📖 [SIGNATURE PAGE] loadDraft called');
+  console.log('📊 [SIGNATURE PAGE] Doc ID:', doc?._id);
+  console.log('📊 [SIGNATURE PAGE] Mode:', mode);
+  console.log('📊 [SIGNATURE PAGE] Draft loaded:', draftLoaded);
+  
+  if (!doc?._id) {
+    console.log('⚠️ [SIGNATURE PAGE] No document ID, skipping load');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/signature-drafts/${doc._id}`, {
+      credentials: 'include',
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.draft) {
+        console.log('📋 Draft found, restoring...');
+        
+        setSignatureRequest({
+          ...signatureRequest,
+          recipients: data.draft.recipients || [],
+          signatureFields: data.draft.signatureFields || [],
+          viewMode: data.draft.viewMode || 'isolated',
+          signingOrder: data.draft.signingOrder || 'any',
+          expirationDays: data.draft.expirationDays || '30',
+          accessCodeRequired: data.draft.accessCodeRequired || false,
+          accessCodeType: data.draft.accessCodeType,
+          accessCodeHint: data.draft.accessCodeHint,
+          accessCode: data.draft.accessCode,
+          intentVideoRequired: data.draft.intentVideoRequired || false,
+          message: data.draft.message || '',
+          dueDate: data.draft.dueDate || '',
+          scheduledSendDate: data.draft.scheduledSendDate || '',
+          ccRecipients: data.draft.ccRecipients || [],
+          isTemplate: false,
+        });
+        
+        setDraftLastSaved(new Date(data.draft.lastSaved));
+        setDraftLoaded(true);
+        
+        alert(`✅ Draft restored from ${new Date(data.draft.lastSaved).toLocaleString()}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Failed to load draft:', error);
+  }
+};
+
+// ⭐ NEW: Delete draft after sending
+const deleteDraft = async () => {
+  if (!doc?._id) return;
+  
+  try {
+    await fetch(`/api/signature-drafts/${doc._id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    console.log('🗑️ Draft deleted after sending');
+  } catch (error) {
+    console.error('⚠️ Failed to delete draft:', error);
+  }
+};
+
+const handleSendSignature = async () => {
   const validRecipients = signatureRequest.recipients.filter(
     (r) => r.name && r.email
   );
@@ -361,6 +576,7 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
   }
 };
 
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -396,12 +612,32 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <div>
-                <h1 className="text-xl font-bold text-slate-900">{doc.filename}</h1>
-<p className="text-sm text-slate-500">
-  {mode === 'edit' ? "Edit Template" : "Request Signatures"} - Step{" "}
-  {signatureRequest.step} of 3
-</p>
-              </div>
+  <div className="flex items-center gap-3">
+    <h1 className="text-xl font-bold text-slate-900">{doc.filename}</h1>
+    {/* ⭐ NEW: Draft indicator */}
+    {draftLastSaved && (
+      <div className="flex items-center gap-2 text-xs">
+        {draftSaving ? (
+          <span className="text-blue-600 flex items-center gap-1">
+            <div className="animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full" />
+            Saving...
+          </span>
+        ) : (
+          <span className="text-green-600 flex items-center gap-1">
+            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Saved {new Date(draftLastSaved).toLocaleTimeString()}
+          </span>
+        )}
+      </div>
+    )}
+  </div>
+  <p className="text-sm text-slate-500">
+    {mode === 'edit' ? "Edit Template" : "Request Signatures"} - Step{" "}
+    {signatureRequest.step} of 3
+  </p>
+</div>
             </div>
            <div className="flex items-center gap-3">
   {signatureRequest.step > 1 && (
@@ -450,33 +686,35 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
   )}
   
   {signatureRequest.step === 3 && (
-    <Button
-      onClick={handleSendSignature}
-      disabled={isSending}
-      className="bg-purple-600 hover:bg-purple-700"
-    >
-      {isSending ? (
-        <>
-          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-          {mode === 'send' ? 'Sending...' : 'Saving...'}
-        </>
-      ) : (
-        <>
-          {mode === 'send' ? (
-            <>
-              <Mail className="h-4 w-4 mr-2" />
-              Send Request
-            </>
-          ) : (
-            <>
-              <FileSignature className="h-4 w-4 mr-2" />
-              Save as Template
-            </>
-          )}
-        </>
-      )}
-    </Button>
-  )}
+  <Button
+    onClick={handleSendSignature}
+    disabled={isSending}
+    className="bg-purple-600 hover:bg-purple-700"
+  >
+    {isSending ? (
+      <>
+        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+        {/* ⭐ FIX: Check BOTH conditions */}
+        {signatureRequest.isTemplate && mode === 'edit' ? 'Saving Template...' : 'Sending Request...'}
+      </>
+    ) : (
+      <>
+        {/* ⭐ FIX: Check BOTH conditions */}
+        {signatureRequest.isTemplate && mode === 'edit' ? (
+          <>
+            <FileSignature className="h-4 w-4 mr-2" />
+            Save as Template
+          </>
+        ) : (
+          <>
+            <Mail className="h-4 w-4 mr-2" />
+            Send Request
+          </>
+        )}
+      </>
+    )}
+  </Button>
+)}
 </div>
           </div>
         </div>
@@ -1035,7 +1273,54 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
             
             {/* Left Sidebar - Field Tools */}
             <div className="col-span-3 bg-white rounded-xl shadow-sm border p-6 overflow-y-auto">
-              <h3 className="font-bold text-slate-900 mb-6 text-lg">Signature Fields</h3>
+             <h3 className="font-bold text-slate-900 mb-6 text-lg">Signature Fields</h3>
+
+{/*   UNDO/REDO BUTTONS HERE */}
+<div className="mb-4 flex gap-2">
+  <Button
+    variant="outline"
+    size="sm"
+    className="flex-1"
+    disabled={historyIndex <= 0}
+    onClick={() => {
+      if (historyIndex > 0) {
+        setHistoryIndex(historyIndex - 1);
+        setSignatureRequest({
+          ...signatureRequest,
+          signatureFields: fieldHistory[historyIndex - 1],
+        });
+      }
+    }}
+  >
+    <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+    </svg>
+    Undo
+  </Button>
+  <Button
+    variant="outline"
+    size="sm"
+    className="flex-1"
+    disabled={historyIndex >= fieldHistory.length - 1}
+    onClick={() => {
+      if (historyIndex < fieldHistory.length - 1) {
+        setHistoryIndex(historyIndex + 1);
+        setSignatureRequest({
+          ...signatureRequest,
+          signatureFields: fieldHistory[historyIndex + 1],
+        });
+      }
+    }}
+  >
+    Redo
+    <svg className="h-4 w-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
+    </svg>
+  </Button>
+</div>
+              
+{/* Recipients */}
+<div className="space-y-3 mb-6">
               
               {/* Recipients */}
               <div className="space-y-3 mb-6">
@@ -1164,70 +1449,6 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
   Radio Button Field
 </Button>
               </div>
-              {/* Quick Actions */}
-              <div className="mt-6 pt-6 border-t space-y-3">
-                <div className="flex gap-2">
-  <Button
-    variant="outline"
-    size="sm"
-    className="flex-1"
-    disabled={historyIndex <= 0}
-    onClick={() => {
-      if (historyIndex > 0) {
-        setHistoryIndex(historyIndex - 1);
-        setSignatureRequest({
-          ...signatureRequest,
-          signatureFields: fieldHistory[historyIndex - 1],
-        });
-      }
-    }}
-  >
-    <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-    </svg>
-    Undo
-  </Button>
-  <Button
-    variant="outline"
-    size="sm"
-    className="flex-1"
-    disabled={historyIndex >= fieldHistory.length - 1}
-    onClick={() => {
-      if (historyIndex < fieldHistory.length - 1) {
-        setHistoryIndex(historyIndex + 1);
-        setSignatureRequest({
-          ...signatureRequest,
-          signatureFields: fieldHistory[historyIndex + 1],
-        });
-      }
-    }}
-  >
-    Redo
-    <svg className="h-4 w-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
-    </svg>
-  </Button>
-</div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-red-600 hover:bg-red-50"
-                  onClick={() => {
-                    if (window.confirm("Remove all fields from this page?")) {
-                      const updated = signatureRequest.signatureFields.filter(
-                        (f) => f.page !== currentPage
-                      );
-                      setSignatureRequest({ ...signatureRequest, signatureFields: updated });
-                    }
-                  }}
-                  disabled={
-                    signatureRequest.signatureFields.filter((f) => f.page === currentPage)
-                      .length === 0
-                  }
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear This Page
-                </Button>
               </div>
               
               <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
