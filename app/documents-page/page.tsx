@@ -780,19 +780,19 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       {/* Action Buttons */}
       <div className="flex items-center gap-2">
         {/* ⭐ UPDATED: Only show "Continue Editing" if draft exists AND no sent request */}
-{/* ⭐ FIX 1: Only show "Continue Editing" if draft exists AND no sent request */}
+{/* ⭐ Show "Continue Editing" if draft exists AND no sent request */}
 {drafts.has(doc._id) && !sentRequests.has(doc._id) && (
   <Button 
     size="sm"
     onClick={(e) => {
       e.stopPropagation()
-      router.push(`/documents/${doc._id}/signature?mode=draft`) //   CHANGED: edit → draft
+      router.push(`/documents/${doc._id}/signature?mode=draft&returnTo=/documents-page`)
     }}
     className="bg-orange-600 hover:bg-orange-700 text-white gap-2"
-    title="Continue editing signature request"
+    title="Continue editing signature request draft"
   >
     <Edit className="h-4 w-4" />
-    Continue Editing
+    Continue Draft
   </Button>
 )}
 
@@ -1001,6 +1001,18 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
                          recipient.status === 'viewed' ? '👁 Viewed' :
                          '⏳ Pending'}
                       </span>
+                       {/* ⭐ NEW: Show signed date */}
+            {recipient.status === 'signed' && recipient.signedAt && (
+              <p className="text-xs text-slate-500 mt-1">
+                Signed on {new Date(recipient.signedAt).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            )}
                     </div>
                   </div>
                 ))}

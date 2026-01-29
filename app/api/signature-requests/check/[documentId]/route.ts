@@ -51,10 +51,13 @@ export async function GET(
       viewedAt: req.viewedAt,
       recipientIndex: req.recipientIndex,
       uniqueId: req.uniqueId,
+       signedFields: req.signedFields, 
     }));
 
     // Get signature fields from the first request (they should all have the same fields)
     const signatureFields = signatureRequests[0]?.signatureFields || [];
+    // ⭐ NEW: Check if all are signed
+const allSigned = signatureRequests.every(req => req.status === 'signed');
 
     return NextResponse.json({
       success: true,
@@ -63,6 +66,7 @@ export async function GET(
       signatureFields,
       viewMode: signatureRequests[0]?.viewMode || 'isolated',
       signingOrder: signatureRequests[0]?.signingOrder || 'any',
+      allSigned, // Return whether all recipients have signed
     });
 
   } catch (error) {

@@ -266,38 +266,60 @@ useEffect(() => {
         console.log('🎯 [SIGNATURE PAGE] Mode:', mode);
         
         // ⭐ CRITICAL FIX: Determine the correct mode
-        const isEditingRealTemplate = data.document.isTemplate === true && mode === 'edit';
-        const isDraftMode = mode === 'draft';
-        const isSendMode = mode === 'send' || !mode;
+        const isEditingRealTemplate = mode === 'edit'; // Creating/editing template
+        const isDraftMode = mode === 'draft'; // Continuing draft
+        const isSendMode = mode === 'send' || !mode; // Sending new request
         
         console.log('✅ [SIGNATURE PAGE] Is editing real template?', isEditingRealTemplate);
         console.log('✅ [SIGNATURE PAGE] Is draft mode?', isDraftMode);
         console.log('✅ [SIGNATURE PAGE] Is send mode?', isSendMode);
         
         if (isEditingRealTemplate) {
-          // ✅ EDITING A REAL TEMPLATE
-          console.log('🎨 [SIGNATURE PAGE] Loading template configuration...');
+          // ✅ MODE=EDIT → Creating/Editing a TEMPLATE
+          console.log('🎨 [SIGNATURE PAGE] Template creation/edit mode');
+          
+          // Check if template already exists
           const templateRes = await fetch(`/api/documents/${params.id}/template`, {
             credentials: "include",
           });
+          
           if (templateRes.ok) {
             const templateData = await templateRes.json();
+            // Load existing template
             setSignatureRequest({
               recipientEmail: "",
               recipientName: "",
               message: "",
               dueDate: "",
               step: 1,
-              recipients: templateData.template.recipients || [],
+              recipients: templateData.template.recipients || [
+                { name: "Role 1", email: "", role: "Signer", color: "#9333ea" },
+              ],
               signatureFields: templateData.template.signatureFields || [],
-              isTemplate: true, // ✅ This IS a template
+              isTemplate: true, // ✅ Creating/editing template
+              viewMode: templateData.template.viewMode || 'isolated',
+            });
+            console.log('✅ [SIGNATURE PAGE] Existing template loaded');
+          } else {
+            // New template creation
+            setSignatureRequest({
+              recipientEmail: "",
+              recipientName: "",
+              message: "",
+              dueDate: "",
+              step: 1,
+              recipients: [
+                { name: "Role 1", email: "", role: "Signer", color: "#9333ea" },
+              ],
+              signatureFields: [],
+              isTemplate: true, // ✅ Creating new template
               viewMode: 'isolated',
             });
-            console.log('✅ [SIGNATURE PAGE] Template loaded, isTemplate=true');
+            console.log('✅ [SIGNATURE PAGE] New template setup');
           }
         } else {
-          // ✅ NEW DOCUMENT, DRAFT, or SEND MODE
-          console.log('📝 [SIGNATURE PAGE] Setting up for signature request...');
+          // ✅ MODE=SEND or DRAFT → Sending signature request (NOT a template)
+          console.log('📝 [SIGNATURE PAGE] Signature request mode');
           setSignatureRequest({
             recipientEmail: "",
             recipientName: "",
@@ -308,10 +330,10 @@ useEffect(() => {
               { name: "Recipient 1", email: "", role: "Signer", color: "#9333ea" },
             ],
             signatureFields: [],
-            isTemplate: false, // ✅ NOT a template
+            isTemplate: false, // ✅ This is a signature request, NOT a template
             viewMode: 'isolated',
           });
-          console.log('✅ [SIGNATURE PAGE] Signature request mode, isTemplate=false');
+          console.log('✅ [SIGNATURE PAGE] Signature request setup, isTemplate=false');
         }
       }
     }
@@ -473,17 +495,30 @@ const deleteDraft = async () => {
 };
 
 const handleSendSignature = async () => {
-  const validRecipients = signatureRequest.recipients.filter(
-    (r) => r.name && r.email
-  );
-  if (validRecipients.length === 0 && !signatureRequest.isTemplate) {
-    alert("Please add at least one recipient with name and email");
-    return;
+  // ⭐ VALIDATION LOGIC BASED ON MODE
+  if (mode === 'edit') {
+    // Template mode: Just need role names (emails optional)
+    const validRoles = signatureRequest.recipients.filter((r) => r.name);
+    if (validRoles.length === 0) {
+      alert("Please add at least one role (e.g., 'Signer 1', 'Approver')");
+      return;
+    }
+  } else {
+    // Send/Draft mode: Need actual recipient emails
+    const validRecipients = signatureRequest.recipients.filter(
+      (r) => r.name && r.email
+    );
+    if (validRecipients.length === 0) {
+      alert("Please add at least one recipient with name and email");
+      return;
+    }
   }
+  
   setIsSending(true);
   try {
-    if (signatureRequest.isTemplate) {
-      // Save as template
+    if (mode === 'edit') {
+      // ✅ SAVE AS TEMPLATE (mode=edit)
+      console.log('💾 [SIGNATURE PAGE] Saving as template...');
       const response = await fetch(`/api/documents/${doc?._id}/template`, {
         method: "POST",
         credentials: "include",
@@ -495,12 +530,17 @@ const handleSendSignature = async () => {
       });
       const data = await response.json();
       if (response.ok && data.success) {
-        alert("✅ Document converted to signable template!");
-         window.location.href = `/documents/${doc?._id}`; // Force full page reload
+        alert("✅ Document saved as signable template!");
+        // Delete draft if exists (since we're saving as template)
+        await deleteDraft();
+        // Redirect back to document page
+        window.location.href = `/documents/${doc?._id}`;
       } else {
         alert(data.message || "Failed to save template");
       }
     } else {
+      // ✅ SEND SIGNATURE REQUEST (mode=send or draft)
+      console.log('📧 [SIGNATURE PAGE] Sending signature request...');
       // Send signature request
       const response = await fetch("/api/signature/create", {
         method: "POST",
@@ -527,6 +567,10 @@ const handleSendSignature = async () => {
       });
       const data = await response.json();
       if (response.ok && data.success) {
+        console.log('✅ [SIGNATURE PAGE] Signature request sent successfully');
+        // Delete draft after successful send
+        await deleteDraft();
+        // Use the `uniqueId` from the response to construct the signing link
         // Use the `uniqueId` from the response to construct the signing link
         interface SignatureRequestResponse {
             recipient: string;
@@ -615,6 +659,12 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
   <div className="flex items-center gap-3">
     <h1 className="text-xl font-bold text-slate-900">{doc.filename}</h1>
     {/* ⭐ NEW: Draft indicator */}
+    {mode === 'edit' && (
+      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
+        <FileSignature className="h-3 w-3 mr-1" />
+        Template Mode
+      </span>
+    )}
     {draftLastSaved && (
       <div className="flex items-center gap-2 text-xs">
         {draftSaving ? (
@@ -634,8 +684,12 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
     )}
   </div>
   <p className="text-sm text-slate-500">
-    {mode === 'edit' ? "Edit Template" : "Request Signatures"} - Step{" "}
-    {signatureRequest.step} of 3
+    {mode === 'edit' 
+      ? "Create Reusable Template" 
+      : mode === 'draft'
+      ? "Continue Signature Request"
+      : "Send Signature Request"
+    } - Step {signatureRequest.step} of 3
   </p>
 </div>
             </div>
@@ -685,7 +739,7 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
     </>
   )}
   
-  {signatureRequest.step === 3 && (
+ {signatureRequest.step === 3 && (
   <Button
     onClick={handleSendSignature}
     disabled={isSending}
@@ -694,21 +748,19 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
     {isSending ? (
       <>
         <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-        {/* ⭐ FIX: Check BOTH conditions */}
-        {signatureRequest.isTemplate && mode === 'edit' ? 'Saving Template...' : 'Sending Request...'}
+        {mode === 'edit' ? 'Saving Template...' : 'Sending Request...'}
       </>
     ) : (
       <>
-        {/* ⭐ FIX: Check BOTH conditions */}
-        {signatureRequest.isTemplate && mode === 'edit' ? (
+        {mode === 'edit' ? (
           <>
             <FileSignature className="h-4 w-4 mr-2" />
             Save as Template
           </>
-        ) : (
+) : (
           <>
             <Mail className="h-4 w-4 mr-2" />
-            Send Request
+            {mode === 'draft' ? 'Send Signature Request' : 'Send Request'}
           </>
         )}
       </>
@@ -745,13 +797,13 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
         {signatureRequest.step === 1 && (
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="bg-white rounded-xl shadow-sm border p-8">
-             <h2 className="text-2xl font-bold text-slate-900 mb-2">
-  {signatureRequest.isTemplate ? 'Define Recipient Roles' : 'Who needs to sign?'}
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+  {mode === 'edit' ? 'Define Recipient Roles' : 'Who needs to sign?'}
 </h2>
 <p className="text-slate-600 mb-6">
-  {signatureRequest.isTemplate
-    ? 'Add roles (e.g., "Signer 1", "Signer 2") and place fields. You’ll assign real recipients when sending.'
-    : 'Add recipients and set signing order'}
+  {mode === 'edit'
+    ? 'Add roles (e.g., "Signer 1", "Approver") and place fields. You\'ll assign real people when using this template.'
+    : 'Add recipients with their email addresses to send signature requests'}
 </p>
 
               <div className="space-y-4">
@@ -777,8 +829,8 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                             />
                           </div>
                           <div>
-                            <Label>
-    Email Address {signatureRequest.isTemplate && ' (optional)'}
+                          <Label>
+    Email Address {mode === 'edit' && ' (optional)'}
   </Label>
                             <Input
     type="email"
@@ -788,7 +840,7 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
       updated[index].email = e.target.value;
       setSignatureRequest({ ...signatureRequest, recipients: updated });
     }}
-    placeholder={signatureRequest.isTemplate ? "Optional - leave blank" : "john@company.com"}
+    placeholder={mode === 'edit' ? "Optional for template" : "john@company.com"}
     className="mt-1"
   />
                           </div>
@@ -1361,10 +1413,10 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                     </div>
                   );
                 })}
-                {signatureRequest.isTemplate && (
+              {mode === 'edit' && (
   <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
     <p className="text-xs text-blue-800">
-      💡 <strong>Tip:</strong> Place signature fields for each recipient role. When you send this template later, you'll just enter real names and emails!
+      💡 <strong>Tip:</strong> Create roles like "Client", "Manager", "Legal". When using this template later, you'll assign real people to these roles!
     </p>
   </div>
 )}
@@ -1783,7 +1835,7 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
 </h2>
 <p className="text-slate-600 mb-8">
   {mode === 'edit'
-    ? 'Review your template configuration. You can reuse this template to send documents quickly.'
+    ? 'Review your reusable template. When you use this template later, you\'ll just add real recipient emails!'
     : 'Double-check everything before sending your signature request'
   }
 </p>
@@ -2780,7 +2832,7 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
           </div>
 
           {/* Message & Due Date - Only show in 'send' mode */}
-          {mode === 'send' && (
+          {(mode === 'send' || mode === 'draft') && (
             <div className="space-y-4">
               <div>
                 <Label className="text-sm">Message to Recipients</Label>
