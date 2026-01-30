@@ -83,6 +83,12 @@ const [previewDocumentId, setPreviewDocumentId] = useState<string | null>(null)
 const [hoveredDocId, setHoveredDocId] = useState<string | null>(null)
 const [drafts, setDrafts] = useState<Map<string, any>>(new Map()) 
 const [sentRequests, setSentRequests] = useState<Map<string, any>>(new Map()) // ⭐ NEW
+const [exportDrawerOpen, setExportDrawerOpen] = useState(false)
+const [selectedCloudProvider, setSelectedCloudProvider] = useState<string | null>(null)
+const [exportingDocumentId, setExportingDocumentId] = useState<string | null>(null)
+const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set())
+const [bulkSelectionMode, setBulkSelectionMode] = useState(false)
+const [createMenuOpen, setCreateMenuOpen] = useState(false)
 const [previewData, setPreviewData] = useState<{
   recipients: any[];
   signatureFields: any[];
@@ -109,6 +115,33 @@ const [previewData, setPreviewData] = useState<{
     }
   }
 
+// Toggle document selection for bulk actions
+  const toggleDocumentSelection = (docId: string) => {
+  const newSelected = new Set(selectedDocuments)
+  if (newSelected.has(docId)) {
+    newSelected.delete(docId)
+  } else {
+    newSelected.add(docId)
+  }
+  setSelectedDocuments(newSelected)
+  
+  // Auto-disable bulk mode if no documents selected
+  if (newSelected.size === 0) {
+    setBulkSelectionMode(false)
+  }
+}
+
+// Handle bulk signature action
+const handleBulkSignature = () => {
+  if (selectedDocuments.size < 2) {
+    alert('Please select at least 2 documents for bulk signature')
+    return
+  }
+  
+  // Navigate to envelope creation with selected document IDs
+  const docIds = Array.from(selectedDocuments).join(',')
+  router.push(`/documents/envelope/create?documents=${docIds}`)
+}
 
   // ⭐ NEW: Fetch sent signature requests
 // ⭐ UPDATED: Fetch sent signature requests with status details
@@ -432,6 +465,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur">
+      
         <div className="flex h-16 items-center gap-4 px-4 md:px-6">
           <Button
             variant="ghost"
@@ -490,60 +524,222 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="hidden lg:flex w-64 flex-col border-r bg-white/80 backdrop-blur min-h-screen">
-          <nav className="flex-1 space-y-1 p-4">
-            <div className="mb-4">
-               
-              
-              <button 
-  onClick={() => setActiveView('documents')}
-  className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium ${
-    activeView === 'documents' 
-      ? 'bg-purple-50 text-purple-700' 
-      : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors'
-  }`}
->
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5" />
-                  <span>Documents</span>
-                </div>
-                <span className="text-xs">{documents.length}</span>
-              </button>
-              
-              <button 
-  onClick={() => setActiveView('templates')}
-  className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-    activeView === 'templates' 
-      ? 'bg-purple-50 text-purple-700' 
-      : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
-  }`}
->
-  <div className="flex items-center gap-3">
-    <FolderOpen className="h-5 w-5" />
-    <span>Templates</span>
-  </div>
-  <span className="text-xs">{templates.length}</span>
-</button>
-              
-             <button 
-  onClick={() => setActiveView('archive')}
-  className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium transition-colors mt-1 ${
-    activeView === 'archive' 
-      ? 'bg-purple-50 text-purple-700' 
-      : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
-  }`}
->
-  <div className="flex items-center gap-3">
-    <Trash2 className="h-5 w-5" />
-    <span>Archive</span>
-  </div>
-  <span className="text-xs">{archivedDocuments.length}</span>
-</button>
-            </div>
+       <aside className="hidden lg:flex w-64 flex-col border-r bg-white/80 backdrop-blur min-h-screen">
+  <nav className="flex-1 space-y-1 p-4">
+    {/* ⭐ NEW: Create Dropdown Menu */}
+<DropdownMenu  open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
+  <DropdownMenuTrigger asChild>
+        <Button className="w-full gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 mb-6">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Create
+        </Button>
+      </DropdownMenuTrigger>
+  
+  <DropdownMenuContent align="end" className="w-80 bg-white border shadow-lg">
+    {/* Document Option */}
+    <DropdownMenuItem
+      onClick={() => {
+        setCreateMenuOpen(false)
+        fileInputRef.current?.click()
+      }}
+      className="p-4 cursor-pointer"
+    >
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+          <FileText className="h-5 w-5 text-white" />
+        </div>
+        <div className="flex-1">
+          <div className="font-semibold text-slate-900">Document</div>
+          <div className="text-sm text-slate-600">Upload a file to get it signed</div>
+        </div>
+      </div>
+    </DropdownMenuItem>
 
-             
-          </nav>
-        </aside>
+    {/* Template Option */}
+    <DropdownMenuItem
+      onClick={() => {
+        setCreateMenuOpen(false)
+        fileInputRef.current?.click()
+      }}
+      className="p-4 cursor-pointer"
+    >
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+          <FolderOpen className="h-5 w-5 text-white" />
+        </div>
+        <div className="flex-1">
+          <div className="font-semibold text-slate-900">Template</div>
+          <div className="text-sm text-slate-600">Upload a file to resend it multiple times</div>
+        </div>
+      </div>
+    </DropdownMenuItem>
+
+    <div className="h-px bg-slate-200 my-2" />
+
+    {/* Select from Existing Documents */}
+    <DropdownMenuItem
+      onClick={() => {
+        setCreateMenuOpen(false)
+        setBulkSelectionMode(true)
+        alert('💡 Select 2+ documents below and click "Send for Signature"')
+      }}
+      className="p-4 cursor-pointer"
+    >
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center flex-shrink-0">
+          <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <div className="flex-1">
+          <div className="font-semibold text-slate-900">Select from Existing Documents</div>
+          <div className="text-sm text-slate-600">Choose documents you've already uploaded</div>
+        </div>
+      </div>
+    </DropdownMenuItem>
+
+    {/* Create Document Group Template */}
+    <DropdownMenuItem
+      onClick={() => {
+        setCreateMenuOpen(false)
+        alert('🚧 Document Group Templates coming soon!\n\nThis will let you bundle multiple documents into a single signature workflow.')
+      }}
+      className="p-4 cursor-pointer"
+    >
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+          <Folder className="h-5 w-5 text-white" />
+        </div>
+        <div className="flex-1">
+          <div className="font-semibold text-slate-900">Create Document Group Template</div>
+          <div className="text-sm text-slate-600">Bundle multiple docs for signature</div>
+        </div>
+      </div>
+    </DropdownMenuItem>
+
+    <div className="h-px bg-slate-200 my-2" />
+
+    {/* Import from Cloud */}
+    <DropdownMenuItem
+      onClick={() => {
+        setCreateMenuOpen(false)
+        alert('🚧 Cloud Import coming soon!\n\nYou\'ll be able to import documents from:\n• Google Drive\n• Dropbox\n• OneDrive\n• Box')
+      }}
+      className="p-4 cursor-pointer"
+    >
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+          <Upload className="h-5 w-5 text-white" />
+        </div>
+        <div className="flex-1">
+          <div className="font-semibold text-slate-900">Import from Cloud</div>
+          <div className="text-sm text-slate-600">Bring documents from Google Drive, Dropbox & more</div>
+        </div>
+      </div>
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+    {/* PERSONAL Section */}
+    <div className="mb-6">
+
+      <div className="px-3 mb-2">
+        
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          Personal
+        </span>
+      </div>
+      
+      <button 
+        onClick={() => setActiveView('documents')}
+        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium ${
+          activeView === 'documents' 
+            ? 'bg-purple-50 text-purple-700' 
+            : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <FileText className="h-5 w-5" />
+          <span>Documents</span>
+        </div>
+        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{documents.length}</span>
+      </button>
+      
+      <button 
+        onClick={() => setActiveView('templates')}
+        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+          activeView === 'templates' 
+            ? 'bg-purple-50 text-purple-700' 
+            : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <FolderOpen className="h-5 w-5" />
+          <span>Templates</span>
+        </div>
+        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{templates.length}</span>
+      </button>
+      
+      <button 
+        onClick={() => setActiveView('archive')}
+        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium transition-colors mt-1 ${
+          activeView === 'archive' 
+            ? 'bg-purple-50 text-purple-700' 
+            : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <Trash2 className="h-5 w-5" />
+          <span>Archive</span>
+        </div>
+        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{archivedDocuments.length}</span>
+      </button>
+    </div>
+
+    {/* TEAM Section */}
+    <div>
+      <div className="px-3 mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          Team
+        </span>
+        <button className="h-5 w-5 rounded bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 transition-colors">
+          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+      </div>
+      
+      <button 
+        onClick={() => {
+          // TODO: Implement team documents view
+          alert('🚧 Team Documents feature coming soon!')
+        }}
+        className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <FileText className="h-5 w-5" />
+          <span>Documents</span>
+        </div>
+        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">0</span>
+      </button>
+      
+      <button 
+        onClick={() => {
+          // TODO: Implement team templates view
+          alert('🚧 Team Templates feature coming soon!')
+        }}
+        className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <FolderOpen className="h-5 w-5" />
+          <span>Templates</span>
+        </div>
+        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">0</span>
+      </button>
+    </div>
+  </nav>
+</aside>
 
         {/* Main Content */}
         <main className="flex-1 p-8">
@@ -565,6 +761,48 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
     </div>
   </div>
 </div>
+
+{/* Bulk Selection Action Bar */}
+<AnimatePresence>
+  {bulkSelectionMode && selectedDocuments.size > 0 && (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="mb-6 p-4 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg shadow-lg"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 text-white">
+          <CheckCircle2 className="h-5 w-5" />
+          <span className="font-semibold">
+            {selectedDocuments.size} document{selectedDocuments.size > 1 ? 's' : ''} selected
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          {selectedDocuments.size >= 2 && (
+            <Button
+              onClick={handleBulkSignature}
+              className="bg-white text-purple-600 hover:bg-slate-100 gap-2 font-semibold"
+            >
+              <Mail className="h-4 w-4" />
+              Send for Signature ({selectedDocuments.size})
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setSelectedDocuments(new Set())
+              setBulkSelectionMode(false)
+            }}
+            className="text-white hover:bg-white/20"
+          >
+            Clear Selection
+          </Button>
+        </div>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
 
             {/* Upload Status Message */}
             {uploadStatus !== 'idle' && (
@@ -667,7 +905,20 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
     onMouseLeave={() => setHoveredDocId(null)}
   >
     <div className="flex items-center gap-4">
-      {/* Document Preview Thumbnail */}
+       
+       {/* ⭐ NEW: Checkbox for Bulk Selection */}
+      <div className="flex-shrink-0">
+        <input
+          type="checkbox"
+          checked={selectedDocuments.has(doc._id)}
+          onChange={(e) => {
+            e.stopPropagation()
+            toggleDocumentSelection(doc._id)
+            if (!bulkSelectionMode) setBulkSelectionMode(true)
+          }}
+          className="h-5 w-5 rounded border-slate-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+        />
+      </div>
       {/* Document Preview Thumbnail - Shows actual PDF content */}
 <div 
   className="relative h-32 w-24 rounded-lg overflow-hidden flex-shrink-0 bg-white border border-slate-200 shadow-sm cursor-pointer"
@@ -851,10 +1102,10 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
   <Button 
     size="sm"
     onClick={(e) => {
-      e.stopPropagation()
-      // TODO: Implement cloud export logic
-      alert('🚀 Export to Cloud feature coming soon!')
-    }}
+  e.stopPropagation()
+  setExportingDocumentId(doc._id)
+  setExportDrawerOpen(true)
+}}
     className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
     title="Export signed document to cloud"
   >
@@ -901,6 +1152,16 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
             >
               <Eye className="h-4 w-4 mr-2" />
               View
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                router.push(`/documents/${doc._id}/signature?mode=edit`)
+              }}
+              className="text-purple-600 focus:text-purple-600"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Convert to Signable
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
@@ -1112,55 +1373,273 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       </div>
 
       {/* Main PDF Viewer with Signature Field Overlays */}
+      {/* Main PDF Viewer with Signature Field Overlays */}
       <div className="flex-1 flex flex-col bg-slate-100">
         <div className="flex-1 p-6 overflow-auto">
           <div 
             id="preview-pdf-container"
             className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg overflow-hidden relative"
+            style={{ minHeight: `${297 * ((documents.find(d => d._id === previewDocumentId)?.numPages || templates.find(d => d._id === previewDocumentId)?.numPages) || 1) * 3.78}px` }}
           >
             <embed
               src={`/api/documents/${previewDocumentId}/file?serve=blob#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
               type="application/pdf"
               className="w-full border-0"
-              style={{ height: 'calc(100vh - 120px)' }}
+              style={{ 
+                height: `${297 * ((documents.find(d => d._id === previewDocumentId)?.numPages || templates.find(d => d._id === previewDocumentId)?.numPages) || 1) * 3.78}px`,
+                display: 'block',
+                pointerEvents: 'none'
+              }}
             />
             
-            {/* ⭐ NEW: Signature Field Overlays */}
-            {previewData && previewData.signatureFields.map((field, idx) => {
-              const recipient = previewData.recipients[field.recipientIndex];
-              const pageHeight = 297 * 3.78; // A4 page height in pixels
-              const topPosition = (field.page - 1) * pageHeight + (field.y / 100) * pageHeight;
-              
-              return (
-                <div
-                  key={idx}
-                  className="absolute border-2 rounded bg-white/90 shadow-lg pointer-events-none"
-                  style={{
-                    left: `${field.x}%`,
-                    top: `${topPosition}px`,
-                    borderColor: `hsl(${field.recipientIndex * 60}, 70%, 50%)`,
-                    width: field.type === "signature" ? "140px" : "120px",
-                    height: field.type === "signature" ? "50px" : "36px",
-                    transform: "translate(-50%, 0%)",
-                  }}
-                >
-                  <div className="h-full flex items-center justify-center px-2">
-                    <span className="text-xs font-semibold truncate">
-                      {field.type === "signature" ? "✍️ Signature" :
-                       field.type === "date" ? "📅 Date" :
-                       field.type === "text" ? "📝 Text" :
-                       field.type === "checkbox" ? "☑️ Checkbox" :
-                       field.type}
-                    </span>
+            {/* ⭐ FIXED: Signature Field Overlays - Now with correct positioning */}
+            <div className="absolute inset-0 pointer-events-none">
+              {previewData && previewData.signatureFields.map((field, idx) => {
+                const recipient = previewData.recipients[field.recipientIndex];
+                const pageHeight = 297 * 3.78; // A4 page height in pixels
+                const topPosition = (field.page - 1) * pageHeight + (field.y / 100) * pageHeight;
+                
+                // ⭐ Find the signed data for this field
+                const signedFieldData = recipient?.signedFields?.find(
+                  (sf: any) => sf.id === field.id || sf.type === field.type
+                );
+                
+                // ⭐ Check if this field has been signed
+                const isSigned = recipient?.status === 'signed' && signedFieldData;
+                
+                return (
+                  <div
+                    key={idx}
+                    className={`absolute pointer-events-none ${
+                      isSigned 
+                        ? '' // ⭐ NO border/background when signed
+                        : 'border-2 rounded bg-white/90 shadow-lg border-gray-400'
+                    }`}
+                    style={{
+                      left: `${field.x}%`,
+                      top: `${topPosition}px`,
+                      width: field.type === "signature" ? "140px" : "120px",
+                      height: field.type === "signature" ? "50px" : "36px",
+                      transform: "translate(-50%, 0%)",
+                    }}
+                  >
+                    {isSigned ? (
+                      // ⭐ SHOW ONLY THE ACTUAL SIGNED DATA
+                      <div className="h-full w-full flex items-center justify-center">
+                        {field.type === "signature" && signedFieldData.signatureData && (
+                          <img 
+                            src={signedFieldData.signatureData} 
+                            alt="Signature"
+                            className="max-w-full max-h-full object-contain"
+                            style={{ filter: 'none' }}
+                          />
+                        )}
+                        {field.type === "date" && (
+                          <span className="text-xs font-semibold text-gray-900">
+                            {signedFieldData.dateValue || new Date(recipient.signedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                        {field.type === "text" && (
+                          <span className="text-xs font-semibold text-gray-900 truncate px-1">
+                            {signedFieldData.textValue || ''}
+                          </span>
+                        )}
+                        {field.type === "checkbox" && (
+                          <span className="text-2xl text-gray-900">
+                            {signedFieldData.checkboxValue ? '☑' : '☐'}
+                          </span>
+                        )}
+                        {field.type === "attachment" && signedFieldData.attachmentUrl && (
+                          <a 
+                            href={signedFieldData.attachmentUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:text-blue-800 underline truncate px-1 pointer-events-auto"
+                          >
+                            📎 View File
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      // ⭐ SHOW PLACEHOLDER BOX FOR UNSIGNED FIELDS
+                      <div className="h-full flex items-center justify-center px-2">
+                        <span className="text-xs font-semibold text-gray-600 truncate">
+                          {field.type === "signature" ? "✍️ Awaiting Signature" :
+                           field.type === "date" ? "📅 Date" :
+                           field.type === "text" ? "📝 Text Field" :
+                           field.type === "checkbox" ? "☑️ Checkbox" :
+                           field.type === "attachment" ? "📎 Attachment" :
+                           field.type}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
     </div>
   )}
+</Drawer>
+
+{/* Cloud Export Drawer */}
+<Drawer open={exportDrawerOpen} onOpenChange={setExportDrawerOpen}>
+  <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/30">
+    {/* Header */}
+    <div className="p-6 border-b bg-white/80 backdrop-blur">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+          Export to Cloud Storage
+        </h2>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setExportDrawerOpen(false)}
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </Button>
+      </div>
+      <p className="text-sm text-slate-600">
+        Connect your account to export your fully signed document
+      </p>
+    </div>
+
+    {/* Content */}
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-2xl mx-auto space-y-4">
+        {/* Cloud Provider Options */}
+        {[
+          {
+            id: 'google-drive',
+            name: 'Google Drive',
+            icon: (
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.01 1.485L3.982 15h4.035l8.028-13.515h-4.035zm6.982 13.515l-4.018-6.77-4.017 6.77h8.035zM1.946 17l4.018 6.515L9.982 17H1.946z" fill="#4285F4"/>
+                <path d="M9.982 17l-4.018 6.515h8.071L18.053 17H9.982z" fill="#34A853"/>
+                <path d="M18.053 17l4.018-6.77-4.018-6.745L14.035 10l4.018 7z" fill="#FBBC04"/>
+                <path d="M3.982 15L7.964 8.23 3.946 1.485 0 8.23 3.982 15z" fill="#EA4335"/>
+              </svg>
+            ),
+            gradient: 'from-blue-500 to-green-500',
+            description: 'Store in your Google Drive account',
+          },
+          {
+            id: 'dropbox',
+            name: 'Dropbox',
+            icon: (
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 1.807L0 5.629l6 3.822 6.001-3.822L6 1.807zM18 1.807l-6 3.822 6 3.822 6-3.822-6-3.822zM0 13.274l6 3.822 6.001-3.822L6 9.452l-6 3.822zM18 9.452l-6 3.822 6 3.822 6-3.822-6-3.822zM6 18.371l6.001 3.822 6-3.822-6.001-3.822L6 18.371z" fill="#0061FF"/>
+              </svg>
+            ),
+            gradient: 'from-blue-600 to-blue-700',
+            description: 'Export to your Dropbox folder',
+          },
+          {
+            id: 'onedrive',
+            name: 'OneDrive for Business',
+            icon: (
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.82 6.12a6.62 6.62 0 016.6 6.57c0 .11 0 .22-.01.33a4.42 4.42 0 012.4 3.9c0 2.44-1.98 4.42-4.42 4.42H7.42A4.42 4.42 0 013 16.92c0-2.01 1.34-3.7 3.18-4.25a6.62 6.62 0 016.64-6.55z" fill="#0078D4"/>
+              </svg>
+            ),
+            gradient: 'from-blue-500 to-blue-600',
+            description: 'Save to OneDrive Business',
+          },
+          {
+            id: 'box',
+            name: 'Box',
+            icon: (
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2 5.91v12.1c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5.91c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2zm10 10.18l-4.5-2.9V8.73L12 11.63l4.5-2.9v4.46l-4.5 2.9z" fill="#0061D5"/>
+              </svg>
+            ),
+            gradient: 'from-blue-600 to-indigo-600',
+            description: 'Upload to Box cloud storage',
+          },
+          {
+            id: 'egnyte',
+            name: 'Egnyte',
+            icon: (
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.82 8 12 11.82 4.18 8 12 4.18zM4 9.48l7 3.51v7.83l-7-3.5V9.48zm16 0v7.84l-7 3.5v-7.83l7-3.51z" fill="#D9272E"/>
+              </svg>
+            ),
+            gradient: 'from-red-500 to-red-600',
+            description: 'Export to Egnyte storage',
+          },
+          {
+            id: 'dokushare',
+            name: 'DokuShare',
+            icon: (
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6zm2-6h8v2H8v-2zm0-3h8v2H8v-2zm0-3h5v2H8V8z" fill="#2C5F9E"/>
+              </svg>
+            ),
+            gradient: 'from-indigo-600 to-blue-700',
+            description: 'Save to DokuShare repository',
+          },
+        ].map((provider) => (
+          <motion.button
+            key={provider.id}
+            onClick={() => setSelectedCloudProvider(provider.id)}
+            className={`w-full p-5 rounded-xl border-2 transition-all ${
+              selectedCloudProvider === provider.id
+                ? 'border-purple-500 bg-purple-50 shadow-lg'
+                : 'border-slate-200 bg-white hover:border-purple-300 hover:shadow-md'
+            }`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div className="flex items-center gap-4">
+              <div className={`h-12 w-12 rounded-lg bg-gradient-to-br ${provider.gradient} flex items-center justify-center text-white shadow-lg`}>
+                {provider.icon}
+              </div>
+              <div className="flex-1 text-left">
+                <h3 className="font-semibold text-slate-900">{provider.name}</h3>
+                <p className="text-sm text-slate-600">{provider.description}</p>
+              </div>
+              {selectedCloudProvider === provider.id && (
+                <CheckCircle2 className="h-6 w-6 text-purple-600" />
+              )}
+            </div>
+          </motion.button>
+        ))}
+      </div>
+    </div>
+
+    {/* Footer Actions */}
+    <div className="p-6 border-t bg-white/80 backdrop-blur">
+      <div className="max-w-2xl mx-auto flex gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setExportDrawerOpen(false)}
+          className="flex-1"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={() => {
+            if (!selectedCloudProvider) {
+              alert('Please select a cloud storage provider')
+              return
+            }
+            // TODO: Implement actual cloud export logic
+            alert(`🚀 Exporting to ${selectedCloudProvider}... (Coming soon!)`)
+            setExportDrawerOpen(false)
+          }}
+          disabled={!selectedCloudProvider}
+          className="flex-1 gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+        >
+          <Upload className="h-4 w-4" />
+          Connect & Export
+        </Button>
+      </div>
+    </div>
+  </div>
 </Drawer>
 
     </div>
