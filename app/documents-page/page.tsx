@@ -140,7 +140,7 @@ const handleBulkSignature = () => {
   
   // Navigate to envelope creation with selected document IDs
   const docIds = Array.from(selectedDocuments).join(',')
-  router.push(`/documents/envelope/create?documents=${docIds}`)
+  router.push(`/documents/envelope/create?docs=${docIds}`) 
 }
 
   // ⭐ NEW: Fetch sent signature requests
@@ -1153,16 +1153,48 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               <Eye className="h-4 w-4 mr-2" />
               View
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                router.push(`/documents/${doc._id}/signature?mode=edit`)
-              }}
-              className="text-purple-600 focus:text-purple-600"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Convert to Signable
-            </DropdownMenuItem>
+           {/* ⭐ Convert to Signable - Only show if NOT a template */}
+  {!doc.isTemplate && (
+    <DropdownMenuItem
+      onClick={(e) => {
+        e.stopPropagation()
+        router.push(`/documents/${doc._id}/signature?mode=edit`)
+      }}
+      className="text-purple-600 focus:text-purple-600"
+    >
+      <Edit className="h-4 w-4 mr-2" />
+      Convert to Signable
+    </DropdownMenuItem>
+  )}
+
+  {/* ⭐ NEW: Send for Signature - Show for both templates and regular docs */}
+  <DropdownMenuItem
+    onClick={(e) => {
+      e.stopPropagation()
+      router.push(`/documents/${doc._id}/signature?mode=send`)
+    }}
+    className="text-blue-600 focus:text-blue-600"
+  >
+    <Mail className="h-4 w-4 mr-2" />
+    Send for Signature
+  </DropdownMenuItem>
+
+  {/* ⭐ NEW: Bulk Send - Only show for templates */}
+  {doc.isTemplate && (
+    <DropdownMenuItem
+      onClick={(e) => {
+        e.stopPropagation()
+        router.push(`/documents/${doc._id}/bulk-send`)
+      }}
+      className="text-green-600 focus:text-green-600"
+    >
+      <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+      </svg>
+      Bulk Send
+    </DropdownMenuItem>
+  )}
+
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()

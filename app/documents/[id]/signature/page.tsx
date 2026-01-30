@@ -317,23 +317,78 @@ useEffect(() => {
             });
             console.log('✅ [SIGNATURE PAGE] New template setup');
           }
-        } else {
+       } else {
           // ✅ MODE=SEND or DRAFT → Sending signature request (NOT a template)
-          console.log('📝 [SIGNATURE PAGE] Signature request mode');
-          setSignatureRequest({
-            recipientEmail: "",
-            recipientName: "",
-            message: "",
-            dueDate: "",
-            step: 1,
-            recipients: [
-              { name: "Recipient 1", email: "", role: "Signer", color: "#9333ea" },
-            ],
-            signatureFields: [],
-            isTemplate: false, // ✅ This is a signature request, NOT a template
-            viewMode: 'isolated',
-          });
-          console.log('✅ [SIGNATURE PAGE] Signature request setup, isTemplate=false');
+          console.log('📝 [SIGNATURE PAGE] Signature request mode (send/draft)');
+          
+          // ⭐ CHECK IF DOCUMENT IS A TEMPLATE - Load template fields for sending
+          if (data.document.isTemplate) {
+            console.log('📋 [SIGNATURE PAGE] Document is a template, loading template fields...');
+            
+            // Fetch template configuration to pre-fill fields
+            const templateRes = await fetch(`/api/documents/${params.id}/template`, {
+              credentials: "include",
+            });
+            
+            if (templateRes.ok) {
+              const templateData = await templateRes.json();
+              console.log('✅ [SIGNATURE PAGE] Template fields loaded:', templateData.template.signatureFields?.length || 0);
+              
+              // Use template's roles as starting point, but user will add emails
+              const templateRoles = templateData.template.recipients || [
+                { name: "Recipient 1", email: "", role: "Signer", color: "#9333ea" },
+              ];
+              
+              setSignatureRequest({
+                recipientEmail: "",
+                recipientName: "",
+                message: "",
+                dueDate: "",
+                step: 1,
+                recipients: templateRoles.map((role: any) => ({
+                  ...role,
+                  email: "", // Clear emails - user must add real emails
+                })),
+                signatureFields: templateData.template.signatureFields || [], // ⭐ LOAD TEMPLATE FIELDS
+                isTemplate: false, // ✅ Sending request, NOT editing template
+                viewMode: templateData.template.viewMode || 'isolated',
+              });
+              console.log('✅ [SIGNATURE PAGE] Using template as base for signature request');
+            } else {
+              // Template fetch failed, start fresh
+              setSignatureRequest({
+                recipientEmail: "",
+                recipientName: "",
+                message: "",
+                dueDate: "",
+                step: 1,
+                recipients: [
+                  { name: "Recipient 1", email: "", role: "Signer", color: "#9333ea" },
+                ],
+                signatureFields: [],
+                isTemplate: false,
+                viewMode: 'isolated',
+              });
+            }
+          } else {
+            // ✅ Regular document (not a template) - start fresh
+            console.log('📄 [SIGNATURE PAGE] Regular document, starting fresh');
+            setSignatureRequest({
+              recipientEmail: "",
+              recipientName: "",
+              message: "",
+              dueDate: "",
+              step: 1,
+              recipients: [
+                { name: "Recipient 1", email: "", role: "Signer", color: "#9333ea" },
+              ],
+              signatureFields: [],
+              isTemplate: false,
+              viewMode: 'isolated',
+            });
+          }
+          
+          console.log('✅ [SIGNATURE PAGE] Signature request setup complete, isTemplate=false');
         }
       }
     }
@@ -371,6 +426,12 @@ const saveDraft = async () => {
     console.log('⚠️ [SIGNATURE PAGE] No document ID, skipping save');
     return;
   }
+
+  // ⭐ DON'T save drafts in EDIT mode (template editing)
+  if (mode === 'edit') {
+    console.log('ℹ️ [SIGNATURE PAGE] Edit mode - not saving as draft');
+    return;
+  }
   
   console.log('✅ [SIGNATURE PAGE] Proceeding with draft save...');
   
@@ -393,6 +454,7 @@ const saveDraft = async () => {
       dueDate: signatureRequest.dueDate,
       scheduledSendDate: signatureRequest.scheduledSendDate,
       ccRecipients: signatureRequest.ccRecipients,
+      step: signatureRequest.step,
     };
     
     console.log('📦 [SIGNATURE PAGE] Draft data to save:', {
@@ -429,13 +491,19 @@ const saveDraft = async () => {
 
 // ⭐ NEW: Load draft on page load
 const loadDraft = async () => {
-   console.log('📖 [SIGNATURE PAGE] loadDraft called');
+  console.log('📖 [SIGNATURE PAGE] loadDraft called');
   console.log('📊 [SIGNATURE PAGE] Doc ID:', doc?._id);
   console.log('📊 [SIGNATURE PAGE] Mode:', mode);
   console.log('📊 [SIGNATURE PAGE] Draft loaded:', draftLoaded);
   
   if (!doc?._id) {
     console.log('⚠️ [SIGNATURE PAGE] No document ID, skipping load');
+    return;
+  }
+  
+  // ⭐ ONLY load draft in DRAFT mode
+  if (mode !== 'draft') {
+    console.log('ℹ️ [SIGNATURE PAGE] Not in draft mode, skipping draft load');
     return;
   }
   
@@ -465,7 +533,8 @@ const loadDraft = async () => {
           dueDate: data.draft.dueDate || '',
           scheduledSendDate: data.draft.scheduledSendDate || '',
           ccRecipients: data.draft.ccRecipients || [],
-          isTemplate: false,
+          isTemplate: false, // ⭐ ALWAYS false for drafts
+          step: data.draft.step || 1, // ⭐ Restore the step they were on
         });
         
         setDraftLastSaved(new Date(data.draft.lastSaved));
@@ -709,12 +778,22 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
   {signatureRequest.step === 1 && (
     <Button
       onClick={() => {
-        const validRecipients = signatureRequest.recipients.filter(
-          (r) => r.name && (mode === 'send' ? r.email : true)
-        );
-        if (validRecipients.length === 0) {
-          alert(mode === 'send' ? 'Please add recipient emails' : 'Please add at least one role');
-          return;
+        if (mode === 'edit') {
+          // Template mode: Just need role names
+          const validRoles = signatureRequest.recipients.filter((r) => r.name);
+          if (validRoles.length === 0) {
+            alert('Please add at least one role (e.g., "Client", "Manager")');
+            return;
+          }
+        } else {
+          // Send/Draft mode: Need names AND emails
+          const validRecipients = signatureRequest.recipients.filter(
+            (r) => r.name && r.email
+          );
+          if (validRecipients.length === 0) {
+            alert('Please add recipient names and email addresses');
+            return;
+          }
         }
         setSignatureRequest({ ...signatureRequest, step: 2 });
       }}
@@ -757,10 +836,10 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
             <FileSignature className="h-4 w-4 mr-2" />
             Save as Template
           </>
-) : (
+        ) : (
           <>
             <Mail className="h-4 w-4 mr-2" />
-            {mode === 'draft' ? 'Send Signature Request' : 'Send Request'}
+            Send Signature Request
           </>
         )}
       </>

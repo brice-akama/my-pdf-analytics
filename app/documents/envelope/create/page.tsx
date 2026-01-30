@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   FileText,
@@ -77,7 +78,12 @@ export default function CreateEnvelopePage() {
   const searchParams = useSearchParams();
   const preselectedDocIds = searchParams?.get("docs")?.split(",") || [];
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(2); // ⭐ Start at step 2 (recipients)
+const [showEditRecipientDrawer, setShowEditRecipientDrawer] = useState(false);
+const [editingRecipientIndex, setEditingRecipientIndex] = useState<number | null>(null);
+const [editRecipientForm, setEditRecipientForm] = useState({ name: "", email: "", role: "" });
+const [fieldHistory, setFieldHistory] = useState<SignatureField[][]>([]);
+const [historyIndex, setHistoryIndex] = useState(-1);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
 
@@ -120,17 +126,28 @@ const spaceId = searchParams?.get("spaceId"); //  Get space ID from URL
 
 
 const fetchPdfForPreview = async (docId: string) => {
+  console.log('📥 [FETCH PDF] Starting fetch for:', docId);
   try {
     const res = await fetch(`/api/documents/${docId}/file?serve=blob`, {
       credentials: "include",
     });
+    console.log('📡 [FETCH PDF] Response status:', res.status, 'for doc:', docId);
+    
     if (res.ok) {
       const blob = await res.blob();
+      console.log('📦 [FETCH PDF] Blob size:', blob.size, 'bytes for doc:', docId);
       const url = URL.createObjectURL(blob);
-      setPdfUrls((prev) => ({ ...prev, [docId]: url }));
+      console.log('🔗 [FETCH PDF] Created URL:', url, 'for doc:', docId);
+      setPdfUrls((prev) => {
+        const updated = { ...prev, [docId]: url };
+        console.log('✅ [FETCH PDF] Updated pdfUrls:', Object.keys(updated));
+        return updated;
+      });
+    } else {
+      console.error('❌ [FETCH PDF] Failed with status:', res.status, 'for doc:', docId);
     }
   } catch (error) {
-    console.error("Failed to fetch PDF:", error);
+    console.error('❌ [FETCH PDF] Error fetching PDF for', docId, ':', error);
   }
 };
 
@@ -158,7 +175,7 @@ const documentPageOffsets = useMemo(() => {
   try {
     setLoading(true);
     
-    // ✅ If we have preselected IDs, fetch those specific documents first
+    // ✅ ALWAYS load preselected docs (coming from documents-page or spaces)
     if (preselectedDocIds.length > 0) {
       console.log('🔍 Fetching preselected docs:', preselectedDocIds);
       
@@ -172,7 +189,7 @@ const documentPageOffsets = useMemo(() => {
       
       console.log('✅ Loaded preselected docs:', preselectedDocs.length);
       
-      if (preselectedDocs.length >= 2) {
+      if (preselectedDocs.length > 0) {  // ⭐ CHANGED: >= 2 to > 0
         setSelectedDocs(preselectedDocs);
         setAllDocuments(preselectedDocs);
         setStep(2); // ✅ Skip to step 2 immediately
@@ -181,7 +198,7 @@ const documentPageOffsets = useMemo(() => {
       }
     }
     
-    // ✅ Otherwise fetch paginated list
+    // ✅ Otherwise fetch paginated list (only if no preselected docs)
     const res = await fetch(
       `/api/documents?page=${currentPage}&limit=${documentsPerPage}&sortBy=${sortBy}&sortOrder=${sortOrder}`,
       { credentials: "include" }
@@ -200,6 +217,66 @@ const documentPageOffsets = useMemo(() => {
   } finally {
     setLoading(false);
   }
+};
+
+// ⭐ UNDO/REDO LOGIC
+const saveToHistory = (fields: SignatureField[]) => {
+  const newHistory = fieldHistory.slice(0, historyIndex + 1);
+  newHistory.push(JSON.parse(JSON.stringify(fields))); // Deep copy
+  setFieldHistory(newHistory);
+  setHistoryIndex(newHistory.length - 1);
+};
+
+const handleUndo = () => {
+  if (historyIndex > 0) {
+    setHistoryIndex(historyIndex - 1);
+    setSignatureFields(JSON.parse(JSON.stringify(fieldHistory[historyIndex - 1])));
+  }
+};
+
+const handleRedo = () => {
+  if (historyIndex < fieldHistory.length - 1) {
+    setHistoryIndex(historyIndex + 1);
+    setSignatureFields(JSON.parse(JSON.stringify(fieldHistory[historyIndex + 1])));
+  }
+};
+
+// ⭐ Initialize history when fields change (but not during undo/redo)
+useEffect(() => {
+  if (signatureFields.length > 0 && historyIndex === -1) {
+    saveToHistory(signatureFields);
+  }
+}, [signatureFields]);
+
+// ⭐ EDIT RECIPIENT FUNCTIONS
+const openEditRecipientDrawer = (index: number) => {
+  const recipient = recipients[index];
+  setEditRecipientForm({
+    name: recipient.name,
+    email: recipient.email,
+    role: recipient.role || "",
+  });
+  setEditingRecipientIndex(index);
+  setShowEditRecipientDrawer(true);
+};
+
+const saveEditedRecipient = () => {
+  if (editingRecipientIndex === null) return;
+
+  if (!editRecipientForm.name.trim()) {
+    alert("Name is required");
+    return;
+  }
+  if (!editRecipientForm.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editRecipientForm.email)) {
+    alert("Valid email is required");
+    return;
+  }
+
+  const updatedRecipients = [...recipients];
+  updatedRecipients[editingRecipientIndex] = editRecipientForm;
+  setRecipients(updatedRecipients);
+  setShowEditRecipientDrawer(false);
+  setEditingRecipientIndex(null);
 };
 
 
@@ -275,29 +352,37 @@ const documentPageOffsets = useMemo(() => {
 };
 
   const handleContinue = async () => {
-    if (step === 1) {
-      if (selectedDocs.length < 2) {
-        alert("Please select at least 2 documents for an envelope");
-        return;
-      }
-      setStep(2);
+    console.log('🔄 [CONTINUE] Current step:', step);
+  console.log('📋 [CONTINUE] Selected docs:', selectedDocs);
+  console.log('📋 [CONTINUE] Selected docs count:', selectedDocs.length);
 
-   } else if (step === 2) {
+   if (step === 2) {
   const validRecipients = recipients.filter((r) => r.name && r.email);
+  console.log('👥 [CONTINUE] Valid recipients:', validRecipients.length);
   if (validRecipients.length === 0) {
     alert("Please add at least one recipient");
     return;
   }
+
+  console.log('✅ [CONTINUE] Moving to Step 3...');
+    console.log('📄 [CONTINUE] Documents to fetch:', selectedDocs.map(d => ({ id: d._id, name: d.filename })));
   
   // ⭐ Go to Step 3 immediately
   setStep(3);
-  
+
   // ⭐ Fetch PDFs in background (non-blocking)
+    console.log('🔍 [CONTINUE] Starting PDF fetch for', selectedDocs.length, 'documents');
+  
   Promise.all(
-    selectedDocs.map(doc => fetchPdfForPreview(doc._id))
-  ).catch(err => {
-    console.error("Failed to load PDFs:", err);
-  });
+      selectedDocs.map(doc => {
+        console.log('📥 [CONTINUE] Fetching PDF for:', doc._id, doc.filename);
+        return fetchPdfForPreview(doc._id);
+      })
+    ).then(() => {
+      console.log('✅ [CONTINUE] All PDFs fetched successfully');
+    }).catch(err => {
+      console.error('❌ [CONTINUE] Failed to load PDFs:', err);
+    });
 
 
     } else if (step === 3) {
@@ -415,8 +500,11 @@ const documentPageOffsets = useMemo(() => {
     defaultValue: undefined,
   };
 
-  setSignatureFields([...signatureFields, newField]);
+  const updatedFields = [...signatureFields, newField];
+  setSignatureFields(updatedFields);
+  saveToHistory(updatedFields); // ⭐ Save to undo history
 };
+
 
 
 const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField) => {
@@ -438,10 +526,22 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
     f.id === field.id ? { ...f, x: newX, y: yPercent, page: pageNumber } : f
   );
   setSignatureFields(updated);
+  saveToHistory(updated); // ⭐ Save to undo history
 };
 
 
-  const currentDocument = selectedDocs[currentDocIndex] || null;
+  console.log('📊 [RENDER] Current doc index:', currentDocIndex);
+console.log('📊 [RENDER] Selected docs:', selectedDocs);
+console.log('📊 [RENDER] PDF URLs:', Object.keys(pdfUrls));
+
+const currentDocument = selectedDocs[currentDocIndex] || null;
+
+console.log('📄 [RENDER] Current document:', currentDocument ? {
+  id: currentDocument._id,
+  name: currentDocument.filename,
+  pages: currentDocument.numPages
+} : 'NULL');
+console.log('🔗 [RENDER] Has PDF URL for current doc?', currentDocument ? !!pdfUrls[currentDocument._id] : false);
   const currentDocFields = signatureFields.filter(
     (f) => f.documentId === currentDocument?._id
   );
@@ -476,14 +576,14 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button
-                variant="ghost"
-                size="icon"
-                onClick={() =>
-                  step === 1 ? router.push("/dashboard") : setStep(step - 1)
-                }
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
+  variant="ghost"
+  size="icon"
+  onClick={() =>
+    step === 2 ? router.push("/documents-page") : setStep(step - 1)
+  }
+>
+  <ArrowLeft className="h-5 w-5" />
+</Button>
               <div>
                 <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                   <Package className="h-6 w-6 text-purple-600" />
@@ -527,307 +627,27 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
           </div>
 
           <div className="mt-4">
-            <div className="flex items-center gap-2">
-              {[1, 2, 3, 4].map((s) => (
-                <div
-                  key={s}
-                  className={`flex-1 h-2 rounded-full transition-all ${
-                    s <= step ? "bg-purple-600" : "bg-slate-200"
-                  }`}
-                />
-              ))}
-            </div>
-            <div className="flex justify-between text-xs text-slate-500 mt-2">
-              <span>Select Documents</span>
-              <span>Add Recipients</span>
-              <span>Place Fields</span>
-              <span>Review & Send</span>
-            </div>
-          </div>
+  <div className="flex items-center gap-2">
+    {[2, 3, 4].map((s, index) => (
+      <div
+        key={s}
+        className={`flex-1 h-2 rounded-full transition-all ${
+          s <= step ? "bg-purple-600" : "bg-slate-200"
+        }`}
+      />
+    ))}
+  </div>
+  <div className="flex justify-between text-xs text-slate-500 mt-2">
+    <span>Add Recipients</span>
+    <span>Place Fields</span>
+    <span>Review & Send</span>
+  </div>
+</div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {step === 1 && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border p-8">
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Select Documents for Envelope
-              </h2>
-              <p className="text-slate-600 mb-6">
-                Choose at least 2 documents to bundle together. Recipients will sign all documents in one session.
-              </p>
-
-              {selectedDocs.length > 0 && (
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Package className="h-5 w-5 text-purple-600" />
-                      <span className="font-medium text-purple-900">
-                        {selectedDocs.length} document{selectedDocs.length > 1 ? "s" : ""} selected
-                      </span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedDocs([])}
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {allDocuments.map((doc) => {
-                  const isSelected = selectedDocs.find((d) => d._id === doc._id);
-                  return (
-                    <div
-                      key={doc._id}
-                      onClick={() => toggleDocSelection(doc)}
-                      className={`relative border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                        isSelected
-                          ? "border-purple-500 bg-purple-50"
-                          : "border-slate-200 hover:border-purple-300 hover:bg-slate-50"
-                      }`}
-                    >
-                      {isSelected && (
-                        <div className="absolute top-3 right-3 h-6 w-6 bg-purple-600 rounded-full flex items-center justify-center">
-                          <CheckCircle className="h-4 w-4 text-white" />
-                        </div>
-                      )}
-                      <div className="flex items-start gap-3">
-                        <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <FileText className="h-6 w-6 text-purple-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-900 truncate">
-                            {doc.originalFilename || doc.filename}
-                          </p>
-                          <p className="text-sm text-slate-500">
-                            {doc.numPages} page{doc.numPages > 1 ? "s" : ""}
-                          </p>
-                          <p className="text-xs text-slate-400 mt-1">
-                            {new Date(doc.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              .{/*   UPLOAD SECTION - ADD THIS */}
-              <div className="mt-8 mb-6">
-                {/* Hidden file input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileUpload(file);
-                  }}
-                  className="hidden"
-                />
-
-                {/* Upload Area */}
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const file = e.dataTransfer.files?.[0];
-                    if (file) handleFileUpload(file);
-                  }}
-                  className={`relative border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer ${
-                    uploadStatus === 'uploading'
-                      ? 'border-purple-400 bg-purple-50'
-                      : uploadStatus === 'success'
-                      ? 'border-green-400 bg-green-50'
-                      : uploadStatus === 'error'
-                      ? 'border-red-400 bg-red-50'
-                      : 'border-slate-300 hover:border-purple-400 hover:bg-purple-50/50'
-                  }`}
-                >
-                  <div className="flex flex-col items-center justify-center text-center">
-                    {/* Upload Icon */}
-                    {uploadStatus === 'uploading' ? (
-                      <Loader2 className="h-12 w-12 text-purple-600 animate-spin mb-4" />
-                    ) : uploadStatus === 'success' ? (
-                      <CheckCircle className="h-12 w-12 text-green-600 mb-4" />
-                    ) : uploadStatus === 'error' ? (
-                      <svg className="h-12 w-12 text-red-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    ) : (
-                      <div className="relative mb-4">
-                        <div className="h-16 w-16 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
-                          <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                          </svg>
-                        </div>
-                        <div className="absolute -top-1 -right-1 h-6 w-6 bg-green-500 rounded-full flex items-center justify-center shadow-md">
-                          <Plus className="h-4 w-4 text-white" />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Upload Text */}
-                    <div className="space-y-2">
-                      {uploadStatus === 'idle' ? (
-                        <>
-                          <h3 className="text-lg font-semibold text-slate-900">
-                            Upload Additional Document
-                          </h3>
-                          <p className="text-sm text-slate-600">
-                            Click to browse or drag and drop PDF files here
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Maximum file size: 10MB
-                          </p>
-                        </>
-                      ) : (
-                        <p className={`text-sm font-medium ${
-                          uploadStatus === 'uploading' ? 'text-purple-700' :
-                          uploadStatus === 'success' ? 'text-green-700' :
-                          'text-red-700'
-                        }`}>
-                          {uploadMessage}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Upload Button (Alternative to clicking area) */}
-                    {uploadStatus === 'idle' && (
-                      <Button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          fileInputRef.current?.click();
-                        }}
-                        className="mt-4 bg-purple-600 hover:bg-purple-700"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Choose File
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-              {/* Sorting and Pagination Controls */}
-<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6">
-  {/* Sorting Controls */}
-  <div className="flex items-center gap-3">
-    <Label className="text-sm font-medium">Sort by:</Label>
-    <select
-      value={sortBy}
-      onChange={(e) => {
-        setSortBy(e.target.value);
-        setCurrentPage(1);
-        fetchDocuments();
-      }}
-      className="h-9 rounded-md border border-slate-300 px-3 py-1 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-    >
-      <option value="createdAt">Upload Date (Newest)</option>
-      <option value="filename">Filename (A-Z)</option>
-    </select>
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => {
-        setSortOrder(sortOrder === 1 ? -1 : 1);
-        setCurrentPage(1);
-        fetchDocuments();
-      }}
-      className="gap-1 text-sm"
-    >
-      {sortOrder === 1 ? (
-        <>
-          <ChevronLeft className="h-4 w-4" />
-          Ascending
-        </>
-      ) : (
-        <>
-          <ChevronRight className="h-4 w-4" />
-          Descending
-        </>
-      )}
-    </Button>
-  </div>
-
-  {/* Pagination Controls */}
-  {allDocuments.length > 0 && (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-      <div className="flex items-center gap-2">
-        <Label className="text-sm">Rows per page:</Label>
-        <select
-          value={documentsPerPage}
-          onChange={(e) => {
-            setDocumentsPerPage(Number(e.target.value));
-            setCurrentPage(1);
-            fetchDocuments();
-          }}
-          className="h-9 w-20 rounded-md border border-slate-300 px-2 py-1 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-        >
-          <option value="5">5</option>
-          <option value="10">10</option>
-          <option value="20">20</option>
-          <option value="50">50</option>
-        </select>
-      </div>
-      <div className="flex items-center gap-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setCurrentPage((prev) => Math.max(prev - 1, 1));
-            fetchDocuments();
-          }}
-          disabled={currentPage === 1}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-sm">
-          Page {currentPage} of {totalPages}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            setCurrentPage((prev) => prev + 1);
-            fetchDocuments();
-          }}
-          disabled={currentPage >= totalPages}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  )}
-</div>
-
-
-              {allDocuments.length === 0 && (
-                <div className="text-center py-12">
-                  <FileText className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-600">No documents found</p>
-                  <Button
-                    onClick={() => router.push("/dashboard")}
-                    className="mt-4"
-                  >
-                    Upload Documents
-                  </Button>
-                </div>
-              )}
-            </div>
-            
-
-          </div>
-        )}
+        
 
         {step === 2 && (
           <div className="max-w-4xl mx-auto">
@@ -947,15 +767,48 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
           <p className="text-slate-600">Loading document...</p>
+          <p className="text-xs text-slate-500 mt-2">
+            Debug: Selected docs: {selectedDocs.length}, Current index: {currentDocIndex}
+          </p>
+          <p className="text-xs text-slate-500">
+            Doc IDs: {selectedDocs.map(d => d._id).join(', ')}
+          </p>
         </div>
       </div>
     ) : (
       <>
         {/* Left Sidebar - NOW STICKY */}
        <div className="col-span-3 bg-white rounded-xl shadow-sm border p-6 overflow-y-auto sticky top-24 self-start" style={{ maxHeight: "calc(100vh - 8rem)" }}>
-          <h3 className="font-bold text-slate-900 mb-6 text-lg">
-            Signature Fields
-          </h3>
+  {/* ⭐ HEADER WITH UNDO/REDO */}
+  <div className="flex items-center justify-between mb-6">
+    <h3 className="font-bold text-slate-900 text-lg">Signature Fields</h3>
+    <div className="flex items-center gap-1">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleUndo}
+        disabled={historyIndex <= 0}
+        title="Undo"
+        className="h-8 w-8 p-0"
+      >
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+        </svg>
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleRedo}
+        disabled={historyIndex >= fieldHistory.length - 1}
+        title="Redo"
+        className="h-8 w-8 p-0"
+      >
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
+        </svg>
+      </Button>
+    </div>
+  </div>
 
               <div className="mb-6">
                 <Label className="text-sm font-medium text-slate-700 mb-3 block">
@@ -995,22 +848,45 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
               </div>
 
               <div className="mb-6">
-                <Label className="text-sm font-medium text-slate-700 mb-3 block">
-                  Recipients
-                </Label>
-                {recipients
-                  .filter((r) => r.name && r.email)
-                  .map((recipient, index) => (
-                    <div key={index} className="p-3 bg-slate-50 rounded-lg border mb-2">
-                      <p className="text-sm font-medium text-slate-900 truncate">
-                        {recipient.name}
-                      </p>
-                      <p className="text-xs text-slate-500 truncate">
-                        {recipient.email}
-                      </p>
-                    </div>
-                  ))}
-              </div>
+  <div className="flex items-center justify-between mb-3">
+    <Label className="text-sm font-medium text-slate-700">
+      Recipients
+    </Label>
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => openEditRecipientDrawer(0)}
+      className="h-7 gap-1 text-xs text-purple-600 hover:text-purple-700"
+    >
+      <Edit className="h-3 w-3" />
+      Edit
+    </Button>
+  </div>
+  {recipients
+    .filter((r) => r.name && r.email)
+    .map((recipient, index) => (
+      <div 
+        key={index} 
+        className="p-3 bg-slate-50 rounded-lg border mb-2 group hover:border-purple-300 transition-all cursor-pointer"
+        onClick={() => openEditRecipientDrawer(index)}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-slate-900 truncate">
+              {recipient.name}
+            </p>
+            <p className="text-xs text-slate-500 truncate">
+              {recipient.email}
+            </p>
+            {recipient.role && (
+              <p className="text-xs text-slate-400 mt-0.5">{recipient.role}</p>
+            )}
+          </div>
+          <Edit className="h-3 w-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+        </div>
+      </div>
+    ))}
+</div>
 
               <div className="space-y-3">
                 <Label className="text-sm font-medium text-slate-700">
@@ -1425,6 +1301,138 @@ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField
       </div>
     </DialogContent>
   </Dialog>
+
+  {/* ==================== EDIT RECIPIENT DRAWER ==================== */}
+<AnimatePresence>
+  {showEditRecipientDrawer && editingRecipientIndex !== null && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowEditRecipientDrawer(false)}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+      />
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Edit className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900">Edit Recipient</h3>
+              <p className="text-sm text-slate-600">
+                Recipient #{editingRecipientIndex + 1}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowEditRecipientDrawer(false)}
+            className="hover:bg-white/50"
+          >
+            <X className="h-5 w-5 text-slate-600" />
+          </Button>
+        </div>
+
+        {/* Form */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Name */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">
+              Full Name <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              value={editRecipientForm.name}
+              onChange={(e) =>
+                setEditRecipientForm({ ...editRecipientForm, name: e.target.value })
+              }
+              placeholder="John Doe"
+              className="w-full"
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">
+              Email Address <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              type="email"
+              value={editRecipientForm.email}
+              onChange={(e) =>
+                setEditRecipientForm({ ...editRecipientForm, email: e.target.value })
+              }
+              placeholder="john@company.com"
+              className="w-full"
+            />
+          </div>
+
+          {/* Role */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">
+              Role (Optional)
+            </Label>
+            <Input
+              value={editRecipientForm.role}
+              onChange={(e) =>
+                setEditRecipientForm({ ...editRecipientForm, role: e.target.value })
+              }
+              placeholder="e.g., Employee, Manager"
+              className="w-full"
+            />
+          </div>
+
+          {/* Info Box */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <svg className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="text-sm text-blue-800">
+                <p className="font-medium mb-1">Recipient Information</p>
+                <p>
+                  This person will receive an email with a unique signing link to sign all {selectedDocs.length} documents in the envelope.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-slate-50 flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setShowEditRecipientDrawer(false)}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={saveEditedRecipient}
+            className="flex-1 bg-purple-600 hover:bg-purple-700"
+          >
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Save Changes
+          </Button>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
 </div>
+
+
     );
 }

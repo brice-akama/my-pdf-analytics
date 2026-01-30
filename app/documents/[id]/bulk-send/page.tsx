@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+
+
 import {
   Dialog,
   DialogContent,
@@ -17,6 +19,8 @@ import {
 import {
   Upload,
   Users,
+  Edit,
+  Eye,
   FileText,
   ChevronRight,
   ChevronLeft,
@@ -29,7 +33,9 @@ import {
   Info,
   Clock,
 } from "lucide-react";
+
 import Papa from "papaparse";
+import { AnimatePresence, motion } from "framer-motion";
 // Types
 type BulkRecipient = {
   name: string;
@@ -59,6 +65,7 @@ type BulkSendStatus = {
 };
 
 type DocumentType = {
+  numPages: number;
   _id: string;
   filename: string;
   isTemplate: boolean;
@@ -85,6 +92,11 @@ export default function BulkSendPage() {
   const [message, setMessage] = useState("");
   const [expirationDays, setExpirationDays] = useState("30");
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+const [showEditDrawer, setShowEditDrawer] = useState(false);
+const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
+const [editingRecipientIndex, setEditingRecipientIndex] = useState<number | null>(null);
+const [editForm, setEditForm] = useState({ name: "", email: "", customFields: {} as Record<string, string> });
+const [templateConfig, setTemplateConfig] = useState<any>(null);
 const [generatedLinks, setGeneratedLinks] = useState<Array<{
   recipient: string;
   email: string;
@@ -123,6 +135,68 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{
       setLoading(false);
     }
   };
+
+
+  // ⭐ Open edit drawer with pre-filled data
+const openEditDrawer = (index: number) => {
+  const recipient = recipients[index];
+  setEditForm({
+    name: recipient.name,
+    email: recipient.email,
+    customFields: { ...recipient.customFields },
+  });
+  setEditingRecipientIndex(index);
+  setShowEditDrawer(true);
+};
+
+// ⭐ Save edited recipient
+const saveEditedRecipient = () => {
+  if (editingRecipientIndex === null) return;
+
+  // Validate
+  if (!editForm.name.trim()) {
+    alert("Name is required");
+    return;
+  }
+  if (!editForm.email.trim() || !isValidEmail(editForm.email)) {
+    alert("Valid email is required");
+    return;
+  }
+
+  // Update recipient
+  const updatedRecipients = [...recipients];
+  updatedRecipients[editingRecipientIndex] = {
+    name: editForm.name,
+    email: editForm.email,
+    customFields: editForm.customFields,
+  };
+  setRecipients(updatedRecipients);
+  setShowEditDrawer(false);
+  setEditingRecipientIndex(null);
+};
+
+// ⭐ Fetch template configuration for preview
+const fetchTemplateConfig = async () => {
+  try {
+    const res = await fetch(`/api/documents/${params.id}/template`, {
+      credentials: "include",
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setTemplateConfig(data.template);
+    }
+  } catch (error) {
+    console.error("Failed to fetch template config:", error);
+  }
+};
+
+// ⭐ Load template on component mount
+useEffect(() => {
+  if (doc?.isTemplate) {
+    fetchTemplateConfig();
+  }
+}, [doc]);
+
 
   // Handle CSV file upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -623,49 +697,78 @@ Bob Wilson,bob@company.com,Designer,70000`;
                 </div>
               )}
 
-              {/* Recipients List */}
-              <div className="max-h-96 overflow-y-auto mb-6 border rounded-lg">
-                {recipients.map((recipient, index) => (
-                  <div
-                    key={index}
-                    className="border-b last:border-b-0 p-4 hover:bg-slate-50"
+             {/* Action Buttons - Preview & Edit All */}
+<div className="flex items-center justify-between mb-4">
+  <h3 className="font-semibold text-slate-900">Recipients List</h3>
+  <div className="flex gap-2">
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setShowPreviewDrawer(true)}
+      className="gap-2"
+    >
+      <Eye className="h-4 w-4" />
+      Preview Document
+    </Button>
+  </div>
+</div>
+
+{/* Recipients List */}
+<div className="max-h-96 overflow-y-auto mb-6 border rounded-lg">
+  {recipients.map((recipient, index) => (
+    <div
+      key={index}
+      className="border-b last:border-b-0 p-4 hover:bg-slate-50"
+    >
+      <div className="flex items-start gap-4">
+        <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+          <span className="font-bold text-purple-600">
+            {index + 1}
+          </span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-slate-900 truncate">
+                {recipient.name}
+              </p>
+              <p className="text-sm text-slate-600 truncate">
+                {recipient.email}
+              </p>
+            </div>
+            {/* ⭐ Edit Button for Each Recipient */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setEditingRecipientIndex(index);
+                setShowEditDrawer(true);
+              }}
+              className="flex-shrink-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+            >
+              <Edit className="h-4 w-4 mr-1" />
+              Edit
+            </Button>
+          </div>
+          {Object.keys(recipient.customFields).length > 0 && (
+            <div className="flex gap-2 flex-wrap mt-2">
+              {Object.entries(recipient.customFields).map(
+                ([key, value]) => (
+                  <span
+                    key={key}
+                    className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded"
                   >
-                    <div className="flex items-start gap-4">
-                      <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <span className="font-bold text-purple-600">
-                          {index + 1}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4 mb-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-slate-900 truncate">
-                              {recipient.name}
-                            </p>
-                            <p className="text-sm text-slate-600 truncate">
-                              {recipient.email}
-                            </p>
-                          </div>
-                        </div>
-                        {Object.keys(recipient.customFields).length > 0 && (
-                          <div className="flex gap-2 flex-wrap mt-2">
-                            {Object.entries(recipient.customFields).map(
-                              ([key, value]) => (
-                                <span
-                                  key={key}
-                                  className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded"
-                                >
-                                  <strong>{key}:</strong> {value}
-                                </span>
-                              )
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    <strong>{key}:</strong> {value}
+                  </span>
+                )
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
 
               {/* Message & Settings */}
               <div className="space-y-4 mb-6 p-4 bg-slate-50 rounded-lg border">
@@ -1037,6 +1140,308 @@ Bob Wilson,bob@company.com,Designer,70000`;
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ==================== EDIT RECIPIENT DRAWER ==================== */}
+<AnimatePresence>
+  {showEditDrawer && editingRecipientIndex !== null && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowEditDrawer(false)}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+      />
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Edit className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900">Edit Recipient</h3>
+              <p className="text-sm text-slate-600">
+                Recipient #{editingRecipientIndex + 1}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowEditDrawer(false)}
+            className="hover:bg-white/50"
+          >
+            <XCircle className="h-5 w-5 text-slate-600" />
+          </Button>
+        </div>
+
+        {/* Form */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Name */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">
+              Full Name <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              value={editForm.name}
+              onChange={(e) =>
+                setEditForm({ ...editForm, name: e.target.value })
+              }
+              placeholder="John Doe"
+              className="w-full"
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <Label className="text-sm font-medium mb-2 block">
+              Email Address <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              type="email"
+              value={editForm.email}
+              onChange={(e) =>
+                setEditForm({ ...editForm, email: e.target.value })
+              }
+              placeholder="john@company.com"
+              className="w-full"
+            />
+          </div>
+
+          {/* Custom Fields */}
+          {Object.keys(editForm.customFields).length > 0 && (
+            <div>
+              <Label className="text-sm font-medium mb-3 block">
+                Custom Fields
+              </Label>
+              <div className="space-y-3">
+                {Object.entries(editForm.customFields).map(([key, value]) => (
+                  <div key={key}>
+                    <Label className="text-xs text-slate-600 mb-1 block capitalize">
+                      {key}
+                    </Label>
+                    <Input
+                      value={value}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          customFields: {
+                            ...editForm.customFields,
+                            [key]: e.target.value,
+                          },
+                        })
+                      }
+                      className="w-full"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Info Box */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-800">
+                <p className="font-medium mb-1">Custom Field Mapping</p>
+                <p>
+                  Custom fields will be used to personalize the document for
+                  this recipient.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-slate-50 flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setShowEditDrawer(false)}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={saveEditedRecipient}
+            className="flex-1 bg-purple-600 hover:bg-purple-700"
+          >
+            <CheckCircle className="h-4 w-4 mr-2" />
+            Save Changes
+          </Button>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
+{/* ==================== PREVIEW DOCUMENT DRAWER ==================== */}
+<AnimatePresence>
+  {showPreviewDrawer && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowPreviewDrawer(false)}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+      />
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className="fixed right-0 top-0 h-full w-full max-w-4xl bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Eye className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-900">Document Preview</h3>
+              <p className="text-sm text-slate-600">
+                {doc?.filename} • {templateConfig?.signatureFields?.length || 0} signature fields
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowPreviewDrawer(false)}
+            className="hover:bg-white/50"
+          >
+            <XCircle className="h-5 w-5 text-slate-600" />
+          </Button>
+        </div>
+
+        {/* Document Viewer */}
+        <div className="flex-1 overflow-y-auto bg-slate-100 p-6">
+          <div className="max-w-3xl mx-auto">
+            {/* Info Banner */}
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium mb-1">Signature Fields Preview</p>
+                  <p>
+                    Below is how your document will appear to recipients. Signature
+                    boxes show where recipients will sign.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* PDF with Overlays */}
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden relative">
+              <div
+                id="bulk-preview-container"
+                className="relative"
+                style={{
+                  minHeight: `${
+                    297 * ((doc?.numPages || 1) * 3.78)
+                  }px`,
+                }}
+              >
+                {/* PDF Embed */}
+                <embed
+                  src={`/api/documents/${params.id}/file?serve=blob#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                  type="application/pdf"
+                  className="w-full border-0"
+                  style={{
+                    height: `${297 * ((doc?.numPages || 1) * 3.78)}px`,
+                    display: "block",
+                    pointerEvents: "none",
+                  }}
+                />
+
+                {/* Signature Field Overlays */}
+                <div className="absolute inset-0 pointer-events-none">
+                  {templateConfig?.signatureFields?.map((field: any, idx: number) => {
+                    const pageHeight = 297 * 3.78;
+                    const topPosition =
+                      (field.page - 1) * pageHeight + (field.y / 100) * pageHeight;
+                    const recipient = templateConfig.recipients[field.recipientIndex];
+
+                    return (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className="absolute border-2 rounded bg-white/90 shadow-lg"
+                        style={{
+                          left: `${field.x}%`,
+                          top: `${topPosition}px`,
+                          width: field.type === "signature" ? "140px" : "120px",
+                          height: field.type === "signature" ? "50px" : "36px",
+                          transform: "translate(-50%, 0%)",
+                          borderColor: recipient?.color || "#9333ea",
+                        }}
+                      >
+                        <div className="h-full flex items-center justify-center px-2">
+                          <span className="text-xs font-semibold text-slate-700 truncate">
+                            {field.type === "signature"
+                              ? "✍️ Signature"
+                              : field.type === "date"
+                              ? "📅 Date"
+                              : field.type === "text"
+                              ? "📝 Text"
+                              : field.type === "checkbox"
+                              ? "☑️ Checkbox"
+                              : field.type === "attachment"
+                              ? "📎 Attachment"
+                              : field.type}
+                          </span>
+                        </div>
+                        {/* Recipient Label */}
+                        <div
+                          className="absolute -top-6 left-0 text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap"
+                          style={{
+                            backgroundColor: recipient?.color || "#9333ea",
+                            color: "white",
+                          }}
+                        >
+                          {recipient?.name || `Recipient ${field.recipientIndex + 1}`}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-slate-50 flex justify-end">
+          <Button
+            onClick={() => setShowPreviewDrawer(false)}
+            className="bg-purple-600 hover:bg-purple-700"
+          >
+            Close Preview
+          </Button>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
     </div>
   );
 }
