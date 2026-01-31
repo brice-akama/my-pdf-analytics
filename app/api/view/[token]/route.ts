@@ -101,14 +101,43 @@ export async function POST(
     }
 
     // ✅ Verify email whitelist if set
-    if (share.settings.allowedEmails && share.settings.allowedEmails.length > 0) {
-      if (!email || !share.settings.allowedEmails.includes(email.toLowerCase())) {
-        return NextResponse.json({
-          error: 'Your email is not authorized to view this document',
-          unauthorized: true,
-        }, { status: 403 });
-      }
-    }
+if (share.settings.allowedEmails && share.settings.allowedEmails.length > 0) {
+  // If no email provided, ask for it
+  if (!email) {
+    return NextResponse.json({
+      requiresAuth: true,
+      requiresEmail: true,
+      requiresPassword: share.settings.hasPassword,
+      settings: {
+        customMessage: share.settings.customMessage,
+      },
+      error: 'Email verification required to access this document',
+    }, { status: 401 });
+  }
+
+  // Check if email is in whitelist (case-insensitive)
+  const emailAllowed = share.settings.allowedEmails.some(
+    (allowedEmail: string) => allowedEmail.toLowerCase() === email.toLowerCase()
+  );
+
+  if (!emailAllowed) {
+    // Track blocked attempt
+    await db.collection('shares').updateOne(
+      { _id: share._id },
+      { $inc: { 'tracking.blockedAttempts': 1 } }
+    );
+
+    return NextResponse.json({
+      error: `Access denied. Your email (${email}) is not authorized to view this document.`,
+      unauthorized: true,
+      emailNotAllowed: true,
+      requiresAuth: true,
+      settings: {
+        customMessage: share.settings.customMessage,
+      },
+    }, { status: 403 });
+  }
+}
 
     // ✅ Get document details
     const document = await db.collection('documents').findOne({

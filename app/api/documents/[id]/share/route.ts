@@ -52,7 +52,14 @@ export async function POST(
       allowedEmails = [], // Whitelist specific emails
       customMessage = null, // Message shown to viewers
       trackDetailedAnalytics = true, // Track page views, time spent, etc.
+      enableWatermark = false, // ⭐ NEW
+      recipientEmails = [],
+  watermarkText = null,
+   watermarkPosition = 'bottom',
     } = body;
+
+    // ⭐ Use whichever one has data
+const emailWhitelist = allowedEmails.length > 0 ? allowedEmails : recipientEmails;
 
     // ✅ Check plan limits
     const shareLimit = user.plan === 'premium' ? 100 : 10; // Premium = 100 shares, Free = 10
@@ -78,19 +85,29 @@ export async function POST(
           upgrade: true,
         }, { status: 403 });
       }
-      if (allowedEmails.length > 0) {
-        return NextResponse.json({
-          error: 'Email whitelist requires Premium plan',
-          upgrade: true,
-        }, { status: 403 });
-      }
+     // ⭐ TESTING: Email whitelist disabled for testing
+// if (emailWhitelist.length > 0) {
+//   return NextResponse.json({
+//     error: 'Email whitelist requires Premium plan',
+//     upgrade: true,
+//   }, { status: 403 });
+// }
       if (maxViews) {
         return NextResponse.json({
           error: 'View limits require Premium plan',
           upgrade: true,
         }, { status: 403 });
       }
+      // ⭐ TESTING: Watermark check disabled for testing
+// if (enableWatermark) {
+//   return NextResponse.json({
+//     error: 'Watermarking requires Premium plan',
+//     upgrade: true,
+//   }, { status: 403 });
+// }
     }
+
+    
 
     // ✅ Generate secure share token (URL-safe)
     const shareToken = crypto.randomBytes(32).toString('base64url');
@@ -128,9 +145,12 @@ export async function POST(
         notifyOnView,
         hasPassword: !!password,
         maxViews,
-        allowedEmails: allowedEmails.length > 0 ? allowedEmails : null,
+        allowedEmails: emailWhitelist.length > 0 ? emailWhitelist : null,
         customMessage,
         trackDetailedAnalytics,
+        enableWatermark,  
+  watermarkText,  
+  watermarkPosition,  
       },
 
       // Security

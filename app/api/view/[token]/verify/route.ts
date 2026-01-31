@@ -1,3 +1,5 @@
+
+//app/api/view/[token]/verify/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../../../lib/mongodb';
 

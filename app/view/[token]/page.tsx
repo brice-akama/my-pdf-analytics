@@ -27,6 +27,7 @@ interface ShareData {
   maxViewsReached?: boolean;
   error?: string;
   requiresAuth?: boolean;
+  emailNotAllowed?: boolean;
 }
 
 export default function ViewSharedDocument() {
@@ -178,37 +179,42 @@ useEffect(() => {
   };
 
   const loadSharedDocument = async (authData?: { email?: string; password?: string }) => {
-    try {
-      setLoading(true);
-      setError(null);
+  try {
+    setLoading(true);
+    setError(null);
 
-      const res = await fetch(`/api/view/${token}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(authData || {}),
-      });
+    const res = await fetch(`/api/view/${token}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(authData || {}),
+    });
 
-      const data = await res.json();
-      
-      // ✅ DEBUG: Log the response
-      console.log('📄 Share data received:', data);
-      console.log('📄 PDF URL:', data.document?.pdfUrl);
-      console.log('📄 Preview URLs:', data.document?.previewUrls);
+    const data = await res.json();
+    
+    console.log('📄 Share data received:', data);
 
-      if (!res.ok) {
-        if (data.requiresAuth) {
-          // Document requires email or password
-          setRequiresEmail(data.requiresEmail || false);
-          setRequiresPassword(data.requiresPassword || false);
-          setShareData(data);
-        } else {
-          setError(data.error || 'Failed to load document');
-        }
-      } else {
-        setShareData(data);
+    if (!res.ok) {
+      // ✅ Handle email not authorized
+      if (data.unauthorized) {
+        setError(`❌ Access Denied: Your email (${authData?.email}) is not authorized to view this document. Please contact the document owner.`);
+        setShareData(null);
+        return;
       }
+      
+      // ✅ Handle authentication required
+      if (data.requiresAuth) {
+        setRequiresEmail(data.requiresEmail || false);
+        setRequiresPassword(data.requiresPassword || false);
+        setShareData(data);
+      } else {
+        setError(data.error || 'Failed to load document');
+      }
+    } else {
+      setShareData(data);
+      setIsVerified(true); // ✅ Mark as verified
+    }
     } catch (err) {
       console.error('Failed to load shared document:', err);
       setError('Failed to load document');
@@ -314,74 +320,95 @@ useEffect(() => {
     );
   }
 
+   
+  
   // Authentication required
-  if ((requiresEmail || requiresPassword) && !shareData?.document) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
-          <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
-            <Lock className="h-8 w-8 text-purple-600" />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-900 text-center mb-2">
-            Authentication Required
-          </h1>
-          <p className="text-slate-600 text-center mb-6">
-            This document requires verification to view
-          </p>
+if ((requiresEmail || requiresPassword) && !shareData?.document) {
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
+        <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
+          <Lock className="h-8 w-8 text-purple-600" />
+        </div>
+        <h1 className="text-2xl font-bold text-slate-900 text-center mb-2">
+          Verification Required
+        </h1>
+        <p className="text-slate-600 text-center mb-6">
+          {shareData?.error || 'Please verify your identity to view this document'}
+        </p>
 
-          {shareData?.settings?.customMessage && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <p className="text-sm text-blue-900">{shareData.settings.customMessage}</p>
+        {/* ⭐ Show custom message from sender */}
+        {shareData?.settings?.customMessage && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+               <p className="text-sm font-medium text-blue-900 mb-1">💬 Message from sender:</p>
+            <p className="text-sm text-blue-800 italic">"{shareData.settings.customMessage}"</p>
+          </div>
+        )}
+
+        {/* ⭐ Show error if email not allowed */}
+        {shareData?.emailNotAllowed && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-red-900">
+              ❌ <strong>Access Denied:</strong> This document was not shared with your email address.
+              Please contact the document owner for access.
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleAuthenticate} className="space-y-4">
+          {requiresEmail && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Mail className="h-4 w-4 inline mr-1" />
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                required
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Enter the email address this document was shared with
+              </p>
             </div>
           )}
 
-          <form onSubmit={handleAuthenticate} className="space-y-4">
-            {requiresEmail && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  <Mail className="h-4 w-4 inline mr-1" />
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-            )}
+          {requiresPassword && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                <Lock className="h-4 w-4 inline mr-1" />
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                required
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              />
+            </div>
+          )}
 
-            {requiresPassword && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  <Lock className="h-4 w-4 inline mr-1" />
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password"
-                  required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-            )}
+          <button
+            type="submit"
+            disabled={isAuthenticating}
+            className="w-full py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 font-medium"
+          >
+            {isAuthenticating ? 'Verifying...' : 'View Document'}
+          </button>
+        </form>
 
-            <button
-              type="submit"
-              disabled={isAuthenticating}
-              className="w-full py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-            >
-              {isAuthenticating ? 'Verifying...' : 'View Document'}
-            </button>
-          </form>
-        </div>
+        <p className="text-xs text-slate-500 text-center mt-4">
+          Having trouble? Contact the document owner.
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // Document viewer
   return (
@@ -450,13 +477,14 @@ useEffect(() => {
         {shareData?.document?.pdfUrl ? (
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
 <iframe
-  src={shareData.document.pdfUrl}
+  src={`${shareData.document.pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
   className="w-full h-[calc(100vh-200px)] border-0"
   title={shareData.document.filename}
   onLoad={() => {
-    // Listen for page changes in PDF
-    // Note: This works if PDF viewer supports it
     setCurrentPage(1);
+  }}
+  style={{
+    pointerEvents: 'auto',
   }}
 />
           </div>

@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
-import { sendEmail } from '@/lib/email'; // We'll create this
+import { sendEmail } from '@/lib/email';  
 
 export async function POST(
   request: NextRequest,

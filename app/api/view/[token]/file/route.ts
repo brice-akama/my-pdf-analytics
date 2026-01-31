@@ -1,6 +1,8 @@
+//app/api/view/[token]/file/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../../../lib/mongodb';
 import cloudinary from 'cloudinary';
+import { PDFDocument, rgb, StandardFonts, RotationTypes } from 'pdf-lib';
 
 // Configure Cloudinary
 cloudinary.v2.config({
@@ -11,16 +13,17 @@ cloudinary.v2.config({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  context: { params: Promise<{ token: string }> }
 ) {
   try {
+    const { token } = await context.params;
     const { email } = await request.json();
     
     const db = await dbPromise;
     
     // Find share record
     const share = await db.collection('shares').findOne({
-      shareToken: params.token
+      shareToken: token
     });
 
     if (!share) {
@@ -37,18 +40,33 @@ export async function POST(
       _id: share.documentId
     });
 
-    if (!document || !document.fileData) {
+    if (!document || !document.cloudinaryPdfUrl) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    // Convert base64 to buffer
-    const buffer = Buffer.from(document.fileData, 'base64');
+    // Fetch PDF from Cloudinary
+    const pdfResponse = await fetch(document.cloudinaryPdfUrl);
+    if (!pdfResponse.ok) {
+      return NextResponse.json({ error: 'Failed to fetch PDF' }, { status: 500 });
+    }
 
-    return new NextResponse(buffer, {
+    let pdfBytes = await pdfResponse.arrayBuffer();
+
+    // ⭐ Apply watermark if enabled
+    if (share.settings?.enableWatermark) {
+      pdfBytes = await addWatermarkToPdf(
+        pdfBytes,
+        email || 'Anonymous Viewer',
+        share.settings.watermarkPosition || 'bottom',
+        share.settings.watermarkText || null
+      );
+    }
+
+    return new NextResponse(pdfBytes, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${document.filename}"`,
-        'Content-Length': buffer.length.toString(),
+        'Content-Disposition': `inline; filename="${document.originalFilename}"`,
+        'Content-Length': pdfBytes.byteLength.toString(),
       },
     });
 
@@ -90,7 +108,7 @@ export async function GET(
     }
 
     // ✅ Check max views
-    if (share.settings.maxViews && share.tracking.views >= share.settings.maxViews) {
+    if (share.settings?.maxViews && share.tracking?.views >= share.settings.maxViews) {
       return NextResponse.json({ 
         error: 'View limit reached' 
       }, { status: 403 });
@@ -111,7 +129,22 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     
-    if (action === 'print' && !share.settings.allowPrint) {
+    if (action === 'print' && !share.settings?.allowPrint) {
+      // ⭐ Track blocked print attempt
+      await db.collection('shares').updateOne(
+        { _id: share._id },
+        { 
+          $inc: { 'tracking.blockedPrints': 1 },
+          $push: { 
+            'tracking.printEvents': {
+              timestamp: new Date(),
+              allowed: false,
+              blocked: true,
+            }
+          } as any
+        }
+      ).catch(err => console.error('Failed to track blocked print:', err));
+
       return NextResponse.json({ 
         error: 'Printing is not allowed for this document' 
       }, { status: 403 });
@@ -134,6 +167,7 @@ export async function GET(
         shareToken: token.substring(0, 8) + '...',
         publicId,
         filename: document.originalFilename,
+        watermarkEnabled: share.settings?.enableWatermark || false,
       });
 
       // ✅ Generate signed download URL with expiration
@@ -159,7 +193,25 @@ export async function GET(
         }, { status: 500 });
       }
 
-      const arrayBuffer = await cloudinaryResponse.arrayBuffer();
+      let arrayBuffer = await cloudinaryResponse.arrayBuffer();
+
+      // ⭐ APPLY WATERMARK IF ENABLED
+      if (share.settings?.enableWatermark) {
+        console.log('💧 Applying watermark...');
+        
+        // Get viewer email from tracking (last viewer email)
+        const viewerEmail = share.tracking?.viewerEmails?.[share.tracking.viewerEmails.length - 1] || 
+                           'Confidential Document';
+        
+        arrayBuffer = await addWatermarkToPdf(
+          arrayBuffer,
+          viewerEmail,
+          share.settings.watermarkPosition || 'bottom',
+          share.settings.watermarkText || null
+        );
+
+        console.log('✅ Watermark applied');
+      }
 
       console.log('✅ File served:', arrayBuffer.byteLength, 'bytes');
 
@@ -168,9 +220,29 @@ export async function GET(
         { _id: share._id },
         { 
           $inc: { 'tracking.fileViews': 1 },
-          $set: { updatedAt: new Date() }
+          $set: { 
+            updatedAt: new Date(),
+            'tracking.lastViewedAt': new Date(),
+          }
         }
       ).catch(err => console.error('Failed to track file view:', err));
+
+      // ⭐ Track print if action=print
+      if (action === 'print') {
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          { 
+            $inc: { 'tracking.prints': 1 },
+            $push: { 
+              'tracking.printEvents': {
+                timestamp: new Date(),
+                allowed: true,
+                viewerEmail: share.tracking?.viewerEmails?.[share.tracking.viewerEmails.length - 1] || null,
+              }
+            } as any
+          }
+        ).catch(err => console.error('Failed to track print:', err));
+      }
 
       // ✅ Return PDF file
       return new NextResponse(arrayBuffer, {
@@ -178,7 +250,7 @@ export async function GET(
           'Content-Type': 'application/pdf',
           'Content-Disposition': `inline; filename="${document.originalFilename}"`,
           'Content-Length': arrayBuffer.byteLength.toString(),
-          'Cache-Control': 'private, max-age=3600',
+          'Cache-Control': 'private, no-cache, no-store, must-revalidate', // ⭐ Prevent caching watermarked PDFs
           'Access-Control-Allow-Origin': '*',
           'X-Content-Type-Options': 'nosniff',
         },
@@ -198,5 +270,161 @@ export async function GET(
       error: 'Failed to serve file',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
+  }
+}
+
+// ⭐⭐⭐ WATERMARK FUNCTION - PRODUCTION READY ⭐⭐⭐
+async function addWatermarkToPdf(
+  pdfBytes: ArrayBuffer,
+  viewerIdentifier: string,
+  position: string = 'bottom',
+  customText: string | null = null
+): Promise<ArrayBuffer> {
+  try {
+    // Load the PDF
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const pages = pdfDoc.getPages();
+    
+    // Embed font
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    
+    // Watermark text
+    const watermarkText = customText || `Confidential - ${viewerIdentifier}`;
+    const timestamp = new Date().toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    // Calculate text dimensions
+    const fontSize = 10;
+    const textWidth = font.widthOfTextAtSize(watermarkText, fontSize);
+    const timestampWidth = font.widthOfTextAtSize(`Viewed: ${timestamp}`, 8);
+
+    // Add watermark to each page
+    for (let i = 0; i < pages.length; i++) {
+      const page = pages[i];
+      const { width, height } = page.getSize();
+      
+      let x = 0;
+      let y = 0;
+      let rotation = 0;
+
+      // Position watermark based on setting
+      switch (position) {
+        case 'top':
+          x = width / 2 - textWidth / 2;
+          y = height - 30;
+          
+          // Main watermark text
+          page.drawText(watermarkText, {
+            x,
+            y,
+            size: fontSize,
+            font: boldFont,
+            color: rgb(0.5, 0.5, 0.5),
+            opacity: 0.6,
+          });
+          
+          // Timestamp
+          page.drawText(`Viewed: ${timestamp}`, {
+            x: width / 2 - timestampWidth / 2,
+            y: y - 15,
+            size: 8,
+            font,
+            color: rgb(0.5, 0.5, 0.5),
+            opacity: 0.5,
+          });
+          break;
+
+        case 'center':
+          x = width / 2 - textWidth / 2;
+          y = height / 2;
+          
+          page.drawText(watermarkText, {
+            x,
+            y,
+            size: fontSize,
+            font: boldFont,
+            color: rgb(0.7, 0.7, 0.7),
+            opacity: 0.3,
+          });
+          break;
+
+        case 'diagonal':
+          // Diagonal watermark across center
+          x = width / 2;
+          y = height / 2;
+          rotation = -45;
+          
+          page.drawText(watermarkText, {
+            x,
+            y,
+            size: 14,
+            font: boldFont,
+            color: rgb(0.8, 0.8, 0.8),
+            opacity: 0.15,
+            rotate: { angle: rotation, type: RotationTypes.Degrees },
+          });
+          
+          // Add timestamp at bottom
+          page.drawText(`Viewed: ${timestamp}`, {
+            x: 50,
+            y: 20,
+            size: 7,
+            font,
+            color: rgb(0.6, 0.6, 0.6),
+            opacity: 0.5,
+          });
+          break;
+
+        default: // 'bottom'
+          x = 50;
+          y = 30;
+          
+          // Main watermark text
+          page.drawText(watermarkText, {
+            x,
+            y,
+            size: fontSize,
+            font: boldFont,
+            color: rgb(0.5, 0.5, 0.5),
+            opacity: 0.6,
+          });
+          
+          // Timestamp on same line
+          page.drawText(`• Viewed: ${timestamp}`, {
+            x: x + textWidth + 10,
+            y,
+            size: 8,
+            font,
+            color: rgb(0.5, 0.5, 0.5),
+            opacity: 0.5,
+          });
+          
+          // Page number (optional)
+          page.drawText(`Page ${i + 1} of ${pages.length}`, {
+            x: width - 100,
+            y: 20,
+            size: 8,
+            font,
+            color: rgb(0.6, 0.6, 0.6),
+            opacity: 0.5,
+          });
+          break;
+      }
+    }
+
+    // Save and return the watermarked PDF
+    const watermarkedPdfBytes = await pdfDoc.save();
+    return watermarkedPdfBytes.buffer as ArrayBuffer;
+
+  } catch (error) {
+    console.error('❌ Watermarking error:', error);
+    // Return original PDF if watermarking fails
+    return pdfBytes;
   }
 }

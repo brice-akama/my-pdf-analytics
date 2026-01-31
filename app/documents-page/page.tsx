@@ -33,6 +33,7 @@ import {
 import { Drawer } from "@/components/ui/drawer"
 import { motion } from "framer-motion"
 import { AnimatePresence } from "framer-motion"
+import { Label } from "@radix-ui/react-dropdown-menu"
 
 type DocumentType = {
   _id: string
@@ -89,6 +90,24 @@ const [exportingDocumentId, setExportingDocumentId] = useState<string | null>(nu
 const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set())
 const [bulkSelectionMode, setBulkSelectionMode] = useState(false)
 const [createMenuOpen, setCreateMenuOpen] = useState(false)
+const [shareDrawerOpen, setShareDrawerOpen] = useState(false)
+const [sharingDocumentId, setSharingDocumentId] = useState<string | null>(null)
+const [shareSettings, setShareSettings] = useState({
+  requireEmail: true,
+  allowDownload: false,
+  expiresIn: 7,
+  password: '',
+  recipientEmails: [] as string[], // Array of allowed emails
+  allowedEmails: [] as string[], // ⭐ NEW Whitelist of emails
+  sendEmailNotification: true, // Send email to recipients
+  customMessage: '', // Note from sender
+  requireNDA: false, // Require NDA acceptance
+  enableWatermark: false, // ⭐ NEW
+  watermarkText: '', // ⭐ NEW
+  watermarkPosition: 'bottom', // ⭐ NEW
+
+})
+const [recipientInput, setRecipientInput] = useState('') // For adding emails
 const [previewData, setPreviewData] = useState<{
   recipients: any[];
   signatureFields: any[];
@@ -1153,6 +1172,18 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               <Eye className="h-4 w-4 mr-2" />
               View
             </DropdownMenuItem>
+
+            <DropdownMenuItem
+  onClick={(e) => {
+    e.stopPropagation()
+    setSharingDocumentId(doc._id)
+    setShareDrawerOpen(true)
+  }}
+  className="text-blue-600 focus:text-blue-600"
+>
+  <Share2 className="h-4 w-4 mr-2" />
+  Share Securely
+</DropdownMenuItem>
            {/* ⭐ Convert to Signable - Only show if NOT a template */}
   {!doc.isTemplate && (
     <DropdownMenuItem
@@ -1672,6 +1703,468 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       </div>
     </div>
   </div>
+</Drawer>
+
+{/* Share Drawer */}
+<Drawer open={shareDrawerOpen} onOpenChange={setShareDrawerOpen}>
+  <div className="h-full flex flex-col bg-white">
+    {/* Header */}
+    <div className="p-6 border-b">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-2xl font-bold text-slate-900">
+          Share Document
+        </h2>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShareDrawerOpen(false)}
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </Button>
+      </div>
+      <p className="text-sm text-slate-600">
+        {documents.find(d => d._id === sharingDocumentId)?.originalFilename || 
+         templates.find(d => d._id === sharingDocumentId)?.originalFilename || 'Document'}
+      </p>
+    </div>
+
+    {/* Content */}
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="max-w-2xl mx-auto space-y-6">
+        
+        {/* ⭐ NEW: Recipients Section */}
+    <div className="bg-white rounded-xl border shadow-sm p-6">
+      <h3 className="font-semibold text-slate-900 mb-4">Recipients (Optional)</h3>
+      <p className="text-sm text-slate-600 mb-4">
+        Add email addresses to restrict access. Leave empty for "anyone with link".
+      </p>
+      
+      {/* Email Input */}
+      <div className="flex gap-2 mb-3">
+        <Input
+          type="email"
+          value={recipientInput}
+          onChange={(e) => setRecipientInput(e.target.value)}
+          placeholder="recipient@company.com"
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              if (recipientInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientInput)) {
+                if (!shareSettings.recipientEmails.includes(recipientInput)) {
+                  setShareSettings({
+                    ...shareSettings,
+                    recipientEmails: [...shareSettings.recipientEmails, recipientInput]
+                  })
+                  setRecipientInput('')
+                }
+              }
+            }
+          }}
+          className="flex-1"
+        />
+        <Button
+          type="button"
+          onClick={() => {
+            if (recipientInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientInput)) {
+              if (!shareSettings.recipientEmails.includes(recipientInput)) {
+                setShareSettings({
+                  ...shareSettings,
+                  recipientEmails: [...shareSettings.recipientEmails, recipientInput]
+                })
+                setRecipientInput('')
+              }
+            }
+          }}
+          variant="outline"
+        >
+          Add
+        </Button>
+      </div>
+      {/* Email List */}
+      {shareSettings.recipientEmails.length > 0 && (
+        <div className="space-y-2">
+          {shareSettings.recipientEmails.map((email, idx) => (
+            <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded border">
+              <span className="text-sm text-slate-900">{email}</span>
+              <button
+                onClick={() => {
+                  setShareSettings({
+                    ...shareSettings,
+                    recipientEmails: shareSettings.recipientEmails.filter((_, i) => i !== idx)
+                  })
+                }}
+                className="text-red-600 hover:text-red-700 text-sm"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Send Email Toggle */}
+      {shareSettings.recipientEmails.length > 0 && (
+        <label className="flex items-center justify-between cursor-pointer mt-4 pt-4 border-t">
+          <div>
+            <div className="font-medium text-slate-900">Send Email Notification</div>
+            <div className="text-sm text-slate-600">Email recipients with the link</div>
+          </div>
+          <input
+            type="checkbox"
+            checked={shareSettings.sendEmailNotification}
+            onChange={(e) => setShareSettings({...shareSettings, sendEmailNotification: e.target.checked})}
+            className="h-5 w-5 rounded border-slate-300 text-blue-600"
+          />
+        </label>
+      )}
+    </div>
+
+    {/* ⭐ NEW: Custom Message */}
+    <div className="bg-white rounded-xl border shadow-sm p-6">
+      <h3 className="font-semibold text-slate-900 mb-4">Message to Recipients (Optional)</h3>
+      <textarea
+        value={shareSettings.customMessage}
+        onChange={(e) => setShareSettings({...shareSettings, customMessage: e.target.value})}
+        placeholder="Add a personal note that recipients will see when they open the document..."
+        rows={4}
+        className="w-full border rounded-lg px-3 py-2 text-sm"
+        maxLength={500}
+      />
+      <p className="text-xs text-slate-500 mt-1">
+        {shareSettings.customMessage.length}/500 characters
+      </p>
+    </div>
+        {/* Security Settings */}
+        <div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">
+          <h3 className="font-semibold text-slate-900 mb-4">Security Settings</h3>
+          
+          {/* Require Email */}
+          <label className="flex items-center justify-between cursor-pointer">
+            <div>
+              <div className="font-medium text-slate-900">Require Email Verification</div>
+              <div className="text-sm text-slate-600">Viewers must enter email to access</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={shareSettings.requireEmail}
+              onChange={(e) => setShareSettings({...shareSettings, requireEmail: e.target.checked})}
+              className="h-5 w-5 rounded border-slate-300 text-blue-600"
+            />
+          </label>
+          {/* ⭐ NEW: Require NDA */}
+      <label className="flex items-center justify-between cursor-pointer">
+        <div>
+          <div className="font-medium text-slate-900">Require NDA Acceptance</div>
+          <div className="text-sm text-slate-600">Viewers must accept terms before viewing</div>
+        </div>
+        <input
+          type="checkbox"
+          checked={shareSettings.requireNDA}
+          onChange={(e) => setShareSettings({...shareSettings, requireNDA: e.target.checked})}
+          className="h-5 w-5 rounded border-slate-300 text-blue-600"
+        />
+      </label>
+
+          {/* Allow Download */}
+          <label className="flex items-center justify-between cursor-pointer">
+            <div>
+              <div className="font-medium text-slate-900">Allow Download</div>
+              <div className="text-sm text-slate-600">Let viewers download the PDF</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={shareSettings.allowDownload}
+              onChange={(e) => setShareSettings({...shareSettings, allowDownload: e.target.checked})}
+              className="h-5 w-5 rounded border-slate-300 text-blue-600"
+            />
+          </label>
+
+          {/* Expiration */}
+          <div>
+            <Label className="text-sm font-medium text-slate-700 mb-2 block">
+              Link Expires In
+            </Label>
+            <select
+              value={shareSettings.expiresIn}
+              onChange={(e) => setShareSettings({...shareSettings, expiresIn: parseInt(e.target.value)})}
+              className="w-full border rounded-lg px-3 py-2"
+            >
+              <option value="1">1 day</option>
+              <option value="7">7 days</option>
+              <option value="30">30 days</option>
+              <option value="0">Never</option>
+            </select>
+          </div>
+
+          {/* Password */}
+          <div>
+            <Label className="text-sm font-medium text-slate-700 mb-2 block">
+              Password (Optional)
+            </Label>
+            <Input
+              type="password"
+              value={shareSettings.password}
+              onChange={(e) => setShareSettings({...shareSettings, password: e.target.value})}
+              placeholder="Leave empty for no password"
+            />
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            📊 <strong>Track views:</strong> You'll see who viewed your document, 
+            time spent, and location in the analytics page.
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+    {/*  Watermark Settings */}
+<div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">
+  <div className="flex items-center justify-between">
+    <h3 className="font-semibold text-slate-900">💧 Watermark (Premium)</h3>
+    <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded">
+      Premium
+    </span>
+  </div>
+  
+  <label className="flex items-center justify-between cursor-pointer">
+    <div>
+      <div className="font-medium text-slate-900">Enable Watermark</div>
+      <div className="text-sm text-slate-600">Add viewer's email to each page</div>
+    </div>
+    <input
+      type="checkbox"
+      checked={shareSettings.enableWatermark}
+      onChange={(e) => setShareSettings({...shareSettings, enableWatermark: e.target.checked})}
+      className="h-5 w-5 rounded border-slate-300 text-purple-600"
+    />
+  </label>
+
+  {shareSettings.enableWatermark && (
+    <>
+      <div>
+        <Label>Watermark Text (Optional)</Label>
+        <Input
+          value={shareSettings.watermarkText}
+          onChange={(e) => setShareSettings({...shareSettings, watermarkText: e.target.value})}
+          placeholder="Leave empty to use viewer's email"
+          className="mt-1"
+        />
+      </div>
+      
+      <div>
+        <Label>Position</Label>
+        <select
+          value={shareSettings.watermarkPosition}
+          onChange={(e) => setShareSettings({...shareSettings, watermarkPosition: e.target.value})}
+          className="w-full border rounded-lg px-3 py-2 mt-1"
+        >
+          <option value="bottom">Bottom</option>
+          <option value="top">Top</option>
+          <option value="center">Center</option>
+          <option value="diagonal">Diagonal</option>
+        </select>
+      </div>
+    </>
+  )}
+</div>
+
+    {/* Footer */}
+<div className="p-6 border-t">
+  <div className="max-w-2xl mx-auto">
+    {/* ⭐ NEW: Preview what will be sent */}
+    {shareSettings.recipientEmails.length > 0 && shareSettings.sendEmailNotification && (
+      <div className="mb-4 p-4 bg-slate-50 rounded-lg border">
+        <p className="text-xs font-medium text-slate-700 mb-2">EMAIL PREVIEW:</p>
+        <div className="bg-white rounded border p-3 text-sm">
+          <p className="font-semibold">You have {shareSettings.recipientEmails.length} recipient(s)</p>
+          <p className="text-slate-600 mt-1">
+            Subject: {documents.find(d => d._id === sharingDocumentId)?.originalFilename || 'Document'} has been shared with you
+          </p>
+          {shareSettings.customMessage && (
+            <p className="text-slate-600 mt-2 text-xs italic">
+              "{shareSettings.customMessage}"
+            </p>
+          )}
+        </div>
+      </div>
+    )}
+
+    <div className="flex gap-3">
+      <Button
+        variant="outline"
+        onClick={() => setShareDrawerOpen(false)}
+        className="flex-1"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={async () => {
+          if (!sharingDocumentId) return;
+          // ⭐ AUTO-ADD: If user typed an email but didn't click "Add", add it now
+    if (recipientInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientInput)) {
+      if (!shareSettings.recipientEmails.includes(recipientInput)) {
+        console.log('⚡ Auto-adding email before sending:', recipientInput);
+        shareSettings.recipientEmails.push(recipientInput);
+        setRecipientInput(''); // Clear input
+      }
+    }
+    
+    console.log('🚀 Creating share link with emails:', shareSettings.recipientEmails);
+    
+          
+          try {
+            const res = await fetch(`/api/documents/${sharingDocumentId}/share`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                requireEmail: shareSettings.requireEmail,
+                allowDownload: shareSettings.allowDownload,
+                password: shareSettings.password || null,
+                expiresIn: shareSettings.expiresIn === 0 ? 'never' : shareSettings.expiresIn.toString(),
+                allowedEmails: shareSettings.recipientEmails, // ⭐ Send allowed emails
+                customMessage: shareSettings.customMessage || null, // ⭐ Send custom message
+                sendEmailNotification: shareSettings.sendEmailNotification, // ⭐ NEW
+                notifyOnView: true,
+                allowPrint: true,
+                trackDetailedAnalytics: true,
+                enableWatermark: shareSettings.enableWatermark, // ⭐ NEW
+  watermarkText: shareSettings.watermarkText || null, // ⭐ NEW
+  watermarkPosition: shareSettings.watermarkPosition, // ⭐ NEW
+              }),
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
+              // ⭐ Show success popup with link
+              const shareLink = data.shareLink;
+              
+              // Create modal content
+              const modal = document.createElement('div');
+              modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+              modal.innerHTML = `
+                <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+                  <div class="flex items-center gap-3 mb-4">
+                    <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                      <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 class="text-xl font-bold text-slate-900">Link Created!</h3>
+                      <p class="text-sm text-slate-600">${shareSettings.recipientEmails.length > 0 ? `Sent to ${shareSettings.recipientEmails.length} recipient(s)` : 'Anyone with link can view'}</p>
+                    </div>
+                  </div>
+                  
+                  ${shareSettings.recipientEmails.length > 0 && shareSettings.sendEmailNotification ? `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                      <p class="text-sm text-blue-900">
+                        ✉️ <strong>Emails sent to:</strong><br/>
+                        ${shareSettings.recipientEmails.map(e => `• ${e}`).join('<br/>')}
+                      </p>
+                    </div>
+                  ` : ''}
+                  
+                  <div class="mb-4">
+                    <label class="text-sm font-medium text-slate-700 block mb-2">Share Link:</label>
+                    <div class="flex gap-2">
+                      <input 
+                        type="text" 
+                        value="${shareLink}" 
+                        readonly 
+                        class="flex-1 px-3 py-2 border rounded-lg text-sm bg-slate-50"
+                        id="shareLinkInput"
+                      />
+                      <button 
+                        onclick="
+                          navigator.clipboard.writeText('${shareLink}');
+                          this.innerHTML = '✓ Copied';
+                          setTimeout(() => this.innerHTML = 'Copy', 2000);
+                        "
+                        class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div class="space-y-2 text-sm text-slate-600 mb-4">
+                    <p>⏰ Expires: ${shareSettings.expiresIn === 0 ? 'Never' : `${shareSettings.expiresIn} days`}</p>
+                    <p>📥 Download: ${shareSettings.allowDownload ? 'Allowed' : 'Disabled'}</p>
+                    ${shareSettings.password ? '<p>🔒 Password protected</p>' : ''}
+                    ${shareSettings.recipientEmails.length > 0 ? `<p>✉️ Email-gated (${shareSettings.recipientEmails.length} recipients)</p>` : '<p>🌐 Open to anyone with link</p>'}
+                  </div>
+                  
+                  <div class="flex gap-3">
+                    <button 
+                      onclick="window.open('${shareLink}', '_blank'); this.parentElement.parentElement.parentElement.remove();"
+                      class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Test Link
+                    </button>
+                    <button 
+                      onclick="this.parentElement.parentElement.parentElement.remove()"
+                      class="flex-1 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              `;
+              
+              document.body.appendChild(modal);
+              modal.onclick = (e) => {
+                if (e.target === modal) modal.remove();
+              };
+              
+              setShareDrawerOpen(false);
+              
+              // Reset settings
+              setShareSettings({
+                requireEmail: true,
+                allowDownload: false,
+                expiresIn: 7,
+                password: '',
+                recipientEmails: [],
+                sendEmailNotification: true,
+                customMessage: '',
+                requireNDA: false,
+                allowedEmails: [],
+                enableWatermark: false,
+                watermarkText: '',
+                watermarkPosition: 'bottom',
+                
+              });
+            } else {
+              if (data.upgrade) {
+                alert(`❌ ${data.error}\n\nUpgrade to Premium to unlock this feature.`);
+              } else {
+                alert(`❌ ${data.error || 'Failed to create share link'}`);
+              }
+            }
+          } catch (error) {
+            console.error('Share error:', error);
+            alert('❌ Failed to create share link. Please try again.');
+          }
+        }}
+        className="flex-1 gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+      >
+        <Share2 className="h-4 w-4" />
+        {shareSettings.recipientEmails.length > 0 && shareSettings.sendEmailNotification ? 
+          `Send to ${shareSettings.recipientEmails.length} Recipient${shareSettings.recipientEmails.length > 1 ? 's' : ''}` : 
+          'Create Link'}
+      </Button>
+    </div>
+  </div>
+</div>
+    </div>
 </Drawer>
 
     </div>
