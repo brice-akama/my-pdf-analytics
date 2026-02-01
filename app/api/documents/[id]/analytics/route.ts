@@ -284,6 +284,12 @@ topViewers.push(...sortedViewers);
         lastViewed: tracking.lastViewed || null,
         eSignature: eSignatureAnalytics,
 
+        //  NDA Acceptances
+    ndaAcceptances: await db.collection('nda_acceptances')
+      .find({ documentId: id })
+      .sort({ timestamp: -1 })
+      .toArray(),
+
         // Content quality metrics
         contentQuality: {
           healthScore: analyticsData.healthScore || 0,

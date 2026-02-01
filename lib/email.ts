@@ -1,11 +1,18 @@
 // lib/email.ts
 // Email sending utility - supports multiple providers
 
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer | string;
+  contentType?: string;
+}
+
 interface EmailOptions {
   to: string;
   subject: string;
   html: string;
   from?: string;
+  attachments?: EmailAttachment[]; // ✅ ADD THIS
 }
 
 // ✅ Option 1: Using Resend (Recommended - Easy & Free)

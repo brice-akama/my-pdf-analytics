@@ -4,7 +4,10 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Eye, Download, Printer, Lock, Mail, Clock, AlertCircle } from 'lucide-react';
+import { Eye, Download, Printer, Lock, Mail, Clock, AlertCircle, Check } from 'lucide-react';
+import { Label } from '@radix-ui/react-dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface ShareData {
   success: boolean;
@@ -28,6 +31,7 @@ interface ShareData {
   error?: string;
   requiresAuth?: boolean;
   emailNotAllowed?: boolean;
+  message?: string;
 }
 
 export default function ViewSharedDocument() {
@@ -48,8 +52,6 @@ export default function ViewSharedDocument() {
   const [password, setPassword] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
-
-  // ✅ Tracking states
   const [sessionId] = useState(() => `session-${Date.now()}-${Math.random()}`);
   const [sessionStartTime] = useState(Date.now());
   const [currentPage, setCurrentPage] = useState(1);
@@ -57,6 +59,10 @@ export default function ViewSharedDocument() {
   const [timeOnPage, setTimeOnPage] = useState<Record<number, number>>({});
   const [lastActivityTime, setLastActivityTime] = useState(Date.now());
 const [pageStartTime, setPageStartTime] = useState(Date.now());
+const [requiresNDA, setRequiresNDA] = useState(false);
+const [ndaText, setNdaText] = useState('');
+const [ndaAccepted, setNdaAccepted] = useState(false);
+const [certificateId, setCertificateId] = useState<string | null>(null);
 
   // Load shared document
   useEffect(() => {
@@ -178,7 +184,13 @@ useEffect(() => {
     }
   };
 
-  const loadSharedDocument = async (authData?: { email?: string; password?: string }) => {
+  const loadSharedDocument = async (authData?: { 
+  email?: string; 
+  password?: string;
+  ndaAccepted?: boolean; // ⭐ NEW
+  viewerName?: string; // ⭐ NEW
+  viewerCompany?: string; // ⭐ NEW
+}) => {
   try {
     setLoading(true);
     setError(null);
@@ -192,48 +204,62 @@ useEffect(() => {
     });
 
     const data = await res.json();
-    
-    console.log('📄 Share data received:', data);
 
     if (!res.ok) {
-      // ✅ Handle email not authorized
       if (data.unauthorized) {
-        setError(`❌ Access Denied: Your email (${authData?.email}) is not authorized to view this document. Please contact the document owner.`);
+        setError(`❌ Access Denied: Your email (${authData?.email}) is not authorized to view this document.`);
         setShareData(null);
         return;
       }
       
-      // ✅ Handle authentication required
       if (data.requiresAuth) {
         setRequiresEmail(data.requiresEmail || false);
         setRequiresPassword(data.requiresPassword || false);
+        setRequiresNDA(data.requiresNDA || false); // ⭐ NEW
+        setNdaText(data.ndaText || ''); // ⭐ NEW
         setShareData(data);
       } else {
         setError(data.error || 'Failed to load document');
       }
     } else {
       setShareData(data);
-      setIsVerified(true); // ✅ Mark as verified
+      setIsVerified(true);
+      // ⭐ NEW: Store certificate ID if NDA was accepted
+      // ⭐ Capture certificate ID if NDA was accepted
+  if (data.certificateId) {
+    setCertificateId(data.certificateId);
+  }
     }
-    } catch (err) {
-      console.error('Failed to load shared document:', err);
-      setError('Failed to load document');
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (err) {
+    console.error('Failed to load shared document:', err);
+    setError('Failed to load document');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleAuthenticate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsAuthenticating(true);
+  e.preventDefault();
+  
+  //   Check NDA acceptance if required
+  if (requiresNDA && !ndaAccepted) {
+    alert('You must accept the NDA to view this document');
+    return;
+  }
+  
+  setIsAuthenticating(true);
 
-    await loadSharedDocument({
-      email: requiresEmail ? email : undefined,
-      password: requiresPassword ? password : undefined,
-    });
+  await loadSharedDocument({
+    email: requiresEmail ? email : undefined,
+    password: requiresPassword ? password : undefined,
+    ndaAccepted: requiresNDA ? ndaAccepted : undefined, 
+    viewerName: requiresNDA ? name : undefined, // ⭐ NEW
+    viewerCompany: requiresNDA ? company : undefined, // ⭐ NEW 
+  });
 
-    setIsAuthenticating(false);
-  };
+  setIsAuthenticating(false);
+};
 
   const handleDownload = async () => {
   if (!shareData?.settings?.allowDownload) {
@@ -322,40 +348,87 @@ useEffect(() => {
 
    
   
-  // Authentication required
-if ((requiresEmail || requiresPassword) && !shareData?.document) {
+ // Authentication required
+if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
+      <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
           <Lock className="h-8 w-8 text-purple-600" />
         </div>
         <h1 className="text-2xl font-bold text-slate-900 text-center mb-2">
-          Verification Required
+          {requiresNDA ? 'NDA Acceptance Required' : 'Verification Required'}
         </h1>
         <p className="text-slate-600 text-center mb-6">
-          {shareData?.error || 'Please verify your identity to view this document'}
+          {shareData?.message || 'Please verify your identity to view this document'}
         </p>
 
-        {/* ⭐ Show custom message from sender */}
+        {/* Custom message from sender */}
         {shareData?.settings?.customMessage && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-               <p className="text-sm font-medium text-blue-900 mb-1">💬 Message from sender:</p>
+            <p className="text-sm font-medium text-blue-900 mb-1">💬 Message from sender:</p>
             <p className="text-sm text-blue-800 italic">"{shareData.settings.customMessage}"</p>
           </div>
         )}
 
-        {/* ⭐ Show error if email not allowed */}
-        {shareData?.emailNotAllowed && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-red-900">
-              ❌ <strong>Access Denied:</strong> This document was not shared with your email address.
-              Please contact the document owner for access.
-            </p>
-          </div>
-        )}
-
         <form onSubmit={handleAuthenticate} className="space-y-4">
+          
+          {/* ⭐ NDA SECTION */}
+{requiresNDA && (
+  <div className="border-2 border-amber-300 rounded-lg p-4 bg-amber-50">
+    <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+      <svg className="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      Non-Disclosure Agreement
+    </h3>
+    
+    {/* ⭐ NEW: Collect viewer info for NDA */}
+    <div className="space-y-3 mb-4">
+      <div>
+        <Label className="text-sm font-medium text-slate-700">Your Full Name</Label>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="John Doe"
+          required
+          className="mt-1"
+        />
+      </div>
+      
+      <div>
+        <Label className="text-sm font-medium text-slate-700">Company (Optional)</Label>
+        <Input
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+          placeholder="Acme Corporation"
+          className="mt-1"
+        />
+      </div>
+    </div>
+    
+    <div className="bg-white border rounded-lg p-4 max-h-60 overflow-y-auto mb-4">
+      <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans">
+        {ndaText}
+      </pre>
+    </div>
+
+    <label className="flex items-start gap-3 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={ndaAccepted}
+        onChange={(e) => setNdaAccepted(e.target.checked)}
+        required
+        className="h-5 w-5 rounded border-slate-300 text-purple-600 mt-0.5 flex-shrink-0"
+      />
+      <span className="text-sm text-slate-900">
+        <strong>I, {name || '[Your Name]'}{company ? ` representing ${company}` : ''}, have read and agree to the terms</strong> of this Non-Disclosure Agreement. 
+        I understand that violating these terms may result in legal consequences.
+      </span>
+    </label>
+  </div>
+)}
+          {/* Email input */}
           {requiresEmail && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -376,6 +449,7 @@ if ((requiresEmail || requiresPassword) && !shareData?.document) {
             </div>
           )}
 
+          {/* Password input */}
           {requiresPassword && (
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -395,10 +469,10 @@ if ((requiresEmail || requiresPassword) && !shareData?.document) {
 
           <button
             type="submit"
-            disabled={isAuthenticating}
-            className="w-full py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 font-medium"
+            disabled={isAuthenticating || (requiresNDA && !ndaAccepted)}
+            className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
-            {isAuthenticating ? 'Verifying...' : 'View Document'}
+            {isAuthenticating ? 'Verifying...' : requiresNDA ? 'Accept & View Document' : 'View Document'}
           </button>
         </form>
 
@@ -413,6 +487,56 @@ if ((requiresEmail || requiresPassword) && !shareData?.document) {
   // Document viewer
   return (
     <div className="min-h-screen bg-slate-50">
+
+      {/* ⭐ NDA Certificate Download Banner */}
+{certificateId && (
+  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+    <div className="flex items-start gap-3">
+      <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+        <Check className="h-5 w-5 text-green-600" />
+      </div>
+      <div className="flex-1">
+        <h4 className="font-semibold text-green-900 mb-1">
+          NDA Acceptance Confirmed
+        </h4>
+        <p className="text-sm text-green-800 mb-3">
+          Thank you for accepting the Non-Disclosure Agreement. 
+          You can download your certificate for your records.
+        </p>
+        <Button
+          size="sm"
+          onClick={async () => {
+            try {
+              const res = await fetch(`/api/nda-certificates/${certificateId}?shareId=${token}`);
+              if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `NDA-Certificate-${certificateId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+              }
+            } catch (error) {
+              console.error('Download error:', error);
+            }
+          }}
+          className="gap-2 bg-green-600 hover:bg-green-700"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Download Your NDA Certificate
+        </Button>
+        <p className="text-xs text-green-700 mt-2">
+          Certificate ID: <code className="bg-white px-1 py-0.5 rounded">{certificateId}</code>
+        </p>
+      </div>
+    </div>
+  </div>
+)}
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">

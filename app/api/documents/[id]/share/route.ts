@@ -52,10 +52,14 @@ export async function POST(
       allowedEmails = [], // Whitelist specific emails
       customMessage = null, // Message shown to viewers
       trackDetailedAnalytics = true, // Track page views, time spent, etc.
-      enableWatermark = false, // ⭐ NEW
+      enableWatermark = false,  
       recipientEmails = [],
   watermarkText = null,
    watermarkPosition = 'bottom',
+   requireNDA = false,  
+  ndaText = null, 
+  ndaTemplateId = null, // ⭐ NEW - Template ID instead of raw text
+  customNdaText = null,
     } = body;
 
     // ⭐ Use whichever one has data
@@ -78,6 +82,9 @@ const emailWhitelist = allowedEmails.length > 0 ? allowedEmails : recipientEmail
     }
 
     // ✅ Validate premium features
+    // Declare ndaTemplate so it's always in scope
+    let ndaTemplate = null;
+
     if (user.plan === 'free') {
       if (password) {
         return NextResponse.json({
@@ -92,6 +99,52 @@ const emailWhitelist = allowedEmails.length > 0 ? allowedEmails : recipientEmail
 //     upgrade: true,
 //   }, { status: 403 });
 // }
+
+// for TESTING purposes only DISABLE NDA check
+// ⭐ NEW: NDA check
+//  if (requireNDA) {
+ //   return NextResponse.json({
+  //    error: 'NDA requirement requires Premium plan',
+  //    upgrade: true,
+ //   }, { status: 403 });
+ // }
+    }
+
+    //   Process NDA template
+    if (requireNDA) {
+      if (customNdaText) {
+        // User provided custom NDA text
+        ndaTemplate = customNdaText;
+      } else if (ndaTemplateId && ObjectId.isValid(ndaTemplateId)) {
+  const template = await db.collection('nda_templates').findOne({
+    _id: new ObjectId(ndaTemplateId),
+          $or: [
+            { userId: user.id },
+            { isSystemDefault: true }
+          ]
+        });
+        
+        if (template) {
+          ndaTemplate = template.template;
+          
+          // Increment usage count
+          await db.collection('nda_templates').updateOne(
+            { _id: template._id },
+            { $inc: { usageCount: 1 } }
+          );
+        }
+      } else {
+        // Use system default
+        const systemDefault = await db.collection('nda_templates').findOne({
+          isSystemDefault: true,
+        });
+        
+        if (systemDefault) {
+          ndaTemplate = systemDefault.template;
+        }
+      }
+    }
+   
       if (maxViews) {
         return NextResponse.json({
           error: 'View limits require Premium plan',
@@ -105,7 +158,6 @@ const emailWhitelist = allowedEmails.length > 0 ? allowedEmails : recipientEmail
 //     upgrade: true,
 //   }, { status: 403 });
 // }
-    }
 
     
 
@@ -151,6 +203,10 @@ const emailWhitelist = allowedEmails.length > 0 ? allowedEmails : recipientEmail
         enableWatermark,  
   watermarkText,  
   watermarkPosition,  
+  requireNDA,  
+  ndaText,  
+  ndaTemplate, // ⭐ Store template (not just boolean)
+  ndaTemplateId
       },
 
       // Security
@@ -201,6 +257,8 @@ tracking: {
   // Event arrays
   downloadEvents: [],
   printEvents: [],
+  ndaAcceptances: [],
+  
 },
 
       // Status

@@ -5,16 +5,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+ import Link from "next/link";
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
@@ -1609,6 +1600,8 @@ const openCreateLinkDialog = () => {
           </div>
         </div>
 
+        
+
         {/* Top Viewers */}
         {/* Top Viewers - Should show emails now */}
 {analytics.topViewers.length > 0 && (
@@ -1636,8 +1629,94 @@ const openCreateLinkDialog = () => {
 )}
       </>
     )}
+    {/* NDA Acceptances Section - NEW */}
+    {analytics?.ndaAcceptances && analytics.ndaAcceptances.length > 0 && (
+      <div className="bg-white rounded-xl border shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-purple-600" />
+            NDA Acceptances ({analytics.ndaAcceptances.length})
+          </h3>
+          <Link href="/nda-records">
+            <Button variant="outline" size="sm" className="gap-2">
+              View All Records
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+
+        <div className="space-y-3">
+          {analytics.ndaAcceptances.map((acceptance: any, index: number) => (
+            <div 
+              key={index} 
+              className="flex items-center gap-4 p-4 bg-green-50 border border-green-200 rounded-lg hover:shadow-sm transition-shadow"
+            >
+              {/* Checkmark Icon */}
+              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <Check className="h-5 w-5 text-green-600" />
+              </div>
+
+              {/* Viewer Info */}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-slate-900">{acceptance.viewerName}</p>
+                <p className="text-sm text-slate-600">{acceptance.viewerEmail}</p>
+                {acceptance.viewerCompany && (
+                  <p className="text-xs text-slate-500">{acceptance.viewerCompany}</p>
+                )}
+              </div>
+
+              {/* Acceptance Details */}
+              <div className="text-right">
+                <p className="text-sm font-medium text-slate-900">
+                  {new Date(acceptance.timestamp).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {new Date(acceptance.timestamp).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+
+              {/* Download Certificate Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`/api/nda-certificates/${acceptance.certificateId}`);
+                    if (res.ok) {
+                      const blob = await res.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `NDA-Certificate-${acceptance.certificateId}.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(a);
+                    }
+                  } catch (error) {
+                    console.error('Download error:', error);
+                  }
+                }}
+                className="gap-2 flex-shrink-0"
+              >
+                <Download className="h-4 w-4" />
+                Certificate
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
   </div>
 )}
+   
 
         {activeTab === 'utilization' && (
   <div className="space-y-6">

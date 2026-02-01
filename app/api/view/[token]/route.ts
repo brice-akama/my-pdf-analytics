@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
+import { sendNdaAcceptanceNotification } from '@/lib/email-nda-notification';
 
 // ✅ POST - View shared document (with optional authentication)
 export async function POST(
@@ -151,6 +152,109 @@ if (share.settings.allowedEmails && share.settings.allowedEmails.length > 0) {
       }, { status: 404 });
     }
 
+// ✅ Check if NDA acceptance is required
+if (share.settings.requireNDA) {
+  const { ndaAccepted, viewerName, viewerCompany } = body;
+  
+  if (!ndaAccepted) {
+    // ⭐ Process NDA template with variables
+    const processedNDA = share.settings.ndaTemplate 
+      ? processNdaTemplate(share.settings.ndaTemplate, {
+          viewerName: viewerName || '',
+          viewerEmail: email || '',
+          viewerCompany: viewerCompany || '',
+          documentTitle: document.originalFilename,
+          ownerName: share.createdBy.name || share.createdBy.email,
+          ownerCompany: share.createdBy.company || '',
+          viewDate: new Date(),
+        })
+      : getDefaultNDA();
+    
+    return NextResponse.json({
+      requiresAuth: true,
+      requiresNDA: true,
+      ndaText: processedNDA,
+      requiresEmail: share.settings.requireEmail,
+      requiresPassword: share.settings.hasPassword,
+      settings: {
+        customMessage: share.settings.customMessage,
+      },
+    }, { status: 401 });
+  }
+ // ✅ Generate certificate ID
+const certificateId = `NDA-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+  // ✅ Track NDA acceptance with FULL details
+  const ndaAcceptanceRecord = {
+    viewerName: viewerName || 'Unknown',
+    viewerEmail: email || 'anonymous',
+    viewerCompany: viewerCompany || null,
+    timestamp: new Date(),
+    ip: request.headers.get('x-forwarded-for') || 'unknown',
+    userAgent: request.headers.get('user-agent') || 'unknown',
+    ndaVersion: share.settings.ndaTemplateId || 'custom',
+    ndaTextSnapshot: share.settings.ndaTemplate, // Store exact text they accepted
+    documentTitle: document.originalFilename,
+    geolocation: null, // You can add geolocation API here
+    certificateId,
+  };
+
+  // ✅ Get owner info
+const owner = await db.collection('users').findOne({ id: share.userId });
+
+  
+  await db.collection('shares').updateOne(
+    { _id: share._id },
+    {
+      $push: {
+        'tracking.ndaAcceptances': ndaAcceptanceRecord
+      } as any,
+    }
+  );
+
+  // ✅ Log NDA acceptance for legal records
+  await db.collection('nda_acceptances').insertOne({
+    shareId: share._id.toString(),
+    documentId: document._id.toString(),
+    ownerId: share.userId,
+    ...ndaAcceptanceRecord,
+    certificateId: `NDA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    ownerName: owner?.name || share.createdBy.email, // ⭐ NEW
+  ownerCompany: owner?.company || '', // ⭐ NEW
+  });
+  // ⭐ NEW: Send email notification to owner
+if (share.settings.notifyOnView && owner?.email) {
+  // Don't await - send in background
+  sendNdaAcceptanceNotification({
+    ownerEmail: owner.email,
+    ownerName: owner.name || owner.email,
+    viewerName: viewerName || 'Unknown',
+    viewerEmail: email || 'anonymous',
+    viewerCompany: viewerCompany || undefined,
+    documentTitle: document.originalFilename,
+    acceptedAt: new Date(),
+    certificateId,
+    certificateData: {
+      certificateId,
+      viewerName: viewerName || 'Unknown',
+      viewerEmail: email || 'anonymous',
+      viewerCompany: viewerCompany || undefined,
+      documentTitle: document.originalFilename,
+      ownerName: owner?.name || share.createdBy.email,
+      ownerCompany: owner?.company || '',
+      acceptedAt: new Date(),
+      ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+      ndaTextSnapshot: share.settings.ndaTemplate,
+      ndaVersion: share.settings.ndaTemplateId || 'custom',
+    },
+    documentUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/documents/${document._id.toString()}`,
+  }).catch(err => console.error('Failed to send NDA notification:', err));
+}
+
+console.log('✅ NDA accepted by:', email);
+
+}
+
     // ✅ Check if document has Cloudinary PDF URL
     if (!document.cloudinaryPdfUrl) {
       console.error('❌ Document missing cloudinaryPdfUrl:', {
@@ -252,6 +356,8 @@ if (share.settings.allowedEmails && share.settings.allowedEmails.length > 0) {
         filename: document.originalFilename,
         format: document.originalFormat,
         numPages: document.numPages,
+
+        
         // Use proxied URL that handles Cloudinary authentication
         pdfUrl,
         previewUrls: [],
@@ -265,6 +371,7 @@ if (share.settings.allowedEmails && share.settings.allowedEmails.length > 0) {
         views: share.tracking.views + 1, // Include this view
         uniqueViewers: share.tracking.uniqueViewers.length + (isUniqueViewer ? 1 : 0),
       },
+      certificateId: RTCCertificate || null,
     });
 
   } catch (error) {
@@ -306,4 +413,73 @@ export async function GET(
     console.error('❌ Check share link error:', error);
     return NextResponse.json({ exists: false }, { status: 500 });
   }
+}
+
+
+// ⭐ Default NDA Template
+function getDefaultNDA(): string {
+  return `NON-DISCLOSURE AGREEMENT
+
+By accessing this document, you acknowledge and agree to the following terms:
+
+1. CONFIDENTIALITY
+All information contained in this document is confidential and proprietary. You agree to maintain the confidentiality of this information and not disclose it to any third party without prior written consent.
+
+2. USE RESTRICTIONS
+You agree to use this information solely for the purpose for which it was shared and not for any other purpose, including competitive analysis or business development.
+
+3. NO COPYING OR DISTRIBUTION
+You will not copy, reproduce, distribute, or share this document or any part of its contents with any third party without explicit authorization.
+
+4. RETURN OR DESTRUCTION
+Upon request or completion of the intended purpose, you agree to return or destroy all copies of this document in your possession.
+
+5. LEGAL CONSEQUENCES
+You understand that unauthorized disclosure or use of this confidential information may result in legal action, including claims for damages and injunctive relief.
+
+By clicking "I Accept," you acknowledge that you have read, understood, and agree to be bound by these terms.
+
+Date: ${new Date().toLocaleDateString()}`;
+}
+
+
+// ⭐ Process NDA template variables
+function processNdaTemplate(
+  template: string,
+  data: {
+    viewerName?: string;
+    viewerEmail?: string;
+    viewerCompany?: string;
+    documentTitle: string;
+    ownerName?: string;
+    ownerCompany?: string;
+    viewDate: Date;
+  }
+): string {
+  let processed = template;
+  
+  const replacements: Record<string, string> = {
+    '{{viewer_name}}': data.viewerName || 'Viewer',
+    '{{viewer_email}}': data.viewerEmail || '',
+    '{{viewer_company}}': data.viewerCompany || '',
+    '{{document_title}}': data.documentTitle,
+    '{{owner_name}}': data.ownerName || 'Document Owner',
+    '{{owner_company}}': data.ownerCompany || '',
+    '{{view_date}}': data.viewDate.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }),
+    '{{view_time}}': data.viewDate.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    }),
+  };
+  
+  for (const [variable, value] of Object.entries(replacements)) {
+    processed = processed.replace(new RegExp(variable, 'g'), value);
+  }
+  
+  return processed;
 }

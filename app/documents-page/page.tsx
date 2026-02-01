@@ -34,6 +34,7 @@ import { Drawer } from "@/components/ui/drawer"
 import { motion } from "framer-motion"
 import { AnimatePresence } from "framer-motion"
 import { Label } from "@radix-ui/react-dropdown-menu"
+import Link from "next/link"
 
 type DocumentType = {
   _id: string
@@ -105,14 +106,58 @@ const [shareSettings, setShareSettings] = useState({
   enableWatermark: false, // ⭐ NEW
   watermarkText: '', // ⭐ NEW
   watermarkPosition: 'bottom', // ⭐ NEW
+  ndaText: '', 
+  ndaTemplateId: '', // ⭐ NEW - Selected template ID
+  customNdaText: '', // ⭐ NEW - Custom override
+  useCustomNda: false, // ⭐ N
 
 })
+const [ndaTemplates, setNdaTemplates] = useState<any[]>([]) // ⭐ NEW
+const [loadingTemplates, setLoadingTemplates] = useState(false) // ⭐ NEW
 const [recipientInput, setRecipientInput] = useState('') // For adding emails
 const [previewData, setPreviewData] = useState<{
   recipients: any[];
   signatureFields: any[];
   viewMode: string;
 } | null>(null);
+
+
+
+
+// Fetch NDA templates when share drawer opens
+const fetchNdaTemplates = async () => {
+  try {
+    setLoadingTemplates(true);
+    const res = await fetch('/api/nda-templates', {
+      credentials: 'include',
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      setNdaTemplates(data.templates);
+      
+      // Auto-select default template
+      const defaultTemplate = data.templates.find((t: any) => t.isDefault);
+      if (defaultTemplate) {
+        setShareSettings(prev => ({
+          ...prev,
+          ndaTemplateId: defaultTemplate.id,
+        }));
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch NDA templates:', error);
+  } finally {
+    setLoadingTemplates(false);
+  }
+};
+
+// Call when share drawer opens
+useEffect(() => {
+  if (shareDrawerOpen) {
+    fetchNdaTemplates();
+  }
+}, [shareDrawerOpen]);
 
 
   // Fetch documents
@@ -1853,19 +1898,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               className="h-5 w-5 rounded border-slate-300 text-blue-600"
             />
           </label>
-          {/* ⭐ NEW: Require NDA */}
-      <label className="flex items-center justify-between cursor-pointer">
-        <div>
-          <div className="font-medium text-slate-900">Require NDA Acceptance</div>
-          <div className="text-sm text-slate-600">Viewers must accept terms before viewing</div>
-        </div>
-        <input
-          type="checkbox"
-          checked={shareSettings.requireNDA}
-          onChange={(e) => setShareSettings({...shareSettings, requireNDA: e.target.checked})}
-          className="h-5 w-5 rounded border-slate-300 text-blue-600"
-        />
-      </label>
+
 
           {/* Allow Download */}
           <label className="flex items-center justify-between cursor-pointer">
@@ -1973,6 +2006,165 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
     </>
   )}
 </div>
+{/* ⭐ NDA Requirement */}
+<div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">
+  <div className="flex items-center justify-between">
+    <h3 className="font-semibold text-slate-900">📜 NDA Requirement</h3>
+    <div className="flex items-center gap-2">
+      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded">
+        Premium
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => router.push('/settings/nda-templates')}
+        className="text-xs h-7"
+      >
+        Manage Templates
+      </Button>
+    </div>
+  </div>
+  
+  <label className="flex items-center justify-between cursor-pointer">
+    <div>
+      <div className="font-medium text-slate-900">Require NDA Acceptance</div>
+      <div className="text-sm text-slate-600">Viewers must accept terms before viewing</div>
+    </div>
+    <input
+      type="checkbox"
+      checked={shareSettings.requireNDA}
+      onChange={(e) => setShareSettings({...shareSettings, requireNDA: e.target.checked})}
+      className="h-5 w-5 rounded border-slate-300 text-purple-600"
+    />
+  </label>
+
+  {shareSettings.requireNDA && (
+    <>
+
+    {/* ⭐ ADD THIS LINK HERE */}
+      <div className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg p-3">
+        <div>
+          <p className="text-sm font-medium text-purple-900">NDA Templates</p>
+          <p className="text-xs text-purple-700">Create & manage custom NDA templates</p>
+        </div>
+        <Link href="/settings/nda-templates">
+          <Button variant="outline" size="sm" className="gap-2">
+            <FileText className="h-4 w-4" />
+            Manage
+          </Button>
+        </Link>
+      </div>
+      
+      {/* Template Selection */}
+      <div>
+        <Label className="text-sm font-medium text-slate-700 mb-2 block">
+          NDA Template
+        </Label>
+        
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            onClick={() => setShareSettings({...shareSettings, useCustomNda: false})}
+            className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+              !shareSettings.useCustomNda
+                ? 'bg-purple-50 border-purple-300 text-purple-700'
+                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            Use Template
+          </button>
+          <button
+            onClick={() => setShareSettings({...shareSettings, useCustomNda: true})}
+            className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+              shareSettings.useCustomNda
+                ? 'bg-purple-50 border-purple-300 text-purple-700'
+                : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+            }`}
+          >
+            Custom Text
+          </button>
+        </div>
+
+        {!shareSettings.useCustomNda ? (
+          // Template Selector
+          <div>
+            {loadingTemplates ? (
+              <div className="flex items-center justify-center p-4">
+                <Loader2 className="h-5 w-5 animate-spin text-purple-600" />
+              </div>
+            ) : (
+              <select
+                value={shareSettings.ndaTemplateId}
+                onChange={(e) => setShareSettings({...shareSettings, ndaTemplateId: e.target.value})}
+                className="w-full border rounded-lg px-3 py-2"
+              >
+                <option value="">Select a template...</option>
+                {ndaTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                    {template.isDefault && ' (Default)'}
+                    {template.isSystemDefault && ' (System)'}
+                  </option>
+                ))}
+              </select>
+            )}
+            
+            {shareSettings.ndaTemplateId && (
+              <div className="mt-2 p-3 bg-slate-50 rounded border">
+                <p className="text-xs font-medium text-slate-700 mb-2">Preview:</p>
+                <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans line-clamp-4">
+                  {ndaTemplates.find(t => t.id === shareSettings.ndaTemplateId)?.template || ''}
+                </pre>
+              </div>
+            )}
+          </div>
+        ) : (
+          // Custom Text
+          <div>
+            <textarea
+              value={shareSettings.customNdaText}
+              onChange={(e) => setShareSettings({...shareSettings, customNdaText: e.target.value})}
+              placeholder="Enter custom NDA text here..."
+              rows={10}
+              className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+              maxLength={2000}
+            />
+            <p className="text-xs text-slate-500 mt-1">
+              {shareSettings.customNdaText.length}/2000 characters
+            </p>
+            <p className="text-xs text-blue-600 mt-2">
+              💡 You can use variables: {`{{viewer_name}}, {{viewer_email}}, {{document_title}}`}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+        <p className="text-xs text-green-900">
+          ✅ <strong>Legal Protection:</strong> NDA acceptance is logged with timestamp, 
+          IP address, and email for legal evidence.
+        </p>
+      </div>
+
+      <Link href="/settings/nda-templates">
+  <div className="p-4 border rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+    <div className="flex items-center gap-3">
+      <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
+        <FileText className="h-5 w-5 text-purple-600" />
+      </div>
+      <div>
+        <h3 className="font-semibold text-slate-900">NDA Templates</h3>
+        <p className="text-sm text-slate-600">Manage Non-Disclosure Agreement templates</p>
+      </div>
+    </div>
+  </div>
+</Link>
+    </>
+  )}
+</div>
+
+
+
+
 
     {/* Footer */}
 <div className="p-6 border-t">
@@ -2037,6 +2229,10 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
                 enableWatermark: shareSettings.enableWatermark, // ⭐ NEW
   watermarkText: shareSettings.watermarkText || null, // ⭐ NEW
   watermarkPosition: shareSettings.watermarkPosition, // ⭐ NEW
+                requireNDA: shareSettings.requireNDA, // ⭐ NEW
+  ndaText: shareSettings.ndaText || null, // ⭐ NEW
+  ndaTemplateId: shareSettings.useCustomNda ? null : shareSettings.ndaTemplateId, // ⭐ NEW
+  customNdaText: shareSettings.useCustomNda ? shareSettings.customNdaText : null
               }),
             });
             
@@ -2140,6 +2336,16 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
                 enableWatermark: false,
                 watermarkText: '',
                 watermarkPosition: 'bottom',
+                ndaText: '',
+                 ndaTemplateId: '', // ⭐ NEW - Selected template ID
+  customNdaText: '', // ⭐ NEW - Custom override
+  useCustomNda: false, // ⭐ N
+
+
+                
+                
+
+
                 
               });
             } else {
