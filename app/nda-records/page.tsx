@@ -85,14 +85,108 @@ export default function NdaRecordsPage() {
     }
   };
 
-  const downloadAllCertificates = async () => {
-    if (!confirm(`Download ${filteredRecords.length} certificates?`)) return;
+  // ⭐ CSV Export Function
+const exportToCSV = () => {
+  // CSV Headers
+  const headers = [
+    'Certificate ID',
+    'Viewer Name',
+    'Viewer Email',
+    'Viewer Company',
+    'Document Title',
+    'Accepted Date',
+    'Accepted Time',
+    'IP Address',
+    'NDA Version',
+  ];
+
+  // CSV Rows
+  const rows = filteredRecords.map(record => [
+    record.certificateId,
+    record.viewerName,
+    record.viewerEmail,
+    record.viewerCompany || '',
+    record.documentTitle,
+    new Date(record.timestamp).toLocaleDateString('en-US'),
+    new Date(record.timestamp).toLocaleTimeString('en-US'),
+    record.ip,
+    record.ndaVersion,
+  ]);
+
+  // Combine headers and rows
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+  ].join('\n');
+
+  // Create blob and download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `NDA-Records-${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+};
+
+// ⭐ Bulk Download Certificates with Progress
+const downloadAllCertificates = async () => {
+  if (!confirm(`Download ${filteredRecords.length} certificates? This may take a few minutes.`)) {
+    return;
+  }
+
+  // Create progress modal
+  const progressDiv = document.createElement('div');
+  progressDiv.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+  progressDiv.innerHTML = `
+    <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+      <h3 class="text-lg font-semibold text-slate-900 mb-4">Downloading Certificates</h3>
+      <div class="mb-2">
+        <div class="flex justify-between text-sm text-slate-600 mb-1">
+          <span id="progress-text">0 of ${filteredRecords.length}</span>
+          <span id="progress-percent">0%</span>
+        </div>
+        <div class="w-full bg-slate-200 rounded-full h-2">
+          <div id="progress-bar" class="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+        </div>
+      </div>
+      <p class="text-xs text-slate-500 mt-4">Please don't close this window...</p>
+    </div>
+  `;
+  document.body.appendChild(progressDiv);
+
+  // Download each certificate
+  for (let i = 0; i < filteredRecords.length; i++) {
+    const record = filteredRecords[i];
     
-    for (const record of filteredRecords) {
+    try {
       await downloadCertificate(record.certificateId);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Delay between downloads
+      
+      // Update progress
+      const progress = ((i + 1) / filteredRecords.length) * 100;
+      const progressBar = document.getElementById('progress-bar');
+      const progressText = document.getElementById('progress-text');
+      const progressPercent = document.getElementById('progress-percent');
+      
+      if (progressBar) progressBar.style.width = `${progress}%`;
+      if (progressText) progressText.textContent = `${i + 1} of ${filteredRecords.length}`;
+      if (progressPercent) progressPercent.textContent = `${Math.round(progress)}%`;
+      
+      // Delay between downloads to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+    } catch (error) {
+      console.error(`Failed to download certificate ${record.certificateId}:`, error);
     }
-  };
+  }
+
+  // Close progress modal
+  document.body.removeChild(progressDiv);
+  
+  alert(`✅ Successfully downloaded ${filteredRecords.length} certificates!`);
+};
 
   // Filter records by search query
   const filteredRecords = records.filter(record => {
@@ -139,16 +233,29 @@ export default function NdaRecordsPage() {
               </div>
             </div>
             
-            {filteredRecords.length > 0 && (
-              <Button
-                onClick={downloadAllCertificates}
-                variant="outline"
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Download All ({filteredRecords.length})
-              </Button>
-            )}
+            {/* ⭐ NEW: Export Actions */}
+  {filteredRecords.length > 0 && (
+    <div className="flex items-center gap-2">
+      <Button
+        onClick={exportToCSV}
+        variant="outline"
+        className="gap-2"
+      >
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Export CSV
+      </Button>
+      
+      <Button
+        onClick={downloadAllCertificates}
+        className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
+      >
+        <Download className="h-4 w-4" />
+        Download All Certificates ({filteredRecords.length})
+      </Button>
+    </div>
+  )}
           </div>
         </div>
       </header>

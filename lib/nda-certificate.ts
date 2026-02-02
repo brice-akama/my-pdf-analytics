@@ -233,41 +233,50 @@ export function generateNdaCertificate(data: CertificateData): Buffer {
   doc.text(new Date().toLocaleDateString('en-US'), 70, y);
 
   // ===== NDA TEXT SNAPSHOT =====
-  
-  y += 15;
-  if (y + 40 > pageHeight - 30) {
-    // Add new page if not enough space
+y += 15;
+doc.setFontSize(12);
+doc.setFont('helvetica', 'bold');
+doc.setTextColor(30, 41, 59);
+doc.text('NDA Terms Accepted', 20, y);
+
+y += 8;
+doc.setFontSize(8);
+doc.setFont('helvetica', 'normal');
+doc.setTextColor(71, 85, 105);
+
+// Split NDA text into lines that fit the page width
+const ndaLines = doc.splitTextToSize(data.ndaTextSnapshot, pageWidth - 50);
+const lineHeight = 4; // space per line
+
+ndaLines.forEach((line: string, index: number) => {
+  // Add a new page if exceeding page height
+  if (y + lineHeight > pageHeight - 30) {
     doc.addPage();
     y = 20;
+
+    // Optional: repeat section title on new page
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('NDA Terms Accepted (continued)', 20, y);
+    y += 8;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
   }
 
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text('NDA Terms Accepted', 20, y);
-
-  y += 8;
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  
-  const ndaLines = doc.splitTextToSize(data.ndaTextSnapshot, pageWidth - 50);
-  const maxNdaLines = 25; // Limit to prevent overflow
-  const displayLines = ndaLines.slice(0, maxNdaLines);
-  
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(20, y, pageWidth - 40, (displayLines.length * 4) + 10, 3, 3, 'F');
-  
-  y += 6;
-  displayLines.forEach((line: string) => {
-    doc.text(line, 25, y);
-    y += 4;
-  });
-
-  if (ndaLines.length > maxNdaLines) {
-    doc.setTextColor(100, 116, 139);
-    doc.text('... (Full NDA text stored in database)', 25, y);
+  // Draw background box on first line of each page
+  if (y === 28 || y === 20) {
+    doc.setFillColor(248, 250, 252);
+    const remainingLines = ndaLines.length - index;
+    const boxHeight = Math.min(pageHeight - y - 20, remainingLines * lineHeight + 10);
+    doc.roundedRect(20, y - 6, pageWidth - 40, boxHeight, 3, 3, 'F');
+    y += 6;
   }
+
+  doc.text(line, 25, y);
+  y += lineHeight;
+});
 
   // ===== FOOTER =====
   

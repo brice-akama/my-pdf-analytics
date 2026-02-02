@@ -11,9 +11,12 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+   console.log('\n🟢 ===== CREATE SHARE API =====');
+    
   try {
     // ✅ Verify user via HTTP-only cookie
     const user = await verifyUserFromRequest(request);
+    console.log('👤 User:', user?.email);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -35,12 +38,16 @@ export async function POST(
       userId: user.id,
     });
 
+    console.log('📄 Document found:', document ? 'YES' : 'NO');
+    console.log('👤 Document owner:', document?.userId || user?.email);
+
     if (!document) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
     // ✅ Parse share settings
     const body = await request.json();
+    console.log('📨 Request body:', body);
     const {
       requireEmail = false,
       allowDownload = true,
@@ -66,32 +73,32 @@ export async function POST(
 const emailWhitelist = allowedEmails.length > 0 ? allowedEmails : recipientEmails;
 
     // ✅ Check plan limits
-    const shareLimit = user.plan === 'premium' ? 100 : 10; // Premium = 100 shares, Free = 10
-    const existingShares = await db.collection('shares').countDocuments({
-      userId: user.id,
-      active: true,
-    });
+  //   const shareLimit = user.plan === 'premium' ? 100 : 10; // Premium = 100 shares, Free = 10
+  //   const existingShares = await db.collection('shares').countDocuments({
+  //     userId: user.id,
+ //      active: true,
+ //    });
 
-    if (existingShares >= shareLimit) {
-      return NextResponse.json({
-        error: `Share limit reached. ${user.plan === 'free' ? 'Upgrade to Premium for more shares.' : 'Maximum shares reached.'}`,
-        limit: shareLimit,
-        current: existingShares,
-        upgrade: user.plan === 'free',
-      }, { status: 403 });
-    }
+ //    if (existingShares >= shareLimit) {
+   //    return NextResponse.json({
+    //     error: `Share limit reached. ${user.plan === 'free' ? 'Upgrade to Premium for more shares.' : 'Maximum shares reached.'}`,
+     //    limit: shareLimit,
+     //    current: existingShares,
+     //    upgrade: user.plan === 'free',
+    //   }, { status: 403 });
+ //    }
 
     // ✅ Validate premium features
     // Declare ndaTemplate so it's always in scope
     let ndaTemplate = null;
 
-    if (user.plan === 'free') {
-      if (password) {
-        return NextResponse.json({
-          error: 'Password protection requires Premium plan',
-          upgrade: true,
-        }, { status: 403 });
-      }
+ //    if (user.plan === 'free') {
+ //      if (password) {
+  //       return NextResponse.json({
+ //          error: 'Password protection requires Premium plan',
+ //          upgrade: true,
+ //        }, { status: 403 });
+ //      }
      // ⭐ TESTING: Email whitelist disabled for testing
 // if (emailWhitelist.length > 0) {
 //   return NextResponse.json({
@@ -108,7 +115,7 @@ const emailWhitelist = allowedEmails.length > 0 ? allowedEmails : recipientEmail
   //    upgrade: true,
  //   }, { status: 403 });
  // }
-    }
+  //   }
 
     //   Process NDA template
     if (requireNDA) {
@@ -329,6 +336,8 @@ tracking: {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const shareLink = `${baseUrl}/view/${shareToken}`;
 
+    console.log('🚀 Share created successfully:', shareLink);
+
     // ✅ Return comprehensive response
     return NextResponse.json({
       success: true,
@@ -383,9 +392,11 @@ export async function GET(
 
     // ✅ Await params
     const { id } = await context.params;
+    console.log('📌 Document ID param:', id);
 
     // ✅ Validate document ID
     if (!ObjectId.isValid(id)) {
+      console.warn('❌ Invalid document ID');
       return NextResponse.json({ error: 'Invalid document ID' }, { status: 400 });
     }
 
@@ -396,6 +407,11 @@ export async function GET(
     const document = await db.collection('documents').findOne({
       _id: documentId,
       userId: user.id,
+    });
+    console.log('📄 Document lookup:', {
+      found: !!document,
+      owner: document?.userId,
+      filename: document?.originalFilename,
     });
 
     if (!document) {
@@ -478,6 +494,7 @@ export async function PATCH(
     const { id } = await context.params;
 
     const body = await request.json();
+    console.log('📨 Request body:', body);
     const { shareId, active, settings } = body;
 
     if (!shareId) {

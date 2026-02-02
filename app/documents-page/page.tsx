@@ -2236,9 +2236,12 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               }),
             });
             
-            const data = await res.json();
-            
+            console.log('📡 [SHARE] Response status:', res.status);
+    const data = await res.json();
+    console.log('📦 [SHARE] Response data:', data);
+
             if (res.ok && data.success) {
+              console.log('✅ [SHARE] Share link created:', data.shareLink);
               // ⭐ Show success popup with link
               const shareLink = data.shareLink;
               

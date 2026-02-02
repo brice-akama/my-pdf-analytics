@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start",
-    "seed:templates": "tsx scripts/seedTemplates.ts",
-    "lint": "eslint"
-  },
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
+  "seed:templates": "tsx scripts/seedTemplates.ts",
+  "lint": "eslint"
+},
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",
     "@radix-ui/react-accordion": "^1.2.12",

@@ -63,6 +63,10 @@ const [requiresNDA, setRequiresNDA] = useState(false);
 const [ndaText, setNdaText] = useState('');
 const [ndaAccepted, setNdaAccepted] = useState(false);
 const [certificateId, setCertificateId] = useState<string | null>(null);
+const [iframeLoading, setIframeLoading] = useState(true);
+const [certificateDrawerOpen, setCertificateDrawerOpen] = useState(false);
+const [certificatePdfUrl, setCertificatePdfUrl] = useState<string | null>(null);
+const [loadingCertificate, setLoadingCertificate] = useState(false);
 
   // Load shared document
   useEffect(() => {
@@ -191,6 +195,8 @@ useEffect(() => {
   viewerName?: string; // ⭐ NEW
   viewerCompany?: string; // ⭐ NEW
 }) => {
+  console.log('🔍 [VIEWER] Loading shared document with token:', token);
+  console.log('📋 [VIEWER] Auth data:', authData);
   try {
     setLoading(true);
     setError(null);
@@ -203,34 +209,50 @@ useEffect(() => {
       body: JSON.stringify(authData || {}),
     });
 
+    console.log('📡 [VIEWER] Response status:', res.status);
+
     const data = await res.json();
+    console.log('📦 [VIEWER] Response data:', data);
 
     if (!res.ok) {
+      console.log('❌ [VIEWER] Request failed');
       if (data.unauthorized) {
+         console.log('🚫 [VIEWER] Unauthorized access');
         setError(`❌ Access Denied: Your email (${authData?.email}) is not authorized to view this document.`);
         setShareData(null);
         return;
       }
       
       if (data.requiresAuth) {
+        console.log('🔐 [VIEWER] Requires authentication');
+        console.log('   - Requires Email:', data.requiresEmail);
+        console.log('   - Requires Password:', data.requiresPassword);
+        console.log('   - Requires NDA:', data.requiresNDA);
         setRequiresEmail(data.requiresEmail || false);
         setRequiresPassword(data.requiresPassword || false);
         setRequiresNDA(data.requiresNDA || false); // ⭐ NEW
         setNdaText(data.ndaText || ''); // ⭐ NEW
         setShareData(data);
       } else {
+        console.log('❌ [VIEWER] Other error:', data.error);
         setError(data.error || 'Failed to load document');
       }
     } else {
+      console.log('✅ [VIEWER] Document loaded successfully');
+      console.log('📄 [VIEWER] Document data:', data.document);
+      console.log('🔗 [VIEWER] PDF URL:', data.document?.pdfUrl);
+      console.log('🎫 [VIEWER] Certificate ID:', data.certificateId);
       setShareData(data);
       setIsVerified(true);
       // ⭐ NEW: Store certificate ID if NDA was accepted
       // ⭐ Capture certificate ID if NDA was accepted
   if (data.certificateId) {
+    console.log('📜 [VIEWER] NDA certificate created:', data.certificateId);
     setCertificateId(data.certificateId);
   }
     }
   } catch (err) {
+    console.error('💥 [VIEWER] Fatal error:', err)
     console.error('Failed to load shared document:', err);
     setError('Failed to load document');
   } finally {
@@ -501,10 +523,155 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
         </h4>
         <p className="text-sm text-green-800 mb-3">
           Thank you for accepting the Non-Disclosure Agreement. 
-          You can download your certificate for your records.
+          You can view or download your certificate for your records.
         </p>
+        
+        {/* ⭐ NEW: Button Group */}
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                setLoadingCertificate(true);
+                const res = await fetch(`/api/nda-certificates/${certificateId}?shareId=${token}`);
+                if (res.ok) {
+                  const blob = await res.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  setCertificatePdfUrl(url);
+                  setCertificateDrawerOpen(true);
+                }
+              } catch (error) {
+                console.error('View error:', error);
+                alert('Failed to load certificate');
+              } finally {
+                setLoadingCertificate(false);
+              }
+            }}
+            disabled={loadingCertificate}
+            className="gap-2 bg-white hover:bg-green-50 border-green-300"
+          >
+            {loadingCertificate ? (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full" />
+                Loading...
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4" />
+                View Certificate
+              </>
+            )}
+          </Button>
+          
+          <Button
+            size="sm"
+            onClick={async () => {
+              try {
+                const res = await fetch(`/api/nda-certificates/${certificateId}?shareId=${token}`);
+                if (res.ok) {
+                  const blob = await res.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `NDA-Certificate-${certificateId}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                }
+              } catch (error) {
+                console.error('Download error:', error);
+                alert('Failed to download certificate');
+              }
+            }}
+            className="gap-2 bg-green-600 hover:bg-green-700"
+          >
+            <Download className="h-4 w-4" />
+            Download Certificate
+          </Button>
+        </div>
+        
+        <p className="text-xs text-green-700 mt-2">
+          Certificate ID: <code className="bg-white px-1 py-0.5 rounded">{certificateId}</code>
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* ⭐ Certificate Viewer Drawer */}
+{certificateDrawerOpen && certificatePdfUrl && (
+  <>
+    {/* Backdrop */}
+    <div
+      className="fixed inset-0 bg-black/50 z-50"
+      onClick={() => {
+        setCertificateDrawerOpen(false);
+        if (certificatePdfUrl) {
+          window.URL.revokeObjectURL(certificatePdfUrl);
+          setCertificatePdfUrl(null);
+        }
+      }}
+    />
+    
+    {/* Drawer */}
+    <div className="fixed right-0 top-0 h-full w-full max-w-4xl bg-white shadow-2xl z-50 flex flex-col">
+      {/* Header */}
+      <div className="border-b px-6 py-4 flex items-center justify-between bg-green-50">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+            <Check className="h-5 w-5 text-green-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">
+              NDA Acceptance Certificate
+            </h3>
+            <p className="text-sm text-slate-600">
+              Certificate ID: {certificateId}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            setCertificateDrawerOpen(false);
+            if (certificatePdfUrl) {
+              window.URL.revokeObjectURL(certificatePdfUrl);
+              setCertificatePdfUrl(null);
+            }
+          }}
+          className="h-8 w-8 rounded-lg hover:bg-green-100 flex items-center justify-center"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* PDF Viewer */}
+      <div className="flex-1 overflow-hidden bg-slate-100 p-4">
+        <iframe
+          src={`${certificatePdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+          className="w-full h-full border-0 bg-white rounded-lg shadow-lg"
+          title="NDA Certificate"
+        />
+      </div>
+
+      {/* Footer Actions */}
+      <div className="border-t px-6 py-4 bg-white flex justify-end gap-3">
         <Button
-          size="sm"
+          variant="outline"
+          onClick={() => {
+            setCertificateDrawerOpen(false);
+            if (certificatePdfUrl) {
+              window.URL.revokeObjectURL(certificatePdfUrl);
+              setCertificatePdfUrl(null);
+            }
+          }}
+        >
+          Close
+        </Button>
+        <Button
           onClick={async () => {
             try {
               const res = await fetch(`/api/nda-certificates/${certificateId}?shareId=${token}`);
@@ -521,21 +688,17 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
               }
             } catch (error) {
               console.error('Download error:', error);
+              alert('Failed to download certificate');
             }
           }}
           className="gap-2 bg-green-600 hover:bg-green-700"
         >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          Download Your NDA Certificate
+          <Download className="h-4 w-4" />
+          Download PDF
         </Button>
-        <p className="text-xs text-green-700 mt-2">
-          Certificate ID: <code className="bg-white px-1 py-0.5 rounded">{certificateId}</code>
-        </p>
       </div>
     </div>
-  </div>
+  </>
 )}
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
@@ -600,12 +763,26 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
         {/* PDF Viewer */}
         {shareData?.document?.pdfUrl ? (
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+
+            {/* ⭐ Loading overlay */}
+    {iframeLoading && (
+      <div className="absolute inset-0 bg-white flex items-center justify-center z-10">
+        <div className="text-center">
+          <div className="animate-spin h-12 w-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-slate-600 font-medium">Loading document...</p>
+          <p className="text-slate-500 text-sm mt-2">
+            {shareData.document.numPages} pages • {shareData.document.format?.toUpperCase()}
+          </p>
+        </div>
+      </div>
+    )}
 <iframe
   src={`${shareData.document.pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
   className="w-full h-[calc(100vh-200px)] border-0"
   title={shareData.document.filename}
   onLoad={() => {
     setCurrentPage(1);
+    setIframeLoading(false);
   }}
   style={{
     pointerEvents: 'auto',

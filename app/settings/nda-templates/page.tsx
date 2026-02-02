@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
   Plus,
@@ -18,6 +19,7 @@ import {
   Star,
   AlertCircle,
   Loader2,
+  X,
 } from 'lucide-react';
 import {
   Dialog,
@@ -287,7 +289,7 @@ export default function NdaTemplatesPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => router.push('/settings')}
+                onClick={() => router.push('/documents-page')}
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
@@ -446,149 +448,180 @@ export default function NdaTemplatesPage() {
         )}
       </main>
 
-      {/* Editor Dialog */}
-      <Dialog open={showEditor} onOpenChange={setShowEditor}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>
-              {editingTemplate ? 'Edit Template' : 'Create NDA Template'}
-            </DialogTitle>
-            <DialogDescription>
-              Use variables like {`{{viewer_name}}`} to personalize the NDA
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-3 gap-6">
-              {/* Left: Editor */}
-              <div className="col-span-2 space-y-4">
-                <div>
-                  <Label>Template Name</Label>
-                  <Input
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="e.g., Standard Company NDA"
-                    className="mt-1"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <Label>Template Content</Label>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePreview}
-                      className="gap-2"
-                    >
-                      <FileText className="h-3 w-3" />
-                      Preview
-                    </Button>
-                  </div>
-                  <Textarea
-                    id="template-editor"
-                    value={templateText}
-                    onChange={(e) => setTemplateText(e.target.value)}
-                    placeholder="Enter your NDA text here..."
-                    rows={20}
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">
-                    {templateText.length} characters
-                  </p>
-                </div>
-
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={setAsDefault}
-                    onChange={(e) => setSetAsDefault(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-purple-600"
-                  />
-                  <span className="text-sm text-slate-700">
-                    Set as my default template
-                  </span>
-                </label>
-              </div>
-
-              {/* Right: Variables Helper */}
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-3">
-                    Available Variables
-                  </h4>
-                  <p className="text-xs text-slate-600 mb-3">
-                    Click to insert into template
-                  </p>
-                  <div className="space-y-2">
-                    {[
-                      { var: 'viewer_name', desc: 'Viewer\'s full name' },
-                      { var: 'viewer_email', desc: 'Viewer\'s email' },
-                      { var: 'viewer_company', desc: 'Viewer\'s company' },
-                      { var: 'document_title', desc: 'Document filename' },
-                      { var: 'owner_name', desc: 'Your name' },
-                      { var: 'owner_company', desc: 'Your company' },
-                      { var: 'view_date', desc: 'Current date' },
-                      { var: 'view_time', desc: 'Current time' },
-                    ].map((item) => (
-                      <button
-                        key={item.var}
-                        onClick={() => insertVariable(item.var)}
-                        className="w-full text-left p-2 rounded border border-slate-200 hover:border-purple-300 hover:bg-purple-50 transition-colors"
-                      >
-                        <code className="text-xs font-mono text-purple-600 block mb-0.5">
-                          {`{{${item.var}}}`}
-                        </code>
-                        <span className="text-xs text-slate-600">
-                          {item.desc}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="text-xs text-amber-900">
-                    <strong>💡 Tip:</strong> Variables will be automatically 
-                    replaced with actual values when viewers see the NDA.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button
-              variant="outline"
+{/* Editor Drawer */}
+      <AnimatePresence>
+        {showEditor && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => setShowEditor(false)}
+              className="fixed inset-0 bg-black/50 z-50"
+            />
+            
+            {/* Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="fixed right-0 top-0 h-full w-full max-w-5xl bg-white shadow-2xl z-50 flex flex-col"
             >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Check className="h-4 w-4" />
-                  {editingTemplate ? 'Update Template' : 'Create Template'}
-                </>
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+              {/* Drawer Header */}
+              <div className="border-b px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">
+                    {editingTemplate ? 'Edit Template' : 'Create NDA Template'}
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Use variables like {`{{viewer_name}}`} to personalize the NDA
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowEditor(false)}
+                  className="h-8 w-8"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
 
+              {/* Drawer Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="grid grid-cols-3 gap-6">
+                  {/* Left: Editor */}
+                  <div className="col-span-2 space-y-4">
+                    <div>
+                      <Label>Template Name</Label>
+                      <Input
+                        value={templateName}
+                        onChange={(e) => setTemplateName(e.target.value)}
+                        placeholder="e.g., Standard Company NDA"
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label>Template Content</Label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePreview}
+                          className="gap-2"
+                        >
+                          <FileText className="h-3 w-3" />
+                          Preview
+                        </Button>
+                      </div>
+                      <Textarea
+                        id="template-editor"
+                        value={templateText}
+                        onChange={(e) => setTemplateText(e.target.value)}
+                        placeholder="Enter your NDA text here..."
+                        rows={20}
+                        className="font-mono text-sm"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">
+                        {templateText.length} characters
+                      </p>
+                    </div>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={setAsDefault}
+                        onChange={(e) => setSetAsDefault(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-purple-600"
+                      />
+                      <span className="text-sm text-slate-700">
+                        Set as my default template
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Right: Variables Helper */}
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-semibold text-slate-900 mb-3">
+                        Available Variables
+                      </h4>
+                      <p className="text-xs text-slate-600 mb-3">
+                        Click to insert into template
+                      </p>
+                      <div className="space-y-2">
+                        {[
+                          { var: 'viewer_name', desc: 'Viewer\'s full name' },
+                          { var: 'viewer_email', desc: 'Viewer\'s email' },
+                          { var: 'viewer_company', desc: 'Viewer\'s company' },
+                          { var: 'document_title', desc: 'Document filename' },
+                          { var: 'owner_name', desc: 'Your name' },
+                          { var: 'owner_company', desc: 'Your company' },
+                          { var: 'view_date', desc: 'Current date' },
+                          { var: 'view_time', desc: 'Current time' },
+                        ].map((item) => (
+                          <button
+                            key={item.var}
+                            onClick={() => insertVariable(item.var)}
+                            className="w-full text-left p-2 rounded border border-slate-200 hover:border-purple-300 hover:bg-purple-50 transition-colors"
+                          >
+                            <code className="text-xs font-mono text-purple-600 block mb-0.5">
+                              {`{{${item.var}}}`}
+                            </code>
+                            <span className="text-xs text-slate-600">
+                              {item.desc}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-xs text-amber-900">
+                        <strong>💡 Tip:</strong> Variables will be automatically 
+                        replaced with actual values when viewers see the NDA.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Drawer Footer */}
+              <div className="border-t px-6 py-4 flex justify-end gap-3 bg-slate-50">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEditor(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      {editingTemplate ? 'Update Template' : 'Create Template'}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
       {/* Preview Dialog */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-3xl max-h-[90vh]">
+        <DialogContent className="max-w-3xl max-h-[90vh] bg-white">
           <DialogHeader>
             <DialogTitle>NDA Preview</DialogTitle>
             <DialogDescription>

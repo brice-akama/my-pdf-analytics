@@ -10,10 +10,15 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ token: string }> }
 ) {
+  console.log('\n🔵 ===== VIEW API CALLED =====');
+   
   try {
     const { token } = await context.params;
+    console.log('🔑 Share token received:', token ? token.slice(0, 8) + '...' : '❌ MISSING');
+    
 
     if (!token) {
+      console.warn('❌ No token provided');
       return NextResponse.json({ error: 'Share token required' }, { status: 400 });
     }
 
@@ -21,10 +26,22 @@ export async function POST(
 
     // ✅ Find share record by token
     const share = await db.collection('shares').findOne({
+      
       shareToken: token,
     });
 
+    console.log('📦 Share lookup:', {
+      found: !!share,
+      active: share?.active,
+      expiresAt: share?.expiresAt,
+      hasPassword: share?.settings?.hasPassword,
+      requireEmail: share?.settings?.requireEmail,
+      requireNDA: share?.settings?.requireNDA,
+      views: share?.tracking?.views,
+    });
+
     if (!share) {
+      console.warn('❌ Share not found');
       return NextResponse.json({ 
         error: 'Share link not found or has been revoked',
         notFound: true
@@ -33,6 +50,7 @@ export async function POST(
 
     // ✅ Check if share is active
     if (!share.active) {
+      console.warn('⛔ Share deactivated');
       return NextResponse.json({ 
         error: 'This share link has been deactivated',
         deactivated: true
@@ -41,6 +59,7 @@ export async function POST(
 
     // ✅ Check expiration
     if (share.expiresAt && new Date(share.expiresAt) < new Date()) {
+       console.warn('⏰ Share expired');
       return NextResponse.json({ 
         error: 'This share link has expired',
         expired: true
@@ -57,7 +76,13 @@ export async function POST(
 
     // ✅ Parse authentication data from request
     const body = await request.json().catch(() => ({}));
+     console.log('📨 Request body:', body);
+
     const { email, password } = body;
+      console.log('👤 Auth data received:', {
+      email: email ? email : '❌ none',
+      password: password ? '✅ provided' : '❌ none',
+    });
 
     // ✅ Check if email is required
     if (share.settings.requireEmail && !email) {
@@ -145,6 +170,13 @@ if (share.settings.allowedEmails && share.settings.allowedEmails.length > 0) {
       _id: share.documentId,
     });
 
+    console.log('📄 Document lookup:', {
+      found: !!document,
+      id: document?._id?.toString(),
+      filename: document?.originalFilename,
+      hasPdfUrl: !!document?.cloudinaryPdfUrl,
+    });
+
     if (!document) {
       return NextResponse.json({ 
         error: 'Document not found',
@@ -152,11 +184,26 @@ if (share.settings.allowedEmails && share.settings.allowedEmails.length > 0) {
       }, { status: 404 });
     }
 
+
+    // 📜 NDA FLOW
+    console.log('📜 NDA check:', {
+      required: share.settings.requireNDA,
+       
+    });
+
+    let certificateId: string | null = null;
+
+// ✅ Check if NDA acceptance is required
 // ✅ Check if NDA acceptance is required
 if (share.settings.requireNDA) {
   const { ndaAccepted, viewerName, viewerCompany } = body;
   
   if (!ndaAccepted) {
+    // Get owner info for NDA processing
+    const owner = await db.collection('users').findOne({ 
+      id: share.userId 
+    });
+    
     // ⭐ Process NDA template with variables
     const processedNDA = share.settings.ndaTemplate 
       ? processNdaTemplate(share.settings.ndaTemplate, {
@@ -164,8 +211,8 @@ if (share.settings.requireNDA) {
           viewerEmail: email || '',
           viewerCompany: viewerCompany || '',
           documentTitle: document.originalFilename,
-          ownerName: share.createdBy.name || share.createdBy.email,
-          ownerCompany: share.createdBy.company || '',
+          ownerName: owner?.name || share.createdBy?.name || share.createdBy?.email || 'Document Owner',
+          ownerCompany: owner?.company || share.createdBy?.company || '',
           viewDate: new Date(),
         })
       : getDefaultNDA();
@@ -181,8 +228,9 @@ if (share.settings.requireNDA) {
       },
     }, { status: 401 });
   }
- // ✅ Generate certificate ID
-const certificateId = `NDA-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+  
+  // ✅ Generate certificate ID
+  certificateId = `NDA-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
   // ✅ Track NDA acceptance with FULL details
   const ndaAcceptanceRecord = {
@@ -193,15 +241,14 @@ const certificateId = `NDA-${Date.now()}-${Math.random().toString(36).substr(2, 
     ip: request.headers.get('x-forwarded-for') || 'unknown',
     userAgent: request.headers.get('user-agent') || 'unknown',
     ndaVersion: share.settings.ndaTemplateId || 'custom',
-    ndaTextSnapshot: share.settings.ndaTemplate, // Store exact text they accepted
+    ndaTextSnapshot: share.settings.ndaTemplate,
     documentTitle: document.originalFilename,
-    geolocation: null, // You can add geolocation API here
+    geolocation: null,
     certificateId,
   };
 
   // ✅ Get owner info
-const owner = await db.collection('users').findOne({ id: share.userId });
-
+  const owner = await db.collection('users').findOne({ id: share.userId });
   
   await db.collection('shares').updateOne(
     { _id: share._id },
@@ -218,41 +265,39 @@ const owner = await db.collection('users').findOne({ id: share.userId });
     documentId: document._id.toString(),
     ownerId: share.userId,
     ...ndaAcceptanceRecord,
-    certificateId: `NDA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    ownerName: owner?.name || share.createdBy.email, // ⭐ NEW
-  ownerCompany: owner?.company || '', // ⭐ NEW
+    ownerName: owner?.name || share.createdBy?.name || share.createdBy?.email || 'Document Owner',
+    ownerCompany: owner?.company || share.createdBy?.company || '',
   });
-  // ⭐ NEW: Send email notification to owner
-if (share.settings.notifyOnView && owner?.email) {
-  // Don't await - send in background
-  sendNdaAcceptanceNotification({
-    ownerEmail: owner.email,
-    ownerName: owner.name || owner.email,
-    viewerName: viewerName || 'Unknown',
-    viewerEmail: email || 'anonymous',
-    viewerCompany: viewerCompany || undefined,
-    documentTitle: document.originalFilename,
-    acceptedAt: new Date(),
-    certificateId,
-    certificateData: {
-      certificateId,
+  
+  // ⭐ Send email notification to owner
+  if (share.settings.notifyOnView && owner?.email) {
+    sendNdaAcceptanceNotification({
+      ownerEmail: owner.email,
+      ownerName: owner.name || owner.email,
       viewerName: viewerName || 'Unknown',
       viewerEmail: email || 'anonymous',
       viewerCompany: viewerCompany || undefined,
       documentTitle: document.originalFilename,
-      ownerName: owner?.name || share.createdBy.email,
-      ownerCompany: owner?.company || '',
       acceptedAt: new Date(),
-      ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-      ndaTextSnapshot: share.settings.ndaTemplate,
-      ndaVersion: share.settings.ndaTemplateId || 'custom',
-    },
-    documentUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/documents/${document._id.toString()}`,
-  }).catch(err => console.error('Failed to send NDA notification:', err));
-}
+      certificateId,
+      certificateData: {
+        certificateId,
+        viewerName: viewerName || 'Unknown',
+        viewerEmail: email || 'anonymous',
+        viewerCompany: viewerCompany || undefined,
+        documentTitle: document.originalFilename,
+        ownerName: owner?.name || share.createdBy?.email,
+        ownerCompany: owner?.company || '',
+        acceptedAt: new Date(),
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        ndaTextSnapshot: share.settings.ndaTemplate,
+        ndaVersion: share.settings.ndaTemplateId || 'custom',
+      },
+      documentUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/documents/${document._id.toString()}`,
+    }).catch(err => console.error('Failed to send NDA notification:', err));
+  }
 
-console.log('✅ NDA accepted by:', email);
-
+  console.log('✅ NDA accepted by:', email, '| Certificate:', certificateId);
 }
 
     // ✅ Check if document has Cloudinary PDF URL
@@ -371,7 +416,7 @@ console.log('✅ NDA accepted by:', email);
         views: share.tracking.views + 1, // Include this view
         uniqueViewers: share.tracking.uniqueViewers.length + (isUniqueViewer ? 1 : 0),
       },
-      certificateId: RTCCertificate || null,
+      certificateId: certificateId || null,
     });
 
   } catch (error) {
@@ -416,17 +461,26 @@ export async function GET(
 }
 
 
-// ⭐ Default NDA Template
+// ⭐ UPDATED: Default NDA Template with Variables
 function getDefaultNDA(): string {
   return `NON-DISCLOSURE AGREEMENT
 
-By accessing this document, you acknowledge and agree to the following terms:
+This Non-Disclosure Agreement ("Agreement") is entered into as of {{view_date}} between:
 
-1. CONFIDENTIALITY
-All information contained in this document is confidential and proprietary. You agree to maintain the confidentiality of this information and not disclose it to any third party without prior written consent.
+DISCLOSING PARTY: {{owner_name}}{{owner_company}} ("Owner")
+RECEIVING PARTY: {{viewer_name}} ({{viewer_email}}){{viewer_company}} ("Recipient")
 
-2. USE RESTRICTIONS
-You agree to use this information solely for the purpose for which it was shared and not for any other purpose, including competitive analysis or business development.
+SUBJECT MATTER: "{{document_title}}"
+
+1. CONFIDENTIAL INFORMATION
+The Recipient acknowledges that the document titled "{{document_title}}" contains confidential and proprietary information belonging to the Owner.
+
+2. OBLIGATIONS
+The Recipient agrees to:
+   a) Maintain the confidentiality of all information contained in the document
+   b) Not disclose, copy, or distribute any part of the document to third parties without prior written consent
+   c) Use the information solely for the purpose for which it was shared and not for any other purpose
+   d) Not use the information for competitive purposes
 
 3. NO COPYING OR DISTRIBUTION
 You will not copy, reproduce, distribute, or share this document or any part of its contents with any third party without explicit authorization.
@@ -434,14 +488,19 @@ You will not copy, reproduce, distribute, or share this document or any part of 
 4. RETURN OR DESTRUCTION
 Upon request or completion of the intended purpose, you agree to return or destroy all copies of this document in your possession.
 
-5. LEGAL CONSEQUENCES
-You understand that unauthorized disclosure or use of this confidential information may result in legal action, including claims for damages and injunctive relief.
+5. TERM
+This Agreement shall remain in effect for a period of two (2) years from {{view_date}}.
 
-By clicking "I Accept," you acknowledge that you have read, understood, and agree to be bound by these terms.
+6. LEGAL CONSEQUENCES
+Unauthorized disclosure or use of this confidential information may result in legal action, including claims for damages and injunctive relief.
 
-Date: ${new Date().toLocaleDateString()}`;
+ACCEPTANCE:
+By clicking "I Accept," {{viewer_name}} acknowledges having read and agreed to these terms on {{view_date}} at {{view_time}}.
+
+Recipient: {{viewer_name}}
+Company: {{viewer_company}}
+Date: {{view_date}}`;
 }
-
 
 // ⭐ Process NDA template variables
 function processNdaTemplate(
