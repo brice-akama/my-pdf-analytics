@@ -203,19 +203,24 @@ if (share.settings.requireNDA) {
     const owner = await db.collection('users').findOne({ 
       id: share.userId 
     });
+
+     // ⭐ Get template (custom or default)
+    const templateText = share.settings.ndaTemplate || getDefaultNDA();
     
-    // ⭐ Process NDA template with variables
-    const processedNDA = share.settings.ndaTemplate 
-      ? processNdaTemplate(share.settings.ndaTemplate, {
-          viewerName: viewerName || '',
-          viewerEmail: email || '',
-          viewerCompany: viewerCompany || '',
-          documentTitle: document.originalFilename,
-          ownerName: owner?.name || share.createdBy?.name || share.createdBy?.email || 'Document Owner',
-          ownerCompany: owner?.company || share.createdBy?.company || '',
-          viewDate: new Date(),
-        })
-      : getDefaultNDA();
+     // ⭐ ALWAYS process with variables (whether custom or default)
+    const processedNDA = processNdaTemplate(templateText, {
+      viewerName: viewerName || '',
+      viewerEmail: email || '',
+      viewerCompany: viewerCompany || '',
+      documentTitle: document.originalFilename,
+      ownerName: owner?.name || share.createdBy?.name || share.createdBy?.email || 'Document Owner',
+      ownerCompany: owner?.company || share.createdBy?.company || '',
+      viewDate: new Date(),
+    });
+    
+    console.log('📜 Processed NDA preview:', processedNDA.substring(0, 200) + '...');
+    
+    
     
     return NextResponse.json({
       requiresAuth: true,

@@ -22,7 +22,8 @@ import {
   FolderOpen,
   Eye,
   Edit,
-  Mail, 
+  Mail,
+  Link2, 
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ type DocumentType = {
   numPages: number
   createdAt: string
     isTemplate?: boolean
+  shareLinks?: Array<{ id: string; url: string; createdAt: string }>
 }
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
@@ -1089,8 +1091,27 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
             <Clock className="h-3 w-3" />
             {formatTimeAgo(doc.createdAt)}
           </span>
+          {/* ⭐ ADD SHARE LINKS COUNT HERE */}
+          {doc.shareLinks && doc.shareLinks.length > 0 && (
+            <>
+              <span>•</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/documents/${doc._id}/share-links`);
+                }}
+                className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                <Link2 className="h-3 w-3" />
+                <span>{doc.shareLinks.length} share link{doc.shareLinks.length > 1 ? 's' : ''}</span>
+              </button>
+            </>
+          )}
+
         </div>
       </div>
+
+      
 
       {/* Action Buttons */}
       <div className="flex items-center gap-2">
@@ -1110,6 +1131,8 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
     Continue Draft
   </Button>
 )}
+
+
 
 {/* ⭐ FIX 2: Show "Resend" button if sent but not all signed */}
 {sentRequests.has(doc._id) && !sentRequests.get(doc._id)?.allSigned && (
@@ -1177,6 +1200,24 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
     Export to Cloud
   </Button>
 )}
+
+{/* ⭐ NEW: Manage Share Links Button */}
+        {doc.shareLinks && doc.shareLinks.length > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/documents/${doc._id}/share-links`);
+            }}
+            className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+            title="View and manage all share links"
+          >
+            <Link2 className="h-4 w-4" />
+            Links ({doc.shareLinks.length})
+          </Button>
+        )}
+        
         <Button 
           variant="ghost" 
           size="sm" 
@@ -1215,8 +1256,22 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               }}
             >
               <Eye className="h-4 w-4 mr-2" />
-              View
+              Open
             </DropdownMenuItem>
+
+            {/* ⭐ NEW: Manage Share Links */}
+    {doc.shareLinks && doc.shareLinks.length > 0 && (
+      <DropdownMenuItem
+        onClick={(e) => {
+          e.stopPropagation()
+          router.push(`/documents/${doc._id}/share-links`)
+        }}
+        className="text-blue-600 focus:text-blue-600"
+      >
+        <Link2 className="h-4 w-4 mr-2" />
+        Manage Share Links ({doc.shareLinks.length})
+      </DropdownMenuItem>
+    )}
 
             <DropdownMenuItem
   onClick={(e) => {
@@ -2102,7 +2157,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
                   <option key={template.id} value={template.id}>
                     {template.name}
                     {template.isDefault && ' (Default)'}
-                    {template.isSystemDefault && ' (System)'}
+                    
                   </option>
                 ))}
               </select>
