@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect,  useCallback  } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -97,6 +97,8 @@ const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
 const [editingRecipientIndex, setEditingRecipientIndex] = useState<number | null>(null);
 const [editForm, setEditForm] = useState({ name: "", email: "", customFields: {} as Record<string, string> });
 const [templateConfig, setTemplateConfig] = useState<any>(null);
+const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+const [lastSaved, setLastSaved] = useState<Date | null>(null);
 const [generatedLinks, setGeneratedLinks] = useState<Array<{
   recipient: string;
   email: string;
@@ -104,6 +106,98 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{
   status: string;
 }>>([]);
 
+
+// ⭐ STEP 1: Save draft to localStorage
+const saveDraft = useCallback(() => {
+  const draftKey = `bulk_send_draft_${params.id}`;
+  
+  // Don't save if nothing to save
+  if (!csvText && recipients.length === 0) return false;
+  
+  // Don't save if already sent
+  if (showSuccessDialog) return false;
+
+  try {
+    const draft = {
+      csvText,
+      recipients,
+      message,
+      expirationDays,
+      step,
+      savedAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+    console.log('💾 [BULK SEND] Draft saved');
+    return true;
+  } catch (error) {
+    console.error('❌ [BULK SEND] Failed to save draft:', error);
+    return false;
+  }
+}, [params.id, csvText, recipients, message, expirationDays, step, showSuccessDialog]);
+
+// ⭐ STEP 2: Load draft from localStorage
+const loadDraft = useCallback(() => {
+  const draftKey = `bulk_send_draft_${params.id}`;
+  
+  try {
+    const savedDraft = localStorage.getItem(draftKey);
+    if (!savedDraft) {
+      console.log('ℹ️ [BULK SEND] No saved draft found');
+      return;
+    }
+
+    const draft = JSON.parse(savedDraft);
+    
+    // Calculate how long ago
+    const savedAt = new Date(draft.savedAt);
+    const minutesAgo = Math.floor((Date.now() - savedAt.getTime()) / 60000);
+
+    // Ask user if they want to restore
+    const shouldRestore = window.confirm(
+      `📋 Found a saved bulk send draft from ${minutesAgo} minute${minutesAgo !== 1 ? 's' : ''} ago.\n\n` +
+      `Recipients: ${draft.recipients.length}\n\n` +
+      `Would you like to continue where you left off?`
+    );
+
+    if (!shouldRestore) {
+      localStorage.removeItem(draftKey);
+      return;
+    }
+
+    // ✅ Restore state
+    console.log('✅ [BULK SEND] Restoring draft...');
+    setCsvText(draft.csvText || "");
+    setRecipients(draft.recipients || []);
+    setMessage(draft.message || "");
+    setExpirationDays(draft.expirationDays || "30");
+    setStep(draft.step || 1);
+    setLastSaved(savedAt);
+    
+    // Re-validate if recipients exist
+    if (draft.recipients.length > 0) {
+      const allErrors = draft.recipients.flatMap((r: BulkRecipient) => r.validationErrors || []);
+      const duplicateEmails = findDuplicateEmails(draft.recipients);
+      
+      setValidation({
+        valid: allErrors.length === 0 && duplicateEmails.length === 0,
+        errors: [...allErrors, ...duplicateEmails],
+        warnings: [],
+      });
+    }
+    
+    console.log('✅ [BULK SEND] Draft restored');
+  } catch (error) {
+    console.error('❌ [BULK SEND] Failed to load draft:', error);
+  }
+}, [params.id]);
+
+// ⭐ STEP 3: Clear draft
+const clearDraft = useCallback(() => {
+  const draftKey = `bulk_send_draft_${params.id}`;
+  localStorage.removeItem(draftKey);
+  console.log('🗑️ [BULK SEND] Draft cleared');
+}, [params.id]);
 
   // Fetch document
   useEffect(() => {
@@ -136,6 +230,49 @@ const [generatedLinks, setGeneratedLinks] = useState<Array<{
     }
   };
 
+
+  // ⭐ Load draft on mount
+useEffect(() => {
+  if (!loading && doc) {
+    loadDraft();
+  }
+}, [loading, doc, loadDraft]);
+
+// ⭐ Auto-save every 10 seconds
+useEffect(() => {
+  if (!doc) return;
+  if (showSuccessDialog) return;
+
+  const autoSave = () => {
+    setAutoSaveStatus('saving');
+    const success = saveDraft();
+    if (success) {
+      setAutoSaveStatus('saved');
+      setLastSaved(new Date());
+    } else {
+      setAutoSaveStatus('error');
+    }
+    
+    setTimeout(() => setAutoSaveStatus('idle'), 2000);
+  };
+
+  const interval = setInterval(autoSave, 10000);
+  return () => clearInterval(interval);
+}, [doc, csvText, recipients, message, expirationDays, step, showSuccessDialog, saveDraft]);
+
+// ⭐ Save before page unload
+useEffect(() => {
+  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    if ((csvText || recipients.length > 0) && !showSuccessDialog) {
+      saveDraft();
+      e.preventDefault();
+      e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+    }
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [csvText, recipients, showSuccessDialog, saveDraft]);
 
   // ⭐ Open edit drawer with pre-filled data
 const openEditDrawer = (index: number) => {
@@ -427,6 +564,7 @@ useEffect(() => {
           }
 
           setShowSuccessDialog(true);
+           clearDraft();
         }
       }
     } catch (error) {
@@ -502,11 +640,35 @@ Bob Wilson,bob@company.com,Designer,70000`;
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="text-sm text-slate-600">
-                Step {step} of 3
-              </div>
-            </div>
+            <div className="flex items-center gap-4">
+  {/* ⭐ Auto-Save Indicator */}
+  <div className="flex items-center gap-2 text-sm">
+    {autoSaveStatus === 'saving' && (
+      <div className="flex items-center gap-2 text-slate-600">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Saving...</span>
+      </div>
+    )}
+    
+    {autoSaveStatus === 'saved' && lastSaved && (
+      <div className="flex items-center gap-2 text-green-600">
+        <CheckCircle className="h-4 w-4" />
+        <span>Saved {Math.floor((Date.now() - lastSaved.getTime()) / 60000)}m ago</span>
+      </div>
+    )}
+    
+    {autoSaveStatus === 'error' && (
+      <div className="flex items-center gap-2 text-red-600">
+        <AlertCircle className="h-4 w-4" />
+        <span>Save failed</span>
+      </div>
+    )}
+  </div>
+  
+  <div className="text-sm text-slate-600">
+    Step {step} of 3
+  </div>
+</div>
           </div>
         </div>
 

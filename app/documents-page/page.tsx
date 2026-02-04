@@ -666,24 +666,24 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       </div>
     </DropdownMenuItem>
 
-    {/* Create Document Group Template */}
-    <DropdownMenuItem
-      onClick={() => {
-        setCreateMenuOpen(false)
-        alert('🚧 Document Group Templates coming soon!\n\nThis will let you bundle multiple documents into a single signature workflow.')
-      }}
-      className="p-4 cursor-pointer"
-    >
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0">
-          <Folder className="h-5 w-5 text-white" />
-        </div>
-        <div className="flex-1">
-          <div className="font-semibold text-slate-900">Create Document Group Template</div>
-          <div className="text-sm text-slate-600">Bundle multiple docs for signature</div>
-        </div>
-      </div>
-    </DropdownMenuItem>
+   {/* Create Document Group Template */}
+<DropdownMenuItem
+  onClick={() => {
+    setCreateMenuOpen(false)
+    router.push('/templates/group/create')
+  }}
+  className="p-3 cursor-pointer"
+>
+  <div className="flex items-start gap-3">
+    <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+      <Folder className="h-4 w-4 text-white" />
+    </div>
+    <div className="flex-1">
+      <div className="font-semibold text-slate-900 text-sm">Create Group Template</div>
+      <div className="text-xs text-slate-600">Reusable multi-doc workflow</div>
+    </div>
+  </div>
+</DropdownMenuItem>
 
     <div className="h-px bg-slate-200 my-2" />
 
@@ -761,6 +761,19 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
         </div>
         <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{archivedDocuments.length}</span>
       </button>
+      <button 
+  onClick={() => router.push('/templates/group')}
+  className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+>
+  <div className="flex items-center gap-3">
+    <Folder className="h-5 w-5" />
+    <span>Group Templates</span>
+  </div>
+  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">
+    {/* You can fetch count later */}
+    0
+  </span>
+</button>
     </div>
 
     {/* TEAM Section */}
@@ -1217,7 +1230,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
             Links ({doc.shareLinks.length})
           </Button>
         )}
-        
+
         <Button 
           variant="ghost" 
           size="sm" 
