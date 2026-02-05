@@ -74,7 +74,6 @@ export default function CreateGroupTemplatePage() {
   const [showDocumentDrawer, setShowDocumentDrawer] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 const [previewDocIndex, setPreviewDocIndex] = useState(0)
- 
 const [previewPdfBlobUrl, setPreviewPdfBlobUrl] = useState<string | null>(null)
 const [previewPdfLoading, setPreviewPdfLoading] = useState(false)
 const [previewPdfError, setPreviewPdfError] = useState<string | null>(null)

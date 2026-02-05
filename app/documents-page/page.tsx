@@ -94,7 +94,12 @@ const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set(
 const [bulkSelectionMode, setBulkSelectionMode] = useState(false)
 const [createMenuOpen, setCreateMenuOpen] = useState(false)
 const [shareDrawerOpen, setShareDrawerOpen] = useState(false)
+const [groupTemplatesCount, setGroupTemplatesCount] = useState(0)
 const [sharingDocumentId, setSharingDocumentId] = useState<string | null>(null)
+const [currentPage, setCurrentPage] = useState(1)
+const [totalPages, setTotalPages] = useState(1)
+const [totalDocuments, setTotalDocuments] = useState(0)
+const [itemsPerPage] = useState(5) // You can adjust this as needed
 const [shareSettings, setShareSettings] = useState({
   requireEmail: true,
   allowDownload: false,
@@ -162,24 +167,50 @@ useEffect(() => {
 }, [shareDrawerOpen]);
 
 
+// Fetch group templates count
+const fetchGroupTemplatesCount = async () => {
+  try {
+    const res = await fetch("/api/templates/group", {
+      method: "GET",
+      credentials: "include",
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        setGroupTemplatesCount(data.templates.length)
+        console.log('✅ Group templates count:', data.templates.length)
+      }
+    }
+  } catch (error) {
+    console.error("Failed to fetch group templates count:", error)
+  }
+}
+
   // Fetch documents
-  const fetchDocuments = async () => {
-    try {
-      const res = await fetch("/api/documents", {
+  const fetchDocuments = async (page = 1) => {
+  try {
+    const res = await fetch(
+      `/api/documents?page=${page}&limit=${itemsPerPage}`,
+      {
         method: "GET",
         credentials: "include",
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success) {
-          setDocuments(data.documents)
-        }
       }
-    } catch (error) {
-      console.error("Failed to fetch documents:", error)
+    )
+
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        setDocuments(data.documents)
+        setCurrentPage(data.currentPage)
+        setTotalPages(data.totalPages)
+        setTotalDocuments(data.totalDocuments)
+      }
     }
+  } catch (error) {
+    console.error("Failed to fetch documents:", error)
   }
+}
 
 // Toggle document selection for bulk actions
   const toggleDocumentSelection = (docId: string) => {
@@ -256,9 +287,9 @@ const fetchSentRequests = async () => {
 
 
 // Fetch archived documents
-  const fetchArchivedDocuments = async () => {
+ const fetchArchivedDocuments = async (page = 1) => {
   try {
-    const res = await fetch("/api/documents?deleted=true", {
+    const res = await fetch(`/api/documents?deleted=true&page=${page}&limit=${itemsPerPage}`, {
       method: "GET",
       credentials: "include",
     })
@@ -337,10 +368,11 @@ const handleRestoreDocument = async (docId: string, docName: string) => {
 
  useEffect(() => {
   const loadData = async () => {
-    await fetchDocuments();
-    await fetchTemplates();
-    await fetchArchivedDocuments();
+    await fetchDocuments(1);
+    await fetchTemplates(1);
+    await fetchArchivedDocuments(1);
     await fetchDrafts();
+      await fetchGroupTemplatesCount();
      
   };
   
@@ -403,9 +435,9 @@ const handleSearch = async (query: string) => {
 };
 
 // fetch templates
-  const fetchTemplates = async () => {
+ const fetchTemplates = async (page = 1) => {
   try {
-    const res = await fetch("/api/documents?templates=true", {
+    const res = await fetch(`/api/documents?templates=true&page=${page}&limit=${itemsPerPage}`, {
       method: "GET",
       credentials: "include",
     })
@@ -770,8 +802,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
     <span>Group Templates</span>
   </div>
   <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">
-    {/* You can fetch count later */}
-    0
+    {groupTemplatesCount}
   </span>
 </button>
     </div>
@@ -1380,6 +1411,53 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
     </div>
   )
 )}
+
+{/* Pagination Controls */}
+{totalPages > 1 && (
+  <div className="mt-8 flex items-center justify-between border-t pt-6">
+    <div className="text-sm text-slate-600">
+      Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to{' '}
+      <span className="font-medium">
+        {Math.min(currentPage * itemsPerPage, totalDocuments)}
+      </span> of{' '}
+      <span className="font-medium">{totalDocuments}</span> results
+    </div>
+    
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          const newPage = currentPage - 1
+          if (activeView === 'documents') fetchDocuments(newPage)
+          else if (activeView === 'templates') fetchTemplates(newPage)
+          else fetchArchivedDocuments(newPage)
+        }}
+        disabled={currentPage === 1}
+      >
+        Previous
+      </Button>
+      
+      <span className="text-sm text-slate-600">
+        Page {currentPage} of {totalPages}
+      </span>
+      
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          const newPage = currentPage + 1
+          if (activeView === 'documents') fetchDocuments(newPage)
+          else if (activeView === 'templates') fetchTemplates(newPage)
+          else fetchArchivedDocuments(newPage)
+        }}
+        disabled={currentPage === totalPages}
+      >
+        Next
+      </Button>
+    </div>
+  </div>
+)}
           </div>
         </main>
       </div>
@@ -1391,6 +1469,8 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
         onChange={handleFileInputChange}
         className="hidden"
       />
+
+      
 
       {/* Preview Drawer */}
        <Drawer open={previewDrawerOpen} onOpenChange={setPreviewDrawerOpen}>

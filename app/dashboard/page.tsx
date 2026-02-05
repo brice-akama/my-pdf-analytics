@@ -95,6 +95,7 @@ import {
   EyeOff,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import GlobalSearch from "@/components/GlobalSearch"
 
 type UserType = {
   email: string
@@ -2472,19 +2473,15 @@ case 'dashboard':
             </span>
           </div>
 
-          {/* Desktop Search Bar - Centered */}
-          <div className="hidden md:flex flex-1 justify-center px-8">
-            <div className="relative w-full max-w-xl">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                type="search"
-                placeholder="Search"
-                className="w-full pl-10 bg-slate-50 border-slate-200 focus:bg-white"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
+         {/* Desktop Search Bar - Centered */}
+<div className="hidden md:flex flex-1 justify-center px-8">
+  <div className="w-full max-w-xl">
+    <GlobalSearch 
+      placeholder="Search documents, contacts, and more..."
+      autoFocus={false}
+    />
+  </div>
+</div>
 
           {/* Mobile Search Icon */}
           <Button
@@ -2820,36 +2817,20 @@ case 'dashboard':
       </Sheet>
 
       {/* Mobile Search Sidebar */}
-      <Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
-        <SheetContent side="left" className="w-80 p-0">
-          <SheetHeader className="border-b p-6">
-            <SheetTitle>Search</SheetTitle>
-          </SheetHeader>
-          <div className="p-4">
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                type="search"
-                placeholder="Search documents..."
-                className="w-full pl-10 bg-slate-50"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-              />
-            </div>
-            {searchQuery ? (
-              <div className="text-sm text-slate-600">
-                Searching for "{searchQuery}"...
-              </div>
-            ) : (
-              <div className="text-sm text-slate-500">
-                Type to search documents, contacts, and more
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-
+<Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
+  <SheetContent side="left" className="w-80 p-0">
+    <SheetHeader className="border-b p-6">
+      <SheetTitle>Search</SheetTitle>
+    </SheetHeader>
+    <div className="p-4">
+      <GlobalSearch 
+        placeholder="Search everything..."
+        autoFocus={true}
+        onClose={() => setMobileSearchOpen(false)}
+      />
+    </div>
+  </SheetContent>
+</Sheet>
       <div className="flex">
         {/* Sidebar with clickable links */}
         <aside className="hidden lg:flex w-64 flex-col border-r bg-white/800 backdrop-blur">

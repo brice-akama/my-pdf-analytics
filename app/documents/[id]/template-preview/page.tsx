@@ -89,14 +89,61 @@ export default function TemplatePreviewPage() {
           </div>
 
           {/* Right: PDF Preview with Fields */}
-          <div className="col-span-8 bg-white rounded-lg border p-4">
-            {pdfUrl && (
-              <div className="relative">
-                <embed src={pdfUrl} type="application/pdf" className="w-full h-[800px]" />
-                {/* Overlay signature fields as visual markers */}
+<div className="col-span-8 bg-white rounded-lg border overflow-hidden">
+  {pdfUrl ? (
+    <div className="relative h-[800px] overflow-y-auto">
+      <embed
+        src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+        type="application/pdf"
+        className="w-full min-h-full border-0"
+        style={{ 
+          height: `${(doc?.numPages || 1) * 1122}px`, // A4 page height in pixels at 96dpi
+          display: 'block'
+        }}
+      />
+      
+      {/* Overlay signature fields as visual markers */}
+      <div className="absolute inset-0 pointer-events-none">
+        {template?.signatureFields?.map((field: any, idx: number) => {
+          const pageHeight = 1122; // A4 height in pixels
+          const topPosition = (field.page - 1) * pageHeight + (field.y / 100) * pageHeight;
+          const recipient = template.recipients[field.recipientIndex];
+          
+          return (
+            <div
+              key={idx}
+              className="absolute border-2 rounded bg-white/90 shadow-lg"
+              style={{
+                left: `${field.x}%`,
+                top: `${topPosition}px`,
+                width: field.type === "signature" ? "140px" : "120px",
+                height: field.type === "signature" ? "50px" : "36px",
+                borderColor: recipient?.color || '#9333ea',
+                transform: "translate(-50%, 0%)",
+              }}
+            >
+              <div className="h-full flex items-center justify-center px-2">
+                <span className="text-xs font-semibold text-slate-700 truncate">
+                  {field.type === "signature" ? "✍️" : 
+                   field.type === "date" ? "📅" : 
+                   field.type === "text" ? "📝" : 
+                   field.type} - {recipient?.name}
+                </span>
               </div>
-            )}
-          </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ) : (
+    <div className="flex items-center justify-center h-[800px]">
+      <div className="text-center">
+        <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-slate-600">Loading template preview...</p>
+      </div>
+    </div>
+  )}
+</div>
         </div>
       </main>
     </div>
