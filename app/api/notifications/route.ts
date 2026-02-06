@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
         spaceId: n.spaceId,
         actorName: n.actorName,
         actorEmail: n.actorEmail,
+        redirectUrl: n.redirectUrl,
         metadata: n.metadata,
         createdAt: n.createdAt
       })),

@@ -5037,15 +5037,29 @@ case 'dashboard':
                   className={`p-5 hover:bg-slate-50 cursor-pointer transition-all group relative ${
                     !notification.read ? 'bg-blue-50/30 border-l-4 border-l-blue-500' : ''
                   }`}
-                  onClick={() => {
-                    markAsRead(notification._id)
-                    setNotificationsOpen(false)
-                    // Navigate to document if applicable
-                    if (notification.documentId) {
-                      router.push(`/documents/${notification.documentId}`)
-                    }
-                  }}
-                >
+               onClick={() => {
+  markAsRead(notification._id)
+  setNotificationsOpen(false)
+  
+  let targetUrl;
+  
+  //   Use redirectUrl if provided
+  if (notification.redirectUrl) {
+    targetUrl = notification.redirectUrl;
+  } 
+  //   PRIORITY 2: Use uniqueId from metadata for signature notifications
+  else if (notification.type === 'signature' && notification.metadata?.uniqueId) {
+    targetUrl = `/signed/${notification.metadata.uniqueId}`;
+  } 
+  //   PRIORITY 3: Fallback to document analytics
+  else if (notification.documentId) {
+    targetUrl = `/documents/${notification.documentId}`;
+  }
+  
+  if (targetUrl) {
+    router.push(targetUrl);
+  }
+}}   >
                   {/* Delete Button */}
                   <button
                     onClick={async (e) => {
@@ -5137,16 +5151,15 @@ case 'dashboard':
         {notifications.length > 0 && (
           <div className="px-6 py-4 border-t bg-slate-50 sticky bottom-0">
             <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                setNotificationsOpen(false)
-                // TODO: Navigate to full notifications page
-                alert('View all notifications - coming soon!')
-              }}
-            >
-              View All Notifications
-            </Button>
+  variant="outline"
+  className="w-full"
+  onClick={() => {
+    setNotificationsOpen(false)
+    router.push('/notifications') // ✅ Navigate to full page
+  }}
+>
+  View All Notifications
+</Button>
           </div>
         )}
       </motion.div>

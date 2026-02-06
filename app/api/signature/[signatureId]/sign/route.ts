@@ -140,11 +140,13 @@ if (signatureRequest.selfieVerificationRequired &&
   title: 'Document Signed',
   message: `${signatureRequest.recipient.name} signed "${document.originalFilename || 'document'}"`,
   documentId: signatureRequest.documentId,
+  redirectUrl: `/signed/${signatureRequest.uniqueId}`,
   actorName: signatureRequest.recipient.name,
   actorEmail: signatureRequest.recipient.email,
   metadata: {
     signedAt: now,
     signatureRequestId: signatureRequest._id.toString(),
+    uniqueId: signatureRequest.uniqueId,
   },
 }).catch(err => console.error('Notification error:', err));
 

@@ -4,6 +4,7 @@ import { dbPromise } from "../../../lib/mongodb";
 import { ObjectId } from "mongodb";
 import { generateSignedPDF } from "@/lib/pdfGenerator";
 import cloudinary from 'cloudinary';
+import { notifyDocumentDownload } from "@/lib/notifications";
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_NAME,
@@ -167,6 +168,36 @@ export async function GET(
 
     const pdfBuffer = await pdfResponse.arrayBuffer();
     console.log('✅ Downloaded:', pdfBuffer.byteLength, 'bytes');
+
+    // ✅✅✅ ADD DOWNLOAD NOTIFICATION
+const downloaderName = isCCRequest 
+  ? (signatureRequest.recipient?.name || 'CC Recipient')
+  : (signatureRequest.recipient?.name || signatureRequest.signerName || 'Unknown User');
+const downloaderEmail = isCCRequest 
+  ? (signatureRequest.recipient?.email || signatureRequest.signerEmail)
+  : (signatureRequest.recipient?.email || signatureRequest.signerEmail);
+
+console.log('📊 Download Info:', { downloaderName, downloaderEmail, uniqueId: signatureRequest.uniqueId });
+
+if (document.userId) {
+  await notifyDocumentDownload(
+    document.userId,
+    document.originalFilename || document.filename || 'document.pdf',
+    signatureRequest.documentId,
+    downloaderName,
+    downloaderEmail,
+    signatureRequest.uniqueId
+  );
+  console.log('✅ Download notification sent to document owner');
+}
+    // ✅ Track download in document
+    await db.collection('documents').updateOne(
+      { _id: new ObjectId(signatureRequest.documentId) },
+      {
+        $inc: { 'tracking.downloads': 1 },
+        $set: { 'tracking.lastDownloaded': new Date() }
+      }
+    );
 
     return new NextResponse(pdfBuffer, {
       headers: {

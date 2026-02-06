@@ -1,5 +1,4 @@
-//api/signature/[signatureId]/signed-info/route.ts
-
+// app/api/signature/[signatureId]/signed-info/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../../lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -10,6 +9,7 @@ export async function GET(
 ) {
   try {
     const { signatureId } = await params;
+    console.log('🔍 Looking for signatureId:', signatureId);
     
     const db = await dbPromise;
 
@@ -17,6 +17,8 @@ export async function GET(
     const signatureRequest = await db.collection("signature_requests").findOne({
       uniqueId: signatureId,
     });
+
+    console.log('📄 Found signature request:', signatureRequest ? 'YES' : 'NO');
 
     if (!signatureRequest) {
       return NextResponse.json(
@@ -37,39 +39,60 @@ export async function GET(
       );
     }
 
-    // Check if fully signed
-    if (!document.signedPdfUrl) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: "Document signing is not yet complete. Please check back later." 
-        },
-        { status: 400 }
-      );
-    }
-
-    // Get all signers
+    // ✅ Get all signature requests for this document
     const allRequests = await db.collection("signature_requests")
       .find({ documentId: signatureRequest.documentId })
+      .sort({ recipientIndex: 1 })
       .toArray();
 
-    const signers = allRequests
-      .filter(r => r.status === 'signed')
-      .map(r => ({
-        name: r.recipient.name,
-        email: r.recipient.email,
-        signedAt: r.signedAt,
-      }));
+    const totalRecipients = allRequests.length;
+    const signedCount = allRequests.filter(r => r.status === 'signed').length;
+    const allSigned = signedCount === totalRecipients;
 
-    return NextResponse.json({
+    // ✅ Build detailed signer information
+    const signers = allRequests.map(req => ({
+      name: req.recipient.name,
+      email: req.recipient.email,
+      status: req.status, // 'pending', 'signed', 'viewed', etc.
+      signedAt: req.signedAt || null,
+      signedFields: req.signedFields || null, // ✅ Include their signature data
+      ipAddress: req.ipAddress || null,
+      device: req.device || null,
+      browser: req.browser || null,
+      location: req.location || null,
+    }));
+
+    // ✅ Determine what to show based on signing status
+    const response: any = {
       success: true,
       document: {
-        filename: document.filename,
+        filename: document.originalFilename || document.filename,
         numPages: document.numPages,
       },
-      completedAt: document.completedAt,
+      progress: {
+        signed: signedCount,
+        total: totalRecipients,
+        percentage: Math.round((signedCount / totalRecipients) * 100),
+        allSigned,
+      },
       signers,
-    });
+      // ✅ Show the current signer's info
+      currentSigner: {
+        name: signatureRequest.recipient.name,
+        email: signatureRequest.recipient.email,
+        status: signatureRequest.status,
+        signedAt: signatureRequest.signedAt,
+      },
+    };
+
+    // ✅ If ALL signed, include the final PDF
+    if (allSigned && document.signedPdfUrl) {
+      response.signedPdfUrl = document.signedPdfUrl;
+      response.completedAt = document.completedAt;
+    }
+
+    return NextResponse.json(response);
+
   } catch (error) {
     console.error('❌ Error fetching signed info:', error);
     return NextResponse.json(

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { FileText, Download, Check, Loader2, AlertCircle, Eye } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export default function SignedDocumentPage() {
   const params = useParams();
@@ -12,8 +13,9 @@ export default function SignedDocumentPage() {
   const [error, setError] = useState<string | null>(null);
   const [documentData, setDocumentData] = useState<any>(null);
   const [downloading, setDownloading] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<any[]>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+const [drawerContent, setDrawerContent] = useState<string | null>(null);
 
   // Fetch attachments
   useEffect(() => {
@@ -94,25 +96,27 @@ export default function SignedDocumentPage() {
 
   // View PDF in browser
   const handleView = async () => {
-    if (pdfUrl) {
-      window.open(pdfUrl, '_blank');
-      return;
+  try {
+    const res = await fetch(`/api/signature/${signatureId}/download`);
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setDrawerContent(url);
+      setDrawerOpen(true);
     }
+  } catch (err) {
+    console.error('View error:', err);
+    alert('Failed to view document');
+  }
+};
 
-    try {
-      const res = await fetch(`/api/signature/${signatureId}/download`);
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        setPdfUrl(url);
-        window.open(url, '_blank');
-      }
-    } catch (err) {
-      console.error('View error:', err);
-      alert('Failed to view document');
-    }
-  };
-
+const handleDrawerClose = (open: boolean) => {
+  setDrawerOpen(open);
+  if (!open && drawerContent) {
+    URL.revokeObjectURL(drawerContent);
+    setDrawerContent(null);
+  }
+};
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
@@ -299,18 +303,28 @@ export default function SignedDocumentPage() {
           </div>
         )}
 
-        {/* PDF Viewer (Optional) */}
-        {pdfUrl && (
-          <div className="bg-white rounded-xl shadow-xl p-4">
-            <h3 className="font-semibold text-slate-900 mb-4">Document Preview</h3>
-            <iframe
-              src={pdfUrl}
-              className="w-full h-[800px] border-0 rounded-lg"
-              title="Signed Document"
-            />
-          </div>
-        )}
+       
       </div>
+      {/* PDF Viewer Drawer */}
+<Sheet open={drawerOpen} onOpenChange={handleDrawerClose}>
+  <SheetContent side="right" className="w-full sm:max-w-4xl p-0 flex flex-col bg-white">
+    <SheetHeader className="p-6 border-b">
+      <SheetTitle className="flex items-center gap-2">
+        <FileText className="h-5 w-5" />
+        Document Preview
+      </SheetTitle>
+    </SheetHeader>
+    <div className="flex-1 overflow-hidden">
+  {drawerContent && (
+    <iframe
+      src={`${drawerContent}#toolbar=0&navpanes=0&scrollbar=1`}
+      className="w-full h-full border-0"
+      title="Signed Document Preview"
+    />
+  )}
+</div>
+  </SheetContent>
+</Sheet>
     </div>
   );
 }

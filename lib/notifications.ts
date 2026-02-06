@@ -23,6 +23,7 @@ interface CreateNotificationParams {
   documentId?: string;
   spaceId?: string;
   actorName?: string;
+  redirectUrl?: string;
   actorEmail?: string;
   metadata?: Record<string, any>;
 }
@@ -40,6 +41,7 @@ export async function createNotification(params: CreateNotificationParams) {
       spaceId: params.spaceId,
       actorName: params.actorName,
       actorEmail: params.actorEmail,
+      redirectUrl: params.redirectUrl,
       metadata: params.metadata || {},
       read: false,
       readAt: null,
@@ -104,7 +106,8 @@ export async function notifyDocumentDownload(
   originalFilename: string,
   documentId: string,
   downloaderName: string,
-  downloaderEmail: string
+  downloaderEmail: string,
+  uniqueId?: string
 ) {
   return createNotification({
     userId: ownerId,
@@ -112,9 +115,13 @@ export async function notifyDocumentDownload(
     title: 'Document Downloaded',
     message: `${downloaderName} downloaded "${originalFilename}"`,
     documentId,
+    redirectUrl: uniqueId ? `/signed/${uniqueId}` : `/documents/${documentId}`, // ✅ This should work now
     actorName: downloaderName,
     actorEmail: downloaderEmail,
-    metadata: { downloadedAt: new Date() }
+    metadata: { 
+      downloadedAt: new Date(),
+      uniqueId // ✅ Store uniqueId in metadata too
+    }
   });
 }
 
