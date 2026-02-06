@@ -5,6 +5,7 @@ import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import { createNotification } from '@/lib/notifications';
 
 // ✅ POST - Create new share link with advanced settings
 export async function POST(
@@ -294,6 +295,21 @@ tracking: {
 
     // ✅ Insert share record
     const result = await db.collection('shares').insertOne(shareRecord);
+
+    // Notify user that share link was created
+await createNotification({
+  userId: user.id,
+  type: 'share',
+  title: 'Share Link Created',
+  message: `Share link created for "${document.originalFilename}"`,
+  documentId: documentId.toString(),
+  metadata: { 
+    shareToken,
+    expiresAt,
+    recipientCount: emailWhitelist.length,
+    hasPassword: !!password,
+  }
+}).catch(err => console.error('Notification error:', err));
 
     // ✅ Update document's shareLinks array
     await db.collection('documents').updateOne(

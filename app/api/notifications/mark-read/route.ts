@@ -5,8 +5,7 @@ import { ObjectId } from 'mongodb';
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const user = await verifyUserFromRequest(authHeader);
+    const user = await verifyUserFromRequest(request);
     
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

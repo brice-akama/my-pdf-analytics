@@ -1,6 +1,7 @@
 // app/api/view/[token]/track/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
+import { notifyDocumentView } from '@/lib/notifications';
 
 // ✅ REAL IP Geolocation Function (using ipapi.co - FREE, no API key needed)
 async function getLocationFromIP(ip: string) {
@@ -113,10 +114,39 @@ export async function POST(
     // Validate data types based on event
     switch (event) {
       case 'page_view':
-        if (page && !isNaN(page)) {
-          await trackPageView(db, share, parseInt(page), viewerId, now, location);
-        }
-        break;
+  if (page && !isNaN(page)) {
+    const pageNumber = parseInt(page);
+
+    // 1️⃣ Track the page view first
+    await trackPageView(db, share, pageNumber, viewerId, now, location);
+
+    // 2️⃣ Notify document owner ONLY on first page view
+    if (pageNumber === 1 && share.userId) {
+      const viewer = await db.collection('share_viewers').findOne({
+        shareId: share._id.toString(),
+        viewerId,
+      });
+
+      // 🚨 Prevent duplicate notifications
+      if (viewer?.email && !viewer.notifiedOwner) {
+        await notifyDocumentView(
+          share.userId,
+          share.documentSnapshot?.originalFilename || 'Document',
+          share.documentId.toString(),
+          viewer.name || viewer.email,
+          viewer.email
+        ).catch(err => console.error('Notification error:', err));
+
+        // Mark as notified
+        await db.collection('share_viewers').updateOne(
+          { _id: viewer._id },
+          { $set: { notifiedOwner: true } }
+        );
+      }
+    }
+  }
+  break;
+
       
       case 'scroll':
         if (page && !isNaN(page) && scrollDepth && !isNaN(scrollDepth)) {
@@ -166,7 +196,7 @@ export async function POST(
                 filename: metadata?.filename || 'unknown',
                 success: true,
               },
-            },
+            } as any,
           }
         );
         break;
@@ -232,7 +262,7 @@ async function trackPageView(
     timestamp,
     userAgent: share.tracking?.userAgent,
     location,
-  }).catch(err => console.error('Failed to log page view:', err));
+  }).catch((err: any) => console.error('Failed to log page view:', err));
 }
 
 async function trackScroll(db: any, share: any, page: number, scrollDepth: number, viewerId: string, timestamp: Date) {

@@ -6,11 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 import DashboardOverview from '@/components/DashboardOverview';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Dialog,
@@ -732,11 +727,10 @@ const handleShareDocument = async () => {
   }
 
   try {
-    const token = localStorage.getItem("token")
     const res = await fetch(`/api/documents/${selectedDocumentToShare}/share-with-user`, {
       method: 'POST',
+      credentials: 'include', // ✅ Send HTTP-only cookie
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -1044,16 +1038,14 @@ const handleCreateFileRequest = async () => {
   }
 }
 
+
+
 // Fetch notifications
 const fetchNotifications = async () => {
-  const token = localStorage.getItem("token")
-  if (!token) return
-
   try {
     const res = await fetch("/api/notifications", {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
+      method: 'GET',
+      credentials: 'include', // ✅ Send HTTP-only cookie
     })
 
     if (res.ok) {
@@ -1070,14 +1062,11 @@ const fetchNotifications = async () => {
 
 // Mark notification as read
 const markAsRead = async (notificationId?: string) => {
-  const token = localStorage.getItem("token")
-  if (!token) return
-
   try {
-    const res = await fetch("/api/notifications/mark-read", {
-      method: 'POST',
+    const res = await fetch("/api/notifications", {
+      method: 'PATCH',
+      credentials: 'include', // ✅ Send HTTP-only cookie
       headers: {
-        "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ notificationId })
@@ -1813,14 +1802,10 @@ const TemplatesSection = () => {
 
   // Fetch agreements
 const fetchAgreements = async () => {
-  const token = localStorage.getItem("token")
-  if (!token) return
-
   try {
     const res = await fetch("/api/agreements", {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
+      method: 'GET',
+      credentials: 'include', // ✅ Send HTTP-only cookie
     })
 
     if (res.ok) {
@@ -1867,9 +1852,17 @@ const fetchFileRequests = async () => {
  
 
   // Handle logout
-const handleLogout = () => {
-  localStorage.removeItem('token')
-  router.push('/login')
+const handleLogout = async () => {
+  try {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include'
+    })
+    router.push('/login')
+  } catch (error) {
+    console.error('Logout error:', error)
+    router.push('/login')
+  }
 }
 
 // Handle feedback submit
@@ -1880,16 +1873,14 @@ const handleFeedbackSubmit = async () => {
   }
 
   try {
-    const token = localStorage.getItem("token")
     const res = await fetch('/api/feedback', {
       method: 'POST',
+      credentials: 'include', // ✅ Send HTTP-only cookie
       headers: {
-        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ feedback: feedbackText }),
     })
-
     if (res.ok) {
       alert('Thank you for your feedback!')
       setFeedbackText('')
@@ -2501,84 +2492,20 @@ case 'dashboard':
               ⬆ Upgrade
             </Button>
 
-            <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
-  <PopoverTrigger asChild>
-    <Button variant="ghost" size="icon" className="relative">
-      <Bell className="h-5 w-5 text-slate-600" />
-      {unreadCount > 0 && (
-        <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-          {unreadCount > 9 ? '9+' : unreadCount}
-        </span>
-      )}
-    </Button>
-  </PopoverTrigger>
-  <PopoverContent className="w-96 p-0" align="end">
-    <div className="border-b p-4 flex items-center justify-between">
-      <h3 className="font-semibold text-slate-900">Notifications</h3>
-      {unreadCount > 0 && (
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="text-xs"
-          onClick={() => markAsRead()}
-        >
-          Mark all as read
-        </Button>
-      )}
-    </div>
-    
-    <ScrollArea className="h-[400px]">
-      {notifications.length > 0 ? (
-        <div className="divide-y">
-          {notifications.map((notification) => (
-            <div 
-              key={notification._id}
-              className={`p-4 hover:bg-slate-50 cursor-pointer transition-colors ${
-                !notification.read ? 'bg-blue-50/50' : ''
-              }`}
-              onClick={() => {
-                markAsRead(notification._id)
-                setNotificationsOpen(false)
-                // Navigate to document if applicable
-                if (notification.documentId) {
-                  router.push(`/documents/${notification.documentId}`)
-                }
-              }}
-            >
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 mt-1">
-                  {getNotificationIcon(notification.type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm ${!notification.read ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
-                    {notification.title}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {notification.message}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {formatTimeAgo(notification.createdAt)}
-                  </p>
-                </div>
-                {!notification.read && (
-                  <div className="flex-shrink-0">
-                    <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="p-8 text-center">
-          <Bell className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-sm text-slate-600">No notifications yet</p>
-        </div>
-      )}
-    </ScrollArea>
-  </PopoverContent>
-</Popover>
-
+            {/* Bell Icon Button */}
+<Button 
+  variant="ghost" 
+  size="icon" 
+  className="relative"
+  onClick={() => setNotificationsOpen(true)}
+>
+  <Bell className="h-5 w-5 text-slate-600" />
+  {unreadCount > 0 && (
+    <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+      {unreadCount > 9 ? '9+' : unreadCount}
+    </span>
+  )}
+</Button>
             <Button variant="ghost" size="icon">
               <HelpCircle className="h-5 w-5 text-slate-600" />
             </Button>
@@ -5046,7 +4973,186 @@ case 'dashboard':
   </SheetContent>
 </Sheet>
 
+{/* Notifications Drawer - Modern Slide-in */}
+<AnimatePresence>
+  {notificationsOpen && (
+    <>
+    {/* Backdrop */}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={() => setNotificationsOpen(false)}
+      className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50"
+    />
 
+    
+
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[480px] bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Notifications</h2>
+            <p className="text-sm text-slate-600 mt-0.5">
+              {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => markAsRead()}
+                className="text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+              >
+                Mark all read
+              </Button>
+            )}
+            <button
+              onClick={() => setNotificationsOpen(false)}
+              className="h-8 w-8 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
+            >
+              <X className="h-5 w-5 text-slate-600" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {notifications.length > 0 ? (
+            <div className="divide-y divide-slate-100">
+              {notifications.map((notification) => (
+                <motion.div
+                  key={notification._id}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className={`p-5 hover:bg-slate-50 cursor-pointer transition-all group relative ${
+                    !notification.read ? 'bg-blue-50/30 border-l-4 border-l-blue-500' : ''
+                  }`}
+                  onClick={() => {
+                    markAsRead(notification._id)
+                    setNotificationsOpen(false)
+                    // Navigate to document if applicable
+                    if (notification.documentId) {
+                      router.push(`/documents/${notification.documentId}`)
+                    }
+                  }}
+                >
+                  {/* Delete Button */}
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation()
+                      
+                      try {
+                        const res = await fetch(`/api/notifications?id=${notification._id}`, {
+                          method: 'DELETE',
+                          credentials: 'include'
+                        })
+                        
+                        if (res.ok) {
+                          toast.success('Notification deleted')
+                          fetchNotifications()
+                        } else {
+                          toast.error('Failed to delete')
+                        }
+                      } catch (error) {
+                        console.error('Delete error:', error)
+                        toast.error('Failed to delete')
+                      }
+                    }}
+                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-100 rounded-full z-10"
+                    aria-label="Delete notification"
+                  >
+                    <Trash2 className="h-4 w-4 text-red-600" />
+                  </button>
+
+                  <div className="flex gap-4">
+                    {/* Icon */}
+                    <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
+                      notification.type === 'view' ? 'bg-blue-100' :
+                      notification.type === 'download' ? 'bg-green-100' :
+                      notification.type === 'signature' ? 'bg-purple-100' :
+                      notification.type === 'share' ? 'bg-orange-100' :
+                      'bg-slate-100'
+                    }`}>
+                      {getNotificationIcon(notification.type)}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <p className={`text-sm font-semibold ${
+                          !notification.read ? 'text-slate-900' : 'text-slate-700'
+                        }`}>
+                          {notification.title}
+                        </p>
+                        {!notification.read && (
+                          <div className="h-2 w-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 mb-2 line-clamp-2">
+                        {notification.message}
+                      </p>
+                      <div className="flex items-center gap-3 text-xs text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatTimeAgo(notification.createdAt)}
+                        </span>
+                        {notification.actorName && (
+                          <>
+                            <span>•</span>
+                            <span>{notification.actorName}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full p-12 text-center">
+              <div className="h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                <Bell className="h-10 w-10 text-slate-300" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                No notifications yet
+              </h3>
+              <p className="text-sm text-slate-500 max-w-sm">
+                When someone views, downloads, or signs your documents, you'll see notifications here.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {notifications.length > 0 && (
+          <div className="px-6 py-4 border-t bg-slate-50 sticky bottom-0">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setNotificationsOpen(false)
+                // TODO: Navigate to full notifications page
+                alert('View all notifications - coming soon!')
+              }}
+            >
+              View All Notifications
+            </Button>
+          </div>
+        )}
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
  
     </div>
   )

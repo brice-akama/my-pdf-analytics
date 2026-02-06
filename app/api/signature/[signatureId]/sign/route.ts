@@ -11,6 +11,7 @@ import {
 } from "@/lib/emailService";
 import { generateSignedPDF } from "@/lib/pdfGenerator";
 import { getLocationFromIP } from '@/lib/geoip';
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(
   request: NextRequest,
@@ -132,6 +133,21 @@ if (signatureRequest.selfieVerificationRequired &&
     );
 
     console.log('✅ Signature saved for:', signatureRequest.recipient.name);
+
+    await createNotification({
+  userId: document.userId,
+  type: 'signature',
+  title: 'Document Signed',
+  message: `${signatureRequest.recipient.name} signed "${document.originalFilename || 'document'}"`,
+  documentId: signatureRequest.documentId,
+  actorName: signatureRequest.recipient.name,
+  actorEmail: signatureRequest.recipient.email,
+  metadata: {
+    signedAt: now,
+    signatureRequestId: signatureRequest._id.toString(),
+  },
+}).catch(err => console.error('Notification error:', err));
+
 
   
 
