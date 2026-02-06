@@ -62,21 +62,25 @@ export async function createNotification(params: CreateNotificationParams) {
 
 // ✅ FIXED: Changed documentName to originalFilename for consistency
 export async function notifyDocumentView(
-  ownerId: string,
-  originalFilename: string,  // Changed parameter name
-  documentId: string,
-  viewerName: string,
-  viewerEmail: string
-) {
+ownerId: string, originalFilename: string, documentId: string, viewerName: string, viewerEmail: string, uniqueId?: string, p0?: boolean) {
+  // ✅ Determine redirect based on uniqueId presence
+  const redirectUrl = uniqueId 
+    ? `/signed/${uniqueId}`  // Has uniqueId = signature document
+    : `/documents/${documentId}`; // No uniqueId = regular shared document
+  
   return createNotification({
     userId: ownerId,
     type: 'view',
     title: 'Document Viewed',
-    message: `${viewerName} viewed "${originalFilename}"`,  // ✅ Using correct field
+    message: `${viewerName} viewed "${originalFilename}"`,
     documentId,
+    redirectUrl,
     actorName: viewerName,
     actorEmail: viewerEmail,
-    metadata: { viewedAt: new Date() }
+    metadata: { 
+      viewedAt: new Date(),
+      uniqueId
+    }
   });
 }
 

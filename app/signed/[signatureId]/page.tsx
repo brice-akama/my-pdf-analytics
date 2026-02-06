@@ -97,7 +97,7 @@ const [drawerContent, setDrawerContent] = useState<string | null>(null);
   // View PDF in browser
   const handleView = async () => {
   try {
-    const res = await fetch(`/api/signature/${signatureId}/download`);
+   const res = await fetch(`/api/signature/${signatureId}/view`);
     if (res.ok) {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

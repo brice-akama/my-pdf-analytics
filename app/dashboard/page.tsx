@@ -281,7 +281,6 @@ const [showHelpDialog, setShowHelpDialog] = useState(false)
 const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
 const [showIntegrationsDialog, setShowIntegrationsDialog] = useState(false)
 const [showContactDialog, setShowContactDialog] = useState(false)
-const [showSwitchCompanyDialog, setShowSwitchCompanyDialog] = useState(false)
 const [feedbackText, setFeedbackText] = useState('')
 const [notifications, setNotifications] = useState<any[]>([])
 const [unreadCount, setUnreadCount] = useState(0)
@@ -2506,9 +2505,7 @@ case 'dashboard':
     </span>
   )}
 </Button>
-            <Button variant="ghost" size="icon">
-              <HelpCircle className="h-5 w-5 text-slate-600" />
-            </Button>
+            
 
             {/* User Profile with Email */}
             {/* User Profile with Email */}
@@ -2569,10 +2566,7 @@ case 'dashboard':
   
   <DropdownMenuSeparator />
   
-  <DropdownMenuItem onClick={() => setShowSwitchCompanyDialog(true)}>
-    <Building className="mr-2 h-4 w-4" />
-    <span>Switch Company</span>
-  </DropdownMenuItem>
+  
   
   <DropdownMenuItem onClick={() => setShowTeamDrawer(true)}>
     <UsersIcon className="mr-2 h-4 w-4" />
@@ -2599,10 +2593,13 @@ case 'dashboard':
     <span>Feedback</span>
   </DropdownMenuItem>
   
-  <DropdownMenuItem onClick={() => setShowEarnCreditDialog(true)}>
+   {/* TEMPORARILY HIDDEN - Enable when you have 100+ users */}
+{/* 
+<DropdownMenuItem onClick={() => setShowEarnCreditDialog(true)}>
   <Gift className="mr-2 h-4 w-4" />
   <span>Earn Credit</span>
 </DropdownMenuItem>
+*/}
   
   <DropdownMenuItem onClick={() => setShowIntegrationsDialog(true)}>
     <Puzzle className="mr-2 h-4 w-4" />
@@ -3112,260 +3109,7 @@ case 'dashboard':
 </AnimatePresence>
 
  
-{/* Billing Dialog - SMART VERSION */}
-<Dialog open={showBillingDialog} onOpenChange={setShowBillingDialog}>
-  <DialogContent className="max-w-2xl">
-    <DialogHeader>
-      <DialogTitle>Billing & Subscription</DialogTitle>
-      <DialogDescription>
-        {!user?.plan || user?.plan?.toLowerCase() === 'free' 
-          ? 'Upgrade to unlock premium features'
-          : 'Manage your subscription and billing'
-        }
-      </DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-6">
-      {/* FREE PLAN VIEW */}
-      {!user?.plan || user?.plan?.toLowerCase() === 'free' ? (
-        <>
-          {/* Free Plan Status */}
-          <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-8 border-2 border-slate-200 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-200 mb-4">
-              <FileText className="h-8 w-8 text-slate-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-slate-900 mb-2">You're on the Free Plan</h3>
-            <p className="text-slate-600 mb-6 max-w-md mx-auto">
-              Upgrade to unlock unlimited documents, advanced analytics, team collaboration, and more!
-            </p>
-            
-            {/* Feature Preview */}
-            <div className="bg-white rounded-lg p-4 mb-6 border border-slate-200">
-              <p className="text-sm font-semibold text-slate-900 mb-3">What you're missing:</p>
-              <div className="grid md:grid-cols-2 gap-3 text-left">
-                <div className="flex items-start gap-2">
-                  <div className="h-5 w-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <X className="h-3 w-3 text-purple-600" />
-                  </div>
-                  <span className="text-sm text-slate-600">Unlimited documents</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="h-5 w-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <X className="h-3 w-3 text-purple-600" />
-                  </div>
-                  <span className="text-sm text-slate-600">Advanced analytics</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="h-5 w-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <X className="h-3 w-3 text-purple-600" />
-                  </div>
-                  <span className="text-sm text-slate-600">Team collaboration</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="h-5 w-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <X className="h-3 w-3 text-purple-600" />
-                  </div>
-                  <span className="text-sm text-slate-600">Custom branding</span>
-                </div>
-              </div>
-            </div>
 
-            <Button 
-              onClick={() => {
-                setShowBillingDialog(false)
-                router.push('/plan')
-              }}
-              size="lg"
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 w-full sm:w-auto px-8"
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              Compare Plans
-            </Button>
-          </div>
-
-          {/* Current Usage */}
-          <div className="bg-white rounded-lg border p-6">
-            <h4 className="font-semibold text-slate-900 mb-4">Current Usage</h4>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Documents</p>
-                <div className="flex items-baseline gap-1">
-                  <p className="text-2xl font-bold text-slate-900">{documents.length}</p>
-                  <p className="text-sm text-slate-500">/ 5</p>
-                </div>
-                <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
-                    style={{ width: `${(documents.length / 5) * 100}%` }}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <p className="text-sm text-slate-600 mb-1">eSignatures</p>
-                <div className="flex items-baseline gap-1">
-                  <p className="text-2xl font-bold text-slate-900">0</p>
-                  <p className="text-sm text-slate-500">/ 4</p>
-                </div>
-                <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full" style={{ width: '0%' }} />
-                </div>
-              </div>
-              
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Team Members</p>
-                <div className="flex items-baseline gap-1">
-                  <p className="text-2xl font-bold text-slate-900">1</p>
-                  <p className="text-sm text-slate-500">/ 1</p>
-                </div>
-                <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full" style={{ width: '100%' }} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      ) : (
-        /* PAID PLAN VIEW */
-        <>
-          {/* Active Subscription */}
-          <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border-2 border-purple-200">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-2xl font-bold text-slate-900">{user.plan} Plan</h3>
-                  <span className="bg-green-500 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
-                    <CheckCircle className="h-3 w-3" />
-                    Active
-                  </span>
-                </div>
-                <p className="text-sm text-slate-600">
-                  Billed monthly • Next billing: <span className="font-semibold">Jan 15, 2025</span>
-                </p>
-              </div>
-              <Button 
-                onClick={() => {
-                  setShowBillingDialog(false)
-                  router.push('/plan')
-                }}
-                variant="outline"
-                className="gap-2"
-              >
-                <BarChart3 className="h-4 w-4" />
-                Compare Plans
-              </Button>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-6 pt-6 border-t border-purple-200">
-              <div>
-                <p className="text-xs text-slate-600 mb-1">Monthly Cost</p>
-                <p className="text-3xl font-bold text-slate-900">$45</p>
-                <p className="text-xs text-slate-500 mt-1">per user</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-600 mb-1">Documents</p>
-                <p className="text-3xl font-bold text-slate-900">{documents.length}</p>
-                <p className="text-xs text-green-600 mt-1">Unlimited</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-600 mb-1">Storage Used</p>
-                <p className="text-3xl font-bold text-slate-900">2.4 GB</p>
-                <p className="text-xs text-slate-500 mt-1">of unlimited</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Payment Method */}
-          <div className="bg-white rounded-lg border p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold text-slate-900">Payment Method</h4>
-              <Button variant="outline" size="sm">Update</Button>
-            </div>
-            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-              <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <CreditCard className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-slate-900">Visa ending in 4242</p>
-                <p className="text-sm text-slate-500">Expires 12/2025</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Billing History */}
-          <div className="bg-white rounded-lg border p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold text-slate-900">Billing History</h4>
-              <Button variant="ghost" size="sm" className="text-purple-600">View All</Button>
-            </div>
-            <div className="space-y-2">
-              {[
-                { date: 'Dec 15, 2024', amount: '$45.00', status: 'Paid', invoice: 'INV-001' },
-                { date: 'Nov 15, 2024', amount: '$45.00', status: 'Paid', invoice: 'INV-002' },
-                { date: 'Oct 15, 2024', amount: '$45.00', status: 'Paid', invoice: 'INV-003' },
-              ].map((invoice, i) => (
-                <div key={i} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{invoice.invoice}</p>
-                      <p className="text-xs text-slate-500">{invoice.date}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-slate-900">{invoice.amount}</span>
-                    <Button variant="ghost" size="sm" className="h-8 text-xs">
-                      <Download className="h-3 w-3 mr-1" />
-                      PDF
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Manage Subscription */}
-          <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-            <div className="flex items-start gap-3">
-              <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
-                <Settings className="h-4 w-4 text-slate-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-slate-900 mb-1">Need to make changes?</p>
-                <p className="text-xs text-slate-600 mb-3">Update your payment method, cancel subscription, or change your plan.</p>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">Cancel Subscription</Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setShowBillingDialog(false)
-                      router.push('/plan')
-                    }}
-                  >
-                    Change Plan
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Close Button */}
-      <div className="flex justify-end pt-4 border-t">
-        <Button
-          variant="outline"
-          onClick={() => setShowBillingDialog(false)}
-        >
-          Close
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
 
 {/* Team Drawer */}
 {/* Team Drawer - IMPROVED WIDTH & STYLING */}
@@ -3732,245 +3476,1171 @@ case 'dashboard':
   </DialogContent>
 </Dialog>
 
-{/* Resources Dialog */}
-<Dialog open={showResourcesDialog} onOpenChange={setShowResourcesDialog}>
-  <DialogContent className="max-w-2xl bg-white">
-    <DialogHeader>
-      <DialogTitle>Resources</DialogTitle>
-      <DialogDescription>Helpful guides and documentation</DialogDescription>
-    </DialogHeader>
-    
-    <div className="grid md:grid-cols-2 gap-4 bg-white">
-      <a href="https://docs.docmetrics.com" target="_blank" rel="noopener noreferrer" 
-         className="border rounded-lg p-6 hover:border-purple-500 hover:bg-purple-50/30 transition-all cursor-pointer">
-        <Book className="h-8 w-8 text-purple-600 mb-3" />
-        <h4 className="font-semibold text-slate-900 mb-2">Documentation</h4>
-        <p className="text-sm text-slate-600">Complete guides and API reference</p>
-      </a>
-      
-      <a href="https://help.docmetrics.com" target="_blank" rel="noopener noreferrer"
-         className="border rounded-lg p-6 hover:border-purple-500 hover:bg-purple-50/30 transition-all cursor-pointer">
-        <HelpCircle className="h-8 w-8 text-blue-600 mb-3" />
-        <h4 className="font-semibold text-slate-900 mb-2">Help Center</h4>
-        <p className="text-sm text-slate-600">FAQs and troubleshooting</p>
-      </a>
-      
-      <a href="https://blog.docmetrics.com" target="_blank" rel="noopener noreferrer"
-         className="border rounded-lg p-6 hover:border-purple-500 hover:bg-purple-50/30 transition-all cursor-pointer">
-        <FileText className="h-8 w-8 text-green-600 mb-3" />
-        <h4 className="font-semibold text-slate-900 mb-2">Blog</h4>
-        <p className="text-sm text-slate-600">Tips, updates, and best practices</p>
-      </a>
-      
-      <a href="https://www.youtube.com/@docmetrics" target="_blank" rel="noopener noreferrer"
-         className="border rounded-lg p-6 hover:border-purple-500 hover:bg-purple-50/30 transition-all cursor-pointer">
-        <Activity className="h-8 w-8 text-red-600 mb-3" />
-        <h4 className="font-semibold text-slate-900 mb-2">Video Tutorials</h4>
-        <p className="text-sm text-slate-600">Step-by-step video guides</p>
-      </a>
-    </div>
-  </DialogContent>
-</Dialog>
+{/* Resources Drawer */}
+<AnimatePresence>
+  {showResourcesDialog && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowResourcesDialog(false)}
+        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
+      />
 
-{/* Help Dialog */}
-<Dialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
-  <DialogContent className="max-w-xl bg-white">
-    <DialogHeader>
-      <DialogTitle>Help & Support</DialogTitle>
-      <DialogDescription>Get help with DocMetrics</DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-4">
-      <div className="border rounded-lg p-4 hover:bg-slate-50 transition-colors cursor-pointer">
-        <h4 className="font-semibold text-slate-900 mb-2">📚 Browse Help Articles</h4>
-        <p className="text-sm text-slate-600">Find answers in our knowledge base</p>
-      </div>
-      
-      <div className="border rounded-lg p-4 hover:bg-slate-50 transition-colors cursor-pointer">
-        <h4 className="font-semibold text-slate-900 mb-2">💬 Live Chat Support</h4>
-        <p className="text-sm text-slate-600">Chat with our support team (Mon-Fri, 9am-5pm EST)</p>
-      </div>
-      
-      <div className="border rounded-lg p-4 hover:bg-slate-50 transition-colors cursor-pointer">
-        <h4 className="font-semibold text-slate-900 mb-2">📧 Email Support</h4>
-        <p className="text-sm text-slate-600">support@docmetrics.com</p>
-      </div>
-      
-      <div className="border rounded-lg p-4 hover:bg-slate-50 transition-colors cursor-pointer">
-        <h4 className="font-semibold text-slate-900 mb-2">🎥 Schedule a Demo</h4>
-        <p className="text-sm text-slate-600">Book a personalized walkthrough</p>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[700px] bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Resources</h2>
+            <p className="text-sm text-slate-600 mt-1">Helpful guides and documentation</p>
+          </div>
+          <button
+            onClick={() => setShowResourcesDialog(false)}
+            className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
+          >
+            <X className="h-5 w-5 text-slate-600" />
+          </button>
+        </div>
 
-{/* Feedback Dialog */}
-<Dialog open={showFeedbackDialog} onOpenChange={setShowFeedbackDialog}>
-  <DialogContent className="max-w-xl bg-white">
-    <DialogHeader>
-      <DialogTitle>Send Feedback</DialogTitle>
-      <DialogDescription>Help us improve DocMetrics</DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Your Feedback</Label>
-        <Textarea 
-          placeholder="Tell us what you think, report bugs, or suggest new features..."
-          rows={6}
-          value={feedbackText}
-          onChange={(e) => setFeedbackText(e.target.value)}
-        />
-      </div>
-      
-      <div className="flex gap-2 justify-end">
-        <Button variant="outline" onClick={() => setShowFeedbackDialog(false)}>
-          Cancel
-        </Button>
-        <Button 
-          onClick={handleFeedbackSubmit}
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-        >
-          Submit Feedback
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="grid md:grid-cols-2 gap-4 max-w-4xl">
+            <a 
+              href="https://docs.docmetrics.com" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
+            >
+              <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Book className="h-7 w-7 text-white" />
+              </div>
+              <h4 className="font-bold text-slate-900 mb-2 text-lg">Documentation</h4>
+              <p className="text-sm text-slate-600 mb-3">Complete guides and API reference</p>
+              <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
+                <span>Browse Docs</span>
+                <ChevronRight className="h-4 w-4" />
+              </div>
+            </a>
+            
+            <a 
+              href="https://help.docmetrics.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
+            >
+              <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <HelpCircle className="h-7 w-7 text-white" />
+              </div>
+              <h4 className="font-bold text-slate-900 mb-2 text-lg">Help Center</h4>
+              <p className="text-sm text-slate-600 mb-3">FAQs and troubleshooting</p>
+              <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
+                <span>Get Help</span>
+                <ChevronRight className="h-4 w-4" />
+              </div>
+            </a>
+            
+            <a 
+              href="https://blog.docmetrics.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
+            >
+              <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <FileText className="h-7 w-7 text-white" />
+              </div>
+              <h4 className="font-bold text-slate-900 mb-2 text-lg">Blog</h4>
+              <p className="text-sm text-slate-600 mb-3">Tips, updates, and best practices</p>
+              <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
+                <span>Read Blog</span>
+                <ChevronRight className="h-4 w-4" />
+              </div>
+            </a>
+            
+            <a 
+              href="https://www.youtube.com/@docmetrics" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
+            >
+              <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Activity className="h-7 w-7 text-white" />
+              </div>
+              <h4 className="font-bold text-slate-900 mb-2 text-lg">Video Tutorials</h4>
+              <p className="text-sm text-slate-600 mb-3">Step-by-step video guides</p>
+              <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
+                <span>Watch Now</span>
+                <ChevronRight className="h-4 w-4" />
+              </div>
+            </a>
+          </div>
 
-{/* Integrations Dialog */}
-<Dialog  open={showIntegrationsDialog} onOpenChange={setShowIntegrationsDialog}>
-  <DialogContent className="max-w-3xl bg-white">
-    <DialogHeader>
-      <DialogTitle >Integrations</DialogTitle>
-      <DialogDescription>Connect DocMetrics with your favorite tools</DialogDescription>
-    </DialogHeader>
-    
-    <div className="grid md:grid-cols-2 gap-4">
-      {[
-        { name: 'Slack', desc: 'Get notifications in Slack', icon: '💬', connected: false },
-        { name: 'Google Drive', desc: 'Import from Google Drive', icon: '📁', connected: false },
-        { name: 'Dropbox', desc: 'Sync with Dropbox', icon: '📦', connected: false },
-        { name: 'Zapier', desc: 'Automate workflows', icon: '⚡', connected: false },
-        { name: 'Salesforce', desc: 'CRM integration', icon: '☁️', connected: false },
-        { name: 'HubSpot', desc: 'Marketing automation', icon: '🎯', connected: false },
-      ].map((integration) => (
-        <div key={integration.name} className="border rounded-lg p-4 flex items-center justify-between hover:border-purple-500 transition-colors">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl">{integration.icon}</span>
-            <div>
-              <p className="font-semibold text-slate-900">{integration.name}</p>
-              <p className="text-sm text-slate-600">{integration.desc}</p>
+          {/* Quick Links */}
+          <div className="mt-8 bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6">
+            <h4 className="font-bold text-blue-900 mb-4 text-lg flex items-center gap-2">
+              <Sparkles className="h-5 w-5" />
+              Quick Links
+            </h4>
+            <div className="space-y-2">
+              <a href="#" className="flex items-center justify-between p-3 bg-white/80 rounded-lg hover:bg-white transition-colors">
+                <span className="text-sm font-medium text-slate-900">📖 Getting Started Guide</span>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </a>
+              <a href="#" className="flex items-center justify-between p-3 bg-white/80 rounded-lg hover:bg-white transition-colors">
+                <span className="text-sm font-medium text-slate-900">🎨 Design Templates</span>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </a>
+              <a href="#" className="flex items-center justify-between p-3 bg-white/80 rounded-lg hover:bg-white transition-colors">
+                <span className="text-sm font-medium text-slate-900">⚡ Keyboard Shortcuts</span>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </a>
+              <a href="#" className="flex items-center justify-between p-3 bg-white/80 rounded-lg hover:bg-white transition-colors">
+                <span className="text-sm font-medium text-slate-900">🔌 API Documentation</span>
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+              </a>
             </div>
           </div>
-          {integration.connected ? (
-            <CheckCircle className="h-5 w-5 text-green-600" />
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+          <Button
+            variant="outline"
+            onClick={() => setShowResourcesDialog(false)}
+            className="w-full h-11"
+          >
+            Close
+          </Button>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
+{/* Help Drawer - Modern Slide-in */}
+<AnimatePresence>
+  {showHelpDialog && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowHelpDialog(false)}
+        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
+      />
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[700px] bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Help & Support</h2>
+            <p className="text-sm text-slate-600 mt-1">Get help with DocMetrics</p>
+          </div>
+          <button
+            onClick={() => setShowHelpDialog(false)}
+            className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
+          >
+            <X className="h-5 w-5 text-slate-600" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-4 max-w-2xl">
+            {/* Help Articles */}
+            <a 
+              href="https://docs.docmetrics.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="block border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <Book className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-slate-900 mb-2 text-lg">📚 Browse Help Articles</h4>
+                  <p className="text-sm text-slate-600 mb-3">
+                    Find answers in our comprehensive knowledge base covering all features
+                  </p>
+                  <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
+                    <span>Visit Help Center</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </div>
+                </div>
+              </div>
+            </a>
+
+            {/* Live Chat */}
+            <div 
+              onClick={() => {
+                // TODO: Integrate live chat
+                alert('Live chat feature - coming soon!')
+              }}
+              className="border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <Mail className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="font-bold text-slate-900 text-lg">💬 Live Chat Support</h4>
+                    <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full">
+                      Online
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 mb-3">
+                    Chat with our support team (Mon-Fri, 9am-5pm EST)
+                  </p>
+                  <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
+                    <span>Start Chat</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Email Support */}
+            <a 
+              href="mailto:support@docmetrics.com"
+              className="block border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <Mail className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-slate-900 mb-2 text-lg">📧 Email Support</h4>
+                  <p className="text-sm text-slate-600 mb-3">
+                    Send us an email and we'll respond within 24 hours
+                  </p>
+                  <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
+                    <span>support@docmetrics.com</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </div>
+                </div>
+              </div>
+            </a>
+
+            {/* Schedule Demo */}
+            <div 
+              onClick={() => {
+                // TODO: Integrate calendar booking
+                alert('Demo scheduling - coming soon!')
+              }}
+              className="border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <Activity className="h-7 w-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-slate-900 mb-2 text-lg">🎥 Schedule a Demo</h4>
+                  <p className="text-sm text-slate-600 mb-3">
+                    Book a personalized walkthrough with our team
+                  </p>
+                  <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
+                    <span>Book a Demo</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Tips */}
+            <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6 mt-6">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-blue-900 text-lg mb-1">💡 Quick Tips</h4>
+                  <p className="text-sm text-blue-800">Get started faster with these helpful resources</p>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <a 
+                  href="https://www.youtube.com/@docmetrics" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 bg-white/80 rounded-lg hover:bg-white transition-colors"
+                >
+                  <div className="h-8 w-8 rounded bg-red-100 flex items-center justify-center">
+                    <Activity className="h-4 w-4 text-red-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-slate-900">Video Tutorials</p>
+                    <p className="text-xs text-slate-600">Step-by-step guides</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
+                </a>
+
+                <a 
+                  href="https://blog.docmetrics.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 bg-white/80 rounded-lg hover:bg-white transition-colors"
+                >
+                  <div className="h-8 w-8 rounded bg-purple-100 flex items-center justify-center">
+                    <FileText className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-slate-900">Blog & Updates</p>
+                    <p className="text-xs text-slate-600">Latest features & tips</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
+                </a>
+
+                <div 
+                  onClick={() => {
+                    setShowHelpDialog(false)
+                    setShowContactDialog(true)
+                  }}
+                  className="flex items-center gap-3 p-3 bg-white/80 rounded-lg hover:bg-white transition-colors cursor-pointer"
+                >
+                  <div className="h-8 w-8 rounded bg-green-100 flex items-center justify-center">
+                    <Mail className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-slate-900">Contact Us</p>
+                    <p className="text-xs text-slate-600">Send us a message</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
+                </div>
+              </div>
+            </div>
+
+            {/* Common Questions */}
+            <div className="mt-6">
+              <h4 className="font-bold text-slate-900 mb-4 text-lg">❓ Common Questions</h4>
+              <div className="space-y-2">
+                {[
+                  { q: 'How do I track document views?', a: 'Go to Documents → Click on any document → View Analytics' },
+                  { q: 'How do I send a document for signature?', a: 'Upload your PDF → Click "Send for Signature" → Add recipient emails' },
+                  { q: 'Can I customize the branding?', a: 'Yes! Pro and Enterprise plans include custom branding options' },
+                  { q: 'How do I invite team members?', a: 'Go to Settings → Team → Enter their email and role' },
+                ].map((item, index) => (
+                  <details key={index} className="border-2 border-slate-200 rounded-lg p-4 cursor-pointer hover:border-purple-300 transition-colors">
+                    <summary className="font-semibold text-slate-900 text-sm">
+                      {item.q}
+                    </summary>
+                    <p className="text-sm text-slate-600 mt-2 pl-4">
+                      {item.a}
+                    </p>
+                  </details>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setShowHelpDialog(false)}
+              className="h-11"
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
+
+{/* Integrations Drawer */}
+<AnimatePresence>
+  {showIntegrationsDialog && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowIntegrationsDialog(false)}
+        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
+      />
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[700px] lg:w-[900px] bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Integrations</h2>
+            <p className="text-sm text-slate-600 mt-1">Connect DocMetrics with your favorite tools</p>
+          </div>
+          <button
+            onClick={() => setShowIntegrationsDialog(false)}
+            className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
+          >
+            <X className="h-5 w-5 text-slate-600" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-5xl">
+            {/* Search Bar */}
+            <div className="mb-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <Input
+                  type="search"
+                  placeholder="Search integrations..."
+                  className="pl-10 h-12 bg-slate-50 border-slate-200"
+                />
+              </div>
+            </div>
+
+            {/* Categories */}
+            <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
+              {['All', 'Communication', 'Storage', 'CRM', 'Automation', 'Analytics'].map((cat) => (
+                <button
+                  key={cat}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                    cat === 'All'
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Popular Integrations */}
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-yellow-500" />
+                Popular Integrations
+              </h3>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  { 
+                    name: 'Slack', 
+                    desc: 'Get notifications in Slack channels', 
+                    icon: '💬', 
+                    connected: false,
+                    color: 'from-purple-500 to-purple-600'
+                  },
+                  { 
+                    name: 'Google Drive', 
+                    desc: 'Import documents from Drive', 
+                    icon: '📁', 
+                    connected: false,
+                    color: 'from-blue-500 to-blue-600'
+                  },
+                  { 
+                    name: 'Dropbox', 
+                    desc: 'Sync files with Dropbox', 
+                    icon: '📦', 
+                    connected: false,
+                    color: 'from-sky-500 to-sky-600'
+                  },
+                ].map((integration) => (
+                  <div 
+                    key={integration.name} 
+                    className="border-2 rounded-xl p-5 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${integration.color} flex items-center justify-center text-2xl group-hover:scale-110 transition-transform`}>
+                        {integration.icon}
+                      </div>
+                      {integration.connected ? (
+                        <div className="flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold">
+                          <CheckCircle className="h-3 w-3" />
+                          Connected
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="outline" className="text-xs">
+                          Connect
+                        </Button>
+                      )}
+                    </div>
+                    <h4 className="font-bold text-slate-900 mb-1">{integration.name}</h4>
+                    <p className="text-sm text-slate-600">{integration.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* All Integrations */}
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 mb-4">All Integrations</h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                {[
+                  { name: 'Zapier', desc: 'Automate workflows with 5000+ apps', icon: '⚡', connected: false },
+                  { name: 'Salesforce', desc: 'Sync contacts and deals', icon: '☁️', connected: false },
+                  { name: 'HubSpot', desc: 'Marketing automation platform', icon: '🎯', connected: false },
+                  { name: 'Microsoft Teams', desc: 'Team collaboration hub', icon: '👥', connected: false },
+                  { name: 'Notion', desc: 'Connect your workspace', icon: '📝', connected: false },
+                  { name: 'Airtable', desc: 'Database integrations', icon: '🗂️', connected: false },
+                  { name: 'Gmail', desc: 'Email integration & tracking', icon: '📧', connected: false },
+                  { name: 'Zoom', desc: 'Video meeting recordings', icon: '🎥', connected: false },
+                ].map((integration) => (
+                  <div 
+                    key={integration.name}
+                    className="flex items-center justify-between p-4 border-2 rounded-xl hover:border-purple-400 hover:bg-purple-50/30 transition-all"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl">
+                        {integration.icon}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">{integration.name}</p>
+                        <p className="text-sm text-slate-600">{integration.desc}</p>
+                      </div>
+                    </div>
+                    {integration.connected ? (
+                      <Button variant="ghost" size="sm" className="text-green-600">
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Connected
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline">
+                        Connect
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Coming Soon */}
+            <div className="mt-8 bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-blue-900 mb-2">Request an Integration</h4>
+                  <p className="text-sm text-blue-800 mb-4">
+                    Don't see your favorite tool? Let us know and we'll prioritize it!
+                  </p>
+                  <Button 
+                    size="sm"
+                    onClick={() => {
+                      setShowIntegrationsDialog(false)
+                      setShowFeedbackDialog(true)
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Request Integration
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-slate-600">
+              {3} integrations connected
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => setShowIntegrationsDialog(false)}
+              className="h-11"
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
+{/* Billing Drawer */}
+<AnimatePresence>
+  {showBillingDialog && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowBillingDialog(false)}
+        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
+      />
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[800px] bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Billing & Subscription</h2>
+            <p className="text-sm text-slate-600 mt-1">
+              {!user?.plan || user?.plan?.toLowerCase() === 'free' 
+                ? 'Upgrade to unlock premium features'
+                : 'Manage your subscription and billing'
+              }
+            </p>
+          </div>
+          <button
+            onClick={() => setShowBillingDialog(false)}
+            className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
+          >
+            <X className="h-5 w-5 text-slate-600" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* FREE PLAN VIEW */}
+          {!user?.plan || user?.plan?.toLowerCase() === 'free' ? (
+            <div className="space-y-6 max-w-3xl">
+              {/* Free Plan Status */}
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-8 border-2 border-slate-200 text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-200 mb-4">
+                  <FileText className="h-8 w-8 text-slate-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">You're on the Free Plan</h3>
+                <p className="text-slate-600 mb-6 max-w-md mx-auto">
+                  Upgrade to unlock unlimited documents, advanced analytics, team collaboration, and more!
+                </p>
+                
+                {/* Feature Preview */}
+                <div className="bg-white rounded-lg p-4 mb-6 border border-slate-200">
+                  <p className="text-sm font-semibold text-slate-900 mb-3">What you're missing:</p>
+                  <div className="grid md:grid-cols-2 gap-3 text-left">
+                    <div className="flex items-start gap-2">
+                      <div className="h-5 w-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <X className="h-3 w-3 text-purple-600" />
+                      </div>
+                      <span className="text-sm text-slate-600">Unlimited documents</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="h-5 w-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <X className="h-3 w-3 text-purple-600" />
+                      </div>
+                      <span className="text-sm text-slate-600">Advanced analytics</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="h-5 w-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <X className="h-3 w-3 text-purple-600" />
+                      </div>
+                      <span className="text-sm text-slate-600">Team collaboration</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="h-5 w-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <X className="h-3 w-3 text-purple-600" />
+                      </div>
+                      <span className="text-sm text-slate-600">Custom branding</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={() => {
+                    setShowBillingDialog(false)
+                    router.push('/plan')
+                  }}
+                  size="lg"
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 w-full sm:w-auto px-8"
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Compare Plans
+                </Button>
+              </div>
+
+              {/* Current Usage */}
+              <div className="bg-white rounded-lg border-2 p-6">
+                <h4 className="font-semibold text-slate-900 mb-4">Current Usage</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-sm text-slate-600 mb-1">Documents</p>
+                    <div className="flex items-baseline gap-1">
+                      <p className="text-2xl font-bold text-slate-900">{documents.length}</p>
+                      <p className="text-sm text-slate-500">/ 5</p>
+                    </div>
+                    <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
+                        style={{ width: `${(documents.length / 5) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-slate-600 mb-1">eSignatures</p>
+                    <div className="flex items-baseline gap-1">
+                      <p className="text-2xl font-bold text-slate-900">0</p>
+                      <p className="text-sm text-slate-500">/ 4</p>
+                    </div>
+                    <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full" style={{ width: '0%' }} />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-slate-600 mb-1">Team Members</p>
+                    <div className="flex items-baseline gap-1">
+                      <p className="text-2xl font-bold text-slate-900">1</p>
+                      <p className="text-sm text-slate-500">/ 1</p>
+                    </div>
+                    <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full" style={{ width: '100%' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
-            <Button size="sm" variant="outline">Connect</Button>
+            /* PAID PLAN VIEW */
+            <div className="space-y-6 max-w-3xl">
+              {/* Active Subscription */}
+              <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border-2 border-purple-200">
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-2xl font-bold text-slate-900">{user.plan} Plan</h3>
+                      <span className="bg-green-500 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
+                        <CheckCircle className="h-3 w-3" />
+                        Active
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600">
+                      Billed monthly • Next billing: <span className="font-semibold">Jan 15, 2025</span>
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      setShowBillingDialog(false)
+                      router.push('/plan')
+                    }}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    Compare Plans
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-6 pt-6 border-t border-purple-200">
+                  <div>
+                    <p className="text-xs text-slate-600 mb-1">Monthly Cost</p>
+                    <p className="text-3xl font-bold text-slate-900">$45</p>
+                    <p className="text-xs text-slate-500 mt-1">per user</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 mb-1">Documents</p>
+                    <p className="text-3xl font-bold text-slate-900">{documents.length}</p>
+                    <p className="text-xs text-green-600 mt-1">Unlimited</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 mb-1">Storage Used</p>
+                    <p className="text-3xl font-bold text-slate-900">2.4 GB</p>
+                    <p className="text-xs text-slate-500 mt-1">of unlimited</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Method */}
+              <div className="bg-white rounded-lg border-2 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-semibold text-slate-900">Payment Method</h4>
+                  <Button variant="outline" size="sm">Update</Button>
+                </div>
+                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                    <CreditCard className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-900">Visa ending in 4242</p>
+                    <p className="text-sm text-slate-500">Expires 12/2025</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Billing History */}
+              <div className="bg-white rounded-lg border-2 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-semibold text-slate-900">Billing History</h4>
+                  <Button variant="ghost" size="sm" className="text-purple-600">View All</Button>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { date: 'Dec 15, 2024', amount: '$45.00', status: 'Paid', invoice: 'INV-001' },
+                    { date: 'Nov 15, 2024', amount: '$45.00', status: 'Paid', invoice: 'INV-002' },
+                    { date: 'Oct 15, 2024', amount: '$45.00', status: 'Paid', invoice: 'INV-003' },
+                  ].map((invoice, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{invoice.invoice}</p>
+                          <p className="text-xs text-slate-500">{invoice.date}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-slate-900">{invoice.amount}</span>
+                        <Button variant="ghost" size="sm" className="h-8 text-xs">
+                          <Download className="h-3 w-3 mr-1" />
+                          PDF
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Manage Subscription */}
+              <div className="bg-slate-50 rounded-lg p-4 border-2 border-slate-200">
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                    <Settings className="h-4 w-4 text-slate-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-slate-900 mb-1">Need to make changes?</p>
+                    <p className="text-xs text-slate-600 mb-3">Update your payment method, cancel subscription, or change your plan.</p>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">Cancel Subscription</Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setShowBillingDialog(false)
+                          router.push('/plan')
+                        }}
+                      >
+                        Change Plan
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
-      ))}
-    </div>
-  </DialogContent>
-</Dialog>
 
-{/* Contact Us Dialog */}
-<Dialog open={showContactDialog} onOpenChange={setShowContactDialog}>
-  <DialogContent className="max-w-xl bg-white">
-    <DialogHeader>
-      <DialogTitle className="text-2xl font-bold text-slate-900">Contact Us</DialogTitle>
-      <DialogDescription className="text-slate-600 text-base mt-2">
-        Get in touch with our team. We'll get back to you within 24 hours.
-      </DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-5 mt-2">
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-900">Your Name</Label>
-        <Input 
-          placeholder="John Doe" 
-          defaultValue={`${user?.first_name} ${user?.last_name}`}
-          className="h-11 bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500 text-slate-900 placeholder:text-slate-400"
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-900">Email Address</Label>
-        <Input 
-          type="email" 
-          placeholder="you@example.com" 
-          defaultValue={user?.email}
-          className="h-11 bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500 text-slate-900 placeholder:text-slate-400"
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-900">Subject</Label>
-        <Input 
-          placeholder="How can we help?" 
-          className="h-11 bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500 text-slate-900 placeholder:text-slate-400"
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-900">Message</Label>
-        <Textarea 
-          placeholder="Tell us more about your inquiry..." 
-          rows={6}
-          className="bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500 text-slate-900 placeholder:text-slate-400 resize-none"
-        />
-      </div>
-      
-      <div className="flex gap-3 pt-2">
-        <Button 
-          variant="outline" 
-          className="flex-1 h-11 border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold"
-          onClick={() => setShowContactDialog(false)}
-        >
-          Cancel
-        </Button>
-        <Button 
-          className="flex-1 h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-lg shadow-purple-500/30"
-          onClick={() => {
-            alert('Message sent! We\'ll get back to you soon.')
-            setShowContactDialog(false)
-          }}
-        >
-          <Mail className="mr-2 h-4 w-4" />
-          Send Message
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
-{/* Switch Company Dialog */}
-<Dialog open={showSwitchCompanyDialog} onOpenChange={setShowSwitchCompanyDialog}>
-  <DialogContent className="max-w-md bg-white">
-    <DialogHeader>
-      <DialogTitle>Switch Company</DialogTitle>
-      <DialogDescription>Select a company to switch to</DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-2">
-      <div className="border rounded-lg p-4 bg-purple-50 border-purple-200">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
-            {user?.company_name?.charAt(0) || 'C'}
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-slate-900">{user?.company_name}</p>
-            <p className="text-sm text-slate-600">Current company</p>
-          </div>
-          <CheckCircle className="h-5 w-5 text-purple-600" />
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+          <Button
+            variant="outline"
+            onClick={() => setShowBillingDialog(false)}
+            className="w-full h-11"
+          >
+            Close
+          </Button>
         </div>
-      </div>
-      
-      <div className="border rounded-lg p-4 text-center hover:bg-slate-50 transition-colors cursor-pointer">
-        <p className="text-sm text-slate-600">+ Create New Company</p>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
+{/* Feedback Drawer */}
+<AnimatePresence>
+  {showFeedbackDialog && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowFeedbackDialog(false)}
+        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
+      />
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[700px] bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Send Feedback</h2>
+            <p className="text-sm text-slate-600 mt-1">Help us improve DocMetrics</p>
+          </div>
+          <button
+            onClick={() => setShowFeedbackDialog(false)}
+            className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
+          >
+            <X className="h-5 w-5 text-slate-600" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-6 max-w-2xl">
+            {/* Feedback Type Selection */}
+            <div className="grid grid-cols-3 gap-3">
+              <button className="p-4 border-2 rounded-xl hover:border-purple-400 hover:bg-purple-50/30 transition-all text-center">
+                <div className="text-3xl mb-2">🐛</div>
+                <p className="text-sm font-semibold text-slate-900">Bug Report</p>
+              </button>
+              <button className="p-4 border-2 rounded-xl hover:border-purple-400 hover:bg-purple-50/30 transition-all text-center">
+                <div className="text-3xl mb-2">💡</div>
+                <p className="text-sm font-semibold text-slate-900">Feature Request</p>
+              </button>
+              <button className="p-4 border-2 rounded-xl hover:border-purple-400 hover:bg-purple-50/30 transition-all text-center">
+                <div className="text-3xl mb-2">💬</div>
+                <p className="text-sm font-semibold text-slate-900">General Feedback</p>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">Your Feedback</Label>
+                <Textarea 
+                  placeholder="Tell us what you think, report bugs, or suggest new features..."
+                  rows={8}
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value)}
+                  className="resize-none"
+                />
+                <p className="text-xs text-slate-500">
+                  Be as detailed as possible. Screenshots can be sent to support@docmetrics.com
+                </p>
+              </div>
+
+              {/* Optional: Email for follow-up */}
+              <div className="space-y-2">
+                <Label className="text-base font-semibold">Email (optional)</Label>
+                <Input 
+                  type="email"
+                  placeholder="your@email.com"
+                  defaultValue={user?.email}
+                  disabled
+                  className="bg-slate-50"
+                />
+                <p className="text-xs text-slate-500">
+                  We'll use this to follow up if needed
+                </p>
+              </div>
+            </div>
+
+            {/* Info Box */}
+            <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-blue-900 mb-2">We value your feedback!</h4>
+                  <p className="text-sm text-blue-800 leading-relaxed">
+                    Your suggestions help us build a better product. We read every piece of feedback 
+                    and many of our best features came from user suggestions like yours.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowFeedbackDialog(false)
+                setFeedbackText('')
+              }}
+              className="h-11"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleFeedbackSubmit}
+              disabled={!feedbackText.trim()}
+              className="h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Submit Feedback
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
+{/* Contact Us Drawer */}
+<AnimatePresence>
+  {showContactDialog && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowContactDialog(false)}
+        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
+      />
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[700px] bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Contact Us</h2>
+            <p className="text-sm text-slate-600 mt-1">Get in touch with our team. We'll respond within 24 hours.</p>
+          </div>
+          <button
+            onClick={() => setShowContactDialog(false)}
+            className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
+          >
+            <X className="h-5 w-5 text-slate-600" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-5 max-w-2xl">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-slate-900">Your Name</Label>
+              <Input 
+                placeholder="John Doe" 
+                defaultValue={`${user?.first_name} ${user?.last_name}`}
+                className="h-11 bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-slate-900">Email Address</Label>
+              <Input 
+                type="email" 
+                placeholder="you@example.com" 
+                defaultValue={user?.email}
+                disabled
+                className="h-11 bg-slate-50 border-slate-300"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-slate-900">Subject</Label>
+              <Input 
+                placeholder="How can we help?" 
+                className="h-11 bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-slate-900">Message</Label>
+              <Textarea 
+                placeholder="Tell us more about your inquiry..." 
+                rows={8}
+                className="bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500 resize-none"
+              />
+            </div>
+
+            {/* Quick Contact Options */}
+            <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6">
+              <h4 className="font-bold text-blue-900 mb-4 flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                Other Ways to Reach Us
+              </h4>
+              <div className="space-y-3">
+                <a 
+                  href="mailto:support@docmetrics.com"
+                  className="flex items-center gap-3 p-3 bg-white/80 rounded-lg hover:bg-white transition-colors"
+                >
+                  <Mail className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Email Support</p>
+                    <p className="text-xs text-slate-600">support@docmetrics.com</p>
+                  </div>
+                </a>
+
+                <div className="flex items-center gap-3 p-3 bg-white/80 rounded-lg">
+                  <HelpCircle className="h-5 w-5 text-green-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Live Chat</p>
+                    <p className="text-xs text-slate-600">Mon-Fri, 9am-5pm EST</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-white/80 rounded-lg">
+                  <Activity className="h-5 w-5 text-purple-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Phone Support</p>
+                    <p className="text-xs text-slate-600">+1 (555) 123-4567</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              className="flex-1 h-11"
+              onClick={() => setShowContactDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="flex-1 h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg"
+              onClick={() => {
+                toast.success('Message sent!', {
+                  description: "We'll get back to you soon."
+                })
+                setShowContactDialog(false)
+              }}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              Send Message
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
+
 {/* Earn Credit Dialog */}
 <Dialog open={showEarnCreditDialog} onOpenChange={setShowEarnCreditDialog}>
   <DialogContent className="max-w-2xl bg-white">

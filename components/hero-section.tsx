@@ -6,7 +6,7 @@ export function HeroSection() {
   return (
     <section className="relative pt-20 pb-32 overflow-hidden">
       {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-blue-300 to-indigo-300" />
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-blue-300 to-indigo-900" />
       
       {/* Brightness stabilizer (premium trick) */}
       <div className="absolute inset-0 bg-white/10" />
