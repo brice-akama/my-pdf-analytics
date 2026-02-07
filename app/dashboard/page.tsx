@@ -263,7 +263,7 @@ export default function DashboardPage() {
   
 
   
-  const [searchQuery, setSearchQuery] = useState("")
+  
   const [activePage, setActivePage] = useState<PageType>('content-library')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
@@ -340,6 +340,7 @@ const [generatedInviteLink, setGeneratedInviteLink] = useState('')
 const [showInviteLinkDialog, setShowInviteLinkDialog] = useState(false)
 const [selectedMember, setSelectedMember] = useState<any>(null)
 const [loadingTeam, setLoadingTeam] = useState(false)
+const [showMobileProfileDrawer, setShowMobileProfileDrawer] = useState(false)
 const [createdFileRequests, setCreatedFileRequests] = useState<Array<{
   email: string
   requestId: string
@@ -2123,36 +2124,41 @@ case 'dashboard':
       case 'content-library':
         return (
           <div>
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">Content library</h1>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <span>Team Folders</span>
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="font-medium">My Company Content</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Button variant="outline" className="gap-2">
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
-                <Button 
-  className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-  onClick={() => fileInputRef.current?.click()}
->
-  <Upload className="h-4 w-4" />
-  Upload
-</Button>
-<input
-  ref={fileInputRef}
-  type="file"
-  accept="application/pdf"
-  onChange={handleFileInputChange}
-  className="hidden"
-/>
-              </div>
-            </div>
+            
+              
+            <div className="mb-8">
+  {/* Header - Responsive Layout */}
+  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+    {/* Title and Breadcrumb */}
+    <div>
+      <h1 className="text-3xl font-bold text-slate-900 mb-3">Content library</h1>
+      {/* Breadcrumb - Stack on mobile, inline on desktop */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 text-sm text-slate-600">
+        <span className="font-medium">Team Folders</span>
+        <ChevronRight className="h-4 w-4 hidden sm:block" />
+        <span className="font-medium sm:font-normal">My Company Content</span>
+      </div>
+    </div>
+
+    {/* Upload Button Only - No Share Button */}
+    <Button 
+      className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 w-full sm:w-auto"
+      onClick={() => fileInputRef.current?.click()}
+    >
+      <Upload className="h-4 w-4" />
+      Upload
+    </Button>
+  </div>
+
+  {/* Hidden File Input */}
+  <input
+    ref={fileInputRef}
+    type="file"
+    accept="application/pdf"
+    onChange={handleFileInputChange}
+    className="hidden"
+  />
+</div>
 
             <div className="mb-8">
               <div className="bg-white rounded-lg border shadow-sm p-6">
@@ -2428,224 +2434,201 @@ case 'dashboard':
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-        <div className="flex h-16 items-center gap-4 px-4 md:px-6">
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setMobileMenuOpen(true)}
-          >
-            <Menu className="h-6 w-6" />
-          </Button>
-
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8">
-              <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
-                <defs>
-                  <linearGradient id="navLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style={{stopColor:"#8B5CF6", stopOpacity:1}} />
-                    <stop offset="100%" style={{stopColor:"#3B82F6", stopOpacity:1}} />
-                  </linearGradient>
-                </defs>
-                <path d="M 60 50 L 60 150 L 140 150 L 140 70 L 120 50 Z" fill="url(#navLogoGrad)"/>
-                <rect x="75" y="100" width="12" height="30" fill="white" opacity="0.9" rx="2"/>
-                <rect x="94" y="85" width="12" height="45" fill="white" opacity="0.9" rx="2"/>
-                <rect x="113" y="70" width="12" height="60" fill="white" opacity="0.9" rx="2"/>
-              </svg>
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent hidden sm:inline">
-              DocMetrics
-            </span>
-          </div>
-
-         {/* Desktop Search Bar - Centered */}
-<div className="hidden md:flex flex-1 justify-center px-8">
-  <div className="w-full max-w-xl">
-    <GlobalSearch 
-      placeholder="Search documents, contacts, and more..."
-      autoFocus={false}
-    />
-  </div>
-</div>
-
-          {/* Mobile Search Icon */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden ml-auto"
-            onClick={() => setMobileSearchOpen(true)}
-          >
-            <Search className="h-5 w-5" />
-          </Button>
-
-          {/* Right Side Actions */}
-          <div className="hidden md:flex items-center gap-3 ml-auto">
-            <Button
-            onClick={() => router.push('/plan')}
-            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold px-4">
-              ⬆ Upgrade
-            </Button>
-
-            {/* Bell Icon Button */}
-<Button 
-  variant="ghost" 
-  size="icon" 
-  className="relative"
-  onClick={() => setNotificationsOpen(true)}
->
-  <Bell className="h-5 w-5 text-slate-600" />
-  {unreadCount > 0 && (
-    <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-      {unreadCount > 9 ? '9+' : unreadCount}
-    </span>
-  )}
-</Button>
-            
-
-            {/* User Profile with Email */}
-            {/* User Profile with Email */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-               <button className="flex items-center gap-3 hover:bg-slate-50 rounded-lg p-2 transition-colors">
-  <div className="text-right hidden lg:block">
-    <div className="text-sm font-semibold text-slate-900">{user?.company_name}</div>
-    <div className="text-xs text-slate-600">{user?.email}</div>
-  </div>
-  <div
-  className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden`}
->
-  {user?.profile_image ? (
-    <Image
-      src={user.profile_image}
-      alt="Profile"
-      width={40}
-      height={40}
-      className="rounded-full object-cover w-full h-full"
-      key={user.profile_image} // ✅ Forces re-render on URL change
-      unoptimized // ✅ Prevents Next.js caching issues
-    />
-  ) : (
-    getInitials(user?.email || "")
-  )}
-</div>
-</button>
-
-              </DropdownMenuTrigger>
-<DropdownMenuContent align="end" className="w-72">
-  <div className="px-4 py-3 bg-slate-50">
-    <div className="font-semibold text-slate-900 text-base">
-      {user?.company_name || "My Company"}
-    </div>
-    <div className="text-sm text-slate-600 mt-0.5">
-      Advanced Data Rooms
-    </div>
-  </div>
-  <DropdownMenuSeparator className="my-0" />
-  <div className="px-4 py-3 bg-white">
-    <div className="font-medium text-slate-900">
-      {user?.first_name} {user?.last_name}
-    </div>
-    <div className="text-sm text-slate-600">{user?.email}</div>
-  </div>
-  <DropdownMenuSeparator />
-  
-  <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
-    <Settings className="mr-2 h-4 w-4" />
-    <span>Settings</span>
-  </DropdownMenuItem>
-  
-  <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-    <LogOut className="mr-2 h-4 w-4" />
-    <span>Log out</span>
-  </DropdownMenuItem>
-  
-  <DropdownMenuSeparator />
-  
-  
-  
-  <DropdownMenuItem onClick={() => setShowTeamDrawer(true)}>
-    <UsersIcon className="mr-2 h-4 w-4" />
-    <span>Team</span>
-  </DropdownMenuItem>
-  
-  <DropdownMenuItem onClick={() => setShowBillingDialog(true)}>
-    <CreditCard className="mr-2 h-4 w-4" />
-    <span>Billing</span>
-  </DropdownMenuItem>
-  
-  <DropdownMenuItem onClick={() => setShowResourcesDialog(true)}>
-    <Book className="mr-2 h-4 w-4" />
-    <span>Resources</span>
-  </DropdownMenuItem>
-  
-  <DropdownMenuItem onClick={() => setShowHelpDialog(true)}>
-    <HelpCircle className="mr-2 h-4 w-4" />
-    <span>Help</span>
-  </DropdownMenuItem>
-  
-  <DropdownMenuItem onClick={() => setShowFeedbackDialog(true)}>
-    <Mail className="mr-2 h-4 w-4" />
-    <span>Feedback</span>
-  </DropdownMenuItem>
-  
-   {/* TEMPORARILY HIDDEN - Enable when you have 100+ users */}
-{/* 
-<DropdownMenuItem onClick={() => setShowEarnCreditDialog(true)}>
-  <Gift className="mr-2 h-4 w-4" />
-  <span>Earn Credit</span>
-</DropdownMenuItem>
-*/}
-  
-  <DropdownMenuItem onClick={() => setShowIntegrationsDialog(true)}>
-    <Puzzle className="mr-2 h-4 w-4" />
-    <span>Integrations</span>
-  </DropdownMenuItem>
-  
-  <DropdownMenuItem onClick={() => setShowContactDialog(true)}>
-    <Mail className="mr-2 h-4 w-4" />
-    <span>Contact Us</span>
-  </DropdownMenuItem>
-  
-  <DropdownMenuSeparator />
-  <div className="px-2 py-2">
+{/* Top Navigation Bar */}
+<header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+  <div className="flex h-16 items-center gap-4 px-4 md:px-6">
+    {/* Mobile Menu Button */}
     <Button
-    onClick={() => {
-      router.push('/plan')
-    }}
-    className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-slate-900 font-semibold">
-      ⚡ Upgrade
+      variant="ghost"
+      size="icon"
+      className="md:hidden"
+      onClick={() => setMobileMenuOpen(true)}
+    >
+      <Menu className="h-6 w-6" />
     </Button>
-  </div>
-</DropdownMenuContent>
-            </DropdownMenu>
+
+    {/* Logo */}
+    <div className="flex items-center gap-2">
+      
+      <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent hidden sm:inline">
+        DocMetrics
+      </span>
+    </div>
+
+    {/* Desktop Search Bar - Centered */}
+    <div className="hidden md:flex flex-1 justify-center px-8">
+      <div className="w-full max-w-xl">
+        <GlobalSearch 
+          placeholder="Search documents, contacts, and more..."
+          autoFocus={false}
+        />
+      </div>
+    </div>
+
+    {/* Mobile: Search Icon + Profile (closer together) */}
+    <div className="flex md:hidden items-center gap-2 ml-auto">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setMobileSearchOpen(true)}
+      >
+        <Search className="h-5 w-5" />
+      </Button>
+
+      {/* Mobile Profile - Clickable Drawer Trigger */}
+      <button
+        onClick={() => setShowMobileProfileDrawer(true)}
+        className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+      >
+        {user?.profile_image ? (
+          <Image
+            src={user.profile_image}
+            alt="Profile"
+            width={40}
+            height={40}
+            className="rounded-full object-cover w-full h-full"
+            key={user.profile_image}
+            unoptimized
+          />
+        ) : (
+          getInitials(user?.email || "")
+        )}
+      </button>
+    </div>
+
+    {/* Desktop Right Side Actions */}
+    <div className="hidden md:flex items-center gap-3 ml-auto">
+      <Button
+        onClick={() => router.push('/plan')}
+        className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold px-4"
+      >
+        ⬆ Upgrade
+      </Button>
+
+      {/* Bell Icon Button */}
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        className="relative"
+        onClick={() => setNotificationsOpen(true)}
+      >
+        <Bell className="h-5 w-5 text-slate-600" />
+        {unreadCount > 0 && (
+          <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </Button>
+
+      {/* Desktop User Profile Dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-3 hover:bg-slate-50 rounded-lg p-2 transition-colors">
+            <div className="text-right hidden lg:block">
+              <div className="text-sm font-semibold text-slate-900">{user?.company_name}</div>
+              <div className="text-xs text-slate-600">{user?.email}</div>
+            </div>
+            <div
+              className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden`}
+            >
+              {user?.profile_image ? (
+                <Image
+                  src={user.profile_image}
+                  alt="Profile"
+                  width={40}
+                  height={40}
+                  className="rounded-full object-cover w-full h-full"
+                  key={user.profile_image}
+                  unoptimized
+                />
+              ) : (
+                getInitials(user?.email || "")
+              )}
+            </div>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-72">
+          {/* Keep existing dropdown content */}
+          <div className="px-4 py-3 bg-slate-50">
+            <div className="font-semibold text-slate-900 text-base">
+              {user?.company_name || "My Company"}
+            </div>
+            <div className="text-sm text-slate-600 mt-0.5">
+              Advanced Data Rooms
+            </div>
           </div>
-
-          {/* Mobile User Avatar */}
-         <div className="md:hidden ml-auto">
-  <div
-  className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden`}
->
-  {user?.profile_image ? (
-    <Image
-      src={user.profile_image}
-      alt="Profile"
-      width={40}
-      height={40}
-      className="rounded-full object-cover w-full h-full"
-      key={user.profile_image}
-      unoptimized
-    />
-  ) : (
-    getInitials(user?.email || "")
-  )}
-</div>
-</div>
-
-        </div>
-      </header>
+          <DropdownMenuSeparator className="my-0" />
+          <div className="px-4 py-3 bg-white">
+            <div className="font-medium text-slate-900">
+              {user?.first_name} {user?.last_name}
+            </div>
+            <div className="text-sm text-slate-600">{user?.email}</div>
+          </div>
+          <DropdownMenuSeparator />
+          
+          <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Settings</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Log out</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuSeparator />
+          
+          <DropdownMenuItem onClick={() => setShowTeamDrawer(true)}>
+            <UsersIcon className="mr-2 h-4 w-4" />
+            <span>Team</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem onClick={() => setShowBillingDialog(true)}>
+            <CreditCard className="mr-2 h-4 w-4" />
+            <span>Billing</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem onClick={() => setShowResourcesDialog(true)}>
+            <Book className="mr-2 h-4 w-4" />
+            <span>Resources</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem onClick={() => setShowHelpDialog(true)}>
+            <HelpCircle className="mr-2 h-4 w-4" />
+            <span>Help</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem onClick={() => setShowFeedbackDialog(true)}>
+            <Mail className="mr-2 h-4 w-4" />
+            <span>Feedback</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem onClick={() => setShowIntegrationsDialog(true)}>
+            <Puzzle className="mr-2 h-4 w-4" />
+            <span>Integrations</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem onClick={() => setShowContactDialog(true)}>
+            <Mail className="mr-2 h-4 w-4" />
+            <span>Contact Us</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuSeparator />
+          <div className="px-2 py-2">
+            <Button
+              onClick={() => {
+                router.push('/plan')
+              }}
+              className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-slate-900 font-semibold"
+            >
+              ⚡ Upgrade
+            </Button>
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  </div>
+</header>
 
       {/* Mobile Menu Sidebar */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
@@ -2673,18 +2656,13 @@ case 'dashboard':
           </SheetHeader>
 
           {/* Search in Mobile Menu */}
-          <div className="p-4 border-b">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                type="search"
-                placeholder="Search"
-                className="w-full pl-10 bg-slate-50"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
+          {/* Search in Mobile Menu */}
+<div className="p-4 border-b">
+  <GlobalSearch 
+    placeholder="Search everything..."
+    autoFocus={false}
+  />
+</div>
 
           {/* Navigation Items */}
           <nav className="flex-1 space-y-1 p-4">
@@ -2740,7 +2718,7 @@ case 'dashboard':
 
       {/* Mobile Search Sidebar */}
 <Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
-  <SheetContent side="left" className="w-80 p-0">
+  <SheetContent side="left" className="w-80 p-0 bg-white">
     <SheetHeader className="border-b p-6">
       <SheetTitle>Search</SheetTitle>
     </SheetHeader>
@@ -4913,6 +4891,209 @@ case 'dashboard':
   </DialogContent>
 </Dialog>
 
+{/* Mobile Profile Drawer */}
+<AnimatePresence>
+  {showMobileProfileDrawer && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowMobileProfileDrawer(false)}
+        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 md:hidden"
+      />
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[400px] bg-white shadow-2xl z-50 flex flex-col md:hidden"
+      >
+        {/* Header */}
+        <div className="px-6 py-5 border-b bg-gradient-to-r from-purple-50 to-blue-50">
+          <div className="flex items-center gap-4 mb-4">
+            <div
+              className={`h-16 w-16 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-bold text-2xl shadow-lg overflow-hidden`}
+            >
+              {user?.profile_image ? (
+                <Image
+                  src={user.profile_image}
+                  alt="Profile"
+                  width={64}
+                  height={64}
+                  className="rounded-full object-cover w-full h-full"
+                  key={user.profile_image}
+                  unoptimized
+                />
+              ) : (
+                getInitials(user?.email || "")
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-slate-900 text-lg truncate">
+                {user?.first_name} {user?.last_name}
+              </div>
+              <div className="text-sm text-slate-600 truncate">{user?.email}</div>
+              <div className="text-xs text-slate-500 mt-1">{user?.company_name || "My Company"}</div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowMobileProfileDrawer(false)}
+            className="absolute top-4 right-4 h-8 w-8 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
+          >
+            <X className="h-5 w-5 text-slate-600" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto bg-white">
+          <div className="p-4 space-y-2">
+            {/* Upgrade Button */}
+            <Button
+              onClick={() => {
+                setShowMobileProfileDrawer(false)
+                router.push('/plan')
+              }}
+              className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-slate-900 font-semibold h-12 mb-3"
+            >
+              ⚡ Upgrade to Pro
+            </Button>
+
+            {/* Notifications */}
+            <button
+              onClick={() => {
+                setShowMobileProfileDrawer(false)
+                setNotificationsOpen(true)
+              }}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Bell className="h-5 w-5 text-slate-600" />
+                <span className="font-medium text-slate-900">Notifications</span>
+              </div>
+              {unreadCount > 0 && (
+                <span className="h-6 w-6 bg-red-500 rounded-full text-xs text-white flex items-center justify-center font-semibold">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* Divider */}
+            <div className="border-t my-2"></div>
+
+            {/* Menu Items */}
+            <button
+              onClick={() => {
+                setShowMobileProfileDrawer(false)
+                setShowSettingsDialog(true)
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <Settings className="h-5 w-5 text-slate-600" />
+              <span className="font-medium text-slate-900">Settings</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowMobileProfileDrawer(false)
+                setShowTeamDrawer(true)
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <UsersIcon className="h-5 w-5 text-slate-600" />
+              <span className="font-medium text-slate-900">Team</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowMobileProfileDrawer(false)
+                setShowBillingDialog(true)
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <CreditCard className="h-5 w-5 text-slate-600" />
+              <span className="font-medium text-slate-900">Billing</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowMobileProfileDrawer(false)
+                setShowResourcesDialog(true)
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <Book className="h-5 w-5 text-slate-600" />
+              <span className="font-medium text-slate-900">Resources</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowMobileProfileDrawer(false)
+                setShowHelpDialog(true)
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <HelpCircle className="h-5 w-5 text-slate-600" />
+              <span className="font-medium text-slate-900">Help</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowMobileProfileDrawer(false)
+                setShowFeedbackDialog(true)
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <Mail className="h-5 w-5 text-slate-600" />
+              <span className="font-medium text-slate-900">Feedback</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowMobileProfileDrawer(false)
+                setShowIntegrationsDialog(true)
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <Puzzle className="h-5 w-5 text-slate-600" />
+              <span className="font-medium text-slate-900">Integrations</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowMobileProfileDrawer(false)
+                setShowContactDialog(true)
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <Mail className="h-5 w-5 text-slate-600" />
+              <span className="font-medium text-slate-900">Contact Us</span>
+            </button>
+
+            {/* Divider */}
+            <div className="border-t my-2"></div>
+
+            {/* Logout */}
+            <button
+              onClick={() => {
+                setShowMobileProfileDrawer(false)
+                handleLogout()
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 transition-colors text-red-600"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="font-medium">Log out</span>
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
 {/* Create File Request Dialog */}
 {/* Create File Request Dialog */}
 <Dialog open={showCreateFileRequestDialog} onOpenChange={setShowCreateFileRequestDialog}>
@@ -5830,6 +6011,8 @@ case 'dashboard':
     </>
   )}
 </AnimatePresence>
+
+
  
     </div>
   )
