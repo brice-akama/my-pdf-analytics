@@ -2206,9 +2206,7 @@ case 'dashboard':
             <div className="mb-8">
               <div className="bg-white rounded-lg border-2 border-dashed border-slate-300 p-12 text-center hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group">
                 <div className="flex flex-col items-center gap-4">
-                  <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                    <Upload className="h-8 w-8 text-purple-600" />
-                  </div>
+                  
                   <div>
                    <div 
   className={`bg-white rounded-lg border-2 border-dashed p-12 text-center transition-all cursor-pointer group ${
@@ -2757,25 +2755,25 @@ case 'dashboard':
 </Sheet>
       <div className="flex">
         {/* Sidebar with clickable links */}
-        <aside className="hidden lg:flex w-64 flex-col border-r bg-white/800 backdrop-blur">
-          <nav className="flex-1 space-y-1 p-4">
-            {sidebarItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleSidebarItemClick(item.id)}
-                className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-                  activePage === item.id
-                    ? 'bg-purple-50 text-purple-700'
-                    : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
-                }`}
-              >
+<aside className="hidden lg:flex w-64 flex-col border-r bg-white shadow-sm">
+  <nav className="flex-1 space-y-1 p-4">
+    {sidebarItems.map((item) => (
+      <button
+        key={item.id}
+        onClick={() => handleSidebarItemClick(item.id)}
+        className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
+           activePage === item.id
+            ? 'bg-purple-50 text-purple-700'
+            : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
+        }`}
+      >
                 <div className="flex items-center gap-3">
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span className="text-xs text-slate-500">{item.badge}</span>
-                )}
+  <item.icon className="h-5 w-5 flex-shrink-0" />
+  <span className="truncate">{item.label}</span>
+</div>
+{item.badge && (
+  <span className="text-xs text-slate-500 font-normal truncate">{item.badge}</span>
+)}
               </button>
             ))}
           </nav>
@@ -2813,7 +2811,7 @@ case 'dashboard':
         className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[800px] bg-white shadow-2xl z-50 flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+        <div className="flex items-center justify-between px-6 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
             <p className="text-sm text-slate-600 mt-1">Manage your account settings and preferences</p>
@@ -2855,7 +2853,7 @@ case 'dashboard':
                   <div className="flex items-center gap-6">
                     {/* Large Avatar Preview */}
                     <div className="relative">
-                      <div className={`h-28 w-28 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-bold text-4xl shadow-lg overflow-hidden ring-4 ring-slate-100`}>
+                      <div className={`h-28 w-28 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-bold text-4xl shadow-lg overflow-hidden ring-4 ring-white`}>
                         {user?.profile_image ? (
                           <Image
                             src={user.profile_image}
@@ -3119,9 +3117,9 @@ case 'dashboard':
     className="w-full sm:max-w-2xl lg:max-w-4xl p-0 flex flex-col bg-white overflow-hidden"
   >
     {/* Header */}
-    <SheetHeader className="px-8 py-5 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
-      <SheetTitle className="text-2xl font-bold">Team Members</SheetTitle>
-      <SheetDescription className="text-base mt-1">
+    <SheetHeader className="px-8 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
+      <SheetTitle className="text-2xl font-bold text-slate-900">Team Members</SheetTitle>
+      <SheetDescription className="text-sm text-slate-600 mt-1">
         Invite colleagues and manage team permissions
       </SheetDescription>
     </SheetHeader>
@@ -3129,10 +3127,10 @@ case 'dashboard':
     {/* Content */}
     <div className="flex-1 overflow-y-auto">
       <div className="px-8 py-6 space-y-6">
-        {/* IMPROVED Invite Section */}
-        <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6 space-y-4">
+        {/* Invite Section - UPDATED COLORS */}
+        <div className="bg-gradient-to-br from-brand-primary-50 to-brand-secondary-50 border-2 border-brand-primary-200 rounded-xl p-6 space-y-4">
           <div className="flex items-start gap-3 mb-3">
-            <div className="h-10 w-10 rounded-lg bg-purple-600 flex items-center justify-center flex-shrink-0">
+            <div className="h-10 w-10 rounded-lg bg-brand-primary-600 flex items-center justify-center flex-shrink-0">
               <Mail className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -3188,25 +3186,25 @@ case 'dashboard':
             </Button>
           </div>
           
-          {/* Role Descriptions */}
-          <div className="bg-white/80 backdrop-blur border border-purple-200 rounded-lg p-4 space-y-2">
+          {/* Role Descriptions - UPDATED COLORS */}
+          <div className="bg-white/80 backdrop-blur border border-brand-primary-200 rounded-lg p-4 space-y-2">
             <p className="text-xs font-semibold text-slate-900 mb-2">Role Permissions:</p>
             <div className="grid sm:grid-cols-3 gap-3 text-xs text-slate-700">
               <div className="flex items-start gap-2">
-                <div className="h-5 w-5 rounded bg-purple-100 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="h-3 w-3 text-purple-600" />
+                <div className="h-5 w-5 rounded bg-brand-secondary-100 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="h-3 w-3 text-brand-secondary-600" />
                 </div>
                 <div>
-                  <p className="font-semibold text-purple-900">Admin</p>
+                  <p className="font-semibold text-brand-secondary-900">Admin</p>
                   <p className="text-slate-600">Full access + team management</p>
                 </div>
               </div>
               <div className="flex items-start gap-2">
-                <div className="h-5 w-5 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="h-3 w-3 text-blue-600" />
+                <div className="h-5 w-5 rounded bg-brand-primary-100 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="h-3 w-3 text-brand-primary-600" />
                 </div>
                 <div>
-                  <p className="font-semibold text-blue-900">Member</p>
+                  <p className="font-semibold text-brand-primary-900">Member</p>
                   <p className="text-slate-600">Create, edit, share documents</p>
                 </div>
               </div>
@@ -3498,7 +3496,7 @@ case 'dashboard':
         className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[700px] bg-white shadow-2xl z-50 flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+       <div className="flex items-center justify-between px-6 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Resources</h2>
             <p className="text-sm text-slate-600 mt-1">Helpful guides and documentation</p>
@@ -3869,8 +3867,7 @@ case 'dashboard':
   )}
 </AnimatePresence>
 
-
-{/* Integrations Drawer */}
+{/* UPDATED: Integrations Drawer */}
 <AnimatePresence>
   {showIntegrationsDialog && (
     <>
@@ -3891,8 +3888,8 @@ case 'dashboard':
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
         className="fixed right-0 top-0 bottom-0 w-full sm:w-[700px] lg:w-[900px] bg-white shadow-2xl z-50 flex flex-col"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+        {/* Header - UPDATED */}
+        <div className="flex items-center justify-between px-8 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Integrations</h2>
             <p className="text-sm text-slate-600 mt-1">Connect DocMetrics with your favorite tools</p>
@@ -3906,7 +3903,7 @@ case 'dashboard':
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-5xl">
             {/* Search Bar */}
             <div className="mb-6">
@@ -3915,20 +3912,20 @@ case 'dashboard':
                 <Input
                   type="search"
                   placeholder="Search integrations..."
-                  className="pl-10 h-12 bg-slate-50 border-slate-200"
+                  className="pl-10 h-12 bg-slate-50 border-2 border-slate-200 focus:border-brand-primary-400"
                 />
               </div>
             </div>
 
-            {/* Categories */}
+            {/* Categories - UPDATED COLORS */}
             <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
               {['All', 'Communication', 'Storage', 'CRM', 'Automation', 'Analytics'].map((cat) => (
                 <button
                   key={cat}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                  className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
                     cat === 'All'
-                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      ? 'bg-gradient-to-r from-brand-primary-600 to-brand-secondary-600 text-white shadow-lg'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-2 border-transparent hover:border-brand-primary-300'
                   }`}
                 >
                   {cat}
@@ -3936,27 +3933,27 @@ case 'dashboard':
               ))}
             </div>
 
-            {/* Popular Integrations */}
+            {/* Popular Integrations - UPDATED STYLING */}
             <div className="mb-8">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-yellow-500" />
                 Popular Integrations
               </h3>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {[
                   { 
                     name: 'Slack', 
                     desc: 'Get notifications in Slack channels', 
                     icon: '💬', 
                     connected: false,
-                    color: 'from-purple-500 to-purple-600'
+                    color: 'from-brand-secondary-500 to-brand-secondary-600'
                   },
                   { 
                     name: 'Google Drive', 
                     desc: 'Import documents from Drive', 
                     icon: '📁', 
                     connected: false,
-                    color: 'from-blue-500 to-blue-600'
+                    color: 'from-brand-primary-500 to-brand-primary-600'
                   },
                   { 
                     name: 'Dropbox', 
@@ -3968,10 +3965,10 @@ case 'dashboard':
                 ].map((integration) => (
                   <div 
                     key={integration.name} 
-                    className="border-2 rounded-xl p-5 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
+                    className="border-2 border-slate-200 rounded-xl p-5 hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all cursor-pointer group"
                   >
                     <div className="flex items-start justify-between mb-3">
-                      <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${integration.color} flex items-center justify-center text-2xl group-hover:scale-110 transition-transform`}>
+                      <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${integration.color} flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-lg`}>
                         {integration.icon}
                       </div>
                       {integration.connected ? (
@@ -3980,7 +3977,7 @@ case 'dashboard':
                           Connected
                         </div>
                       ) : (
-                        <Button size="sm" variant="outline" className="text-xs">
+                        <Button size="sm" variant="outline" className="text-xs h-8">
                           Connect
                         </Button>
                       )}
@@ -4008,7 +4005,7 @@ case 'dashboard':
                 ].map((integration) => (
                   <div 
                     key={integration.name}
-                    className="flex items-center justify-between p-4 border-2 rounded-xl hover:border-purple-400 hover:bg-purple-50/30 transition-all"
+                    className="flex items-center justify-between p-4 border-2 border-slate-200 rounded-xl hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all"
                   >
                     <div className="flex items-center gap-4">
                       <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl">
@@ -4034,15 +4031,15 @@ case 'dashboard':
               </div>
             </div>
 
-            {/* Coming Soon */}
-            <div className="mt-8 bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6">
+            {/* Coming Soon - UPDATED */}
+            <div className="mt-8 bg-gradient-to-br from-brand-primary-50 to-brand-secondary-50 border-2 border-brand-primary-200 rounded-xl p-6">
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                <div className="h-10 w-10 rounded-lg bg-brand-primary-600 flex items-center justify-center flex-shrink-0">
                   <Sparkles className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-blue-900 mb-2">Request an Integration</h4>
-                  <p className="text-sm text-blue-800 mb-4">
+                  <h4 className="font-bold text-brand-primary-900 mb-2">Request an Integration</h4>
+                  <p className="text-sm text-brand-primary-800 mb-4">
                     Don't see your favorite tool? Let us know and we'll prioritize it!
                   </p>
                   <Button 
@@ -4051,7 +4048,7 @@ case 'dashboard':
                       setShowIntegrationsDialog(false)
                       setShowFeedbackDialog(true)
                     }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="bg-brand-primary-600 hover:bg-brand-primary-700 text-white"
                   >
                     Request Integration
                   </Button>
@@ -4062,7 +4059,7 @@ case 'dashboard':
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+        <div className="px-8 py-4 border-t bg-white sticky bottom-0 shadow-lg">
           <div className="flex justify-between items-center">
             <p className="text-sm text-slate-600">
               {3} integrations connected
@@ -4070,7 +4067,7 @@ case 'dashboard':
             <Button
               variant="outline"
               onClick={() => setShowIntegrationsDialog(false)}
-              className="h-11"
+              className="h-12 px-6"
             >
               Close
             </Button>
@@ -4368,6 +4365,7 @@ case 'dashboard':
 </AnimatePresence>
 
 {/* Feedback Drawer */}
+{/* UPDATED: Send Feedback Drawer */}
 <AnimatePresence>
   {showFeedbackDialog && (
     <>
@@ -4386,10 +4384,10 @@ case 'dashboard':
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[700px] bg-white shadow-2xl z-50 flex flex-col"
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[800px] bg-white shadow-2xl z-50 flex flex-col"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+        {/* Header - UPDATED */}
+        <div className="flex items-center justify-between px-8 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Send Feedback</h2>
             <p className="text-sm text-slate-600 mt-1">Help us improve DocMetrics</p>
@@ -4403,48 +4401,47 @@ case 'dashboard':
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-6 max-w-2xl">
-            {/* Feedback Type Selection */}
-            <div className="grid grid-cols-3 gap-3">
-              <button className="p-4 border-2 rounded-xl hover:border-purple-400 hover:bg-purple-50/30 transition-all text-center">
-                <div className="text-3xl mb-2">🐛</div>
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="space-y-6 max-w-3xl">
+            {/* Feedback Type Selection - UPDATED COLORS */}
+            <div className="grid grid-cols-3 gap-4">
+              <button className="p-5 border-2 border-slate-200 rounded-xl hover:border-red-400 hover:bg-red-50/30 transition-all text-center group">
+                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">🐛</div>
                 <p className="text-sm font-semibold text-slate-900">Bug Report</p>
               </button>
-              <button className="p-4 border-2 rounded-xl hover:border-purple-400 hover:bg-purple-50/30 transition-all text-center">
-                <div className="text-3xl mb-2">💡</div>
+              <button className="p-5 border-2 border-slate-200 rounded-xl hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all text-center group">
+                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">💡</div>
                 <p className="text-sm font-semibold text-slate-900">Feature Request</p>
               </button>
-              <button className="p-4 border-2 rounded-xl hover:border-purple-400 hover:bg-purple-50/30 transition-all text-center">
-                <div className="text-3xl mb-2">💬</div>
+              <button className="p-5 border-2 border-slate-200 rounded-xl hover:border-brand-secondary-400 hover:bg-brand-secondary-50/30 transition-all text-center group">
+                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">💬</div>
                 <p className="text-sm font-semibold text-slate-900">General Feedback</p>
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-base font-semibold">Your Feedback</Label>
+                <Label className="text-base font-semibold text-slate-900">Your Feedback</Label>
                 <Textarea 
                   placeholder="Tell us what you think, report bugs, or suggest new features..."
                   rows={8}
                   value={feedbackText}
                   onChange={(e) => setFeedbackText(e.target.value)}
-                  className="resize-none"
+                  className="resize-none border-2 border-slate-200 focus:border-brand-primary-400 focus:ring-brand-primary-400"
                 />
                 <p className="text-xs text-slate-500">
                   Be as detailed as possible. Screenshots can be sent to support@docmetrics.com
                 </p>
               </div>
 
-              {/* Optional: Email for follow-up */}
               <div className="space-y-2">
-                <Label className="text-base font-semibold">Email (optional)</Label>
+                <Label className="text-base font-semibold text-slate-900">Email (optional)</Label>
                 <Input 
                   type="email"
                   placeholder="your@email.com"
                   defaultValue={user?.email}
                   disabled
-                  className="bg-slate-50"
+                  className="bg-slate-50 h-12 border-2"
                 />
                 <p className="text-xs text-slate-500">
                   We'll use this to follow up if needed
@@ -4452,15 +4449,15 @@ case 'dashboard':
               </div>
             </div>
 
-            {/* Info Box */}
-            <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6">
+            {/* Info Box - UPDATED */}
+            <div className="bg-gradient-to-br from-brand-primary-50 to-brand-secondary-50 border-2 border-brand-primary-200 rounded-xl p-6">
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
+                <div className="h-10 w-10 rounded-lg bg-brand-primary-600 flex items-center justify-center flex-shrink-0">
                   <Sparkles className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-blue-900 mb-2">We value your feedback!</h4>
-                  <p className="text-sm text-blue-800 leading-relaxed">
+                  <h4 className="font-bold text-brand-primary-900 mb-2">We value your feedback!</h4>
+                  <p className="text-sm text-brand-primary-800 leading-relaxed">
                     Your suggestions help us build a better product. We read every piece of feedback 
                     and many of our best features came from user suggestions like yours.
                   </p>
@@ -4470,8 +4467,8 @@ case 'dashboard':
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+        {/* Footer - UPDATED */}
+        <div className="px-8 py-4 border-t bg-white sticky bottom-0 shadow-lg">
           <div className="flex gap-3 justify-end">
             <Button
               variant="outline"
@@ -4479,14 +4476,14 @@ case 'dashboard':
                 setShowFeedbackDialog(false)
                 setFeedbackText('')
               }}
-              className="h-11"
+              className="h-12 px-6"
             >
               Cancel
             </Button>
             <Button 
               onClick={handleFeedbackSubmit}
               disabled={!feedbackText.trim()}
-              className="h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              className="h-12 px-6 bg-gradient-to-r from-brand-primary-600 to-brand-secondary-600 hover:from-brand-primary-700 hover:to-brand-secondary-700"
             >
               <Send className="mr-2 h-4 w-4" />
               Submit Feedback
@@ -4498,7 +4495,7 @@ case 'dashboard':
   )}
 </AnimatePresence>
 
-{/* Contact Us Drawer */}
+{/* UPDATED: Contact Us Drawer */}
 <AnimatePresence>
   {showContactDialog && (
     <>
@@ -4517,10 +4514,10 @@ case 'dashboard':
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[700px] bg-white shadow-2xl z-50 flex flex-col"
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[800px] bg-white shadow-2xl z-50 flex flex-col"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+        {/* Header - UPDATED */}
+        <div className="flex items-center justify-between px-8 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Contact Us</h2>
             <p className="text-sm text-slate-600 mt-1">Get in touch with our team. We'll respond within 24 hours.</p>
@@ -4534,14 +4531,14 @@ case 'dashboard':
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-5 max-w-2xl">
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="space-y-5 max-w-3xl">
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-slate-900">Your Name</Label>
               <Input 
                 placeholder="John Doe" 
                 defaultValue={`${user?.first_name} ${user?.last_name}`}
-                className="h-11 bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500"
+                className="h-12 bg-white border-2 border-slate-200 focus:border-brand-primary-400 focus:ring-brand-primary-400"
               />
             </div>
             
@@ -4552,7 +4549,7 @@ case 'dashboard':
                 placeholder="you@example.com" 
                 defaultValue={user?.email}
                 disabled
-                className="h-11 bg-slate-50 border-slate-300"
+                className="h-12 bg-slate-50 border-2 border-slate-200"
               />
             </div>
             
@@ -4560,7 +4557,7 @@ case 'dashboard':
               <Label className="text-sm font-semibold text-slate-900">Subject</Label>
               <Input 
                 placeholder="How can we help?" 
-                className="h-11 bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500"
+                className="h-12 bg-white border-2 border-slate-200 focus:border-brand-primary-400 focus:ring-brand-primary-400"
               />
             </div>
             
@@ -4569,22 +4566,22 @@ case 'dashboard':
               <Textarea 
                 placeholder="Tell us more about your inquiry..." 
                 rows={8}
-                className="bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500 resize-none"
+                className="bg-white border-2 border-slate-200 focus:border-brand-primary-400 focus:ring-brand-primary-400 resize-none"
               />
             </div>
 
-            {/* Quick Contact Options */}
-            <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6">
-              <h4 className="font-bold text-blue-900 mb-4 flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />
+            {/* Quick Contact Options - UPDATED */}
+            <div className="bg-gradient-to-br from-brand-primary-50 to-brand-secondary-50 border-2 border-brand-primary-200 rounded-xl p-6">
+              <h4 className="font-bold text-brand-primary-900 mb-4 flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-brand-primary-600" />
                 Other Ways to Reach Us
               </h4>
               <div className="space-y-3">
                 <a 
                   href="mailto:support@docmetrics.com"
-                  className="flex items-center gap-3 p-3 bg-white/80 rounded-lg hover:bg-white transition-colors"
+                  className="flex items-center gap-3 p-3 bg-white/80 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-brand-primary-200"
                 >
-                  <Mail className="h-5 w-5 text-blue-600" />
+                  <Mail className="h-5 w-5 text-brand-primary-600" />
                   <div>
                     <p className="text-sm font-semibold text-slate-900">Email Support</p>
                     <p className="text-xs text-slate-600">support@docmetrics.com</p>
@@ -4600,7 +4597,7 @@ case 'dashboard':
                 </div>
 
                 <div className="flex items-center gap-3 p-3 bg-white/80 rounded-lg">
-                  <Activity className="h-5 w-5 text-purple-600" />
+                  <Activity className="h-5 w-5 text-brand-secondary-600" />
                   <div>
                     <p className="text-sm font-semibold text-slate-900">Phone Support</p>
                     <p className="text-xs text-slate-600">+1 (555) 123-4567</p>
@@ -4611,18 +4608,18 @@ case 'dashboard':
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+        {/* Footer - UPDATED */}
+        <div className="px-8 py-4 border-t bg-white sticky bottom-0 shadow-lg">
           <div className="flex gap-3">
             <Button 
               variant="outline" 
-              className="flex-1 h-11"
+              className="flex-1 h-12"
               onClick={() => setShowContactDialog(false)}
             >
               Cancel
             </Button>
             <Button 
-              className="flex-1 h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg"
+              className="flex-1 h-12 bg-gradient-to-r from-brand-primary-600 to-brand-secondary-600 hover:from-brand-primary-700 hover:to-brand-secondary-700 shadow-lg"
               onClick={() => {
                 toast.success('Message sent!', {
                   description: "We'll get back to you soon."
@@ -5653,11 +5650,8 @@ case 'dashboard':
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       onClick={() => setNotificationsOpen(false)}
-      className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50"
+      className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
     />
-
-    
-
 
       {/* Drawer */}
       <motion.div
@@ -5668,24 +5662,24 @@ case 'dashboard':
         className="fixed right-0 top-0 bottom-0 w-full sm:w-[480px] bg-white shadow-2xl z-50 flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+        <div className="flex items-center justify-between px-6 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">Notifications</h2>
-            <p className="text-sm text-slate-600 mt-0.5">
-              {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
-            </p>
-          </div>
+  <h2 className="text-2xl font-bold text-slate-900">Notifications</h2>
+  <p className="text-sm text-slate-600 mt-1">
+    {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
+  </p>
+</div>
           <div className="flex items-center gap-2">
-            {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => markAsRead()}
-                className="text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-              >
-                Mark all read
-              </Button>
-            )}
+             {unreadCount > 0 && (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => markAsRead()}
+        className="text-xs font-semibold text-blue-600 hover:text-brand-primary-700 hover:bg-brand-primary-50"
+      >
+        Mark all read
+      </Button>
+    )}
             <button
               onClick={() => setNotificationsOpen(false)}
               className="h-8 w-8 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
@@ -5701,12 +5695,12 @@ case 'dashboard':
             <div className="divide-y divide-slate-100">
               {notifications.map((notification) => (
                 <motion.div
-                  key={notification._id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className={`p-5 hover:bg-slate-50 cursor-pointer transition-all group relative ${
-                    !notification.read ? 'bg-blue-50/30 border-l-4 border-l-blue-500' : ''
-                  }`}
+  key={notification._id}
+  initial={{ opacity: 0, x: 20 }}
+  animate={{ opacity: 1, x: 0 }}
+  className={`p-5 hover:bg-slate-50 cursor-pointer transition-all group relative ${
+    !notification.read ? 'bg-brand-secondary-50/30 border-l-4 border-l-brand-secondary-500' : ''
+  }`}
                onClick={() => {
   markAsRead(notification._id)
   setNotificationsOpen(false)
@@ -5760,15 +5754,15 @@ case 'dashboard':
 
                   <div className="flex gap-4">
                     {/* Icon */}
-                    <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
-                      notification.type === 'view' ? 'bg-blue-100' :
-                      notification.type === 'download' ? 'bg-green-100' :
-                      notification.type === 'signature' ? 'bg-purple-100' :
-                      notification.type === 'share' ? 'bg-orange-100' :
-                      'bg-slate-100'
-                    }`}>
-                      {getNotificationIcon(notification.type)}
-                    </div>
+<div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
+  notification.type === 'view' ? 'bg-brand-secondary-100' :
+  notification.type === 'download' ? 'bg-success-light' :
+  notification.type === 'signature' ? 'bg-brand-primary-100' :
+  notification.type === 'share' ? 'bg-warning-light' :
+  'bg-slate-100'
+}`}>
+  {getNotificationIcon(notification.type)}
+</div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
@@ -5779,8 +5773,8 @@ case 'dashboard':
                           {notification.title}
                         </p>
                         {!notification.read && (
-                          <div className="h-2 w-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
-                        )}
+  <div className="h-2 w-2 bg-brand-secondary-500 rounded-full flex-shrink-0 mt-1"></div>
+)}
                       </div>
                       <p className="text-sm text-slate-600 mb-2 line-clamp-2">
                         {notification.message}
