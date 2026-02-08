@@ -72,6 +72,7 @@ import {
 } from "lucide-react"
 import { useSearchParams } from 'next/navigation'
 import { Switch } from "@radix-ui/react-switch"
+import PageInfoTooltip from "@/components/PageInfoTooltip"
 
 // Role Badge Component
 const RoleBadge = ({ role }: { role: string }) => {
@@ -1361,6 +1362,14 @@ const fetchFolders = async () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
+
+       {/* ✅ DIFFERENT MESSAGE FOR SPACES PAGE */}
+            <PageInfoTooltip 
+              pageId="spaces"
+              message="Manage your secure data rooms. Create spaces for deals, fundraising, and client collaboration."
+              position="top"
+            />
+            
       {/* Drag & Drop Overlay */}
       {isDragging && (
         <div

@@ -57,6 +57,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Drawer } from "@/components/ui/drawer";
+import PageInfoTooltip from "@/components/PageInfoTooltip";
 
 type DocumentType = {
   _id: string;
@@ -998,6 +999,13 @@ const handleSendSignatureRequest = async () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
+
+       {/* ✅ DIFFERENT MESSAGE FOR DOCUMENTS PAGE */}
+            <PageInfoTooltip 
+              pageId="documents"
+              message="View and manage your uploaded PDF documents. Preview, download, and share documents with others."
+              position="top"
+            />
       {/* Header */}
       <header className="bg-white border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

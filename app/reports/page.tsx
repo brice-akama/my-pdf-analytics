@@ -98,6 +98,7 @@ import {
   PolarRadiusAxis,
   Radar
 } from 'recharts'
+import PageInfoTooltip from "@/components/PageInfoTooltip"
 
 type ViewType = 'overview' | 'all-documents' | 'document-detail' | 'leaderboard' | 'documents-report' | 'recipients-report' | 'status-report'
 type AnalyticsView = 'basic' | 'advanced'
@@ -573,6 +574,13 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
+
+       {/* ✅ DIFFERENT MESSAGE FOR REPORTS PAGE */}
+            <PageInfoTooltip 
+              pageId="reports"
+              message="View detailed analytics on document engagement. See page-by-page breakdowns, viewer locations, and time spent analytics to understand how recipients interact with your documents and identify potential deal risks."
+              position="top"
+            />
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur">
         <div className="flex h-16 items-center gap-4 px-6">

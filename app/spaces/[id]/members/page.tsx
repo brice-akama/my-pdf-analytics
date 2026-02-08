@@ -39,6 +39,7 @@ import {
   Users,
   TrendingUp
 } from 'lucide-react'
+import PageInfoTooltip from '@/components/PageInfoTooltip'
 
 type Member = {
   id: string
@@ -628,6 +629,13 @@ const handleSelectAll = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
+
+       {/* ✅ DIFFERENT MESSAGE FOR MEMBERS PAGE */}
+            <PageInfoTooltip 
+              pageId="members"
+              message="Manage your secure data rooms. Create spaces for deals, fundraising, and client collaboration."
+              position="top"
+            />
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
         <div className="flex items-center justify-between h-16 px-6">

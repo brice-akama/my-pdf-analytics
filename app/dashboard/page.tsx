@@ -91,6 +91,7 @@ import {
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import GlobalSearch from "@/components/GlobalSearch"
+import PageInfoTooltip from "@/components/PageInfoTooltip"
 
 type UserType = {
   email: string
@@ -2124,6 +2125,12 @@ case 'dashboard':
       case 'content-library':
         return (
           <div>
+             {/* ✅ PAGE-SPECIFIC TOOLTIP */}
+      <PageInfoTooltip 
+        pageId="content-library"
+        message="Upload your PDFs here. Track who views them, when, and for how long. Share securely with a link."
+        position="top"
+      />
             
               
             <div className="mb-8">
@@ -2247,7 +2254,7 @@ case 'dashboard':
 
             <div>
               
-              <h2 className="text-xl font-semibold text-slate-900 mb-6">5 ways to get the most out of DocMetrics</h2>
+              <h2 className="text-xl font-semibold text-slate-900 mb-6">5 ways to unlock DocMetrics full potential</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
   {quickActions.map((action, index) => (
     <div 
@@ -2272,6 +2279,7 @@ case 'dashboard':
   // Show loading state while redirecting
   return (
     <div className="flex items-center justify-center min-h-[400px]">
+       
       <div className="text-center">
         <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
         <p className="text-slate-600">Redirecting to Spaces...</p>
@@ -2284,6 +2292,7 @@ case 'dashboard':
   // Show loading state while redirecting
   return (
     <div className="flex items-center justify-center min-h-[400px]">
+      
       <div className="text-center">
         <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
         <p className="text-slate-600">Redirecting to Reports...</p>
@@ -2294,6 +2303,7 @@ case 'dashboard':
   case 'documents':
   return (
     <div className="flex items-center justify-center min-h-[400px]">
+       
       <div className="text-center">
         <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
         <p className="text-slate-600">Redirecting to Documents...</p>
@@ -2302,15 +2312,47 @@ case 'dashboard':
   )
 
      case 'agreements':
-  return <AgreementsSection />
+  return (
+    <div>
+      {/* ✅ DIFFERENT MESSAGE FOR AGREEMENTS PAGE */}
+      <PageInfoTooltip 
+        pageId="agreements"
+        message="Require viewers to sign an NDA before accessing your content. Track signatures and send reminders automatically."
+        position="top"
+      />
 
-     case 'file-requests':
-  return <FileRequestsSection />
+      {/* Rest of agreements code */}
+      <AgreementsSection />
+    </div>
+  )
+
+     
+
+  case 'file-requests':
+  return (
+    <div>
+      {/* ✅ DIFFERENT MESSAGE FOR FILE REQUESTS PAGE */}
+      <PageInfoTooltip 
+        pageId="file-requests"
+        message="Create file requests to collect documents from viewers. Set deadlines, track submissions, and manage access permissions."
+        position="top"
+      />
+
+      {/* Rest of agreements code */}
+      <FileRequestsSection />
+    </div>
+  )
   
 
    case 'contacts':
   return (
     <div>
+        {/* ✅ DIFFERENT MESSAGE FOR CONTACTS PAGE */}
+      <PageInfoTooltip 
+        pageId="contacts"
+        message="Manage your contacts for quick document sharing. Save contact details, add notes, and see who added them to the team."
+        position="top"
+      />
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Contacts</h1>
@@ -2636,18 +2678,7 @@ case 'dashboard':
           <SheetHeader className="border-b p-6">
             <SheetTitle className="flex items-center gap-3">
               <div className="h-10 w-10">
-                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
-                  <defs>
-                    <linearGradient id="mobileLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" style={{stopColor:"#8B5CF6", stopOpacity:1}} />
-                      <stop offset="100%" style={{stopColor:"#3B82F6", stopOpacity:1}} />
-                    </linearGradient>
-                  </defs>
-                  <path d="M 60 50 L 60 150 L 140 150 L 140 70 L 120 50 Z" fill="url(#mobileLogoGrad)"/>
-                  <rect x="75" y="100" width="12" height="30" fill="white" opacity="0.9" rx="2"/>
-                  <rect x="94" y="85" width="12" height="45" fill="white" opacity="0.9" rx="2"/>
-                  <rect x="113" y="70" width="12" height="60" fill="white" opacity="0.9" rx="2"/>
-                </svg>
+                
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
                 DocMetrics

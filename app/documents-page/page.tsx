@@ -36,6 +36,7 @@ import { motion } from "framer-motion"
 import { AnimatePresence } from "framer-motion"
 import { Label } from "@radix-ui/react-dropdown-menu"
 import Link from "next/link"
+import PageInfoTooltip from "@/components/PageInfoTooltip"
 
 type DocumentType = {
   _id: string
@@ -561,6 +562,13 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
+
+       {/* ✅ DIFFERENT MESSAGE FOR DOCUMENTS PAGE */}
+            <PageInfoTooltip 
+              pageId="documents"
+              message="Upload, manage, and organize your PDF documents. Create templates for consistent document formatting."
+              position="top"
+            />
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur">
       

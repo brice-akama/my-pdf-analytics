@@ -31,6 +31,7 @@ import {
    Camera,
 } from "lucide-react";
 import { ACCESS_CODE_TYPES } from "@/lib/accessCodeConfig";
+import PageInfoTooltip from "@/components/PageInfoTooltip";
 type DocumentType = {
   _id: string;
   filename: string;
@@ -712,6 +713,13 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
   }
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+
+       {/* ✅ DIFFERENT MESSAGE FOR SIGNATURE PAGE */}
+            <PageInfoTooltip 
+              pageId="signature"
+              message="Create and manage signature requests for your documents. Add recipients, set due dates, and track signatures."
+              position="top"
+            />
       {/* Header */}
       <header className="bg-white border-b shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4">

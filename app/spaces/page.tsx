@@ -66,6 +66,7 @@ import {
   Trash2 
 } from "lucide-react"
 import { OrganizationSwitcher } from '@/components/OrganizationSwitcher'
+import PageInfoTooltip from "@/components/PageInfoTooltip"
 
 type SpaceType = {
   _id: string
@@ -417,6 +418,12 @@ const getInitial = (user: any) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
+       {/* ✅ DIFFERENT MESSAGE FOR SPACES PAGE */}
+            <PageInfoTooltip 
+              pageId="spaces"
+              message="Manage your secure data rooms. Create spaces for deals, fundraising, and client collaboration."
+              position="top"
+            />
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
