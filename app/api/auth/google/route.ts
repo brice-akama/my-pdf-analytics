@@ -1,3 +1,4 @@
+// app/api/auth/google/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from '../../lib/mongodb';
 import jwt from 'jsonwebtoken';
@@ -162,7 +163,7 @@ export async function GET(request: NextRequest) {
       response.cookies.set('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7,
         path: '/'
       });

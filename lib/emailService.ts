@@ -34,7 +34,7 @@ export async function sendSignatureRequestEmail({
       : null;
 
     const { data, error } = await resend.emails.send({
-      from: 'DocuShare <onboarding@resend.dev>', // ⚠️ Change this to your verified domain
+      from: 'DocMetrics <noreply@docmetrics.io>', // ⚠️ Change this to your verified domain
       to: [recipientEmail],
       subject: `${senderName} has requested your signature on "${originalFilename}"`,
       html: `
@@ -244,7 +244,7 @@ export async function sendDocumentSignedNotification({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'DocuShare <onboarding@resend.dev>',
+    from: 'DocMetrics <noreply@docmetrics.io>',
       to: [ownerEmail],
       subject: `✅ ${signerName} signed "${originalFilename}"`,
       html: `
@@ -391,7 +391,7 @@ export async function sendAllSignaturesCompleteEmail({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'DocuShare <onboarding@resend.dev>',
+      from: 'DocMetrics <noreply@docmetrics.io>',
       to: [recipientEmail],
       subject: `🎉 All signatures collected for "${originalFilename}"`,
       html: `
@@ -573,7 +573,7 @@ export async function sendSignatureReminderEmail({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'DocuShare <onboarding@resend.dev>',
+      from: 'DocMetrics <noreply@docmetrics.io>',
       to: [recipientEmail],
       subject: `⏰ Reminder: Please sign "${originalFilename}"`,
       html: `
@@ -750,7 +750,7 @@ export async function sendSignatureRequestCancelledEmail({
     `;
 
     const { data, error } = await resend.emails.send({
-      from: 'DocuShare <onboarding@resend.dev>',
+     from: 'DocMetrics <noreply@docmetrics.io>',
       to: [recipientEmail],
       subject: `Signature Request Cancelled - ${originalFilename}`,
       html: emailHtml,
@@ -835,7 +835,7 @@ export async function sendCCNotificationEmail({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'DocuShare <onboarding@resend.dev>',
+     from: 'DocMetrics <noreply@docmetrics.io>',
       to: [ccEmail],
       subject: `CC: ${documentName} - Signature Request`,
       html: emailHtml,
@@ -934,7 +934,7 @@ export async function sendCCCompletionEmail({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'DocuShare <onboarding@resend.dev>',
+      from: 'DocMetrics <noreply@docmetrics.io>',
       to: [ccEmail],
       subject: `✅ Completed: ${originalFilename}`,
       html: emailHtml,
@@ -977,7 +977,7 @@ export async function sendSignatureDeclinedNotification({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'DocuShare <onboarding@resend.dev>',
+      from: 'DocMetrics <noreply@docmetrics.io>',
       to: [ownerEmail],
       subject: `🚫 ${declinerName} declined to sign "${documentName}"`,
       html: `
@@ -1721,7 +1721,7 @@ export async function sendSpaceInvitation({
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${inviteToken}`;
 
   await resend.emails.send({
-    from: 'Your App <noreply@yourdomain.com>',
+    from: 'DocMetrics <noreply@docmetrics.io>',
     to: toEmail,
     subject: `You've been invited to ${spaceName}`,
     html: `
@@ -1757,7 +1757,7 @@ export async function sendMemberRoleChangedEmail({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'DocuShare <onboarding@resend.dev>',
+      from: 'DocMetrics <noreply@docmetrics.io>',
       to: [toEmail],
       subject: `Your role in "${spaceName}" has been updated`,
       html: `
@@ -1821,7 +1821,7 @@ export async function sendMemberRemovedEmail({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'DocuShare <onboarding@resend.dev>',
+      from: 'DocMetrics <noreply@docmetrics.io>',
       to: [toEmail],
       subject: `Access removed from "${spaceName}"`,
       html: `
@@ -1864,6 +1864,424 @@ export async function sendMemberRemovedEmail({
     return { success: true, data };
   } catch (error) {
     console.error('❌ Email service error:', error);
+    throw error;
+  }
+}
+
+
+// ===================================
+// WELCOME EMAIL FOR NEW SIGNUPS
+// ===================================
+export async function sendWelcomeEmail({
+  recipientName,
+  recipientEmail,
+}: {
+  recipientName: string;
+  recipientEmail: string;
+}) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocMetrics <noreply@docmetrics.io>',
+      to: [recipientEmail],
+      subject: 'Welcome to DocMetrics - Your Document Workflow Starts Here',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              line-height: 1.6;
+              color: #1f2937;
+              background-color: #f9fafb;
+              margin: 0;
+              padding: 0;
+            }
+            .container {
+              max-width: 600px;
+              margin: 40px auto;
+              background: white;
+              border-radius: 16px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            }
+            .header {
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              padding: 50px 30px;
+              text-align: center;
+              color: white;
+            }
+            .logo {
+              font-size: 48px;
+              margin-bottom: 15px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 32px;
+              font-weight: 700;
+              letter-spacing: -0.5px;
+            }
+            .header p {
+              margin: 12px 0 0 0;
+              font-size: 16px;
+              opacity: 0.95;
+            }
+            .content {
+              padding: 45px 35px;
+            }
+            .greeting {
+              font-size: 20px;
+              color: #111827;
+              margin-bottom: 20px;
+              font-weight: 600;
+            }
+            .intro-text {
+              font-size: 16px;
+              color: #4b5563;
+              margin-bottom: 30px;
+              line-height: 1.7;
+            }
+            .feature-grid {
+              display: grid;
+              gap: 20px;
+              margin: 35px 0;
+            }
+            .feature-card {
+              background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+              border-left: 4px solid #667eea;
+              padding: 24px;
+              border-radius: 10px;
+              transition: transform 0.2s;
+            }
+            .feature-icon {
+              font-size: 32px;
+              margin-bottom: 12px;
+            }
+            .feature-title {
+              font-size: 18px;
+              font-weight: 700;
+              color: #1f2937;
+              margin-bottom: 8px;
+            }
+            .feature-desc {
+              font-size: 14px;
+              color: #6b7280;
+              line-height: 1.6;
+            }
+            .cta-section {
+              background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+              border-radius: 12px;
+              padding: 30px;
+              margin: 35px 0;
+              text-align: center;
+            }
+            .cta-title {
+              font-size: 20px;
+              font-weight: 700;
+              color: #78350f;
+              margin-bottom: 15px;
+            }
+            .cta-button {
+              display: inline-block;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 16px 40px;
+              text-decoration: none;
+              border-radius: 10px;
+              font-weight: 600;
+              font-size: 16px;
+              margin: 15px 0;
+              box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+              transition: transform 0.2s;
+            }
+            .cta-button:hover {
+              transform: translateY(-2px);
+            }
+            .stats-box {
+              background: #f0fdf4;
+              border: 2px solid #bbf7d0;
+              border-radius: 12px;
+              padding: 25px;
+              margin: 30px 0;
+            }
+            .stats-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr 1fr;
+              gap: 20px;
+              text-align: center;
+            }
+            .stat-item {
+              padding: 15px;
+            }
+            .stat-number {
+              font-size: 28px;
+              font-weight: 800;
+              color: #059669;
+              display: block;
+            }
+            .stat-label {
+              font-size: 12px;
+              color: #047857;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-top: 5px;
+            }
+            .tips-section {
+              background: #eff6ff;
+              border-radius: 12px;
+              padding: 25px;
+              margin: 30px 0;
+            }
+            .tips-title {
+              font-size: 18px;
+              font-weight: 700;
+              color: #1e40af;
+              margin-bottom: 15px;
+            }
+            .tip-item {
+              display: flex;
+              align-items: start;
+              margin-bottom: 12px;
+              padding: 10px;
+              background: white;
+              border-radius: 6px;
+            }
+            .tip-number {
+              background: #3b82f6;
+              color: white;
+              width: 24px;
+              height: 24px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 700;
+              font-size: 12px;
+              margin-right: 12px;
+              flex-shrink: 0;
+            }
+            .tip-text {
+              font-size: 14px;
+              color: #1f2937;
+              line-height: 1.5;
+            }
+            .support-box {
+              background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+              border-left: 4px solid #ef4444;
+              padding: 20px;
+              border-radius: 10px;
+              margin: 30px 0;
+            }
+            .support-title {
+              font-size: 16px;
+              font-weight: 700;
+              color: #991b1b;
+              margin-bottom: 10px;
+            }
+            .support-text {
+              font-size: 14px;
+              color: #7f1d1d;
+              margin-bottom: 12px;
+            }
+            .support-email {
+              color: #dc2626;
+              font-weight: 600;
+              text-decoration: none;
+            }
+            .footer {
+              background: #f9fafb;
+              padding: 35px 30px;
+              text-align: center;
+              border-top: 1px solid #e5e7eb;
+            }
+            .footer-text {
+              font-size: 14px;
+              color: #6b7280;
+              margin-bottom: 15px;
+            }
+            .social-links {
+              margin: 20px 0;
+            }
+            .social-link {
+              display: inline-block;
+              margin: 0 10px;
+              color: #6b7280;
+              text-decoration: none;
+              font-size: 13px;
+            }
+            .footer-small {
+              font-size: 12px;
+              color: #9ca3af;
+              margin-top: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <!-- Header -->
+            <div class="header">
+              <div class="logo">📊</div>
+              <h1>Welcome to DocMetrics</h1>
+              <p>Where document sharing meets digital signatures</p>
+            </div>
+            
+            <!-- Content -->
+            <div class="content">
+              <p class="greeting">Hi ${recipientName}! 👋</p>
+              
+              <p class="intro-text">
+                We're thrilled to have you on board! DocMetrics combines the power of secure document sharing 
+                with seamless e-signature capabilities, giving you complete control over your document workflow.
+              </p>
+
+              <!-- Feature Grid -->
+              <div class="feature-grid">
+                <div class="feature-card">
+                  <div class="feature-icon">📤</div>
+                  <div class="feature-title">Smart Document Sharing</div>
+                  <div class="feature-desc">
+                    Share documents securely with custom permissions, expiration dates, and detailed analytics. 
+                    Know exactly who viewed your documents and when.
+                  </div>
+                </div>
+
+                <div class="feature-card">
+                  <div class="feature-icon">✍️</div>
+                  <div class="feature-title">E-Signature Made Simple</div>
+                  <div class="feature-desc">
+                    Send documents for signature, track status in real-time, and get legally binding signatures 
+                    in minutes. No printing, no scanning.
+                  </div>
+                </div>
+
+                <div class="feature-card">
+                  <div class="feature-icon">📈</div>
+                  <div class="feature-title">Powerful Analytics</div>
+                  <div class="feature-desc">
+                    Gain insights into document engagement. Track views, downloads, time spent, and recipient 
+                    behavior to optimize your workflow.
+                  </div>
+                </div>
+              </div>
+
+              <!-- CTA Section -->
+              <div class="cta-section">
+                <div class="cta-title">🚀 Ready to Get Started?</div>
+                <p style="color: #92400e; font-size: 15px; margin-bottom: 10px;">
+                  Upload your first document and experience the power of DocMetrics
+                </p>
+                <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://docmetrics.io'}/dashboard" class="cta-button">
+                  Go to Dashboard
+                </a>
+              </div>
+
+              <!-- Quick Start Tips -->
+              <div class="tips-section">
+                <div class="tips-title">💡 Quick Start Guide</div>
+                <div class="tip-item">
+                  <div class="tip-number">1</div>
+                  <div class="tip-text">
+                    <strong>Upload a document</strong> - Drag and drop any PDF or use our upload button
+                  </div>
+                </div>
+                <div class="tip-item">
+                  <div class="tip-number">2</div>
+                  <div class="tip-text">
+                    <strong>Share or request signatures</strong> - Choose whether to share for viewing or send for signing
+                  </div>
+                </div>
+                <div class="tip-item">
+                  <div class="tip-number">3</div>
+                  <div class="tip-text">
+                    <strong>Track everything</strong> - Monitor views, downloads, and signature progress in real-time
+                  </div>
+                </div>
+                <div class="tip-item">
+                  <div class="tip-number">4</div>
+                  <div class="tip-text">
+                    <strong>Collaborate seamlessly</strong> - Invite team members and manage permissions from your dashboard
+                  </div>
+                </div>
+              </div>
+
+              <!-- Stats Box -->
+              <div class="stats-box">
+                <div style="text-align: center; margin-bottom: 20px;">
+                  <strong style="color: #047857; font-size: 16px;">Join thousands of professionals who trust DocMetrics</strong>
+                </div>
+                <div class="stats-grid">
+                  <div class="stat-item">
+                    <span class="stat-number">500K+</span>
+                    <span class="stat-label">Documents Shared</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-number">250K+</span>
+                    <span class="stat-label">Signatures Collected</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-number">99.9%</span>
+                    <span class="stat-label">Uptime</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Support Box -->
+              <div class="support-box">
+                <div class="support-title">🆘 Need Help?</div>
+                <p class="support-text">
+                  Our support team is here to help you succeed. Whether you have questions about features, 
+                  need technical assistance, or want to share feedback, we're just an email away.
+                </p>
+                <p style="margin: 0;">
+                  <strong>📧 Email us:</strong> 
+                  <a href="mailto:support@docmetrics.io" class="support-email">support@docmetrics.io</a>
+                </p>
+              </div>
+
+              <p style="font-size: 15px; color: #4b5563; margin-top: 35px; line-height: 1.7;">
+                Thanks for choosing DocMetrics. We're committed to making your document workflow more efficient, 
+                secure, and insightful. Let's build something great together!
+              </p>
+
+              <p style="font-size: 15px; color: #1f2937; margin-top: 25px; font-weight: 600;">
+                Best regards,<br>
+                The DocMetrics Team
+              </p>
+            </div>
+            
+            <!-- Footer -->
+            <div class="footer">
+              <p class="footer-text">
+                You're receiving this email because you created an account at DocMetrics.
+              </p>
+              <div class="social-links">
+                <a href="#" class="social-link">Twitter</a> • 
+                <a href="#" class="social-link">LinkedIn</a> • 
+                <a href="#" class="social-link">Documentation</a>
+              </div>
+              <p class="footer-small">
+                © ${new Date().getFullYear()} DocMetrics. All rights reserved.<br>
+                <a href="#" style="color: #9ca3af; text-decoration: none;">Privacy Policy</a> • 
+                <a href="#" style="color: #9ca3af; text-decoration: none;">Terms of Service</a>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error('❌ Failed to send welcome email:', error);
+      throw error;
+    }
+
+    console.log('✅ Welcome email sent to:', recipientEmail);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Welcome email service error:', error);
     throw error;
   }
 }

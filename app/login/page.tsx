@@ -8,111 +8,139 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
 import { useRouter, useSearchParams } from "next/navigation"
-
-
+import { Eye, EyeOff } from "lucide-react" // ✅ Import icons for password toggle
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
- const [error, setError] = useState<string | null>(null)
- const router = useRouter()
+  const [error, setError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false) // ✅ Password visibility state
+  const router = useRouter()
+  const searchParams = useSearchParams();
 
- 
-const searchParams = useSearchParams();
-
-useEffect(() => {
-  // ✅ Detect invitation type from URL
-  const redirect = searchParams?.get('redirect');
-  
-  // Team invitation
-  if (redirect && redirect.includes('/invite-team/')) {
-    const token = redirect.split('/invite-team/')[1];
-    if (token) {
-      sessionStorage.setItem('pendingTeamInvite', token);
-    }
-  }
-  
-  // Space invitation
-  if (redirect && redirect.includes('/invite/') && !redirect.includes('/invite-team/')) {
-    const token = redirect.split('/invite/')[1];
-    if (token) {
-      sessionStorage.setItem('pendingSpaceInvite', token);
-    }
-  }
-}, [searchParams]);
-
-  
+  useEffect(() => {
+    // ✅ Detect invitation type from URL
+    const redirect = searchParams?.get('redirect');
     
-  
-
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError(null);
-  setLoading(true);
-
-  try {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: email.trim().toLowerCase(),
-        password,
-      }),
-      credentials: 'include'
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data?.error || "Invalid email or password");
-      return;
+    // Team invitation
+    if (redirect && redirect.includes('/invite-team/')) {
+      const token = redirect.split('/invite-team/')[1];
+      if (token) {
+        sessionStorage.setItem('pendingTeamInvite', token);
+      }
     }
-
-    // ✅ Priority 1a: Team invitation
-    const pendingTeamInvite = sessionStorage.getItem('pendingTeamInvite');
-    if (pendingTeamInvite) {
-      sessionStorage.removeItem('pendingTeamInvite');
-      router.push(`/invite-team/${pendingTeamInvite}`);
-      return;
-    }
-
-    // ✅ Priority 1b: Check for pending invitation first
-    const pendingInvite = sessionStorage.getItem('pendingInvite');
-    if (pendingInvite) {
-      sessionStorage.removeItem('pendingInvite');
-      router.push(`/invite/${pendingInvite}`); // ✅ Fixed syntax
-      return;
-    }
-
-    // ✅ Priority 2: Check for redirect URL from query params
-    const searchParams = new URLSearchParams(window.location.search);
-    const redirect = searchParams.get('redirect');
-    if (redirect) {
-      router.push(redirect);
-      return;
-    }
-
-    // ✅ Priority 3: Default redirect to dashboard (for owners)
-    router.push("/dashboard");
     
-  } catch (err) {
-    console.error("Login error", err);
-    setError("Network error. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+    // Space invitation
+    if (redirect && redirect.includes('/invite/') && !redirect.includes('/invite-team/')) {
+      const token = redirect.split('/invite/')[1];
+      if (token) {
+        sessionStorage.setItem('pendingSpaceInvite', token);
+      }
+    }
+  }, [searchParams]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      const trimmedEmail = email.trim().toLowerCase();
+      const trimmedPassword = password.trim(); // ✅ Remove accidental whitespace
+
+      console.log('🔍 Attempting login with:', { email: trimmedEmail }); // Debug log
+
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          password: trimmedPassword,
+        }),
+        credentials: 'include'
+      });
+
+      const data = await res.json();
+      console.log('📥 Login response:', { status: res.status, data }); // Debug log
+
+      if (!res.ok) {
+        setError(data?.error || "Invalid email or password");
+        return;
+      }
+
+      console.log('✅ Login successful, redirecting...'); // Debug log
+
+      // ✅ Priority 1a: Team invitation
+      const pendingTeamInvite = sessionStorage.getItem('pendingTeamInvite');
+      if (pendingTeamInvite) {
+        sessionStorage.removeItem('pendingTeamInvite');
+        console.log('📍 Redirecting to team invite:', pendingTeamInvite);
+        router.push(`/invite-team/${pendingTeamInvite}`);
+        return;
+      }
+
+      // ✅ Priority 1b: Space invitation
+      const pendingSpaceInvite = sessionStorage.getItem('pendingSpaceInvite');
+      if (pendingSpaceInvite) {
+        sessionStorage.removeItem('pendingSpaceInvite');
+        console.log('📍 Redirecting to space invite:', pendingSpaceInvite);
+        router.push(`/invite/${pendingSpaceInvite}`);
+        return;
+      }
+
+      // ✅ Priority 2: Check for redirect URL from query params
+      const redirect = searchParams?.get('redirect');
+      if (redirect && redirect !== '/login') {
+        console.log('📍 Redirecting to query param:', redirect);
+        router.push(redirect);
+        return;
+      }
+
+      // ✅ Priority 3: Default redirect to dashboard
+      console.log('📍 Redirecting to dashboard');
+      router.push("/dashboard");
+      
+    } catch (err) {
+      console.error("❌ Login error:", err);
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
   
-const handleGoogleSignIn = () => {
-  const state = Math.random().toString(36).slice(2);
-  sessionStorage.setItem("oauth_state", state);
+  const handleGoogleSignIn = () => {
+    try {
+      const state = Math.random().toString(36).slice(2);
+      sessionStorage.setItem("oauth_state", state);
 
-  const next = "/dashboard";
+      // ✅ Store any pending invitations before OAuth redirect
+      const pendingTeamInvite = sessionStorage.getItem('pendingTeamInvite');
+      const pendingSpaceInvite = sessionStorage.getItem('pendingSpaceInvite');
+      const redirect = searchParams?.get('redirect');
 
-  window.location.href = `/api/auth/google?mode=login&next=${next}&state=${state}`;
-};
+      let nextUrl = "/dashboard"; // Default
+
+      if (pendingTeamInvite) {
+        nextUrl = `/invite-team/${pendingTeamInvite}`;
+      } else if (pendingSpaceInvite) {
+        nextUrl = `/invite/${pendingSpaceInvite}`;
+      } else if (redirect && redirect !== '/login') {
+        nextUrl = redirect;
+      }
+
+      console.log('🔵 Google OAuth - Next URL:', nextUrl); // Debug log
+
+      const oauthUrl = `/api/auth/google?mode=login&next=${encodeURIComponent(nextUrl)}&state=${state}`;
+      console.log('🔵 Redirecting to:', oauthUrl); // Debug log
+      
+      window.location.href = oauthUrl;
+    } catch (err) {
+      console.error('❌ Google sign-in error:', err);
+      setError('Failed to initiate Google sign-in');
+    }
+  };
 
   return (
     <div className="min-h-screen flex">
@@ -211,6 +239,7 @@ const handleGoogleSignIn = () => {
             variant="outline"
             className="w-full mb-6 h-11"
             onClick={handleGoogleSignIn}
+            disabled={loading}
           >
             <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
               <path
@@ -252,20 +281,37 @@ const handleGoogleSignIn = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="h-11"
+                disabled={loading}
               />
             </div>
 
+            {/* ✅ PASSWORD FIELD WITH VISIBILITY TOGGLE */}
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="h-11"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="h-11 pr-10"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between">
@@ -274,6 +320,7 @@ const handleGoogleSignIn = () => {
                   id="remember"
                   checked={rememberMe}
                   onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  disabled={loading}
                 />
                 <label
                   htmlFor="remember"
@@ -290,11 +337,19 @@ const handleGoogleSignIn = () => {
               </Link>
             </div>
 
-            
-            <Button type="submit" disabled={loading} className="w-full h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-            {loading ? "Signing in..." : "Sign in"}
-          </Button>
-{error && <div className="mt-2 text-sm text-red-600">{error}</div>}
+            <Button 
+              type="submit" 
+              disabled={loading} 
+              className="w-full h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              {loading ? "Signing in..." : "Sign in"}
+            </Button>
+
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                {error}
+              </div>
+            )}
           </form>
 
           <div className="mt-6 text-center text-sm">

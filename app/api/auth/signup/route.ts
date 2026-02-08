@@ -13,6 +13,7 @@ import {
   getUserAgent,
   checkRateLimit
 } from '@/lib/security';
+import { sendWelcomeEmail } from '@/lib/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -91,6 +92,13 @@ if (!isOAuthSignup) {
     // ✅ Random password for OAuth users
     const randomPassword = Math.random().toString(36).slice(-16);
     const passwordToHash = isOAuthSignup ? randomPassword : password;
+    // ✅ ADD THESE DEBUG LOGS
+console.log('🔍 Signup Debug:', {
+  isOAuthSignup,
+  hasPassword: !!password,
+  passwordToHash: passwordToHash.slice(0, 3) + '***', // Only show first 3 chars
+  passwordLength: passwordToHash.length
+});
     const passwordHash = await bcrypt.hash(passwordToHash, 10);
     const now = new Date();
 
@@ -181,6 +189,18 @@ if (pendingInvitations.length > 0) {
       created_at: now
     });
 
+    // 📧 Send welcome email
+try {
+  await sendWelcomeEmail({
+    recipientName: sanitizedFirstName,
+    recipientEmail: sanitizedEmail,
+  });
+  console.log('✅ Welcome email queued for:', sanitizedEmail);
+} catch (emailError) {
+  console.error('⚠️ Failed to send welcome email (non-blocking):', emailError);
+  // Don't block signup if email fails
+}
+
     const token = jwt.sign(
       { userId: insertedUserId, email: sanitizedEmail },
       process.env.JWT_SECRET!,
@@ -203,7 +223,7 @@ if (pendingInvitations.length > 0) {
 response.cookies.set('token', token, {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+   sameSite: 'lax',
   maxAge: 60 * 60 * 24 * 7, // 7 days
   path: '/'
 });
