@@ -177,7 +177,7 @@ const userData = {
       `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
       user.name || user.email.split("@")[0],
     companyName: organizationName, // ✅ OWNER'S COMPANY NAME
-    avatarUrl: profile?.avatar_url || user.profile?.avatarUrl || "",
+    avatarUrl: profile?.avatarUrl || profile?.avatar_url || user.profile?.avatarUrl || "",
   },
   
   // ✅ ADD ORGANIZATION INFO

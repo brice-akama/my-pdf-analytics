@@ -2564,3 +2564,548 @@ export async function sendPasswordResetEmail({
     throw error;
   }
 }
+
+// ===================================
+// SUPPORT REQUEST EMAIL
+// ===================================
+export async function sendSupportRequestEmail({
+  userName,
+  userEmail,
+  subject,
+  message,
+  userCompany,
+}: {
+  userName: string;
+  userEmail: string;
+  subject: string;
+  message: string;
+  userCompany?: string;
+}) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocMetrics Support <noreply@docmetrics.io>',
+      to: ['support@docmetrics.io'], // Your support email
+      replyTo: userEmail,
+      subject: `Support Request: ${subject}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              line-height: 1.6;
+              color: #1f2937;
+              background-color: #f9fafb;
+              margin: 0;
+              padding: 0;
+            }
+            .container {
+              max-width: 600px;
+              margin: 40px auto;
+              background: white;
+              border-radius: 16px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            }
+            .header {
+              background: linear-gradient(135deg, #0ea5e9 0%, #a855f7 100%);
+              padding: 40px 30px;
+              text-align: center;
+              color: white;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 24px;
+              font-weight: 700;
+            }
+            .content {
+              padding: 40px 35px;
+            }
+            .section {
+              margin-bottom: 25px;
+            }
+            .label {
+              font-size: 12px;
+              font-weight: 600;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #6b7280;
+              margin-bottom: 8px;
+            }
+            .value {
+              font-size: 16px;
+              color: #111827;
+              background: #f9fafb;
+              padding: 12px 16px;
+              border-radius: 8px;
+              border-left: 3px solid #0ea5e9;
+            }
+            .message-box {
+              background: #f0f9ff;
+              border: 2px solid #bae6fd;
+              border-radius: 12px;
+              padding: 20px;
+              margin: 25px 0;
+            }
+            .message-text {
+              font-size: 15px;
+              color: #075985;
+              line-height: 1.7;
+              white-space: pre-wrap;
+            }
+            .footer {
+              background: #f9fafb;
+              padding: 25px;
+              text-align: center;
+              border-top: 1px solid #e5e7eb;
+              font-size: 13px;
+              color: #6b7280;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎧 New Support Request</h1>
+            </div>
+            
+            <div class="content">
+              <div class="section">
+                <div class="label">From</div>
+                <div class="value">${userName}</div>
+              </div>
+
+              <div class="section">
+                <div class="label">Email</div>
+                <div class="value">${userEmail}</div>
+              </div>
+
+              ${userCompany ? `
+              <div class="section">
+                <div class="label">Company</div>
+                <div class="value">${userCompany}</div>
+              </div>
+              ` : ''}
+
+              <div class="section">
+                <div class="label">Subject</div>
+                <div class="value">${subject}</div>
+              </div>
+
+              <div class="message-box">
+                <div class="label" style="color: #075985;">Message</div>
+                <div class="message-text">${message}</div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              Sent via DocMetrics Support System<br>
+              ${new Date().toLocaleString('en-US', { 
+                dateStyle: 'full', 
+                timeStyle: 'short' 
+              })}
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error('❌ Failed to send support email:', error);
+      throw error;
+    }
+
+    console.log('✅ Support email sent:', data?.id);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Support email error:', error);
+    throw error;
+  }
+}
+
+// ===================================
+// DEMO BOOKING REQUEST EMAIL
+// ===================================
+export async function sendDemoBookingEmail({
+  userName,
+  userEmail,
+  userCompany,
+  phoneNumber,
+  teamSize,
+  preferredDate,
+  message,
+}: {
+  userName: string;
+  userEmail: string;
+  userCompany?: string;
+  phoneNumber?: string;
+  teamSize?: string;
+  preferredDate?: string;
+  message?: string;
+}) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocMetrics Demos <noreply@docmetrics.io>',
+      to: ['support@docmetrics.io'],
+      replyTo: userEmail,
+      subject: `Demo Request: ${userName} - ${userCompany || 'Individual'}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              line-height: 1.6;
+              color: #1f2937;
+              background-color: #f9fafb;
+              margin: 0;
+              padding: 0;
+            }
+            .container {
+              max-width: 600px;
+              margin: 40px auto;
+              background: white;
+              border-radius: 16px;
+              overflow: hidden;
+              box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+              background: linear-gradient(135deg, #a855f7 0%, #0ea5e9 100%);
+              padding: 40px 30px;
+              text-align: center;
+              color: white;
+            }
+            .header-icon {
+              font-size: 48px;
+              margin-bottom: 12px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 26px;
+              font-weight: 700;
+            }
+            .priority-badge {
+              display: inline-block;
+              background: #fef3c7;
+              color: #92400e;
+              padding: 6px 16px;
+              border-radius: 20px;
+              font-size: 12px;
+              font-weight: 700;
+              margin-top: 12px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .content {
+              padding: 40px 35px;
+            }
+            .info-grid {
+              display: grid;
+              gap: 20px;
+              margin-bottom: 30px;
+            }
+            .info-item {
+              background: #f9fafb;
+              border-left: 4px solid #a855f7;
+              padding: 16px 20px;
+              border-radius: 8px;
+            }
+            .info-label {
+              font-size: 12px;
+              font-weight: 600;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #6b7280;
+              margin-bottom: 6px;
+            }
+            .info-value {
+              font-size: 16px;
+              color: #111827;
+              font-weight: 500;
+            }
+            .message-section {
+              background: linear-gradient(135deg, #faf5ff 0%, #f0f9ff 100%);
+              border: 2px solid #e9d5ff;
+              border-radius: 12px;
+              padding: 25px;
+              margin: 30px 0;
+            }
+            .message-text {
+              font-size: 15px;
+              color: #581c87;
+              line-height: 1.7;
+              white-space: pre-wrap;
+            }
+            .action-box {
+              background: #eff6ff;
+              border-radius: 12px;
+              padding: 20px;
+              text-align: center;
+              margin: 30px 0;
+            }
+            .cta-button {
+              display: inline-block;
+              background: linear-gradient(135deg, #0ea5e9 0%, #a855f7 100%);
+              color: white;
+              padding: 14px 32px;
+              text-decoration: none;
+              border-radius: 10px;
+              font-weight: 600;
+              font-size: 15px;
+              margin-top: 10px;
+            }
+            .footer {
+              background: #f9fafb;
+              padding: 25px;
+              text-align: center;
+              border-top: 1px solid #e5e7eb;
+              font-size: 13px;
+              color: #6b7280;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="header-icon">🎥</div>
+              <h1>New Demo Request</h1>
+              <div class="priority-badge">⚡ High Priority</div>
+            </div>
+            
+            <div class="content">
+              <div class="info-grid">
+                <div class="info-item">
+                  <div class="info-label">Contact Name</div>
+                  <div class="info-value">${userName}</div>
+                </div>
+
+                <div class="info-item">
+                  <div class="info-label">Email</div>
+                  <div class="info-value">${userEmail}</div>
+                </div>
+
+                ${userCompany ? `
+                <div class="info-item">
+                  <div class="info-label">Company</div>
+                  <div class="info-value">${userCompany}</div>
+                </div>
+                ` : ''}
+
+                ${phoneNumber ? `
+                <div class="info-item">
+                  <div class="info-label">Phone Number</div>
+                  <div class="info-value">${phoneNumber}</div>
+                </div>
+                ` : ''}
+
+                ${teamSize ? `
+                <div class="info-item">
+                  <div class="info-label">Team Size</div>
+                  <div class="info-value">${teamSize}</div>
+                </div>
+                ` : ''}
+
+                ${preferredDate ? `
+                <div class="info-item">
+                  <div class="info-label">Preferred Date/Time</div>
+                  <div class="info-value">${preferredDate}</div>
+                </div>
+                ` : ''}
+              </div>
+
+              ${message ? `
+              <div class="message-section">
+                <div class="info-label" style="color: #581c87; margin-bottom: 12px;">Additional Notes</div>
+                <div class="message-text">${message}</div>
+              </div>
+              ` : ''}
+
+              <div class="action-box">
+                <p style="margin: 0 0 15px; color: #1e40af; font-weight: 600;">
+                  📅 Schedule This Demo
+                </p>
+                <a href="mailto:${userEmail}" class="cta-button">
+                  Reply to ${userName}
+                </a>
+              </div>
+            </div>
+            
+            <div class="footer">
+              Sent via DocMetrics Demo System<br>
+              ${new Date().toLocaleString('en-US', { 
+                dateStyle: 'full', 
+                timeStyle: 'short' 
+              })}
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error('❌ Failed to send demo email:', error);
+      throw error;
+    }
+
+    console.log('✅ Demo booking email sent:', data?.id);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Demo booking email error:', error);
+    throw error;
+  }
+}
+
+
+
+// ===================================
+// FEEDBACK SUBMISSION EMAIL (SIMPLIFIED)
+// ===================================
+export async function sendFeedbackEmail({
+  userEmail,
+  feedback,
+}: {
+  userEmail: string;
+  feedback: string;
+}) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocMetrics Feedback <noreply@docmetrics.io>',
+      to: ['support@docmetrics.io'],
+      replyTo: userEmail,
+      subject: `Feedback from ${userEmail}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body {
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              line-height: 1.6;
+              color: #1f2937;
+              background-color: #f9fafb;
+              margin: 0;
+              padding: 0;
+            }
+            .container {
+              max-width: 600px;
+              margin: 40px auto;
+              background: white;
+              border-radius: 16px;
+              overflow: hidden;
+              box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            }
+            .header {
+              background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+              padding: 40px 30px;
+              text-align: center;
+              color: white;
+            }
+            .header-icon {
+              font-size: 48px;
+              margin-bottom: 12px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 26px;
+              font-weight: 700;
+            }
+            .content {
+              padding: 40px 35px;
+            }
+            .info-item {
+              background: #f9fafb;
+              border-left: 4px solid #10b981;
+              padding: 16px 20px;
+              border-radius: 8px;
+              margin-bottom: 20px;
+            }
+            .info-label {
+              font-size: 12px;
+              font-weight: 600;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #6b7280;
+              margin-bottom: 6px;
+            }
+            .info-value {
+              font-size: 16px;
+              color: #111827;
+              font-weight: 500;
+            }
+            .feedback-box {
+              background: linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 100%);
+              border: 2px solid #a7f3d0;
+              border-radius: 12px;
+              padding: 25px;
+              margin: 30px 0;
+            }
+            .feedback-text {
+              font-size: 15px;
+              color: #065f46;
+              line-height: 1.7;
+              white-space: pre-wrap;
+            }
+            .footer {
+              background: #f9fafb;
+              padding: 25px;
+              text-align: center;
+              border-top: 1px solid #e5e7eb;
+              font-size: 13px;
+              color: #6b7280;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="header-icon">💬</div>
+              <h1>New User Feedback</h1>
+            </div>
+            
+            <div class="content">
+              <div class="info-item">
+                <div class="info-label">From</div>
+                <div class="info-value">${userEmail}</div>
+              </div>
+
+              <div class="feedback-box">
+                <div class="info-label" style="color: #065f46; margin-bottom: 12px;">💡 Feedback</div>
+                <div class="feedback-text">${feedback}</div>
+              </div>
+            </div>
+            
+            <div class="footer">
+              Sent via DocMetrics Feedback System<br>
+              ${new Date().toLocaleString('en-US', { 
+                dateStyle: 'full', 
+                timeStyle: 'short' 
+              })}
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error('❌ Failed to send feedback email:', error);
+      throw error;
+    }
+
+    console.log('✅ Feedback email sent:', data?.id);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Feedback email error:', error);
+    throw error;
+  }
+}

@@ -342,6 +342,13 @@ const [showInviteLinkDialog, setShowInviteLinkDialog] = useState(false)
 const [selectedMember, setSelectedMember] = useState<any>(null)
 const [loadingTeam, setLoadingTeam] = useState(false)
 const [showMobileProfileDrawer, setShowMobileProfileDrawer] = useState(false)
+const [showDemoDialog, setShowDemoDialog] = useState(false)
+const [demoPhoneNumber, setDemoPhoneNumber] = useState('')
+const [demoTeamSize, setDemoTeamSize] = useState('')
+const [demoPreferredDate, setDemoPreferredDate] = useState('')
+const [demoMessage, setDemoMessage] = useState('')
+const [supportSubject, setSupportSubject] = useState('')
+const [supportMessage, setSupportMessage] = useState('')
 const [createdFileRequests, setCreatedFileRequests] = useState<Array<{
   email: string
   requestId: string
@@ -1869,9 +1876,11 @@ const handleLogout = async () => {
 // Handle feedback submit
 const handleFeedbackSubmit = async () => {
   if (!feedbackText.trim()) {
-    alert('Please enter your feedback')
-    return
+    toast.error('Please enter your feedback');
+    return;
   }
+
+  const loadingToast = toast.loading('Sending feedback...');
 
   try {
     const res = await fetch('/api/feedback', {
@@ -1880,18 +1889,34 @@ const handleFeedbackSubmit = async () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ feedback: feedbackText }),
-    })
+      body: JSON.stringify({ 
+        feedback: feedbackText.trim() 
+      }),
+    });
+
+    const data = await res.json();
+
     if (res.ok) {
-      alert('Thank you for your feedback!')
-      setFeedbackText('')
-      setShowFeedbackDialog(false)
+      toast.success('Feedback sent!', {
+        id: loadingToast,
+        description: 'Thank you for helping us improve DocMetrics'
+      });
+      setFeedbackText('');
+      setShowFeedbackDialog(false);
+    } else {
+      toast.error(data.error || 'Failed to send feedback', {
+        id: loadingToast,
+        description: 'Please try again later'
+      });
     }
   } catch (error) {
-    console.error('Failed to submit feedback:', error)
-    alert('Failed to submit feedback. Please try again.')
+    console.error('Feedback error:', error);
+    toast.error('Network error', {
+      id: loadingToast,
+      description: 'Please check your connection'
+    });
   }
-}
+};
 
   const quickActions = [
   {
@@ -3652,7 +3677,7 @@ case 'dashboard':
   )}
 </AnimatePresence>
 
-{/* Help Drawer - Modern Slide-in */}
+{/* Help Drawer - UPDATED WITH EMAIL INTEGRATION */}
 <AnimatePresence>
   {showHelpDialog && (
     <>
@@ -3671,13 +3696,13 @@ case 'dashboard':
         animate={{ x: 0 }}
         exit={{ x: "100%" }}
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[700px] bg-white shadow-2xl z-50 flex flex-col"
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[700px] lg:w-[900px] bg-white shadow-2xl z-50 flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+        <div className="flex items-center justify-between px-8 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Help & Support</h2>
-            <p className="text-sm text-slate-600 mt-1">Get help with DocMetrics</p>
+            <p className="text-sm text-slate-600 mt-1">We're here to help you succeed</p>
           </div>
           <button
             onClick={() => setShowHelpDialog(false)}
@@ -3688,208 +3713,189 @@ case 'dashboard':
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-4 max-w-2xl">
-            {/* Help Articles */}
-            <a 
-              href="https://docs.docmetrics.com" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="block border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
-            >
-              <div className="flex items-start gap-4">
-                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                  <Book className="h-7 w-7 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-slate-900 mb-2 text-lg">📚 Browse Help Articles</h4>
-                  <p className="text-sm text-slate-600 mb-3">
-                    Find answers in our comprehensive knowledge base covering all features
-                  </p>
-                  <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
-                    <span>Visit Help Center</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
-                </div>
-              </div>
-            </a>
-
-            {/* Live Chat */}
-            <div 
-              onClick={() => {
-                // TODO: Integrate live chat
-                alert('Live chat feature - coming soon!')
-              }}
-              className="border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
-            >
-              <div className="flex items-start gap-4">
-                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                  <Mail className="h-7 w-7 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="font-bold text-slate-900 text-lg">💬 Live Chat Support</h4>
-                    <span className="bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full">
-                      Online
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-600 mb-3">
-                    Chat with our support team (Mon-Fri, 9am-5pm EST)
-                  </p>
-                  <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
-                    <span>Start Chat</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Email Support */}
-            <a 
-              href="mailto:support@docmetrics.com"
-              className="block border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
-            >
-              <div className="flex items-start gap-4">
-                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                  <Mail className="h-7 w-7 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-slate-900 mb-2 text-lg">📧 Email Support</h4>
-                  <p className="text-sm text-slate-600 mb-3">
-                    Send us an email and we'll respond within 24 hours
-                  </p>
-                  <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
-                    <span>support@docmetrics.com</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
-                </div>
-              </div>
-            </a>
-
-            {/* Schedule Demo */}
-            <div 
-              onClick={() => {
-                // TODO: Integrate calendar booking
-                alert('Demo scheduling - coming soon!')
-              }}
-              className="border-2 rounded-xl p-6 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer group"
-            >
-              <div className="flex items-start gap-4">
-                <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                  <Activity className="h-7 w-7 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h4 className="font-bold text-slate-900 mb-2 text-lg">🎥 Schedule a Demo</h4>
-                  <p className="text-sm text-slate-600 mb-3">
-                    Book a personalized walkthrough with our team
-                  </p>
-                  <div className="flex items-center gap-2 text-sm text-purple-600 font-medium">
-                    <span>Book a Demo</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Tips */}
-            <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6 mt-6">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-blue-900 text-lg mb-1">💡 Quick Tips</h4>
-                  <p className="text-sm text-blue-800">Get started faster with these helpful resources</p>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                <a 
-                  href="https://www.youtube.com/@docmetrics" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 bg-white/80 rounded-lg hover:bg-white transition-colors"
-                >
-                  <div className="h-8 w-8 rounded bg-red-100 flex items-center justify-center">
-                    <Activity className="h-4 w-4 text-red-600" />
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-4xl mx-auto space-y-6">
+            {/* Quick Actions Grid */}
+            <div className="grid md:grid-cols-2 gap-5">
+              {/* Email Support */}
+              <div 
+                onClick={() => {
+                  setShowHelpDialog(false)
+                  setShowContactDialog(true)
+                }}
+                className="group bg-white border-2 border-slate-200 rounded-xl p-6 hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all cursor-pointer"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-brand-primary-500 to-brand-primary-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-lg">
+                    <Mail className="h-7 w-7 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-900">Video Tutorials</p>
-                    <p className="text-xs text-slate-600">Step-by-step guides</p>
+                    <h4 className="font-bold text-slate-900 mb-2 text-lg">📧 Email Support</h4>
+                    <p className="text-sm text-slate-600 mb-3 leading-relaxed">
+                      Send us a message and we'll respond within 24 hours
+                    </p>
+                    <div className="flex items-center gap-2 text-sm text-brand-primary-600 font-semibold">
+                      <span>support@docmetrics.io</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                </a>
-
-                <a 
-                  href="https://blog.docmetrics.com" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 bg-white/80 rounded-lg hover:bg-white transition-colors"
-                >
-                  <div className="h-8 w-8 rounded bg-purple-100 flex items-center justify-center">
-                    <FileText className="h-4 w-4 text-purple-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-900">Blog & Updates</p>
-                    <p className="text-xs text-slate-600">Latest features & tips</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                </a>
-
-                <div 
-                  onClick={() => {
-                    setShowHelpDialog(false)
-                    setShowContactDialog(true)
-                  }}
-                  className="flex items-center gap-3 p-3 bg-white/80 rounded-lg hover:bg-white transition-colors cursor-pointer"
-                >
-                  <div className="h-8 w-8 rounded bg-green-100 flex items-center justify-center">
-                    <Mail className="h-4 w-4 text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-slate-900">Contact Us</p>
-                    <p className="text-xs text-slate-600">Send us a message</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
                 </div>
               </div>
+
+              {/* Book a Demo */}
+              <div 
+                onClick={() => {
+                  setShowHelpDialog(false)
+                  setShowDemoDialog(true)
+                }}
+                className="group bg-white border-2 border-slate-200 rounded-xl p-6 hover:border-brand-secondary-400 hover:bg-brand-secondary-50/30 transition-all cursor-pointer"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-brand-secondary-500 to-brand-secondary-600 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-lg">
+                    <Activity className="h-7 w-7 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-slate-900 mb-2 text-lg">🎥 Schedule a Demo</h4>
+                    <p className="text-sm text-slate-600 mb-3 leading-relaxed">
+                      Book a personalized walkthrough with our team
+                    </p>
+                    <div className="flex items-center gap-2 text-sm text-brand-secondary-600 font-semibold">
+                      <span>Book a Demo</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Documentation */}
+              <a 
+                href="https://docs.docmetrics.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="group bg-white border-2 border-slate-200 rounded-xl p-6 hover:border-success-DEFAULT hover:bg-success-light/30 transition-all cursor-pointer"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-success-DEFAULT to-success-dark flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-lg">
+                    <Book className="h-7 w-7 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-slate-900 mb-2 text-lg">📚 Documentation</h4>
+                    <p className="text-sm text-slate-600 mb-3 leading-relaxed">
+                      Complete guides and API reference
+                    </p>
+                    <div className="flex items-center gap-2 text-sm text-success-dark font-semibold">
+                      <span>Browse Docs</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </div>
+                  </div>
+                </div>
+              </a>
+
+              {/* Help Center */}
+              <a 
+                href="https://help.docmetrics.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="group bg-white border-2 border-slate-200 rounded-xl p-6 hover:border-warning-DEFAULT hover:bg-warning-light/30 transition-all cursor-pointer"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-warning-DEFAULT to-warning-dark flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-lg">
+                    <HelpCircle className="h-7 w-7 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-slate-900 mb-2 text-lg">❓ Help Center</h4>
+                    <p className="text-sm text-slate-600 mb-3 leading-relaxed">
+                      FAQs and troubleshooting articles
+                    </p>
+                    <div className="flex items-center gap-2 text-sm text-warning-dark font-semibold">
+                      <span>Get Help</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </div>
+                  </div>
+                </div>
+              </a>
             </div>
 
             {/* Common Questions */}
-            <div className="mt-6">
-              <h4 className="font-bold text-slate-900 mb-4 text-lg">❓ Common Questions</h4>
-              <div className="space-y-2">
+            <div className="mt-8">
+              <h3 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-warning-DEFAULT" />
+                Frequently Asked Questions
+              </h3>
+              <div className="space-y-3">
                 {[
-                  { q: 'How do I track document views?', a: 'Go to Documents → Click on any document → View Analytics' },
-                  { q: 'How do I send a document for signature?', a: 'Upload your PDF → Click "Send for Signature" → Add recipient emails' },
-                  { q: 'Can I customize the branding?', a: 'Yes! Pro and Enterprise plans include custom branding options' },
-                  { q: 'How do I invite team members?', a: 'Go to Settings → Team → Enter their email and role' },
+                  { 
+                    q: 'How do I track who views my documents?', 
+                    a: 'Every document you upload automatically tracks views. Go to Documents → Click on any document → View detailed analytics including viewer names, time spent, and pages viewed.' 
+                  },
+                  { 
+                    q: 'How do I send a document for signature?', 
+                    a: 'Upload your PDF → Click "Send for Signature" → Add recipient emails → Place signature fields on the document → Send. Recipients receive an email with a secure link to sign.' 
+                  },
+                  { 
+                    q: 'Can I customize the branding on shared documents?', 
+                    a: 'Yes! Pro and Enterprise plans include custom branding options. You can add your logo, customize colors, and create branded document links.' 
+                  },
+                  { 
+                    q: 'How do I invite team members?', 
+                    a: 'Go to Settings → Team → Enter their email address and select their role (Admin, Member, or Viewer) → Send invitation. They\'ll receive an email to join.' 
+                  },
+                  {
+                    q: 'What file formats are supported?',
+                    a: 'Currently we support PDF files for document tracking and signatures. We\'re working on adding support for Word, PowerPoint, and Excel files soon.'
+                  },
                 ].map((item, index) => (
-                  <details key={index} className="border-2 border-slate-200 rounded-lg p-4 cursor-pointer hover:border-purple-300 transition-colors">
-                    <summary className="font-semibold text-slate-900 text-sm">
-                      {item.q}
+                  <details 
+                    key={index} 
+                    className="group border-2 border-slate-200 rounded-xl p-5 cursor-pointer hover:border-brand-primary-300 transition-colors bg-white"
+                  >
+                    <summary className="font-semibold text-slate-900 text-base flex items-start gap-3 list-none">
+                      <ChevronRight className="h-5 w-5 text-brand-primary-500 transition-transform group-open:rotate-90 flex-shrink-0 mt-0.5" />
+                      <span className="flex-1">{item.q}</span>
                     </summary>
-                    <p className="text-sm text-slate-600 mt-2 pl-4">
+                    <p className="text-sm text-slate-600 mt-3 pl-8 leading-relaxed">
                       {item.a}
                     </p>
                   </details>
                 ))}
               </div>
             </div>
+
+            {/* Status Notice */}
+            <div className="bg-gradient-to-br from-success-light to-brand-primary-50 border-2 border-success-DEFAULT rounded-xl p-6 mt-6">
+              <div className="flex items-start gap-4">
+                <div className="h-10 w-10 rounded-lg bg-success-DEFAULT flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-success-dark mb-2 text-lg">All Systems Operational</h4>
+                  <p className="text-sm text-success-dark leading-relaxed">
+                    All DocMetrics services are running smoothly. Average response time: <strong>24 hours</strong>
+                  </p>
+                  <a 
+                    href="https://status.docmetrics.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-success-dark font-semibold mt-2 hover:underline"
+                  >
+                    View Status Page
+                    <ChevronRight className="h-4 w-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
-          <div className="flex gap-3 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setShowHelpDialog(false)}
-              className="h-11"
-            >
-              Close
-            </Button>
-          </div>
+        <div className="px-8 py-4 border-t bg-white sticky bottom-0 shadow-lg">
+          <Button
+            variant="outline"
+            onClick={() => setShowHelpDialog(false)}
+            className="w-full h-12 text-base font-semibold"
+          >
+            Close
+          </Button>
         </div>
       </motion.div>
     </>
@@ -4524,7 +4530,7 @@ case 'dashboard':
   )}
 </AnimatePresence>
 
-{/* UPDATED: Contact Us Drawer */}
+{/* Contact Us Dialog - UPDATED WITH EMAIL */}
 <AnimatePresence>
   {showContactDialog && (
     <>
@@ -4545,11 +4551,11 @@ case 'dashboard':
         transition={{ type: "spring", damping: 30, stiffness: 300 }}
         className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[800px] bg-white shadow-2xl z-50 flex flex-col"
       >
-        {/* Header - UPDATED */}
+        {/* Header */}
         <div className="flex items-center justify-between px-8 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Contact Us</h2>
-            <p className="text-sm text-slate-600 mt-1">Get in touch with our team. We'll respond within 24 hours.</p>
+            <h2 className="text-2xl font-bold text-slate-900">Contact Support</h2>
+            <p className="text-sm text-slate-600 mt-1">Send us a message and we'll respond within 24 hours</p>
           </div>
           <button
             onClick={() => setShowContactDialog(false)}
@@ -4561,75 +4567,75 @@ case 'dashboard':
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8">
-          <div className="space-y-5 max-w-3xl">
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-900">Your Name</Label>
-              <Input 
-                placeholder="John Doe" 
-                defaultValue={`${user?.first_name} ${user?.last_name}`}
-                className="h-12 bg-white border-2 border-slate-200 focus:border-brand-primary-400 focus:ring-brand-primary-400"
-              />
+          <div className="space-y-5 max-w-3xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Your Name</Label>
+                <Input 
+                  value={`${user?.first_name} ${user?.last_name}`.trim()}
+                  disabled
+                  className="bg-slate-50"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Email Address</Label>
+                <Input 
+                  value={user?.email}
+                  disabled
+                  className="bg-slate-50"
+                />
+              </div>
             </div>
             
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-900">Email Address</Label>
-              <Input 
-                type="email" 
-                placeholder="you@example.com" 
-                defaultValue={user?.email}
-                disabled
-                className="h-12 bg-slate-50 border-2 border-slate-200"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-900">Subject</Label>
+              <Label className="text-sm font-semibold">Subject *</Label>
               <Input 
                 placeholder="How can we help?" 
-                className="h-12 bg-white border-2 border-slate-200 focus:border-brand-primary-400 focus:ring-brand-primary-400"
+                value={supportSubject}
+                onChange={(e) => setSupportSubject(e.target.value)}
+                className="h-12"
               />
             </div>
             
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-900">Message</Label>
+              <Label className="text-sm font-semibold">Message *</Label>
               <Textarea 
                 placeholder="Tell us more about your inquiry..." 
                 rows={8}
-                className="bg-white border-2 border-slate-200 focus:border-brand-primary-400 focus:ring-brand-primary-400 resize-none"
+                value={supportMessage}
+                onChange={(e) => setSupportMessage(e.target.value)}
+                className="resize-none"
               />
             </div>
 
-            {/* Quick Contact Options - UPDATED */}
+            {/* Quick Contact Options */}
             <div className="bg-gradient-to-br from-brand-primary-50 to-brand-secondary-50 border-2 border-brand-primary-200 rounded-xl p-6">
-              <h4 className="font-bold text-brand-primary-900 mb-4 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-brand-primary-600" />
+              <h4 className="font-bold text-brand-primary-900 mb-4 flex items-center gap-2 text-lg">
+                <Sparkles className="h-5 w-5" />
                 Other Ways to Reach Us
               </h4>
               <div className="space-y-3">
                 <a 
-                  href="mailto:support@docmetrics.com"
-                  className="flex items-center gap-3 p-3 bg-white/80 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-brand-primary-200"
+                  href="mailto:support@docmetrics.io"
+                  className="flex items-center gap-3 p-4 bg-white/80 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-brand-primary-200"
                 >
-                  <Mail className="h-5 w-5 text-brand-primary-600" />
+                  <div className="h-10 w-10 rounded-lg bg-brand-primary-500 flex items-center justify-center flex-shrink-0">
+                    <Mail className="h-5 w-5 text-white" />
+                  </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Email Support</p>
-                    <p className="text-xs text-slate-600">support@docmetrics.com</p>
+                    <p className="text-sm font-semibold text-slate-900">Direct Email</p>
+                    <p className="text-sm text-slate-600">support@docmetrics.io</p>
                   </div>
                 </a>
 
-                <div className="flex items-center gap-3 p-3 bg-white/80 rounded-lg">
-                  <HelpCircle className="h-5 w-5 text-green-600" />
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Live Chat</p>
-                    <p className="text-xs text-slate-600">Mon-Fri, 9am-5pm EST</p>
+                <div className="flex items-center gap-3 p-4 bg-white/80 rounded-lg">
+                  <div className="h-10 w-10 rounded-lg bg-success-DEFAULT flex items-center justify-center flex-shrink-0">
+                    <Clock className="h-5 w-5 text-white" />
                   </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-3 bg-white/80 rounded-lg">
-                  <Activity className="h-5 w-5 text-brand-secondary-600" />
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Phone Support</p>
-                    <p className="text-xs text-slate-600">+1 (555) 123-4567</p>
+                    <p className="text-sm font-semibold text-slate-900">Response Time</p>
+                    <p className="text-sm text-slate-600">Usually within 24 hours</p>
                   </div>
                 </div>
               </div>
@@ -4637,23 +4643,58 @@ case 'dashboard':
           </div>
         </div>
 
-        {/* Footer - UPDATED */}
+        {/* Footer */}
         <div className="px-8 py-4 border-t bg-white sticky bottom-0 shadow-lg">
           <div className="flex gap-3">
             <Button 
               variant="outline" 
               className="flex-1 h-12"
-              onClick={() => setShowContactDialog(false)}
+              onClick={() => {
+                setShowContactDialog(false)
+                setSupportSubject('')
+                setSupportMessage('')
+              }}
             >
               Cancel
             </Button>
             <Button 
-              className="flex-1 h-12 bg-gradient-to-r from-brand-primary-600 to-brand-secondary-600 hover:from-brand-primary-700 hover:to-brand-secondary-700 shadow-lg"
-              onClick={() => {
-                toast.success('Message sent!', {
-                  description: "We'll get back to you soon."
-                })
-                setShowContactDialog(false)
+              disabled={!supportSubject.trim() || !supportMessage.trim()}
+              className="flex-1 h-12 bg-gradient-to-r from-brand-primary-500 to-brand-secondary-500 hover:from-brand-primary-600 hover:to-brand-secondary-600 shadow-lg"
+              onClick={async () => {
+                const loadingToast = toast.loading('Sending message...')
+                
+                try {
+                  const res = await fetch('/api/support', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      subject: supportSubject.trim(),
+                      message: supportMessage.trim(),
+                    }),
+                  })
+
+                  const data = await res.json()
+
+                  if (res.ok) {
+                    toast.success('Message sent!', {
+                      id: loadingToast,
+                      description: "We'll get back to you within 24 hours"
+                    })
+                    setShowContactDialog(false)
+                    setSupportSubject('')
+                    setSupportMessage('')
+                  } else {
+                    toast.error(data.error || 'Failed to send message', {
+                      id: loadingToast
+                    })
+                  }
+                } catch (error) {
+                  console.error('Support error:', error)
+                  toast.error('Network error', {
+                    id: loadingToast
+                  })
+                }
               }}
             >
               <Mail className="mr-2 h-4 w-4" />
@@ -6063,7 +6104,165 @@ case 'dashboard':
   )}
 </AnimatePresence>
 
+{/* Demo Booking Dialog */}
+<Dialog open={showDemoDialog} onOpenChange={setShowDemoDialog}>
+  <DialogContent className="max-w-2xl bg-white scrollbar  max-h-[80vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle className="text-2xl font-bold">Schedule a Demo</DialogTitle>
+      <DialogDescription>
+        Book a personalized walkthrough of DocMetrics with our team
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="space-y-5 mt-4">
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold">Your Name</Label>
+          <Input 
+            value={`${user?.first_name} ${user?.last_name}`.trim()}
+            disabled
+            className="bg-slate-50"
+          />
+        </div>
 
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold">Email</Label>
+          <Input 
+            value={user?.email}
+            disabled
+            className="bg-slate-50"
+          />
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold">Phone Number</Label>
+          <Input 
+            type="tel"
+            placeholder="+1 (555) 123-4567"
+            value={demoPhoneNumber}
+            onChange={(e) => setDemoPhoneNumber(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold">Team Size</Label>
+          <select
+            value={demoTeamSize}
+            onChange={(e) => setDemoTeamSize(e.target.value)}
+            className="w-full h-11 px-4 border-2 border-slate-200 rounded-lg bg-white focus:border-brand-primary-400 focus:ring-2 focus:ring-brand-primary-400 focus:outline-none"
+          >
+            <option value="">Select team size</option>
+            <option value="1-5">1-5 people</option>
+            <option value="6-20">6-20 people</option>
+            <option value="21-50">21-50 people</option>
+            <option value="51+">51+ people</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold">Preferred Date/Time </Label>
+        <Input 
+          type="text"
+          placeholder="e.g., Next Tuesday 2pm EST, or Week of Jan 15"
+          value={demoPreferredDate}
+          onChange={(e) => setDemoPreferredDate(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold">What would you like to learn about? (Optional)</Label>
+        <Textarea 
+          placeholder="Share any specific features or use cases you're interested in..."
+          rows={4}
+          value={demoMessage}
+          onChange={(e) => setDemoMessage(e.target.value)}
+          className="resize-none"
+        />
+      </div>
+
+      <div className="bg-gradient-to-br from-brand-primary-50 to-brand-secondary-50 border-2 border-brand-primary-200 rounded-xl p-5">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-lg bg-brand-primary-500 flex items-center justify-center flex-shrink-0">
+            <Sparkles className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <p className="font-semibold text-brand-primary-900 mb-1">What to expect</p>
+            <ul className="text-sm text-brand-primary-800 space-y-1">
+              <li>• 30-minute personalized demo tailored to your needs</li>
+              <li>• Live Q&A with our product experts</li>
+              <li>• Custom recommendations for your use case</li>
+              <li>• No pressure sales pitch - just genuine help</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="flex gap-3 justify-end pt-4 border-t mt-4">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowDemoDialog(false)
+          setDemoPhoneNumber('')
+          setDemoTeamSize('')
+          setDemoPreferredDate('')
+          setDemoMessage('')
+        }}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={async () => {
+          const loadingToast = toast.loading('Sending demo request...')
+          
+          try {
+            const res = await fetch('/api/demo', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phoneNumber: demoPhoneNumber.trim() || undefined,
+                teamSize: demoTeamSize || undefined,
+                preferredDate: demoPreferredDate.trim() || undefined,
+                message: demoMessage.trim() || undefined,
+              }),
+            })
+
+            const data = await res.json()
+
+            if (res.ok) {
+              toast.success('Demo request sent!', {
+                id: loadingToast,
+                description: "We'll contact you within 24 hours to schedule"
+              })
+              setShowDemoDialog(false)
+              setDemoPhoneNumber('')
+              setDemoTeamSize('')
+              setDemoPreferredDate('')
+              setDemoMessage('')
+            } else {
+              toast.error(data.error || 'Failed to send request', {
+                id: loadingToast
+              })
+            }
+          } catch (error) {
+            console.error('Demo request error:', error)
+            toast.error('Network error', {
+              id: loadingToast
+            })
+          }
+        }}
+        className="bg-gradient-to-r from-brand-primary-500 to-brand-secondary-500 hover:from-brand-primary-600 hover:to-brand-secondary-600"
+      >
+        <Send className="mr-2 h-4 w-4" />
+        Request Demo
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
  
     </div>
   )

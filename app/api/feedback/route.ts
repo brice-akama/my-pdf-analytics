@@ -1,32 +1,45 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { dbPromise } from '../lib/mongodb';
-import { verifyUserFromRequest } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { sendFeedbackEmail } from "@/lib/emailService";
+import { verifyUserFromRequest } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const user = await verifyUserFromRequest(authHeader);
-    
+    // ✅ Verify user via HTTP-only cookie
+    const user = await verifyUserFromRequest(request);
+
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const { feedback } = await request.json();
+    const body = await request.json();
+    const { feedback } = body;
 
-    const db = await dbPromise;
-    
-    await db.collection('feedback').insertOne({
-      userId: user.id,
+    // Validate required field
+    if (!feedback?.trim()) {
+      return NextResponse.json(
+        { success: false, error: "Feedback text is required" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ Send feedback email - JUST email and feedback
+    await sendFeedbackEmail({
       userEmail: user.email,
-      feedback,
-      createdAt: new Date(),
-      status: 'new',
+      feedback: feedback.trim(),
     });
 
-    return NextResponse.json({ success: true });
-
+    return NextResponse.json({
+      success: true,
+      message: "Feedback sent successfully",
+    });
   } catch (error) {
-    console.error('Submit feedback error:', error);
-    return NextResponse.json({ error: 'Failed to submit feedback' }, { status: 500 });
+    console.error("Feedback submission error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to send feedback" },
+      { status: 500 }
+    );
   }
 }
