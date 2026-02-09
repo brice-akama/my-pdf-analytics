@@ -148,7 +148,7 @@ export async function GET(req: NextRequest) {
 const organizationId = profile?.organization_id || userIdForQuery;
 const isOwner = organizationId === userIdForQuery;
 
-let organizationName = profile?.company_name || "My Team";
+let organizationName = profile?.company_name || "My CompanyName";
 let organizationRole = profile?.role || "owner";
 
 if (!isOwner) {

@@ -141,7 +141,6 @@ export async function GET(request: NextRequest) {
     if (effectiveMode === "login") {
       console.log("✅ Google login successful for:", profile.email);
       
-      // ✅ ONLY FOR LOGIN: Check if user exists and set cookie
       const db = await dbPromise;
       const users = db.collection('users');
       const user = await users.findOne({ email: profile.email });
@@ -150,7 +149,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(`${baseUrl}/login?error=user_not_found`);
       }
       
-      // ✅ Generate JWT token for existing user
       const token = jwt.sign(
         { userId: user._id.toString(), email: user.email },
         process.env.JWT_SECRET!,
@@ -159,7 +157,6 @@ export async function GET(request: NextRequest) {
       
       const response = NextResponse.redirect(`${baseUrl}${effectiveNext}`);
       
-      // ✅ Set HTTP-only cookie
       response.cookies.set('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -171,25 +168,80 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    // Step 6: Build profile and redirect for signup
-    // ✅ NO cookie logic here - /api/auth/signup will handle it after they complete the form
-    const smallProfile = {
+    // ✅ SIGNUP MODE: Create account directly and redirect to dashboard
+    const db = await dbPromise;
+    const users = db.collection('users');
+    const profiles = db.collection('profiles');
+    
+    // Check if user already exists
+    const existingUser = await users.findOne({ email: profile.email });
+    if (existingUser) {
+      // User exists, treat as login
+      const token = jwt.sign(
+        { userId: existingUser._id.toString(), email: existingUser.email },
+        process.env.JWT_SECRET!,
+        { expiresIn: '7d' }
+      );
+      
+      const response = NextResponse.redirect(`${baseUrl}/dashboard`);
+      response.cookies.set('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7,
+        path: '/'
+      });
+      
+      return response;
+    }
+
+    // Create new user via signup endpoint
+    const signupPayload = {
       firstName: profile.given_name || profile.name?.split(" ")?.[0] || "",
-      lastName: profile.family_name || "",
-      full_name: profile.name || "",
-      email: profile.email || "",
-      companyName: "",
+      lastName: profile.family_name || profile.name?.split(" ").slice(1).join(" ") || "",
+      email: profile.email,
       avatar: profile.picture || "",
-      providerId: profile.sub || "",
+      full_name: profile.name || "",
+      companyName: "" // Empty for OAuth
     };
 
-    const profileB64 = base64urlEncode(smallProfile);
-    const redirectUrl = new URL(effectiveNext, baseUrl);
-    if (clientState) redirectUrl.searchParams.set("state", clientState);
-    redirectUrl.searchParams.set("profile", profileB64);
+    console.log("🔄 Creating new Google user:", profile.email);
 
-    console.log("✅ Google signup successful for:", profile.email);
-    return NextResponse.redirect(redirectUrl.toString());
+    // Call internal signup
+    const signupRes = await fetch(`${baseUrl}/api/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(signupPayload)
+    });
+
+    if (!signupRes.ok) {
+      const error = await signupRes.json();
+      console.error("❌ Signup failed:", error);
+      return NextResponse.redirect(`${baseUrl}/signup?error=${encodeURIComponent(error.error || 'signup_failed')}`);
+    }
+
+    const signupData = await signupRes.json();
+    
+    // Get the token from signup response
+    const token = jwt.sign(
+      { userId: signupData.user.id, email: signupData.user.email },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' }
+    );
+
+    // Redirect to dashboard with cookie
+    const response = NextResponse.redirect(`${baseUrl}/dashboard`);
+    response.cookies.set('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/'
+    });
+
+    console.log("✅ Google signup complete, redirecting to dashboard");
+    return response;
+
   } catch (err: any) {
     console.error("🔥 GOOGLE AUTH ERROR:", err?.message || err, err?.stack);
     return NextResponse.json(

@@ -226,15 +226,13 @@ useEffect(() => {
   handle();
 }, [searchParams]);
 
-  const handleGoogleSignUp = () => {
+ const handleGoogleSignUp = () => {
     const state = Math.random().toString(36).slice(2)
     sessionStorage.setItem('oauth_state', state)
-
-    // Ask the backend to redirect back to signup with step=4 after OAuth completes
-    const next = encodeURIComponent('/signup?step=2')
-    window.location.href = `/api/auth/google?mode=signup&next=${next}&state=${state}`
+    
+    // Google will handle signup and redirect to dashboard
+    window.location.href = `/api/auth/google?mode=signup&state=${state}`
   }
-
  
 
  const handleUseCaseNext = async () => {

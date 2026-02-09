@@ -2285,3 +2285,282 @@ export async function sendWelcomeEmail({
     throw error;
   }
 }
+
+
+
+
+// ===================================
+// PASSWORD RESET EMAIL
+// ===================================
+export async function sendPasswordResetEmail({
+  recipientName,
+  recipientEmail,
+  resetCode,
+}: {
+  recipientName: string;
+  recipientEmail: string;
+  resetCode: string;
+}) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocMetrics <noreply@docmetrics.io>',
+      to: [recipientEmail],
+      subject: 'Reset Your DocMetrics Password',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              line-height: 1.6;
+              color: #1f2937;
+              background-color: #f9fafb;
+              margin: 0;
+              padding: 0;
+            }
+            .container {
+              max-width: 600px;
+              margin: 40px auto;
+              background: white;
+              border-radius: 16px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            }
+            .header {
+              background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+              padding: 40px 30px;
+              text-align: center;
+              color: white;
+            }
+            .lock-icon {
+              font-size: 56px;
+              margin-bottom: 15px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 28px;
+              font-weight: 700;
+            }
+            .content {
+              padding: 45px 35px;
+            }
+            .greeting {
+              font-size: 20px;
+              color: #111827;
+              margin-bottom: 20px;
+              font-weight: 600;
+            }
+            .intro-text {
+              font-size: 16px;
+              color: #4b5563;
+              margin-bottom: 30px;
+              line-height: 1.7;
+            }
+            .code-container {
+              background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+              border: 3px dashed #f59e0b;
+              border-radius: 12px;
+              padding: 30px;
+              text-align: center;
+              margin: 30px 0;
+            }
+            .code-label {
+              font-size: 14px;
+              color: #92400e;
+              font-weight: 600;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              margin-bottom: 10px;
+            }
+            .reset-code {
+              font-size: 42px;
+              font-weight: 800;
+              color: #92400e;
+              letter-spacing: 8px;
+              font-family: 'Courier New', monospace;
+              margin: 15px 0;
+              display: block;
+            }
+            .code-expires {
+              font-size: 13px;
+              color: #b45309;
+              margin-top: 15px;
+            }
+            .warning-box {
+              background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+              border-left: 4px solid #ef4444;
+              padding: 20px;
+              border-radius: 10px;
+              margin: 30px 0;
+            }
+            .warning-title {
+              font-size: 16px;
+              font-weight: 700;
+              color: #991b1b;
+              margin-bottom: 10px;
+              display: flex;
+              align-items: center;
+            }
+            .warning-text {
+              font-size: 14px;
+              color: #7f1d1d;
+              line-height: 1.6;
+            }
+            .info-box {
+              background: #eff6ff;
+              border-radius: 12px;
+              padding: 20px;
+              margin: 25px 0;
+            }
+            .info-item {
+              display: flex;
+              align-items: start;
+              margin-bottom: 12px;
+              font-size: 14px;
+              color: #1e40af;
+            }
+            .info-icon {
+              margin-right: 10px;
+              font-size: 18px;
+            }
+            .button-container {
+              text-align: center;
+              margin: 35px 0;
+            }
+            .cta-button {
+              display: inline-block;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              color: white;
+              padding: 16px 40px;
+              text-decoration: none;
+              border-radius: 10px;
+              font-weight: 600;
+              font-size: 16px;
+              box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            }
+            .footer {
+              background: #f9fafb;
+              padding: 30px;
+              text-align: center;
+              border-top: 1px solid #e5e7eb;
+            }
+            .footer-text {
+              font-size: 14px;
+              color: #6b7280;
+              margin-bottom: 10px;
+            }
+            .footer-small {
+              font-size: 12px;
+              color: #9ca3af;
+              margin-top: 15px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <!-- Header -->
+            <div class="header">
+              <div class="lock-icon">🔐</div>
+              <h1>Password Reset Request</h1>
+            </div>
+            
+            <!-- Content -->
+            <div class="content">
+              <p class="greeting">Hi ${recipientName || 'there'}! 👋</p>
+              
+              <p class="intro-text">
+                We received a request to reset your DocMetrics password. Use the code below to set a new password.
+                If you didn't request this, you can safely ignore this email.
+              </p>
+
+              <!-- Reset Code -->
+              <div class="code-container">
+                <div class="code-label">Your Reset Code</div>
+                <span class="reset-code">${resetCode}</span>
+                <div class="code-expires">
+                  ⏰ This code expires in <strong>15 minutes</strong>
+                </div>
+              </div>
+
+              <!-- Instructions -->
+              <div class="info-box">
+                <div class="info-item">
+                  <span class="info-icon">1️⃣</span>
+                  <span>Go to the password reset page (or click the button below)</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-icon">2️⃣</span>
+                  <span>Enter your email address</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-icon">3️⃣</span>
+                  <span>Enter the 6-digit code above</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-icon">4️⃣</span>
+                  <span>Create your new password</span>
+                </div>
+              </div>
+
+              <!-- CTA Button -->
+              <div class="button-container">
+                <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://docmetrics.io'}/reset-password/verify" class="cta-button">
+                  Reset Password Now
+                </a>
+              </div>
+
+              <!-- Security Warning -->
+              <div class="warning-box">
+                <div class="warning-title">
+                  <span style="margin-right: 8px;">⚠️</span>
+                  Security Notice
+                </div>
+                <p class="warning-text">
+                  <strong>Never share this code with anyone.</strong> DocMetrics staff will never ask for your 
+                  reset code. If you didn't request this password reset, please contact our support team immediately 
+                  at <a href="mailto:support@docmetrics.io" style="color: #dc2626; font-weight: 600;">support@docmetrics.io</a>
+                </p>
+              </div>
+
+              <p style="font-size: 15px; color: #4b5563; margin-top: 30px; line-height: 1.7;">
+                After resetting your password, you'll be able to sign in with both Google and your new password.
+              </p>
+
+              <p style="font-size: 15px; color: #1f2937; margin-top: 25px; font-weight: 600;">
+                Best regards,<br>
+                The DocMetrics Security Team
+              </p>
+            </div>
+            
+            <!-- Footer -->
+            <div class="footer">
+              <p class="footer-text">
+                You're receiving this email because someone requested a password reset for your DocMetrics account.
+              </p>
+              <p class="footer-small">
+                © ${new Date().getFullYear()} DocMetrics. All rights reserved.<br>
+                If you have questions, contact us at 
+                <a href="mailto:support@docmetrics.io" style="color: #9ca3af; text-decoration: none;">support@docmetrics.io</a>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error('❌ Failed to send password reset email:', error);
+      throw error;
+    }
+
+    console.log('✅ Password reset email sent to:', recipientEmail);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ Password reset email service error:', error);
+    throw error;
+  }
+}

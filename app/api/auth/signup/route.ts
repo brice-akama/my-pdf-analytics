@@ -32,21 +32,25 @@ export async function POST(request: NextRequest) {
     const userAgent = getUserAgent(request);
 
     // Rate limit
-   // Rate limit
-// const rateLimitExceeded = await Promise.resolve(checkRateLimit(`signup:${clientIP}`, 3, 3600000));
-// if (rateLimitExceeded) {
-//   return NextResponse.json({ error: 'Too many signup attempts' }, { status: 429 });
-// }
+  
+ const rateLimitExceeded = await Promise.resolve(checkRateLimit(`signup:${clientIP}`, 3, 3600000));
+ if (rateLimitExceeded) {   return NextResponse.json({ error: 'Too many signup attempts' }, { status: 429 });
+ }
 
     const body = await request.json().catch(() => null);
     if (!body) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    // ✅ Accept Google payload too
-    const { firstName, lastName, companyName, email, password, avatar, full_name } = body;
+    //   Accept Google payload too
+   const { firstName, lastName, companyName, email, password, avatar, full_name } = body;
 
-    const sanitizedFirstName = sanitizeInput(firstName || (full_name?.split(' ')[0] ?? ''));
+    //   Better fallback handling
+    const sanitizedFirstName = sanitizeInput(
+      firstName || 
+      (full_name ? full_name.split(' ')[0] : '') || 
+      ''
+    );
     const sanitizedLastName = sanitizeInput(lastName || (full_name?.split(' ').slice(1).join(' ') ?? ''));
     const sanitizedCompanyName = sanitizeInput(companyName || '');
     const sanitizedEmail = sanitizeInput(email || '').toLowerCase();

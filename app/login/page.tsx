@@ -3,12 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Separator } from "@/components/ui/separator"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Eye, EyeOff } from "lucide-react" // ✅ Import icons for password toggle
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -16,9 +12,17 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showPassword, setShowPassword] = useState(false) // ✅ Password visibility state
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams();
+
+
+  useEffect(() => {
+    // Check for reset success
+    if (searchParams?.get('reset') === 'success') {
+      setSuccessMessage('Password reset successful! You can now sign in with your new password.');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     // ✅ Detect invitation type from URL
@@ -204,153 +208,47 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right Side - Login Form */}
+      {/* Right Side - Simple Login */}
       <div className="flex-1 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-md">
-          {/* Mobile Logo */}
-          <div className="lg:hidden mb-8 text-center">
-            <div className="inline-flex items-center gap-2 mb-4">
-              <div className="h-10 w-10">
-                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
-                  <defs>
-                    <linearGradient id="logoGradientMobile" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" style={{stopColor:"#8B5CF6", stopOpacity:1}} />
-                      <stop offset="100%" style={{stopColor:"#3B82F6", stopOpacity:1}} />
-                    </linearGradient>
-                  </defs>
-                  <path d="M 60 50 L 60 150 L 140 150 L 140 70 L 120 50 Z" fill="url(#logoGradientMobile)"/>
-                  <rect x="75" y="100" width="12" height="30" fill="white" opacity="0.9" rx="2"/>
-                  <rect x="94" y="85" width="12" height="45" fill="white" opacity="0.9" rx="2"/>
-                  <rect x="113" y="70" width="12" height="60" fill="white" opacity="0.9" rx="2"/>
-                </svg>
-              </div>
-              <span className="text-2xl font-bold text-gray-900">DocMetrics</span>
-            </div>
-          </div>
-
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Log in</h2>
-            <p className="text-gray-600">Welcome back! Please enter your details.</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome back</h2>
+            <p className="text-gray-600">Sign in to continue to DocMetrics</p>
           </div>
 
-          {/* Google Sign In Button */}
+          {/*   SUCCESS MESSAGE */}
+          {successMessage && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-green-800 font-medium">{successMessage}</p>
+              </div>
+            </div>
+          )}
+
+          {/* ✅ ONLY Google Sign In */}
           <Button
             type="button"
-            variant="outline"
-            className="w-full mb-6 h-11"
+            className="w-full mb-6 h-12 bg-white border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-medium"
             onClick={handleGoogleSignIn}
             disabled={loading}
           >
-            <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              />
+            <svg className="mr-3 h-6 w-6" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Sign in with Google
+            Continue with Google
           </Button>
 
-          <div className="relative mb-6">
-            <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-sm text-gray-500">
-              or
-            </span>
-          </div>
-
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="email@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-11"
-                disabled={loading}
-              />
+          {error && (
+            <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+              {error}
             </div>
-
-            {/* ✅ PASSWORD FIELD WITH VISIBILITY TOGGLE */}
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="h-11 pr-10"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                  disabled={loading}
-                />
-                <label
-                  htmlFor="remember"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                >
-                  Remember me
-                </label>
-              </div>
-              <Link
-                href="/forgot-password"
-                className="text-sm font-medium text-purple-600 hover:text-purple-700 hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
-
-            <Button 
-              type="submit" 
-              disabled={loading} 
-              className="w-full h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-            >
-              {loading ? "Signing in..." : "Sign in"}
-            </Button>
-
-            {error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                {error}
-              </div>
-            )}
-          </form>
+          )}
 
           <div className="mt-6 text-center text-sm">
             <span className="text-gray-600">Don't have an account? </span>
@@ -359,10 +257,13 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <div className="mt-6 text-center text-xs text-gray-500">
-            <span>Didn't receive a confirmation email? </span>
-            <Link href="/resend" className="text-purple-600 hover:text-purple-700 hover:underline">
-              Send again
+          {/* ✅ RESET PASSWORD LINK */}
+          <div className="mt-4 text-center">
+            <Link 
+              href="/reset-password" 
+              className="text-sm text-purple-600 hover:text-purple-700 hover:underline"
+            >
+              Want to set a password or forgot yours? Reset here →
             </Link>
           </div>
         </div>

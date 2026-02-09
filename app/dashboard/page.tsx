@@ -2522,19 +2522,29 @@ case 'dashboard':
         onClick={() => setShowMobileProfileDrawer(true)}
         className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
       >
-        {user?.profile_image ? (
-          <Image
-            src={user.profile_image}
-            alt="Profile"
-            width={40}
-            height={40}
-            className="rounded-full object-cover w-full h-full"
-            key={user.profile_image}
-            unoptimized
-          />
-        ) : (
-          getInitials(user?.email || "")
-        )}
+{user?.profile_image ? (
+    <>
+      {/* Initials as fallback/loading state */}
+      <span className="absolute inset-0 flex items-center justify-center">
+        {getInitials(user?.email || "")}
+      </span>
+      {/* Image loads on top */}
+      <Image
+        src={user.profile_image}
+        alt="Profile"
+        width={40}
+        height={40}
+        className="rounded-full object-cover w-full h-full relative z-10"
+        key={user.profile_image}
+        onError={(e) => {
+          // Hide image if it fails, show initials
+          e.currentTarget.style.display = 'none';
+        }}
+      />
+    </>
+  ) : (
+    getInitials(user?.email || "")
+  )}
       </button>
     </div>
 
@@ -2570,23 +2580,33 @@ case 'dashboard':
               <div className="text-sm font-semibold text-slate-900">{user?.company_name}</div>
               <div className="text-xs text-slate-600">{user?.email}</div>
             </div>
-            <div
-              className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden`}
-            >
-              {user?.profile_image ? (
-                <Image
-                  src={user.profile_image}
-                  alt="Profile"
-                  width={40}
-                  height={40}
-                  className="rounded-full object-cover w-full h-full"
-                  key={user.profile_image}
-                  unoptimized
-                />
-              ) : (
-                getInitials(user?.email || "")
-              )}
-            </div>
+<div
+  className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden relative`}
+>
+  {user?.profile_image ? (
+    <>
+      {/* Initials as fallback/loading state */}
+      <span className="absolute inset-0 flex items-center justify-center">
+        {getInitials(user?.email || "")}
+      </span>
+      {/* Image loads on top */}
+      <Image
+        src={user.profile_image}
+        alt="Profile"
+        width={40}
+        height={40}
+        className="rounded-full object-cover w-full h-full relative z-10"
+        key={user.profile_image}
+        onError={(e) => {
+          // Hide image if it fails, show initials
+          e.currentTarget.style.display = 'none';
+        }}
+      />
+    </>
+  ) : (
+    getInitials(user?.email || "")
+  )}
+</div>
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">
