@@ -363,6 +363,157 @@ const [sharePermissions, setSharePermissions] = useState({
   canShare: false
 })
 
+
+// Add state at the top of your component
+const [integrationStatus, setIntegrationStatus] = useState<Record<string, any>>({})
+const [showDriveFilesDialog, setShowDriveFilesDialog] = useState(false)
+const [driveFiles, setDriveFiles] = useState<any[]>([])
+const [loadingDriveFiles, setLoadingDriveFiles] = useState(false)
+
+// Add this useEffect to fetch integration status
+useEffect(() => {
+  const fetchIntegrationStatus = async () => {
+    try {
+      const res = await fetch('/api/integrations/status', {
+        credentials: 'include'
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setIntegrationStatus(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch integration status:', error)
+    }
+  }
+
+  if (showIntegrationsDialog) {
+    fetchIntegrationStatus()
+  }
+}, [showIntegrationsDialog])
+
+// Show success notification after Google Drive connection
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const integration = params.get('integration')
+  const status = params.get('status')
+  
+  if (integration === 'google_drive' && status === 'connected') {
+    toast.success('Google Drive connected!', {
+      description: 'You can now import files from your Drive',
+      duration: 5000
+    })
+    
+    // Clean URL
+    window.history.replaceState({}, '', '/dashboard')
+  }
+}, [])
+
+// Add function to connect Google Drive
+const handleConnectGoogleDrive = async () => {
+  window.location.href = '/api/integrations/google-drive/connect'
+}
+
+// Add function to disconnect
+const handleDisconnectGoogleDrive = async () => {
+  // Show custom dialog instead of browser confirm
+  const confirmed = await new Promise((resolve) => {
+    toast.warning('Disconnect Google Drive?', {
+      description: 'You can reconnect anytime',
+      duration: 10000,
+      action: {
+        label: 'Disconnect',
+        onClick: () => resolve(true)
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => resolve(false)
+      }
+    })
+  })
+
+  if (!confirmed) return
+
+  const loadingToast = toast.loading('Disconnecting...')
+  
+  try {
+    const res = await fetch('/api/integrations/google-drive/disconnect', {
+      method: 'POST',
+      credentials: 'include'
+    })
+
+    if (res.ok) {
+      toast.success('Google Drive disconnected', { id: loadingToast })
+      setIntegrationStatus(prev => ({
+        ...prev,
+        google_drive: { connected: false }
+      }))
+    } else {
+      toast.error('Failed to disconnect', { id: loadingToast })
+    }
+  } catch (error) {
+    toast.error('Network error', { id: loadingToast })
+  }
+}
+
+// Add function to browse files
+const handleBrowseDriveFiles = async () => {
+  setShowDriveFilesDialog(true)
+  setLoadingDriveFiles(true)
+  
+  try {
+    const res = await fetch('/api/integrations/google-drive/files', {
+      credentials: 'include'
+    })
+    
+    const data = await res.json()
+    
+    if (res.ok) {
+      setDriveFiles(data.files || [])
+    } else {
+      toast.error('Failed to load files')
+    }
+  } catch (error) {
+    toast.error('Network error')
+  } finally {
+    setLoadingDriveFiles(false)
+  }
+}
+
+// Add function to import file
+const handleImportFile = async (fileId: string, fileName: string) => {
+  const loadingToast = toast.loading(`Importing ${fileName}...`, {
+    description: 'This may take a moment'
+  })
+  
+  try {
+    const res = await fetch('/api/integrations/google-drive/import', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileId, fileName })
+    })
+    
+    const data = await res.json()
+    
+    if (res.ok) {
+      toast.success('File imported!', { 
+        id: loadingToast,
+        description: `${fileName} is now in your library`,
+        action: {
+          label: 'View',
+          onClick: () => router.push(`/documents/${data.documentId}`)
+        }
+      })
+      setShowDriveFilesDialog(false)
+      fetchDocuments()
+    } else {
+      toast.error(data.error || 'Import failed', { id: loadingToast })
+    }
+  } catch (error) {
+    toast.error('Network error', { id: loadingToast })
+  }
+}
+
   const handleSidebarItemClick = (pageId: PageType) => {
     setActivePage(pageId)
     setMobileMenuOpen(false)
@@ -2173,13 +2324,95 @@ case 'dashboard':
     </div>
 
     {/* Upload Button Only - No Share Button */}
-    <Button 
-      className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 w-full sm:w-auto"
-      onClick={() => fileInputRef.current?.click()}
-    >
+    <DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 w-full sm:w-auto">
       <Upload className="h-4 w-4" />
       Upload
     </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end" className="w-64 bg-white rounded-lg border shadow-md p-1">
+    {/* Always show local upload first */}
+    <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+      <Upload className="h-4 w-4 mr-2" />
+      <div>
+        <p className="font-medium">From Computer</p>
+        <p className="text-xs text-slate-500">Browse local files</p>
+      </div>
+    </DropdownMenuItem>
+    
+    {/* Divider before cloud options */}
+    <DropdownMenuSeparator />
+    
+    {/* Cloud Storage Header */}
+    <div className="px-2 py-1.5">
+      <p className="text-xs font-semibold text-slate-500 uppercase">Cloud Storage</p>
+    </div>
+    
+    {/* Google Drive */}
+    {integrationStatus.google_drive?.connected ? (
+      <DropdownMenuItem onClick={handleBrowseDriveFiles}>
+        <div className="h-4 w-4 mr-2 flex items-center justify-center">
+          📁
+        </div>
+        <div>
+          <p className="font-medium">Google Drive</p>
+          <p className="text-xs text-green-600">✓ Connected</p>
+        </div>
+      </DropdownMenuItem>
+    ) : (
+      <DropdownMenuItem onClick={handleConnectGoogleDrive}>
+        <div className="h-4 w-4 mr-2 flex items-center justify-center opacity-50">
+          📁
+        </div>
+        <div>
+          <p className="font-medium text-slate-500">Google Drive</p>
+          <p className="text-xs text-slate-400">Connect to import</p>
+        </div>
+      </DropdownMenuItem>
+    )}
+    
+    {/* Dropbox - PLACEHOLDER for future */}
+    <DropdownMenuItem 
+      onClick={() => toast.info('Dropbox integration coming soon!')}
+      disabled
+    >
+      <div className="h-4 w-4 mr-2 flex items-center justify-center opacity-50">
+        📦
+      </div>
+      <div>
+        <p className="font-medium text-slate-400">Dropbox</p>
+        <p className="text-xs text-slate-400">Coming soon</p>
+      </div>
+    </DropdownMenuItem>
+    
+    {/* OneDrive - PLACEHOLDER for future */}
+    <DropdownMenuItem 
+      onClick={() => toast.info('OneDrive integration coming soon!')}
+      disabled
+    >
+      <div className="h-4 w-4 mr-2 flex items-center justify-center opacity-50">
+        ☁️
+      </div>
+      <div>
+        <p className="font-medium text-slate-400">OneDrive</p>
+        <p className="text-xs text-slate-400">Coming soon</p>
+      </div>
+    </DropdownMenuItem>
+    
+    {/* Footer - Link to integrations */}
+    <DropdownMenuSeparator />
+    <DropdownMenuItem 
+      onClick={() => setShowIntegrationsDialog(true)}
+      className="text-purple-600 hover:text-purple-700"
+    >
+      <Puzzle className="h-4 w-4 mr-2" />
+      <div>
+        <p className="font-medium">Manage Integrations</p>
+      </div>
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
   </div>
 
   {/* Hidden File Input */}
@@ -3975,52 +4208,89 @@ case 'dashboard':
                 Popular Integrations
               </h3>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {[
-                  { 
-                    name: 'Slack', 
-                    desc: 'Get notifications in Slack channels', 
-                    icon: '💬', 
-                    connected: false,
-                    color: 'from-brand-secondary-500 to-brand-secondary-600'
-                  },
-                  { 
-                    name: 'Google Drive', 
-                    desc: 'Import documents from Drive', 
-                    icon: '📁', 
-                    connected: false,
-                    color: 'from-brand-primary-500 to-brand-primary-600'
-                  },
-                  { 
-                    name: 'Dropbox', 
-                    desc: 'Sync files with Dropbox', 
-                    icon: '📦', 
-                    connected: false,
-                    color: 'from-sky-500 to-sky-600'
-                  },
-                ].map((integration) => (
-                  <div 
-                    key={integration.name} 
-                    className="border-2 border-slate-200 rounded-xl p-5 hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all cursor-pointer group"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${integration.color} flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-lg`}>
-                        {integration.icon}
-                      </div>
-                      {integration.connected ? (
-                        <div className="flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold">
-                          <CheckCircle className="h-3 w-3" />
-                          Connected
-                        </div>
-                      ) : (
-                        <Button size="sm" variant="outline" className="text-xs h-8">
-                          Connect
-                        </Button>
-                      )}
+                {/* Slack Integration Card */}
+                <div 
+                  key="slack-integration"
+                  className="border-2 border-slate-200 rounded-xl p-5 hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-brand-secondary-500 to-brand-secondary-600 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-lg">
+                      💬
                     </div>
-                    <h4 className="font-bold text-slate-900 mb-1">{integration.name}</h4>
-                    <p className="text-sm text-slate-600">{integration.desc}</p>
+                    <Button size="sm" variant="outline" className="text-xs h-8">
+                      Connect
+                    </Button>
                   </div>
-                ))}
+                  <h4 className="font-bold text-slate-900 mb-1">Slack</h4>
+                  <p className="text-sm text-slate-600">Get notifications in Slack channels</p>
+                </div>
+
+                {/* Google Drive Integration Card - YOUR CUSTOM CODE */}
+                <div 
+                  key="google-drive-integration"
+                  className="group bg-white border-2 border-slate-200 rounded-xl p-5 hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all cursor-pointer"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-brand-primary-500 to-brand-primary-600 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-lg">
+                      📁
+                    </div>
+                    {integrationStatus.google_drive?.connected ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="outline" className="gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            Connected
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={handleBrowseDriveFiles}>
+                            <FolderOpen className="h-4 w-4 mr-2" />
+                            Browse Files
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={handleDisconnectGoogleDrive}
+                            className="text-red-600"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            Disconnect
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={handleConnectGoogleDrive}
+                      >
+                        Connect
+                      </Button>
+                    )}
+                  </div>
+                  <h4 className="font-bold text-slate-900 mb-1">Google Drive</h4>
+                  <p className="text-sm text-slate-600">Import documents from Drive</p>
+                  {integrationStatus.google_drive?.connected && (
+                    <p className="text-xs text-green-600 mt-2">
+                      ✓ {integrationStatus.google_drive.email}
+                    </p>
+                  )}
+                </div>
+
+                {/* Dropbox Integration Card */}
+                <div 
+                  key="dropbox-integration"
+                  className="border-2 border-slate-200 rounded-xl p-5 hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-lg">
+                      📦
+                    </div>
+                    <Button size="sm" variant="outline" className="text-xs h-8">
+                      Connect
+                    </Button>
+                  </div>
+                  <h4 className="font-bold text-slate-900 mb-1">Dropbox</h4>
+                  <p className="text-sm text-slate-600">Sync files with Dropbox</p>
+                </div>
               </div>
             </div>
 
@@ -4111,7 +4381,60 @@ case 'dashboard':
       </motion.div>
     </>
   )}
-</AnimatePresence>
+  </AnimatePresence>
+
+  {/* Google Drive Files Dialog */}
+<Dialog open={showDriveFilesDialog} onOpenChange={setShowDriveFilesDialog}>
+  <DialogContent className="max-w-3xl bg-white max-h-[80vh] overflow-hidden flex flex-col">
+    <DialogHeader>
+      <DialogTitle>Import from Google Drive</DialogTitle>
+      <DialogDescription>
+        Select PDF files to import into DocMetrics
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="flex-1 overflow-y-auto">
+      {loadingDriveFiles ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        </div>
+      ) : driveFiles.length > 0 ? (
+        <div className="space-y-2">
+          {driveFiles.map((file) => (
+            <div 
+              key={file.id}
+              className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50"
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <FileText className="h-8 w-8 text-red-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-900 truncate">{file.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {file.size ? formatFileSize(parseInt(file.size)) : 'Unknown size'}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => handleImportFile(file.id, file.name)}
+                className="bg-gradient-to-r from-purple-600 to-blue-600"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Import
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <FileText className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+          <p className="text-slate-600">No PDF files found in your Drive</p>
+        </div>
+      )}
+    </div>
+  </DialogContent>
+</Dialog>
+
 
 {/* Billing Drawer */}
 <AnimatePresence>
