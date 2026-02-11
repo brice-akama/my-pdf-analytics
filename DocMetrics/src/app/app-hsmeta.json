@@ -1,0 +1,38 @@
+{
+  "uid": "docmetrics_app",
+  "type": "app",
+  "config": {
+    "name": "DocMetrics",
+    "description": "DocMetrics HubSpot integration app",
+    "distribution": "private",
+    "auth": {
+      "type": "oauth",
+      "redirectUrls": [
+        "http://localhost:3000/api/integrations/hubspot/callback",
+        "https://docmetrics.io/api/integrations/hubspot/callback"
+      ],
+      "requiredScopes": [
+        "crm.objects.contacts.read",
+        "crm.objects.contacts.write",
+        "crm.objects.deals.read",
+        "crm.objects.deals.write",
+        "timeline"
+      ],
+      "optionalScopes": [],
+      "conditionallyRequiredScopes": []
+    },
+    "permittedUrls": {
+      "fetch": [
+        "https://api.hubapi.com"
+      ],
+      "iframe": [],
+      "img": []
+    },
+    "support": {
+      "supportEmail": "support@docmetrics.io",
+      "documentationUrl": "https://docmetrics.io/docs",
+      "supportUrl": "https://docmetrics.io/support",
+      "supportPhone": "+18005555555"
+    }
+  }
+}

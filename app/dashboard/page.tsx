@@ -350,6 +350,26 @@ const [demoPreferredDate, setDemoPreferredDate] = useState('')
 const [demoMessage, setDemoMessage] = useState('')
 const [supportSubject, setSupportSubject] = useState('')
 const [supportMessage, setSupportMessage] = useState('')
+const [slackStatus, setSlackStatus] = useState<{
+  connected: boolean;
+  teamName?: string;
+  channelName?: string;
+  channelId?: string;
+}>({ connected: false });
+
+const [showSlackChannelDialog, setShowSlackChannelDialog] = useState(false);
+const [slackChannels, setSlackChannels] = useState<any[]>([]);
+const [loadingSlackChannels, setLoadingSlackChannels] = useState(false);
+const [hubspotStatus, setHubspotStatus] = useState<{
+  connected: boolean;
+  portalId?: string;
+  accountType?: string;
+}>({ connected: false });
+
+const [showHubSpotContactsDialog, setShowHubSpotContactsDialog] = useState(false);
+const [hubspotContacts, setHubspotContacts] = useState<any[]>([]);
+const [loadingHubSpotContacts, setLoadingHubSpotContacts] = useState(false);
+const [selectedSlackChannel, setSelectedSlackChannel] = useState<string | null>(null);
 const [createdFileRequests, setCreatedFileRequests] = useState<Array<{
   email: string
   requestId: string
@@ -536,6 +556,240 @@ const handleImportFile = async (fileId: string, fileName: string) => {
     toast.error('Network error', { id: loadingToast })
   }
 }
+
+
+// Fetch HubSpot status
+const fetchHubSpotStatus = async () => {
+  try {
+    const res = await fetch("/api/integrations/hubspot/status", {
+      credentials: "include",
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      setHubspotStatus(data);
+    }
+  } catch (error) {
+    console.error("Failed to fetch HubSpot status:", error);
+  }
+};
+
+// Connect to HubSpot
+const handleConnectHubSpot = async () => {
+  window.location.href = "/api/integrations/hubspot/connect";
+};
+
+// Disconnect HubSpot
+const handleDisconnectHubSpot = async () => {
+  const confirmed = await new Promise((resolve) => {
+    toast.warning('Disconnect HubSpot?', {
+      description: 'You can reconnect anytime',
+      duration: 10000,
+      action: {
+        label: 'Disconnect',
+        onClick: () => resolve(true)
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => resolve(false)
+      }
+    })
+  });
+
+  if (!confirmed) return;
+
+  const loadingToast = toast.loading('Disconnecting...');
+  
+  try {
+    const res = await fetch('/api/integrations/hubspot/disconnect', {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    if (res.ok) {
+      toast.success('HubSpot disconnected', { id: loadingToast });
+      setHubspotStatus({ connected: false });
+    } else {
+      toast.error('Failed to disconnect', { id: loadingToast });
+    }
+  } catch (error) {
+    toast.error('Network error', { id: loadingToast });
+  }
+};
+
+// Browse HubSpot contacts
+const handleBrowseHubSpotContacts = async () => {
+  setLoadingHubSpotContacts(true);
+  setShowHubSpotContactsDialog(true);
+  
+  try {
+    const res = await fetch("/api/integrations/hubspot/contacts", {
+      credentials: "include",
+    });
+    
+    const data = await res.json();
+    
+    if (res.ok) {
+      setHubspotContacts(data.contacts || []);
+    } else {
+      toast.error('Failed to load contacts', {
+        description: data.error || 'Try reconnecting HubSpot'
+      });
+    }
+  } catch (error) {
+    console.error('Browse contacts error:', error);
+    toast.error('Network error');
+  } finally {
+    setLoadingHubSpotContacts(false);
+  }
+};
+
+// Sync HubSpot contacts
+const handleSyncHubSpotContacts = async () => {
+  const loadingToast = toast.loading('Syncing contacts...');
+  
+  try {
+    const res = await fetch('/api/integrations/hubspot/contacts', {
+      method: 'POST',
+      credentials: 'include'
+    });
+    
+    const data = await res.json();
+    
+    if (res.ok) {
+      toast.success(`${data.imported} contacts synced!`, { 
+        id: loadingToast,
+        description: 'Contacts have been added to your contacts list'
+      });
+      setShowHubSpotContactsDialog(false);
+      fetchContacts(); // Refresh contacts list
+    } else {
+      toast.error(data.error || 'Sync failed', { id: loadingToast });
+    }
+  } catch (error) {
+    toast.error('Network error', { id: loadingToast });
+  }
+};
+
+// Add to useEffect that fetches statuses
+useEffect(() => {
+  fetchHubSpotStatus();
+}, []);
+
+// Show success toast after connection
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const integration = params.get('integration');
+  const status = params.get('status');
+  
+  if (integration === 'hubspot' && status === 'connected') {
+    toast.success('HubSpot connected!', {
+      description: 'You can now sync contacts and track deals',
+      duration: 5000
+    });
+    
+    window.history.replaceState({}, '', '/dashboard');
+  }
+}, []);
+
+// Fetch Slack status
+const fetchSlackStatus = async () => {
+  try {
+    const res = await fetch("/api/integrations/slack/status", {
+      credentials: "include",
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      setSlackStatus(data);
+    }
+  } catch (error) {
+    console.error("Failed to fetch Slack status:", error);
+  }
+};
+
+// Connect to Slack
+const handleConnectSlack = async () => {
+  window.location.href = "/api/integrations/slack/connect";
+};
+
+// Disconnect Slack
+const handleDisconnectSlack = async () => {
+  if (!confirm("Disconnect Slack? You'll stop receiving notifications.")) {
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/integrations/slack/disconnect", {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (res.ok) {
+      alert("✅ Slack disconnected");
+      setSlackStatus({ connected: false });
+    } else {
+      alert("❌ Failed to disconnect");
+    }
+  } catch (error) {
+    console.error("Disconnect error:", error);
+    alert("❌ Failed to disconnect");
+  }
+};
+
+// Browse Slack channels
+const handleBrowseSlackChannels = async () => {
+  setLoadingSlackChannels(true);
+  setShowSlackChannelDialog(true);
+  
+  try {
+    const res = await fetch("/api/integrations/slack/channels", {
+      credentials: "include",
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      setSlackChannels(data.channels || []);
+    } else {
+      alert("❌ Failed to load channels");
+      setShowSlackChannelDialog(false);
+    }
+  } catch (error) {
+    console.error("Failed to fetch channels:", error);
+    alert("❌ Failed to load channels");
+    setShowSlackChannelDialog(false);
+  } finally {
+    setLoadingSlackChannels(false);
+  }
+};
+
+// Select Slack channel
+const handleSelectSlackChannel = async (channelId: string, channelName: string) => {
+  try {
+    const res = await fetch("/api/integrations/slack/set-channel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ channelId, channelName }),
+    });
+
+    if (res.ok) {
+      alert(`✅ Notifications will be sent to #${channelName}`);
+      setSlackStatus(prev => ({ ...prev, channelName, channelId }));
+      setShowSlackChannelDialog(false);
+    } else {
+      alert("❌ Failed to set channel");
+    }
+  } catch (error) {
+    console.error("Set channel error:", error);
+    alert("❌ Failed to set channel");
+  }
+};
+
+
+useEffect(() => {
+  fetchSlackStatus();
+}, []);
 
   const handleSidebarItemClick = (pageId: PageType) => {
     setActivePage(pageId)
@@ -4231,22 +4485,76 @@ case 'dashboard':
                 Popular Integrations
               </h3>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {/* Slack Integration Card */}
-                <div 
-                  key="slack-integration"
-                  className="border-2 border-slate-200 rounded-xl p-5 hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all cursor-pointer group"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-brand-secondary-500 to-brand-secondary-600 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-lg">
-                      💬
-                    </div>
-                    <Button size="sm" variant="outline" className="text-xs h-8">
-                      Connect
-                    </Button>
-                  </div>
-                  <h4 className="font-bold text-slate-900 mb-1">Slack</h4>
-                  <p className="text-sm text-slate-600">Get notifications in Slack channels</p>
-                </div>
+                {/* Slack Integration Card - FULL FEATURED */}
+<div 
+  key="slack-integration"
+  className="group bg-white border-2 border-slate-200 rounded-xl p-5 hover:border-purple-400 hover:bg-purple-50/30 transition-all cursor-pointer"
+>
+  <div className="flex items-start justify-between mb-3">
+    {/* Slack Icon */}
+    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+      <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
+      </svg>
+    </div>
+    
+    {/* Connect/Connected Button */}
+    {slackStatus.connected ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline" className="gap-2">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            Connected
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleBrowseSlackChannels}>
+            <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+            </svg>
+            {slackStatus.channelName ? 'Change Channel' : 'Select Channel'}
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            onClick={handleDisconnectSlack}
+            className="text-red-600"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Disconnect
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : (
+      <Button 
+        size="sm" 
+        variant="outline"
+        onClick={handleConnectSlack}
+      >
+        Connect
+      </Button>
+    )}
+  </div>
+  
+  <h4 className="font-bold text-slate-900 mb-1">Slack</h4>
+  <p className="text-sm text-slate-600">Get real-time notifications in Slack</p>
+  
+  {/* Show channel info if connected */}
+  {slackStatus.connected && slackStatus.channelName && (
+    <div className="mt-3 p-2 bg-purple-50 rounded-lg border border-purple-200">
+      <p className="text-xs text-purple-900">
+        ✓ Posting to <span className="font-semibold">#{slackStatus.channelName}</span>
+      </p>
+    </div>
+  )}
+  
+  {/* Warning if connected but no channel */}
+  {slackStatus.connected && !slackStatus.channelName && (
+    <div className="mt-3 p-2 bg-orange-50 rounded-lg border border-orange-200">
+      <p className="text-xs text-orange-900">
+        ⚠️ No channel selected yet
+      </p>
+    </div>
+  )}
+</div>
 
                 {/* Google Drive Integration Card - YOUR CUSTOM CODE */}
                 <div 
@@ -4316,6 +4624,70 @@ case 'dashboard':
                 </div>
               </div>
             </div>
+
+            {/* HubSpot Integration Card */}
+<div 
+  key="hubspot-integration"
+  className="group bg-white border-2 border-slate-200 rounded-xl p-5 hover:border-orange-400 hover:bg-orange-50/30 transition-all cursor-pointer"
+>
+  <div className="flex items-start justify-between mb-3">
+    {/* HubSpot Icon */}
+    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+      <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M18.164 7.93V5.084a2.198 2.198 0 001.267-1.978v-.067A2.2 2.2 0 0017.238.873h-.067a2.199 2.199 0 00-1.978 1.267 2.198 2.198 0 00.07 1.8l-3.47 3.47a4.238 4.238 0 00-1.344-.246 4.33 4.33 0 00-3.751 2.184L3.072 6.694a2.192 2.192 0 10-.795.796l3.646 3.626a4.284 4.284 0 002.023 6.763 4.314 4.314 0 003.515-.81l3.466 3.466a2.198 2.198 0 101.566-.618l-3.467-3.467a4.314 4.314 0 00.81-3.515 4.285 4.285 0 00-2.128-3.065 2.198 2.198 0 012.129-3.82l.039.04 3.435-3.435A2.199 2.199 0 0018.164 7.93z"/>
+      </svg>
+    </div>
+    
+    {/* Connect/Connected Button */}
+    {hubspotStatus.connected ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline" className="gap-2">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            Connected
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleBrowseHubSpotContacts}>
+            <Users className="h-4 w-4 mr-2" />
+            View Contacts
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleSyncHubSpotContacts}>
+            <Download className="h-4 w-4 mr-2" />
+            Sync Contacts
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            onClick={handleDisconnectHubSpot}
+            className="text-red-600"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Disconnect
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : (
+      <Button 
+        size="sm" 
+        variant="outline"
+        onClick={handleConnectHubSpot}
+      >
+        Connect
+      </Button>
+    )}
+  </div>
+  
+  <h4 className="font-bold text-slate-900 mb-1">HubSpot</h4>
+  <p className="text-sm text-slate-600">Sync contacts and track deals</p>
+  
+  {/* Show portal info if connected */}
+  {hubspotStatus.connected && hubspotStatus.portalId && (
+    <div className="mt-3 p-2 bg-orange-50 rounded-lg border border-orange-200">
+      <p className="text-xs text-orange-900">
+        ✓ Portal ID: <span className="font-semibold">{hubspotStatus.portalId}</span>
+      </p>
+    </div>
+  )}
+</div>
 
             {/* All Integrations */}
             <div>
@@ -6704,6 +7076,94 @@ case 'dashboard':
     </div>
   </DialogContent>
 </Dialog>
+
+{/* Slack Channel Selection Drawer */}
+<Drawer open={showSlackChannelDialog} onOpenChange={setShowSlackChannelDialog}>
+  <div className="h-full flex flex-col bg-white">
+    {/* Header */}
+    <div className="p-6 border-b bg-gradient-to-r from-purple-50 to-pink-50">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+            <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Select Slack Channel</h2>
+            <p className="text-sm text-slate-600">
+              {slackStatus.teamName}
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowSlackChannelDialog(false)}
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
+    </div>
+
+    {/* Channel List */}
+    <div className="flex-1 overflow-y-auto p-6">
+      {loadingSlackChannels ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="h-12 w-12 animate-spin text-purple-600 mb-4" />
+          <p className="text-sm text-slate-600 font-medium">Loading channels...</p>
+        </div>
+      ) : slackChannels.length > 0 ? (
+        <div className="space-y-2">
+          {slackChannels.map((channel) => (
+            <button
+              key={channel.id}
+              onClick={() => handleSelectSlackChannel(channel.id, channel.name)}
+              className={`w-full p-4 rounded-xl border-2 text-left transition-all hover:border-purple-400 hover:bg-purple-50 ${
+                slackStatus.channelId === channel.id
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-slate-200 bg-white'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-2xl">
+                  {channel.isPrivate ? '🔒' : '#'}
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-slate-900">
+                    {channel.name}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {channel.isPrivate ? 'Private channel' : 'Public channel'}
+                    {!channel.isMember && ' • Not a member'}
+                  </div>
+                </div>
+                {slackStatus.channelId === channel.id && (
+                  <CheckCircle2 className="h-5 w-5 text-purple-600" />
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-20">
+          <p className="text-slate-600">No channels found</p>
+        </div>
+      )}
+    </div>
+
+    {/* Footer */}
+    <div className="px-6 py-4 border-t bg-slate-50">
+      <Button
+        variant="outline"
+        onClick={() => setShowSlackChannelDialog(false)}
+        className="w-full"
+      >
+        Close
+      </Button>
+    </div>
+  </div>
+</Drawer>
  
     </div>
   )
