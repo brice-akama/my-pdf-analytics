@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
     const db = await dbPromise;
     const integrations = await db.collection("integrations")
-      .find({ userId: user.email, isActive: true })
+      .find({ userId: user.id, isActive: true })
       .toArray();
 
     const status: Record<string, any> = {};

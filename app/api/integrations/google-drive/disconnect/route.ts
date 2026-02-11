@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     
     // ✅ Mark integration as inactive
     await db.collection("integrations").updateOne(
-      { userId: user.email, provider: "google_drive" },
+      { userId: user.id, provider: "google_drive" },
       { 
         $set: { 
           isActive: false,

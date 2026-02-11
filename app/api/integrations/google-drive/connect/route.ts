@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     googleAuthUrl.searchParams.append("scope", "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email");
     googleAuthUrl.searchParams.append("access_type", "offline");
     googleAuthUrl.searchParams.append("prompt", "consent");
-    googleAuthUrl.searchParams.append("state", user.email); // ✅ Pass user ID to identify them later
+    googleAuthUrl.searchParams.append("state", user.id); // ✅ NEW// ✅ Pass user ID to identify them later
 
     // ✅ Redirect user to Google
     return NextResponse.redirect(googleAuthUrl.toString());

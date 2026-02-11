@@ -1,24 +1,19 @@
+ 
+
 // app/api/integrations/google-drive/import/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserFromRequest } from "@/lib/auth";
 import { dbPromise } from "../../../lib/mongodb";
-import { 
-  convertToPdf, 
-  extractTextFromPdf, 
-  analyzeDocument,
-  extractMetadata 
-} from "@/lib/document-processor";
+import { extractTextFromPdf, extractMetadata, analyzeDocument } from "@/lib/document-processor";
 import cloudinary from "cloudinary";
 import streamifier from "streamifier";
 
-// Configure Cloudinary
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_SECRET_KEY,
 });
 
-// Helper to upload buffer to Cloudinary
 async function uploadToCloudinary(buffer: Buffer, filename: string, folder: string) {
   return new Promise<string>((resolve, reject) => {
     const uploadStream = cloudinary.v2.uploader.upload_stream(
@@ -38,73 +33,108 @@ async function uploadToCloudinary(buffer: Buffer, filename: string, folder: stri
   });
 }
 
-// Helper to generate a short summary from text
-function generateSummary(text: string) {
-  const sentences = text.split(/[.!?]/).filter(Boolean);
-  if (sentences.length <= 3) return text;
-  return sentences.slice(0, 3).join(". ") + ".";
-}
-
 export async function POST(request: NextRequest) {
   try {
+    console.log('📥 [IMPORT] Starting Google Drive import...');
+    
     const user = await verifyUserFromRequest(request);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) {
+      console.log('❌ [IMPORT] Unauthorized');
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const { fileId, originalname } = await request.json();
-    if (!fileId) return NextResponse.json({ error: "File ID required" }, { status: 400 });
+    console.log('✅ [IMPORT] User verified:', user.id);
+
+    const { fileId, fileName } = await request.json();
+    console.log('📄 [IMPORT] File details:', { fileId, fileName });
+
+    if (!fileId) {
+      return NextResponse.json({ error: "File ID required" }, { status: 400 });
+    }
 
     const db = await dbPromise;
+    
+    // ✅ GET ORGANIZATION ID (CRITICAL - same as your upload.ts)
+    const profile = await db.collection('profiles').findOne({ user_id: user.id });
+    const organizationId = profile?.organization_id || user.id;
+    console.log('🏢 [IMPORT] Organization ID:', organizationId);
+
+    // ✅ GET GOOGLE DRIVE INTEGRATION
+    // The integration was saved with email, so search by email
     const integration = await db.collection("integrations").findOne({
-      userId: user.id, // match your regular uploads
+      userId: user.id, // user.id IS the email in your system
       provider: "google_drive",
       isActive: true,
     });
-    if (!integration) return NextResponse.json({ error: "Google Drive not connected" }, { status: 404 });
 
-    // Download file from Google Drive
-    const fileResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-      headers: { Authorization: `Bearer ${integration.accessToken}` },
-    });
-    if (!fileResponse.ok) return NextResponse.json({ error: "Failed to download file" }, { status: 500 });
+    if (!integration) {
+      console.log('❌ [IMPORT] Google Drive not connected');
+      console.log('🔍 [IMPORT] Searched for userId:', user.id);
+      
+      // DEBUG: Show what's in database
+      const allIntegrations = await db.collection("integrations").find({ 
+        provider: "google_drive" 
+      }).toArray();
+     
+      
+      return NextResponse.json({ error: "Google Drive not connected" }, { status: 404 });
+    }
 
-    const fileBuffer = Buffer.from(await fileResponse.arrayBuffer());
+    console.log('✅ [IMPORT] Integration found');
 
-    // Convert to PDF if needed + extract metadata
-    const fileType = originalname.split(".").pop()?.toLowerCase() || "pdf";
-    const [pdfBuffer, metadata] = await Promise.all([
-      fileType !== "pdf" ? convertToPdf(fileBuffer, fileType, originalname) : Promise.resolve(fileBuffer),
-      extractMetadata(fileBuffer, fileType)
-    ]);
+    // ✅ DOWNLOAD FILE FROM GOOGLE DRIVE
+    console.log('📥 [IMPORT] Downloading from Google Drive...');
+    const fileResponse = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      {
+        headers: {
+          Authorization: `Bearer ${integration.accessToken}`,
+        },
+      }
+    );
 
-    // Extract text from PDF
-    const extractedText = await extractTextFromPdf(pdfBuffer);
+    if (!fileResponse.ok) {
+      console.log('❌ [IMPORT] Download failed:', fileResponse.status);
+      const errorText = await fileResponse.text();
+      console.log('❌ [IMPORT] Error:', errorText);
+      return NextResponse.json({ error: "Failed to download file" }, { status: 500 });
+    }
+
+    const buffer = Buffer.from(await fileResponse.arrayBuffer());
+    console.log(`✅ [IMPORT] Downloaded ${buffer.length} bytes`);
+
+    // ✅ PROCESS PDF
+    console.log('⚙️ [IMPORT] Processing PDF...');
+    const metadata = await extractMetadata(buffer, "pdf");
+    const extractedText = await extractTextFromPdf(buffer);
+    const analysis = await analyzeDocument(extractedText, user.plan || "free");
     const scannedPdf = !extractedText || extractedText.trim().length < 30;
-    const summary = generateSummary(extractedText);
+    console.log('✅ [IMPORT] PDF processed:', { pages: metadata.pageCount, words: metadata.wordCount });
 
-    // Upload original + PDF to Cloudinary
+    // ✅ UPLOAD TO CLOUDINARY
+    console.log('☁️ [IMPORT] Uploading to Cloudinary...');
     const folder = `users/${user.id}/documents`;
-    const [originalUrl, pdfUrl, analysis] = await Promise.all([
-      uploadToCloudinary(fileBuffer, originalname, folder),
-      uploadToCloudinary(pdfBuffer, originalname.replace(/\.[^/.]+$/, ".pdf"), folder),
-      analyzeDocument(extractedText, user.plan)
-    ]);
+    const pdfUrl = await uploadToCloudinary(buffer, fileName, folder);
+    console.log(`✅ [IMPORT] Uploaded to Cloudinary:`, pdfUrl);
 
-    // Save to documents collection (matches regular upload)
+    // ✅ SAVE TO DATABASE - MATCH YOUR UPLOAD.TS EXACTLY
+    console.log('💾 [IMPORT] Saving to database...');
     const document = {
-      userId: user.id,
+      userId: user.id, // ✅ user.id (which is email)
       plan: user.plan,
-      originalFilename: originalname,
-      originalFormat: fileType,
-      mimeType: "application/octet-stream",
-      size: fileBuffer.length,
-      pdfSize: pdfBuffer.length,
-      cloudinaryOriginalUrl: originalUrl,
+      organizationId, // ✅ CRITICAL - this was missing in first code!
+      originalFilename: fileName,
+      originalFormat: "pdf",
+      mimeType: "application/pdf",
+      size: buffer.length,
+      pdfSize: buffer.length,
+      cloudinaryOriginalUrl: pdfUrl,
       cloudinaryPdfUrl: pdfUrl,
       extractedText: extractedText.substring(0, 10000),
       numPages: metadata.pageCount,
       wordCount: metadata.wordCount,
       charCount: metadata.charCount,
-      summary,
+      summary: extractedText.substring(0, 200),
       scannedPdf,
       analytics: {
         readabilityScore: analysis.readability,
@@ -141,41 +171,25 @@ export async function POST(request: NextRequest) {
       folder: null,
       starred: false,
       archived: false,
+      belongsToSpace: false, // ✅ Add this so it shows in personal documents
       createdAt: new Date(),
       updatedAt: new Date(),
       lastAnalyzedAt: new Date(),
     };
 
     const result = await db.collection("documents").insertOne(document);
+    console.log(`✅ [IMPORT] Document saved with ID:`, result.insertedId.toString());
 
     return NextResponse.json({
       success: true,
       documentId: result.insertedId.toString(),
-      filename: originalname,
-      format: fileType,
-      numPages: metadata.pageCount,
-      wordCount: metadata.wordCount,
-      size: fileBuffer.length,
-      cloudinaryOriginalUrl: originalUrl,
-      cloudinaryPdfUrl: pdfUrl,
-      analytics: {
-        healthScore: analysis.healthScore,
-        readabilityScore: analysis.readability,
-        errorCounts: {
-          grammar: analysis.grammar.length,
-          spelling: analysis.spelling.length,
-          clarity: analysis.clarity.length,
-        },
-        topKeywords: analysis.keywords.slice(0, 5),
-      },
-      hasIssues: analysis.grammar.length > 0 || analysis.spelling.length > 0,
-      issuesSummary: `Found ${analysis.grammar.length} grammar issues, ${analysis.spelling.length} spelling errors`,
-    }, { status: 201 });
+      message: "File imported successfully"
+    });
 
   } catch (error) {
-    console.error("❌ Google Drive import error:", error);
-    return NextResponse.json({
-      error: "Failed to import file from Google Drive",
+    console.error("❌ [IMPORT] Error:", error);
+    return NextResponse.json({ 
+      error: "Failed to import file",
       details: error instanceof Error ? error.message : "Unknown error"
     }, { status: 500 });
   }
