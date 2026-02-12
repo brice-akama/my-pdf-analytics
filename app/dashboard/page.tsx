@@ -350,6 +350,16 @@ const [demoPreferredDate, setDemoPreferredDate] = useState('')
 const [demoMessage, setDemoMessage] = useState('')
 const [supportSubject, setSupportSubject] = useState('')
 const [supportMessage, setSupportMessage] = useState('')
+const [gmailStatus, setGmailStatus] = useState<{
+  connected: boolean;
+  email?: string;
+}>({ connected: false });
+
+const [showGmailSendDialog, setShowGmailSendDialog] = useState(false);
+const [gmailRecipients, setGmailRecipients] = useState('');
+const [gmailSubject, setGmailSubject] = useState('');
+const [gmailMessage, setGmailMessage] = useState('');
+const [selectedDocumentForEmail, setSelectedDocumentForEmail] = useState<string | null>(null);
 const [slackStatus, setSlackStatus] = useState<{
   connected: boolean;
   teamName?: string;
@@ -369,6 +379,9 @@ const [hubspotStatus, setHubspotStatus] = useState<{
 const [showHubSpotContactsDialog, setShowHubSpotContactsDialog] = useState(false);
 const [hubspotContacts, setHubspotContacts] = useState<any[]>([]);
 const [loadingHubSpotContacts, setLoadingHubSpotContacts] = useState(false);
+const [showIntegrationRequestDialog, setShowIntegrationRequestDialog] = useState(false)
+const [requestedIntegration, setRequestedIntegration] = useState('')
+const [integrationUseCase, setIntegrationUseCase] = useState('')
 const [selectedSlackChannel, setSelectedSlackChannel] = useState<string | null>(null);
 const [createdFileRequests, setCreatedFileRequests] = useState<Array<{
   email: string
@@ -947,6 +960,128 @@ const handleInviteMember = async () => {
     })
   }
 }
+
+// Fetch Gmail status
+const fetchGmailStatus = async () => {
+  try {
+    const res = await fetch("/api/integrations/gmail/status", {
+      credentials: "include",
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      setGmailStatus(data);
+    }
+  } catch (error) {
+    console.error("Failed to fetch Gmail status:", error);
+  }
+};
+
+// Connect to Gmail
+const handleConnectGmail = async () => {
+  window.location.href = "/api/integrations/gmail/connect";
+};
+
+// Disconnect Gmail
+const handleDisconnectGmail = async () => {
+  const confirmed = await new Promise((resolve) => {
+    toast.warning('Disconnect Gmail?', {
+      description: 'You can reconnect anytime',
+      duration: 10000,
+      action: {
+        label: 'Disconnect',
+        onClick: () => resolve(true)
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => resolve(false)
+      }
+    });
+  });
+
+  if (!confirmed) return;
+
+  const loadingToast = toast.loading('Disconnecting...');
+  
+  try {
+    const res = await fetch('/api/integrations/gmail/disconnect', {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    if (res.ok) {
+      toast.success('Gmail disconnected', { id: loadingToast });
+      setGmailStatus({ connected: false });
+    } else {
+      toast.error('Failed to disconnect', { id: loadingToast });
+    }
+  } catch (error) {
+    toast.error('Network error', { id: loadingToast });
+  }
+};
+
+// Send email via Gmail
+const handleSendViaGmail = async () => {
+  if (!gmailRecipients.trim() || !gmailSubject.trim() || !selectedDocumentForEmail) {
+    toast.error('Please fill all required fields');
+    return;
+  }
+
+  const loadingToast = toast.loading('Sending email...');
+  
+  try {
+    const res = await fetch('/api/integrations/gmail/send', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: gmailRecipients.split(',').map(e => e.trim()),
+        subject: gmailSubject.trim(),
+        message: gmailMessage.trim() || undefined,
+        documentId: selectedDocumentForEmail,
+      }),
+    });
+    
+    const data = await res.json();
+    
+    if (res.ok) {
+      toast.success('Email sent!', { 
+        id: loadingToast,
+        description: data.message
+      });
+      setShowGmailSendDialog(false);
+      setGmailRecipients('');
+      setGmailSubject('');
+      setGmailMessage('');
+      setSelectedDocumentForEmail(null);
+    } else {
+      toast.error(data.error || 'Failed to send email', { id: loadingToast });
+    }
+  } catch (error) {
+    toast.error('Network error', { id: loadingToast });
+  }
+};
+
+// Add to useEffect
+useEffect(() => {
+  fetchGmailStatus();
+}, []);
+
+// Show success toast after connection
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const integration = params.get('integration');
+  const status = params.get('status');
+  
+  if (integration === 'gmail' && status === 'connected') {
+    toast.success('Gmail connected!', {
+      description: 'You can now send tracked emails',
+      duration: 5000
+    });
+    
+    window.history.replaceState({}, '', '/dashboard');
+  }
+}, []);
 
 const handleRemoveMember = async (memberId: string) => {
   if (!confirm('Remove this team member?')) return
@@ -4606,24 +4741,7 @@ case 'dashboard':
                   )}
                 </div>
 
-                {/* Dropbox Integration Card */}
-                <div 
-                  key="dropbox-integration"
-                  className="border-2 border-slate-200 rounded-xl p-5 hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all cursor-pointer group"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-lg">
-                      📦
-                    </div>
-                    <Button size="sm" variant="outline" className="text-xs h-8">
-                      Connect
-                    </Button>
-                  </div>
-                  <h4 className="font-bold text-slate-900 mb-1">Dropbox</h4>
-                  <p className="text-sm text-slate-600">Sync files with Dropbox</p>
-                </div>
-              </div>
-            </div>
+               
 
             {/* HubSpot Integration Card */}
 <div 
@@ -4689,70 +4807,111 @@ case 'dashboard':
   )}
 </div>
 
-            {/* All Integrations */}
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 mb-4">All Integrations</h3>
-              <div className="grid md:grid-cols-2 gap-4">
-                {[
-                  { name: 'Zapier', desc: 'Automate workflows with 5000+ apps', icon: '⚡', connected: false },
-                  { name: 'Salesforce', desc: 'Sync contacts and deals', icon: '☁️', connected: false },
-                  { name: 'HubSpot', desc: 'Marketing automation platform', icon: '🎯', connected: false },
-                  { name: 'Microsoft Teams', desc: 'Team collaboration hub', icon: '👥', connected: false },
-                  { name: 'Notion', desc: 'Connect your workspace', icon: '📝', connected: false },
-                  { name: 'Airtable', desc: 'Database integrations', icon: '🗂️', connected: false },
-                  { name: 'Gmail', desc: 'Email integration & tracking', icon: '📧', connected: false },
-                  { name: 'Zoom', desc: 'Video meeting recordings', icon: '🎥', connected: false },
-                ].map((integration) => (
-                  <div 
-                    key={integration.name}
-                    className="flex items-center justify-between p-4 border-2 border-slate-200 rounded-xl hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl">
-                        {integration.icon}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-900">{integration.name}</p>
-                        <p className="text-sm text-slate-600">{integration.desc}</p>
-                      </div>
-                    </div>
-                    {integration.connected ? (
-                      <Button variant="ghost" size="sm" className="text-green-600">
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Connected
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="outline">
-                        Connect
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+{/* Gmail Integration Card */}
+<div 
+  key="gmail-integration"
+  className="group bg-white border-2 border-slate-200 rounded-xl p-5 hover:border-red-400 hover:bg-red-50/30 transition-all cursor-pointer"
+>
+  <div className="flex items-start justify-between mb-3">
+    {/* Gmail Icon */}
+    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+      <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/>
+      </svg>
+    </div>
+    
+    {/* Connect/Connected Button */}
+    {gmailStatus.connected ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline" className="gap-2">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            Connected
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem 
+            onClick={handleDisconnectGmail}
+            className="text-red-600"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Disconnect
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : (
+      <Button 
+        size="sm" 
+        variant="outline"
+        onClick={handleConnectGmail}
+      >
+        Connect
+      </Button>
+    )}
+  </div>
+  
+  <h4 className="font-bold text-slate-900 mb-1">Gmail</h4>
+  <p className="text-sm text-slate-600">Send tracked emails directly</p>
+  
+  {/* Show email if connected */}
+  {gmailStatus.connected && gmailStatus.email && (
+    <div className="mt-3 p-2 bg-red-50 rounded-lg border border-red-200">
+      <p className="text-xs text-red-900">
+        ✓ Sending as <span className="font-semibold">{gmailStatus.email}</span>
+      </p>
+    </div>
+  )}
+</div>
 
-            {/* Coming Soon - UPDATED */}
-            <div className="mt-8 bg-gradient-to-br from-brand-primary-50 to-brand-secondary-50 border-2 border-brand-primary-200 rounded-xl p-6">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-lg bg-brand-primary-600 flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-brand-primary-900 mb-2">Request an Integration</h4>
-                  <p className="text-sm text-brand-primary-800 mb-4">
-                    Don't see your favorite tool? Let us know and we'll prioritize it!
-                  </p>
-                  <Button 
-                    size="sm"
-                    onClick={() => {
-                      setShowIntegrationsDialog(false)
-                      setShowFeedbackDialog(true)
-                    }}
-                    className="bg-brand-primary-600 hover:bg-brand-primary-700 text-white"
-                  >
-                    Request Integration
-                  </Button>
-                </div>
+            
+
+            {/* All Integrations - REMOVED, only show "Coming Soon" */}
+<div>
+  <h3 className="text-lg font-bold text-slate-900 mb-4">More Integrations</h3>
+  
+  <div className="bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-200 rounded-xl p-8 text-center">
+    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-200 mb-4">
+      <Sparkles className="h-8 w-8 text-slate-500" />
+    </div>
+    <h4 className="text-xl font-bold text-slate-900 mb-2">More Integrations Coming Soon</h4>
+    <p className="text-slate-600 mb-6 max-w-md mx-auto">
+      We're working on integrations with Zapier, Salesforce, Microsoft Teams, Notion, Airtable, Zoom, and more!
+    </p>
+    
+    {/* Preview Grid */}
+    <div className="grid grid-cols-4 md:grid-cols-8 gap-4 mb-6 max-w-2xl mx-auto">
+      {[
+        { name: 'Zapier', icon: '⚡' },
+        { name: 'Salesforce', icon: '☁️' },
+        { name: 'Teams', icon: '👥' },
+        { name: 'Notion', icon: '📝' },
+        { name: 'Airtable', icon: '🗂️' },
+        { name: 'Zoom', icon: '🎥' },
+        { name: 'Outlook', icon: '📧' },
+        { name: 'OneDrive', icon: '☁️' },
+      ].map((integration) => (
+        <div 
+          key={integration.name}
+          className="flex flex-col items-center gap-2 p-3 bg-white rounded-lg border border-slate-200 opacity-60"
+        >
+          <div className="text-3xl">{integration.icon}</div>
+          <p className="text-xs text-slate-600 font-medium">{integration.name}</p>
+        </div>
+      ))}
+    </div>
+
+    <Button 
+  size="sm"
+  onClick={() => {
+    setShowIntegrationsDialog(false)
+    setShowIntegrationRequestDialog(true)
+  }}
+  className="bg-purple-600 hover:bg-purple-700 text-white"
+>
+  Request an Integration
+</Button>
+  </div>
+</div>
               </div>
             </div>
           </div>
@@ -7164,6 +7323,388 @@ case 'dashboard':
     </div>
   </div>
 </Drawer>
+
+{/* HubSpot Contacts Drawer */}
+<Drawer open={showHubSpotContactsDialog} onOpenChange={setShowHubSpotContactsDialog}>
+  <div className="h-full flex flex-col bg-white">
+    {/* Header */}
+    <div className="p-6 border-b bg-gradient-to-r from-orange-50 to-red-50">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+            <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.164 7.93V5.084a2.198 2.198 0 001.267-1.978v-.067A2.2 2.2 0 0017.238.873h-.067a2.199 2.199 0 00-1.978 1.267 2.198 2.198 0 00.07 1.8l-3.47 3.47a4.238 4.238 0 00-1.344-.246 4.33 4.33 0 00-3.751 2.184L3.072 6.694a2.192 2.192 0 10-.795.796l3.646 3.626a4.284 4.284 0 002.023 6.763 4.314 4.314 0 003.515-.81l3.466 3.466a2.198 2.198 0 101.566-.618l-3.467-3.467a4.314 4.314 0 00.81-3.515 4.285 4.285 0 00-2.128-3.065 2.198 2.198 0 012.129-3.82l.039.04 3.435-3.435A2.199 2.199 0 0018.164 7.93z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">HubSpot Contacts</h2>
+            <p className="text-sm text-slate-600">
+              {hubspotStatus.portalId ? `Portal: ${hubspotStatus.portalId}` : 'Your CRM contacts'}
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowHubSpotContactsDialog(false)}
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
+    </div>
+
+    {/* Contact List */}
+    <div className="flex-1 overflow-y-auto px-6 py-4">
+      {loadingHubSpotContacts ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="h-12 w-12 animate-spin text-orange-600 mb-4" />
+          <p className="text-sm text-slate-600 font-medium">Loading contacts...</p>
+        </div>
+      ) : hubspotContacts.length > 0 ? (
+        <div className="space-y-3">
+          <p className="text-sm text-slate-600 mb-4">
+            Found {hubspotContacts.length} contact(s) in HubSpot
+          </p>
+          {hubspotContacts.map((contact) => (
+            <div
+              key={contact.id}
+              className="bg-white border-2 border-slate-200 rounded-xl p-4 hover:border-orange-400 hover:bg-orange-50/30 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(contact.email)} flex items-center justify-center text-white font-semibold`}>
+                  {contact.firstName?.charAt(0)?.toUpperCase() || contact.email?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-slate-900">
+                    {contact.firstName} {contact.lastName}
+                  </p>
+                  <p className="text-sm text-slate-600 truncate">{contact.email}</p>
+                  {contact.company && (
+                    <p className="text-xs text-slate-500">{contact.company}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-20">
+          <Users className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+          <p className="text-slate-600">No contacts found in HubSpot</p>
+        </div>
+      )}
+    </div>
+    
+    {/* Footer */}
+    <div className="px-6 py-4 border-t bg-slate-50">
+      <div className="flex gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setShowHubSpotContactsDialog(false)}
+          className="flex-1"
+        >
+          Close
+        </Button>
+        <Button
+          onClick={handleSyncHubSpotContacts}
+          disabled={hubspotContacts.length === 0}
+          className="flex-1 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Sync {hubspotContacts.length} Contacts
+        </Button>
+      </div>
+    </div>
+  </div>
+</Drawer>
+
+{/* Gmail Send Email Dialog */}
+<Dialog open={showGmailSendDialog} onOpenChange={setShowGmailSendDialog}>
+  <DialogContent className="max-w-2xl bg-white">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2">
+        <Mail className="h-5 w-5 text-red-600" />
+        Send via Gmail
+      </DialogTitle>
+      <DialogDescription>
+        Send a tracked document link via your Gmail account
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Recipients *</Label>
+        <Input
+          placeholder="john@example.com, jane@company.com"
+          value={gmailRecipients}
+          onChange={(e) => setGmailRecipients(e.target.value)}
+        />
+        <p className="text-xs text-slate-500">Separate multiple emails with commas</p>
+      </div>
+      
+      <div className="space-y-2">
+        <Label>Subject *</Label>
+        <Input
+          placeholder="Check out this document"
+          value={gmailSubject}
+          onChange={(e) => setGmailSubject(e.target.value)}
+        />
+      </div>
+      
+      <div className="space-y-2">
+        <Label>Message (Optional)</Label>
+        <Textarea
+          placeholder="Add a personal message..."
+          rows={4}
+          value={gmailMessage}
+          onChange={(e) => setGmailMessage(e.target.value)}
+        />
+      </div>
+      
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex gap-3">
+          <Activity className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-blue-900 mb-1">Email Tracking Enabled</p>
+            <ul className="text-xs text-blue-700 space-y-1">
+              <li>• You'll be notified when recipients open the email</li>
+              <li>• Track when they view the document</li>
+              <li>• See time spent on each page</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex gap-2 justify-end pt-4">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowGmailSendDialog(false);
+            setGmailRecipients('');
+            setGmailSubject('');
+            setGmailMessage('');
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSendViaGmail}
+          className="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700"
+        >
+          <Send className="mr-2 h-4 w-4" />
+          Send Email
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Integration Request Drawer */}
+<AnimatePresence>
+  {showIntegrationRequestDialog && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowIntegrationRequestDialog(false)}
+        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
+      />
+
+      {/* Drawer */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[800px] bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-8 py-5 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Request an Integration</h2>
+            <p className="text-sm text-slate-600 mt-1">Tell us which tool you'd like to connect</p>
+          </div>
+          <button
+            onClick={() => setShowIntegrationRequestDialog(false)}
+            className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
+          >
+            <X className="h-5 w-5 text-slate-600" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="space-y-6 max-w-3xl">
+            {/* Popular Requests - Quick Select */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold text-slate-900">Popular Requests</Label>
+              <p className="text-sm text-slate-600 mb-3">Select one or type your own below</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { name: 'Zapier', icon: '⚡' },
+                  { name: 'Salesforce', icon: '☁️' },
+                  { name: 'Microsoft Teams', icon: '👥' },
+                  { name: 'Notion', icon: '📝' },
+                  { name: 'Airtable', icon: '🗂️' },
+                  { name: 'Zoom', icon: '🎥' },
+                  { name: 'Outlook', icon: '📧' },
+                  { name: 'OneDrive', icon: '☁️' },
+                ].map((integration) => (
+                  <button
+                    key={integration.name}
+                    onClick={() => setRequestedIntegration(integration.name)}
+                    className={`p-4 border-2 rounded-xl text-center transition-all ${
+                      requestedIntegration === integration.name
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-slate-200 hover:border-purple-300 hover:bg-purple-50/30'
+                    }`}
+                  >
+                    <div className="text-3xl mb-2">{integration.icon}</div>
+                    <p className="text-xs font-semibold text-slate-900">{integration.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Integration Input */}
+            <div className="space-y-2">
+              <Label className="text-base font-semibold text-slate-900">
+                Or type a different integration
+              </Label>
+              <Input 
+                placeholder="e.g., Monday.com, Asana, Trello..."
+                value={requestedIntegration}
+                onChange={(e) => setRequestedIntegration(e.target.value)}
+                className="h-12 text-base"
+              />
+              <p className="text-xs text-slate-500">
+                Which tool would you like to connect with DocMetrics?
+              </p>
+            </div>
+
+            {/* Use Case */}
+            <div className="space-y-2">
+              <Label className="text-base font-semibold text-slate-900">
+                How would you use this integration? (Optional)
+              </Label>
+              <Textarea 
+                placeholder="Tell us about your workflow and how this integration would help you..."
+                rows={6}
+                value={integrationUseCase}
+                onChange={(e) => setIntegrationUseCase(e.target.value)}
+                className="resize-none text-base"
+              />
+              <p className="text-xs text-slate-500">
+                This helps us prioritize features that deliver the most value
+              </p>
+            </div>
+
+            {/* Contact Info Preview */}
+            <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-5">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
+                  <User className="h-5 w-5 text-slate-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-900 mb-1">We'll follow up with you</p>
+                  <p className="text-sm text-slate-600">
+                    <strong>{user?.first_name} {user?.last_name}</strong> ({user?.email})
+                  </p>
+                  <p className="text-xs text-slate-500 mt-2">
+                    We'll email you when this integration becomes available
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Info Box */}
+            <div className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-lg bg-blue-500 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-blue-900 mb-2">Your voice matters!</h4>
+                  <p className="text-sm text-blue-800 leading-relaxed">
+                    Integration requests directly influence our development roadmap. The most requested 
+                    integrations get built first. We'll notify you via email when your requested integration is available.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-8 py-4 border-t bg-white sticky bottom-0 shadow-lg">
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowIntegrationRequestDialog(false)
+                setRequestedIntegration('')
+                setIntegrationUseCase('')
+              }}
+              className="h-12 px-6"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={async () => {
+                if (!requestedIntegration.trim()) {
+                  toast.error('Please select or enter an integration');
+                  return;
+                }
+
+                const loadingToast = toast.loading('Submitting request...');
+
+                try {
+                  const res = await fetch('/api/feedback', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      feedback: `Integration Request: ${requestedIntegration.trim()}\n\nUse Case: ${integrationUseCase.trim() || 'Not provided'}`,
+                      type: 'integration_request' // Add this to differentiate
+                    }),
+                  });
+
+                  const data = await res.json();
+
+                  if (res.ok) {
+                    toast.success('Request submitted!', {
+                      id: loadingToast,
+                      description: `We'll notify you when ${requestedIntegration} is available`
+                    });
+                    setRequestedIntegration('');
+                    setIntegrationUseCase('');
+                    setShowIntegrationRequestDialog(false);
+                  } else {
+                    toast.error(data.error || 'Failed to submit request', {
+                      id: loadingToast
+                    });
+                  }
+                } catch (error) {
+                  console.error('Integration request error:', error);
+                  toast.error('Network error', {
+                    id: loadingToast
+                  });
+                }
+              }}
+              disabled={!requestedIntegration.trim()}
+              className="h-12 px-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+            >
+              <Send className="mr-2 h-4 w-4" />
+              Submit Request
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
  
     </div>
   )
