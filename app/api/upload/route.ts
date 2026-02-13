@@ -96,88 +96,202 @@ export async function POST(request: NextRequest) {
       uploadToCloudinary(pdfBuffer, file.name.replace(/\.[^/.]+$/, ".pdf"), folder)
     ]);
 
-    // ✅ STEP 4: Single DB Write
-    const doc = {
-      userId: user.id,
-      plan: user.plan,
-      organizationId,
-      originalFilename: file.name,
-      originalFormat: fileType,
-      mimeType: file.type,
-      size: buffer.length,
-      pdfSize: pdfBuffer.length,
-      cloudinaryOriginalUrl: originalUrl,
-      cloudinaryPdfUrl: pdfUrl,
-      extractedText: extractedText.substring(0, 10000),
-      numPages: metadata.pageCount,
-      wordCount: metadata.wordCount,
-      charCount: metadata.charCount,
-      summary,
-      scannedPdf,
-      analytics: {
-        readabilityScore: analysis.readability,
-        sentimentScore: analysis.sentiment,
-        grammarIssues: analysis.grammar,
-        spellingErrors: analysis.spelling,
-        clarityScore: analysis.clarity,
-        formalityLevel: analysis.formality,
-        keywords: analysis.keywords,
-        entities: analysis.entities,
-        language: analysis.language,
-        errorCounts: {
-          grammar: analysis.grammar.length,
-          spelling: analysis.spelling.length,
-          clarity: analysis.clarity.length,
+    // ✅ STEP 4: Check for existing document with same filename
+const existingDoc = await db.collection('documents').findOne({
+  originalFilename: file.name,
+  userId: user.id,
+  organizationId,
+  archived: { $ne: true }
+});
+
+if (existingDoc) {
+  console.log('📦 Existing document found - creating new version');
+
+  // ✅ Save current version to history
+  const versionSnapshot = {
+    documentId: existingDoc._id,
+    version: existingDoc.version || 1,
+    filename: existingDoc.originalFilename,
+    originalFormat: existingDoc.originalFormat,
+    mimeType: existingDoc.mimeType,
+    size: existingDoc.size,
+    pdfSize: existingDoc.pdfSize,
+    numPages: existingDoc.numPages,
+    wordCount: existingDoc.wordCount,
+    charCount: existingDoc.charCount,
+    cloudinaryPdfUrl: existingDoc.cloudinaryPdfUrl,
+    cloudinaryOriginalUrl: existingDoc.cloudinaryOriginalUrl,
+    extractedText: existingDoc.extractedText,
+    analytics: existingDoc.analytics,
+    tracking: existingDoc.tracking,
+    uploadedBy: existingDoc.userId,
+    createdAt: existingDoc.updatedAt || existingDoc.createdAt,
+    changeLog: `Version ${existingDoc.version || 1} - Replaced by new upload`
+  };
+
+  await db.collection('documentVersions').insertOne(versionSnapshot);
+
+  //  Update existing document with new version
+  await db.collection('documents').updateOne(
+    { _id: existingDoc._id },
+    {
+      $set: {
+        version: (existingDoc.version || 1) + 1,
+        originalFormat: fileType,
+        mimeType: file.type,
+        size: buffer.length,
+        pdfSize: pdfBuffer.length,
+        cloudinaryOriginalUrl: originalUrl,
+        cloudinaryPdfUrl: pdfUrl,
+        extractedText: extractedText.substring(0, 10000),
+        numPages: metadata.pageCount,
+        wordCount: metadata.wordCount,
+        charCount: metadata.charCount,
+        summary,
+        scannedPdf,
+        analytics: {
+          readabilityScore: analysis.readability,
+          sentimentScore: analysis.sentiment,
+          grammarIssues: analysis.grammar,
+          spellingErrors: analysis.spelling,
+          clarityScore: analysis.clarity,
+          formalityLevel: analysis.formality,
+          keywords: analysis.keywords,
+          entities: analysis.entities,
+          language: analysis.language,
+          errorCounts: {
+            grammar: analysis.grammar.length,
+            spelling: analysis.spelling.length,
+            clarity: analysis.clarity.length,
+          },
+          healthScore: analysis.healthScore,
         },
-        healthScore: analysis.healthScore,
-      },
-      tracking: {
-        views: 0,
-        uniqueVisitors: [],
-        downloads: 0,
-        shares: 0,
-        averageViewTime: 0,
-        viewsByPage: Array(metadata.pageCount).fill(0),
-        lastViewed: null,
-      },
-      isPublic: false,
-      sharedWith: [],
-      shareLinks: [],
-      tags: [],
-      folder: null,
-      starred: false,
-      archived: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      lastAnalyzedAt: new Date(),
-    };
+        updatedAt: new Date(),
+        lastAnalyzedAt: new Date(),
+      }
+    }
+  );
 
-    const result = await db.collection('documents').insertOne(doc);
+  // ✅ Log version creation
+  await db.collection('analytics_logs').insertOne({
+    documentId: existingDoc._id.toString(),
+    action: 'version_created',
+    userId: user.id,
+    newVersion: (existingDoc.version || 1) + 1,
+    previousVersion: existingDoc.version || 1,
+    timestamp: new Date(),
+  });
 
-    return NextResponse.json({
-      success: true,
-      documentId: result.insertedId.toString(),
-      filename: file.name,
-      format: fileType,
-      numPages: metadata.pageCount,
-      wordCount: metadata.wordCount,
-      size: buffer.length,
-      cloudinaryOriginalUrl: originalUrl,
-      cloudinaryPdfUrl: pdfUrl,
-      analytics: {
-        healthScore: analysis.healthScore,
-        readabilityScore: analysis.readability,
-        errorCounts: {
-          grammar: analysis.grammar.length,
-          spelling: analysis.spelling.length,
-          clarity: analysis.clarity.length,
-        },
-        topKeywords: analysis.keywords.slice(0, 5),
+  return NextResponse.json({
+    success: true,
+    message: 'New version created',
+    documentId: existingDoc._id.toString(),
+    version: (existingDoc.version || 1) + 1,
+    previousVersion: existingDoc.version || 1,
+    filename: file.name,
+    format: fileType,
+    numPages: metadata.pageCount,
+    wordCount: metadata.wordCount,
+    size: buffer.length,
+    cloudinaryOriginalUrl: originalUrl,
+    cloudinaryPdfUrl: pdfUrl,
+    analytics: {
+      healthScore: analysis.healthScore,
+      readabilityScore: analysis.readability,
+      errorCounts: {
+        grammar: analysis.grammar.length,
+        spelling: analysis.spelling.length,
+        clarity: analysis.clarity.length,
       },
-      hasIssues: analysis.grammar.length > 0 || analysis.spelling.length > 0,
-      issuesSummary: `Found ${analysis.grammar.length} grammar issues, ${analysis.spelling.length} spelling errors`,
-    }, { status: 201 });
+      topKeywords: analysis.keywords.slice(0, 5),
+    },
+    hasIssues: analysis.grammar.length > 0 || analysis.spelling.length > 0,
+    issuesSummary: `Found ${analysis.grammar.length} grammar issues, ${analysis.spelling.length} spelling errors`,
+  }, { status: 200 });
+}
 
+// ✅ If no existing document, create new one
+const doc = {
+  userId: user.id,
+  plan: user.plan,
+  organizationId,
+  version: 1, // ⭐ START AT VERSION 1
+  originalFilename: file.name,
+  originalFormat: fileType,
+  mimeType: file.type,
+  size: buffer.length,
+  pdfSize: pdfBuffer.length,
+  cloudinaryOriginalUrl: originalUrl,
+  cloudinaryPdfUrl: pdfUrl,
+  extractedText: extractedText.substring(0, 10000),
+  numPages: metadata.pageCount,
+  wordCount: metadata.wordCount,
+  charCount: metadata.charCount,
+  summary,
+  scannedPdf,
+  analytics: {
+    readabilityScore: analysis.readability,
+    sentimentScore: analysis.sentiment,
+    grammarIssues: analysis.grammar,
+    spellingErrors: analysis.spelling,
+    clarityScore: analysis.clarity,
+    formalityLevel: analysis.formality,
+    keywords: analysis.keywords,
+    entities: analysis.entities,
+    language: analysis.language,
+    errorCounts: {
+      grammar: analysis.grammar.length,
+      spelling: analysis.spelling.length,
+      clarity: analysis.clarity.length,
+    },
+    healthScore: analysis.healthScore,
+  },
+  tracking: {
+    views: 0,
+    uniqueVisitors: [],
+    downloads: 0,
+    shares: 0,
+    averageViewTime: 0,
+    viewsByPage: Array(metadata.pageCount).fill(0),
+    lastViewed: null,
+  },
+  isPublic: false,
+  sharedWith: [],
+  shareLinks: [],
+  tags: [],
+  folder: null,
+  starred: false,
+  archived: false,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  lastAnalyzedAt: new Date(),
+};
+
+const result = await db.collection('documents').insertOne(doc);
+
+return NextResponse.json({
+  success: true,
+  documentId: result.insertedId.toString(),
+  filename: file.name,
+  format: fileType,
+  numPages: metadata.pageCount,
+  wordCount: metadata.wordCount,
+  size: buffer.length,
+  cloudinaryOriginalUrl: originalUrl,
+  cloudinaryPdfUrl: pdfUrl,
+  analytics: {
+    healthScore: analysis.healthScore,
+    readabilityScore: analysis.readability,
+    errorCounts: {
+      grammar: analysis.grammar.length,
+      spelling: analysis.spelling.length,
+      clarity: analysis.clarity.length,
+    },
+    topKeywords: analysis.keywords.slice(0, 5),
+  },
+  hasIssues: analysis.grammar.length > 0 || analysis.spelling.length > 0,
+  issuesSummary: `Found ${analysis.grammar.length} grammar issues, ${analysis.spelling.length} spelling errors`,
+}, { status: 201 });
   } catch (error) {
     console.error('❌ Document upload error:', error);
     return NextResponse.json({

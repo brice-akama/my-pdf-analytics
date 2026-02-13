@@ -971,6 +971,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
                      <h3 className="font-semibold text-slate-900 truncate">
   {doc.originalFilename || doc.filename}
 </h3>
+
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
                       Archived
                     </span>
@@ -1310,6 +1311,16 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               <Eye className="h-4 w-4 mr-2" />
               Open
             </DropdownMenuItem>
+
+            <DropdownMenuItem
+    onClick={(e) => {
+      e.stopPropagation()
+      router.push(`/documents/${doc._id}/versions`)
+    }}
+  >
+    <Clock className="h-4 w-4 mr-2" />
+    Version History
+  </DropdownMenuItem>
 
             {/* ⭐ NEW: Manage Share Links */}
     {doc.shareLinks && doc.shareLinks.length > 0 && (
