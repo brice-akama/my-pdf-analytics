@@ -14,6 +14,7 @@ import {
   checkRateLimit
 } from '@/lib/security';
 import { sendWelcomeEmail } from '@/lib/emailService';
+import { notifyInviterOfAcceptance } from '@/lib/emails/teamEmails';
 
 export async function POST(request: NextRequest) {
   try {
@@ -161,6 +162,22 @@ if (pendingInvitations.length > 0) {
   }
 
   console.log(`✅ User ${sanitizedEmail} joined organization ${organizationId} as ${userRole}`);
+  // ✅ NOTIFY INVITER — this is the missing piece for the signup flow
+  // Run after response is built so it never blocks signup
+  const inviterUserIdToNotify = invite.invitedBy;
+  const newMemberDisplayName = fullName || sanitizedFirstName;
+  const orgName = invite.organizationName || "your team"; // fallback
+
+  // Fire and forget — don't await, don't block signup
+  notifyInviterOfAcceptance({
+    invitedByUserId: inviterUserIdToNotify,
+    newMemberName: newMemberDisplayName,
+    newMemberEmail: sanitizedEmail,
+    role: userRole,
+    organizationName: orgName,
+  }).catch((err) => {
+    console.error("❌ Signup: failed to notify inviter (non-blocking):", err);
+  });
 } else {
   console.log(`✅ User ${sanitizedEmail} created new organization as owner`);
 }

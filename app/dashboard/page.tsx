@@ -301,6 +301,8 @@ const [shareMessage, setShareMessage] = useState('')
 const [isAuthenticated, setIsAuthenticated] = useState(false);
 const [loading, setLoading] = useState(true);
 const [sharedFolders, setSharedFolders] = useState<FolderType[]>([])
+const [showDeleteMemberDialog, setShowDeleteMemberDialog] = useState(false)
+const [memberToDelete, setMemberToDelete] = useState<{id: string, name: string} | null>(null)
 const [uploadedAgreementsList, setUploadedAgreementsList] = useState<any[]>([])
 const [selectedAgreementForConfig, setSelectedAgreementForConfig] = useState<string | null>(null)
 const [uploadedAgreementFile, setUploadedAgreementFile] = useState<File | null>(null)
@@ -1083,31 +1085,33 @@ useEffect(() => {
   }
 }, []);
 
-const handleRemoveMember = async (memberId: string) => {
-  if (!confirm('Remove this team member?')) return
+const handleRemoveMember = async (memberId: string, memberName: string) => {
+  setMemberToDelete({ id: memberId, name: memberName })
+  setShowDeleteMemberDialog(true)
+}
 
+const confirmRemoveMember = async () => {
+  if (!memberToDelete) return
+  
+  setShowDeleteMemberDialog(false)
   const loadingToast = toast.loading('Removing member...')
 
   try {
-    const res = await fetch(`/api/team/${memberId}`, {
+    const res = await fetch(`/api/team/${memberToDelete.id}`, {
       method: 'DELETE',
       credentials: 'include',
     })
 
     if (res.ok) {
-      toast.success('Member removed', {
-        id: loadingToast
-      })
+      toast.success('Member removed', { id: loadingToast })
       fetchTeamMembers()
     } else {
-      toast.error('Failed to remove member', {
-        id: loadingToast
-      })
+      toast.error('Failed to remove member', { id: loadingToast })
     }
   } catch (error) {
-    toast.error('Network error', {
-      id: loadingToast
-    })
+    toast.error('Network error', { id: loadingToast })
+  } finally {
+    setMemberToDelete(null)
   }
 }
 
@@ -4037,14 +4041,14 @@ case 'dashboard':
                         )}
                         
                         <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveMember(member.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Remove
-                        </Button>
+  variant="ghost"
+  size="sm"
+  onClick={() => handleRemoveMember(member.id, member.name)}
+  className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
+>
+  <Trash2 className="h-4 w-4" />
+  Remove
+</Button>
                       </>
                     )}
                   </div>
@@ -4106,69 +4110,103 @@ case 'dashboard':
 
 {/* Invite Link Dialog */}
 <Dialog open={showInviteLinkDialog} onOpenChange={setShowInviteLinkDialog}>
-  <DialogContent className="max-w-2xl bg-white">
+  <DialogContent className="max-w-lg bg-white">
     <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <CheckCircle className="h-6 w-6 text-green-600" />
-        Invitation Sent!
-      </DialogTitle>
-      <DialogDescription>
-        Email sent. You can also copy the link below to manually share it.
-      </DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-4">
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <Mail className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-green-900 mb-1">
-              📧 Invitation email sent to {inviteEmail}
-            </p>
-            <p className="text-xs text-green-700">
-              They'll receive instructions to join your team.
-            </p>
-          </div>
+      <div className="flex items-center gap-3 mb-1">
+        <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+          <CheckCircle className="h-6 w-6 text-green-600" />
+        </div>
+        <div>
+          <DialogTitle className="text-xl">Invitation Sent!</DialogTitle>
+          <DialogDescription className="text-sm mt-0.5">
+            A link was emailed. Share it manually if needed.
+          </DialogDescription>
         </div>
       </div>
-      
+    </DialogHeader>
+
+    <div className="space-y-4 pt-2">
+      {/* Email confirmation badge */}
+      <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+        <Mail className="h-4 w-4 text-green-600 flex-shrink-0" />
+        <p className="text-sm text-green-900">
+          Invite email sent to <span className="font-semibold">{inviteEmail || 'recipient'}</span>
+        </p>
+      </div>
+
+      {/* Link copy row */}
       <div className="space-y-2">
-        <Label className="text-sm font-semibold">Invitation Link (for manual sharing)</Label>
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          Backup Invite Link
+        </p>
         <div className="flex gap-2">
-          <Input 
+          <Input
             value={generatedInviteLink}
             readOnly
-            className="flex-1 font-mono text-xs bg-slate-50"
+            className="flex-1 font-mono text-xs bg-slate-50 text-slate-600"
           />
           <Button
             variant="outline"
+            className="shrink-0"
             onClick={() => {
               navigator.clipboard.writeText(generatedInviteLink)
-              toast.success('Link copied!')
+              toast.success('Link copied to clipboard')
             }}
           >
             Copy
           </Button>
-          <Button
-            onClick={() => window.open(generatedInviteLink, '_blank')}
-            className="bg-gradient-to-r from-purple-600 to-blue-600"
-          >
-            Test
-          </Button>
         </div>
-        <p className="text-xs text-slate-500">
-          Link expires in 7 days. You can resend if needed.
+        <p className="text-xs text-slate-400">
+          Expires in 7 days · Use if the email doesn't arrive
         </p>
       </div>
-      
-      <div className="flex justify-end pt-4 border-t">
+
+      <div className="flex justify-end pt-2 border-t">
         <Button
           onClick={() => setShowInviteLinkDialog(false)}
-          variant="outline"
+          className="h-10 px-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
         >
           Done
         </Button>
       </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Delete Member Confirmation Dialog */}
+<Dialog open={showDeleteMemberDialog} onOpenChange={setShowDeleteMemberDialog}>
+  <DialogContent className="max-w-md bg-white">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+          <Trash2 className="h-5 w-5 text-red-600" />
+        </div>
+        Remove Team Member
+      </DialogTitle>
+      <DialogDescription className="text-base text-slate-600 pt-1">
+        Are you sure you want to remove{' '}
+        <span className="font-semibold text-slate-900">{memberToDelete?.name}</span>{' '}
+        from the team? They will lose access immediately.
+      </DialogDescription>
+    </DialogHeader>
+    <div className="flex gap-3 justify-end pt-4">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowDeleteMemberDialog(false)
+          setMemberToDelete(null)
+        }}
+        className="h-11 px-6"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={confirmRemoveMember}
+        className="h-11 px-6 bg-red-600 hover:bg-red-700 text-white"
+      >
+        <Trash2 className="h-4 w-4 mr-2" />
+        Remove Member
+      </Button>
     </div>
   </DialogContent>
 </Dialog>

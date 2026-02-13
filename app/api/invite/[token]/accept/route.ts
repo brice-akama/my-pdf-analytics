@@ -137,3 +137,76 @@ export async function POST(
     );
   }
 }
+
+
+// ✅ GET — validate token and return invitation preview (no auth required)
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ token: string }> }
+) {
+  try {
+    const { token } = await params;
+    const db = await dbPromise;
+
+    const invitation = await db.collection('invitations').findOne({
+      token,
+      status: 'pending'
+    });
+
+    if (!invitation) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid or expired invitation' },
+        { status: 404 }
+      );
+    }
+
+    if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
+      return NextResponse.json(
+        { success: false, error: 'Invitation has expired' },
+        { status: 410 }
+      );
+    }
+
+    // ✅ Track the click
+    await db.collection('invitations').updateOne(
+      { _id: invitation._id },
+      {
+        $set: { lastClickedAt: new Date() },
+        $inc: { clickCount: 1 },
+      }
+    );
+
+    // ✅ Get space info for the preview page
+    const space = await db.collection('spaces').findOne({
+      _id: new ObjectId(invitation.spaceId)
+    });
+
+    // ✅ Get inviter info
+    let inviterName = 'Someone';
+    if (invitation.invitedBy) {
+      const inviterProfile = await db.collection('profiles').findOne({
+        user_id: invitation.invitedBy
+      });
+      inviterName = inviterProfile?.full_name || inviterProfile?.first_name || 'Someone';
+    }
+
+    return NextResponse.json({
+      success: true,
+      invitation: {
+        email: invitation.email,
+        role: invitation.role,
+        spaceId: invitation.spaceId.toString(),
+        spaceName: space?.name || 'a shared space',
+        inviterName,
+        expiresAt: invitation.expiresAt,
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ GET invite error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Server error' },
+      { status: 500 }
+    );
+  }
+}

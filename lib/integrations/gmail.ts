@@ -117,7 +117,7 @@ Content-Type: text/html; charset=utf-8
     <div class="message">${message.replace(/\n/g, '<br>')}</div>
     
     <a href="${trackingLink}" class="button">
-      📄 View ${document.filename}
+      📄 View ${document.originalFilename}
     </a>
     
     <div class="footer">
