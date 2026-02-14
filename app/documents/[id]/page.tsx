@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from 'sonner'
 
 
 
@@ -55,7 +56,9 @@ import {
   ChevronRight,
   Clock,
   Edit, 
+  Shield,
   X,
+  ChevronDown, ChevronUp,Search
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Drawer } from "@/components/ui/drawer";
@@ -157,6 +160,15 @@ const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
 const [basePdfUrl, setBasePdfUrl] = useState<string | null>(null); // new
 const [recipientInput, setRecipientInput] = useState('');
 const [sharingDocumentId, setSharingDocumentId] = useState<string | null>(null);
+const [recipientInputMethod, setRecipientInputMethod] = useState<'single' | 'bulk' | 'csv'>('single');
+const [bulkRecipientInput, setBulkRecipientInput] = useState('');
+const [csvPreview, setCsvPreview] = useState<Array<{email: string, name?: string, company?: string}>>([]);
+const [showAllRecipients, setShowAllRecipients] = useState(false);
+const [attachedFiles, setAttachedFiles] = useState<Array<{id: string, name: string, source: 'drive' | 'local'}>>([]);
+const [showDriveFilesDialog, setShowDriveFilesDialog] = useState(false);
+const [driveFiles, setDriveFiles] = useState<any[]>([]);
+const [loadingDriveFiles, setLoadingDriveFiles] = useState(false);
+const [driveSearchQuery, setDriveSearchQuery] = useState('');
 const [shareSettings, setShareSettings] = useState({
   requireEmail: true,
   allowDownload: false,
@@ -226,6 +238,209 @@ const fetchDocument = async () => {
   }
 };
 
+
+// Handle single email add
+const handleAddRecipient = () => {
+  const email = recipientInput.trim().toLowerCase();
+  
+  if (!email) return;
+  
+  // Validate email
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    toast.error('Invalid email address');
+    return;
+  }
+  
+  // Check duplicate
+  if (shareSettings.recipientEmails.includes(email)) {
+    toast.error('Email already added');
+    return;
+  }
+  
+  // Add email
+  setShareSettings({
+    ...shareSettings,
+    recipientEmails: [...shareSettings.recipientEmails, email]
+  });
+  
+  setRecipientInput('');
+  toast.success(`Added ${email}`);
+};
+
+// Handle bulk paste
+const handleBulkAddRecipients = () => {
+  const text = bulkRecipientInput.trim();
+  if (!text) return;
+  
+  // Split by newlines OR commas
+  const emails = text
+    .split(/[\n,]+/)
+    .map(e => e.trim().toLowerCase())
+    .filter(e => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+  
+  if (emails.length === 0) {
+    toast.error('No valid emails found');
+    return;
+  }
+  
+  // Remove duplicates from input
+  const uniqueEmails = [...new Set(emails)];
+  
+  // Remove already added emails
+  const newEmails = uniqueEmails.filter(
+    e => !shareSettings.recipientEmails.includes(e)
+  );
+  
+  if (newEmails.length === 0) {
+    toast.error('All emails already added');
+    return;
+  }
+  
+  // Add all
+  setShareSettings({
+    ...shareSettings,
+    recipientEmails: [...shareSettings.recipientEmails, ...newEmails]
+  });
+  
+  setBulkRecipientInput('');
+  toast.success(`Added ${newEmails.length} recipient${newEmails.length !== 1 ? 's' : ''}`);
+  
+  // Show list
+  setShowAllRecipients(true);
+};
+
+// Handle CSV upload
+const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  
+  // Validate file type
+  if (!file.name.endsWith('.csv')) {
+    toast.error('Please upload a CSV file');
+    return;
+  }
+  
+  // Read file
+  const text = await file.text();
+  const lines = text.split('\n').filter(line => line.trim());
+  
+  if (lines.length < 2) {
+    toast.error('CSV must have header row and at least 1 data row');
+    return;
+  }
+  
+  // Parse CSV (simple parser - use PapaParse for production)
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const emailIndex = headers.findIndex(h => h.includes('email'));
+  
+  if (emailIndex === -1) {
+    toast.error('CSV must have an "email" column');
+    return;
+  }
+  
+  const nameIndex = headers.findIndex(h => h.includes('name'));
+  const companyIndex = headers.findIndex(h => h.includes('company'));
+  
+  // Parse rows
+  const contacts = lines.slice(1).map(line => {
+    const cols = line.split(',').map(c => c.trim());
+    return {
+      email: cols[emailIndex]?.toLowerCase() || '',
+      name: nameIndex >= 0 ? cols[nameIndex] : undefined,
+      company: companyIndex >= 0 ? cols[companyIndex] : undefined,
+    };
+  }).filter(c => c.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email));
+  
+  if (contacts.length === 0) {
+    toast.error('No valid emails found in CSV');
+    return;
+  }
+  
+  setCsvPreview(contacts);
+  toast.success(`Found ${contacts.length} contact${contacts.length !== 1 ? 's' : ''}`);
+};
+
+// Confirm CSV import
+const handleConfirmCSV = () => {
+  const newEmails = csvPreview
+    .map(c => c.email)
+    .filter(e => !shareSettings.recipientEmails.includes(e));
+  
+  if (newEmails.length === 0) {
+    toast.error('All emails already added');
+    return;
+  }
+  
+  setShareSettings({
+    ...shareSettings,
+    recipientEmails: [...shareSettings.recipientEmails, ...newEmails]
+  });
+  
+  setCsvPreview([]);
+  toast.success(`Imported ${newEmails.length} recipient${newEmails.length !== 1 ? 's' : ''}`);
+  setShowAllRecipients(true);
+  setRecipientInputMethod('single');
+};
+
+//  Handle Google Drive attachment
+const handleAttachFromDrive = async () => {
+  setLoadingDriveFiles(true);
+  setShowDriveFilesDialog(true);
+  
+  try {
+    const res = await fetch('/api/integrations/google-drive/files', {
+      credentials: 'include'
+    });
+    
+    const data = await res.json();
+    
+    if (res.ok) {
+      setDriveFiles(data.files || []);
+    } else if (res.status === 401) {
+      toast.error('Session expired', {
+        description: 'Please reconnect Google Drive',
+      });
+    } else {
+      toast.error('Failed to load files', {
+        description: data.error || 'Try reconnecting Google Drive'
+      });
+    }
+  } catch (error) {
+    console.error('Browse files error:', error);
+    toast.error('Network error');
+  } finally {
+    setLoadingDriveFiles(false);
+  }
+};
+
+//  Handle local file attachment
+const handleAttachLocalFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  
+  // Validate file type (PDF only for now)
+  if (file.type !== 'application/pdf') {
+    toast.error('Only PDF files are supported');
+    return;
+  }
+  
+  // Add to attached files
+  const newFile = {
+    id: Date.now().toString(),
+    name: file.name,
+    source: 'local' as const,
+    file: file // Store the actual file object
+  };
+  
+  setAttachedFiles([...attachedFiles, newFile]);
+  toast.success(`Attached ${file.name}`);
+};
+
+//  Remove attachment
+const removeAttachment = (fileId: string) => {
+  setAttachedFiles(attachedFiles.filter(f => f.id !== fileId));
+  toast.success('File removed');
+};
 
 // Fetch NDA templates when share drawer opens
 const fetchNdaTemplates = async () => {
@@ -883,12 +1098,22 @@ const handleSendSignatureRequest = async () => {
   <FileSignature className="mr-2 h-4 w-4" />
   <span>{doc?.isTemplate ? 'Edit Template' : 'Convert to signable'}</span>
 </DropdownMenuItem>
+
 <DropdownMenuItem 
     onClick={() => router.push(`/documents/${doc._id}/versions`)}
   >
     <Clock className="mr-2 h-4 w-4" />
     <span>Version History</span>
   </DropdownMenuItem>
+
+
+<DropdownMenuItem 
+    onClick={() => router.push(`/compliance`)}
+  >
+    <Shield className="mr-2 h-4 w-4" />
+    <span>Compliance Report</span>
+  </DropdownMenuItem>
+
   <DropdownMenuItem onClick={handleDownload} disabled={isDownloading}>
     {isDownloading ? (
       <div className="mr-2 h-4 w-4 animate-spin border-2 border-purple-600 border-t-transparent rounded-full" />
@@ -1989,75 +2214,322 @@ const handleSendSignatureRequest = async () => {
   <div className="max-w-2xl mx-auto space-y-6">
     
     {/* Recipients Section */}
-    <div className="bg-white rounded-xl border shadow-sm p-6">
-      <h3 className="font-semibold text-slate-900 mb-4">Recipients (Optional)</h3>
-      <p className="text-sm text-slate-600 mb-4">
-        Add email addresses to restrict access. Leave empty for "anyone with link".
+<div className="bg-white rounded-xl border shadow-sm p-6">
+  <div className="flex items-center justify-between mb-4">
+    <div>
+      <h3 className="font-semibold text-slate-900">Recipients</h3>
+      <p className="text-sm text-slate-600 mt-1">
+        Who can access this document? Leave empty for "anyone with link"
       </p>
-      
-      {/* Email Input */}
-      <div className="flex gap-2 mb-3">
+    </div>
+    
+    {/* Recipient Count Badge */}
+    {shareSettings.recipientEmails.length > 0 && (
+      <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded-full">
+        {shareSettings.recipientEmails.length} recipient{shareSettings.recipientEmails.length !== 1 ? 's' : ''}
+      </span>
+    )}
+  </div>
+
+  {/* Tabs for Input Methods */}
+  <div className="flex gap-2 mb-4 border-b">
+    <button
+      onClick={() => setRecipientInputMethod('single')}
+      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+        recipientInputMethod === 'single'
+          ? 'border-purple-600 text-purple-600'
+          : 'border-transparent text-slate-600 hover:text-slate-900'
+      }`}
+    >
+      Add One
+    </button>
+    <button
+      onClick={() => setRecipientInputMethod('bulk')}
+      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+        recipientInputMethod === 'bulk'
+          ? 'border-purple-600 text-purple-600'
+          : 'border-transparent text-slate-600 hover:text-slate-900'
+      }`}
+    >
+      Paste List
+    </button>
+    <button
+      onClick={() => setRecipientInputMethod('csv')}
+      className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+        recipientInputMethod === 'csv'
+          ? 'border-purple-600 text-purple-600'
+          : 'border-transparent text-slate-600 hover:text-slate-900'
+      }`}
+    >
+      Upload CSV
+    </button>
+  </div>
+
+  {/* Single Email Input */}
+  {recipientInputMethod === 'single' && (
+    <div className="space-y-3">
+      <div className="flex gap-2">
         <Input
           type="email"
           value={recipientInput}
           onChange={(e) => setRecipientInput(e.target.value)}
-          placeholder="recipient@company.com"
+          placeholder="investor@vc.com"
           onKeyPress={(e) => {
             if (e.key === 'Enter') {
-              e.preventDefault()
-              if (recipientInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientInput)) {
-                if (!shareSettings.recipientEmails.includes(recipientInput)) {
-                  setShareSettings({
-                    ...shareSettings,
-                    recipientEmails: [...shareSettings.recipientEmails, recipientInput]
-                  })
-                  setRecipientInput('')
-                }
-              }
+              e.preventDefault();
+              handleAddRecipient();
             }
           }}
           className="flex-1"
         />
         <Button
           type="button"
-          onClick={() => {
-            if (recipientInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientInput)) {
-              if (!shareSettings.recipientEmails.includes(recipientInput)) {
-                setShareSettings({
-                  ...shareSettings,
-                  recipientEmails: [...shareSettings.recipientEmails, recipientInput]
-                })
-                setRecipientInput('')
-              }
-            }
-          }}
+          onClick={handleAddRecipient}
           variant="outline"
         >
           Add
         </Button>
       </div>
+      <p className="text-xs text-slate-500">
+        💡 Press Enter or click Add to add each email
+      </p>
+    </div>
+  )}
 
-      {/* Email List */}
-      {shareSettings.recipientEmails.length > 0 && (
-        <div className="space-y-2">
+  {/* Bulk Paste Input */}
+  {recipientInputMethod === 'bulk' && (
+    <div className="space-y-3">
+      <Textarea
+        value={bulkRecipientInput}
+        onChange={(e) => setBulkRecipientInput(e.target.value)}
+        placeholder="Paste emails here (one per line or comma-separated):
+john@sequoia.com
+sarah@a16z.com
+mike@kleiner.com
+
+Or comma-separated:
+john@sequoia.com, sarah@a16z.com, mike@kleiner.com"
+        rows={8}
+        className="font-mono text-sm"
+      />
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-500">
+          {bulkRecipientInput ? `${bulkRecipientInput.split(/[\n,]+/).filter(e => e.trim()).length} emails detected` : 'Paste your email list above'}
+        </p>
+        <Button
+          onClick={handleBulkAddRecipients}
+          disabled={!bulkRecipientInput.trim()}
+          className="gap-2"
+        >
+          <Users className="h-4 w-4" />
+          Add All
+        </Button>
+      </div>
+    </div>
+  )}
+
+   
+  {/* CSV Upload with DUAL OPTIONS */}
+{recipientInputMethod === 'csv' && (
+  <div className="space-y-4">
+    {/* 🆕 TWO UPLOAD OPTIONS */}
+    <div className="grid grid-cols-2 gap-3">
+      {/* Option 1: Cloud Storage */}
+      <Button
+        variant="outline"
+        onClick={handleAttachFromDrive}
+        className="h-24 flex-col gap-2 border-2 border-dashed hover:border-purple-400 hover:bg-purple-50"
+      >
+        <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+          <svg className="h-5 w-5 text-purple-600" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12.01 1.485L3.982 15h4.035l8.028-13.515h-4.035zm6.982 13.515l-4.018-6.77-4.017 6.77h8.035zM1.946 17l4.018 6.515L9.982 17H1.946z"/>
+          </svg>
+        </div>
+        <div className="text-center">
+          <p className="font-semibold text-sm">Google Drive</p>
+          <p className="text-xs text-slate-500">Import from cloud</p>
+        </div>
+      </Button>
+
+      {/* Option 2: Local Machine */}
+      <Button
+        variant="outline"
+        onClick={() => document.getElementById('csv-local-upload')?.click()}
+        className="h-24 flex-col gap-2 border-2 border-dashed hover:border-blue-400 hover:bg-blue-50"
+      >
+        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+          <Upload className="h-5 w-5 text-blue-600" />
+        </div>
+        <div className="text-center">
+          <p className="font-semibold text-sm">Local File</p>
+          <p className="text-xs text-slate-500">Upload from computer</p>
+        </div>
+      </Button>
+      
+      {/* Hidden file input for local upload */}
+      <input
+        type="file"
+        accept=".csv"
+        onChange={handleCSVUpload}
+        className="hidden"
+        id="csv-local-upload"
+      />
+    </div>
+
+    {/* CSV Preview (existing code - keep as is) */}
+    {csvPreview.length > 0 && (
+      <div className="border rounded-lg p-4 bg-slate-50">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-semibold text-slate-900">
+            Preview ({csvPreview.length} contacts)
+          </h4>
+          <Button
+            size="sm"
+            onClick={handleConfirmCSV}
+            className="gap-2"
+          >
+            <Check className="h-4 w-4" />
+            Confirm Import
+          </Button>
+        </div>
+        <div className="max-h-40 overflow-y-auto space-y-2">
+          {csvPreview.slice(0, 10).map((contact, idx) => (
+            <div key={idx} className="text-xs bg-white rounded p-2 border">
+              <span className="font-medium text-slate-900">{contact.email}</span>
+              {contact.name && (
+                <span className="text-slate-600 ml-2">• {contact.name}</span>
+              )}
+              {contact.company && (
+                <span className="text-slate-500 ml-2">@ {contact.company}</span>
+              )}
+            </div>
+          ))}
+          {csvPreview.length > 10 && (
+            <p className="text-xs text-slate-500 text-center py-2">
+              + {csvPreview.length - 10} more contacts
+            </p>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+)}
+  {/* Email List Display */}
+  {shareSettings.recipientEmails.length > 0 && (
+    <div className="mt-4 space-y-3">
+      {/* Summary Bar */}
+      <div className="flex items-center justify-between p-3 bg-purple-50 border border-purple-200 rounded-lg">
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-purple-600" />
+          <span className="font-semibold text-purple-900">
+            {shareSettings.recipientEmails.length} Recipients
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowAllRecipients(!showAllRecipients)}
+            className="text-purple-700 hover:text-purple-800 hover:bg-purple-100"
+          >
+            {showAllRecipients ? (
+              <>
+                <ChevronUp className="h-4 w-4 mr-1" />
+                Collapse
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4 mr-1" />
+                Expand
+              </>
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              if (confirm(`Remove all ${shareSettings.recipientEmails.length} recipients?`)) {
+                setShareSettings({ ...shareSettings, recipientEmails: [] });
+              }
+            }}
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Clear All
+          </Button>
+        </div>
+      </div>
+
+      {/* Email List (Collapsible) */}
+      {showAllRecipients && (
+        <div className="max-h-60 overflow-y-auto space-y-2 border rounded-lg p-3 bg-slate-50">
           {shareSettings.recipientEmails.map((email, idx) => (
-            <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded border">
-              <span className="text-sm text-slate-900">{email}</span>
-              <button
+            <div
+              key={idx}
+              className="flex items-center justify-between p-2 bg-white rounded border hover:border-purple-300 transition-colors group"
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-xs font-bold">
+                    {email.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <span className="text-sm text-slate-900 truncate">{email}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   setShareSettings({
                     ...shareSettings,
                     recipientEmails: shareSettings.recipientEmails.filter((_, i) => i !== idx)
-                  })
+                  });
                 }}
-                className="text-red-600 hover:text-red-700 text-sm"
+                className="text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                Remove
-              </button>
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           ))}
         </div>
       )}
+
+      {/* Quick Stats */}
+      {!showAllRecipients && shareSettings.recipientEmails.length > 3 && (
+        <div className="flex gap-2 flex-wrap">
+          {shareSettings.recipientEmails.slice(0, 3).map((email, idx) => (
+            <span key={idx} className="px-2 py-1 bg-white border rounded-full text-xs text-slate-600">
+              {email}
+            </span>
+          ))}
+          <span className="px-2 py-1 bg-slate-100 rounded-full text-xs text-slate-600 font-medium">
+            +{shareSettings.recipientEmails.length - 3} more
+          </span>
+        </div>
+      )}
+    </div>
+  )}
+
+  {/* Send Email Toggle */}
+  {shareSettings.recipientEmails.length > 0 && (
+    <div className="mt-4 pt-4 border-t">
+      <label className="flex items-center justify-between cursor-pointer">
+        <div>
+          <div className="font-medium text-slate-900 flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            Send Email Notification
+          </div>
+          <div className="text-sm text-slate-600 mt-1">
+            Email all {shareSettings.recipientEmails.length} recipient{shareSettings.recipientEmails.length !== 1 ? 's' : ''} with the link
+          </div>
+        </div>
+        <Switch
+          checked={shareSettings.sendEmailNotification}
+          onCheckedChange={(checked) => setShareSettings({...shareSettings, sendEmailNotification: checked})}
+        />
+      </label>
+    </div>
+  )}
 
       {/* Send Email Toggle */}
       {shareSettings.recipientEmails.length > 0 && (
@@ -3525,6 +3997,184 @@ const handleSendSignatureRequest = async () => {
     </div>
   </DialogContent>
 </Dialog>
+
+{/* 🆕 Google Drive Files Drawer */}
+<Drawer open={showDriveFilesDialog} onOpenChange={setShowDriveFilesDialog}>
+  <div className="h-full flex flex-col bg-white">
+    {/* Header */}
+    <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-purple-50">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+            <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.01 1.485L3.982 15h4.035l8.028-13.515h-4.035zm6.982 13.515l-4.018-6.77-4.017 6.77h8.035zM1.946 17l4.018 6.515L9.982 17H1.946z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Import from Google Drive</h2>
+            <p className="text-sm text-slate-600">Select CSV file to import contacts</p>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowDriveFilesDialog(false)}
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
+    </div>
+
+    {/* Search Bar */}
+    <div className="px-6 py-4 border-b bg-slate-50">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <Input
+          placeholder="Search your Drive files..."
+          className="pl-10 bg-white"
+          value={driveSearchQuery}
+          onChange={(e) => setDriveSearchQuery(e.target.value)}
+        />
+      </div>
+      <p className="text-xs text-slate-500 mt-2">
+        Found {driveFiles.filter(f => f.name.toLowerCase().includes(driveSearchQuery.toLowerCase())).length} CSV file(s)
+      </p>
+    </div>
+    
+    {/* File List */}
+    <div className="flex-1 overflow-y-auto px-6 py-4">
+      {loadingDriveFiles ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
+          <p className="text-sm text-slate-600 font-medium">Loading your Drive files...</p>
+        </div>
+      ) : driveFiles.filter(f => 
+          f.name.toLowerCase().includes(driveSearchQuery.toLowerCase()) &&
+          f.name.endsWith('.csv')
+        ).length > 0 ? (
+        <div className="space-y-3">
+          {driveFiles
+            .filter(f => 
+              f.name.toLowerCase().includes(driveSearchQuery.toLowerCase()) &&
+              f.name.endsWith('.csv')
+            )
+            .map((file) => (
+              <motion.div
+                key={file.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="group relative bg-white border-2 border-slate-200 rounded-xl p-5 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer"
+                onClick={async () => {
+                  // Download CSV from Drive and parse it
+                  toast.loading('Importing CSV from Drive...');
+                  
+                  try {
+                    const res = await fetch('/api/integrations/google-drive/import', {
+                      method: 'POST',
+                      credentials: 'include',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ fileId: file.id, fileName: file.name })
+                    });
+                    
+                    if (res.ok) {
+                      const blob = await res.blob();
+                      const text = await blob.text();
+                      
+                      // Parse CSV
+                      const lines = text.split('\n').filter(line => line.trim());
+                      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+                      const emailIndex = headers.findIndex(h => h.includes('email'));
+                      
+                      if (emailIndex === -1) {
+                        toast.error('CSV must have an "email" column');
+                        return;
+                      }
+                      
+                      const nameIndex = headers.findIndex(h => h.includes('name'));
+                      const companyIndex = headers.findIndex(h => h.includes('company'));
+                      
+                      const contacts = lines.slice(1).map(line => {
+                        const cols = line.split(',').map(c => c.trim());
+                        return {
+                          email: cols[emailIndex]?.toLowerCase() || '',
+                          name: nameIndex >= 0 ? cols[nameIndex] : undefined,
+                          company: companyIndex >= 0 ? cols[companyIndex] : undefined,
+                        };
+                      }).filter(c => c.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email));
+                      
+                      if (contacts.length === 0) {
+                        toast.error('No valid emails found in CSV');
+                        return;
+                      }
+                      
+                      setCsvPreview(contacts);
+                      setShowDriveFilesDialog(false);
+                      toast.success(`Found ${contacts.length} contact${contacts.length !== 1 ? 's' : ''}`);
+                    } else {
+                      toast.error('Failed to import CSV');
+                    }
+                  } catch (error) {
+                    toast.error('Import failed');
+                  }
+                }}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-md">
+                    <FileText className="h-8 w-8 text-green-600" />
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-slate-900 truncate mb-1 group-hover:text-blue-700 transition-colors">
+                      {file.name}
+                    </h3>
+                    <div className="flex items-center gap-3 text-xs text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        Modified {new Date(file.modifiedTime).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    size="sm"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Import
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+        </div>
+      ) : (
+        <div className="text-center py-20">
+          <div className="h-24 w-24 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-6">
+            <FileText className="h-12 w-12 text-slate-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-slate-900 mb-2">
+            No CSV files found
+          </h3>
+          <p className="text-sm text-slate-500 max-w-sm mx-auto">
+            Upload CSV files to your Google Drive to import them here
+          </p>
+        </div>
+      )}
+    </div>
+    
+    {/* Footer */}
+    <div className="px-6 py-4 border-t bg-slate-50">
+      <Button
+        variant="outline"
+        onClick={() => setShowDriveFilesDialog(false)}
+        className="w-full"
+      >
+        Close
+      </Button>
+    </div>
+  </div>
+</Drawer>
+ 
+
 
     </div>
   );

@@ -271,3 +271,37 @@ main {
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
 }
+
+
+/* Add this to your global CSS file (e.g., globals.css or app.css) */
+
+.scrollball {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* Custom Scrollbar Styles */
+.scrollball::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollball::-webkit-scrollbar-track {
+  background: #f1f5f9; /* slate-100 */
+  border-radius: 10px;
+}
+
+.scrollball::-webkit-scrollbar-thumb {
+  background: #cbd5e1; /* slate-300 */
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+.scrollball::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; /* slate-400 */
+}
+
+/* Firefox Scrollbar */
+.scrollball {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}

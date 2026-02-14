@@ -74,6 +74,52 @@ export async function GET(
       url: version.cloudinaryPdfUrl
     });
 
+    // ✅ CHECK EXPIRY STATUS
+if (version.expiryDate) {
+  const expiryDate = new Date(version.expiryDate);
+  const now = new Date();
+  
+  if (expiryDate < now) {
+    console.error('❌ Version expired:', {
+      version: version.version,
+      expiredOn: expiryDate,
+      daysExpired: Math.ceil((now.getTime() - expiryDate.getTime()) / (1000 * 60 * 60 * 24))
+    });
+
+    // ✅ Log attempted download of expired version
+    await db.collection('compliance_logs').insertOne({
+      action: 'blocked_expired_download',
+      documentId: id,
+      versionId: versionId,
+      version: version.version,
+      userId: user.id,
+      userEmail: profile?.email || user.email,
+      expiryDate: version.expiryDate,
+      expiryReason: version.expiryReason,
+      timestamp: new Date(),
+      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
+    }).catch(err => console.error('Failed to log compliance event:', err));
+
+    return NextResponse.json({ 
+      error: 'This version has expired and cannot be downloaded',
+      expiryDate: version.expiryDate,
+      expiryReason: version.expiryReason,
+      daysExpired: Math.ceil((now.getTime() - expiryDate.getTime()) / (1000 * 60 * 60 * 24)),
+      message: version.expiryReason || 'This document version is no longer valid. Please use the current version.',
+      canOverride: document.userId === user.id // Only owner can override
+    }, { status: 403 });
+  }
+
+  // ✅ Warn if expiring soon (within 7 days)
+  const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+    console.warn('⚠️ Version expiring soon:', {
+      version: version.version,
+      daysUntilExpiry
+    });
+  }
+}
+
     // ✅ CRITICAL FIX: Extract public_id and use Cloudinary's authenticated download
     const urlParts = version.cloudinaryPdfUrl.split('/upload/');
     if (urlParts.length < 2) {

@@ -24,6 +24,7 @@ import {
   Edit,
   Mail,
   Link2, 
+  Shield
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -1372,6 +1373,13 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
     <Mail className="h-4 w-4 mr-2" />
     Send for Signature
   </DropdownMenuItem>
+
+  <DropdownMenuItem asChild>
+              <Link href="/compliance" className="flex items-center">
+                <Shield className="mr-2 h-4 w-4 text-red-600" />
+                Compliance Report
+              </Link>
+            </DropdownMenuItem>
 
   {/* ⭐ NEW: Bulk Send - Only show for templates */}
   {doc.isTemplate && (

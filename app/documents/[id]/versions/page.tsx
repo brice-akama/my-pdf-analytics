@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import Link from 'next/link';
 import { 
   ArrowLeft, Download, Clock, FileText, ChevronRight, 
   RotateCcw, Trash2, Eye, TrendingUp, Users, 
-  History, Upload, Check, AlertCircle, ChevronLeft, X 
+  History, Upload, Check, AlertCircle, ChevronLeft, X , Shield, 
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -42,6 +43,14 @@ type Version = {
   };
 };
 
+type ExpiryStatus = 'active' | 'expiring_soon' | 'expired' | 'superseded';
+
+type VersionWithExpiry = Version & {
+  expiryDate?: string;
+  expiryReason?: string;
+  status?: ExpiryStatus;
+};
+
 export default function VersionHistoryPage() {
   const params = useParams();
   const router = useRouter();
@@ -54,8 +63,10 @@ export default function VersionHistoryPage() {
   const [selectedVersion, setSelectedVersion] = useState<Version | null>(null);
   const [changeLog, setChangeLog] = useState('');
   const [showEditNoteDialog, setShowEditNoteDialog] = useState(false);
-  
-  // Preview Drawer States
+  const [showExpiryDialog, setShowExpiryDialog] = useState(false);
+const [expiryDate, setExpiryDate] = useState('');
+const [expiryReason, setExpiryReason] = useState('');
+const [settingExpiry, setSettingExpiry] = useState(false);
   const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
   const [previewVersion, setPreviewVersion] = useState<Version | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -98,6 +109,115 @@ useEffect(() => {
       setLoading(false);
     }
   };
+
+  const handleSetExpiry = async () => {
+  if (!selectedVersion) return;
+  
+  setSettingExpiry(true);
+  try {
+    const res = await fetch(`/api/documents/${params.id}/expiry`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        versionId: selectedVersion._id,
+        expiryDate: expiryDate || null,
+        reason: expiryReason || null
+      })
+    });
+
+    if (res.ok) {
+      toast.success(expiryDate ? 'Expiry date set successfully' : 'Expiry date removed');
+      setShowExpiryDialog(false);
+      setExpiryDate('');
+      setExpiryReason('');
+      fetchVersions(); // Refresh
+    } else {
+      toast.error('Failed to set expiry date');
+    }
+  } catch (error) {
+    console.error('Set expiry error:', error);
+    toast.error('Failed to set expiry date');
+  } finally {
+    setSettingExpiry(false);
+  }
+};
+
+const getExpiryStatus = (version: VersionWithExpiry): ExpiryStatus => {
+  if (!version.expiryDate) return 'active';
+  
+  const now = new Date();
+  const expiry = new Date(version.expiryDate);
+  const diffTime = expiry.getTime() - now.getTime();
+  const daysUntilExpiry = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (daysUntilExpiry < 0) return 'expired';
+  if (daysUntilExpiry <= 30) return 'expiring_soon';
+  return 'active';
+};
+
+const getExpiryBadge = (version: VersionWithExpiry) => {
+  const status = getExpiryStatus(version);
+  
+  if (!version.expiryDate) return null;
+
+  const badges = {
+    expired: {
+      bg: 'bg-red-100 border-red-300 text-red-800',
+      icon: '🔴',
+      text: 'EXPIRED - Do Not Use'
+    },
+    expiring_soon: {
+      bg: 'bg-amber-100 border-amber-300 text-amber-800',
+      icon: '⚠️',
+      text: 'Expiring Soon'
+    },
+    active: {
+      bg: 'bg-green-100 border-green-300 text-green-800',
+      icon: '✅',
+      text: 'Active'
+    },
+    superseded: {
+      bg: 'bg-gray-100 border-gray-300 text-gray-800',
+      icon: '📦',
+      text: 'Superseded'
+    }
+  };
+
+  const badge = badges[status];
+
+  return (
+    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${badge.bg}`}>
+      <span>{badge.icon}</span>
+      <span>{badge.text}</span>
+    </div>
+  );
+};
+
+const formatExpiryDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = date.getTime() - now.getTime();
+  const daysUntilExpiry = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  const formattedDate = date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  if (daysUntilExpiry < 0) {
+    return `Expired ${Math.abs(daysUntilExpiry)} days ago`;
+  } else if (daysUntilExpiry === 0) {
+    return 'Expires today';
+  } else if (daysUntilExpiry === 1) {
+    return 'Expires tomorrow';
+  } else if (daysUntilExpiry <= 30) {
+    return `Expires in ${daysUntilExpiry} days (${formattedDate})`;
+  } else {
+    return `Valid until ${formattedDate}`;
+  }
+};
 
   const handleRestore = async () => {
     if (!selectedVersion) return;
@@ -145,11 +265,75 @@ useEffect(() => {
     
     console.log('📡 Download response status:', res.status);
     
-    if (!res.ok) {
-      const error = await res.json();
-      console.error('❌ Download failed:', error);
-      throw new Error(error.error || 'Download failed');
-    }
+   if (!res.ok) {
+  const error = await res.json();
+  console.error('❌ Download failed:', error);
+  
+  // ✅ Special handling for expired versions
+  if (res.status === 403 && error.expiryDate) {
+    toast.error('Cannot Download Expired Version', {
+      description: error.message || 'This version has expired and cannot be downloaded',
+      duration: 5000,
+    });
+    
+    // ✅ Show detailed expiry dialog
+    const expiryModal = document.createElement('div');
+    expiryModal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+    expiryModal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+            <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-red-600">Version Expired</h3>
+            <p class="text-sm text-slate-600">Cannot download</p>
+          </div>
+        </div>
+        
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <p class="text-sm text-red-900 mb-2">
+            <strong>⚠️ This version expired ${error.daysExpired} day${error.daysExpired !== 1 ? 's' : ''} ago</strong>
+          </p>
+          ${error.expiryReason ? `
+            <p class="text-xs text-red-800 mt-2">
+              <strong>Reason:</strong> ${error.expiryReason}
+            </p>
+          ` : ''}
+          <p class="text-xs text-red-800 mt-2">
+            🚫 This version is no longer valid and should not be used for legal, compliance, or business purposes.
+          </p>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <p class="text-xs text-blue-900">
+            <strong>💡 What to do:</strong><br/>
+            • Use the current active version<br/>
+            • Upload a new version if needed<br/>
+            • Contact the document owner
+          </p>
+        </div>
+        
+        <button 
+          onclick="this.parentElement.parentElement.remove()"
+          class="w-full px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 font-medium"
+        >
+          Close
+        </button>
+      </div>
+    `;
+    document.body.appendChild(expiryModal);
+    expiryModal.onclick = (e) => {
+      if (e.target === expiryModal) expiryModal.remove();
+    };
+    
+    throw new Error('Version expired');
+  }
+  
+  throw new Error(error.error || 'Download failed');
+}
     
     const blob = await res.blob();
     console.log('💾 Blob received:', blob.size, 'bytes');
@@ -276,6 +460,32 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      {/* Expiry Warning Banner */}
+{(currentVersion as VersionWithExpiry).expiryDate && getExpiryStatus(currentVersion as VersionWithExpiry) !== 'active' && (
+  <motion.div
+    initial={{ opacity: 0, y: -10 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="mb-4 p-4 bg-red-500 text-white rounded-xl border-2 border-red-600"
+  >
+    <div className="flex items-start gap-3">
+      <AlertCircle className="h-6 w-6 flex-shrink-0 mt-0.5" />
+      <div className="flex-1">
+        <p className="font-bold text-lg mb-1">⚠️ WARNING: This Document Has Expired!</p>
+        <p className="text-sm opacity-90 mb-2">
+          {formatExpiryDate((currentVersion as VersionWithExpiry).expiryDate!)}
+        </p>
+        {(currentVersion as VersionWithExpiry).expiryReason && (
+          <p className="text-sm opacity-90">
+            <strong>Reason:</strong> {(currentVersion as VersionWithExpiry).expiryReason}
+          </p>
+        )}
+        <p className="text-xs mt-2 opacity-80">
+          🚫 Do not send, sign, or use this version. Upload a new version or restore a valid one.
+        </p>
+      </div>
+    </div>
+  </motion.div>
+)}
       {/* Header - Mobile Responsive */}
       <header className="bg-white/80 backdrop-blur-xl border-b sticky top-0 z-50 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -301,6 +511,13 @@ useEffect(() => {
             </div>
 
             <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+
+              <Link href="/compliance">
+          <Button variant="outline" className="gap-2">
+            <Shield className="h-4 w-4" />
+            View All Expired Docs
+          </Button>
+        </Link>
               <div className="bg-purple-50 border border-purple-200 rounded-lg px-2 md:px-4 py-1.5 md:py-2">
                 <p className="text-xs md:text-sm font-medium text-purple-900 whitespace-nowrap">
                   {allVersions.length} Version{allVersions.length !== 1 ? 's' : ''}
@@ -433,6 +650,7 @@ useEffect(() => {
                               <span className="px-2 md:px-3 py-1 bg-slate-100 text-slate-700 text-xs md:text-sm font-bold rounded-lg flex-shrink-0">
                                 v{version.version}
                               </span>
+                              {getExpiryBadge(version as VersionWithExpiry)}
                               <h3 className="font-semibold text-slate-900 text-sm md:text-base break-all">{version.filename}</h3>
                             </div>
 
@@ -471,6 +689,18 @@ useEffect(() => {
                                 <p className="font-medium text-slate-900 truncate">{version.uploaderName}</p>
                                 <p className="text-slate-500 truncate">{version.uploaderEmail}</p>
                               </div>
+                              {(version as VersionWithExpiry).expiryDate && (
+  <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+    <p className="text-xs text-slate-700">
+      <strong>📅 Expiry:</strong> {formatExpiryDate((version as VersionWithExpiry).expiryDate!)}
+    </p>
+    {(version as VersionWithExpiry).expiryReason && (
+      <p className="text-xs text-slate-600 mt-1">
+        <strong>Reason:</strong> {(version as VersionWithExpiry).expiryReason}
+      </p>
+    )}
+  </div>
+)}
                             </div>
 
                             {version.changeLog && (
@@ -542,6 +772,20 @@ useEffect(() => {
                               <RotateCcw className="h-3 w-3 md:h-4 md:w-4" />
                               <span>Restore</span>
                             </Button>
+                            <Button
+  variant="outline"
+  size="sm"
+  onClick={() => {
+    setSelectedVersion(version);
+    setExpiryDate((version as VersionWithExpiry).expiryDate?.split('T')[0] || '');
+    setExpiryReason((version as VersionWithExpiry).expiryReason || '');
+    setShowExpiryDialog(true);
+  }}
+  className="gap-1 md:gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-1 md:flex-none text-xs md:text-sm"
+>
+  <Clock className="h-3 w-3 md:h-4 md:w-4" />
+  <span>Expiry</span>
+</Button>
                           </div>
                         </div>
                       </div>
@@ -783,6 +1027,111 @@ useEffect(() => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Set Expiry Dialog */}
+<Dialog open={showExpiryDialog} onOpenChange={setShowExpiryDialog}>
+  <DialogContent className="max-w-md mx-4 bg-white rounded-lg scrollball w-[80vh] y-auto">
+    <DialogHeader>
+      <DialogTitle className="text-lg font-bold">Set Expiry Date</DialogTitle>
+      <DialogDescription>
+        Set when version {selectedVersion?.version} should expire
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="py-4 space-y-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-xs text-blue-900">
+          <strong>💡 Why set expiry dates?</strong><br/>
+          • Prevent use of outdated contracts/NDAs<br/>
+          • Ensure compliance with latest terms<br/>
+          • Get notified before documents expire<br/>
+          • Legal protection (audit trail)
+        </p>
+      </div>
+
+      <div>
+        <Label className="text-sm font-medium mb-2 block">
+          Expiry Date (Optional)
+        </Label>
+        <input
+          type="date"
+          value={expiryDate}
+          onChange={(e) => setExpiryDate(e.target.value)}
+          min={new Date().toISOString().split('T')[0]}
+          className="w-full border rounded-lg px-3 py-2 text-sm"
+        />
+        <p className="text-xs text-slate-500 mt-1">
+          Leave empty to remove expiry date
+        </p>
+      </div>
+
+      <div>
+        <Label className="text-sm font-medium mb-2 block">
+          Reason (Optional)
+        </Label>
+        <Textarea
+          value={expiryReason}
+          onChange={(e) => setExpiryReason(e.target.value)}
+          placeholder="e.g., New pricing takes effect, Legal requirements changed, Contract renewal"
+          rows={3}
+          className="resize-none text-sm"
+          maxLength={200}
+        />
+        <p className="text-xs text-slate-500 mt-1">
+          {expiryReason.length}/200 characters
+        </p>
+      </div>
+
+      {expiryDate && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <p className="text-xs text-amber-900">
+            <strong>⏰ You'll be notified:</strong><br/>
+            • 30 days before expiry<br/>
+            • 7 days before expiry<br/>
+            • On expiry date<br/>
+            • When someone tries to use expired version
+          </p>
+        </div>
+      )}
+    </div>
+
+    <div className="flex gap-3 justify-end">
+      <Button
+        variant="outline"
+        onClick={() => {
+          setShowExpiryDialog(false);
+          setExpiryDate('');
+          setExpiryReason('');
+        }}
+        disabled={settingExpiry}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleSetExpiry}
+        disabled={settingExpiry}
+        className="bg-blue-600 hover:bg-blue-700"
+      >
+        {settingExpiry ? (
+          <>
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"
+            />
+            Setting...
+          </>
+        ) : (
+          <>
+            <Clock className="h-4 w-4 mr-2" />
+            {expiryDate ? 'Set Expiry' : 'Remove Expiry'}
+          </>
+        )}
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
     </div>
   );
 }
