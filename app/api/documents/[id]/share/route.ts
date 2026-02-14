@@ -6,6 +6,39 @@ import { ObjectId } from 'mongodb';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { createNotification } from '@/lib/notifications';
+import { sendShareEmailViaGmailOrResend } from '@/lib/emails/shareEmails';
+
+
+// 🆕 ADD THIS TYPE DEFINITION
+interface ShareSettings {
+  requireEmail: boolean;
+  allowDownload: boolean;
+  allowPrint: boolean;
+  notifyOnView: boolean;
+  hasPassword: boolean;
+  maxViews: number | null;
+  allowedEmails: string[] | null;
+  customMessage: string | null;
+  trackDetailedAnalytics: boolean;
+  enableWatermark: boolean;
+  watermarkText: string | null;
+  watermarkPosition: 'top' | 'bottom' | 'center' | 'diagonal';
+  requireNDA: boolean;
+  ndaText: string | null;
+  ndaTemplate: string | null;
+  ndaTemplateId: string | null;
+  
+  // New fields
+  allowForwarding: boolean;
+  notifyOnDownload: boolean;
+  downloadLimit: number | null;
+  viewLimit: number | null;
+  selfDestruct: boolean;
+  availableFrom: Date | null;
+  linkType: 'public' | 'email-gated' | 'domain-restricted';
+  sharedByName: string | null;
+  sendEmailNotification: boolean;
+}
 
 // ✅ POST - Create new share link with advanced settings
 export async function POST(
@@ -66,8 +99,18 @@ export async function POST(
    watermarkPosition = 'bottom',
    requireNDA = false,  
   ndaText = null, 
-  ndaTemplateId = null, // ⭐ NEW - Template ID instead of raw text
+  ndaTemplateId = null, // NEW - Template ID instead of raw text
   customNdaText = null,
+  allowForwarding = true, //   NEW
+  notifyOnDownload = false, //   NEW
+  downloadLimit = null, //   NEW
+  viewLimit = null, //   NEW
+  selfDestruct = false, //   NEW
+  availableFrom = null, //   NEW (scheduled access)
+  linkType = 'public', //   NEW ('public' | 'email-gated' | 'domain-restricted')
+  sharedByName = null, //   NEW (custom branding)
+  sendEmailNotification = false, //   NEW
+  logoUrl = null,
     } = body;
 
     // ⭐ Use whichever one has data
@@ -213,8 +256,18 @@ const emailWhitelist = allowedEmails.length > 0 ? allowedEmails : recipientEmail
   watermarkPosition,  
   requireNDA,  
   ndaText,  
-  ndaTemplate, // ⭐ Store template (not just boolean)
-  ndaTemplateId
+  ndaTemplate, //   Store template (not just boolean)
+  ndaTemplateId,
+  allowForwarding, //   NEW
+  notifyOnDownload, //   NEW
+  downloadLimit, //   NEW
+  viewLimit, //   NEW
+  selfDestruct, //  NEW
+  availableFrom: availableFrom ? new Date(availableFrom) : null, //   NEW (convert to Date)
+  linkType, //   NEW
+  sharedByName, //   NEW
+  logoUrl,
+  sendEmailNotification, //   NEW
       },
 
       // Security
@@ -349,10 +402,44 @@ await createNotification({
     }).catch(err => console.error('Failed to log share creation:', err));
 
     // ✅ Generate share link
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const shareLink = `${baseUrl}/view/${shareToken}`;
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+const shareLink = `${baseUrl}/view/${shareToken}`;
 
-    console.log('🚀 Share created successfully:', shareLink);
+console.log('🚀 Share created successfully:', shareLink);
+
+// 🆕 ✅ SEND EMAILS TO ALL RECIPIENTS (if enabled)
+if (sendEmailNotification && emailWhitelist.length > 0) {
+  console.log(`📧 Sending emails to ${emailWhitelist.length} recipient(s)...`);
+  
+  // Get sender's name from profile
+  const profile = await db.collection('profiles').findOne({ user_id: user.id });
+  const senderName = profile?.full_name || user.email.split('@')[0];
+  
+  // Send to all recipients in parallel
+  const emailPromises = emailWhitelist.map(async (recipientEmail) => {
+    try {
+      await sendShareEmailViaGmailOrResend({
+        userId: user.id,
+        recipientEmail,
+        senderName,
+        documentName: document.originalFilename,
+        shareLink,
+        customMessage,
+        expiresAt,
+        sharedByName, // ⭐ Pass custom branding name
+        logoUrl,
+      });
+      console.log(`✅ Email sent to: ${recipientEmail}`);
+    } catch (error) {
+      console.error(`❌ Failed to send email to ${recipientEmail}:`, error);
+      // Don't throw - continue sending to other recipients
+    }
+  });
+  
+  // Wait for all emails to send
+  await Promise.allSettled(emailPromises);
+  console.log('✅ All emails sent (or attempted)');
+}
 
     // ✅ Return comprehensive response
     return NextResponse.json({

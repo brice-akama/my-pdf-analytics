@@ -84,6 +84,11 @@ export async function POST(
       password: password ? '✅ provided' : '❌ none',
     });
 
+    console.log('🎨 [VIEW API] Branding data in share settings:', {
+  sharedByName: share.settings.sharedByName,
+  logoUrl: share.settings.logoUrl,
+});
+
     // ✅ Check if email is required
     if (share.settings.requireEmail && !email) {
       return NextResponse.json({
@@ -93,6 +98,8 @@ export async function POST(
         settings: {
           customMessage: share.settings.customMessage,
         },
+        sharedByName: share.settings.sharedByName || null,   
+      logoUrl: share.settings.logoUrl || null,  
       }, { status: 401 });
     }
 
@@ -104,6 +111,8 @@ export async function POST(
         requiresPassword: true,
         settings: {
           customMessage: share.settings.customMessage,
+          sharedByName: share.settings.sharedByName || null,    
+      logoUrl: share.settings.logoUrl || null, 
         },
       }, { status: 401 });
     }
@@ -136,6 +145,8 @@ if (share.settings.allowedEmails && share.settings.allowedEmails.length > 0) {
       requiresPassword: share.settings.hasPassword,
       settings: {
         customMessage: share.settings.customMessage,
+        sharedByName: share.settings.sharedByName || null,    
+      logoUrl: share.settings.logoUrl || null,  
       },
       error: 'Email verification required to access this document',
     }, { status: 401 });
@@ -230,6 +241,8 @@ if (share.settings.requireNDA) {
       requiresPassword: share.settings.hasPassword,
       settings: {
         customMessage: share.settings.customMessage,
+        sharedByName: share.settings.sharedByName || null,    
+    logoUrl: share.settings.logoUrl || null,    
       },
     }, { status: 401 });
   }
@@ -416,6 +429,8 @@ if (share.settings.requireNDA) {
         allowDownload: share.settings.allowDownload,
         allowPrint: share.settings.allowPrint,
         customMessage: share.settings.customMessage,
+        sharedByName: share.settings.sharedByName || null,    
+  logoUrl: share.settings.logoUrl || null, 
       },
       tracking: {
         views: share.tracking.views + 1, // Include this view

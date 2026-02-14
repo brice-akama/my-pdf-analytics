@@ -183,8 +183,53 @@ export async function GET(
       );
 
       // ✅ Fetch file from Cloudinary
-      const cloudinaryResponse = await fetch(downloadUrl);
+      // ✅ Fetch with longer timeout and retry logic
+const fetchWithTimeout = async (url: string, timeout = 30000) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+};
 
+let cloudinaryResponse;
+let retries = 3;
+
+while (retries > 0) {
+  try {
+    console.log(`🔄 Fetching from Cloudinary (${4 - retries}/3)...`);
+    cloudinaryResponse = await fetchWithTimeout(downloadUrl, 30000); // 30 second timeout
+    
+    if (cloudinaryResponse.ok) {
+      break; // Success!
+    }
+    
+    console.warn(`⚠️ Cloudinary returned ${cloudinaryResponse.status}, retrying...`);
+    retries--;
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+    
+  } catch (error) {
+    console.error(`❌ Cloudinary fetch failed (${4 - retries}/3):`, error);
+    retries--;
+    
+    if (retries === 0) {
+      throw error; // All retries exhausted
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+  }
+}
+
+if (!cloudinaryResponse) {
+  throw new Error('Failed to fetch from Cloudinary after 3 retries');
+}
+ 
       if (!cloudinaryResponse.ok) {
         console.error('❌ Cloudinary fetch failed:', cloudinaryResponse.status);
         return NextResponse.json({ 

@@ -169,6 +169,9 @@ const [showDriveFilesDialog, setShowDriveFilesDialog] = useState(false);
 const [driveFiles, setDriveFiles] = useState<any[]>([]);
 const [loadingDriveFiles, setLoadingDriveFiles] = useState(false);
 const [driveSearchQuery, setDriveSearchQuery] = useState('');
+const [logoFile, setLogoFile] = useState<File | null>(null);
+const [logoPreview, setLogoPreview] = useState<string | null>(null);
+const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 const [shareSettings, setShareSettings] = useState({
   requireEmail: true,
   allowDownload: false,
@@ -186,6 +189,16 @@ const [shareSettings, setShareSettings] = useState({
   ndaTemplateId: '',
   customNdaText: '',
   useCustomNda: false,
+  allowPrint: true, //   NEW
+  allowForwarding: true, //   NEW
+  notifyOnDownload: false, //   NEW
+  downloadLimit: undefined as number | undefined, //   NEW
+  viewLimit: undefined as number | undefined, //   NEW
+  selfDestruct: false, //   NEW
+  availableFrom: '', //   NEW (datetime-local string)
+  linkType: 'public' as 'public' | 'email-gated' | 'domain-restricted', //   NEW
+  sharedByName: '', //   NEW
+   logoUrl: '',
 });
 const [linkSettings, setLinkSettings] = useState({
   requireEmail: true,
@@ -358,6 +371,86 @@ const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   
   setCsvPreview(contacts);
   toast.success(`Found ${contacts.length} contact${contacts.length !== 1 ? 's' : ''}`);
+};
+
+
+// 🆕 Handle logo file selection
+const handleLogoFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    toast.error('Please select an image file');
+    return;
+  }
+  
+  // Validate file size (max 2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    toast.error('Logo must be less than 2MB');
+    return;
+  }
+  
+  setLogoFile(file);
+  
+  // Create preview
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    setLogoPreview(reader.result as string);
+  };
+  reader.readAsDataURL(file);
+  
+  // 🔥 UPLOAD TO CLOUDINARY IMMEDIATELY
+  await handleUploadLogo(file);
+};
+
+// 🆕 Upload logo to Cloudinary
+const handleUploadLogo = async (file: File) => {
+  setIsUploadingLogo(true);
+  
+  try {
+    const formData = new FormData();
+    formData.append('logo', file);
+    
+    const res = await fetch('/api/upload/logo', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      console.log('✅ Logo uploaded, URL:', data.logoUrl); // ✅ Debug log
+      
+      // ✅ FIX: Use functional update to avoid stale closure
+      setShareSettings(prev => ({
+        ...prev,
+        logoUrl: data.logoUrl
+      }));
+      
+      toast.success('Logo uploaded!');
+    } else {
+      const error = await res.json();
+      toast.error(error.message || 'Failed to upload logo');
+    }
+  } catch (error) {
+    console.error('Logo upload error:', error);
+    toast.error('Failed to upload logo');
+  } finally {
+    setIsUploadingLogo(false);
+  }
+};
+
+//   Remove logo
+const handleRemoveLogo = () => {
+  setLogoFile(null);
+  setLogoPreview(null);
+  // ✅ FIX: Use functional update
+  setShareSettings(prev => ({
+    ...prev,
+    logoUrl: ''
+  }));
+  toast.success('Logo removed');
 };
 
 // Confirm CSV import
@@ -2531,6 +2624,58 @@ john@sequoia.com, sarah@a16z.com, mike@kleiner.com"
     </div>
   )}
 
+  {/* 🆕 Link Access Type */}
+<div className="bg-white rounded-xl border shadow-sm p-6">
+  <h3 className="font-semibold text-slate-900 mb-4">Link Access</h3>
+  
+  <div className="space-y-3">
+    <label className="flex items-start gap-3 cursor-pointer p-3 border-2 rounded-lg hover:border-purple-300 transition-colors">
+      <input
+        type="radio"
+        name="linkType"
+        value="public"
+        checked={shareSettings.linkType === 'public'}
+        onChange={() => setShareSettings({...shareSettings, linkType: 'public', recipientEmails: []})}
+        className="mt-1"
+      />
+      <div className="flex-1">
+        <div className="font-medium text-slate-900"> Anyone with the link</div>
+        <p className="text-sm text-slate-600">Anyone who has the link can view</p>
+      </div>
+    </label>
+
+    <label className="flex items-start gap-3 cursor-pointer p-3 border-2 rounded-lg hover:border-purple-300 transition-colors">
+      <input
+        type="radio"
+        name="linkType"
+        value="email-gated"
+        checked={shareSettings.linkType === 'email-gated'}
+        onChange={() => setShareSettings({...shareSettings, linkType: 'email-gated'})}
+        className="mt-1"
+      />
+      <div className="flex-1">
+        <div className="font-medium text-slate-900">✉️ Specific people only</div>
+        <p className="text-sm text-slate-600">Only people you invite can access</p>
+      </div>
+    </label>
+
+    <label className="flex items-start gap-3 cursor-pointer p-3 border-2 rounded-lg hover:border-purple-300 transition-colors">
+      <input
+        type="radio"
+        name="linkType"
+        value="domain-restricted"
+        checked={shareSettings.linkType === 'domain-restricted'}
+        onChange={() => setShareSettings({...shareSettings, linkType: 'domain-restricted'})}
+        className="mt-1"
+      />
+      <div className="flex-1">
+        <div className="font-medium text-slate-900">🏢 People in my organization</div>
+        <p className="text-sm text-slate-600">Only @yourcompany.com emails</p>
+      </div>
+    </label>
+  </div>
+</div>
+
       {/* Send Email Toggle */}
       {shareSettings.recipientEmails.length > 0 && (
         <label className="flex items-center justify-between cursor-pointer mt-4 pt-4 border-t">
@@ -2544,6 +2689,8 @@ john@sequoia.com, sarah@a16z.com, mike@kleiner.com"
           />
         </label>
       )}
+
+      
     </div>
 
     {/* Custom Message */}
@@ -2590,6 +2737,66 @@ john@sequoia.com, sarah@a16z.com, mike@kleiner.com"
         />
       </label>
 
+      {/* Download Settings - Nested under Allow Download */}
+{shareSettings.allowDownload && (
+  <div className="ml-8 mt-3 space-y-3 p-4 bg-slate-50 rounded-lg border">
+    <label className="flex items-center justify-between cursor-pointer">
+      <div>
+        <div className="font-medium text-slate-900 text-sm">Notify on Download</div>
+        <div className="text-xs text-slate-600">Get email when someone downloads</div>
+      </div>
+      <Switch
+        checked={shareSettings.notifyOnDownload}
+        onCheckedChange={(checked) => setShareSettings({...shareSettings, notifyOnDownload: checked})}
+      />
+    </label>
+
+    <div>
+      <Label className="text-sm font-medium text-slate-700 mb-2 block">
+        Download Limit (Optional)
+      </Label>
+      <Input
+        type="number"
+        min="0"
+        placeholder="Unlimited"
+        value={shareSettings.downloadLimit || ''}
+        onChange={(e) => setShareSettings({
+          ...shareSettings, 
+          downloadLimit: e.target.value ? parseInt(e.target.value) : undefined
+        })}
+        className="w-32"
+      />
+      <p className="text-xs text-slate-500 mt-1">
+        0 or empty = unlimited downloads
+      </p>
+    </div>
+  </div>
+)}
+
+      {/* Print Permission */}
+<label className="flex items-center justify-between cursor-pointer">
+  <div>
+    <div className="font-medium text-slate-900">Allow Printing</div>
+    <div className="text-sm text-slate-600">Let viewers print the document</div>
+  </div>
+  <Switch
+    checked={shareSettings.allowPrint}
+    onCheckedChange={(checked) => setShareSettings({...shareSettings, allowPrint: checked})}
+  />
+</label>
+
+{/* Share Permission */}
+<label className="flex items-center justify-between cursor-pointer">
+  <div>
+    <div className="font-medium text-slate-900">Allow Forwarding</div>
+    <div className="text-sm text-slate-600">Recipients can share link with others</div>
+  </div>
+  <Switch
+    checked={shareSettings.allowForwarding}
+    onCheckedChange={(checked) => setShareSettings({...shareSettings, allowForwarding: checked})}
+  />
+</label>
+
       {/* Expiration */}
       <div>
         <Label className="text-sm font-medium text-slate-700 mb-2 block">
@@ -2620,6 +2827,171 @@ john@sequoia.com, sarah@a16z.com, mike@kleiner.com"
         />
       </div>
     </div>
+
+    {/* Custom Branding */}
+ 
+<div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">
+  <div className="flex items-center justify-between mb-4">
+    <h3 className="font-semibold text-slate-900"> Custom Branding</h3>
+  </div>
+  
+  {/* Shared By Name */}
+  <div>
+    <Label className="text-sm font-medium text-slate-700 mb-2 block">
+      Shared By Name
+    </Label>
+    <Input
+      value={shareSettings.sharedByName || ''}
+      onChange={(e) => setShareSettings({...shareSettings, sharedByName: e.target.value})}
+      placeholder="Your Company Name"
+    />
+    <p className="text-xs text-slate-500 mt-1">
+      This name appears on the viewer page
+    </p>
+  </div>
+
+  {/* 🆕 Company Logo Upload */}
+  <div>
+    <Label className="text-sm font-medium text-slate-700 mb-2 block">
+      Company Logo (Optional)
+    </Label>
+    
+    {/* Logo Preview or Upload Button */}
+    {logoPreview || shareSettings.logoUrl ? (
+      <div className="space-y-3">
+        {/* Preview */}
+        <div className="relative w-full h-32 rounded-lg border-2 border-purple-200 bg-slate-50 flex items-center justify-center overflow-hidden">
+          <img 
+            src={logoPreview || shareSettings.logoUrl} 
+            alt="Company logo"
+            className="max-h-full max-w-full object-contain p-2"
+          />
+        </div>
+        
+        {/* Actions */}
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => document.getElementById('logo-upload-input')?.click()}
+            className="flex-1"
+            disabled={isUploadingLogo}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Change Logo
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleRemoveLogo}
+            className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+            disabled={isUploadingLogo}
+          >
+            <X className="h-4 w-4 mr-2" />
+            Remove
+          </Button>
+        </div>
+      </div>
+    ) : (
+      /* Upload Button */
+      <button
+        type="button"
+        onClick={() => document.getElementById('logo-upload-input')?.click()}
+        disabled={isUploadingLogo}
+        className="w-full border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-purple-400 hover:bg-purple-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isUploadingLogo ? (
+          <>
+            <Loader2 className="h-8 w-8 text-purple-600 mx-auto mb-2 animate-spin" />
+            <p className="text-sm text-slate-600 font-medium">Uploading...</p>
+          </>
+        ) : (
+          <>
+            <ImageIcon className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+            <p className="text-sm text-slate-600 font-medium">
+              Click to upload logo
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              PNG, JPG, SVG (Max 2MB)
+            </p>
+          </>
+        )}
+      </button>
+    )}
+    
+    {/* Hidden file input */}
+    <input
+      type="file"
+      id="logo-upload-input"
+      accept="image/*"
+      onChange={handleLogoFileSelect}
+      className="hidden"
+    />
+    
+    <p className="text-xs text-slate-500 mt-2">
+      💡 This logo appears on the viewer page and in email notifications
+    </p>
+  </div>
+</div>
+
+    {/* Scheduled Access */}
+<div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">
+  <h3 className="font-semibold text-slate-900 mb-4">⏰ Scheduled Access</h3>
+  
+  <div>
+    <Label className="text-sm font-medium text-slate-700 mb-2 block">
+      Available From (Optional)
+    </Label>
+    <Input
+      type="datetime-local"
+      value={shareSettings.availableFrom || ''}
+      onChange={(e) => setShareSettings({...shareSettings, availableFrom: e.target.value})}
+    />
+    <p className="text-xs text-slate-500 mt-1">
+      Link will be inactive until this date/time
+    </p>
+  </div>
+</div>
+
+    {/* Advanced Settings Section */}
+<div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">
+   
+  
+  {/* View Limit */}
+  <div>
+    <Label className="text-sm font-medium text-slate-700 mb-2 block">
+      View Limit (Optional)
+    </Label>
+    <Input
+      type="number"
+      min="0"
+      placeholder="Unlimited views"
+      value={shareSettings.viewLimit || ''}
+      onChange={(e) => setShareSettings({
+        ...shareSettings, 
+        viewLimit: e.target.value ? parseInt(e.target.value) : undefined
+      })}
+      className="w-full"
+    />
+    <p className="text-xs text-slate-500 mt-1">
+      💡 Set to 1 for one-time links
+    </p>
+  </div>
+
+  {/* Auto-expire after first view */}
+  <label className="flex items-center justify-between cursor-pointer">
+    <div>
+      <div className="font-medium text-slate-900">Self-Destruct Link</div>
+      <div className="text-sm text-slate-600">Link expires after first view</div>
+    </div>
+    <Switch
+      checked={shareSettings.selfDestruct}
+      onCheckedChange={(checked) => setShareSettings({...shareSettings, selfDestruct: checked})}
+    />
+  </label>
+</div>
 
     {/* Watermark Settings */}
     <div className="bg-white rounded-xl border shadow-sm p-6 space-y-4">
@@ -2821,16 +3193,17 @@ john@sequoia.com, sarah@a16z.com, mike@kleiner.com"
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   credentials: 'include',
-                 body: JSON.stringify({
+                body: JSON.stringify({
   requireEmail: shareSettings.requireEmail,
   allowDownload: shareSettings.allowDownload,
   password: shareSettings.password || null,
   expiresIn: shareSettings.expiresIn === 0 ? 'never' : shareSettings.expiresIn.toString(),
   allowedEmails: shareSettings.recipientEmails,
+  recipientEmails: shareSettings.recipientEmails, // ✅ send both keys so API catches it
   customMessage: shareSettings.customMessage || null,
   sendEmailNotification: shareSettings.sendEmailNotification,
   notifyOnView: true,
-  allowPrint: true,
+  allowPrint: shareSettings.allowPrint, // ✅ FIXED - only once, uses user setting
   trackDetailedAnalytics: true,
   enableWatermark: shareSettings.enableWatermark,
   watermarkText: shareSettings.watermarkText || null,
@@ -2838,94 +3211,78 @@ john@sequoia.com, sarah@a16z.com, mike@kleiner.com"
   requireNDA: shareSettings.requireNDA,
   ndaTemplateId: shareSettings.useCustomNda ? null : shareSettings.ndaTemplateId,
   customNdaText: shareSettings.useCustomNda ? shareSettings.customNdaText : null,
+  allowForwarding: shareSettings.allowForwarding,
+  notifyOnDownload: shareSettings.notifyOnDownload,
+  downloadLimit: shareSettings.downloadLimit || null,
+  viewLimit: shareSettings.viewLimit || null,
+  selfDestruct: shareSettings.selfDestruct,
+  availableFrom: shareSettings.availableFrom || null,
+  linkType: shareSettings.linkType,
+  sharedByName: shareSettings.sharedByName || null,
+  logoUrl: shareSettings.logoUrl || null,
 }),
                 });
                 
                 if (res.ok) {
                   const data = await res.json();
-                  if (data.success) {
-                    const shareLink = data.shareLink;
-                    
-                    // Show success modal
-                    const modal = document.createElement('div');
-                    modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
-                    modal.innerHTML = `
-                      <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
-                        <div class="flex items-center gap-3 mb-4">
-                          <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-                            <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                          </div>
-                          <div>
-                            <h3 class="text-xl font-bold text-slate-900">Link Created!</h3>
-                            <p class="text-sm text-slate-600">${shareSettings.recipientEmails.length > 0 ? `Sent to ${shareSettings.recipientEmails.length} recipient(s)` : 'Anyone with link can view'}</p>
-                          </div>
-                        </div>
-                        
-                        ${shareSettings.recipientEmails.length > 0 && shareSettings.sendEmailNotification ? `
-                          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                            <p class="text-sm text-blue-900">
-                              ✉️ <strong>Emails sent to:</strong><br/>
-                              ${shareSettings.recipientEmails.map(e => `• ${e}`).join('<br/>')}
-                            </p>
-                          </div>
-                        ` : ''}
-                        
-                        <div class="mb-4">
-                          <label class="text-sm font-medium text-slate-700 block mb-2">Share Link:</label>
-                          <div class="flex gap-2">
-                            <input 
-                              type="text" 
-                              value="${shareLink}" 
-                              readonly 
-                              class="flex-1 px-3 py-2 border rounded-lg text-sm bg-slate-50"
-                              id="shareLinkInput"
-                            />
-                            <button 
-                              onclick="
-                                navigator.clipboard.writeText('${shareLink}');
-                                this.innerHTML = '✓ Copied';
-                                setTimeout(() => this.innerHTML = 'Copy', 2000);
-                              "
-                              class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
-                            >
-                              Copy
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <div class="space-y-2 text-sm text-slate-600 mb-4">
-                          <p>⏰ Expires: ${shareSettings.expiresIn === 0 ? 'Never' : `${shareSettings.expiresIn} days`}</p>
-                          <p>📥 Download: ${shareSettings.allowDownload ? 'Allowed' : 'Disabled'}</p>
-                          ${shareSettings.password ? '<p>🔒 Password protected</p>' : ''}
-                          ${shareSettings.recipientEmails.length > 0 ? `<p>✉️ Email-gated (${shareSettings.recipientEmails.length} recipients)</p>` : '<p>🌐 Open to anyone with link</p>'}
-                        </div>
-                        
-                        <div class="flex gap-3">
-                          <button 
-                            onclick="window.open('${shareLink}', '_blank'); this.parentElement.parentElement.parentElement.remove();"
-                            class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                          >
-                            Test Link
-                          </button>
-                          <button 
-                            onclick="this.parentElement.parentElement.parentElement.remove()"
-                            class="flex-1 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700"
-                          >
-                            Close
-                          </button>
-                        </div>
-                      </div>
-                    `;
-                    
-                    document.body.appendChild(modal);
-                    modal.onclick = (e) => {
-                      if (e.target === modal) modal.remove();
-                    };
-                    
-                    setShowCreateLinkDialog(false);
-                    
+                 if (data.success) {
+  const shareLink = data.shareLink;
+  const recipientCount = shareSettings.recipientEmails.length;
+  const emailsWereSent = recipientCount > 0 && shareSettings.sendEmailNotification;
+
+  // ✅ Close drawer first
+  setShowCreateLinkDialog(false);
+
+  // ✅ Copy link to clipboard automatically
+  navigator.clipboard.writeText(shareLink).catch(() => {});
+
+  // ✅ Show success toast with Sonner
+  toast.success(
+    emailsWereSent
+      ? `Link created & sent to ${recipientCount} recipient${recipientCount > 1 ? 's' : ''}!`
+      : 'Share link created!',
+    {
+      description: (
+        <div className="space-y-2 mt-1">
+          <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+            <code className="text-xs text-slate-600 truncate flex-1 max-w-[200px]">
+              {shareLink}
+            </code>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(shareLink);
+                toast.success('Link copied!', { duration: 1500 });
+              }}
+              className="text-xs font-semibold text-purple-600 hover:text-purple-700 flex-shrink-0"
+            >
+              Copy
+            </button>
+          </div>
+          {emailsWereSent && (
+            <p className="text-xs text-slate-500">
+              ✉️ Emails sent to: {shareSettings.recipientEmails.slice(0, 2).join(', ')}
+              {shareSettings.recipientEmails.length > 2 && ` +${shareSettings.recipientEmails.length - 2} more`}
+            </p>
+          )}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => window.open(shareLink, '_blank')}
+              className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Open Link
+            </button>
+          </div>
+        </div>
+      ),
+      duration: 8000,
+      icon: '🔗',
+    }
+  );
+
+   
+
+  
+
                     // Reset settings
                     setShareSettings({
                       requireEmail: true,
@@ -2944,7 +3301,24 @@ john@sequoia.com, sarah@a16z.com, mike@kleiner.com"
                       ndaTemplateId: '',
                       customNdaText: '',
                       useCustomNda: false,
+                      allowPrint: true,         
+  allowForwarding: true,    
+  notifyOnDownload: false,  
+  downloadLimit: undefined,
+  viewLimit: undefined,     
+  selfDestruct: false,      
+  availableFrom: '',       
+  linkType: 'public',       
+  sharedByName: '',         
+  logoUrl: '',              
                     });
+                    //   Also reset logo state
+  setLogoFile(null);
+  setLogoPreview(null);
+  setRecipientInput('');
+  setBulkRecipientInput('');
+  setCsvPreview([]);
+  setShowAllRecipients(false);
                   }
                 } else {
                   const data = await res.json();
@@ -4069,12 +4443,37 @@ john@sequoia.com, sarah@a16z.com, mike@kleiner.com"
                   toast.loading('Importing CSV from Drive...');
                   
                   try {
-                    const res = await fetch('/api/integrations/google-drive/import', {
-                      method: 'POST',
-                      credentials: 'include',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ fileId: file.id, fileName: file.name })
-                    });
+                   const res = await fetch('/api/integrations/google-drive/import', {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ fileId: file.id, fileName: file.name })
+});
+
+const data = await res.json();
+
+if (res.ok) {
+  if (data.version === 1) {
+    // New document
+    toast.success('Imported from Google Drive!', {
+      description: `${data.filename} has been added to your documents`
+    });
+  } else {
+    // New version
+    toast.success('New version created!', {
+      description: `${data.filename} updated to Version ${data.version}`
+    });
+  }
+  
+  setShowDriveFilesDialog(false);
+  
+  // Refresh documents list
+  router.refresh();
+} else {
+  toast.error('Import failed', {
+    description: data.error
+  });
+}
                     
                     if (res.ok) {
                       const blob = await res.blob();

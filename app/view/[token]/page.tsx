@@ -25,6 +25,8 @@ interface ShareData {
     requireEmail: boolean;
     hasPassword: boolean;
     customMessage?: string;
+    sharedByName?: string | null;   
+    logoUrl?: string | null;  
   };
   expired?: boolean;
   maxViewsReached?: boolean;
@@ -32,6 +34,10 @@ interface ShareData {
   requiresAuth?: boolean;
   emailNotAllowed?: boolean;
   message?: string;
+  ndaText?: string;               
+  requiresNDA?: boolean;          
+  requiresEmail?: boolean;         
+  requiresPassword?: boolean;      
 }
 
 export default function ViewSharedDocument() {
@@ -67,6 +73,10 @@ const [iframeLoading, setIframeLoading] = useState(true);
 const [certificateDrawerOpen, setCertificateDrawerOpen] = useState(false);
 const [certificatePdfUrl, setCertificatePdfUrl] = useState<string | null>(null);
 const [loadingCertificate, setLoadingCertificate] = useState(false);
+const [brandingInfo, setBrandingInfo] = useState<{
+  sharedByName?: string | null;
+  logoUrl?: string | null;
+} | null>(null);
 
   // Load shared document
   useEffect(() => {
@@ -228,11 +238,23 @@ useEffect(() => {
         console.log('   - Requires Email:', data.requiresEmail);
         console.log('   - Requires Password:', data.requiresPassword);
         console.log('   - Requires NDA:', data.requiresNDA);
+        console.log('   - sharedByName:', data.settings?.sharedByName);  
+  console.log('   - logoUrl:', data.settings?.logoUrl); 
         setRequiresEmail(data.requiresEmail || false);
         setRequiresPassword(data.requiresPassword || false);
         setRequiresNDA(data.requiresNDA || false); // ⭐ NEW
         setNdaText(data.ndaText || ''); // ⭐ NEW
         setShareData(data);
+        setIsVerified(true);
+
+//   Capture branding info
+if (data.settings?.sharedByName || data.settings?.logoUrl) {
+  setBrandingInfo({
+    sharedByName: data.settings.sharedByName,
+    logoUrl: data.settings.logoUrl,
+  });
+  console.log('🎨 [VIEWER] Branding loaded:', data.settings.sharedByName, data.settings.logoUrl);
+}
       } else {
         console.log('❌ [VIEWER] Other error:', data.error);
         setError(data.error || 'Failed to load document');
@@ -372,140 +394,321 @@ useEffect(() => {
   
  // Authentication required
 if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) {
+  const brandName = shareData?.settings?.sharedByName;
+  const brandLogo = shareData?.settings?.logoUrl;
+
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
-          <Lock className="h-8 w-8 text-purple-600" />
+    <div className="min-h-screen flex" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      {/* Left Panel — Branding / Visual */}
+      <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden flex-col justify-between p-12"
+        style={{
+          background: 'linear-gradient(135deg, #0f0c29 0%, #1a1040 40%, #24243e 100%)',
+        }}
+      >
+        {/* Animated background orbs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20"
+            style={{ background: 'radial-gradient(circle, #7c3aed, transparent)' }} />
+          <div className="absolute top-1/2 -right-20 w-72 h-72 rounded-full opacity-15"
+            style={{ background: 'radial-gradient(circle, #3b82f6, transparent)' }} />
+          <div className="absolute -bottom-20 left-1/3 w-80 h-80 rounded-full opacity-10"
+            style={{ background: 'radial-gradient(circle, #06b6d4, transparent)' }} />
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 text-center mb-2">
-          {requiresNDA ? 'NDA Acceptance Required' : 'Verification Required'}
-        </h1>
-        <p className="text-slate-600 text-center mb-6">
-          {shareData?.message || 'Please verify your identity to view this document'}
-        </p>
 
-        {/* Custom message from sender */}
-        {shareData?.settings?.customMessage && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-sm font-medium text-blue-900 mb-1">💬 Message from sender:</p>
-            <p className="text-sm text-blue-800 italic">"{shareData.settings.customMessage}"</p>
+        {/* Top logo area */}
+        <div className="relative z-10">
+          {brandLogo ? (
+            <img src={brandLogo} alt={brandName || 'Company'} className="h-10 w-auto object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}>
+                <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <span className="text-white font-semibold text-sm tracking-wide">DocMetrics</span>
+            </div>
+          )}
+        </div>
+
+        {/* Center content */}
+        <div className="relative z-10 space-y-8">
+          {/* Document icon */}
+          <div className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl"
+            style={{ background: 'linear-gradient(135deg, #7c3aed20, #3b82f620)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <svg className="h-10 w-10" fill="none" stroke="url(#iconGrad)" viewBox="0 0 24 24">
+              <defs>
+                <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#a78bfa" />
+                  <stop offset="100%" stopColor="#60a5fa" />
+                </linearGradient>
+              </defs>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
           </div>
-        )}
 
-        <form onSubmit={handleAuthenticate} className="space-y-4">
-          
-          {/* ⭐ NDA SECTION */}
-{requiresNDA && (
-  <div className="border-2 border-amber-300 rounded-lg p-4 bg-amber-50">
-    <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-      <svg className="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-      Non-Disclosure Agreement
-    </h3>
-    
-    {/* ⭐ NEW: Collect viewer info for NDA */}
-    <div className="space-y-3 mb-4">
-      <div>
-        <Label className="text-sm font-medium text-slate-700">Your Full Name</Label>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="John Doe"
-          required
-          className="mt-1"
-        />
+          <div>
+            <h2 className="text-3xl font-bold text-white leading-tight mb-3">
+              {brandName ? (
+                <>{brandName}<br /><span style={{ color: '#a78bfa' }}>shared a document</span><br />with you</>
+              ) : (
+                <>A document has<br /><span style={{ color: '#a78bfa' }}>been shared</span><br />with you</>
+              )}
+            </h2>
+            {shareData?.settings?.customMessage && (
+              <div className="mt-4 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                  "{shareData.settings.customMessage}"
+                </p>
+                {brandName && <p className="text-xs mt-2" style={{ color: '#a78bfa' }}>— {brandName}</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Trust badges */}
+          <div className="space-y-3">
+            {[
+              { icon: '🔒', text: 'End-to-end encrypted' },
+              { icon: '📊', text: 'Access tracked & logged' },
+              { icon: '✅', text: 'Verified document sharing' },
+            ].map((badge) => (
+              <div key={badge.text} className="flex items-center gap-3">
+                <span className="text-base">{badge.icon}</span>
+                <span className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>{badge.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom */}
+        <div className="relative z-10">
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            Powered by DocMetrics — Secure Document Intelligence
+          </p>
+        </div>
       </div>
-      
-      <div>
-        <Label className="text-sm font-medium text-slate-700">Company (Optional)</Label>
-        <Input
-          value={company}
-          onChange={(e) => setCompany(e.target.value)}
-          placeholder="Acme Corporation"
-          className="mt-1"
-        />
-      </div>
-    </div>
-    
-    <div className="bg-white border rounded-lg p-4 max-h-60 overflow-y-auto mb-4">
-      <pre className="text-xs text-slate-700 whitespace-pre-wrap font-sans">
-        {ndaText}
-      </pre>
-    </div>
 
-    <label className="flex items-start gap-3 cursor-pointer">
-      <input
-        type="checkbox"
-        checked={ndaAccepted}
-        onChange={(e) => setNdaAccepted(e.target.checked)}
-        required
-        className="h-5 w-5 rounded border-slate-300 text-purple-600 mt-0.5 flex-shrink-0"
-      />
-      <span className="text-sm text-slate-900">
-        <strong>I, {name || '[Your Name]'}{company ? ` representing ${company}` : ''}, have read and agree to the terms</strong> of this Non-Disclosure Agreement. 
-        I understand that violating these terms may result in legal consequences.
-      </span>
-    </label>
-  </div>
-)}
-          {/* Email input */}
-          {requiresEmail && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                <Mail className="h-4 w-4 inline mr-1" />
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-              <p className="text-xs text-slate-500 mt-1">
-                Enter the email address this document was shared with
-              </p>
+      {/* Right Panel — Form */}
+      <div className="flex-1 flex flex-col justify-center items-center p-8 lg:p-16 bg-white">
+        <div className="w-full max-w-md">
+
+          {/* Mobile branding (shown only on mobile) */}
+          <div className="lg:hidden mb-8 text-center">
+            {brandLogo ? (
+              <img src={brandLogo} alt={brandName || 'Company'} className="h-10 w-auto object-contain mx-auto mb-3" />
+            ) : (
+              <div className="h-12 w-12 rounded-xl flex items-center justify-center mx-auto mb-3"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}>
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+            )}
+            {brandName && <p className="text-sm font-medium text-slate-600">{brandName} shared a document with you</p>}
+          </div>
+
+          {/* Header */}
+          <div className="mb-8">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-4"
+              style={{ background: '#f3f0ff', color: '#7c3aed' }}>
+              <div className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+              {requiresNDA ? 'NDA Required' : 'Verification Required'}
             </div>
-          )}
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              {requiresNDA ? 'Sign NDA to continue' : 'Verify your identity'}
+            </h1>
+            <p className="text-slate-500 text-sm mt-2 leading-relaxed">
+              {requiresNDA
+                ? 'You must read and accept the Non-Disclosure Agreement before viewing this document.'
+                : 'This document is protected. Please verify your identity to gain access.'}
+            </p>
+          </div>
 
-          {/* Password input */}
-          {requiresPassword && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                <Lock className="h-4 w-4 inline mr-1" />
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
-          )}
+          <form onSubmit={handleAuthenticate} className="space-y-5">
 
-          <button
-            type="submit"
-            disabled={isAuthenticating || (requiresNDA && !ndaAccepted)}
-            className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {isAuthenticating ? 'Verifying...' : requiresNDA ? 'Accept & View Document' : 'View Document'}
-          </button>
-        </form>
+            {/* NDA Section */}
+            {requiresNDA && (
+              <div className="space-y-4">
+                {/* Name field */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
+                    Your Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="John Doe"
+                    required
+                    className="w-full px-4 py-3 rounded-xl border text-sm transition-all outline-none"
+                    style={{
+                      borderColor: '#e2e8f0',
+                      background: '#f8fafc',
+                    }}
+                    onFocus={(e) => { e.target.style.borderColor = '#7c3aed'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.1)'; e.target.style.background = '#fff'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; e.target.style.background = '#f8fafc'; }}
+                  />
+                </div>
 
-        <p className="text-xs text-slate-500 text-center mt-4">
-          Having trouble? Contact the document owner.
-        </p>
+                {/* Company field */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
+                    Company <span className="font-normal text-slate-400 normal-case">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={company}
+                    onChange={(e) => setCompany(e.target.value)}
+                    placeholder="Acme Corporation"
+                    className="w-full px-4 py-3 rounded-xl border text-sm transition-all outline-none"
+                    style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}
+                    onFocus={(e) => { e.target.style.borderColor = '#7c3aed'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.1)'; e.target.style.background = '#fff'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; e.target.style.background = '#f8fafc'; }}
+                  />
+                </div>
+
+                {/* NDA scroll box */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
+                    Non-Disclosure Agreement
+                  </label>
+                  <div className="relative rounded-xl overflow-hidden" style={{ border: '1px solid #e2e8f0' }}>
+                    <div className="max-h-48 overflow-y-auto p-4" style={{ background: '#fafafa' }}>
+                      <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">
+                        {ndaText}
+                      </pre>
+                    </div>
+                    {/* Fade overlay at bottom */}
+                    <div className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none"
+                      style={{ background: 'linear-gradient(transparent, #fafafa)' }} />
+                  </div>
+                </div>
+
+                {/* Accept checkbox */}
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div className="relative mt-0.5 flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={ndaAccepted}
+                      onChange={(e) => setNdaAccepted(e.target.checked)}
+                      required
+                      className="sr-only"
+                    />
+                    <div
+                      className="h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all"
+                      style={{
+                        borderColor: ndaAccepted ? '#7c3aed' : '#cbd5e1',
+                        background: ndaAccepted ? '#7c3aed' : 'white',
+                      }}
+                    >
+                      {ndaAccepted && (
+                        <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-xs text-slate-600 leading-relaxed">
+                    I, <strong className="text-slate-900">{name || '[Your Name]'}</strong>
+                    {company ? ` representing ${company}` : ''}, have read and agree to the terms of this Non-Disclosure Agreement.
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {/* Email input */}
+            {requiresEmail && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    required
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border text-sm transition-all outline-none"
+                    style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}
+                    onFocus={(e) => { e.target.style.borderColor = '#7c3aed'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.1)'; e.target.style.background = '#fff'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; e.target.style.background = '#f8fafc'; }}
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-1.5">Enter the email this document was shared with</p>
+              </div>
+            )}
+
+            {/* Password input */}
+            {requiresPassword && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
+                  Access Password
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter access password"
+                    required
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border text-sm transition-all outline-none"
+                    style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}
+                    onFocus={(e) => { e.target.style.borderColor = '#7c3aed'; e.target.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.1)'; e.target.style.background = '#fff'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; e.target.style.background = '#f8fafc'; }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={isAuthenticating || (requiresNDA && (!ndaAccepted || !name))}
+              className="w-full py-3.5 rounded-xl font-semibold text-sm text-white transition-all relative overflow-hidden group"
+              style={{
+                background: isAuthenticating || (requiresNDA && (!ndaAccepted || !name))
+                  ? '#94a3b8'
+                  : 'linear-gradient(135deg, #7c3aed, #3b82f6)',
+                cursor: isAuthenticating || (requiresNDA && (!ndaAccepted || !name)) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isAuthenticating ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Verifying...
+                </span>
+              ) : requiresNDA ? (
+                'Accept NDA & View Document →'
+              ) : (
+                'Verify & View Document →'
+              )}
+            </button>
+
+            <p className="text-center text-xs text-slate-400">
+              Having trouble accessing this document?{' '}
+              <span className="text-slate-600 font-medium cursor-pointer hover:underline">Contact the sender</span>
+            </p>
+          </form>
+        </div>
       </div>
     </div>
   );
 }
-
   // Document viewer
   return (
     <div className="min-h-screen bg-slate-50">
@@ -702,41 +905,63 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
 )}
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Eye className="h-6 w-6 text-purple-600" />
-            <div>
-              <h1 className="font-semibold text-slate-900">
-                {shareData?.document?.filename}
-              </h1>
-              <p className="text-xs text-slate-500">
-                {shareData?.document?.numPages} pages · {shareData?.document?.format?.toUpperCase()}
-              </p>
-            </div>
-          </div>
+  <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div className="flex items-center gap-3">
+      {/* ✅ Show company logo if provided */}
+      {brandingInfo?.logoUrl ? (
+        <img 
+          src={brandingInfo.logoUrl} 
+          alt={brandingInfo.sharedByName || 'Company logo'} 
+          className="h-8 w-auto max-w-[120px] object-contain"
+        />
+      ) : (
+        <Eye className="h-6 w-6 text-purple-600" />
+      )}
+      <div>
+        <h1 className="font-semibold text-slate-900">
+          {shareData?.document?.filename}
+        </h1>
+        <p className="text-xs text-slate-500">
+          {/* ✅ Show "Shared by CompanyName" instead of generic text */}
+          {brandingInfo?.sharedByName 
+            ? `Shared by ${brandingInfo.sharedByName}` 
+            : `${shareData?.document?.numPages} pages · ${shareData?.document?.format?.toUpperCase()}`
+          }
+        </p>
+      </div>
+    </div>
 
-          <div className="flex items-center gap-2">
-            {shareData?.settings?.allowDownload && (
-              <button
-                onClick={handleDownload}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-2 text-sm"
-              >
-                <Download className="h-4 w-4" />
-                Download
-              </button>
-            )}
-            {shareData?.settings?.allowPrint && (
-              <button
-                onClick={handlePrint}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-2 text-sm"
-              >
-                <Printer className="h-4 w-4" />
-                Print
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+    <div className="flex items-center gap-2">
+      {shareData?.settings?.allowDownload && (
+        <button
+          onClick={handleDownload}
+          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-2 text-sm"
+        >
+          <Download className="h-4 w-4" />
+          Download
+        </button>
+      )}
+      {shareData?.settings?.allowPrint && (
+        <button
+          onClick={handlePrint}
+          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-2 text-sm"
+        >
+          <Printer className="h-4 w-4" />
+          Print
+        </button>
+      )}
+    </div>
+  </div>
+  
+  {/* ✅ Branding bar - shows company name prominently */}
+  {brandingInfo?.sharedByName && (
+    <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-t px-4 py-2">
+      <p className="text-xs text-center text-slate-600">
+        📄 This document was shared by <strong>{brandingInfo.sharedByName}</strong>
+      </p>
+    </div>
+  )}
+</header>
 
       {/* Document Viewer */}
       <main className="max-w-5xl mx-auto px-4 py-8">
