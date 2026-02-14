@@ -1,3 +1,5 @@
+// DO NOT FORGET TO ADD THE components/DocumentHeatmap.tsx: AS A TAB HERE.
+
 "use client"
 
 import { useState } from "react"

@@ -3,38 +3,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { notifyDocumentView } from '@/lib/notifications';
 
-// ✅ REAL IP Geolocation Function (using ipapi.co - FREE, no API key needed)
+// ── IP Geolocation ───────────────────────────────────────────────
 async function getLocationFromIP(ip: string) {
-  // Skip localhost and invalid IPs
   if (!ip || ip === 'unknown' || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.')) {
-    console.log('⚠️ Skipping localhost/private IP:', ip);
     return null;
   }
-
   try {
-    console.log('🌍 Fetching location for IP:', ip);
-    
     const response = await fetch(`https://ipapi.co/${ip}/json/`, {
-      headers: {
-        'User-Agent': 'DocMetrics-Analytics/1.0'
-      },
-      signal: AbortSignal.timeout(5000)
+      headers: { 'User-Agent': 'DocMetrics-Analytics/1.0' },
+      signal: AbortSignal.timeout(5000),
     });
-    
-    if (!response.ok) {
-      console.error('❌ Geolocation API error:', response.status);
-      return null;
-    }
-    
+    if (!response.ok) return null;
     const data = await response.json();
-    
-    if (data.error) {
-      console.error('❌ Geolocation error:', data.reason);
-      return null;
-    }
-    
-    console.log('✅ Location found:', data.city, data.country_name);
-    
+    if (data.error) return null;
     return {
       country: data.country_name,
       countryCode: data.country_code,
@@ -43,15 +24,22 @@ async function getLocationFromIP(ip: string) {
       lat: data.latitude,
       lng: data.longitude,
       timezone: data.timezone,
-      postal: data.postal,
       org: data.org,
     };
-  } catch (error) {
-    console.error('❌ Failed to get location:', error);
+  } catch {
     return null;
   }
 }
 
+// ── Device detection ─────────────────────────────────────────────
+function detectDevice(userAgent: string): 'mobile' | 'tablet' | 'desktop' {
+  const ua = userAgent.toLowerCase();
+  if (/mobile|android|iphone|ipod|blackberry|windows phone/.test(ua)) return 'mobile';
+  if (/ipad|tablet|playbook|silk/.test(ua)) return 'tablet';
+  return 'desktop';
+}
+
+// ── Main handler ─────────────────────────────────────────────────
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ token: string }> }
@@ -59,7 +47,7 @@ export async function POST(
   try {
     const { token } = await context.params;
     const body = await request.json();
-    
+
     const {
       event,
       page,
@@ -68,6 +56,7 @@ export async function POST(
       totalPages,
       metadata,
       sessionId,
+      email,        // ← NOW EXTRACTED
     } = body;
 
     if (!event) {
@@ -85,106 +74,398 @@ export async function POST(
       return NextResponse.json({ error: 'Share not found' }, { status: 404 });
     }
 
-    // ✅ Get REAL IP address (handles proxies and load balancers)
+    // ── IP & identity ────────────────────────────────────────────
     const forwardedFor = request.headers.get('x-forwarded-for');
     const realIP = request.headers.get('x-real-ip');
-    const cfConnectingIP = request.headers.get('cf-connecting-ip');
-    
+    const cfIP = request.headers.get('cf-connecting-ip');
+
     let ip = 'unknown';
-    if (forwardedFor) {
-      ip = forwardedFor.split(',')[0].trim();
-    } else if (realIP) {
-      ip = realIP;
-    } else if (cfConnectingIP) {
-      ip = cfConnectingIP;
-    }
+    if (forwardedFor) ip = forwardedFor.split(',')[0].trim();
+    else if (realIP) ip = realIP;
+    else if (cfIP) ip = cfIP;
 
     const userAgent = request.headers.get('user-agent') || 'unknown';
+    const device = detectDevice(userAgent);
     const viewerId = Buffer.from(`${ip}-${userAgent}`).toString('base64').substring(0, 32);
-
     const now = new Date();
     const currentSessionId = sessionId || `${viewerId}-${Date.now()}`;
+    const documentId = share.documentId.toString();
 
-    // ✅ Get REAL location data from IP
+    // ── Geolocation (only for session_start to avoid rate limits) ─
     let location = null;
-    if (ip !== 'unknown') {
+    if (event === 'session_start' && ip !== 'unknown') {
       location = await getLocationFromIP(ip);
     }
 
-    // Validate data types based on event
-    switch (event) {
-      case 'page_view':
-  if (page && !isNaN(page)) {
-    const pageNumber = parseInt(page);
+    // ── If email provided, register it against this viewer ────────
+    // This is the KEY fix — email gets stored so analytics can join
+    if (email) {
+      await db.collection('shares').updateOne(
+        { _id: share._id },
+        {
+          $addToSet: { 'tracking.viewerEmails': email },
+          $set: {
+            [`tracking.emailByViewerId.${viewerId}`]: email,
+            updatedAt: now,
+          },
+        }
+      );
 
-    // 1️⃣ Track the page view first
-    await trackPageView(db, share, pageNumber, viewerId, now, location);
-
-    // 2️⃣ Notify document owner ONLY on first page view
-    if (pageNumber === 1 && share.userId) {
-      const viewer = await db.collection('share_viewers').findOne({
-        shareId: share._id.toString(),
-        viewerId,
-      });
-
-      // 🚨 Prevent duplicate notifications
-      if (viewer?.email && !viewer.notifiedOwner) {
-        await notifyDocumentView(
-          share.userId,
-          share.documentSnapshot?.originalFilename || 'Document',
-          share.documentId.toString(),
-          viewer.name || viewer.email,
-          viewer.email
-        ).catch(err => console.error('Notification error:', err));
-
-        // Mark as notified
-        await db.collection('share_viewers').updateOne(
-          { _id: viewer._id },
-          { $set: { notifiedOwner: true } }
-        );
-      }
+      // Also keep a viewer identity map for cross-session lookups
+      await db.collection('viewer_identities').updateOne(
+        { viewerId, documentId },
+        {
+          $set: {
+            viewerId,
+            documentId,
+            shareToken: token,
+            email,
+            device,
+            lastSeen: now,
+          },
+          $setOnInsert: { firstSeen: now },
+        },
+        { upsert: true }
+      );
     }
-  }
+
+    // ── Route events ─────────────────────────────────────────────
+    switch (event) {
+
+     // ── PAGE VIEW ──────────────────────────────────────────────
+      case 'page_view': {
+        if (!page || isNaN(page)) break;
+        const pageNum = parseInt(page);
+
+        // Write to shares (for aggregate page analytics)
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          {
+            $inc: {
+              [`tracking.pageViews.page_${pageNum}`]: 1,
+              'tracking.totalPageViews': 1,
+            },
+            $set: {
+              [`tracking.pageViewsByViewer.${viewerId}.page_${pageNum}`]: now,
+              [`tracking.pageViewsByViewer.${viewerId}.lastPage`]: pageNum,
+              updatedAt: now,
+            },
+            $addToSet: {
+              'tracking.uniqueViewers': viewerId,
+            },
+          }
+        );
+
+        // ── THE KEY WRITE: analytics_logs ─────────────────────────
+        await db.collection('analytics_logs').insertOne({
+          documentId,
+          shareToken: token,
+          action: 'page_view',
+          pageNumber: pageNum,
+          viewTime: 0,
+          scrollDepth: scrollDepth || 0,
+          email: email || null,
+          viewerId,
+          sessionId: currentSessionId,
+          device,
+          timestamp: now,
+          userAgent,
+          ip,
+          location,
+        });
+
+        // Notify owner on page 1 (first view)
+        if (pageNum === 1 && share.userId) {
+          const viewer = await db.collection('share_viewers').findOne({
+            shareId: share._id.toString(),
+            viewerId,
+          });
+
+          if (viewer?.email && !viewer.notifiedOwner) {
+            await notifyDocumentView(
+              share.userId,
+              share.documentSnapshot?.originalFilename || 'Document',
+              documentId,
+              viewer.name || viewer.email,
+              viewer.email
+            ).catch(err => console.error('Notification error:', err));
+
+            await db.collection('share_viewers').updateOne(
+              { _id: viewer._id },
+              { $set: { notifiedOwner: true } }
+            );
+          }
+        }
+        break;
+      }  
+
+      // ── REAL-TIME PRESENCE ────────────────────────────────────────
+case 'presence_ping': {
+  await db.collection('viewer_presence').updateOne(
+    { viewerId, documentId },
+    {
+      $set: {
+        viewerId,
+        documentId,
+        shareToken: token,
+        email: email || null,
+        sessionId: currentSessionId,
+        lastPing: now,
+        page: page || 1,
+        device,
+        isActive: true,
+      },
+      $setOnInsert: { firstSeen: now },
+    },
+    { upsert: true }
+  );
   break;
+}
 
-      
-      case 'scroll':
-        if (page && !isNaN(page) && scrollDepth && !isNaN(scrollDepth)) {
-          await trackScroll(db, share, parseInt(page), parseFloat(scrollDepth), viewerId, now);
-        }
-        break;
-      
-      case 'time_spent':
-        const validTimeSpent = timeSpent && !isNaN(timeSpent) ? parseInt(timeSpent) : 0;
-        if (validTimeSpent > 0) {
-          await trackTimeSpent(db, share, validTimeSpent, viewerId, now);
-        }
-        break;
+      // ── PAGE TIME (time spent on a specific page) ──────────────
+      case 'page_time': {
+        if (!page || isNaN(page) || !timeSpent || isNaN(timeSpent)) break;
+        const pageNum = parseInt(page);
+        const validTime = Math.min(parseInt(timeSpent), 600); // cap at 10 min
 
-      case 'page_time':
-        if (page && !isNaN(page) && timeSpent && !isNaN(timeSpent)) {
-          const validTime = parseInt(timeSpent);
-          const validPage = parseInt(page);
-          
-          await db.collection('shares').updateOne(
-            { _id: share._id },
+        // Write to shares for aggregate
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          {
+            $inc: {
+              [`tracking.timePerPage.page_${pageNum}`]: validTime,
+            },
+            $set: {
+              [`tracking.timePerPageByViewer.${viewerId}.page_${pageNum}`]: validTime,
+              updatedAt: now,
+            },
+          }
+        );
+
+        // ── Update the existing analytics_log for this page/viewer ─
+        // Try to update the most recent page_view log for this viewer+page
+        // If none exists, insert a new record
+        const existing = await db.collection('analytics_logs').findOne({
+          documentId,
+          viewerId,
+          action: 'page_view',
+          pageNumber: pageNum,
+        }, { sort: { timestamp: -1 } });
+
+        if (existing) {
+          await db.collection('analytics_logs').updateOne(
+            { _id: existing._id },
             {
-              $inc: {
-                [`tracking.timePerPage.page_${validPage}`]: validTime,
-              },
-              $set: {
-                [`tracking.timePerPageByViewer.${viewerId}.page_${validPage}`]: validTime,
-              },
+              $inc: { viewTime: validTime },
+              $set: { email: email || existing.email },
             }
+          );
+        } else {
+          // No page_view event was recorded (edge case), insert standalone
+          await db.collection('analytics_logs').insertOne({
+            documentId,
+            shareToken: token,
+            action: 'page_view',
+            pageNumber: pageNum,
+            viewTime: validTime,
+            scrollDepth: 0,
+            email: email || null,
+            viewerId,
+            sessionId: currentSessionId,
+            device,
+            timestamp: now,
+            userAgent,
+            ip,
+          });
+        }
+        break;
+      }
+
+      // ── SCROLL ────────────────────────────────────────────────
+      case 'scroll': {
+        if (!page || isNaN(page) || scrollDepth === undefined || isNaN(scrollDepth)) break;
+        const pageNum = parseInt(page);
+        const depth = Math.min(parseFloat(scrollDepth), 100);
+
+        // Write to shares
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          {
+            $max: {
+              [`tracking.scrollDepth.page_${pageNum}`]: depth,
+              [`tracking.scrollDepthByViewer.${viewerId}.page_${pageNum}`]: depth,
+            },
+            $set: { updatedAt: now },
+          }
+        );
+
+        // Update the analytics_log for this page to record max scroll depth
+        await db.collection('analytics_logs').updateOne(
+          {
+            documentId,
+            viewerId,
+            action: 'page_view',
+            pageNumber: pageNum,
+          },
+          {
+            $max: { scrollDepth: depth },
+            $set: { email: email || null },
+          },
+          { sort: { timestamp: -1 } } as any
+        );
+        break;
+      }
+
+      // ── TOTAL TIME SPENT (heartbeat every 30s) ─────────────────
+      case 'time_spent': {
+        const validTime = timeSpent && !isNaN(timeSpent)
+          ? Math.min(parseInt(timeSpent), 60)
+          : 0;
+        if (validTime <= 0) break;
+
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          {
+            $inc: {
+              'tracking.totalTimeSpent': validTime,
+              [`tracking.timeSpentByViewer.${viewerId}`]: validTime,
+            },
+            $set: { updatedAt: now },
+          }
+        );
+        break;
+      }
+
+      // ── SESSION START ──────────────────────────────────────────
+      case 'session_start': {
+        // Write to analytics_logs as document_viewed
+        // This is what topViewers and recipientPageTracking use
+        await db.collection('analytics_logs').insertOne({
+          documentId,
+          shareToken: token,
+          action: 'document_viewed',
+          email: email || null,
+          viewerId,
+          sessionId: currentSessionId,
+          device,
+          timestamp: now,
+          userAgent,
+          ip,
+          location,
+        });
+
+        // Write to shares unique viewers
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          {
+            $addToSet: { 'tracking.uniqueViewers': viewerId },
+            $inc: { 'tracking.views': 1 },
+            $set: {
+              'tracking.lastViewedAt': now,
+              updatedAt: now,
+            },
+          }
+        );
+
+        // Write to document_views collection (for legacy analytics)
+        await db.collection('document_views').insertOne({
+          documentId,
+          shareToken: token,
+          viewerId,
+          email: email || null,
+          sessionId: currentSessionId,
+          device,
+          country: location?.country || null,
+          city: location?.city || null,
+          viewedAt: now,
+          userAgent,
+          ip,
+          pagesViewed: 0,
+          timeSpent: 0,
+          downloaded: false,
+        });
+
+        // Create/update the session record
+        await db.collection('analytics_sessions').insertOne({
+          sessionId: currentSessionId,
+          shareId: share._id.toString(),
+          documentId,
+          shareToken: token,
+          viewerId,
+          email: email || null,
+          startedAt: now,
+          endedAt: null,
+          duration: 0,
+          pagesViewed: [],
+          device,
+          location,
+        });
+        break;
+      }
+
+      // ── SESSION END ───────────────────────────────────────────
+      case 'session_end': {
+        const duration = timeSpent && !isNaN(timeSpent)
+          ? Math.min(parseInt(timeSpent), 7200) // cap at 2 hours
+          : 0;
+
+        await db.collection('analytics_sessions').updateOne(
+          { sessionId: currentSessionId },
+          { $set: { endedAt: now, duration } }
+        );
+
+        // Update document_views with final time spent
+        await db.collection('document_views').updateOne(
+          { sessionId: currentSessionId },
+          { $set: { timeSpent: duration } }
+        );
+
+        // Update shares average view time
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          {
+            $inc: { 'tracking.totalSessions': 1 },
+            $set: { updatedAt: now },
+          }
+        );
+        break;
+      }
+
+      // ── DOWNLOAD ──────────────────────────────────────────────
+      case 'download_attempt': {
+        const allowed = metadata?.allowed || false;
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          {
+            $inc: {
+              'tracking.downloadAttempts': 1,
+              ...(allowed
+                ? { 'tracking.downloads': 1 }
+                : { 'tracking.blockedDownloads': 1 }),
+            },
+            $push: {
+              'tracking.downloadEvents': {
+                viewerId,
+                email: email || null,
+                timestamp: now,
+                allowed,
+              },
+            } as any,
+            $set: { updatedAt: now },
+          }
+        );
+
+        // Update document_views downloaded flag
+        if (allowed) {
+          await db.collection('document_views').updateOne(
+            { sessionId: currentSessionId },
+            { $set: { downloaded: true } }
           );
         }
         break;
+      }
 
-      case 'download_attempt':
-        await trackDownloadAttempt(db, share, viewerId, now, metadata?.allowed || false, location);
-        break;
-
-      case 'download_success':
+      case 'download_success': {
         await db.collection('shares').updateOne(
           { _id: share._id },
           {
@@ -192,6 +473,7 @@ export async function POST(
             $push: {
               'tracking.downloadEvents': {
                 viewerId,
+                email: email || null,
                 timestamp: now,
                 filename: metadata?.filename || 'unknown',
                 success: true,
@@ -199,216 +481,54 @@ export async function POST(
             } as any,
           }
         );
-        break;
-      
-      case 'print_attempt':
-        await trackPrintAttempt(db, share, viewerId, now, metadata?.allowed || false);
-        break;
 
-      case 'session_start':
-        await trackSessionStart(db, share, viewerId, currentSessionId, now, location);
+        await db.collection('document_views').updateOne(
+          { sessionId: currentSessionId },
+          { $set: { downloaded: true } }
+        );
         break;
+      }
 
-      case 'session_end':
-        const validEndTime = timeSpent && !isNaN(timeSpent) ? parseInt(timeSpent) : 0;
-        await trackSessionEnd(db, share, viewerId, currentSessionId, validEndTime, now);
+      // ── PRINT ─────────────────────────────────────────────────
+      case 'print_attempt': {
+        const allowed = metadata?.allowed || false;
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          {
+            $inc: {
+              'tracking.printAttempts': 1,
+              ...(allowed
+                ? { 'tracking.prints': 1 }
+                : { 'tracking.blockedPrints': 1 }),
+            },
+            $push: {
+              'tracking.printEvents': {
+                viewerId,
+                email: email || null,
+                timestamp: now,
+                allowed,
+              },
+            } as any,
+            $set: { updatedAt: now },
+          }
+        );
         break;
-        
+      }
+
       default:
-        console.log('⚠️ Unknown event type:', event);
+        console.log('⚠️ Unknown event:', event);
     }
 
     return NextResponse.json({ success: true });
 
   } catch (error) {
     console.error('❌ Tracking error:', error);
-    return NextResponse.json({ 
-      error: 'Tracking failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Tracking failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
   }
-}
-
-// ✅ Track page view with location
-async function trackPageView(
-  db: any, 
-  share: any, 
-  page: number, 
-  viewerId: string, 
-  timestamp: Date,
-  location: any
-) {
-  await db.collection('shares').updateOne(
-    { _id: share._id },
-    {
-      $inc: {
-        [`tracking.pageViews.page_${page}`]: 1,
-        'tracking.totalPageViews': 1,
-      },
-      $set: {
-        [`tracking.pageViewsByViewer.${viewerId}.page_${page}`]: timestamp,
-        [`tracking.pageViewsByViewer.${viewerId}.lastPage`]: page,
-        updatedAt: timestamp,
-      },
-    }
-  );
-
-  await db.collection('analytics_events').insertOne({
-    shareId: share._id.toString(),
-    documentId: share.documentId.toString(),
-    viewerId,
-    event: 'page_view',
-    page,
-    timestamp,
-    userAgent: share.tracking?.userAgent,
-    location,
-  }).catch((err: any) => console.error('Failed to log page view:', err));
-}
-
-async function trackScroll(db: any, share: any, page: number, scrollDepth: number, viewerId: string, timestamp: Date) {
-  await db.collection('shares').updateOne(
-    { _id: share._id },
-    {
-      $setOnInsert: {
-        'tracking.scrollDepth': {},
-        'tracking.scrollDepthByViewer': {},
-      }
-    },
-    { upsert: false }
-  );
-
-  await db.collection('shares').updateOne(
-    { _id: share._id },
-    {
-      $max: {
-        [`tracking.scrollDepth.page_${page}`]: scrollDepth,
-        [`tracking.scrollDepthByViewer.${viewerId}.page_${page}`]: scrollDepth,
-      },
-      $set: { updatedAt: timestamp },
-    }
-  );
-}
-
-async function trackTimeSpent(db: any, share: any, timeSpent: number, viewerId: string, timestamp: Date) {
-  await db.collection('shares').updateOne(
-    { _id: share._id },
-    {
-      $setOnInsert: {
-        'tracking.totalTimeSpent': 0,
-        'tracking.timeSpentByViewer': {},
-      }
-    },
-    { upsert: false }
-  );
-
-  await db.collection('shares').updateOne(
-    { _id: share._id },
-    {
-      $inc: {
-        'tracking.totalTimeSpent': timeSpent,
-        [`tracking.timeSpentByViewer.${viewerId}`]: timeSpent,
-      },
-      $set: { updatedAt: timestamp },
-    }
-  );
-}
-
-async function trackDownloadAttempt(
-  db: any, 
-  share: any, 
-  viewerId: string, 
-  timestamp: Date, 
-  allowed: boolean,
-  location: any
-) {
-  await db.collection('shares').updateOne(
-    { _id: share._id },
-    {
-      $inc: {
-        'tracking.downloadAttempts': 1,
-        ...(allowed ? { 'tracking.downloads': 1 } : { 'tracking.blockedDownloads': 1 }),
-      },
-      $push: {
-        'tracking.downloadEvents': {
-          viewerId,
-          timestamp,
-          allowed,
-        },
-      },
-      $set: { updatedAt: timestamp },
-    }
-  );
-
-  await db.collection('analytics_events').insertOne({
-    shareId: share._id.toString(),
-    documentId: share.documentId.toString(),
-    viewerId,
-    event: 'download_attempt',
-    allowed,
-    timestamp,
-    location,
-  });
-}
-
-async function trackPrintAttempt(db: any, share: any, viewerId: string, timestamp: Date, allowed: boolean) {
-  await db.collection('shares').updateOne(
-    { _id: share._id },
-    {
-      $inc: {
-        'tracking.printAttempts': 1,
-        ...(allowed ? { 'tracking.prints': 1 } : { 'tracking.blockedPrints': 1 }),
-      },
-      $push: {
-        'tracking.printEvents': {
-          viewerId,
-          timestamp,
-          allowed,
-        },
-      },
-      $set: { updatedAt: timestamp },
-    }
-  );
-
-  await db.collection('analytics_events').insertOne({
-    shareId: share._id.toString(),
-    documentId: share.documentId.toString(),
-    viewerId,
-    event: 'print_attempt',
-    allowed,
-    timestamp,
-  });
-}
-
-async function trackSessionStart(
-  db: any, 
-  share: any, 
-  viewerId: string, 
-  sessionId: string, 
-  timestamp: Date,
-  location: any
-) {
-  await db.collection('analytics_sessions').insertOne({
-    sessionId,
-    shareId: share._id.toString(),
-    documentId: share.documentId.toString(),
-    viewerId,
-    startedAt: timestamp,
-    endedAt: null,
-    duration: 0,
-    pagesViewed: [],
-    actions: [],
-    location,
-  });
-}
-
-async function trackSessionEnd(db: any, share: any, viewerId: string, sessionId: string, duration: number, timestamp: Date) {
-  await db.collection('analytics_sessions').updateOne(
-    { sessionId },
-    {
-      $set: {
-        endedAt: timestamp,
-        duration,
-      },
-    }
-  );
 }

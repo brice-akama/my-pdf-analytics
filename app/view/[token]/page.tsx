@@ -108,15 +108,193 @@ useEffect(() => {
     return () => {
       // Track time spent on this page when leaving
       const timeOnPage = Math.floor((Date.now() - pageStartTime) / 1000);
-      if (timeOnPage > 0 && timeOnPage < 600) { // Max 10 minutes per page
-        trackEvent('page_time', { 
-          page: currentPage, 
-          timeSpent: timeOnPage 
-        });
+      if (timeOnPage > 0 && timeOnPage < 600) {
+        // ✅ FIXED: Don't use await in cleanup - just fire and forget
+        fetch(`/api/view/${token}/track`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'page_time',
+            page: currentPage,
+            timeSpent: timeOnPage,
+            sessionId,
+            email: email || null,
+          }),
+        }).catch(() => {}); // Ignore errors in cleanup
       }
     };
   }
 }, [currentPage, shareData?.document]);
+
+// ── Presence ping (real-time "viewing now") ───────────────────
+useEffect(() => {
+  if (!shareData?.document) return;
+
+  const ping = () => {
+    trackEvent('presence_ping', {});
+  };
+
+  ping(); // immediate first ping
+  const interval = setInterval(ping, 10000); // every 10 seconds
+  return () => clearInterval(interval);
+}, [shareData?.document, currentPage]);
+
+// ── Intent signals ────────────────────────────────────────────
+useEffect(() => {
+  if (!shareData?.document) return;
+
+  // Text selection — strong buying signal
+  const handleSelect = () => {
+    const selected = window.getSelection()?.toString().trim();
+    if (selected && selected.length > 5) {
+      trackEvent('intent_signal', {
+        signal: 'text_selected',
+        value: selected.substring(0, 100),
+        pageNum: currentPage,
+      });
+    }
+  };
+
+  // Tab visibility — tracks when they switch away and come back
+  const handleVisibility = () => {
+    trackEvent('intent_signal', {
+      signal: document.hidden ? 'tab_hidden' : 'tab_visible',
+      pageNum: currentPage,
+    });
+  };
+
+  // Copy attempt — very high intent
+  const handleCopy = () => {
+    trackEvent('intent_signal', {
+      signal: 'copy_attempt',
+      pageNum: currentPage,
+    });
+  };
+
+  document.addEventListener('selectionchange', handleSelect);
+  document.addEventListener('visibilitychange', handleVisibility);
+  document.addEventListener('copy', handleCopy);
+
+  return () => {
+    document.removeEventListener('selectionchange', handleSelect);
+    document.removeEventListener('visibilitychange', handleVisibility);
+    document.removeEventListener('copy', handleCopy);
+  };
+}, [shareData?.document, currentPage]);
+
+// ── Heatmap: clicks + mouse movement + scroll stops ───────────
+useEffect(() => {
+  if (!shareData?.document) return;
+
+  let moveBuffer: { x: number; y: number; t: number }[] = [];
+  let moveTimer: NodeJS.Timeout;
+  let scrollStopTimer: NodeJS.Timeout;
+  let lastScrollY = 0;
+
+  const handleClick = (e: MouseEvent) => {
+    const x = parseFloat(((e.clientX / window.innerWidth) * 100).toFixed(1));
+    const y = parseFloat(
+      (((e.clientY + window.scrollY) / document.documentElement.scrollHeight) * 100).toFixed(1)
+    );
+    trackEvent('heatmap_click', {
+      x,
+      y,
+      pageNum: currentPage,
+      elementType: (e.target as HTMLElement)?.tagName?.toLowerCase() || 'unknown',
+    });
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    const x = parseFloat(((e.clientX / window.innerWidth) * 100).toFixed(1));
+    const y = parseFloat(
+      (((e.clientY + window.scrollY) / document.documentElement.scrollHeight) * 100).toFixed(1)
+    );
+    moveBuffer.push({ x, y, t: Date.now() });
+
+    // Flush buffer every 2 seconds
+    clearTimeout(moveTimer);
+    moveTimer = setTimeout(() => {
+      if (moveBuffer.length > 0) {
+        trackEvent('heatmap_move', {
+          points: moveBuffer.splice(0, moveBuffer.length),
+          pageNum: currentPage,
+        });
+      }
+    }, 2000);
+  };
+
+  const handleScrollStop = () => {
+    clearTimeout(scrollStopTimer);
+    const currentScrollY = window.scrollY;
+
+    scrollStopTimer = setTimeout(() => {
+      // They stopped scrolling for 1.5 seconds — record dwell position
+      const y = parseFloat(
+        ((currentScrollY / document.documentElement.scrollHeight) * 100).toFixed(1)
+      );
+      if (Math.abs(currentScrollY - lastScrollY) < 50) {
+        trackEvent('heatmap_scroll_position', {
+          y,
+          pageNum: currentPage,
+          dwellTime: 1500,
+        });
+      }
+      lastScrollY = currentScrollY;
+    }, 1500);
+  };
+
+  document.addEventListener('click', handleClick);
+  document.addEventListener('mousemove', handleMouseMove, { passive: true });
+  window.addEventListener('scroll', handleScrollStop, { passive: true });
+
+  return () => {
+    document.removeEventListener('click', handleClick);
+    document.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('scroll', handleScrollStop);
+    clearTimeout(moveTimer);
+    clearTimeout(scrollStopTimer);
+  };
+}, [shareData?.document, currentPage]);
+
+
+// Track scroll depth and estimate current page
+useEffect(() => {
+  if (!shareData?.document) return;
+
+  const totalPages = shareData.document.numPages || 1;
+  let lastReportedDepths: Set<number> = new Set();
+
+  const handleScroll = () => {
+    const scrollTop = window.scrollY;
+    const docHeight = Math.max(
+      document.documentElement.scrollHeight - window.innerHeight,
+      1
+    );
+    const scrollDepth = Math.round((scrollTop / docHeight) * 100);
+
+    // Estimate page from scroll position
+    const estimatedPage = Math.min(
+      Math.max(Math.ceil((scrollTop / docHeight) * totalPages), 1),
+      totalPages
+    );
+
+    if (estimatedPage !== currentPage) {
+      setCurrentPage(estimatedPage);
+    }
+
+    // Only fire at milestone depths to avoid spam
+    const milestone = [25, 50, 75, 100].find(
+      m => scrollDepth >= m && !lastReportedDepths.has(m)
+    );
+    if (milestone) {
+      lastReportedDepths.add(milestone);
+      trackEvent('scroll', { scrollDepth: milestone, page: estimatedPage });
+    }
+  };
+
+  window.addEventListener('scroll', handleScroll, { passive: true });
+  return () => window.removeEventListener('scroll', handleScroll);
+}, [shareData?.document, currentPage, email]);
 
   // ✅ Track time spent (send every 30 seconds)
   useEffect(() => {
@@ -159,6 +337,7 @@ useEffect(() => {
       const payload: any = {
         event,
         sessionId,
+        email: email || null,
       };
 
       // Add page if available
@@ -416,9 +595,28 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
         </div>
 
         {/* Top logo area */}
-        <div className="relative z-10">
+       <div className="relative z-10">
           {brandLogo ? (
-            <img src={brandLogo} alt={brandName || 'Company'} className="h-10 w-auto object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+            // ✅ White frosted pill so logo colors always show correctly on dark bg
+            <div className="inline-flex items-center gap-3 px-4 py-2.5 rounded-2xl"
+              style={{
+                background: 'rgba(255,255,255,0.12)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.18)',
+              }}
+            >
+              <img
+                src={brandLogo}
+                alt={brandName || 'Company'}
+                className="h-8 w-auto object-contain"
+                style={{ maxWidth: '140px' }}
+              />
+              {brandName && (
+                <span className="text-white font-semibold text-sm tracking-wide whitespace-nowrap">
+                  {brandName}
+                </span>
+              )}
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg flex items-center justify-center"

@@ -91,15 +91,17 @@ export async function POST(
 
     // ✅ Check if email is required
     if (share.settings.requireEmail && !email) {
+      console.log('🎨 Branding check:', { sharedByName: share.settings.sharedByName, logoUrl: share.settings.logoUrl });
       return NextResponse.json({
         requiresAuth: true,
         requiresEmail: true,
         requiresPassword: share.settings.hasPassword,
         settings: {
           customMessage: share.settings.customMessage,
-        },
-        sharedByName: share.settings.sharedByName || null,   
+          sharedByName: share.settings.sharedByName || null,   
       logoUrl: share.settings.logoUrl || null,  
+        },
+        
       }, { status: 401 });
     }
 
