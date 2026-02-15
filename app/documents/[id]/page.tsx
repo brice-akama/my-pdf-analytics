@@ -11,10 +11,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from 'sonner'
+import DocSendStyleCharts from '@/components/DocSendStyleCharts';
 
 
 
-import { Copy, Check, TrendingUp, Users, FileCheck, Expand, Minimize, Package, Loader2  } from "lucide-react"
+import { Copy, Check, TrendingUp, Users, FileCheck, Expand, Minimize, Package, Loader2, Flame, Target, AlertTriangle, Wifi, WifiOff, MousePointer, BookOpen, BarChart2, Globe, RefreshCw  } from "lucide-react"
+import dynamic from 'next/dynamic'
+const DocumentHeatmap = dynamic(() => import('@/components/DocumentHeatmap'), { ssr: false })
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -172,6 +175,9 @@ const [driveSearchQuery, setDriveSearchQuery] = useState('');
 const [logoFile, setLogoFile] = useState<File | null>(null);
 const [logoPreview, setLogoPreview] = useState<string | null>(null);
 const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+const [liveViewerCount, setLiveViewerCount] = useState(0);
+const [liveViewers, setLiveViewers] = useState<any[]>([]);
+const [heatmapPage, setHeatmapPage] = useState(1);
 const [shareSettings, setShareSettings] = useState({
   requireEmail: true,
   allowDownload: false,
@@ -633,6 +639,28 @@ useEffect(() => {
     fetchAnalytics();
   }
 }, [doc]);
+
+// Poll for live viewers every 15 seconds
+useEffect(() => {
+  if (!params.id) return;
+  const pollLiveViewers = async () => {
+    try {
+      const res = await fetch(`/api/documents/${params.id}/analytics`, {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setLiveViewerCount(data.analytics.liveViewerCount || 0);
+          setLiveViewers(data.analytics.realTimeViewers || []);
+        }
+      }
+    } catch {}
+  };
+  pollLiveViewers();
+  const interval = setInterval(pollLiveViewers, 15000);
+  return () => clearInterval(interval);
+}, [params.id]);
 
   // Save notes
 const handleSaveNotes = async () => {
@@ -1242,7 +1270,15 @@ const handleSendSignatureRequest = async () => {
   </DropdownMenuItem>
 </DropdownMenuContent>
               </DropdownMenu>
-              <Button 
+              {liveViewerCount > 0 && (
+  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full">
+    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+    <span className="text-xs font-semibold text-green-700">
+      {liveViewerCount} viewing now
+    </span>
+  </div>
+)}
+<Button 
   onClick={handleCreateLink}
   className="bg-gradient-to-r from-purple-600 to-blue-600"
 >
@@ -1616,303 +1652,431 @@ const handleSendSignatureRequest = async () => {
   </div>
 )}
 
-        {activeTab === 'performance' && (
+{activeTab === 'performance' && (
   <div className="space-y-6">
     {analyticsLoading ? (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-24">
         <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading analytics...</p>
+          <div className="animate-spin h-10 w-10 border-4 border-violet-600 border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-slate-500 text-sm">Loading analytics...</p>
         </div>
       </div>
-    ) : !analytics || analytics.totalViews === 0 ? (
-      <div className="bg-white rounded-lg border shadow-sm p-12 text-center">
-        <BarChart3 className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+    ) : !analytics || 
+      (analytics.totalViews === 0 && 
+       analytics.uniqueViewers === 0 && 
+       (!analytics.pageEngagement || analytics.pageEngagement.every((p: any) => p.totalViews === 0)) &&
+       (!analytics.heatmapByPage || Object.keys(analytics.heatmapByPage).length === 0) &&
+       (!analytics.realTimeViewers || analytics.realTimeViewers.length === 0)) ? (
+      <div className="bg-white rounded-2xl border shadow-sm p-16 text-center">
+        <BarChart3 className="h-16 w-16 text-slate-200 mx-auto mb-4" />
         <h3 className="text-xl font-semibold text-slate-900 mb-2">No views yet</h3>
-        <p className="text-slate-600 mb-6">Share your document to start tracking performance</p>
-        <Button 
-          onClick={handleCreateLink}
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-        >
+        <p className="text-slate-500 mb-6 text-sm">Share your document to start tracking performance</p>
+        <Button onClick={handleCreateLink} className="bg-gradient-to-r from-violet-600 to-blue-600">
           Create Share Link
         </Button>
       </div>
     ) : (
       <>
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl border shadow-sm p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-slate-600">Total Views</h3>
-              <Eye className="h-4 w-4 text-blue-500" />
-            </div>
-            <p className="text-3xl font-bold text-slate-900">{analytics.totalViews}</p>
-            <p className="text-xs text-slate-500 mt-1">All time</p>
-          </div>
-
-          <div className="bg-white rounded-xl border shadow-sm p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-slate-600">Unique Viewers</h3>
-              <Users className="h-4 w-4 text-purple-500" />
-            </div>
-            <p className="text-3xl font-bold text-slate-900">{analytics.uniqueViewers}</p>
-            <p className="text-xs text-slate-500 mt-1">Different people</p>
-          </div>
-
-          <div className="bg-white rounded-xl border shadow-sm p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-slate-600">Avg. Time</h3>
-              <Clock className="h-4 w-4 text-orange-500" />
-            </div>
-            <p className="text-3xl font-bold text-slate-900">{analytics.averageTime}</p>
-            <p className="text-xs text-slate-500 mt-1">Per view</p>
-          </div>
-
-          <div className="bg-white rounded-xl border shadow-sm p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-slate-600">Completion</h3>
-              <TrendingUp className="h-4 w-4 text-green-500" />
-            </div>
-            <p className="text-3xl font-bold text-slate-900">{analytics.completionRate}%</p>
-            <p className="text-xs text-slate-500 mt-1">Viewed all pages</p>
-          </div>
-        </div>
-
-        {/* Views Chart */}
-        <div className="bg-white rounded-xl border shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Views Over Time (Last 7 Days)</h3>
-          <div className="h-64 flex items-end justify-between gap-2">
-            {analytics.viewsByDate.map((day: any, index: number) => {
-              const maxViews = Math.max(...analytics.viewsByDate.map((d: any) => d.views));
-              const height = maxViews > 0 ? (day.views / maxViews) * 100 : 0;
-              
-              return (
-                <div key={index} className="flex-1 flex flex-col items-center">
-                  <div 
-                    className="w-full bg-gradient-to-t from-purple-600 to-blue-500 rounded-t-lg relative group cursor-pointer hover:from-purple-700 hover:to-blue-600 transition-all"
-                    style={{ height: `${height}%`, minHeight: day.views > 0 ? '8px' : '0' }}
-                  >
-                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                      {day.views} views
+        {/* ── DEAD DEAL ALERT ── */}
+        {analytics.deadDeal?.score >= 60 && (
+          <div className={`rounded-2xl border-2 p-6 ${
+            analytics.deadDeal.score >= 80
+              ? 'bg-red-50 border-red-300'
+              : 'bg-orange-50 border-orange-300'
+          }`}>
+            <div className="flex items-start gap-4">
+              <div className={`h-14 w-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                analytics.deadDeal.score >= 80 ? 'bg-red-100' : 'bg-orange-100'
+              }`}>
+                <AlertTriangle className={`h-7 w-7 ${
+                  analytics.deadDeal.score >= 80 ? 'text-red-600' : 'text-orange-600'
+                }`} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className={`text-lg font-bold ${
+                    analytics.deadDeal.score >= 80 ? 'text-red-900' : 'text-orange-900'
+                  }`}>
+                    {analytics.deadDeal.score >= 80 ? '☠️ Dead Deal Detected' : '⚠️ Deal At Risk'}
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className={`text-2xl font-black ${
+                        analytics.deadDeal.score >= 80 ? 'text-red-600' : 'text-orange-600'
+                      }`}>{analytics.deadDeal.score}%</div>
+                      <div className="text-xs text-slate-500">dead score</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-black text-green-600">{analytics.deadDeal.recoveryProbability}%</div>
+                      <div className="text-xs text-slate-500">recovery</div>
                     </div>
                   </div>
-                  <span className="text-xs text-slate-600 mt-2">{day.date}</span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Page-by-Page Analytics - NEW */}
-<div className="bg-white rounded-xl border shadow-sm p-6">
-  <h3 className="text-lg font-semibold text-slate-900 mb-4">Page-by-Page Analytics</h3>
-  <div className="space-y-4">
-    {analytics.pageEngagement.map((page: any) => {
-      const maxViews = Math.max(...analytics.pageEngagement.map((p: any) => p.totalViews));
-      const barWidth = maxViews > 0 ? (page.totalViews / maxViews) * 100 : 0;
-      
-      return (
-        <div key={page.page} className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium text-slate-700">Page {page.page}</span>
-            <div className="flex items-center gap-4 text-xs text-slate-600">
-              <span>{page.totalViews} views</span>
-              <span>•</span>
-              <span>Avg {page.avgTime}s</span>
-            </div>
-          </div>
-          <div className="relative">
-            <div className="h-8 bg-slate-100 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all flex items-center px-3"
-                style={{ width: `${barWidth}%` }}
-              >
-                {barWidth > 20 && (
-                  <span className="text-xs font-medium text-white">
-                    {page.views}%
-                  </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                  {analytics.deadDeal.signals?.map((signal: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <span className={`mt-0.5 flex-shrink-0 h-4 w-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${
+                        signal.type === 'CRITICAL' ? 'bg-red-500' :
+                        signal.type === 'HIGH' ? 'bg-orange-500' : 'bg-yellow-500'
+                      }`}>!</span>
+                      <span className={analytics.deadDeal.score >= 80 ? 'text-red-800' : 'text-orange-800'}>
+                        {signal.signal}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {analytics.deadDeal.recommendations?.length > 0 && (
+                  <div className="space-y-1">
+                    {analytics.deadDeal.recommendations.map((rec: any, i: number) => (
+                      <div key={i} className="text-xs font-medium text-slate-700 flex items-center gap-1.5">
+                        <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
+                        {rec.action}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
           </div>
+        )}
+
+        {/* ── LIVE VIEWERS CARD ── */}
+        {liveViewerCount > 0 && (
+          <div className="rounded-2xl border-2 border-green-200 bg-green-50 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+                <h3 className="font-bold text-green-900 text-sm">
+                  {liveViewerCount} person{liveViewerCount !== 1 ? 's' : ''} viewing right now
+                </h3>
+              </div>
+              <Wifi className="h-4 w-4 text-green-600" />
+            </div>
+            <div className="space-y-2">
+              {liveViewers.map((viewer: any, i: number) => (
+                <div key={i} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2 border border-green-100">
+                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {viewer.email ? viewer.email.charAt(0).toUpperCase() : '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-slate-800 truncate">
+                      {viewer.email || 'Anonymous viewer'}
+                    </p>
+                    <p className="text-xs text-slate-400">Page {viewer.page} · {viewer.device}</p>
+                  </div>
+                  <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── KPI STRIP ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Total Views', value: analytics.totalViews, icon: Eye, color: 'blue', sub: 'all time' },
+            { label: 'Unique Viewers', value: analytics.uniqueViewers, icon: Users, color: 'violet', sub: 'different people' },
+            { label: 'Avg. Time', value: analytics.averageTime, icon: Clock, color: 'orange', sub: 'per session' },
+            { label: 'Completion', value: `${analytics.completionRate}%`, icon: TrendingUp, color: 'green', sub: 'read all pages' },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-white rounded-2xl border shadow-sm p-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{stat.label}</p>
+                <div className={`h-8 w-8 rounded-xl flex items-center justify-center bg-${stat.color}-50`}>
+                  <stat.icon className={`h-4 w-4 text-${stat.color}-500`} />
+                </div>
+              </div>
+              <p className="text-3xl font-black text-slate-900">{stat.value}</p>
+              <p className="text-xs text-slate-400 mt-1">{stat.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ── REVISIT + INTENT ROW ── */}
+        {analytics.revisitData && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Revisit analytics */}
+            <div className="bg-white rounded-2xl border shadow-sm p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <RefreshCw className="h-4 w-4 text-violet-500" />
+                <h3 className="font-bold text-slate-900 text-sm">Return Visits</h3>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center p-3 bg-violet-50 rounded-xl">
+                  <p className="text-2xl font-black text-violet-700">{analytics.revisitData.totalSessions}</p>
+                  <p className="text-xs text-slate-500 mt-1">Total sessions</p>
+                </div>
+                <div className="text-center p-3 bg-blue-50 rounded-xl">
+                  <p className="text-2xl font-black text-blue-700">{analytics.revisitData.revisits}</p>
+                  <p className="text-xs text-slate-500 mt-1">Revisits</p>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded-xl">
+                  <p className="text-2xl font-black text-green-700">{analytics.revisitData.avgVisitsPerViewer}x</p>
+                  <p className="text-xs text-slate-500 mt-1">Avg per viewer</p>
+                </div>
+              </div>
+              {analytics.revisitData.highFrequencyViewers?.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">🔥 High-frequency viewers</p>
+                  {analytics.revisitData.highFrequencyViewers.slice(0, 3).map((v: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-2">
+                      <span className="text-slate-700 truncate">{v.email || 'Anonymous'}</span>
+                      <span className="font-bold text-violet-600 ml-2">{v.visitCount} visits</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Intent signals */}
+            {analytics.intentScores && (
+              <div className="bg-white rounded-2xl border shadow-sm p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Target className="h-4 w-4 text-orange-500" />
+                  <h3 className="font-bold text-slate-900 text-sm">Buyer Intent Scores</h3>
+                </div>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {[
+                    { label: 'High Intent', value: analytics.intentData?.highIntent || 0, color: 'green', icon: '🔥' },
+                    { label: 'Medium', value: analytics.intentData?.mediumIntent || 0, color: 'yellow', icon: '👀' },
+                    { label: 'Low', value: analytics.intentData?.lowIntent || 0, color: 'slate', icon: '😴' },
+                  ].map((s) => (
+                    <div key={s.label} className={`text-center p-3 bg-${s.color}-50 rounded-xl`}>
+                      <p className="text-lg mb-0.5">{s.icon}</p>
+                      <p className={`text-2xl font-black text-${s.color}-700`}>{s.value}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+                {analytics.intentScores.slice(0, 3).map((v: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-2 mb-1.5">
+                    <span className="text-slate-700 truncate">{v.email || 'Anonymous'}</span>
+                    <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                      <div className="w-16 bg-slate-200 rounded-full h-1.5">
+                        <div
+                          className={`h-1.5 rounded-full ${v.intentLevel === 'high' ? 'bg-green-500' : v.intentLevel === 'medium' ? 'bg-yellow-500' : 'bg-slate-400'}`}
+                          style={{ width: `${Math.min((v.intentScore / 50) * 100, 100)}%` }}
+                        />
+                      </div>
+                      <span className={`font-bold ${v.intentLevel === 'high' ? 'text-green-600' : v.intentLevel === 'medium' ? 'text-yellow-600' : 'text-slate-500'}`}>
+                        {v.intentScore}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+       {/* ── VIEWS CHART (keep this) ── */}
+<div className="bg-white rounded-2xl border shadow-sm p-6">
+  <h3 className="font-bold text-slate-900 mb-5 flex items-center gap-2">
+    <BarChart2 className="h-4 w-4 text-violet-500" />
+    Views — Last 7 Days
+  </h3>
+  <div className="h-56 flex items-end justify-between gap-2">
+    {analytics.viewsByDate.map((day: any, index: number) => {
+      const maxViews = Math.max(...analytics.viewsByDate.map((d: any) => d.views), 1);
+      const height = (day.views / maxViews) * 100;
+      return (
+        <div key={index} className="flex-1 flex flex-col items-center gap-1">
+          <div className="relative w-full group cursor-pointer" style={{ height: '200px', display: 'flex', alignItems: 'flex-end' }}>
+            <div
+              className="w-full bg-gradient-to-t from-violet-600 to-blue-400 rounded-t-lg hover:from-violet-700 hover:to-blue-500 transition-all"
+              style={{ height: `${height}%`, minHeight: day.views > 0 ? '6px' : '0' }}
+            >
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs py-1 px-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                {day.views} views
+              </div>
+            </div>
+          </div>
+          <span className="text-xs text-slate-400">{day.date}</span>
         </div>
       );
     })}
   </div>
 </div>
 
-{/* Download Analytics - NEW */}
-<div className="bg-white rounded-xl border shadow-sm p-6">
-  <h3 className="text-lg font-semibold text-slate-900 mb-4">Download Analytics</h3>
-  <div className="grid grid-cols-3 gap-4">
-    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-      <Download className="h-8 w-8 text-green-600 mb-2" />
-      <div className="text-2xl font-bold text-green-900">{analytics.downloads}</div>
-      <p className="text-xs text-green-700 mt-1">Total Downloads</p>
-    </div>
-    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-      <Users className="h-8 w-8 text-blue-600 mb-2" />
-      <div className="text-2xl font-bold text-blue-900">
-        {analytics.totalViews > 0 ? Math.round((analytics.downloads / analytics.totalViews) * 100) : 0}%
-      </div>
-      <p className="text-xs text-blue-700 mt-1">Download Rate</p>
-    </div>
-    <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-      <TrendingUp className="h-8 w-8 text-purple-600 mb-2" />
-      <div className="text-2xl font-bold text-purple-900">
-        {analytics.downloads > 0 ? Math.round(analytics.totalViews / analytics.downloads) : 0}
-      </div>
-      <p className="text-xs text-purple-700 mt-1">Views per Download</p>
-    </div>
-  </div>
-</div>
+{/* ── 🔥 NEW: DocSend-Style Charts ── */}
+<DocSendStyleCharts 
+  documentId={doc._id}
+  pageEngagement={analytics.pageEngagement}
+  totalPages={doc.numPages}
+/>
 
-        {/* Page Engagement */}
-        <div className="bg-white rounded-xl border shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Page-by-Page Engagement</h3>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {analytics.pageEngagement.map((page: any) => (
-              <div key={page.page} className="flex items-center gap-4">
-                <div className="w-16 text-sm font-medium text-slate-600">
-                  Page {page.page}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-purple-600 to-blue-500 h-full rounded-full transition-all"
-                        style={{ width: `${page.views}%` }}
-                      />
+{/* ── Heatmap (keep this below) ── */}
+{analytics.heatmapByPage && (
+  <div className="bg-white rounded-2xl border shadow-sm p-6">
+    <DocumentHeatmap
+      pageNumber={heatmapPage}
+      totalPages={doc.numPages}
+      heatmapByPage={analytics.heatmapByPage}
+      onPageChange={setHeatmapPage}
+    />
+  </div>
+)}
+
+        {/* ── RECIPIENT PAGE TRACKING ── */}
+        {analytics.recipientPageTracking?.length > 0 && (
+          <div className="bg-white rounded-2xl border shadow-sm p-6">
+            <h3 className="font-bold text-slate-900 mb-5 flex items-center gap-2">
+              <MousePointer className="h-4 w-4 text-violet-500" />
+              Per-Viewer Page Breakdown
+            </h3>
+            <div className="space-y-4">
+              {analytics.recipientPageTracking.map((recipient: any, idx: number) => (
+                <div
+                  key={idx}
+                  className={`border-2 rounded-2xl p-4 ${recipient.bounced ? 'border-red-200 bg-red-50/50' : 'border-slate-100 bg-white'}`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
+                        {recipient.recipientEmail ? recipient.recipientEmail.charAt(0).toUpperCase() : '?'}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900 truncate max-w-[200px]">
+                          {recipient.recipientEmail || 'Anonymous'}
+                        </p>
+                        <p className="text-xs text-slate-400">{recipient.totalTimeOnDoc} total</p>
+                      </div>
                     </div>
-                    <span className="text-xs text-slate-600 w-12">{page.views}%</span>
+                    <div className="flex items-center gap-2">
+                      {recipient.neverOpened && (
+                        <span className="px-2 py-1 bg-slate-100 text-slate-500 text-xs rounded-full font-medium">Never opened</span>
+                      )}
+                      {recipient.bounced && !recipient.neverOpened && (
+                        <span className="px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full font-medium">Bounced</span>
+                      )}
+                      {!recipient.bounced && !recipient.neverOpened && (
+                        <span className="px-2 py-1 bg-green-100 text-green-600 text-xs rounded-full font-medium">Engaged</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-500">
-                    Avg time: {page.avgTime}s
+                  {/* Page pills */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {recipient.pageData?.map((p: any) => (
+                      <div
+                        key={p.page}
+                        title={p.skipped ? `Page ${p.page}: Skipped` : `Page ${p.page}: ${p.timeSpent}s · ${p.scrollDepth}% scroll`}
+                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border ${
+                          p.skipped
+                            ? 'bg-slate-100 text-slate-400 border-slate-200'
+                            : p.timeSpent > 120
+                            ? 'bg-violet-100 text-violet-700 border-violet-200'
+                            : 'bg-green-100 text-green-700 border-green-200'
+                        }`}
+                      >
+                        <span>P{p.page}</span>
+                        {!p.skipped && <span className="opacity-70">· {p.timeSpent}s</span>}
+                        {p.skipped && <span>⊘</span>}
+                        {!p.skipped && p.visits > 1 && <span>🔄</span>}
+                      </div>
+                    ))}
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── BOUNCE ANALYTICS ── */}
+        {analytics.bounceAnalytics && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Total Recipients', value: analytics.bounceAnalytics.totalRecipients, bg: 'bg-slate-50', text: 'text-slate-700' },
+              { label: 'Bounced', value: analytics.bounceAnalytics.bounced, bg: 'bg-red-50', text: 'text-red-700' },
+              { label: 'Engaged', value: analytics.bounceAnalytics.engaged, bg: 'bg-green-50', text: 'text-green-700' },
+              { label: 'Bounce Rate', value: `${analytics.bounceAnalytics.bounceRate}%`, bg: 'bg-orange-50', text: 'text-orange-700' },
+            ].map((s) => (
+              <div key={s.label} className={`${s.bg} rounded-2xl border shadow-sm p-5 text-center`}>
+                <p className={`text-3xl font-black ${s.text}`}>{s.value}</p>
+                <p className="text-xs text-slate-500 mt-1">{s.label}</p>
               </div>
             ))}
           </div>
-        </div>
+        )}
 
-        
+        {/* ── TOP VIEWERS ── */}
+        {analytics.topViewers?.length > 0 && (
+          <div className="bg-white rounded-2xl border shadow-sm p-6">
+            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Users className="h-4 w-4 text-violet-500" />
+              Top Viewers
+            </h3>
+            <div className="space-y-2">
+              {analytics.topViewers.map((viewer: any, index: number) => (
+                <div key={index} className="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl transition-colors group">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    {viewer.email.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-900 text-sm truncate">{viewer.email}</p>
+                    <p className="text-xs text-slate-400">{viewer.views} views · {viewer.time} total</p>
+                  </div>
+                  <span className="text-xs text-slate-400 group-hover:text-slate-600 transition-colors flex-shrink-0">
+                    {viewer.lastViewed}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-        {/* Top Viewers */}
-        {/* Top Viewers - Should show emails now */}
-{analytics.topViewers.length > 0 && (
-  <div className="bg-white rounded-xl border shadow-sm p-6">
-    <h3 className="text-lg font-semibold text-slate-900 mb-4">Top Viewers</h3>
-    <div className="space-y-3">
-      {analytics.topViewers.map((viewer: any, index: number) => (
-        <div key={index} className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors">
-          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
-            {viewer.email.charAt(0).toUpperCase()}
+        {/* ── NDA ACCEPTANCES ── */}
+        {analytics?.ndaAcceptances?.length > 0 && (
+          <div className="bg-white rounded-2xl border shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-violet-500" />
+                NDA Acceptances ({analytics.ndaAcceptances.length})
+              </h3>
+              <Link href="/nda-records">
+                <Button variant="outline" size="sm" className="gap-1 text-xs">
+                  View All <ChevronRight className="h-3 w-3" />
+                </Button>
+              </Link>
+            </div>
+            <div className="space-y-2">
+              {analytics.ndaAcceptances.map((a: any, i: number) => (
+                <div key={i} className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-xl">
+                  <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <Check className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">{a.viewerName}</p>
+                    <p className="text-xs text-slate-500">{a.viewerEmail}{a.viewerCompany ? ` · ${a.viewerCompany}` : ''}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-medium text-slate-700">{new Date(a.timestamp).toLocaleDateString()}</p>
+                    <Button variant="ghost" size="sm" className="h-6 text-xs text-violet-600 p-0 hover:underline"
+                      onClick={async () => {
+                        const res = await fetch(`/api/nda-certificates/${a.certificateId}`);
+                        if (res.ok) {
+                          const blob = await res.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const anchor = document.createElement('a');
+                          anchor.href = url;
+                          anchor.download = `NDA-Certificate-${a.certificateId}.pdf`;
+                          document.body.appendChild(anchor);
+                          anchor.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(anchor);
+                        }
+                      }}>
+                      Download
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-slate-900 truncate">{viewer.email}</p>
-            <p className="text-sm text-slate-500">
-              {viewer.views} views • {viewer.time} total time
-            </p>
-          </div>
-          <div className="text-xs text-slate-500">
-            {viewer.lastViewed}
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+        )}
       </>
     )}
-    {/* NDA Acceptances Section - NEW */}
-    {analytics?.ndaAcceptances && analytics.ndaAcceptances.length > 0 && (
-      <div className="bg-white rounded-xl border shadow-sm p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-            <FileText className="h-5 w-5 text-purple-600" />
-            NDA Acceptances ({analytics.ndaAcceptances.length})
-          </h3>
-          <Link href="/nda-records">
-            <Button variant="outline" size="sm" className="gap-2">
-              View All Records
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
-
-        <div className="space-y-3">
-          {analytics.ndaAcceptances.map((acceptance: any, index: number) => (
-            <div 
-              key={index} 
-              className="flex items-center gap-4 p-4 bg-green-50 border border-green-200 rounded-lg hover:shadow-sm transition-shadow"
-            >
-              {/* Checkmark Icon */}
-              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                <Check className="h-5 w-5 text-green-600" />
-              </div>
-
-              {/* Viewer Info */}
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-slate-900">{acceptance.viewerName}</p>
-                <p className="text-sm text-slate-600">{acceptance.viewerEmail}</p>
-                {acceptance.viewerCompany && (
-                  <p className="text-xs text-slate-500">{acceptance.viewerCompany}</p>
-                )}
-              </div>
-
-              {/* Acceptance Details */}
-              <div className="text-right">
-                <p className="text-sm font-medium text-slate-900">
-                  {new Date(acceptance.timestamp).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {new Date(acceptance.timestamp).toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </p>
-              </div>
-
-              {/* Download Certificate Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    const res = await fetch(`/api/nda-certificates/${acceptance.certificateId}`);
-                    if (res.ok) {
-                      const blob = await res.blob();
-                      const url = window.URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `NDA-Certificate-${acceptance.certificateId}.pdf`;
-                      document.body.appendChild(a);
-                      a.click();
-                      window.URL.revokeObjectURL(url);
-                      document.body.removeChild(a);
-                    }
-                  } catch (error) {
-                    console.error('Download error:', error);
-                  }
-                }}
-                className="gap-2 flex-shrink-0"
-              >
-                <Download className="h-4 w-4" />
-                Certificate
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
   </div>
 )}
-   
-
         {activeTab === 'utilization' && (
   <div className="space-y-6">
     {analyticsLoading ? (
@@ -1922,7 +2086,12 @@ const handleSendSignatureRequest = async () => {
           <p className="text-slate-600">Loading analytics...</p>
         </div>
       </div>
-    ) : !analytics || analytics.totalViews === 0 ? (
+    ) : !analytics || (
+      analytics.totalViews === 0 && 
+      analytics.uniqueViewers === 0 &&
+      (!analytics.devices || (analytics.devices.desktop === 0 && analytics.devices.mobile === 0 && analytics.devices.tablet === 0)) &&
+      (!analytics.eSignature || analytics.eSignature.totalRecipients === 0)
+    ) ? (
       <div className="bg-white rounded-lg border shadow-sm p-12 text-center">
         <Activity className="h-16 w-16 text-slate-300 mx-auto mb-4" />
         <h3 className="text-xl font-semibold text-slate-900 mb-2">No utilization data yet</h3>
@@ -1936,6 +2105,90 @@ const handleSendSignatureRequest = async () => {
       </div>
     ) : (
       <>
+        {/* E-Signature analytics */}
+        {analytics.eSignature && analytics.eSignature.totalRecipients > 0 && (
+          <div className="bg-white rounded-2xl border shadow-sm p-6">
+            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <FileSignature className="h-4 w-4 text-violet-500" />
+              E-Signature Analytics
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              {[
+                { label: 'Sent', value: analytics.eSignature.totalRecipients, color: 'blue' },
+                { label: 'Signed', value: analytics.eSignature.completedCount, color: 'green' },
+                { label: 'Completion', value: `${analytics.eSignature.completionRate}%`, color: 'violet' },
+                { label: 'Avg Time', value: analytics.eSignature.averageTimeFormatted, color: 'orange' },
+              ].map((s) => (
+                <div key={s.label} className={`bg-${s.color}-50 rounded-xl p-4 text-center border border-${s.color}-100`}>
+                  <p className={`text-2xl font-black text-${s.color}-700`}>{s.value}</p>
+                  <p className="text-xs text-slate-500 mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
+            {/* Signature friction funnel */}
+            {analytics.eSignature.signatureFriction?.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Signing Funnel</p>
+                {analytics.eSignature.signatureFriction.map((step: any, i: number) => {
+                  const maxUsers = analytics.eSignature.signatureFriction[0]?.users || 1;
+                  const pct = Math.round((step.users / maxUsers) * 100);
+                  return (
+                    <div key={i}>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="font-medium text-slate-700">{step.step}</span>
+                        <div className="flex items-center gap-3 text-slate-400">
+                          <span>{step.users} users</span>
+                          {step.dropOff > 0 && <span className="text-red-500">-{step.dropOff}% drop</span>}
+                        </div>
+                      </div>
+                      <div className="h-5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-violet-500 to-blue-400 rounded-full"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Decline analysis */}
+        {analytics.declineReasons?.length > 0 && (
+          <div className="bg-white rounded-2xl border shadow-sm p-6">
+            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-orange-500" />
+              Decline Analysis
+            </h3>
+            <div className="space-y-2">
+              {analytics.declineReasons.map((item: any, i: number) => (
+                <div key={i} className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100">
+                  <span className="text-sm font-medium text-slate-800">{item.reason}</span>
+                  <span className="text-sm font-bold text-red-600">{item.count} ({item.percentage}%)</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Reminder effectiveness */}
+        {analytics.reminderEffectiveness?.some((r: any) => r.total > 0) && (
+          <div className="bg-white rounded-2xl border shadow-sm p-6">
+            <h3 className="font-bold text-slate-900 mb-4">🔔 Reminder Effectiveness</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {analytics.reminderEffectiveness.map((item: any, i: number) => (
+                <div key={i} className="text-center p-4 bg-slate-50 rounded-xl border">
+                  <p className="text-2xl font-black text-violet-700">{item.signRate}%</p>
+                  <p className="text-xs font-semibold text-slate-700 mt-1">{item.reminderType}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">avg {item.avgTime}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-xl border shadow-sm p-6">

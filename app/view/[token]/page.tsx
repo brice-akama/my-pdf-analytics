@@ -2,11 +2,10 @@
 // app/view/[token]/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Eye, Download, Printer, Lock, Mail, Clock, AlertCircle, Check } from 'lucide-react';
-import { Label } from '@radix-ui/react-dropdown-menu';
-import { Input } from '@/components/ui/input';
+
 import { Button } from '@/components/ui/button';
 
 interface ShareData {
@@ -73,6 +72,14 @@ const [iframeLoading, setIframeLoading] = useState(true);
 const [certificateDrawerOpen, setCertificateDrawerOpen] = useState(false);
 const [certificatePdfUrl, setCertificatePdfUrl] = useState<string | null>(null);
 const [loadingCertificate, setLoadingCertificate] = useState(false);
+const [pdfDoc, setPdfDoc] = useState<any>(null);
+const canvasRef = useRef<HTMLCanvasElement>(null);
+const [contactPopoverOpen, setContactPopoverOpen] = useState(false);
+const [helpPopoverOpen, setHelpPopoverOpen] = useState(false);
+const [containerWidth, setContainerWidth] = useState(800);
+const viewerContainerRef = useRef<HTMLDivElement>(null);
+const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+const scrollContainerRef = useRef<HTMLDivElement>(null);
 const [brandingInfo, setBrandingInfo] = useState<{
   sharedByName?: string | null;
   logoUrl?: string | null;
@@ -86,8 +93,10 @@ const [brandingInfo, setBrandingInfo] = useState<{
   // ✅ Track session start
   useEffect(() => {
     if (shareData?.document) {
-      trackEvent('session_start', {});
-      
+      // Small delay to ensure email state is settled after auth
+      setTimeout(() => {
+        trackEvent('session_start', {});
+      }, 100);
       // Track session end on unmount
       return () => {
         const duration = Math.floor((Date.now() - sessionStartTime) / 1000);
@@ -95,6 +104,43 @@ const [brandingInfo, setBrandingInfo] = useState<{
       };
     }
   }, [shareData?.document]);
+
+
+  // ── Scroll detection to update current page ──────────────────
+useEffect(() => {
+  if (!shareData?.document) return;
+
+  let scrollTimeout: NodeJS.Timeout;
+
+  const handleScroll = () => {
+    clearTimeout(scrollTimeout);
+
+    scrollTimeout = setTimeout(() => {
+      const scrollTop = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      
+      // Calculate which page is currently in view
+      // Approximate: each page is ~1123px tall
+      const pageHeight = 1123;
+      const estimatedPage = Math.floor(scrollTop / pageHeight) + 1;
+      
+      // Clamp between 1 and total pages
+      const newPage = Math.max(1, Math.min(shareData.document!.numPages, estimatedPage));
+      
+      if (newPage !== currentPage) {
+        setCurrentPage(newPage);
+      }
+    }, 100); // Debounce scroll events
+  };
+
+  window.addEventListener('scroll', handleScroll, { passive: true });
+
+  return () => {
+    window.removeEventListener('scroll', handleScroll);
+    clearTimeout(scrollTimeout);
+  };
+}, [shareData?.document, currentPage]);
 
   // Track page changes and time spent per page
 useEffect(() => {
@@ -131,7 +177,7 @@ useEffect(() => {
   if (!shareData?.document) return;
 
   const ping = () => {
-    trackEvent('presence_ping', {});
+    trackEvent('presence_ping', { page: currentPage });
   };
 
   ping(); // immediate first ping
@@ -257,44 +303,8 @@ useEffect(() => {
 }, [shareData?.document, currentPage]);
 
 
-// Track scroll depth and estimate current page
-useEffect(() => {
-  if (!shareData?.document) return;
 
-  const totalPages = shareData.document.numPages || 1;
-  let lastReportedDepths: Set<number> = new Set();
 
-  const handleScroll = () => {
-    const scrollTop = window.scrollY;
-    const docHeight = Math.max(
-      document.documentElement.scrollHeight - window.innerHeight,
-      1
-    );
-    const scrollDepth = Math.round((scrollTop / docHeight) * 100);
-
-    // Estimate page from scroll position
-    const estimatedPage = Math.min(
-      Math.max(Math.ceil((scrollTop / docHeight) * totalPages), 1),
-      totalPages
-    );
-
-    if (estimatedPage !== currentPage) {
-      setCurrentPage(estimatedPage);
-    }
-
-    // Only fire at milestone depths to avoid spam
-    const milestone = [25, 50, 75, 100].find(
-      m => scrollDepth >= m && !lastReportedDepths.has(m)
-    );
-    if (milestone) {
-      lastReportedDepths.add(milestone);
-      trackEvent('scroll', { scrollDepth: milestone, page: estimatedPage });
-    }
-  };
-
-  window.addEventListener('scroll', handleScroll, { passive: true });
-  return () => window.removeEventListener('scroll', handleScroll);
-}, [shareData?.document, currentPage, email]);
 
   // ✅ Track time spent (send every 30 seconds)
   useEffect(() => {
@@ -310,6 +320,29 @@ useEffect(() => {
 
     return () => clearInterval(interval);
   }, [shareData?.document, lastActivityTime]);
+
+  // ── Keyboard navigation ──────────────────────────────────────
+  useEffect(() => {
+    if (!shareData?.document) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') {
+        setCurrentPage(p => {
+          const next = Math.min(shareData.document!.numPages, p + 1);
+          if (next !== p) setIframeLoading(true);
+          return next;
+        });
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+        setCurrentPage(p => {
+          const prev = Math.max(1, p - 1);
+          if (prev !== p) setIframeLoading(true);
+          return prev;
+        });
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [shareData?.document]);
 
   // ✅ Track user activity (reset idle timer)
   useEffect(() => {
@@ -356,15 +389,36 @@ useEffect(() => {
         if (!isNaN(timeSpent) && timeSpent > 0) {
           payload.timeSpent = timeSpent;
         } else {
-          return; // Don't send invalid time data
+          return;
         }
       } else if (event === 'scroll' && data.scrollDepth !== undefined) {
         const scrollDepth = parseFloat(data.scrollDepth);
         if (!isNaN(scrollDepth)) {
           payload.scrollDepth = scrollDepth;
+          if (data.page) payload.page = data.page;
         }
-      } else if (data) {
-        payload.metadata = data;
+      } else if (event === 'intent_signal') {
+        // Spread directly onto payload — track route reads body.signal
+        payload.signal = data.signal;
+        payload.value = data.value || null;
+        payload.pageNum = data.pageNum || currentPage;
+      } else if (event === 'heatmap_click') {
+        payload.x = data.x;
+        payload.y = data.y;
+        payload.pageNum = data.pageNum || currentPage;
+        payload.elementType = data.elementType || 'unknown';
+      } else if (event === 'heatmap_move') {
+        payload.points = data.points;
+        payload.pageNum = data.pageNum || currentPage;
+      } else if (event === 'heatmap_scroll_position') {
+        payload.y = data.y;
+        payload.pageNum = data.pageNum || currentPage;
+        payload.dwellTime = data.dwellTime || 1500;
+      } else if (event === 'presence_ping') {
+        // page already added above
+      } else if (data && Object.keys(data).length > 0) {
+        // fallback for any other events
+        Object.assign(payload, data);
       }
 
       await fetch(`/api/view/${token}/track`, {
@@ -1117,7 +1171,7 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
       )}
       <div>
         <h1 className="font-semibold text-slate-900">
-          {shareData?.document?.filename}
+          
         </h1>
         <p className="text-xs text-slate-500">
           {/* ✅ Show "Shared by CompanyName" instead of generic text */}
@@ -1139,15 +1193,7 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
           Download
         </button>
       )}
-      {shareData?.settings?.allowPrint && (
-        <button
-          onClick={handlePrint}
-          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-2 text-sm"
-        >
-          <Printer className="h-4 w-4" />
-          Print
-        </button>
-      )}
+     
     </div>
   </div>
   
@@ -1183,34 +1229,307 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
           </div>
         )}
 
-        {/* PDF Viewer */}
+{/* PDF Viewer - DocSend style, one page at a time */}
         {shareData?.document?.pdfUrl ? (
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <div
+            className="rounded-xl overflow-hidden shadow-xl"
+            style={{ background: '#1a1a2e' }}
+          >
+            {/* ── Floating nav bar (DocSend style) ── */}
+            <div className="flex items-center justify-between px-5 py-3" style={{ background: '#1a1a2e' }}>
 
-            {/* ⭐ Loading overlay */}
-    {iframeLoading && (
-      <div className="absolute inset-0 bg-white flex items-center justify-center z-10">
-        <div className="text-center">
-          <div className="animate-spin h-12 w-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-slate-600 font-medium">Loading document...</p>
-          <p className="text-slate-500 text-sm mt-2">
-            {shareData.document.numPages} pages • {shareData.document.format?.toUpperCase()}
-          </p>
+              {/* Left: doc name */}
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                {brandingInfo?.logoUrl ? (
+          <img
+            src={brandingInfo.logoUrl}
+            alt={brandingInfo.sharedByName || 'Company'}
+            className="h-7 w-auto object-contain flex-shrink-0"
+            style={{ maxWidth: '100px' }}
+          />
+        ) : (
+          <div
+            className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
+            style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+          >
+            {(brandingInfo?.sharedByName || 'D')[0].toUpperCase()}
+          </div>
+        )}
+        <span className="font-semibold text-sm text-white truncate">
+          {brandingInfo?.sharedByName || 'DocMetrics'}
+        </span>
+              </div>
+
+              {/* Center: ← page X of Y → */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => {
+                    if (currentPage <= 1) return;
+                    setIframeLoading(true);
+                    setCurrentPage(currentPage - 1);
+                  }}
+                  disabled={currentPage === 1}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                  style={{ background: 'rgba(255,255,255,0.08)' }}
+                  onMouseEnter={e => { if (currentPage > 1) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.16)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
+                  aria-label="Previous page"
+                >
+                  <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                {/* Page pill */}
+                <div
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold tabular-nums"
+                  style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}
+                >
+                  <span style={{ color: '#fff' }}>{currentPage}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>/</span>
+                  <span>{shareData.document.numPages}</span>
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (currentPage >= shareData.document!.numPages) return;
+                    setIframeLoading(true);
+                    setCurrentPage(currentPage + 1);
+                  }}
+                  disabled={currentPage === shareData.document.numPages}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+                  style={{ background: 'rgba(255,255,255,0.08)' }}
+                  onMouseEnter={e => { if (currentPage < shareData.document!.numPages) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.16)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
+                  aria-label="Next page"
+                >
+                  <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Right: progress dots */}
+              <div className="flex-1 flex justify-end">
+                <div className="flex items-center gap-1">
+
+                  {/* Message / Contact icon */}
+        <div className="relative">
+          <button
+            onClick={() => { setContactPopoverOpen(v => !v); setHelpPopoverOpen(false); }}
+            className="h-8 w-8 rounded-lg flex items-center justify-center transition-all group relative"
+            style={{ background: contactPopoverOpen ? 'rgba(99,102,241,0.2)' : 'transparent' }}
+            title="Contact"
+          >
+            <svg className="h-4 w-4" style={{ color: contactPopoverOpen ? '#a5b4fc' : 'rgba(255,255,255,0.5)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            {/* Tooltip */}
+            {!contactPopoverOpen && (
+              <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                Contact
+              </span>
+            )}
+          </button>
+
+          {/* Contact popover */}
+          {contactPopoverOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setContactPopoverOpen(false)} />
+              <div
+                className="absolute right-0 top-10 z-50 w-80 rounded-xl shadow-2xl overflow-hidden"
+                style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                {/* Sender info header */}
+                <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    Sent by
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+                    >
+                      {(brandingInfo?.sharedByName || 'D')[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {brandingInfo?.sharedByName || 'DocMetrics'}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                        Document sender
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ask a question form */}
+                <div className="px-5 py-4">
+                  <p className="text-xs font-semibold text-white mb-3">
+                    Ask {brandingInfo?.sharedByName || 'the sender'} a question
+                  </p>
+                  <textarea
+                    placeholder={`Ask ${brandingInfo?.sharedByName || 'the sender'} a question`}
+                    className="w-full rounded-lg px-3 py-2.5 text-sm resize-none outline-none transition-all"
+                    rows={3}
+                    style={{
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: 'white',
+                    }}
+                    onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.5)'; }}
+                    onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                  />
+                  <div className="mt-3 flex items-center justify-between">
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                      Reply via email to: <span style={{ color: '#a5b4fc' }}>{email || 'you'}</span>
+                    </p>
+                    <button
+                      className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all"
+                      style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+                    >
+                      Send
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-      </div>
-    )}
-<iframe
-  src={`${shareData.document.pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
-  className="w-full h-[calc(100vh-200px)] border-0"
-  title={shareData.document.filename}
-  onLoad={() => {
-    setCurrentPage(1);
-    setIframeLoading(false);
-  }}
-  style={{
-    pointerEvents: 'auto',
-  }}
-/>
+
+        {/* Help / ? icon */}
+        <div className="relative">
+          <button
+            onClick={() => { setHelpPopoverOpen(v => !v); setContactPopoverOpen(false); }}
+            className="h-8 w-8 rounded-lg flex items-center justify-center transition-all group relative"
+            style={{ background: helpPopoverOpen ? 'rgba(99,102,241,0.2)' : 'transparent' }}
+            title="About DocMetrics"
+          >
+            <svg className="h-4 w-4" style={{ color: helpPopoverOpen ? '#a5b4fc' : 'rgba(255,255,255,0.5)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {!helpPopoverOpen && (
+              <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                About DocMetrics
+              </span>
+            )}
+          </button>
+
+          {/* Help popover */}
+          {helpPopoverOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setHelpPopoverOpen(false)} />
+              <div
+                className="absolute right-0 top-10 z-50 w-72 rounded-xl shadow-2xl p-5"
+                style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+                  >
+                    <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">DocMetrics</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Secure Document Intelligence</p>
+                  </div>
+                </div>
+                <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  DocMetrics lets professionals share documents securely with full analytics — tracking who viewed what, for how long, and on which page.
+                </p>
+                <a
+                  href="/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-xs font-semibold text-white transition-all"
+                  style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)' }}
+                >
+                  Learn more about DocMetrics
+                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
+            </>
+          )}
+        </div>
+                 
+                  {shareData.document.numPages > 12 && (
+                    <span className="text-xs ml-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      +{shareData.document.numPages - 12}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            {/* ── Page viewer — canvas-based, true page control ── */}
+            <div
+              className="relative w-full flex items-center justify-center"
+              style={{ height: 'calc(100vh - 180px)', background: '#f1f5f9' }}
+            >
+              {/* Loading overlay */}
+              {iframeLoading && (
+                <div className="absolute inset-0 flex items-center justify-center z-10" style={{ background: '#f1f5f9' }}>
+                  <div className="text-center">
+                    <div className="animate-spin h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-3" />
+                    <p className="text-slate-500 text-sm font-medium">
+                      Page {currentPage} of {shareData.document.numPages}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* LEFT arrow */}
+              {currentPage > 1 && (
+                <button
+                  onClick={() => { setIframeLoading(true); setCurrentPage(p => Math.max(1, p - 1)); }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full shadow-lg flex items-center justify-center"
+                  style={{ background: 'rgba(0,0,0,0.45)' }}
+                >
+                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              )}
+
+              {/* RIGHT arrow */}
+              {currentPage < shareData.document.numPages && (
+                <button
+                  onClick={() => { setIframeLoading(true); setCurrentPage(p => Math.min(shareData.document!.numPages, p + 1)); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full shadow-lg flex items-center justify-center"
+                  style={{ background: 'rgba(0,0,0,0.45)' }}
+                >
+                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              )}
+
+              <iframe
+                key={currentPage}
+                src={`${shareData.document.pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&page=${currentPage}`}
+                className="w-full h-full border-0"
+                title={`${shareData.document.filename} - Page ${currentPage}`}
+                onLoad={() => setIframeLoading(false)}
+              />
+            </div>
+
+            {/* ── Bottom progress bar ── */}
+            <div className="h-1 w-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <div
+                className="h-full transition-all duration-300"
+                style={{
+                  width: `${(currentPage / shareData.document.numPages) * 100}%`,
+                  background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+                }}
+              />
+            </div>
+
           </div>
         ) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">

@@ -28,42 +28,120 @@ export async function GET(
     const analyticsData = document.analytics || {};
 
     // ── Core views ──────────────────────────────────────────────
-    const views = await db.collection('document_views')
-      .find({ documentId })
-      .sort({ viewedAt: -1 })
-      .toArray();
+// Step 1: Get ALL sessions first (needed for totalViews calculation)
+const allSessions = await db.collection('analytics_sessions')
+  .find({ documentId: id })
+  .toArray();
 
-    const totalViews = tracking.views || views.length;
-    const uniqueViewerSet = new Set(views.map(v => v.viewerEmail || v.viewerIp));
-    const uniqueViewers = tracking.uniqueVisitors?.length || uniqueViewerSet.size;
+// Step 2: Get views from BOTH sources for backward compatibility
+const oldViews = await db.collection('document_views')
+  .find({ documentId })
+  .sort({ viewedAt: -1 })
+  .toArray();
 
-    const averageTimeSeconds = tracking.averageViewTime ||
-      Math.round(views.reduce((sum, v) => sum + (v.timeSpent || 0), 0) / (views.length || 1));
+// Step 3: Get modern analytics logs
+const analyticsLogs = await db.collection('analytics_logs')
+  .find({ 
+    documentId: id,
+    action: { $in: ['document_viewed', 'page_view'] }
+  })
+  .toArray();
 
-    const completedViews = views.filter(v => v.pagesViewed >= document.numPages).length;
-    const completionRate = totalViews ? Math.round((completedViews / totalViews) * 100) : 0;
+// Step 4: Combine both sources for totalViews
+const totalViews = Math.max(
+  tracking.views || 0,
+  oldViews.length,
+  analyticsLogs.filter((l: any) => l.action === 'document_viewed').length,
+  allSessions.length // Now it's safe to use allSessions
+);
 
-    // ── Views by last 7 days ─────────────────────────────────────
-    const today = new Date();
-    const viewsByDate = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() - (6 - i));
-      const start = new Date(date.setHours(0, 0, 0, 0));
-      const end = new Date(date.setHours(23, 59, 59, 999));
-      const count = views.filter(v => {
-        const viewedAt = new Date(v.viewedAt);
-        return viewedAt >= start && viewedAt <= end;
-      }).length;
-      return { date: `${date.getMonth() + 1}/${date.getDate()}`, views: count };
-    });
+// Step 5: Get unique viewers from multiple sources
+const uniqueViewerEmails = new Set<string>();
 
-    // ── Shares & downloads ───────────────────────────────────────
-    const shares = await db.collection('shares')
-      .find({ documentId })
-      .toArray();
+// From old views
+oldViews.forEach((v: any) => {
+  if (v.viewerEmail) uniqueViewerEmails.add(v.viewerEmail);
+  else if (v.viewerId) uniqueViewerEmails.add(v.viewerId);
+});
 
-    const totalShares = tracking.shares || shares.length;
-    const downloads = tracking.downloads || views.filter(v => v.downloaded).length;
+// From analytics logs
+analyticsLogs.forEach((l: any) => {
+  if (l.email) uniqueViewerEmails.add(l.email);
+  else if (l.viewerId) uniqueViewerEmails.add(l.viewerId);
+});
+
+// From sessions
+allSessions.forEach((s: any) => {
+  if (s.email) uniqueViewerEmails.add(s.email);
+  else if (s.viewerId) uniqueViewerEmails.add(s.viewerId);
+});
+
+const uniqueViewers = Math.max(
+  tracking.uniqueVisitors?.length || 0,
+  uniqueViewerEmails.size
+);
+
+// Step 6: Calculate average time (use both old and new data)
+// Step 6: Calculate average time from ALL sources
+const totalTimeFromOldViews = oldViews.reduce(
+  (sum: number, v: any) => sum + (v.timeSpent || 0), 
+  0
+);
+
+const totalTimeFromLogs = analyticsLogs
+  .filter((l: any) => l.action === 'page_view')
+  .reduce((sum: number, l: any) => sum + (l.viewTime || 0), 0);
+
+const totalTimeFromSessions = allSessions.reduce(
+  (sum: number, s: any) => sum + (s.duration || 0),
+  0
+);
+
+// Use the best available source
+const averageTimeSeconds = 
+  tracking.averageViewTime || 
+  (totalTimeFromSessions > 0 
+    ? Math.round(totalTimeFromSessions / allSessions.length)
+    : totalTimeFromLogs > 0
+    ? Math.round(totalTimeFromLogs / analyticsLogs.filter((l: any) => l.action === 'page_view').length)
+    : Math.round(totalTimeFromOldViews / (oldViews.length || 1))
+  );
+
+// Step 7: Calculate completion rate
+const completedViews = oldViews.filter((v: any) => v.pagesViewed >= document.numPages).length;
+const completionRate = totalViews ? Math.round((completedViews / totalViews) * 100) : 0;
+
+// ── Views by last 7 days ─────────────────────────────────────
+const today = new Date();
+const viewsByDate = Array.from({ length: 7 }, (_, i) => {
+  const date = new Date(today);
+  date.setDate(today.getDate() - (6 - i));
+  const start = new Date(date.setHours(0, 0, 0, 0));
+  const end = new Date(date.setHours(23, 59, 59, 999));
+  
+  // Count from both sources
+  const oldViewsCount = oldViews.filter((v: any) => {
+    const viewedAt = new Date(v.viewedAt);
+    return viewedAt >= start && viewedAt <= end;
+  }).length;
+  
+  const newLogsCount = analyticsLogs.filter((l: any) => {
+    const logTime = new Date(l.timestamp);
+    return logTime >= start && logTime <= end && l.action === 'document_viewed';
+  }).length;
+  
+  const count = Math.max(oldViewsCount, newLogsCount);
+  
+  return { date: `${date.getMonth() + 1}/${date.getDate()}`, views: count };
+});
+
+// ── Shares & downloads ───────────────────────────────────────
+const shares = await db.collection('shares')
+  .find({ documentId })
+  .toArray();
+
+const totalShares = tracking.shares || shares.length;
+const downloads = tracking.downloads || oldViews.filter((v: any) => v.downloaded).length;
 
     // ── Page engagement (aggregate) ──────────────────────────────
     const pageEngagement = await Promise.all(
@@ -168,9 +246,7 @@ export async function GET(
 
 
     // ── Revisit analytics ────────────────────────────────────────
-const allSessions = await db.collection('analytics_sessions')
-  .find({ documentId: id })
-  .toArray();
+
 
 const revisitData = {
   totalSessions: allSessions.length,
@@ -389,9 +465,9 @@ const realTimeViewers = liveViewers.map((v: any) => ({
       }));
 
     // ── Device & location breakdown ──────────────────────────────
-    const deviceCounts = { desktop: 0, mobile: 0, tablet: 0 };
+   const deviceCounts = { desktop: 0, mobile: 0, tablet: 0 };
     type DeviceType = 'desktop' | 'mobile' | 'tablet';
-    views.forEach(v => {
+    oldViews.forEach((v: any) => {
       if (v.device && deviceCounts[v.device as DeviceType] !== undefined) {
         deviceCounts[v.device as DeviceType]++;
       }
@@ -404,7 +480,7 @@ const realTimeViewers = liveViewers.map((v: any) => ({
     );
 
     const locationMap = new Map<string, number>();
-    views.forEach(v =>
+    oldViews.forEach((v: any) =>
       locationMap.set(v.country || 'Unknown', (locationMap.get(v.country || 'Unknown') || 0) + 1)
     );
     const locations = Array.from(locationMap.entries())
@@ -664,8 +740,8 @@ const realTimeViewers = liveViewers.map((v: any) => ({
     // Signal 2: No re-engagement after 14+ days
     const lastActivity = tracking.lastViewed
       ? new Date(tracking.lastViewed)
-      : views[0]?.viewedAt
-      ? new Date(views[0].viewedAt)
+      : oldViews[0]?.viewedAt
+      ? new Date(oldViews[0].viewedAt)
       : null;
 
     if (lastActivity) {

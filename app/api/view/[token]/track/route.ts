@@ -132,6 +132,111 @@ export async function POST(
     // ── Route events ─────────────────────────────────────────────
     switch (event) {
 
+      // ── HEATMAP CLICK ─────────────────────────────────────────
+      case 'heatmap_click': {
+        const { x, y, pageNum, elementType } = body;
+        if (x === undefined || y === undefined) break;
+        await db.collection('heatmap_events').insertOne({
+          documentId,
+          shareToken: token,
+          type: 'click',
+          x: parseFloat(x),
+          y: parseFloat(y),
+          page: pageNum || page || 1,
+          elementType: elementType || 'unknown',
+          viewerId,
+          sessionId: currentSessionId,
+          email: email || null,
+          timestamp: now,
+        });
+        break;
+      }
+
+      // ── HEATMAP MOUSE MOVE ────────────────────────────────────
+      case 'heatmap_move': {
+        const { points, pageNum } = body;
+        if (!points || !Array.isArray(points) || points.length === 0) break;
+        await db.collection('heatmap_events').insertOne({
+          documentId,
+          shareToken: token,
+          type: 'move',
+          points: points.slice(0, 200),
+          page: pageNum || page || 1,
+          viewerId,
+          sessionId: currentSessionId,
+          email: email || null,
+          timestamp: now,
+        });
+        break;
+      }
+
+      // ── HEATMAP SCROLL STOP ───────────────────────────────────
+      case 'heatmap_scroll_position': {
+        const { y, pageNum, dwellTime } = body;
+        if (y === undefined) break;
+        await db.collection('heatmap_events').insertOne({
+          documentId,
+          shareToken: token,
+          type: 'scroll_stop',
+          y: parseFloat(y),
+          page: pageNum || page || 1,
+          dwellTime: dwellTime || 1500,
+          viewerId,
+          sessionId: currentSessionId,
+          email: email || null,
+          timestamp: now,
+        });
+        break;
+      }
+
+      // ── INTENT SIGNAL ─────────────────────────────────────────
+      case 'intent_signal': {
+        const { signal, value, pageNum } = body;
+        if (!signal) break;
+
+        const intentWeights: Record<string, number> = {
+          copy_attempt: 10,
+          text_selected: 5,
+          tab_hidden: 2,
+          tab_visible: 1,
+          zoom_in: 4,
+          signature_hover: 8,
+        };
+        const weight = intentWeights[signal] || 1;
+
+        await db.collection('intent_signals').insertOne({
+          documentId,
+          shareToken: token,
+          signal,
+          value: value || null,
+          page: pageNum || page || 1,
+          viewerId,
+          sessionId: currentSessionId,
+          email: email || null,
+          weight,
+          timestamp: now,
+        });
+
+        // Update intent score on viewer_identities
+        await db.collection('viewer_identities').updateOne(
+          { viewerId, documentId },
+          {
+            $inc: { intentScore: weight },
+            $push: {
+              intentSignals: {
+                signal,
+                value: value || null,
+                page: pageNum || page || 1,
+                timestamp: now,
+              },
+            } as any,
+            $set: { lastSeen: now, email: email || null },
+          },
+          { upsert: true }
+        );
+        break;
+      }
+
      // ── PAGE VIEW ──────────────────────────────────────────────
       case 'page_view': {
         if (!page || isNaN(page)) break;
