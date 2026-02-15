@@ -5,6 +5,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Eye, Download, Printer, Lock, Mail, Clock, AlertCircle, Check } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+import 'pdfjs-dist/build/pdf.worker.entry';
 
 import { Button } from '@/components/ui/button';
 
@@ -80,6 +82,9 @@ const [containerWidth, setContainerWidth] = useState(800);
 const viewerContainerRef = useRef<HTMLDivElement>(null);
 const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 const scrollContainerRef = useRef<HTMLDivElement>(null);
+const [pdfDocument, setPdfDocument] = useState<any>(null);
+const [scale, setScale] = useState(1.0);
+const pageCanvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
 const [brandingInfo, setBrandingInfo] = useState<{
   sharedByName?: string | null;
   logoUrl?: string | null;
@@ -1155,57 +1160,7 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
     </div>
   </>
 )}
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-  <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-    <div className="flex items-center gap-3">
-      {/* ✅ Show company logo if provided */}
-      {brandingInfo?.logoUrl ? (
-        <img 
-          src={brandingInfo.logoUrl} 
-          alt={brandingInfo.sharedByName || 'Company logo'} 
-          className="h-8 w-auto max-w-[120px] object-contain"
-        />
-      ) : (
-        <Eye className="h-6 w-6 text-purple-600" />
-      )}
-      <div>
-        <h1 className="font-semibold text-slate-900">
-          
-        </h1>
-        <p className="text-xs text-slate-500">
-          {/* ✅ Show "Shared by CompanyName" instead of generic text */}
-          {brandingInfo?.sharedByName 
-            ? `Shared by ${brandingInfo.sharedByName}` 
-            : `${shareData?.document?.numPages} pages · ${shareData?.document?.format?.toUpperCase()}`
-          }
-        </p>
-      </div>
-    </div>
-
-    <div className="flex items-center gap-2">
-      {shareData?.settings?.allowDownload && (
-        <button
-          onClick={handleDownload}
-          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-2 text-sm"
-        >
-          <Download className="h-4 w-4" />
-          Download
-        </button>
-      )}
      
-    </div>
-  </div>
-  
-  {/* ✅ Branding bar - shows company name prominently */}
-  {brandingInfo?.sharedByName && (
-    <div className="bg-gradient-to-r from-purple-50 to-blue-50 border-t px-4 py-2">
-      <p className="text-xs text-center text-slate-600">
-        📄 This document was shared by <strong>{brandingInfo.sharedByName}</strong>
-      </p>
-    </div>
-  )}
-</header>
 
       {/* Document Viewer */}
       <main className="max-w-5xl mx-auto px-4 py-8">
@@ -1230,314 +1185,285 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
         )}
 
 {/* PDF Viewer - DocSend style, one page at a time */}
-        {shareData?.document?.pdfUrl ? (
-          <div
-            className="rounded-xl overflow-hidden shadow-xl"
-            style={{ background: '#1a1a2e' }}
-          >
-            {/* ── Floating nav bar (DocSend style) ── */}
-            <div className="flex items-center justify-between px-5 py-3" style={{ background: '#1a1a2e' }}>
-
-              {/* Left: doc name */}
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                {brandingInfo?.logoUrl ? (
-          <img
-            src={brandingInfo.logoUrl}
-            alt={brandingInfo.sharedByName || 'Company'}
-            className="h-7 w-auto object-contain flex-shrink-0"
-            style={{ maxWidth: '100px' }}
-          />
-        ) : (
-          <div
-            className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
-          >
-            {(brandingInfo?.sharedByName || 'D')[0].toUpperCase()}
-          </div>
-        )}
-        <span className="font-semibold text-sm text-white truncate">
-          {brandingInfo?.sharedByName || 'DocMetrics'}
-        </span>
-              </div>
-
-              {/* Center: ← page X of Y → */}
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <button
-                  onClick={() => {
-                    if (currentPage <= 1) return;
-                    setIframeLoading(true);
-                    setCurrentPage(currentPage - 1);
-                  }}
-                  disabled={currentPage === 1}
-                  className="h-8 w-8 rounded-lg flex items-center justify-center transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-                  style={{ background: 'rgba(255,255,255,0.08)' }}
-                  onMouseEnter={e => { if (currentPage > 1) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.16)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
-                  aria-label="Previous page"
-                >
-                  <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-
-                {/* Page pill */}
-                <div
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold tabular-nums"
-                  style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}
-                >
-                  <span style={{ color: '#fff' }}>{currentPage}</span>
-                  <span style={{ color: 'rgba(255,255,255,0.3)' }}>/</span>
-                  <span>{shareData.document.numPages}</span>
-                </div>
-
-                <button
-                  onClick={() => {
-                    if (currentPage >= shareData.document!.numPages) return;
-                    setIframeLoading(true);
-                    setCurrentPage(currentPage + 1);
-                  }}
-                  disabled={currentPage === shareData.document.numPages}
-                  className="h-8 w-8 rounded-lg flex items-center justify-center transition-all disabled:opacity-25 disabled:cursor-not-allowed"
-                  style={{ background: 'rgba(255,255,255,0.08)' }}
-                  onMouseEnter={e => { if (currentPage < shareData.document!.numPages) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.16)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
-                  aria-label="Next page"
-                >
-                  <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Right: progress dots */}
-              <div className="flex-1 flex justify-end">
-                <div className="flex items-center gap-1">
-
-                  {/* Message / Contact icon */}
-        <div className="relative">
-          <button
-            onClick={() => { setContactPopoverOpen(v => !v); setHelpPopoverOpen(false); }}
-            className="h-8 w-8 rounded-lg flex items-center justify-center transition-all group relative"
-            style={{ background: contactPopoverOpen ? 'rgba(99,102,241,0.2)' : 'transparent' }}
-            title="Contact"
-          >
-            <svg className="h-4 w-4" style={{ color: contactPopoverOpen ? '#a5b4fc' : 'rgba(255,255,255,0.5)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            {/* Tooltip */}
-            {!contactPopoverOpen && (
-              <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                Contact
-              </span>
-            )}
-          </button>
-
-          {/* Contact popover */}
-          {contactPopoverOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setContactPopoverOpen(false)} />
-              <div
-                className="absolute right-0 top-10 z-50 w-80 rounded-xl shadow-2xl overflow-hidden"
-                style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}
-              >
-                {/* Sender info header */}
-                <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                    Sent by
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
-                    >
-                      {(brandingInfo?.sharedByName || 'D')[0].toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        {brandingInfo?.sharedByName || 'DocMetrics'}
-                      </p>
-                      <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                        Document sender
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Ask a question form */}
-                <div className="px-5 py-4">
-                  <p className="text-xs font-semibold text-white mb-3">
-                    Ask {brandingInfo?.sharedByName || 'the sender'} a question
-                  </p>
-                  <textarea
-                    placeholder={`Ask ${brandingInfo?.sharedByName || 'the sender'} a question`}
-                    className="w-full rounded-lg px-3 py-2.5 text-sm resize-none outline-none transition-all"
-                    rows={3}
-                    style={{
-                      background: 'rgba(255,255,255,0.05)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: 'white',
-                    }}
-                    onFocus={e => { e.target.style.borderColor = 'rgba(99,102,241,0.5)'; }}
-                    onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                  />
-                  <div className="mt-3 flex items-center justify-between">
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                      Reply via email to: <span style={{ color: '#a5b4fc' }}>{email || 'you'}</span>
-                    </p>
-                    <button
-                      className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all"
-                      style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
-                    >
-                      Send
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Help / ? icon */}
-        <div className="relative">
-          <button
-            onClick={() => { setHelpPopoverOpen(v => !v); setContactPopoverOpen(false); }}
-            className="h-8 w-8 rounded-lg flex items-center justify-center transition-all group relative"
-            style={{ background: helpPopoverOpen ? 'rgba(99,102,241,0.2)' : 'transparent' }}
-            title="About DocMetrics"
-          >
-            <svg className="h-4 w-4" style={{ color: helpPopoverOpen ? '#a5b4fc' : 'rgba(255,255,255,0.5)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {!helpPopoverOpen && (
-              <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                About DocMetrics
-              </span>
-            )}
-          </button>
-
-          {/* Help popover */}
-          {helpPopoverOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setHelpPopoverOpen(false)} />
-              <div
-                className="absolute right-0 top-10 z-50 w-72 rounded-xl shadow-2xl p-5"
-                style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div
-                    className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
-                  >
-                    <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">DocMetrics</p>
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Secure Document Intelligence</p>
-                  </div>
-                </div>
-                <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  DocMetrics lets professionals share documents securely with full analytics — tracking who viewed what, for how long, and on which page.
-                </p>
-                <a
-                  href="/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-xs font-semibold text-white transition-all"
-                  style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)' }}
-                >
-                  Learn more about DocMetrics
-                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-              </div>
-            </>
-          )}
-        </div>
-                 
-                  {shareData.document.numPages > 12 && (
-                    <span className="text-xs ml-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                      +{shareData.document.numPages - 12}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-            </div>
-
-            {/* ── Page viewer — canvas-based, true page control ── */}
+        {/* PDF Viewer - Full Width Professional */}
+{shareData?.document?.pdfUrl ? (
+  <div className="fixed inset-0 bg-slate-900">
+    {/* ── Full-Width Top Navigation Bar ── */}
+    <div className="w-full bg-[#1a1a2e] border-b border-white/10">
+      <div className="flex items-center justify-between px-6 py-3">
+        {/* Left: Branding */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {brandingInfo?.logoUrl ? (
+            <img
+              src={brandingInfo.logoUrl}
+              alt={brandingInfo.sharedByName || 'Company'}
+              className="h-8 w-auto object-contain flex-shrink-0"
+              style={{ maxWidth: '120px' }}
+            />
+          ) : (
             <div
-              className="relative w-full flex items-center justify-center"
-              style={{ height: 'calc(100vh - 180px)', background: '#f1f5f9' }}
+              className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
             >
-              {/* Loading overlay */}
-              {iframeLoading && (
-                <div className="absolute inset-0 flex items-center justify-center z-10" style={{ background: '#f1f5f9' }}>
-                  <div className="text-center">
-                    <div className="animate-spin h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-3" />
-                    <p className="text-slate-500 text-sm font-medium">
-                      Page {currentPage} of {shareData.document.numPages}
-                    </p>
+              {(brandingInfo?.sharedByName || 'D')[0].toUpperCase()}
+            </div>
+          )}
+          <span className="font-semibold text-white truncate">
+            {brandingInfo?.sharedByName || 'DocMetrics'}
+          </span>
+        </div>
+
+        {/* Center: Page Navigation */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Previous Button */}
+          <button
+            onClick={() => {
+              if (currentPage > 1) {
+                setIframeLoading(true);
+                setCurrentPage(currentPage - 1);
+              }
+            }}
+            disabled={currentPage === 1}
+            className="h-9 w-9 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10"
+            style={{ background: 'rgba(255,255,255,0.05)' }}
+          >
+            <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          {/* Page Counter */}
+<div
+  className="flex items-center gap-2 px-5 py-2 rounded-lg text-base font-semibold tabular-nums"
+  style={{ 
+    background: 'rgba(99,102,241,0.15)', 
+    border: '1px solid rgba(99,102,241,0.3)' 
+  }}
+>
+  <span className="text-white">{currentPage}</span>
+  <span className="text-white/30">/</span>
+  <span className="text-indigo-300">{shareData.document?.numPages || 0}</span>
+</div>
+
+{/* Next Button */}
+<button
+  onClick={() => {
+    if (currentPage < (shareData.document?.numPages || 0)) {
+      setIframeLoading(true);
+      setCurrentPage(currentPage + 1);
+    }
+  }}
+  disabled={currentPage === (shareData.document?.numPages || 0)}
+  className="h-9 w-9 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10"
+  style={{ background: 'rgba(255,255,255,0.05)' }}
+>
+            <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Right: Tools */}
+        <div className="flex-1 flex justify-end">
+          <div className="flex items-center gap-2">
+            {/* Zoom Out */}
+            <button
+              onClick={() => {
+                const iframe = document.querySelector('iframe');
+                if (iframe) {
+                  const currentScale = parseFloat(iframe.style.transform?.match(/scale\(([^)]+)\)/)?.[1] || '1');
+                  const newScale = Math.max(0.5, currentScale - 0.1);
+                  iframe.style.transform = `scale(${newScale})`;
+                  iframe.style.transformOrigin = 'top center';
+                }
+              }}
+              className="h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-white/10 group relative"
+              title="Zoom Out"
+            >
+              <svg className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+              </svg>
+              <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                Zoom Out
+              </span>
+            </button>
+
+            {/* Zoom In */}
+            <button
+              onClick={() => {
+                const iframe = document.querySelector('iframe');
+                if (iframe) {
+                  const currentScale = parseFloat(iframe.style.transform?.match(/scale\(([^)]+)\)/)?.[1] || '1');
+                  const newScale = Math.min(2, currentScale + 0.1);
+                  iframe.style.transform = `scale(${newScale})`;
+                  iframe.style.transformOrigin = 'top center';
+                }
+              }}
+              className="h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-white/10 group relative"
+              title="Zoom In"
+            >
+              <svg className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+              </svg>
+              <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                Zoom In
+              </span>
+            </button>
+
+            {/* Divider */}
+            <div className="h-6 w-px bg-white/10 mx-1" />
+
+            {/* Download Button */}
+            {shareData?.settings?.allowDownload && (
+              <button
+                onClick={handleDownload}
+                className="h-9 px-4 rounded-lg flex items-center gap-2 transition-all hover:bg-white/10 group"
+              >
+                <Download className="h-4 w-4 text-white/70 group-hover:text-white transition-colors" />
+                <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors">
+                  Download
+                </span>
+              </button>
+            )}
+
+            {/* Contact Icon */}
+            <div className="relative">
+              <button
+                onClick={() => { setContactPopoverOpen(v => !v); setHelpPopoverOpen(false); }}
+                className="h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-white/10 group relative"
+                style={{ background: contactPopoverOpen ? 'rgba(99,102,241,0.2)' : 'transparent' }}
+              >
+                <svg className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                {!contactPopoverOpen && (
+                  <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    Contact
+                  </span>
+                )}
+              </button>
+
+              {/* Contact Popover */}
+              {contactPopoverOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setContactPopoverOpen(false)} />
+                  <div className="absolute right-0 top-12 z-50 w-80 rounded-xl shadow-2xl overflow-hidden" style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>Sent by</p>
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                          {(brandingInfo?.sharedByName || 'D')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">{brandingInfo?.sharedByName || 'DocMetrics'}</p>
+                          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>Document sender</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="px-5 py-4">
+                      <p className="text-xs font-semibold text-white mb-3">Ask {brandingInfo?.sharedByName || 'the sender'} a question</p>
+                      <textarea placeholder={`Ask ${brandingInfo?.sharedByName || 'the sender'} a question`} className="w-full rounded-lg px-3 py-2.5 text-sm resize-none outline-none transition-all" rows={3} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
+                      <div className="mt-3 flex items-center justify-between">
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Reply to: <span style={{ color: '#a5b4fc' }}>{email || 'you'}</span></p>
+                        <button className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>Send</button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
-
-              {/* LEFT arrow */}
-              {currentPage > 1 && (
-                <button
-                  onClick={() => { setIframeLoading(true); setCurrentPage(p => Math.max(1, p - 1)); }}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full shadow-lg flex items-center justify-center"
-                  style={{ background: 'rgba(0,0,0,0.45)' }}
-                >
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-              )}
-
-              {/* RIGHT arrow */}
-              {currentPage < shareData.document.numPages && (
-                <button
-                  onClick={() => { setIframeLoading(true); setCurrentPage(p => Math.min(shareData.document!.numPages, p + 1)); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-12 w-12 rounded-full shadow-lg flex items-center justify-center"
-                  style={{ background: 'rgba(0,0,0,0.45)' }}
-                >
-                  <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              )}
-
-              <iframe
-                key={currentPage}
-                src={`${shareData.document.pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&page=${currentPage}`}
-                className="w-full h-full border-0"
-                title={`${shareData.document.filename} - Page ${currentPage}`}
-                onLoad={() => setIframeLoading(false)}
-              />
             </div>
 
-            {/* ── Bottom progress bar ── */}
-            <div className="h-1 w-full" style={{ background: 'rgba(255,255,255,0.08)' }}>
-              <div
-                className="h-full transition-all duration-300"
-                style={{
-                  width: `${(currentPage / shareData.document.numPages) * 100}%`,
-                  background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
-                }}
-              />
-            </div>
+            {/* Help Icon */}
+            <div className="relative">
+              <button
+                onClick={() => { setHelpPopoverOpen(v => !v); setContactPopoverOpen(false); }}
+                className="h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-white/10 group relative"
+                style={{ background: helpPopoverOpen ? 'rgba(99,102,241,0.2)' : 'transparent' }}
+              >
+                <svg className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {!helpPopoverOpen && (
+                  <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    Help
+                  </span>
+                )}
+              </button>
 
+              {helpPopoverOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setHelpPopoverOpen(false)} />
+                  <div className="absolute right-0 top-12 z-50 w-72 rounded-xl shadow-2xl p-5" style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                        <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">DocMetrics</p>
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Secure Document Intelligence</p>
+                      </div>
+                    </div>
+                    <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.55)' }}>DocMetrics lets professionals share documents securely with full analytics.</p>
+                    <a href="/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-xs font-semibold text-white transition-all" style={{ background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.3)' }}>
+                      Learn more
+                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        ) : (
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="h-1 w-full bg-white/5">
+        <div
+          className="h-full transition-all duration-300"
+          style={{
+            width: `${(currentPage / shareData.document.numPages) * 100}%`,
+            background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+          }}
+        />
+      </div>
+    </div>
+
+    {/* PDF Viewer */}
+    <div className="relative w-full h-[calc(100vh-57px)] bg-slate-800">
+      {/* Loading Overlay */}
+      {iframeLoading && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-slate-800">
+          <div className="text-center">
+            <div className="animate-spin h-12 w-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4" />
+            <p className="text-white text-sm font-medium">
+              Loading page {currentPage} of {shareData.document.numPages}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* PDF Iframe */}
+      <iframe
+        key={currentPage}
+        src={`${shareData.document.pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&page=${currentPage}`}
+        className="w-full h-full border-0"
+        title={`${shareData.document.filename} - Page ${currentPage}`}
+        onLoad={() => setIframeLoading(false)}
+      />
+    </div>
+  </div>
+) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
             <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-4" />
             <h3 className="font-semibold text-yellow-900 mb-2">Document URL Not Available</h3>
             <p className="text-sm text-yellow-700 mb-4">
               The PDF URL is missing. This might be a storage configuration issue.
             </p>
+          
             <details className="text-left bg-white rounded p-4 text-xs">
               <summary className="font-medium cursor-pointer">Debug Info</summary>
               <pre className="mt-2 overflow-auto">
