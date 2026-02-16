@@ -1,5 +1,4 @@
 // app/view/[token]/page.tsx
-// app/view/[token]/page.tsx
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -85,6 +84,7 @@ const scrollContainerRef = useRef<HTMLDivElement>(null);
 const [pdfDocument, setPdfDocument] = useState<any>(null);
 const [scale, setScale] = useState(1.0);
 const pageCanvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
+const [zoomScale, setZoomScale] = useState(1.0);
 const [brandingInfo, setBrandingInfo] = useState<{
   sharedByName?: string | null;
   logoUrl?: string | null;
@@ -326,28 +326,39 @@ useEffect(() => {
     return () => clearInterval(interval);
   }, [shareData?.document, lastActivityTime]);
 
-  // ── Keyboard navigation ──────────────────────────────────────
-  useEffect(() => {
-    if (!shareData?.document) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') {
-        setCurrentPage(p => {
-          const next = Math.min(shareData.document!.numPages, p + 1);
-          if (next !== p) setIframeLoading(true);
-          return next;
-        });
-      }
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
-        setCurrentPage(p => {
-          const prev = Math.max(1, p - 1);
-          if (prev !== p) setIframeLoading(true);
-          return prev;
-        });
-      }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [shareData?.document]);
+// ── Keyboard navigation ──────────────────────────────────────
+useEffect(() => {
+  if (!shareData?.document) return;
+
+  const handleKey = (e: KeyboardEvent) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      container.scrollBy({ top: 120, behavior: 'smooth' });
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      container.scrollBy({ top: -120, behavior: 'smooth' });
+    }
+    if (e.key === 'PageDown') {
+      e.preventDefault();
+      const next = Math.min(shareData.document!.numPages, currentPage + 1);
+      const el = document.getElementById(`page-${next}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    if (e.key === 'PageUp') {
+      e.preventDefault();
+      const prev = Math.max(1, currentPage - 1);
+      const el = document.getElementById(`page-${prev}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  window.addEventListener('keydown', handleKey);
+  return () => window.removeEventListener('keydown', handleKey);
+}, [shareData?.document, currentPage]);
 
   // ✅ Track user activity (reset idle timer)
   useEffect(() => {
@@ -1218,11 +1229,12 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
           {/* Previous Button */}
           <button
             onClick={() => {
-              if (currentPage > 1) {
-                setIframeLoading(true);
-                setCurrentPage(currentPage - 1);
-              }
-            }}
+  if (currentPage > 1) {
+    const prev = currentPage - 1;
+    document.getElementById(`page-${prev}`)?.scrollIntoView({ behavior: 'smooth' });
+    setCurrentPage(prev);
+  }
+}}
             disabled={currentPage === 1}
             className="h-9 w-9 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10"
             style={{ background: 'rgba(255,255,255,0.05)' }}
@@ -1248,11 +1260,12 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
 {/* Next Button */}
 <button
   onClick={() => {
-    if (currentPage < (shareData.document?.numPages || 0)) {
-      setIframeLoading(true);
-      setCurrentPage(currentPage + 1);
-    }
-  }}
+  if (currentPage < (shareData.document?.numPages || 0)) {
+    const next = currentPage + 1;
+    document.getElementById(`page-${next}`)?.scrollIntoView({ behavior: 'smooth' });
+    setCurrentPage(next);
+  }
+}}
   disabled={currentPage === (shareData.document?.numPages || 0)}
   className="h-9 w-9 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10"
   style={{ background: 'rgba(255,255,255,0.05)' }}
@@ -1268,47 +1281,25 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
           <div className="flex items-center gap-2">
             {/* Zoom Out */}
             <button
-              onClick={() => {
-                const iframe = document.querySelector('iframe');
-                if (iframe) {
-                  const currentScale = parseFloat(iframe.style.transform?.match(/scale\(([^)]+)\)/)?.[1] || '1');
-                  const newScale = Math.max(0.5, currentScale - 0.1);
-                  iframe.style.transform = `scale(${newScale})`;
-                  iframe.style.transformOrigin = 'top center';
-                }
-              }}
-              className="h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-white/10 group relative"
-              title="Zoom Out"
-            >
-              <svg className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
-              </svg>
-              <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                Zoom Out
-              </span>
-            </button>
+  onClick={() => setZoomScale(s => Math.max(0.5, parseFloat((s - 0.15).toFixed(2))))}
+  className="h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-white/10 group relative"
+>
+  <svg className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+  </svg>
+  <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">Zoom Out</span>
+</button>
 
             {/* Zoom In */}
-            <button
-              onClick={() => {
-                const iframe = document.querySelector('iframe');
-                if (iframe) {
-                  const currentScale = parseFloat(iframe.style.transform?.match(/scale\(([^)]+)\)/)?.[1] || '1');
-                  const newScale = Math.min(2, currentScale + 0.1);
-                  iframe.style.transform = `scale(${newScale})`;
-                  iframe.style.transformOrigin = 'top center';
-                }
-              }}
-              className="h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-white/10 group relative"
-              title="Zoom In"
-            >
-              <svg className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-              </svg>
-              <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                Zoom In
-              </span>
-            </button>
+           <button
+  onClick={() => setZoomScale(s => Math.min(2.5, parseFloat((s + 0.15).toFixed(2))))}
+  className="h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-white/10 group relative"
+>
+  <svg className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+  </svg>
+  <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">Zoom In</span>
+</button>
 
             {/* Divider */}
             <div className="h-6 w-px bg-white/10 mx-1" />
@@ -1433,28 +1424,30 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
     </div>
 
     {/* PDF Viewer */}
-    <div className="relative w-full h-[calc(100vh-57px)] bg-slate-800">
-      {/* Loading Overlay */}
-      {iframeLoading && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-slate-800">
-          <div className="text-center">
-            <div className="animate-spin h-12 w-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4" />
-            <p className="text-white text-sm font-medium">
-              Loading page {currentPage} of {shareData.document.numPages}
-            </p>
-          </div>
-        </div>
-      )}
+    {/* PDF Viewer — Scrollable multi-page with lazy loading */}
+<div
+  ref={scrollContainerRef}
+  className="w-full bg-slate-800 overflow-y-auto"
+  style={{ 
+    height: 'calc(100vh - 57px)',
+    scrollbarWidth: 'none', // Firefox
+    msOverflowStyle: 'none', // IE
+  }}
+>
+  <div className="flex flex-col items-center py-4 gap-4" style={{ overflow: 'hidden' }}>
+    {Array.from({ length: shareData.document!.numPages }, (_, i) => i + 1).map((pageNum) => (
+      <LazyPage
+        key={pageNum}
+        pageNum={pageNum}
+        token={token}
+        scrollContainer={scrollContainerRef}
+        onVisible={(p) => setCurrentPage(p)}
+        zoomScale={zoomScale}
 
-      {/* PDF Iframe */}
-      <iframe
-        key={currentPage}
-        src={`${shareData.document.pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&page=${currentPage}`}
-        className="w-full h-full border-0"
-        title={`${shareData.document.filename} - Page ${currentPage}`}
-        onLoad={() => setIframeLoading(false)}
       />
-    </div>
+    ))}
+  </div>
+</div>
   </div>
 ) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
@@ -1488,6 +1481,105 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+
+
+function LazyPage({
+  pageNum,
+  token,
+  scrollContainer,
+  onVisible,
+  zoomScale,
+}: {
+  pageNum: number;
+  token: string;
+  scrollContainer: React.RefObject<HTMLDivElement | null>;
+  onVisible: (page: number) => void;
+  zoomScale: number;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const divRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!divRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            onVisible(pageNum);
+          }
+        });
+      },
+      {
+        root: scrollContainer.current,
+        threshold: 0.2,
+      }
+    );
+
+    observer.observe(divRef.current);
+    return () => observer.disconnect();
+  }, [scrollContainer.current]);
+
+  return (
+   <div
+  ref={divRef}
+  id={`page-${pageNum}`}
+  className="w-full max-w-4xl relative bg-white shadow-2xl"
+  style={{ 
+    aspectRatio: '8.5 / 11',
+    transform: `scale(${zoomScale})`,
+    transformOrigin: 'top center',
+    transition: 'transform 0.2s ease',
+  }}
+>
+      {isVisible ? (
+        <>
+          {!loaded && (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-700">
+              <div className="text-center">
+                <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2" />
+                <p className="text-white text-xs">Page {pageNum}</p>
+              </div>
+            </div>
+          )}
+          <iframe
+  src={`/api/view/${token}/page?page=${pageNum}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+  className="border-0 w-full h-full"
+  title={`Page ${pageNum}`}
+  style={{ display: 'block', pointerEvents: 'none' }}
+  onLoad={(e) => {
+    setLoaded(true);
+    // Inject CSS to hide scrollbar inside iframe
+    try {
+      const iframe = e.target as HTMLIFrameElement;
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (iframeDoc) {
+        const style = iframeDoc.createElement('style');
+        style.textContent = `
+          ::-webkit-scrollbar { display: none !important; }
+          body { overflow: hidden !important; margin: 0 !important; }
+          embed { width: 100% !important; height: 100% !important; }
+        `;
+        iframeDoc.head?.appendChild(style);
+      }
+    } catch (_) {
+      // Cross-origin — can't inject, ignore
+    }
+  }}
+/>
+        </>
+      ) : (
+        // Placeholder while not visible
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-700">
+          <p className="text-slate-400 text-sm">Page {pageNum}</p>
+        </div>
+      )}
     </div>
   );
 }

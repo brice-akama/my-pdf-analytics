@@ -30,18 +30,30 @@ export default function DocSendStyleCharts({
   const maxViews = Math.max(...pageEngagement.map(p => p.totalViews), 1);
 
   // Calculate dropoff rates
-  const dropoffData = pageEngagement.map((page, index) => {
-    const currentViews = page.totalViews;
-    const previousViews = index === 0 ? currentViews : pageEngagement[0].totalViews;
-    const dropoffPercent = previousViews > 0 
-      ? Math.round((currentViews / previousViews) * 100)
-      : 100;
+const dropoffData = pageEngagement.map((page, index) => {
+  if (index === 0) {
     return {
       page: page.page,
-      percentage: dropoffPercent,
-      views: currentViews,
+      percentage: 100,
+      views: page.totalViews,
     };
-  });
+  }
+
+  const previousViews = pageEngagement[index - 1].totalViews;
+  const currentViews = page.totalViews;
+
+  const percentage =
+    previousViews > 0
+      ? Math.round((currentViews / previousViews) * 100)
+      : 0;
+
+  return {
+    page: page.page,
+    percentage,
+    views: currentViews,
+  };
+});
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -127,20 +139,25 @@ export default function DocSendStyleCharts({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 className="absolute z-50 pointer-events-none"
-                style={{
-                  left: `${((hoveredPage - 1) / (totalPages - 1)) * 100}%`,
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)',
-                }}
+
               >
                 <div className="bg-white rounded-xl shadow-2xl border-2 border-violet-500 p-4 w-64">
                   {/* PDF Page Preview */}
                   <div className="mb-3 rounded-lg overflow-hidden border-2 border-slate-200">
-                   <iframe
-  src={`/api/documents/${documentId}/page?page=${hoveredPage}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-  className="w-full h-32 pointer-events-none"
-  style={{ border: 'none' }}
-/>
+                  <div style={{ overflow: 'hidden', width: 'calc(100% + 24px)', height: '230px', borderRadius: '4px', margin: '0 -12px' }}>
+  <iframe
+    src={`/api/documents/${documentId}/page?page=${hoveredPage}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+    className="pointer-events-none"
+    style={{
+      border: 'none',
+      width: 'calc(100% + 20px)',
+      height: '250px',
+      marginRight: '-20px',
+      marginBottom: '-20px',
+    }}
+    scrolling="no"
+  />
+</div>
                   </div>
                   
                   {/* Stats */}
@@ -251,20 +268,26 @@ export default function DocSendStyleCharts({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 className="absolute z-50 pointer-events-none"
-                style={{
-                  left: `${((hoveredPage - 1) / (totalPages - 1)) * 100}%`,
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)',
-                }}
+                 
               >
                 <div className="bg-white rounded-xl shadow-2xl border-2 border-blue-500 p-4 w-64">
                   {/* PDF Page Preview */}
                   <div className="mb-3 rounded-lg overflow-hidden border-2 border-slate-200">
-                    <iframe
-                      src={`/api/documents/${documentId}/file?page=${hoveredPage}&serve=blob#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                      className="w-full h-32 pointer-events-none"
-                      style={{ border: 'none' }}
-                    />
+
+                    <div style={{ overflow: 'hidden', width: 'calc(100% + 24px)', height: '230px', borderRadius: '4px', margin: '0 -12px' }}>
+  <iframe
+    src={`/api/documents/${documentId}/page?page=${hoveredPage}#toolbar=0&navpanes=0&zoom=page-fit`}
+    className="pointer-events-none"
+    style={{
+      border: 'none',
+      width: 'calc(100% + 20px)',
+      height: '250px',
+      marginRight: '-20px',
+      marginBottom: '-20px',
+    }}
+    scrolling="no"
+  />
+</div>
                   </div>
                   
                   {/* Stats */}

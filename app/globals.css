@@ -305,3 +305,8 @@ main {
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 #f1f5f9;
 }
+
+/* Hide scrollbar on PDF viewer container */
+[data-pdf-container]::-webkit-scrollbar {
+  display: none;
+}
