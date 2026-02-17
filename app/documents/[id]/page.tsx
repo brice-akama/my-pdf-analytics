@@ -1776,7 +1776,6 @@ const handleSendSignatureRequest = async () => {
           {[
             { label: 'Total Views', value: analytics.totalViews, icon: Eye, color: 'blue', sub: 'all time' },
             { label: 'Unique Viewers', value: analytics.uniqueViewers, icon: Users, color: 'violet', sub: 'different people' },
-            { label: 'Avg. Time', value: analytics.averageTime, icon: Clock, color: 'orange', sub: 'per session' },
             { label: 'Completion', value: `${analytics.completionRate}%`, icon: TrendingUp, color: 'green', sub: 'read all pages' },
           ].map((stat) => (
             <div key={stat.label} className="bg-white rounded-2xl border shadow-sm p-5">
@@ -1790,6 +1789,30 @@ const handleSendSignatureRequest = async () => {
               <p className="text-xs text-slate-400 mt-1">{stat.sub}</p>
             </div>
           ))}
+
+          {/* Card 1 — Avg per visit (changes each revisit — that's correct) */}
+          <div className="bg-white rounded-2xl border shadow-sm p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Avg. Time per Visit</p>
+              <div className="h-8 w-8 rounded-xl flex items-center justify-center bg-orange-50">
+                <Clock className="h-4 w-4 text-orange-500" />
+              </div>
+            </div>
+            <p className="text-3xl font-black text-slate-900">{analytics.avgTimePerSession}</p>
+            <p className="text-xs text-slate-400 mt-1">across {analytics.totalViews} sessions</p>
+          </div>
+
+          {/* Card 2 — Total time per viewer (accumulates, never drops) */}
+          <div className="bg-white rounded-2xl border shadow-sm p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Time / Viewer</p>
+              <div className="h-8 w-8 rounded-xl flex items-center justify-center bg-purple-50">
+                <Clock className="h-4 w-4 text-purple-500" />
+              </div>
+            </div>
+            <p className="text-3xl font-black text-slate-900">{analytics.avgTotalTimePerViewer}</p>
+            <p className="text-xs text-slate-400 mt-1">cumulative across all visits</p>
+          </div>
         </div>
 
         {/* ── REVISIT + INTENT ROW ── */}
@@ -1903,6 +1926,7 @@ const handleSendSignatureRequest = async () => {
   documentId={doc._id}
   pageEngagement={analytics.pageEngagement}
   totalPages={doc.numPages}
+  locations={analytics.locations || []}
 />
 
 {/* ── Heatmap (keep this below) ── */}

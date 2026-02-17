@@ -148,34 +148,85 @@ useEffect(() => {
 }, [shareData?.document, currentPage]);
 
   // Track page changes and time spent per page
-useEffect(() => {
-  if (shareData?.document && currentPage > 0) {
-    // Track page view
-    trackEvent('page_view', { page: currentPage });
-    
-    // Reset page timer
-    setPageStartTime(Date.now());
-    
-    return () => {
-      // Track time spent on this page when leaving
-      const timeOnPage = Math.floor((Date.now() - pageStartTime) / 1000);
+// ── Ref to always have fresh values inside event listeners ────
+  const pageStartTimeRef = useRef(Date.now());
+  const currentPageRef = useRef(currentPage);
+  const emailRef = useRef(email);
+
+  // Keep refs in sync
+  useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
+  useEffect(() => { emailRef.current = email; }, [email]);
+
+  // ── Page change tracking ──────────────────────────────────────
+  useEffect(() => {
+    if (shareData?.document && currentPage > 0) {
+      trackEvent('page_view', { page: currentPage });
+      pageStartTimeRef.current = Date.now();
+      setPageStartTime(Date.now());
+
+      return () => {
+        const timeOnPage = Math.floor((Date.now() - pageStartTimeRef.current) / 1000);
+        if (timeOnPage > 0 && timeOnPage < 600) {
+          fetch(`/api/view/${token}/track`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'page_time',
+              page: currentPage,
+              timeSpent: timeOnPage,
+              sessionId,
+              email: emailRef.current || null,
+            }),
+          }).catch(() => {});
+        }
+      };
+    }
+  }, [currentPage, shareData?.document]);
+
+  // ── Safety net: send time when tab hides or browser closes ────
+  // This catches the case where the user closes the tab or switches away
+  useEffect(() => {
+    if (!shareData?.document) return;
+
+    const sendCurrentPageTime = () => {
+      const timeOnPage = Math.floor((Date.now() - pageStartTimeRef.current) / 1000);
       if (timeOnPage > 0 && timeOnPage < 600) {
-        // ✅ FIXED: Don't use await in cleanup - just fire and forget
-        fetch(`/api/view/${token}/track`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            event: 'page_time',
-            page: currentPage,
-            timeSpent: timeOnPage,
-            sessionId,
-            email: email || null,
-          }),
-        }).catch(() => {}); // Ignore errors in cleanup
+        // Use sendBeacon — works even when page is unloading
+        const payload = JSON.stringify({
+          event: 'page_time',
+          page: currentPageRef.current,
+          timeSpent: timeOnPage,
+          sessionId,
+          email: emailRef.current || null,
+        });
+        navigator.sendBeacon(`/api/view/${token}/track`, new Blob([payload], { type: 'application/json' }));
+        // Reset timer so we don't double-count if tab comes back
+        pageStartTimeRef.current = Date.now();
       }
     };
-  }
-}, [currentPage, shareData?.document]);
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab is being hidden — save time immediately
+        sendCurrentPageTime();
+      } else {
+        // Tab came back — reset the page timer so we count fresh time
+        pageStartTimeRef.current = Date.now();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      sendCurrentPageTime();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [shareData?.document, sessionId, token]);
 
 // ── Presence ping (real-time "viewing now") ───────────────────
 useEffect(() => {
@@ -1205,23 +1256,45 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
         {/* Left: Branding */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {brandingInfo?.logoUrl ? (
-            <img
-              src={brandingInfo.logoUrl}
-              alt={brandingInfo.sharedByName || 'Company'}
-              className="h-8 w-auto object-contain flex-shrink-0"
-              style={{ maxWidth: '120px' }}
-            />
+            <div className="flex items-center gap-2">
+              <img
+                src={brandingInfo.logoUrl}
+                alt={brandingInfo.sharedByName || 'Shared document'}
+                className="h-8 w-auto object-contain flex-shrink-0"
+                style={{ maxWidth: '140px' }}
+              />
+              {brandingInfo?.sharedByName && (
+                <span className="font-semibold text-white truncate text-sm">
+                  {brandingInfo.sharedByName}
+                </span>
+              )}
+            </div>
+          ) : brandingInfo?.sharedByName ? (
+            <div className="flex items-center gap-2">
+              <div
+                className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+              >
+                {brandingInfo.sharedByName[0].toUpperCase()}
+              </div>
+              <span className="font-semibold text-white truncate text-sm">
+                {brandingInfo.sharedByName}
+              </span>
+            </div>
           ) : (
-            <div
-              className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
-            >
-              {(brandingInfo?.sharedByName || 'D')[0].toUpperCase()}
+            // No branding at all — show nothing or a generic doc icon
+            <div className="flex items-center gap-2">
+              <div
+                className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.08)' }}
+              >
+                <svg className="h-4 w-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <span className="font-semibold text-white/50 truncate text-sm">Shared Document</span>
             </div>
           )}
-          <span className="font-semibold text-white truncate">
-            {brandingInfo?.sharedByName || 'DocMetrics'}
-          </span>
         </div>
 
         {/* Center: Page Navigation */}
@@ -1335,6 +1408,7 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
               </button>
 
               {/* Contact Popover */}
+             {/* Contact Popover */}
               {contactPopoverOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setContactPopoverOpen(false)} />
@@ -1342,21 +1416,47 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
                     <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                       <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>Sent by</p>
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
-                          {(brandingInfo?.sharedByName || 'D')[0].toUpperCase()}
-                        </div>
+                        {/* Show logo if available, otherwise avatar letter */}
+                        {brandingInfo?.logoUrl ? (
+                          <img
+                            src={brandingInfo.logoUrl}
+                            alt={brandingInfo.sharedByName || 'Sender'}
+                            className="h-10 w-10 rounded-full object-contain bg-white p-1 flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                            {brandingInfo?.sharedByName
+                              ? brandingInfo.sharedByName[0].toUpperCase()
+                              : '?'}
+                          </div>
+                        )}
                         <div>
-                          <p className="text-sm font-semibold text-white">{brandingInfo?.sharedByName || 'DocMetrics'}</p>
-                          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>Document sender</p>
+                          <p className="text-sm font-semibold text-white">
+                            {brandingInfo?.sharedByName || 'The Sender'}
+                          </p>
+                          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                            Document sender
+                          </p>
                         </div>
                       </div>
                     </div>
                     <div className="px-5 py-4">
-                      <p className="text-xs font-semibold text-white mb-3">Ask {brandingInfo?.sharedByName || 'the sender'} a question</p>
-                      <textarea placeholder={`Ask ${brandingInfo?.sharedByName || 'the sender'} a question`} className="w-full rounded-lg px-3 py-2.5 text-sm resize-none outline-none transition-all" rows={3} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }} />
+                      <p className="text-xs font-semibold text-white mb-3">
+                        Ask {brandingInfo?.sharedByName || 'the sender'} a question
+                      </p>
+                      <textarea
+                        placeholder={`Write your message to ${brandingInfo?.sharedByName || 'the sender'}...`}
+                        className="w-full rounded-lg px-3 py-2.5 text-sm resize-none outline-none transition-all"
+                        rows={3}
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+                      />
                       <div className="mt-3 flex items-center justify-between">
-                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Reply to: <span style={{ color: '#a5b4fc' }}>{email || 'you'}</span></p>
-                        <button className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>Send</button>
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                          From: <span style={{ color: '#a5b4fc' }}>{email || 'anonymous'}</span>
+                        </p>
+                        <button className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                          Send
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1437,7 +1537,7 @@ style={{
   }}
 >
  <div className="flex flex-col items-center py-4 gap-4" style={{ overflow: 'hidden', width: '100%' }}>
-    {Array.from({ length: shareData.document!.numPages }, (_, i) => i + 1).map((pageNum) => (
+   {Array.from({ length: shareData.document!.numPages }, (_, i) => i + 1).map((pageNum) => (
       <LazyPage
         key={pageNum}
         pageNum={pageNum}
@@ -1445,7 +1545,15 @@ style={{
         scrollContainer={scrollContainerRef}
         onVisible={(p) => setCurrentPage(p)}
         zoomScale={zoomScale}
-
+        sessionId={sessionId}
+        email={email}
+        onScrolled={(p) => {
+          // fires when bottom of page p is reached
+          trackEvent('scroll', {
+            page: p,
+            scrollDepth: 100,
+          });
+        }}
       />
     ))}
   </div>
@@ -1495,20 +1603,28 @@ function LazyPage({
   scrollContainer,
   onVisible,
   zoomScale,
+  sessionId,
+  email,
+  onScrolled,
 }: {
   pageNum: number;
   token: string;
   scrollContainer: React.RefObject<HTMLDivElement | null>;
   onVisible: (page: number) => void;
   zoomScale: number;
+  sessionId: string;
+  email: string;
+  onScrolled: (page: number) => void;
 }) {
   const [isVisible, setIsVisible] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [scrolledFully, setScrolledFully] = useState(false);
   const divRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
+  // ── Visibility observer (triggers lazy load + page tracking) ──
   useEffect(() => {
     if (!divRef.current) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -1518,30 +1634,46 @@ function LazyPage({
           }
         });
       },
-      {
-        root: scrollContainer.current,
-        threshold: 0.2,
-      }
+      { root: scrollContainer.current, threshold: 0.2 }
     );
-
     observer.observe(divRef.current);
     return () => observer.disconnect();
   }, [scrollContainer.current]);
 
-  return (
-   <div
-  ref={divRef}
-  id={`page-${pageNum}`}
-  className="relative bg-white shadow-2xl"
-  style={{ 
-    width: `${Math.round(850 * zoomScale)}px`,
-    height: `${Math.round(1100 * zoomScale)}px`,
-    transition: 'width 0.2s ease, height 0.2s ease',
-    flexShrink: 0,
-    overflow: 'hidden',
-  }}
->
+  // ── Bottom sentinel: fires when bottom of page is visible ─────
+  // This is the scroll depth tracker — fires once per page per session
+  useEffect(() => {
+    if (!bottomRef.current || scrolledFully) return;
 
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !scrolledFully) {
+          setScrolledFully(true);
+          onScrolled(pageNum); // tell parent to send scroll event
+        }
+      },
+      {
+        root: scrollContainer.current,
+        threshold: 0.5, // 50% of sentinel visible = bottom of page reached
+      }
+    );
+    observer.observe(bottomRef.current);
+    return () => observer.disconnect();
+  }, [scrollContainer.current, scrolledFully]);
+
+  return (
+    <div
+      ref={divRef}
+      id={`page-${pageNum}`}
+      className="relative bg-white shadow-2xl"
+      style={{
+        width: `${Math.round(850 * zoomScale)}px`,
+        height: `${Math.round(1100 * zoomScale)}px`,
+        transition: 'width 0.2s ease, height 0.2s ease',
+        flexShrink: 0,
+        overflow: 'hidden',
+      }}
+    >
       {isVisible ? (
         <>
           {!loaded && (
@@ -1553,42 +1685,50 @@ function LazyPage({
             </div>
           )}
           <iframe
-  src={`/api/view/${token}/page?page=${pageNum}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
-  className="border-0 w-full h-full"
-  title={`Page ${pageNum}`}
-   style={{ 
-    display: 'block', 
-    pointerEvents: 'none', 
-    overflow: 'hidden',
-    width: 'calc(100% + 20px)',
-    marginRight: '-20px',
-    height: 'calc(100% + 20px)',
-    marginBottom: '-20px',
-  }}
-  scrolling="no"
-  onLoad={(e) => {
-    setLoaded(true);
-    // Inject CSS to hide scrollbar inside iframe
-    try {
-      const iframe = e.target as HTMLIFrameElement;
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (iframeDoc) {
-        const style = iframeDoc.createElement('style');
-        style.textContent = `
-          ::-webkit-scrollbar { display: none !important; }
-          body { overflow: hidden !important; margin: 0 !important; }
-          embed { width: 100% !important; height: 100% !important; }
-        `;
-        iframeDoc.head?.appendChild(style);
-      }
-    } catch (_) {
-      // Cross-origin — can't inject, ignore
-    }
-  }}
-/>
+            src={`/api/view/${token}/page?page=${pageNum}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+            className="border-0 w-full h-full"
+            title={`Page ${pageNum}`}
+            style={{
+              display: 'block',
+              pointerEvents: 'none',
+              overflow: 'hidden',
+              width: 'calc(100% + 20px)',
+              marginRight: '-20px',
+              height: 'calc(100% + 20px)',
+              marginBottom: '-20px',
+            }}
+            scrolling="no"
+            onLoad={(e) => {
+              setLoaded(true);
+              try {
+                const iframe = e.target as HTMLIFrameElement;
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (iframeDoc) {
+                  const style = iframeDoc.createElement('style');
+                  style.textContent = `
+                    ::-webkit-scrollbar { display: none !important; }
+                    body { overflow: hidden !important; margin: 0 !important; }
+                    embed { width: 100% !important; height: 100% !important; }
+                  `;
+                  iframeDoc.head?.appendChild(style);
+                }
+              } catch (_) {}
+            }}
+          />
+          {/* ── Scroll sentinel — sits at the very bottom of the page ── */}
+          <div
+            ref={bottomRef}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: '2px',
+              pointerEvents: 'none',
+            }}
+          />
         </>
       ) : (
-        // Placeholder while not visible
         <div className="absolute inset-0 flex items-center justify-center bg-slate-700">
           <p className="text-slate-400 text-sm">Page {pageNum}</p>
         </div>

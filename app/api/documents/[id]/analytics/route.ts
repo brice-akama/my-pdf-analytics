@@ -98,18 +98,76 @@ const totalTimeFromSessions = allSessions.reduce(
 );
 
 // Use the best available source
-const averageTimeSeconds = 
-  tracking.averageViewTime || 
-  (totalTimeFromSessions > 0 
-    ? Math.round(totalTimeFromSessions / allSessions.length)
-    : totalTimeFromLogs > 0
-    ? Math.round(totalTimeFromLogs / analyticsLogs.filter((l: any) => l.action === 'page_view').length)
-    : Math.round(totalTimeFromOldViews / (oldViews.length || 1))
-  );
+// ── Per-session average (changes each visit — this is correct) ──
+const sessionsWithDuration = allSessions.filter((s: any) => s.duration > 0);
+
+const avgTimePerSession = sessionsWithDuration.length > 0
+  ? Math.round(
+      sessionsWithDuration.reduce((sum: number, s: any) => sum + s.duration, 0)
+      / sessionsWithDuration.length
+    )
+  : totalTimeFromLogs > 0
+  ? Math.round(totalTimeFromLogs / Math.max(allSessions.length, 1))
+  : Math.round(totalTimeFromOldViews / (oldViews.length || 1));
+
+// ── Per-viewer total (accumulates — never goes down) ────────────
+// Group sessions by viewer and sum their durations
+const viewerTotalTimes = new Map<string, number>();
+allSessions.forEach((s: any) => {
+  const key = s.email || s.viewerId;
+  if (!key) return;
+  viewerTotalTimes.set(key, (viewerTotalTimes.get(key) || 0) + (s.duration || 0));
+});
+
+// Count unique viewer keys from sessions
+const uniqueSessionViewers = new Set(
+  allSessions
+    .map((s: any) => s.email || s.viewerId)
+    .filter(Boolean)
+).size;
+
+// Total duration across all sessions
+const rawTotalDuration = allSessions.reduce(
+  (sum: number, s: any) => sum + (s.duration || 0), 0
+);
+
+const avgTotalTimePerViewer =
+  viewerTotalTimes.size > 0
+    ? Math.round(
+        Array.from(viewerTotalTimes.values()).reduce((a, b) => a + b, 0) /
+        viewerTotalTimes.size
+      )
+    : uniqueSessionViewers > 0
+    ? Math.round(rawTotalDuration / uniqueSessionViewers)
+    : rawTotalDuration > 0
+    ? rawTotalDuration  // only 1 viewer — just show their total
+    : avgTimePerSession;
+
+const averageTimeSeconds = avgTimePerSession; // keep existing field name
 
 // Step 7: Calculate completion rate
-const completedViews = oldViews.filter((v: any) => v.pagesViewed >= document.numPages).length;
+// Check sessions where all pages were viewed
+
+const completedSessionsCount = allSessions.filter((s: any) => {
+  const pagesViewed = s.pagesViewed?.length || 0;
+  return pagesViewed >= document.numPages;
+}).length;
+
+// Also check from analytics_logs — viewers who hit the last page
+const lastPageLogs = await db.collection('analytics_logs').find({
+  documentId: id,
+  action: 'page_view',
+  pageNumber: document.numPages,
+}).toArray();
+const uniqueLastPageViewers = new Set(lastPageLogs.map((l: any) => l.viewerId || l.email)).size;
+
+const completedViews = Math.max(
+  oldViews.filter((v: any) => v.pagesViewed >= document.numPages).length,
+  completedSessionsCount,
+  uniqueLastPageViewers
+);
 const completionRate = totalViews ? Math.round((completedViews / totalViews) * 100) : 0;
+
 
 // ── Views by last 7 days ─────────────────────────────────────
 const today = new Date();
@@ -147,32 +205,35 @@ const downloads = tracking.downloads || oldViews.filter((v: any) => v.downloaded
     const pageEngagement = await Promise.all(
       Array.from({ length: document.numPages }, async (_, i) => {
         const pageNum = i + 1;
-        let pageViews = 0;
-        let totalTimeOnPage = 0;
 
-        for (const share of shares) {
-          const pageKey = `page_${pageNum}`;
-          pageViews += share.tracking?.pageViews?.[pageKey] || 0;
-          totalTimeOnPage += share.tracking?.timePerPage?.[pageKey] || 0;
-        }
-
-        // Also check analytics_logs for page-level data
-// Also check analytics_logs for page-level data
+        // ── Use analytics_logs as the ONLY source of truth ─────────
+        // The old shares.tracking.timePerPage data is corrupted with
+        // accumulated garbage values — never trust it for time calculations
         const pageLogs = await db.collection('analytics_logs').find({
           documentId: id,
           action: 'page_view',
           pageNumber: pageNum,
         }).toArray();
 
-        const logPageViews = pageLogs.length;
-        const logTotalTime = pageLogs.reduce((sum: number, l: any) => sum + (l.viewTime || 0), 0);
+        // Sum ALL time across all sessions and viewers for this page
+        const totalTimeOnPage = pageLogs.reduce(
+          (sum: number, l: any) => sum + (l.viewTime || 0), 0
+        );
 
-        // Always prefer logs if they have more data
-        pageViews = Math.max(pageViews, logPageViews);
-        totalTimeOnPage = Math.max(totalTimeOnPage, logTotalTime);
+        // Count UNIQUE viewers (not raw log count — revisits count once)
+        const uniqueViewerSet = new Set(
+          pageLogs.map((l: any) => l.email || l.viewerId).filter(Boolean)
+        );
+        const pageViews = uniqueViewerSet.size || pageLogs.length;
 
-        const percentage = totalViews ? Math.round((pageViews / totalViews) * 100) : 0;
-        const avgTime = pageViews > 0 ? Math.round(totalTimeOnPage / pageViews) : 0;
+        // Average = total time / unique viewers
+        const avgTime = pageViews > 0
+          ? Math.round(totalTimeOnPage / pageViews)
+          : 0;
+
+        const percentage = totalViews
+          ? Math.round((pageViews / totalViews) * 100)
+          : 0;
 
         return {
           page: pageNum,
@@ -242,21 +303,29 @@ const allViewerEmails: string[] = [];
         const totalTime = viewerLogs.reduce((sum, l) => sum + (l.viewTime || 0), 0);
 
         // Build per-page data
+
         const pageData = Array.from({ length: document.numPages }, (_, i) => {
           const pageNum = i + 1;
-          const pageLogs = viewerLogs.filter(l => l.pageNumber === pageNum);
-          const timeOnPage = pageLogs.reduce((sum, l) => sum + (l.viewTime || 0), 0);
+          const pageLogs = viewerLogs.filter((l: any) => l.pageNumber === pageNum);
+          
+          // Sum time across ALL sessions for this viewer+page (accumulates revisits)
+          const timeOnPage = pageLogs.reduce((sum: number, l: any) => sum + (l.viewTime || 0), 0);
+          
+          // Take the highest scroll depth ever reached across all sessions
           const maxScroll = pageLogs.length > 0
-            ? Math.max(...pageLogs.map(l => l.scrollDepth || 0))
+            ? Math.max(...pageLogs.map((l: any) => l.scrollDepth || 0))
             : 0;
+
+          // Count unique sessions this viewer visited this page (not raw log count)
+          const uniqueSessions = new Set(pageLogs.map((l: any) => l.sessionId)).size;
 
           return {
             page: pageNum,
             visited: pageLogs.length > 0,
-            timeSpent: timeOnPage,
+            timeSpent: Math.min(timeOnPage, 1800), // cap at 30min total across all sessions
             scrollDepth: maxScroll,
             skipped: pageLogs.length === 0,
-            visits: pageLogs.length,
+            visits: uniqueSessions, // how many separate sessions they viewed this page
           };
         });
 
@@ -511,18 +580,39 @@ const realTimeViewers = liveViewers.map((v: any) => ({
       ])
     );
 
-    const locationMap = new Map<string, number>();
-    oldViews.forEach((v: any) =>
-      locationMap.set(v.country || 'Unknown', (locationMap.get(v.country || 'Unknown') || 0) + 1)
-    );
+    // Pull from analytics_sessions which have full location data
+    const locationMap = new Map<string, { count: number; countryCode?: string; cities: Set<string> }>();
+    
+    allSessions.forEach((s: any) => {
+      const country = s.location?.country || 'Unknown';
+      const countryCode = s.location?.countryCode;
+      const city = s.location?.city;
+      const existing = locationMap.get(country) || { count: 0, countryCode, cities: new Set() };
+      existing.count++;
+      if (city) existing.cities.add(city);
+      locationMap.set(country, existing);
+    });
+    
+    // Fallback to oldViews if sessions have no location
+    if (locationMap.size === 0) {
+      oldViews.forEach((v: any) => {
+        const country = v.country || 'Unknown';
+        const existing = locationMap.get(country) || { count: 0, cities: new Set() };
+        existing.count++;
+        locationMap.set(country, existing);
+      });
+    }
+    
     const locations = Array.from(locationMap.entries())
-      .map(([country, count]) => ({
+      .map(([country, data]) => ({
         country,
-        views: count,
-        percentage: totalViews ? Math.round((count / totalViews) * 100) : 0,
+        countryCode: data.countryCode,
+        views: data.count,
+        percentage: totalViews ? Math.round((data.count / totalViews) * 100) : 0,
+        topCities: Array.from(data.cities).slice(0, 3),
       }))
       .sort((a, b) => b.views - a.views)
-      .slice(0, 5);
+      .slice(0, 8);
 
     // ── E-signature analytics ────────────────────────────────────
     const signatureRequests = await db.collection('signature_requests')
@@ -861,7 +951,12 @@ const realTimeViewers = liveViewers.map((v: any) => ({
         // Core metrics
         totalViews,
         uniqueViewers,
-        averageTime: formatTime(averageTimeSeconds),
+averageTime: formatTime(averageTimeSeconds),
+        avgTimePerSession: formatTime(avgTimePerSession),
+        avgTotalTimePerViewer: formatTime(avgTotalTimePerViewer),
+        totalTimeAllSessions: formatTime(
+          allSessions.reduce((sum: number, s: any) => sum + (s.duration || 0), 0)
+        ),
         completionRate,
         downloads,
         shares: totalShares,
@@ -877,6 +972,16 @@ const realTimeViewers = liveViewers.map((v: any) => ({
         topViewers,
         recipientPageTracking,
         bounceAnalytics,
+
+        // ── REVISIT DATA (was declared but never returned) ────────
+        revisitData,
+
+        // ── INTENT SCORES per viewer (was declared but never returned) ─
+        intentScores,
+
+        // Real-time viewers (was declared but never returned)
+        realTimeViewers,
+        liveViewerCount: realTimeViewers.length,
 
         // Device & geo
         devices,
@@ -1032,6 +1137,7 @@ export async function POST(
       { _id: new ObjectId(id) },
       { $set: { tracking } }
     );
+    
 
     // Detailed log — now includes email and scrollDepth
     if (['view', 'page_view'].includes(action)) {

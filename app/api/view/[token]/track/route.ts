@@ -242,6 +242,13 @@ export async function POST(
         if (!page || isNaN(page)) break;
         const pageNum = parseInt(page);
 
+
+        // Track which pages this session has visited (for completion rate)
+        await db.collection('analytics_sessions').updateOne(
+          { sessionId: currentSessionId },
+          { $addToSet: { pagesViewed: pageNum } }
+        );
+
         // Write to shares (for aggregate page analytics)
         await db.collection('shares').updateOne(
           { _id: share._id },
@@ -331,7 +338,7 @@ case 'presence_ping': {
       case 'page_time': {
         if (!page || isNaN(page) || !timeSpent || isNaN(timeSpent)) break;
         const pageNum = parseInt(page);
-        const validTime = Math.min(parseInt(timeSpent), 600); // cap at 10 min
+        const validTime = Math.min(parseInt(timeSpent), 300); // cap at 5 min per page
 
         // Write to shares for aggregate
         await db.collection('shares').updateOne(
@@ -350,9 +357,11 @@ case 'presence_ping': {
         // ── Update the existing analytics_log for this page/viewer ─
         // Try to update the most recent page_view log for this viewer+page
         // If none exists, insert a new record
+        // Scope to CURRENT SESSION only — prevents cross-session time corruption
         const existing = await db.collection('analytics_logs').findOne({
           documentId,
           viewerId,
+          sessionId: currentSessionId, // ← KEY: only current session
           action: 'page_view',
           pageNumber: pageNum,
         }, { sort: { timestamp: -1 } });
@@ -388,6 +397,13 @@ case 'presence_ping': {
 
       // ── SCROLL ────────────────────────────────────────────────
       case 'scroll': {
+        console.log('📜 [SCROLL EVENT]', { 
+    page, 
+    scrollDepth, 
+    depth: Math.min(parseFloat(scrollDepth), 100),
+    viewerId,
+    sessionId: currentSessionId 
+  });
         if (!page || isNaN(page) || scrollDepth === undefined || isNaN(scrollDepth)) break;
         const pageNum = parseInt(page);
         const depth = Math.min(parseFloat(scrollDepth), 100);
@@ -405,19 +421,27 @@ case 'presence_ping': {
         );
 
         // Update the analytics_log for this page to record max scroll depth
-        await db.collection('analytics_logs').updateOne(
+      // Find the current session's page_view log, then update it
+        const pageLog = await db.collection('analytics_logs').findOne(
           {
             documentId,
             viewerId,
+            sessionId: currentSessionId, // scope to current session
             action: 'page_view',
             pageNumber: pageNum,
           },
-          {
-            $max: { scrollDepth: depth },
-            $set: { email: email || null },
-          },
-          { sort: { timestamp: -1 } } as any
+          { sort: { timestamp: -1 } }
         );
+
+        if (pageLog) {
+          await db.collection('analytics_logs').updateOne(
+            { _id: pageLog._id },
+            {
+              $max: { scrollDepth: depth },
+              $set: { email: email || null },
+            }
+          );
+        }
         break;
       }
 
@@ -443,8 +467,55 @@ case 'presence_ping': {
 
       // ── SESSION START ──────────────────────────────────────────
       case 'session_start': {
+        // ── Detect revisit BEFORE creating new session ────────────
+        const previousSession = await db.collection('analytics_sessions').findOne({
+          documentId,
+          viewerId,
+          sessionId: { $ne: currentSessionId },
+        });
+        const isRevisit = !!previousSession;
+
+        console.log('🔄 [REVISIT CHECK]', {
+          viewerId,
+          documentId,
+          currentSessionId,
+          previousSessionFound: !!previousSession,
+          previousSessionId: previousSession?.sessionId,
+          isRevisit,
+        });
+
+        // Update viewer identity — increment visit count, boost intent if returning
+        // First ensure document exists (setOnInsert only), then increment separately
+        await db.collection('viewer_identities').updateOne(
+          { viewerId, documentId },
+          {
+            $setOnInsert: {
+              firstSeen: now,
+              visitCount: 0,
+              intentScore: 0,
+            },
+          },
+          { upsert: true }
+        );
+
+        // Now safely increment without conflict
+        await db.collection('viewer_identities').updateOne(
+          { viewerId, documentId },
+          {
+            $inc: {
+              visitCount: 1,
+              intentScore: isRevisit ? 8 : 0,
+            },
+            $set: {
+              lastSeen: now,
+              device,
+              email: email || null,
+              isRevisit,
+            },
+          }
+        );
+
         // Write to analytics_logs as document_viewed
-        // This is what topViewers and recipientPageTracking use
         await db.collection('analytics_logs').insertOne({
           documentId,
           shareToken: token,
@@ -504,6 +575,7 @@ case 'presence_ping': {
           pagesViewed: [],
           device,
           location,
+          isRevisit,
         });
         break;
       }
