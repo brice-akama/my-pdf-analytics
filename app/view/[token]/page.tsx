@@ -1427,14 +1427,16 @@ if ((requiresEmail || requiresPassword || requiresNDA) && !shareData?.document) 
     {/* PDF Viewer — Scrollable multi-page with lazy loading */}
 <div
   ref={scrollContainerRef}
-  className="w-full bg-slate-800 overflow-y-auto"
-  style={{ 
+  className="w-full bg-slate-800 overflow-y-auto pdf-scroll-container"
+style={{ 
     height: 'calc(100vh - 57px)',
-    scrollbarWidth: 'none', // Firefox
-    msOverflowStyle: 'none', // IE
+    scrollbarWidth: 'none',
+    msOverflowStyle: 'none',
+    overflowX: 'hidden',
+    overflowY: 'auto',
   }}
 >
-  <div className="flex flex-col items-center py-4 gap-4" style={{ overflow: 'hidden' }}>
+ <div className="flex flex-col items-center py-4 gap-4" style={{ overflow: 'hidden', width: '100%' }}>
     {Array.from({ length: shareData.document!.numPages }, (_, i) => i + 1).map((pageNum) => (
       <LazyPage
         key={pageNum}
@@ -1530,14 +1532,16 @@ function LazyPage({
    <div
   ref={divRef}
   id={`page-${pageNum}`}
-  className="w-full max-w-4xl relative bg-white shadow-2xl"
+  className="relative bg-white shadow-2xl"
   style={{ 
-    aspectRatio: '8.5 / 11',
-    transform: `scale(${zoomScale})`,
-    transformOrigin: 'top center',
-    transition: 'transform 0.2s ease',
+    width: `${Math.round(850 * zoomScale)}px`,
+    height: `${Math.round(1100 * zoomScale)}px`,
+    transition: 'width 0.2s ease, height 0.2s ease',
+    flexShrink: 0,
+    overflow: 'hidden',
   }}
 >
+
       {isVisible ? (
         <>
           {!loaded && (
@@ -1552,7 +1556,16 @@ function LazyPage({
   src={`/api/view/${token}/page?page=${pageNum}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
   className="border-0 w-full h-full"
   title={`Page ${pageNum}`}
-  style={{ display: 'block', pointerEvents: 'none' }}
+   style={{ 
+    display: 'block', 
+    pointerEvents: 'none', 
+    overflow: 'hidden',
+    width: 'calc(100% + 20px)',
+    marginRight: '-20px',
+    height: 'calc(100% + 20px)',
+    marginBottom: '-20px',
+  }}
+  scrolling="no"
   onLoad={(e) => {
     setLoaded(true);
     // Inject CSS to hide scrollbar inside iframe

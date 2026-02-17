@@ -310,3 +310,8 @@ main {
 [data-pdf-container]::-webkit-scrollbar {
   display: none;
 }
+
+/* Hide scrollbar on PDF scroll container */
+.pdf-scroll-container::-webkit-scrollbar {
+  display: none;
+}

@@ -157,15 +157,19 @@ const downloads = tracking.downloads || oldViews.filter((v: any) => v.downloaded
         }
 
         // Also check analytics_logs for page-level data
+// Also check analytics_logs for page-level data
         const pageLogs = await db.collection('analytics_logs').find({
           documentId: id,
           action: 'page_view',
           pageNumber: pageNum,
         }).toArray();
 
-        pageViews = pageViews || pageLogs.length;
-        totalTimeOnPage = totalTimeOnPage ||
-          pageLogs.reduce((sum, l) => sum + (l.viewTime || 0), 0);
+        const logPageViews = pageLogs.length;
+        const logTotalTime = pageLogs.reduce((sum: number, l: any) => sum + (l.viewTime || 0), 0);
+
+        // Always prefer logs if they have more data
+        pageViews = Math.max(pageViews, logPageViews);
+        totalTimeOnPage = Math.max(totalTimeOnPage, logTotalTime);
 
         const percentage = totalViews ? Math.round((pageViews / totalViews) * 100) : 0;
         const avgTime = pageViews > 0 ? Math.round(totalTimeOnPage / pageViews) : 0;
@@ -182,29 +186,57 @@ const downloads = tracking.downloads || oldViews.filter((v: any) => v.downloaded
 
     // ── Per-recipient page tracking (NEW) ────────────────────────
     // Collect all unique viewer emails/IDs across shares
-    const allViewerEmails: string[] = [];
+const allViewerEmails: string[] = [];
     for (const share of shares) {
       const emails = share.tracking?.viewerEmails || [];
       allViewerEmails.push(...emails);
     }
+
+    // Also pull viewer IDs from analytics_sessions for anonymous viewers
+    const sessionViewerIds = [...new Set(allSessions.map((s: any) => s.viewerId).filter(Boolean))];
+
+    // Map viewer IDs to emails where possible
+    const viewerIdentities = await db.collection('viewer_identities')
+      .find({ documentId: id })
+      .toArray();
+
+    const identityMap = new Map<string, string>();
+    viewerIdentities.forEach((v: any) => {
+      if (v.email) identityMap.set(v.viewerId, v.email);
+    });
+
+    // Add anonymous viewers as viewerId strings if no email
+    for (const vid of sessionViewerIds) {
+      const email = identityMap.get(vid);
+      if (email) {
+        allViewerEmails.push(email);
+      } else {
+        allViewerEmails.push(`anon:${vid}`); // use as fallback key
+      }
+    }
+
     const uniqueEmailsForTracking = [...new Set(allViewerEmails)];
 
     const recipientPageTracking = await Promise.all(
-      uniqueEmailsForTracking.map(async (email) => {
-        // Get all page-level logs for this viewer
+      uniqueEmailsForTracking.map(async (emailOrId) => {
+        const isAnon = emailOrId.startsWith('anon:');
+        const viewerId = isAnon ? emailOrId.replace('anon:', '') : null;
+        const email = isAnon ? null : emailOrId;
+
+        // Get all page-level logs for this viewer — match by email OR viewerId
         const viewerLogs = await db.collection('analytics_logs')
           .find({
             documentId: id,
-            email,
             action: 'page_view',
+            ...(email ? { email } : { viewerId }),
           })
           .sort({ timestamp: 1 })
           .toArray();
 
-        const firstLog = await db.collection('analytics_logs').findOne({
+       const firstLog = await db.collection('analytics_logs').findOne({
           documentId: id,
-          email,
           action: 'document_viewed',
+          ...(email ? { email } : { viewerId }),
         });
 
         const totalTime = viewerLogs.reduce((sum, l) => sum + (l.viewTime || 0), 0);
@@ -233,7 +265,7 @@ const downloads = tracking.downloads || oldViews.filter((v: any) => v.downloaded
         const neverOpened = totalTime === 0 && !firstLog;
 
         return {
-        recipientEmail: email,
+         recipientEmail: email || `Anonymous (${viewerId?.substring(0, 8)})`,
         totalTimeOnDoc: formatTime(totalTime),
         totalTimeSeconds: totalTime,
         bounced: bounced || neverOpened,
