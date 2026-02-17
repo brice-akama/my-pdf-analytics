@@ -171,6 +171,7 @@ const [attachedFiles, setAttachedFiles] = useState<Array<{id: string, name: stri
 const [showDriveFilesDialog, setShowDriveFilesDialog] = useState(false);
 const [driveFiles, setDriveFiles] = useState<any[]>([]);
 const [loadingDriveFiles, setLoadingDriveFiles] = useState(false);
+const [recipientNameInput, setRecipientNameInput] = useState('');
 const [driveSearchQuery, setDriveSearchQuery] = useState('');
 const [logoFile, setLogoFile] = useState<File | null>(null);
 const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -188,6 +189,7 @@ const [shareSettings, setShareSettings] = useState({
   customMessage: '',
   requireNDA: false,
   allowedEmails: [] as string[],
+  recipientNames: [] as string[], 
   enableWatermark: false,
   watermarkText: '',
   watermarkPosition: 'bottom' as 'top' | 'bottom' | 'center' | 'diagonal',
@@ -261,8 +263,13 @@ const fetchDocument = async () => {
 // Handle single email add
 const handleAddRecipient = () => {
   const email = recipientInput.trim().toLowerCase();
+  const name = recipientNameInput.trim();
   
   if (!email) return;
+  if (!name) {
+    toast.error('Please enter recipient name');
+    return;
+  }
   
   // Validate email
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -276,14 +283,16 @@ const handleAddRecipient = () => {
     return;
   }
   
-  // Add email
+  // Add both email and name
   setShareSettings({
     ...shareSettings,
-    recipientEmails: [...shareSettings.recipientEmails, email]
+    recipientEmails: [...shareSettings.recipientEmails, email],
+    recipientNames: [...(shareSettings.recipientNames || []), name],
   });
   
   setRecipientInput('');
-  toast.success(`Added ${email}`);
+  setRecipientNameInput('');
+  toast.success(`Added ${name} (${email})`);
 };
 
 // Handle bulk paste
@@ -1546,109 +1555,69 @@ const handleSendSignatureRequest = async () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'activity' && (
+       {activeTab === 'activity' && (
   <div className="space-y-6">
-    {/* NEW: Template Section - Show if document is a template */}
+
+    {/* ── Template section (unchanged) ── */}
     {doc.isTemplate && (
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200 p-8 text-center">
         <div className="max-w-md mx-auto">
           <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
             <FileSignature className="h-8 w-8 text-purple-600" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-3">
-            Signable Template Ready
-          </h2>
-          <p className="text-slate-600 mb-6">
-            This document has pre-placed signature fields. Send it to recipients to collect signatures.
-          </p>
-          <div className="flex gap-3 justify-center">
-            <Button
-  onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)}
-  className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
->
-  <Mail className="h-4 w-4" />
-  Send to Recipients
-</Button>
-<Button
-          onClick={() => router.push(`/documents/${doc._id}/template-preview`)}
-          variant="outline"
-          className="gap-2"
-        >
-          <FileSignature className="h-4 w-4" />
-          View Template
-        </Button>
-<Button
-  onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)}
-  variant="outline"
-  className="gap-2"
->
-  <Edit className="h-4 w-4" />
-  Edit Template
-</Button>
-            <Button
-              onClick={async () => {
-                if (confirm('Remove template configuration? This will not delete the document.')) {
-                  const res = await fetch(`/api/documents/${doc._id}/template`, {
-                    method: 'DELETE',
-                    credentials: 'include',
-                  });
-                  if (res.ok) {
-                    alert('✅ Template configuration removed');
-                    fetchDocument(); // Refresh document data
-                  }
-                }
-              }}
-              variant="outline"
-              className="gap-2 text-red-600 hover:bg-red-50"
-            >
-              <Trash2 className="h-4 w-4" />
-              Remove Template
+          <h2 className="text-2xl font-bold text-slate-900 mb-3">Signable Template Ready</h2>
+          <p className="text-slate-600 mb-6">This document has pre-placed signature fields. Send it to recipients to collect signatures.</p>
+          <div className="flex gap-3 justify-center flex-wrap">
+            <Button onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)} className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+              <Mail className="h-4 w-4" />Send to Recipients
+            </Button>
+            <Button onClick={() => router.push(`/documents/${doc._id}/template-preview`)} variant="outline" className="gap-2">
+              <FileSignature className="h-4 w-4" />View Template
+            </Button>
+            <Button onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)} variant="outline" className="gap-2">
+              <Edit className="h-4 w-4" />Edit Template
+            </Button>
+            <Button onClick={async () => { if (confirm('Remove template configuration?')) { const res = await fetch(`/api/documents/${doc._id}/template`, { method: 'DELETE', credentials: 'include' }); if (res.ok) { fetchDocument(); } } }} variant="outline" className="gap-2 text-red-600 hover:bg-red-50">
+              <Trash2 className="h-4 w-4" />Remove Template
             </Button>
           </div>
         </div>
       </div>
     )}
 
-    {/* EXISTING: Your original "Put document to work" section */}
-    <div className="bg-white rounded-lg border shadow-sm p-12 text-center">
-      <div className="max-w-md mx-auto">
-        <div className="mb-6">
-          <img
-            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3Crect x='50' y='50' width='300' height='200' rx='10' fill='%233b82f6'/%3E%3Cpath d='M 100 180 Q 150 150 200 180 T 300 180' stroke='%23000' stroke-width='3' fill='none'/%3E%3Cpath d='M 80 120 L 100 100 L 120 110' fill='%23000'/%3E%3C/svg%3E"
-            alt="Put document to work"
-            className="w-64 h-48 mx-auto mb-6"
-          />
-        </div>
-        <h2 className="text-2xl font-bold text-slate-900 mb-3">
-          Put your document to work
-        </h2>
-        <p className="text-slate-600 mb-6">
-          Create a link to share this document, or customize the document to collect eSignatures
-        </p>
-        <div className="flex gap-3 justify-center">
-          <Button
-  onClick={handleCreateLink}
-  className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
->
-  <LinkIcon className="h-4 w-4" />
-  Create link
-</Button>
-          
-          <Button
-  onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)}
-  variant="outline"
-  className="gap-2"
->
-  <Mail className="h-4 w-4" />
-  Request signatures
-</Button>
-
-
-
-
+    {/* ── NO SHARES YET: Put document to work ── */}
+    {!analyticsLoading && (!analytics?.shares || analytics.shares === 0) && (
+      <div className="bg-white rounded-2xl border shadow-sm p-12 text-center">
+        <div className="max-w-md mx-auto">
+          <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-violet-100 to-blue-100 flex items-center justify-center mx-auto mb-6">
+            <Share2 className="h-10 w-10 text-violet-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-3">Put your document to work</h2>
+          <p className="text-slate-500 mb-8 leading-relaxed">
+            Create a share link to track who views it, how long they spend, and which pages matter most.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={handleCreateLink} className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+              <LinkIcon className="h-4 w-4" />Create link
+            </Button>
+            <Button onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)} variant="outline" className="gap-2">
+              <Mail className="h-4 w-4" />Request signatures
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    )}
+
+    {/* ── HAS SHARES: DocSend-style Activity View ── */}
+    {!analyticsLoading && analytics?.shares > 0 && (
+      <ActivityTab
+        analytics={analytics}
+        doc={doc}
+        token={String(params.id)}
+        onCreateLink={handleCreateLink}
+      />
+    )}
+
   </div>
 )}
 
@@ -2643,7 +2612,7 @@ const handleSendSignatureRequest = async () => {
                         icon: '🔗',
                       }
                     );
-                    setShareSettings({ requireEmail: true, allowDownload: false, expiresIn: 7, password: '', recipientEmails: [], sendEmailNotification: true, customMessage: '', requireNDA: false, allowedEmails: [], enableWatermark: false, watermarkText: '', watermarkPosition: 'bottom', ndaText: '', ndaTemplateId: '', customNdaText: '', useCustomNda: false, allowPrint: true, allowForwarding: true, notifyOnDownload: false, downloadLimit: undefined, viewLimit: undefined, selfDestruct: false, availableFrom: '', linkType: 'public', sharedByName: '', logoUrl: '' });
+                    setShareSettings({ requireEmail: true, recipientNames: [], allowDownload: false, expiresIn: 7, password: '', recipientEmails: [], sendEmailNotification: true, customMessage: '', requireNDA: false, allowedEmails: [], enableWatermark: false, watermarkText: '', watermarkPosition: 'bottom', ndaText: '', ndaTemplateId: '', customNdaText: '', useCustomNda: false, allowPrint: true, allowForwarding: true, notifyOnDownload: false, downloadLimit: undefined, viewLimit: undefined, selfDestruct: false, availableFrom: '', linkType: 'public', sharedByName: '', logoUrl: '' });
                     setLogoFile(null); setLogoPreview(null); setRecipientInput(''); setBulkRecipientInput(''); setCsvPreview([]); setShowAllRecipients(false);
                   }
                 } else {
@@ -2710,22 +2679,31 @@ const handleSendSignatureRequest = async () => {
               ))}
             </div>
 
-            {/* Single email */}
-            {recipientInputMethod === 'single' && (
-              <div className="flex gap-2">
-                <Input
-                  type="email"
-                  value={recipientInput}
-                  onChange={(e) => setRecipientInput(e.target.value)}
-                  placeholder="investor@vc.com"
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddRecipient(); } }}
-                  className="flex-1 text-sm"
-                />
-                <Button type="button" onClick={handleAddRecipient} variant="outline" size="sm" className="px-4">
-                  Add
-                </Button>
-              </div>
-            )}
+            {/* Single email + name */}
+{recipientInputMethod === 'single' && (
+  <div className="space-y-2">
+    <div className="grid grid-cols-2 gap-2">
+      <Input
+        type="text"
+        value={recipientNameInput}
+        onChange={(e) => setRecipientNameInput(e.target.value)}
+        placeholder="John Doe"
+        className="text-sm"
+      />
+      <Input
+        type="email"
+        value={recipientInput}
+        onChange={(e) => setRecipientInput(e.target.value)}
+        placeholder="investor@vc.com"
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddRecipient(); } }}
+        className="text-sm"
+      />
+    </div>
+    <Button type="button" onClick={handleAddRecipient} variant="outline" size="sm" className="w-full">
+      Add Recipient
+    </Button>
+  </div>
+)}
 
             {/* Bulk paste */}
             {recipientInputMethod === 'bulk' && (
@@ -4327,4 +4305,393 @@ if (res.ok) {
 
     </div>
   );
+}
+
+
+
+// ══════════════════════════════════════════════════════════════
+// ActivityTab — DocSend-style All Links + All Visits
+// ══════════════════════════════════════════════════════════════
+function ActivityTab({
+  analytics,
+  doc,
+  token,
+  onCreateLink,
+}: {
+  analytics: any;
+  doc: any;
+  token: string;
+  onCreateLink: () => void;
+}) {
+  const [expandedVisit, setExpandedVisit] = useState<string | null>(null);
+  const [hoveredPage, setHoveredPage] = useState<{ visitKey: string; page: number } | null>(null);
+
+  // Build "All Links" from shares info (analytics.topViewers gives sender/link info)
+  // We'll use analytics.recipientPageTracking for visits
+  const allLinks = analytics.topViewers?.length > 0
+    ? [{ name: doc.filename, createdAgo: analytics.lastViewed ? formatAgo(new Date(analytics.lastViewed)) : 'Recently', link: `${typeof window !== 'undefined' ? window.location.origin : ''}/view/${token}`, visits: analytics.totalViews, enabled: true }]
+    : [];
+
+  // Build "All Visits" from recipientPageTracking
+  const allVisits: {
+    key: string;
+    email: string;
+    senderName: string;
+    timeAgo: string;
+    totalTime: string;
+    totalTimeSeconds: number;
+    device: string;
+    os: string;
+    location: string;
+    city: string;
+    country: string;
+    countryCode?: string;
+    pageData: any[];
+    bounced: boolean;
+    firstOpened: string | null;
+  }[] = (analytics.recipientPageTracking || []).map((r: any, i: number) => ({
+    key: r.recipientEmail || `anon-${i}`,
+    email: r.recipientEmail || 'Anonymous',
+    senderName: doc.filename,
+    timeAgo: r.firstOpened ? formatAgo(new Date(r.firstOpened)) : 'Unknown',
+    totalTime: r.totalTimeOnDoc || '0m 0s',
+    totalTimeSeconds: r.totalTimeSeconds || 0,
+    device: 'Desktop',
+    os: 'Windows',
+    location: analytics.locations?.[0]?.country || 'Unknown',
+    city: analytics.locations?.[0]?.topCities?.[0] || '',
+    country: analytics.locations?.[0]?.country || 'Unknown',
+    countryCode: analytics.locations?.[0]?.countryCode,
+    pageData: r.pageData || [],
+    bounced: r.bounced || false,
+    firstOpened: r.firstOpened || null,
+  }));
+
+  // Max time across all pages for bar scaling
+  const getMaxTime = (pageData: any[]) =>
+    Math.max(...pageData.map((p: any) => p.timeSpent || 0), 1);
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── ALL LINKS ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <LinkIcon className="h-4 w-4 text-violet-500" />
+            <h3 className="font-bold text-slate-900 text-sm">All Links</h3>
+            <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-bold rounded-full">{allLinks.length}</span>
+          </div>
+          <button
+            onClick={onCreateLink}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}
+          >
+            <LinkIcon className="h-3 w-3" /> New Link
+          </button>
+        </div>
+
+        {/* Column headers */}
+        <div className="grid items-center px-6 py-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide"
+          style={{ gridTemplateColumns: '1fr 2fr auto auto' }}>
+          <span>NAME</span>
+          <span>LINK</span>
+          <span className="text-center">ACTIVE</span>
+          <span className="text-right">ACTIVITY</span>
+        </div>
+
+        {/* Link rows */}
+        {allLinks.length === 0 ? (
+          <div className="px-6 py-10 text-center">
+            <p className="text-slate-400 text-sm">No links created yet</p>
+          </div>
+        ) : (
+          allLinks.map((lnk, i) => (
+            <div key={i} className="grid items-center px-6 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors"
+              style={{ gridTemplateColumns: '1fr 2fr auto auto' }}>
+              {/* Name */}
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
+                    <FileText className="h-4 w-4 text-violet-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 truncate max-w-[140px]">{lnk.name}</p>
+                    <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Link pill + copy */}
+              <div className="flex items-center gap-2 min-w-0 pr-4">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 min-w-0 flex-1">
+                  <div className="h-5 w-5 rounded bg-violet-600 flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-[9px] font-bold">P</span>
+                  </div>
+                  <span className="text-xs text-slate-600 font-mono truncate flex-1">{lnk.link.replace('https://', '')}</span>
+                </div>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(lnk.link); }}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-colors flex-shrink-0"
+                  title="Copy link"
+                >
+                  <Copy className="h-3.5 w-3.5 text-slate-400" />
+                </button>
+                <button className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 hover:border-slate-400 hover:bg-slate-100 transition-colors flex-shrink-0">
+                  <MoreVertical className="h-3.5 w-3.5 text-slate-400" />
+                </button>
+              </div>
+
+              {/* Toggle */}
+              <div className="flex justify-center">
+                <div className="w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors"
+                  style={{ background: lnk.enabled ? '#7c3aed' : '#e2e8f0' }}>
+                  <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${lnk.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                </div>
+              </div>
+
+              {/* Activity count */}
+              <div className="text-right">
+                <p className="text-sm font-bold text-slate-900">{lnk.visits}</p>
+                <p className="text-xs text-slate-400">{lnk.visits === 1 ? 'visit' : 'visits'}</p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ── ALL VISITS ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <Eye className="h-4 w-4 text-violet-500" />
+            <h3 className="font-bold text-slate-900 text-sm">All Visits</h3>
+            <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-bold rounded-full">{allVisits.length}</span>
+          </div>
+        </div>
+
+        {allVisits.length === 0 ? (
+          /* ── Empty state ── */
+          <div className="px-6 py-16 text-center">
+            <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+              <Eye className="h-8 w-8 text-slate-300" />
+            </div>
+            <h4 className="text-base font-semibold text-slate-700 mb-1">No visits yet</h4>
+            <p className="text-sm text-slate-400 max-w-xs mx-auto">
+              No one has opened any link yet. Once a recipient opens the document, their info will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50">
+            {allVisits.map((visit) => {
+              const isExpanded = expandedVisit === visit.key;
+              const maxTime = getMaxTime(visit.pageData);
+
+              return (
+                <div key={visit.key} className="transition-colors hover:bg-slate-50/50">
+                  {/* Visit row */}
+                  <div className="px-6 py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Left: Avatar + info */}
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                          {visit.email !== 'Anonymous' ? visit.email.charAt(0).toUpperCase() : '?'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <p className="text-sm font-semibold text-slate-900">{visit.email}</p>
+                            <span className="text-xs text-slate-400">·</span>
+                            <p className="text-xs text-slate-500">{visit.senderName}</p>
+                            <span className="text-xs text-slate-400">·</span>
+                            <p className="text-xs text-slate-400">{visit.timeAgo}</p>
+                          </div>
+
+                          {/* Device + location row */}
+                          <div className="flex items-center gap-3 text-xs text-slate-500 mb-2">
+                            <span className="font-semibold text-slate-600 uppercase tracking-wide text-[10px]">
+                              DEVICE, OS, &amp; LOCATION INFO
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-slate-500">
+                            {/* Desktop icon */}
+                            <span className="flex items-center gap-1">
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                            </span>
+                            {/* Windows icon */}
+                            <span className="flex items-center gap-1">
+                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
+                              </svg>
+                            </span>
+                            {/* Location */}
+                            <span className="flex items-center gap-1 font-medium text-slate-700">
+                              {visit.city && visit.city !== 'Unknown' ? `${visit.city}, ` : ''}{visit.country}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: time + expand arrow */}
+                      <div className="flex items-center gap-4 flex-shrink-0">
+                        {/* Status */}
+                        {visit.bounced ? (
+                          <span className="px-2 py-1 bg-red-50 text-red-500 text-xs font-semibold rounded-full">Bounced</span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-5 w-5 rounded-full bg-slate-100 flex items-center justify-center">
+                              <Check className="h-3 w-3 text-slate-500" />
+                            </div>
+                            <span className="text-sm font-bold text-slate-900 tabular-nums">{visit.totalTime}</span>
+                          </div>
+                        )}
+
+                        {/* Expand button */}
+                        <button
+                          onClick={() => setExpandedVisit(isExpanded ? null : visit.key)}
+                          className="h-8 w-8 rounded-lg border border-slate-200 flex items-center justify-center hover:border-violet-400 hover:bg-violet-50 transition-colors"
+                        >
+                          {isExpanded
+                            ? <ChevronUp className="h-4 w-4 text-slate-600" />
+                            : <ChevronDown className="h-4 w-4 text-slate-600" />
+                          }
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* ── EXPANDED: Per-page bar chart (DocSend style) ── */}
+                    {isExpanded && (
+                      <div className="mt-5 pt-5 border-t border-slate-100">
+                        {/* Y-axis labels + bars */}
+                        <div className="relative" style={{ paddingLeft: '52px', paddingBottom: '28px' }}>
+                          {/* Y-axis labels */}
+                          {(() => {
+                            const formatYLabel = (secs: number) => {
+                              const m = Math.floor(secs / 60);
+                              const s = secs % 60;
+                              return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                            };
+                            const steps = [maxTime, Math.round(maxTime * 0.5), 0];
+                            return steps.map((val, i) => (
+                              <div key={i} className="absolute text-right text-[10px] text-slate-400 font-mono"
+                                style={{ left: 0, top: `${(i / 2) * 100}%`, width: '44px', transform: 'translateY(-50%)' }}>
+                                {formatYLabel(val)}
+                              </div>
+                            ));
+                          })()}
+
+                          {/* Gridlines */}
+                          <div className="absolute inset-0" style={{ paddingLeft: '52px', paddingBottom: '28px' }}>
+                            {[0, 0.5, 1].map((frac, i) => (
+                              <div key={i} className="absolute left-0 right-0 border-t border-slate-100"
+                                style={{ top: `${frac * 100}%` }} />
+                            ))}
+                          </div>
+
+                          {/* Bars container */}
+                          <div className="relative flex items-end gap-2 bg-white" style={{ height: '180px' }}>
+                            {visit.pageData.map((page: any) => {
+                              const heightPct = maxTime > 0 ? (page.timeSpent / maxTime) * 100 : 0;
+                              const hKey = `${visit.key}-${page.page}`;
+                              const isHovered = hoveredPage?.visitKey === visit.key && hoveredPage?.page === page.page;
+
+                              return (
+                                <div key={page.page} className="flex-1 flex flex-col items-center justify-end h-full relative group"
+                                  onMouseEnter={() => setHoveredPage({ visitKey: visit.key, page: page.page })}
+                                  onMouseLeave={() => setHoveredPage(null)}>
+
+                                  {/* Tooltip */}
+                                  {isHovered && (
+                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                                      <div className="bg-slate-900 rounded-xl shadow-2xl overflow-hidden"
+                                        style={{ width: '200px' }}>
+                                        {/* PDF preview iframe */}
+                                        <div className="relative bg-white" style={{ height: '130px' }}>
+                                          <iframe
+                                             src={`/api/documents/${doc._id}/page?page=${page.page}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                                            className="w-full h-full border-0 pointer-events-none"
+                                            style={{ display: 'block' }}
+                                            title={`Page ${page.page} preview`}
+                                          />
+                                          {/* Dark overlay with page info */}
+                                          <div className="absolute bottom-0 left-0 right-0 p-2"
+                                            style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.85))' }}>
+                                          </div>
+                                        </div>
+                                        {/* Stats row */}
+                                        <div className="flex items-center justify-between px-3 py-2">
+                                          <div>
+                                            <p className="text-[10px] text-slate-400 uppercase tracking-wide">PAGE</p>
+                                            <p className="text-sm font-bold text-white">{page.page} / {visit.pageData.length}</p>
+                                          </div>
+                                          <div className="text-right">
+                                            <p className="text-[10px] text-slate-400 uppercase tracking-wide">TIME SPENT</p>
+                                            <p className="text-sm font-bold text-white">
+                                              {String(Math.floor(page.timeSpent / 60)).padStart(2,'0')}:{String(page.timeSpent % 60).padStart(2,'0')}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        {/* Blue progress bar */}
+                                        <div className="h-1 bg-slate-700">
+                                          <div className="h-full bg-blue-400 transition-all"
+                                            style={{ width: `${Math.min((page.timeSpent / maxTime) * 100, 100)}%` }} />
+                                        </div>
+                                      </div>
+                                      {/* Arrow */}
+                                      <div className="flex justify-center">
+                                        <div className="w-2.5 h-2.5 bg-slate-900 rotate-45 -mt-1.5" />
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Bar */}
+                                  <div
+                                    className="w-full rounded-t transition-all cursor-pointer"
+                                    style={{
+                                      height: `${Math.max(heightPct, page.timeSpent > 0 ? 2 : 0)}%`,
+                                      background: isHovered
+                                        ? 'linear-gradient(180deg, #7c3aed, #6d28d9)'
+                                        : page.skipped
+                                        ? '#e2e8f0'
+                                        : 'linear-gradient(180deg, #a855f7, #9333ea)',
+                                      minHeight: page.timeSpent > 0 ? '4px' : '0',
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* X-axis: page numbers */}
+                          <div className="flex gap-2 pt-2" style={{ paddingLeft: '0' }}>
+                            {visit.pageData.map((page: any) => (
+                              <div key={page.page} className="flex-1 text-center text-xs text-slate-400 font-medium">
+                                {page.page}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Helper
+function formatAgo(date: Date): string {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 60) return 'Just now';
+  if (secs < 3600) return `${Math.floor(secs / 60)} min ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)} hours ago`;
+  return `${Math.floor(secs / 86400)} days ago`;
 }

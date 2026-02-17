@@ -110,26 +110,30 @@ const avgTimePerSession = sessionsWithDuration.length > 0
   ? Math.round(totalTimeFromLogs / Math.max(allSessions.length, 1))
   : Math.round(totalTimeFromOldViews / (oldViews.length || 1));
 
-// ── Per-viewer total (accumulates — never goes down) ────────────
-// Group sessions by viewer and sum their durations
+// ── Per-viewer total — calculated from page_time logs (reliable source) ──
+// Sessions may have duration=0 if session_end never fires.
+// page_time logs are written per-page and are always accurate.
+const allPageTimeLogs = await db.collection('analytics_logs').find({
+  documentId: id,
+  action: 'page_view',
+}).toArray();
+
+// Group total time by viewer key (email takes priority over viewerId)
 const viewerTotalTimes = new Map<string, number>();
-allSessions.forEach((s: any) => {
-  const key = s.email || s.viewerId;
+allPageTimeLogs.forEach((log: any) => {
+  const key = log.email || log.viewerId;
   if (!key) return;
-  viewerTotalTimes.set(key, (viewerTotalTimes.get(key) || 0) + (s.duration || 0));
+  viewerTotalTimes.set(key, (viewerTotalTimes.get(key) || 0) + (log.viewTime || 0));
 });
 
-// Count unique viewer keys from sessions
-const uniqueSessionViewers = new Set(
-  allSessions
-    .map((s: any) => s.email || s.viewerId)
-    .filter(Boolean)
-).size;
-
-// Total duration across all sessions
-const rawTotalDuration = allSessions.reduce(
-  (sum: number, s: any) => sum + (s.duration || 0), 0
-);
+// If page_time logs are empty, fall back to session durations
+if (viewerTotalTimes.size === 0) {
+  allSessions.forEach((s: any) => {
+    const key = s.email || s.viewerId;
+    if (!key) return;
+    viewerTotalTimes.set(key, (viewerTotalTimes.get(key) || 0) + (s.duration || 0));
+  });
+}
 
 const avgTotalTimePerViewer =
   viewerTotalTimes.size > 0
@@ -137,10 +141,6 @@ const avgTotalTimePerViewer =
         Array.from(viewerTotalTimes.values()).reduce((a, b) => a + b, 0) /
         viewerTotalTimes.size
       )
-    : uniqueSessionViewers > 0
-    ? Math.round(rawTotalDuration / uniqueSessionViewers)
-    : rawTotalDuration > 0
-    ? rawTotalDuration  // only 1 viewer — just show their total
     : avgTimePerSession;
 
 const averageTimeSeconds = avgTimePerSession; // keep existing field name

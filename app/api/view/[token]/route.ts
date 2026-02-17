@@ -100,6 +100,7 @@ export async function POST(
           customMessage: share.settings.customMessage,
           sharedByName: share.settings.sharedByName || null,   
       logoUrl: share.settings.logoUrl || null,  
+      senderEmail: share.settings || null, 
         },
         
       }, { status: 401 });

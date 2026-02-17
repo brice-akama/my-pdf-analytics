@@ -84,6 +84,7 @@ export async function POST(
     console.log('📨 Request body:', body);
     const {
       requireEmail = false,
+      recipientNames = [], // NEW — array of names matching recipientEmails
       allowDownload = true,
       allowPrint = true,
       notifyOnView = true,
@@ -249,6 +250,7 @@ const emailWhitelist = allowedEmails.length > 0 ? allowedEmails : recipientEmail
         hasPassword: !!password,
         maxViews,
         allowedEmails: emailWhitelist.length > 0 ? emailWhitelist : null,
+        recipientNames: recipientNames.length > 0 ? recipientNames : null, // NEW
         customMessage,
         trackDetailedAnalytics,
         enableWatermark,  
@@ -416,7 +418,7 @@ if (sendEmailNotification && emailWhitelist.length > 0) {
   const senderName = profile?.full_name || user.email.split('@')[0];
   
   // Send to all recipients in parallel
-  const emailPromises = emailWhitelist.map(async (recipientEmail) => {
+  const emailPromises = emailWhitelist.map(async (recipientEmail: any) => {
     try {
       await sendShareEmailViaGmailOrResend({
         userId: user.id,
