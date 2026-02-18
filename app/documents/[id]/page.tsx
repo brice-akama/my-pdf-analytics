@@ -3,6 +3,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import React from 'react'; // Add this if not already present
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
  import Link from "next/link";
@@ -179,6 +180,8 @@ const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 const [liveViewerCount, setLiveViewerCount] = useState(0);
 const [liveViewers, setLiveViewers] = useState<any[]>([]);
 const [heatmapPage, setHeatmapPage] = useState(1);
+const [showEditLinkDrawer, setShowEditLinkDrawer] = useState(false);
+const [editingLink, setEditingLink] = useState<any>(null);
 const [shareSettings, setShareSettings] = useState({
   requireEmail: true,
   allowDownload: false,
@@ -703,6 +706,13 @@ const handleSaveNotes = async () => {
     setIsSavingNotes(false);
   }
 };
+
+const formatTime = (seconds: number): string => {
+    if (!seconds || seconds < 0) return '0m 0s';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
+  };
 
 // Load notes when document loads
 useEffect(() => {
@@ -1615,6 +1625,10 @@ const handleSendSignatureRequest = async () => {
         doc={doc}
         token={String(params.id)}
         onCreateLink={handleCreateLink}
+        onEditLink={(link) => {
+    setEditingLink(link);
+    setShowEditLinkDrawer(true);
+  }}
       />
     )}
 
@@ -2070,299 +2084,131 @@ const handleSendSignatureRequest = async () => {
     )}
   </div>
 )}
-        {activeTab === 'utilization' && (
+{activeTab === 'utilization' && (
   <div className="space-y-6">
+    
     {analyticsLoading ? (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-24">
         <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading analytics...</p>
+          <div className="animate-spin h-10 w-10 border-4 border-violet-600 border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-slate-500 text-sm">Loading usage data...</p>
         </div>
-      </div>
-    ) : !analytics || (
-      analytics.totalViews === 0 && 
-      analytics.uniqueViewers === 0 &&
-      (!analytics.devices || (analytics.devices.desktop === 0 && analytics.devices.mobile === 0 && analytics.devices.tablet === 0)) &&
-      (!analytics.eSignature || analytics.eSignature.totalRecipients === 0)
-    ) ? (
-      <div className="bg-white rounded-lg border shadow-sm p-12 text-center">
-        <Activity className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-slate-900 mb-2">No utilization data yet</h3>
-        <p className="text-slate-600 mb-6">Share your document to see how it's being used</p>
-        <Button 
-          onClick={handleCreateLink}
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-        >
-          Create Share Link
-        </Button>
       </div>
     ) : (
       <>
-        {/* E-Signature analytics */}
-        {analytics.eSignature && analytics.eSignature.totalRecipients > 0 && (
-          <div className="bg-white rounded-2xl border shadow-sm p-6">
-            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <FileSignature className="h-4 w-4 text-violet-500" />
-              E-Signature Analytics
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              {[
-                { label: 'Sent', value: analytics.eSignature.totalRecipients, color: 'blue' },
-                { label: 'Signed', value: analytics.eSignature.completedCount, color: 'green' },
-                { label: 'Completion', value: `${analytics.eSignature.completionRate}%`, color: 'violet' },
-                { label: 'Avg Time', value: analytics.eSignature.averageTimeFormatted, color: 'orange' },
-              ].map((s) => (
-                <div key={s.label} className={`bg-${s.color}-50 rounded-xl p-4 text-center border border-${s.color}-100`}>
-                  <p className={`text-2xl font-black text-${s.color}-700`}>{s.value}</p>
-                  <p className="text-xs text-slate-500 mt-1">{s.label}</p>
-                </div>
-              ))}
+        {/* Recent Usage Table */}
+        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100">
+            <h3 className="font-bold text-slate-900 text-lg">Recent Usage (last 30 days)</h3>
+          </div>
+
+          {/* Table Header */}
+          <div className="grid grid-cols-4 gap-4 px-6 py-3 bg-slate-50 border-b border-slate-100">
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              Team Member
             </div>
-            {/* Signature friction funnel */}
-            {analytics.eSignature.signatureFriction?.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Signing Funnel</p>
-                {analytics.eSignature.signatureFriction.map((step: any, i: number) => {
-                  const maxUsers = analytics.eSignature.signatureFriction[0]?.users || 1;
-                  const pct = Math.round((step.users / maxUsers) * 100);
-                  return (
-                    <div key={i}>
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-medium text-slate-700">{step.step}</span>
-                        <div className="flex items-center gap-3 text-slate-400">
-                          <span>{step.users} users</span>
-                          {step.dropOff > 0 && <span className="text-red-500">-{step.dropOff}% drop</span>}
-                        </div>
-                      </div>
-                      <div className="h-5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-violet-500 to-blue-400 rounded-full"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide text-center">
+              Links Created ▲
+            </div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide text-center">
+              Spaces Added To
+            </div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide text-center">
+              Visits
+            </div>
+          </div>
+
+          {/* Table Row - Real Data */}
+          {analytics && (analytics.shares > 0 || analytics.totalViews > 0) ? (
+            <div className="grid grid-cols-4 gap-4 px-6 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white font-bold">
+                  {analytics.documentInfo?.filename?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">You</p>
+                  <p className="text-xs text-slate-500">Document owner</p>
+                </div>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Decline analysis */}
-        {analytics.declineReasons?.length > 0 && (
-          <div className="bg-white rounded-2xl border shadow-sm p-6">
-            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
-              Decline Analysis
-            </h3>
-            <div className="space-y-2">
-              {analytics.declineReasons.map((item: any, i: number) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100">
-                  <span className="text-sm font-medium text-slate-800">{item.reason}</span>
-                  <span className="text-sm font-bold text-red-600">{item.count} ({item.percentage}%)</span>
-                </div>
-              ))}
+              <div className="flex items-center justify-center">
+                <span className="text-2xl font-bold text-slate-900">
+                  {analytics.shares}
+                </span>
+              </div>
+              <div className="flex items-center justify-center">
+                <span className="text-2xl font-bold text-slate-900">0</span>
+              </div>
+              <div className="flex items-center justify-center">
+                <span className="text-2xl font-bold text-slate-900">
+                  {analytics.totalViews}
+                </span>
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Reminder effectiveness */}
-        {analytics.reminderEffectiveness?.some((r: any) => r.total > 0) && (
-          <div className="bg-white rounded-2xl border shadow-sm p-6">
-            <h3 className="font-bold text-slate-900 mb-4">🔔 Reminder Effectiveness</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {analytics.reminderEffectiveness.map((item: any, i: number) => (
-                <div key={i} className="text-center p-4 bg-slate-50 rounded-xl border">
-                  <p className="text-2xl font-black text-violet-700">{item.signRate}%</p>
-                  <p className="text-xs font-semibold text-slate-700 mt-1">{item.reminderType}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">avg {item.avgTime}</p>
-                </div>
-              ))}
+          ) : (
+            /* Empty State */
+            <div className="px-6 py-12 text-center">
+              <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <Activity className="h-8 w-8 text-slate-400" />
+              </div>
+              <h4 className="text-lg font-semibold text-slate-900 mb-2">No usage data yet</h4>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6">
+                Create share links to start tracking document usage
+              </p>
+              <Button 
+                onClick={handleCreateLink}
+                className="bg-gradient-to-r from-violet-600 to-blue-600"
+              >
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Create First Link
+              </Button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Stats Overview */}
+        {/* Quick Stats Cards - Real Data */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-xl border shadow-sm p-6">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-slate-600">Downloads</h3>
-              <Download className="h-4 w-4 text-green-500" />
+              <h4 className="text-sm font-medium text-slate-600">Active Links</h4>
+              <LinkIcon className="h-4 w-4 text-violet-500" />
             </div>
-            <p className="text-3xl font-bold text-slate-900">{analytics.downloads}</p>
+            <p className="text-3xl font-bold text-slate-900">
+              {analytics?.shares || 0}
+            </p>
             <p className="text-xs text-slate-500 mt-1">
-              {analytics.totalViews > 0 ? ((analytics.downloads / analytics.totalViews) * 100).toFixed(1) : 0}% of views
+              Links created this month
             </p>
           </div>
 
           <div className="bg-white rounded-xl border shadow-sm p-6">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-slate-600">Shares</h3>
-              <Share2 className="h-4 w-4 text-blue-500" />
+              <h4 className="text-sm font-medium text-slate-600">Total Visits</h4>
+              <Eye className="h-4 w-4 text-blue-500" />
             </div>
-            <p className="text-3xl font-bold text-slate-900">{analytics.shares}</p>
-            <p className="text-xs text-slate-500 mt-1">Active share links</p>
-          </div>
-
-          <div className="bg-white rounded-xl border shadow-sm p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-slate-600">Completion Rate</h3>
-              <FileCheck className="h-4 w-4 text-purple-500" />
-            </div>
-            <p className="text-3xl font-bold text-slate-900">{analytics.completionRate}%</p>
-            <p className="text-xs text-slate-500 mt-1">Viewed all pages</p>
-          </div>
-        </div>
-
-        {/* Device Breakdown */}
-        <div className="bg-white rounded-xl border shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">Device Breakdown</h3>
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-slate-700">Desktop</span>
-                <span className="text-sm text-slate-600">{analytics.devices.desktop}%</span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all"
-                  style={{ width: `${analytics.devices.desktop}%` }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-slate-700">Mobile</span>
-                <span className="text-sm text-slate-600">{analytics.devices.mobile}%</span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-purple-500 to-purple-600 h-full rounded-full transition-all"
-                  style={{ width: `${analytics.devices.mobile}%` }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-slate-700">Tablet</span>
-                <span className="text-sm text-slate-600">{analytics.devices.tablet}%</span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-green-500 to-green-600 h-full rounded-full transition-all"
-                  style={{ width: `${analytics.devices.tablet}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Geographic Distribution */}
-        {analytics.locations.length > 0 && (
-          <div className="bg-white rounded-xl border shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Geographic Distribution</h3>
-            <div className="space-y-3">
-              {analytics.locations.map((location: any, index: number) => (
-                <div key={index} className="flex items-center gap-4">
-                  <div className="w-32 text-sm font-medium text-slate-700">
-                    {location.country}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
-                        <div 
-                          className="bg-gradient-to-r from-purple-600 to-blue-500 h-full rounded-full transition-all"
-                          style={{ width: `${location.percentage}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-slate-600 w-12">{location.percentage}%</span>
-                    </div>
-                  </div>
-                  <div className="text-sm text-slate-600 w-16 text-right">
-                    {location.views}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Engagement Score */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-xl border shadow-sm p-6">
-            <h3 className="text-base font-semibold text-slate-900 mb-4">Engagement Score</h3>
-            <div className="flex items-center justify-center">
-              <div className="relative w-32 h-32">
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke="#e2e8f0"
-                    strokeWidth="8"
-                    fill="none"
-                  />
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke="url(#gradient)"
-                    strokeWidth="8"
-                    fill="none"
-                    strokeDasharray={`${(analytics.completionRate / 100) * 352} 352`}
-                    strokeLinecap="round"
-                  />
-                  <defs>
-                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#8B5CF6" />
-                      <stop offset="100%" stopColor="#3B82F6" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-3xl font-bold text-slate-900">{analytics.completionRate}</span>
-                </div>
-              </div>
-            </div>
-            <p className="text-center text-sm text-slate-600 mt-4">
-              {analytics.completionRate >= 75 ? 'High' : analytics.completionRate >= 50 ? 'Medium' : 'Low'} engagement rate
+            <p className="text-3xl font-bold text-slate-900">
+              {analytics?.totalViews || 0}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Across all links
             </p>
           </div>
 
           <div className="bg-white rounded-xl border shadow-sm p-6">
-            <h3 className="text-base font-semibold text-slate-900 mb-4">Key Insights</h3>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-2">
-                <div className="h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Eye className="h-3 w-3 text-blue-600" />
-                </div>
-                <p className="text-sm text-slate-600">
-                  {analytics.totalViews} total views from {analytics.uniqueViewers} unique viewers
-                </p>
-              </li>
-              <li className="flex items-start gap-2">
-                <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Clock className="h-3 w-3 text-green-600" />
-                </div>
-                <p className="text-sm text-slate-600">
-                  Average viewing time: {analytics.averageTime}
-                </p>
-              </li>
-              <li className="flex items-start gap-2">
-                <div className="h-5 w-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <TrendingUp className="h-3 w-3 text-purple-600" />
-                </div>
-                <p className="text-sm text-slate-600">
-                  {analytics.completionRate}% of viewers read the entire document
-                </p>
-              </li>
-              </ul>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-slate-600">Avg. Time</h4>
+              <Clock className="h-4 w-4 text-green-500" />
+            </div>
+            <p className="text-3xl font-bold text-slate-900">
+              {analytics?.avgTimePerSession || '0m 0s'}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Per viewing session
+            </p>
           </div>
         </div>
       </>
     )}
+
   </div>
 )}
       </div>
@@ -2555,70 +2401,146 @@ const handleSendSignatureRequest = async () => {
               }
               try {
                 const res = await fetch(`/api/documents/${params.id}/share`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  credentials: 'include',
-                  body: JSON.stringify({
-                    requireEmail: shareSettings.requireEmail,
-                    allowDownload: shareSettings.allowDownload,
-                    password: shareSettings.password || null,
-                    expiresIn: shareSettings.expiresIn === 0 ? 'never' : shareSettings.expiresIn.toString(),
-                    allowedEmails: shareSettings.recipientEmails,
-                    recipientEmails: shareSettings.recipientEmails,
-                    customMessage: shareSettings.customMessage || null,
-                    sendEmailNotification: shareSettings.sendEmailNotification,
-                    notifyOnView: true,
-                    allowPrint: shareSettings.allowPrint,
-                    trackDetailedAnalytics: true,
-                    enableWatermark: shareSettings.enableWatermark,
-                    watermarkText: shareSettings.watermarkText || null,
-                    watermarkPosition: shareSettings.watermarkPosition,
-                    requireNDA: shareSettings.requireNDA,
-                    ndaTemplateId: shareSettings.useCustomNda ? null : shareSettings.ndaTemplateId,
-                    customNdaText: shareSettings.useCustomNda ? shareSettings.customNdaText : null,
-                    allowForwarding: shareSettings.allowForwarding,
-                    notifyOnDownload: shareSettings.notifyOnDownload,
-                    downloadLimit: shareSettings.downloadLimit || null,
-                    viewLimit: shareSettings.viewLimit || null,
-                    selfDestruct: shareSettings.selfDestruct,
-                    availableFrom: shareSettings.availableFrom || null,
-                    linkType: shareSettings.linkType,
-                    sharedByName: shareSettings.sharedByName || null,
-                    logoUrl: shareSettings.logoUrl || null,
-                  }),
-                });
-                if (res.ok) {
-                  const data = await res.json();
-                  if (data.success) {
-                    const shareLink = data.shareLink;
-                    const recipientCount = shareSettings.recipientEmails.length;
-                    const emailsWereSent = recipientCount > 0 && shareSettings.sendEmailNotification;
-                    setShowCreateLinkDialog(false);
-                    navigator.clipboard.writeText(shareLink).catch(() => {});
-                    toast.success(
-                      emailsWereSent ? `Link created & sent to ${recipientCount} recipient${recipientCount > 1 ? 's' : ''}!` : 'Share link created!',
-                      {
-                        description: (
-                          <div className="space-y-2 mt-1">
-                            <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
-                              <code className="text-xs text-slate-600 truncate flex-1 max-w-[200px]">{shareLink}</code>
-                              <button onClick={() => { navigator.clipboard.writeText(shareLink); toast.success('Copied!', { duration: 1500 }); }} className="text-xs font-semibold text-purple-600 hover:text-purple-700">Copy</button>
-                            </div>
-                            {emailsWereSent && <p className="text-xs text-slate-500">✉️ Sent to: {shareSettings.recipientEmails.slice(0, 2).join(', ')}{shareSettings.recipientEmails.length > 2 && ` +${shareSettings.recipientEmails.length - 2} more`}</p>}
-                            <button onClick={() => window.open(shareLink, '_blank')} className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Open Link</button>
-                          </div>
-                        ),
-                        duration: 8000,
-                        icon: '🔗',
-                      }
-                    );
-                    setShareSettings({ requireEmail: true, recipientNames: [], allowDownload: false, expiresIn: 7, password: '', recipientEmails: [], sendEmailNotification: true, customMessage: '', requireNDA: false, allowedEmails: [], enableWatermark: false, watermarkText: '', watermarkPosition: 'bottom', ndaText: '', ndaTemplateId: '', customNdaText: '', useCustomNda: false, allowPrint: true, allowForwarding: true, notifyOnDownload: false, downloadLimit: undefined, viewLimit: undefined, selfDestruct: false, availableFrom: '', linkType: 'public', sharedByName: '', logoUrl: '' });
-                    setLogoFile(null); setLogoPreview(null); setRecipientInput(''); setBulkRecipientInput(''); setCsvPreview([]); setShowAllRecipients(false);
-                  }
-                } else {
-                  const data = await res.json();
-                  toast.error(data.error || 'Failed to create share link');
-                }
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  credentials: 'include',
+  body: JSON.stringify({
+    requireEmail: shareSettings.requireEmail,
+    allowDownload: shareSettings.allowDownload,
+    password: shareSettings.password || null,
+    expiresIn: shareSettings.expiresIn === 0 ? 'never' : shareSettings.expiresIn.toString(),
+    allowedEmails: shareSettings.recipientEmails,
+    recipientEmails: shareSettings.recipientEmails,
+    recipientNames: shareSettings.recipientEmails.map(e => e.split('@')[0]), // Generate names from emails
+    customMessage: shareSettings.customMessage || null,
+    sendEmailNotification: shareSettings.sendEmailNotification,
+    notifyOnView: true,
+    allowPrint: shareSettings.allowPrint,
+    trackDetailedAnalytics: true,
+    enableWatermark: shareSettings.enableWatermark,
+    watermarkText: shareSettings.watermarkText || null,
+    watermarkPosition: shareSettings.watermarkPosition,
+    requireNDA: shareSettings.requireNDA,
+    ndaTemplateId: shareSettings.useCustomNda ? null : shareSettings.ndaTemplateId,
+    customNdaText: shareSettings.useCustomNda ? shareSettings.customNdaText : null,
+    allowForwarding: shareSettings.allowForwarding,
+    notifyOnDownload: shareSettings.notifyOnDownload,
+    downloadLimit: shareSettings.downloadLimit || null,
+    viewLimit: shareSettings.viewLimit || null,
+    selfDestruct: shareSettings.selfDestruct,
+    availableFrom: shareSettings.availableFrom || null,
+    linkType: shareSettings.linkType,
+    sharedByName: shareSettings.sharedByName || null,
+    logoUrl: shareSettings.logoUrl || null,
+  }),
+});
+
+if (res.ok) {
+  const data = await res.json();
+  if (data.success) {
+    // 🔥 FIXED: Handle both single link and multiple links
+    let shareLink = '';
+    let recipientCount = 0;
+    let emailsWereSent = false;
+
+    if (data.shareLink) {
+      // Single public link (no recipients)
+      shareLink = data.shareLink;
+      recipientCount = 0;
+      emailsWereSent = false;
+    } else if (data.shareLinks && data.shareLinks.length > 0) {
+      // Multiple recipient links
+      shareLink = data.shareLinks[0].shareLink; // Use first link for toast
+      recipientCount = data.shareLinks.length;
+      emailsWereSent = recipientCount > 0 && shareSettings.sendEmailNotification;
+    }
+
+    setShowCreateLinkDialog(false);
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(shareLink).catch(() => {});
+    
+    // Show success toast
+    toast.success(
+      emailsWereSent 
+        ? `Link created & sent to ${recipientCount} recipient${recipientCount > 1 ? 's' : ''}!` 
+        : 'Share link created!',
+      {
+        description: (
+          <div className="space-y-2 mt-1">
+            <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+              <code className="text-xs text-slate-600 truncate flex-1 max-w-[200px]">{shareLink}</code>
+              <button 
+                onClick={() => { 
+                  navigator.clipboard.writeText(shareLink); 
+                  toast.success('Copied!', { duration: 1500 }); 
+                }} 
+                className="text-xs font-semibold text-purple-600 hover:text-purple-700"
+              >
+                Copy
+              </button>
+            </div>
+            {emailsWereSent && data.shareLinks && (
+              <p className="text-xs text-slate-500">
+                ✉️ Sent to: {data.shareLinks.slice(0, 2).map((l: any) => l.recipientEmail).join(', ')}
+                {data.shareLinks.length > 2 && ` +${data.shareLinks.length - 2} more`}
+              </p>
+            )}
+            <button 
+              onClick={() => window.open(shareLink, '_blank')} 
+              className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Open Link
+            </button>
+          </div>
+        ),
+        duration: 8000,
+        icon: '🔗',
+      }
+    );
+
+    // Reset form
+    setShareSettings({
+      requireEmail: true,
+      allowDownload: false,
+      expiresIn: 7,
+      password: '',
+      recipientEmails: [],
+      recipientNames: [],
+      sendEmailNotification: true,
+      customMessage: '',
+      requireNDA: false,
+      allowedEmails: [],
+      enableWatermark: false,
+      watermarkText: '',
+      watermarkPosition: 'bottom',
+      ndaText: '',
+      ndaTemplateId: '',
+      customNdaText: '',
+      useCustomNda: false,
+      allowPrint: true,
+      allowForwarding: true,
+      notifyOnDownload: false,
+      downloadLimit: undefined,
+      viewLimit: undefined,
+      selfDestruct: false,
+      availableFrom: '',
+      linkType: 'public',
+      sharedByName: '',
+      logoUrl: ''
+    });
+    
+    setLogoFile(null);
+    setLogoPreview(null);
+    setRecipientInput('');
+    setBulkRecipientInput('');
+    setCsvPreview([]);
+    setShowAllRecipients(false);
+  }
+} else {
+  const data = await res.json();
+  toast.error(data.error || 'Failed to create share link');
+}
               } catch {
                 toast.error('Failed to create share link. Please try again.');
               }
@@ -3053,6 +2975,7 @@ const handleSendSignatureRequest = async () => {
             </div>
           </div>
         </div>
+        
 
         {/* Tracking notice */}
         <div className="flex items-start gap-2.5 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
@@ -4301,7 +4224,257 @@ if (res.ok) {
   </div>
 </Drawer>
  
+{/* Edit Link Drawer - DocSend Style */}
+<Drawer open={showEditLinkDrawer} onOpenChange={setShowEditLinkDrawer}>
+  <div className="h-full flex flex-col bg-[#fafafa]">
+    {/* Header */}
+    <div className="bg-white border-b px-6 py-5">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-600 to-blue-600 flex items-center justify-center shadow-md">
+            <LinkIcon className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 leading-tight">Edit Link</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {editingLink?.recipientEmail || 'Public link'}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowEditLinkDrawer(false)}
+          className="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
 
+    {/* Content */}
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-2xl mx-auto px-6 py-6 space-y-4">
+        
+        {/* Link Info */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <h3 className="font-semibold text-slate-900 text-sm mb-3">Link Details</h3>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50">
+              <LinkIcon className="h-4 w-4 text-violet-500 flex-shrink-0" />
+              <span className="text-xs font-mono text-slate-600 truncate flex-1">
+                {editingLink?.link?.replace('https://', '').replace('http://', '')}
+              </span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(editingLink?.link || '');
+                  toast.success('Link copied!');
+                }}
+                className="text-xs font-semibold text-violet-600 hover:text-violet-700"
+              >
+                Copy
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs text-slate-500">Created</p>
+                <p className="font-medium text-slate-900">{editingLink?.createdAgo}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Total visits</p>
+                <p className="font-medium text-slate-900">{editingLink?.visits}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Time spent</p>
+                <p className="font-medium text-slate-900">{editingLink?.totalTime}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Completion</p>
+                <p className="font-medium text-slate-900">{editingLink?.completion}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Access Control */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+            <Shield className="h-4 w-4 text-violet-600" />
+            <h3 className="font-semibold text-slate-900 text-sm">Access Control</h3>
+          </div>
+          <div className="divide-y divide-slate-100">
+            <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
+              <div>
+                <div className="text-sm font-medium text-slate-800">Link active</div>
+                <div className="text-xs text-slate-400 mt-0.5">Recipients can open this link</div>
+              </div>
+              <Switch 
+                checked={editingLink?.enabled} 
+                onCheckedChange={async (checked) => {
+                  try {
+                    const res = await fetch(`/api/documents/${params.id}/share`, {
+                      method: 'PATCH',
+                      credentials: 'include',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        shareId: editingLink?.shareId,
+                        active: checked,
+                      }),
+                    });
+                    
+                    if (res.ok) {
+                      toast.success(checked ? 'Link enabled' : 'Link disabled');
+                      setEditingLink({ ...editingLink, enabled: checked });
+                      window.location.reload(); // Refresh to update the list
+                    } else {
+                      toast.error('Failed to update link');
+                    }
+                  } catch (error) {
+                    toast.error('Network error');
+                  }
+                }}
+              />
+            </label>
+            <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
+              <div>
+                <div className="text-sm font-medium text-slate-800">Allow download</div>
+                <div className="text-xs text-slate-400 mt-0.5">Viewer can save a copy</div>
+              </div>
+              <Switch defaultChecked />
+            </label>
+            <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
+              <div>
+                <div className="text-sm font-medium text-slate-800">Allow printing</div>
+                <div className="text-xs text-slate-400 mt-0.5">Viewer can print the document</div>
+              </div>
+              <Switch defaultChecked />
+            </label>
+          </div>
+        </div>
+
+        {/* Danger Zone */}
+        <div className="bg-white rounded-2xl border-2 border-red-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-red-100 bg-red-50">
+            <h3 className="font-semibold text-red-900 text-sm">Danger Zone</h3>
+          </div>
+          <div className="p-5 space-y-3">
+            <Button
+  variant="outline"
+  onClick={async () => {
+    if (!confirm('Create a duplicate of this link with the same settings?')) return;
+    
+    try {
+      const res = await fetch(`/api/documents/${params.id}/share`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+  // Basic settings
+  requireEmail: editingLink?.settings?.requireEmail ?? true,
+  allowDownload: editingLink?.settings?.allowDownload ?? true,
+  allowPrint: editingLink?.settings?.allowPrint ?? true,
+  notifyOnView: editingLink?.settings?.notifyOnView ?? true,
+  
+  // Recipients
+  recipientEmails: editingLink?.recipientEmail ? [editingLink.recipientEmail] : [],
+  recipientNames: editingLink?.recipientName ? [editingLink.recipientName + ' (Copy)'] : [],
+  allowedEmails: editingLink?.recipientEmail ? [editingLink.recipientEmail] : [],
+  
+  // Security
+  password: null, // Don't copy password for security
+  expiresIn: '7', // Default 7 days for duplicate
+  
+  // Limits
+  maxViews: editingLink?.settings?.maxViews ?? null,
+  viewLimit: editingLink?.settings?.viewLimit ?? null,
+  downloadLimit: editingLink?.settings?.downloadLimit ?? null,
+  
+  // Behavior
+  allowForwarding: editingLink?.settings?.allowForwarding ?? true,
+  notifyOnDownload: editingLink?.settings?.notifyOnDownload ?? false,
+  selfDestruct: editingLink?.settings?.selfDestruct ?? false,
+  availableFrom: null, // Don't copy scheduled start time
+  linkType: editingLink?.settings?.linkType ?? 'email-gated',
+  
+  // Branding & messaging
+  customMessage: editingLink?.settings?.customMessage ?? null,
+  sharedByName: editingLink?.settings?.sharedByName ?? null,
+  logoUrl: editingLink?.settings?.logoUrl ?? null,
+  
+  // Watermark
+  enableWatermark: editingLink?.settings?.enableWatermark ?? false,
+  watermarkText: editingLink?.settings?.watermarkText ?? null,
+  watermarkPosition: editingLink?.settings?.watermarkPosition ?? 'bottom',
+  
+  // NDA
+  requireNDA: editingLink?.settings?.requireNDA ?? false,
+  ndaText: editingLink?.settings?.ndaText ?? null,
+  ndaTemplateId: editingLink?.settings?.ndaTemplateId ?? null,
+  customNdaText: null, // Don't copy custom NDA text
+  
+  // Analytics
+  trackDetailedAnalytics: editingLink?.settings?.trackDetailedAnalytics ?? true,
+  
+  // Email notification
+  sendEmailNotification: false, // Never auto-send duplicates
+}),
+      });
+
+      const data = await res.json();
+      
+      if (res.ok) {
+        toast.success('Link duplicated successfully!', {
+          description: 'A new link has been created with the same settings'
+        });
+        setShowEditLinkDrawer(false);
+        window.location.reload();
+      } else {
+        toast.error('Failed to duplicate link', {
+          description: data.error || 'Please try again'
+        });
+      }
+    } catch (error) {
+      toast.error('Network error', {
+        description: 'Could not connect to server'
+      });
+    }
+  }}
+  className="w-full justify-start gap-2"
+>
+  <Copy className="h-4 w-4" />
+  Duplicate this link
+</Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!confirm(`Delete link for ${editingLink?.recipientEmail || 'this recipient'}?`)) return;
+                try {
+                  const res = await fetch(
+                    `/api/documents/${params.id}/share?shareId=${editingLink?.shareId}`,
+                    { method: 'DELETE', credentials: 'include' }
+                  );
+                  
+                  if (res.ok) {
+                    toast.success('Link deleted');
+                    setShowEditLinkDrawer(false);
+                    window.location.reload();
+                  } else {
+                    toast.error('Failed to delete link');
+                  }
+                } catch (error) {
+                  toast.error('Network error');
+                }
+              }}
+              className="w-full justify-start gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete this link permanently
+            </Button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</Drawer>
 
     </div>
   );
@@ -4317,20 +4490,53 @@ function ActivityTab({
   doc,
   token,
   onCreateLink,
+  onEditLink,
 }: {
   analytics: any;
   doc: any;
   token: string;
   onCreateLink: () => void;
+  onEditLink: (link: any) => void;
 }) {
   const [expandedVisit, setExpandedVisit] = useState<string | null>(null);
   const [hoveredPage, setHoveredPage] = useState<{ visitKey: string; page: number } | null>(null);
 
   // Build "All Links" from shares info (analytics.topViewers gives sender/link info)
   // We'll use analytics.recipientPageTracking for visits
-  const allLinks = analytics.topViewers?.length > 0
-    ? [{ name: doc.filename, createdAgo: analytics.lastViewed ? formatAgo(new Date(analytics.lastViewed)) : 'Recently', link: `${typeof window !== 'undefined' ? window.location.origin : ''}/view/${token}`, visits: analytics.totalViews, enabled: true }]
-    : [];
+ const [shareLinks, setShareLinks] = React.useState<any[]>([]);
+
+ const formatTime = (seconds: number): string => {
+    if (!seconds || seconds < 0) return '0m 0s';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
+  };
+  // Fetch real share links from database
+  React.useEffect(() => {
+    fetch(`/api/documents/${doc._id}/share`, { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.shares) {
+          setShareLinks(data.shares.map((s: any) => ({
+            shareId: s.id,
+            name: doc.filename,
+            recipientEmail: s.recipientEmail,
+            recipientName: s.recipientName,
+            createdAgo: formatAgo(new Date(s.createdAt)),
+            link: s.shareLink,
+            visits: s.tracking?.views || 0,
+            totalTime: formatTime(s.tracking?.totalTimeSpent || 0),
+            lastViewed: s.tracking?.lastViewedAt ? formatAgo(new Date(s.tracking.lastViewedAt)) : null,
+            completion: `${Math.round((s.tracking?.views || 0) / Math.max(1, doc.numPages) * 100)}%`,
+            enabled: s.active && !s.expired,
+            shareToken: s.shareToken,
+          })));
+        }
+      })
+      .catch(err => console.error('Failed to fetch shares:', err));
+  }, [doc._id, doc.filename, doc.numPages]);
+
+  const allLinks = shareLinks;
 
   // Build "All Visits" from recipientPageTracking
   const allVisits: {
@@ -4374,93 +4580,276 @@ function ActivityTab({
   return (
     <div className="space-y-6">
 
-      {/* ── ALL LINKS ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <LinkIcon className="h-4 w-4 text-violet-500" />
-            <h3 className="font-bold text-slate-900 text-sm">All Links</h3>
-            <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-bold rounded-full">{allLinks.length}</span>
+      
+{/* ── ALL LINKS ── */}
+<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+  {/* Header */}
+  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+    <div className="flex items-center gap-2">
+      <LinkIcon className="h-4 w-4 text-violet-500" />
+      <h3 className="font-bold text-slate-900 text-sm">All Links</h3>
+      <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-bold rounded-full">
+        {allLinks.length}
+      </span>
+    </div>
+    <button
+      onClick={onCreateLink}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
+      style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}
+    >
+      <LinkIcon className="h-3 w-3" /> New Link
+    </button>
+  </div>
+
+  {/* Column headers */}
+  <div className="grid items-center px-6 py-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide"
+    style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}>
+    <span>NAME</span>
+    <span>LINK</span>
+    <span className="text-center">ACTIVE</span>
+    <span className="text-right mr-8">ACTIVITY</span>
+    <span></span>
+  </div>
+
+  {/* Link rows */}
+  {allLinks.length === 0 ? (
+    <div className="px-6 py-10 text-center">
+      <p className="text-slate-400 text-sm">No links created yet</p>
+    </div>
+  ) : (
+    allLinks.map((lnk, i) => (
+      <div key={i} className="grid items-center px-6 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors group"
+        style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}>
+        
+        {/* NAME COLUMN - Recipient info */}
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
+            <span className="text-white text-sm font-bold">
+              {lnk.recipientEmail ? lnk.recipientEmail.charAt(0).toUpperCase() : lnk.name.charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900 truncate">
+              {lnk.recipientName || lnk.recipientEmail || lnk.name}
+            </p>
+            {lnk.recipientEmail && (
+              <p className="text-xs text-slate-400 truncate">{lnk.recipientEmail}</p>
+            )}
+            {!lnk.recipientEmail && (
+              <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
+            )}
+          </div>
+        </div>
+
+        {/* LINK COLUMN - Copyable link pill */}
+        <div className="flex items-center gap-2 min-w-0 pr-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 min-w-0 flex-1">
+            <div className="h-5 w-5 rounded bg-violet-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-[9px] font-bold">D</span>
+            </div>
+            <span className="text-xs text-slate-600 font-mono truncate flex-1">
+              {lnk.link.replace('https://', '').replace('http://', '')}
+            </span>
           </div>
           <button
-            onClick={onCreateLink}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}
+            onClick={() => {
+              navigator.clipboard.writeText(lnk.link);
+              toast.success('Link copied!', { duration: 2000 });
+            }}
+            className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-colors flex-shrink-0"
+            title="Copy link"
           >
-            <LinkIcon className="h-3 w-3" /> New Link
+            <Copy className="h-3.5 w-3.5 text-slate-400" />
           </button>
         </div>
 
-        {/* Column headers */}
-        <div className="grid items-center px-6 py-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide"
-          style={{ gridTemplateColumns: '1fr 2fr auto auto' }}>
-          <span>NAME</span>
-          <span>LINK</span>
-          <span className="text-center">ACTIVE</span>
-          <span className="text-right">ACTIVITY</span>
+        {/* ACTIVE TOGGLE */}
+        <div className="flex justify-center">
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch(`/api/documents/${doc._id}/share`, {
+                  method: 'PATCH',
+                  credentials: 'include',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    shareId: lnk.shareId,
+                    active: !lnk.enabled,
+                  }),
+                });
+                
+                if (res.ok) {
+                  toast.success(lnk.enabled ? 'Link disabled' : 'Link enabled');
+                  // Refresh links
+                  window.location.reload();
+                } else {
+                  toast.error('Failed to update link');
+                }
+              } catch (error) {
+                toast.error('Network error');
+              }
+            }}
+            className="w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors"
+            style={{ background: lnk.enabled ? '#7c3aed' : '#e2e8f0' }}
+          >
+            <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${lnk.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
         </div>
 
-        {/* Link rows */}
-        {allLinks.length === 0 ? (
-          <div className="px-6 py-10 text-center">
-            <p className="text-slate-400 text-sm">No links created yet</p>
-          </div>
-        ) : (
-          allLinks.map((lnk, i) => (
-            <div key={i} className="grid items-center px-6 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors"
-              style={{ gridTemplateColumns: '1fr 2fr auto auto' }}>
-              {/* Name */}
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
-                    <FileText className="h-4 w-4 text-violet-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900 truncate max-w-[140px]">{lnk.name}</p>
-                    <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
-                  </div>
+        {/* ACTIVITY DROPDOWN */}
+        <div className="flex items-center justify-end gap-1 mr-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                <div className="text-right">
+                  <p className="text-sm font-bold text-slate-900">{lnk.visits}</p>
+                  <p className="text-xs text-slate-400">{lnk.visits === 1 ? 'visit' : 'visits'}</p>
+                </div>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64 bg-white p-3">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Total visits</span>
+                  <span className="text-sm font-bold text-slate-900">{lnk.visits}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Time spent</span>
+                  <span className="text-sm font-bold text-slate-900">{lnk.totalTime || '0m 0s'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Last viewed</span>
+                  <span className="text-sm font-bold text-slate-900">{lnk.lastViewed || 'Never'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500">Completion</span>
+                  <span className="text-sm font-bold text-slate-900">{lnk.completion || '0%'}</span>
                 </div>
               </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-              {/* Link pill + copy */}
-              <div className="flex items-center gap-2 min-w-0 pr-4">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 min-w-0 flex-1">
-                  <div className="h-5 w-5 rounded bg-violet-600 flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-[9px] font-bold">P</span>
-                  </div>
-                  <span className="text-xs text-slate-600 font-mono truncate flex-1">{lnk.link.replace('https://', '')}</span>
-                </div>
-                <button
-                  onClick={() => { navigator.clipboard.writeText(lnk.link); }}
-                  className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-colors flex-shrink-0"
-                  title="Copy link"
-                >
-                  <Copy className="h-3.5 w-3.5 text-slate-400" />
-                </button>
-                <button className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 hover:border-slate-400 hover:bg-slate-100 transition-colors flex-shrink-0">
-                  <MoreVertical className="h-3.5 w-3.5 text-slate-400" />
-                </button>
-              </div>
+        {/* 3-DOT MENU */}
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="h-7 w-7 rounded-lg border border-slate-200 hover:border-slate-400 hover:bg-slate-100 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <MoreVertical className="h-3.5 w-3.5 text-slate-400" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-white">
+              <DropdownMenuItem onClick={() => onEditLink(lnk)}>
+  <Edit className="mr-2 h-4 w-4" />
+  <span>Edit link settings</span>
+</DropdownMenuItem>
+              <DropdownMenuItem onClick={async () => {
+  if (!window.confirm('Create a duplicate of this link?')) return;
+  
+  const loadingToast = toast.loading('Duplicating link...');
+  
+  try {
+    const res = await fetch(`/api/documents/${doc._id}/share`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        // Copy all settings from the original link
+        requireEmail: lnk.settings?.requireEmail ?? true,
+        allowDownload: lnk.settings?.allowDownload ?? true,
+        allowPrint: lnk.settings?.allowPrint ?? true,
+        notifyOnView: lnk.settings?.notifyOnView ?? true,
+        recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+        recipientNames: lnk.recipientName ? [lnk.recipientName + ' (Copy)'] : [],
+        allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+        password: null,
+        expiresIn: '7',
+        maxViews: lnk.settings?.maxViews ?? null,
+        viewLimit: lnk.settings?.viewLimit ?? null,
+        downloadLimit: lnk.settings?.downloadLimit ?? null,
+        allowForwarding: lnk.settings?.allowForwarding ?? true,
+        notifyOnDownload: lnk.settings?.notifyOnDownload ?? false,
+        selfDestruct: lnk.settings?.selfDestruct ?? false,
+        availableFrom: null,
+        linkType: lnk.settings?.linkType ?? 'email-gated',
+        customMessage: lnk.settings?.customMessage ?? null,
+        sharedByName: lnk.settings?.sharedByName ?? null,
+        logoUrl: lnk.settings?.logoUrl ?? null,
+        enableWatermark: lnk.settings?.enableWatermark ?? false,
+        watermarkText: lnk.settings?.watermarkText ?? null,
+        watermarkPosition: lnk.settings?.watermarkPosition ?? 'bottom',
+        requireNDA: lnk.settings?.requireNDA ?? false,
+        ndaText: lnk.settings?.ndaText ?? null,
+        ndaTemplateId: lnk.settings?.ndaTemplateId ?? null,
+        customNdaText: null,
+        trackDetailedAnalytics: lnk.settings?.trackDetailedAnalytics ?? true,
+        sendEmailNotification: false,
+      }),
+    });
 
-              {/* Toggle */}
-              <div className="flex justify-center">
-                <div className="w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors"
-                  style={{ background: lnk.enabled ? '#7c3aed' : '#e2e8f0' }}>
-                  <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${lnk.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                </div>
-              </div>
-
-              {/* Activity count */}
-              <div className="text-right">
-                <p className="text-sm font-bold text-slate-900">{lnk.visits}</p>
-                <p className="text-xs text-slate-400">{lnk.visits === 1 ? 'visit' : 'visits'}</p>
-              </div>
-            </div>
-          ))
-        )}
+    const data = await res.json();
+    
+    toast.dismiss(loadingToast);
+    
+    if (res.ok) {
+      toast.success('Link duplicated!', {
+        description: 'A new link has been created',
+        action: {
+          label: 'View',
+          onClick: () => {
+            navigator.clipboard.writeText(data.shareLink || data.shareLinks?.[0]?.shareLink);
+            toast.success('New link copied to clipboard');
+          }
+        }
+      });
+      window.location.reload();
+    } else {
+      toast.error('Failed to duplicate', {
+        description: data.error || 'Please try again'
+      });
+    }
+  } catch (error) {
+    toast.dismiss(loadingToast);
+    toast.error('Network error');
+  }
+}}>
+  <Copy className="mr-2 h-4 w-4" />
+  <span>Duplicate link</span>
+</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={async () => {
+                  if (confirm(`Delete link for ${lnk.recipientName || lnk.recipientEmail || 'this recipient'}?`)) {
+                    try {
+                      const res = await fetch(`/api/documents/${doc._id}/share?shareId=${lnk.shareId}`, {
+                        method: 'DELETE',
+                        credentials: 'include',
+                      });
+                      
+                      if (res.ok) {
+                        toast.success('Link deleted');
+                        window.location.reload();
+                      } else {
+                        toast.error('Failed to delete link');
+                      }
+                    } catch (error) {
+                      toast.error('Network error');
+                    }
+                  }
+                }}
+                className="text-red-600 focus:text-red-600 focus:bg-red-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                <span>Delete this link</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-
+    ))
+  )}
+</div>
       {/* ── ALL VISITS ── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {/* Header */}
@@ -4695,3 +5084,5 @@ function formatAgo(date: Date): string {
   if (secs < 86400) return `${Math.floor(secs / 3600)} hours ago`;
   return `${Math.floor(secs / 86400)} days ago`;
 }
+
+
