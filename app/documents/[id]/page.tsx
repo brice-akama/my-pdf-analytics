@@ -182,6 +182,7 @@ const [liveViewers, setLiveViewers] = useState<any[]>([]);
 const [heatmapPage, setHeatmapPage] = useState(1);
 const [showEditLinkDrawer, setShowEditLinkDrawer] = useState(false);
 const [editingLink, setEditingLink] = useState<any>(null);
+const [editMode, setEditMode] = useState<'create' | 'edit' | 'duplicate'>('create'); // ✅ NEW
 const [shareSettings, setShareSettings] = useState({
   requireEmail: true,
   allowDownload: false,
@@ -1021,9 +1022,20 @@ const handleDownload = async () => {
 
 // Handle create shareable link
 const handleCreateLink = () => {
-  // Just open the drawer - don't create link yet
+  setEditMode('create');
+  setEditingLink(null);
   setShowCreateLinkDialog(true);
-  setGeneratedLink(null); // Reset any previous link
+  setGeneratedLink(null);
+  // Reset all share settings to defaults
+  setShareSettings({
+    requireEmail: true, allowDownload: false, expiresIn: 7, password: '',
+    recipientEmails: [], recipientNames: [], sendEmailNotification: true,
+    customMessage: '', requireNDA: false, allowedEmails: [], enableWatermark: false,
+    watermarkText: '', watermarkPosition: 'bottom', ndaText: '', ndaTemplateId: '',
+    customNdaText: '', useCustomNda: false, allowPrint: true, allowForwarding: true,
+    notifyOnDownload: false, downloadLimit: undefined, viewLimit: undefined,
+    selfDestruct: false, availableFrom: '', linkType: 'public', sharedByName: '', logoUrl: ''
+  });
 };
 
 // Handle signature request
@@ -1628,6 +1640,13 @@ const handleSendSignatureRequest = async () => {
         onEditLink={(link) => {
     setEditingLink(link);
     setShowEditLinkDrawer(true);
+  }}
+
+  onOpenShareDrawer={(link, mode, settings) => {
+    setEditingLink(link);
+    setEditMode(mode);
+    setShareSettings(settings);
+    setShowCreateLinkDialog(true);
   }}
       />
     )}
@@ -2385,175 +2404,182 @@ const handleSendSignatureRequest = async () => {
             <Share2 className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 leading-tight">Share Document</h2>
-            <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[220px]">{doc?.filename}</p>
+<h2 className="text-lg font-bold text-slate-900 leading-tight">
+  {editMode === 'edit' ? 'Edit Link' : editMode === 'duplicate' ? 'Duplicate Link' : 'Share Document'}
+</h2>
+<p className="text-xs text-slate-500 mt-0.5 truncate max-w-[220px]">
+  {doc?.filename}
+</p>
           </div>
         </div>
        <div className="flex items-center gap-2">
           <button
-            onClick={async () => {
-              if (!params.id) return;
-              if (recipientInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientInput)) {
-                if (!shareSettings.recipientEmails.includes(recipientInput)) {
-                  shareSettings.recipientEmails.push(recipientInput);
-                  setRecipientInput('');
-                }
-              }
-              try {
-                const res = await fetch(`/api/documents/${params.id}/share`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  credentials: 'include',
-  body: JSON.stringify({
-    requireEmail: shareSettings.requireEmail,
-    allowDownload: shareSettings.allowDownload,
-    password: shareSettings.password || null,
-    expiresIn: shareSettings.expiresIn === 0 ? 'never' : shareSettings.expiresIn.toString(),
-    allowedEmails: shareSettings.recipientEmails,
-    recipientEmails: shareSettings.recipientEmails,
-    recipientNames: shareSettings.recipientEmails.map(e => e.split('@')[0]), // Generate names from emails
-    customMessage: shareSettings.customMessage || null,
-    sendEmailNotification: shareSettings.sendEmailNotification,
-    notifyOnView: true,
-    allowPrint: shareSettings.allowPrint,
-    trackDetailedAnalytics: true,
-    enableWatermark: shareSettings.enableWatermark,
-    watermarkText: shareSettings.watermarkText || null,
-    watermarkPosition: shareSettings.watermarkPosition,
-    requireNDA: shareSettings.requireNDA,
-    ndaTemplateId: shareSettings.useCustomNda ? null : shareSettings.ndaTemplateId,
-    customNdaText: shareSettings.useCustomNda ? shareSettings.customNdaText : null,
-    allowForwarding: shareSettings.allowForwarding,
-    notifyOnDownload: shareSettings.notifyOnDownload,
-    downloadLimit: shareSettings.downloadLimit || null,
-    viewLimit: shareSettings.viewLimit || null,
-    selfDestruct: shareSettings.selfDestruct,
-    availableFrom: shareSettings.availableFrom || null,
-    linkType: shareSettings.linkType,
-    sharedByName: shareSettings.sharedByName || null,
-    logoUrl: shareSettings.logoUrl || null,
-  }),
-});
+           onClick={async () => {
+  if (!params.id) return;
+  if (recipientInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientInput)) {
+    if (!shareSettings.recipientEmails.includes(recipientInput)) {
+      shareSettings.recipientEmails.push(recipientInput);
+      setRecipientInput('');
+    }
+  }
+  try {
+    // ── EDIT MODE: PATCH existing link ──
+    if (editMode === 'edit' && editingLink?.shareId) {
+      const res = await fetch(`/api/documents/${params.id}/share`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          shareId: editingLink.shareId,
+          requireEmail: shareSettings.requireEmail,
+          allowDownload: shareSettings.allowDownload,
+          allowPrint: shareSettings.allowPrint,
+          notifyOnView: true,
+          password: shareSettings.password || null,
+          expiresIn: shareSettings.expiresIn === 0 ? 'never' : shareSettings.expiresIn.toString(),
+          enableWatermark: shareSettings.enableWatermark,
+          watermarkText: shareSettings.watermarkText || null,
+          watermarkPosition: shareSettings.watermarkPosition,
+          requireNDA: shareSettings.requireNDA,
+          ndaTemplateId: shareSettings.useCustomNda ? null : shareSettings.ndaTemplateId,
+          customNdaText: shareSettings.useCustomNda ? shareSettings.customNdaText : null,
+          allowForwarding: shareSettings.allowForwarding,
+          notifyOnDownload: shareSettings.notifyOnDownload,
+          downloadLimit: shareSettings.downloadLimit || null,
+          viewLimit: shareSettings.viewLimit || null,
+          selfDestruct: shareSettings.selfDestruct,
+          customMessage: shareSettings.customMessage || null,
+          sharedByName: shareSettings.sharedByName || null,
+          logoUrl: shareSettings.logoUrl || null,
+          linkType: shareSettings.linkType,
+        }),
+      });
 
-if (res.ok) {
-  const data = await res.json();
-  if (data.success) {
-    // 🔥 FIXED: Handle both single link and multiple links
-    let shareLink = '';
-    let recipientCount = 0;
-    let emailsWereSent = false;
-
-    if (data.shareLink) {
-      // Single public link (no recipients)
-      shareLink = data.shareLink;
-      recipientCount = 0;
-      emailsWereSent = false;
-    } else if (data.shareLinks && data.shareLinks.length > 0) {
-      // Multiple recipient links
-      shareLink = data.shareLinks[0].shareLink; // Use first link for toast
-      recipientCount = data.shareLinks.length;
-      emailsWereSent = recipientCount > 0 && shareSettings.sendEmailNotification;
+      if (res.ok) {
+        toast.success('Link updated successfully!');
+        setShowCreateLinkDialog(false);
+        setEditMode('create');
+        setEditingLink(null);
+        window.location.reload();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Failed to update link');
+      }
+      return;
     }
 
-    setShowCreateLinkDialog(false);
-    
-    // Copy to clipboard
-    navigator.clipboard.writeText(shareLink).catch(() => {});
-    
-    // Show success toast
-    toast.success(
-      emailsWereSent 
-        ? `Link created & sent to ${recipientCount} recipient${recipientCount > 1 ? 's' : ''}!` 
-        : 'Share link created!',
-      {
-        description: (
-          <div className="space-y-2 mt-1">
-            <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
-              <code className="text-xs text-slate-600 truncate flex-1 max-w-[200px]">{shareLink}</code>
-              <button 
-                onClick={() => { 
-                  navigator.clipboard.writeText(shareLink); 
-                  toast.success('Copied!', { duration: 1500 }); 
-                }} 
-                className="text-xs font-semibold text-purple-600 hover:text-purple-700"
-              >
-                Copy
-              </button>
-            </div>
-            {emailsWereSent && data.shareLinks && (
-              <p className="text-xs text-slate-500">
-                ✉️ Sent to: {data.shareLinks.slice(0, 2).map((l: any) => l.recipientEmail).join(', ')}
-                {data.shareLinks.length > 2 && ` +${data.shareLinks.length - 2} more`}
-              </p>
-            )}
-            <button 
-              onClick={() => window.open(shareLink, '_blank')} 
-              className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Open Link
-            </button>
-          </div>
-        ),
-        duration: 8000,
-        icon: '🔗',
-      }
-    );
-
-    // Reset form
-    setShareSettings({
-      requireEmail: true,
-      allowDownload: false,
-      expiresIn: 7,
-      password: '',
-      recipientEmails: [],
-      recipientNames: [],
-      sendEmailNotification: true,
-      customMessage: '',
-      requireNDA: false,
-      allowedEmails: [],
-      enableWatermark: false,
-      watermarkText: '',
-      watermarkPosition: 'bottom',
-      ndaText: '',
-      ndaTemplateId: '',
-      customNdaText: '',
-      useCustomNda: false,
-      allowPrint: true,
-      allowForwarding: true,
-      notifyOnDownload: false,
-      downloadLimit: undefined,
-      viewLimit: undefined,
-      selfDestruct: false,
-      availableFrom: '',
-      linkType: 'public',
-      sharedByName: '',
-      logoUrl: ''
+    // ── CREATE / DUPLICATE MODE: POST new link ──
+    const res = await fetch(`/api/documents/${params.id}/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        requireEmail: shareSettings.requireEmail,
+        allowDownload: shareSettings.allowDownload,
+        password: shareSettings.password || null,
+        expiresIn: shareSettings.expiresIn === 0 ? 'never' : shareSettings.expiresIn.toString(),
+        allowedEmails: shareSettings.recipientEmails,
+        recipientEmails: shareSettings.recipientEmails,
+        recipientNames: shareSettings.recipientNames || [],
+        customMessage: shareSettings.customMessage || null,
+        sendEmailNotification: shareSettings.sendEmailNotification,
+        notifyOnView: true,
+        allowPrint: shareSettings.allowPrint,
+        trackDetailedAnalytics: true,
+        enableWatermark: shareSettings.enableWatermark,
+        watermarkText: shareSettings.watermarkText || null,
+        watermarkPosition: shareSettings.watermarkPosition,
+        requireNDA: shareSettings.requireNDA,
+        ndaTemplateId: shareSettings.useCustomNda ? null : shareSettings.ndaTemplateId,
+        customNdaText: shareSettings.useCustomNda ? shareSettings.customNdaText : null,
+        allowForwarding: shareSettings.allowForwarding,
+        notifyOnDownload: shareSettings.notifyOnDownload,
+        downloadLimit: shareSettings.downloadLimit || null,
+        viewLimit: shareSettings.viewLimit || null,
+        selfDestruct: shareSettings.selfDestruct,
+        availableFrom: shareSettings.availableFrom || null,
+        linkType: shareSettings.linkType,
+        sharedByName: shareSettings.sharedByName || null,
+        logoUrl: shareSettings.logoUrl || null,
+      }),
     });
-    
-    setLogoFile(null);
-    setLogoPreview(null);
-    setRecipientInput('');
-    setBulkRecipientInput('');
-    setCsvPreview([]);
-    setShowAllRecipients(false);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        let shareLink = '';
+        let recipientCount = 0;
+        let emailsWereSent = false;
+
+        if (data.shareLink) {
+          shareLink = data.shareLink;
+        } else if (data.shareLinks && data.shareLinks.length > 0) {
+          shareLink = data.shareLinks[0].shareLink;
+          recipientCount = data.shareLinks.length;
+          emailsWereSent = recipientCount > 0 && shareSettings.sendEmailNotification;
+        }
+
+        setShowCreateLinkDialog(false);
+        setEditMode('create');
+        setEditingLink(null);
+        navigator.clipboard.writeText(shareLink).catch(() => {});
+
+        toast.success(
+          emailsWereSent
+            ? `Link created & sent to ${recipientCount} recipient${recipientCount > 1 ? 's' : ''}!`
+            : editMode === 'duplicate' ? 'Link duplicated!' : 'Share link created!',
+          {
+            description: (
+              <div className="space-y-2 mt-1">
+                <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                  <code className="text-xs text-slate-600 truncate flex-1 max-w-[200px]">{shareLink}</code>
+                  <button onClick={() => { navigator.clipboard.writeText(shareLink); toast.success('Copied!', { duration: 1500 }); }} className="text-xs font-semibold text-purple-600 hover:text-purple-700">Copy</button>
+                </div>
+                <button onClick={() => window.open(shareLink, '_blank')} className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Open Link</button>
+              </div>
+            ),
+            duration: 8000,
+            icon: '🔗',
+          }
+        );
+
+        setShareSettings({
+          requireEmail: true, allowDownload: false, expiresIn: 7, password: '',
+          recipientEmails: [], recipientNames: [], sendEmailNotification: true,
+          customMessage: '', requireNDA: false, allowedEmails: [], enableWatermark: false,
+          watermarkText: '', watermarkPosition: 'bottom', ndaText: '', ndaTemplateId: '',
+          customNdaText: '', useCustomNda: false, allowPrint: true, allowForwarding: true,
+          notifyOnDownload: false, downloadLimit: undefined, viewLimit: undefined,
+          selfDestruct: false, availableFrom: '', linkType: 'public', sharedByName: '', logoUrl: ''
+        });
+        setLogoFile(null); setLogoPreview(null); setRecipientInput('');
+        setBulkRecipientInput(''); setCsvPreview([]); setShowAllRecipients(false);
+      }
+    } else {
+      const data = await res.json();
+      toast.error(data.error || 'Failed to create share link');
+    }
+  } catch {
+    toast.error('Failed. Please try again.');
   }
-} else {
-  const data = await res.json();
-  toast.error(data.error || 'Failed to create share link');
-}
-              } catch {
-                toast.error('Failed to create share link. Please try again.');
-              }
-            }}
+}}
             className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95"
             style={{ background: 'linear-gradient(135deg, #6d28d9, #2563eb)' }}
           >
-            {shareSettings.recipientEmails.length > 0 && shareSettings.sendEmailNotification
-              ? `Send to ${shareSettings.recipientEmails.length} →`
-              : 'Generate Link →'}
+{editMode === 'edit'
+  ? 'Save Changes →'
+  : shareSettings.recipientEmails.length > 0 && shareSettings.sendEmailNotification
+  ? `Send to ${shareSettings.recipientEmails.length} →`
+  : editMode === 'duplicate'
+  ? 'Duplicate Link →'
+  : 'Generate Link →'}
           </button>
           <button
-            onClick={() => setShowCreateLinkDialog(false)}
+            onClick={() => {
+  setShowCreateLinkDialog(false);
+  setEditMode('create');
+  setEditingLink(null);
+}}
             className="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
           >
             <X className="h-4 w-4" />
@@ -4480,10 +4506,8 @@ if (res.ok) {
   );
 }
 
-
-
 // ══════════════════════════════════════════════════════════════
-// ActivityTab — DocSend-style All Links + All Visits
+// ActivityTab — DocSend-style flat layout, no cards, dividers only
 // ══════════════════════════════════════════════════════════════
 function ActivityTab({
   analytics,
@@ -4491,27 +4515,26 @@ function ActivityTab({
   token,
   onCreateLink,
   onEditLink,
+  onOpenShareDrawer,
 }: {
   analytics: any;
   doc: any;
   token: string;
   onCreateLink: () => void;
   onEditLink: (link: any) => void;
+  onOpenShareDrawer: (link: any, mode: 'edit' | 'duplicate', settings: any) => void;
 }) {
   const [expandedVisit, setExpandedVisit] = useState<string | null>(null);
   const [hoveredPage, setHoveredPage] = useState<{ visitKey: string; page: number } | null>(null);
+  const [shareLinks, setShareLinks] = React.useState<any[]>([]);
 
-  // Build "All Links" from shares info (analytics.topViewers gives sender/link info)
-  // We'll use analytics.recipientPageTracking for visits
- const [shareLinks, setShareLinks] = React.useState<any[]>([]);
-
- const formatTime = (seconds: number): string => {
+  const formatTime = (seconds: number): string => {
     if (!seconds || seconds < 0) return '0m 0s';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}m ${secs}s`;
   };
-  // Fetch real share links from database
+
   React.useEffect(() => {
     fetch(`/api/documents/${doc._id}/share`, { credentials: 'include' })
       .then(res => res.json())
@@ -4530,6 +4553,27 @@ function ActivityTab({
             completion: `${Math.round((s.tracking?.views || 0) / Math.max(1, doc.numPages) * 100)}%`,
             enabled: s.active && !s.expired,
             shareToken: s.shareToken,
+            settings: {
+              requireEmail: s.settings?.requireEmail ?? true,
+              allowDownload: s.settings?.allowDownload ?? false,
+              allowPrint: s.settings?.allowPrint ?? true,
+              allowForwarding: s.settings?.allowForwarding ?? true,
+              notifyOnDownload: s.settings?.notifyOnDownload ?? false,
+              selfDestruct: s.settings?.selfDestruct ?? false,
+              enableWatermark: s.settings?.enableWatermark ?? false,
+              watermarkText: s.settings?.watermarkText ?? '',
+              watermarkPosition: s.settings?.watermarkPosition ?? 'bottom',
+              requireNDA: s.settings?.requireNDA ?? false,
+              ndaTemplateId: s.settings?.ndaTemplateId ?? '',
+              customMessage: s.settings?.customMessage ?? '',
+              sharedByName: s.settings?.sharedByName ?? '',
+              logoUrl: s.settings?.logoUrl ?? '',
+              viewLimit: s.settings?.viewLimit,
+              downloadLimit: s.settings?.downloadLimit,
+              linkType: s.settings?.linkType ?? 'public',
+              password: '',
+              expiresIn: s.settings?.expiresIn ?? 7,
+            },
           })));
         }
       })
@@ -4538,543 +4582,437 @@ function ActivityTab({
 
   const allLinks = shareLinks;
 
-  // Build "All Visits" from recipientPageTracking
-  const allVisits: {
-    key: string;
-    email: string;
-    senderName: string;
-    timeAgo: string;
-    totalTime: string;
-    totalTimeSeconds: number;
-    device: string;
-    os: string;
-    location: string;
-    city: string;
-    country: string;
-    countryCode?: string;
-    pageData: any[];
-    bounced: boolean;
-    firstOpened: string | null;
-  }[] = (analytics.recipientPageTracking || []).map((r: any, i: number) => ({
+  const allVisits: any[] = (analytics.recipientPageTracking || []).map((r: any, i: number) => ({
     key: r.recipientEmail || `anon-${i}`,
     email: r.recipientEmail || 'Anonymous',
     senderName: doc.filename,
     timeAgo: r.firstOpened ? formatAgo(new Date(r.firstOpened)) : 'Unknown',
     totalTime: r.totalTimeOnDoc || '0m 0s',
     totalTimeSeconds: r.totalTimeSeconds || 0,
-    device: 'Desktop',
-    os: 'Windows',
     location: analytics.locations?.[0]?.country || 'Unknown',
     city: analytics.locations?.[0]?.topCities?.[0] || '',
     country: analytics.locations?.[0]?.country || 'Unknown',
-    countryCode: analytics.locations?.[0]?.countryCode,
     pageData: r.pageData || [],
     bounced: r.bounced || false,
     firstOpened: r.firstOpened || null,
   }));
 
-  // Max time across all pages for bar scaling
   const getMaxTime = (pageData: any[]) =>
     Math.max(...pageData.map((p: any) => p.timeSpent || 0), 1);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-0">
 
-      
-{/* ── ALL LINKS ── */}
-<div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-  {/* Header */}
-  <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-    <div className="flex items-center gap-2">
-      <LinkIcon className="h-4 w-4 text-violet-500" />
-      <h3 className="font-bold text-slate-900 text-sm">All Links</h3>
-      <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-bold rounded-full">
-        {allLinks.length}
-      </span>
-    </div>
-    <button
-      onClick={onCreateLink}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
-      style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}
-    >
-      <LinkIcon className="h-3 w-3" /> New Link
-    </button>
-  </div>
-
-  {/* Column headers */}
-  <div className="grid items-center px-6 py-2 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide"
-    style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}>
-    <span>NAME</span>
-    <span>LINK</span>
-    <span className="text-center">ACTIVE</span>
-    <span className="text-right mr-8">ACTIVITY</span>
-    <span></span>
-  </div>
-
-  {/* Link rows */}
-  {allLinks.length === 0 ? (
-    <div className="px-6 py-10 text-center">
-      <p className="text-slate-400 text-sm">No links created yet</p>
-    </div>
-  ) : (
-    allLinks.map((lnk, i) => (
-      <div key={i} className="grid items-center px-6 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors group"
-        style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}>
-        
-        {/* NAME COLUMN - Recipient info */}
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-sm font-bold">
-              {lnk.recipientEmail ? lnk.recipientEmail.charAt(0).toUpperCase() : lnk.name.charAt(0).toUpperCase()}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-900 truncate">
-              {lnk.recipientName || lnk.recipientEmail || lnk.name}
-            </p>
-            {lnk.recipientEmail && (
-              <p className="text-xs text-slate-400 truncate">{lnk.recipientEmail}</p>
-            )}
-            {!lnk.recipientEmail && (
-              <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
-            )}
-          </div>
-        </div>
-
-        {/* LINK COLUMN - Copyable link pill */}
-        <div className="flex items-center gap-2 min-w-0 pr-4">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 min-w-0 flex-1">
-            <div className="h-5 w-5 rounded bg-violet-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-[9px] font-bold">D</span>
-            </div>
-            <span className="text-xs text-slate-600 font-mono truncate flex-1">
-              {lnk.link.replace('https://', '').replace('http://', '')}
-            </span>
-          </div>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(lnk.link);
-              toast.success('Link copied!', { duration: 2000 });
-            }}
-            className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-colors flex-shrink-0"
-            title="Copy link"
-          >
-            <Copy className="h-3.5 w-3.5 text-slate-400" />
-          </button>
-        </div>
-
-        {/* ACTIVE TOGGLE */}
-        <div className="flex justify-center">
-          <button
-            onClick={async () => {
-              try {
-                const res = await fetch(`/api/documents/${doc._id}/share`, {
-                  method: 'PATCH',
-                  credentials: 'include',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    shareId: lnk.shareId,
-                    active: !lnk.enabled,
-                  }),
-                });
-                
-                if (res.ok) {
-                  toast.success(lnk.enabled ? 'Link disabled' : 'Link enabled');
-                  // Refresh links
-                  window.location.reload();
-                } else {
-                  toast.error('Failed to update link');
-                }
-              } catch (error) {
-                toast.error('Network error');
-              }
-            }}
-            className="w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors"
-            style={{ background: lnk.enabled ? '#7c3aed' : '#e2e8f0' }}
-          >
-            <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${lnk.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-          </button>
-        </div>
-
-        {/* ACTIVITY DROPDOWN */}
-        <div className="flex items-center justify-end gap-1 mr-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
-                <div className="text-right">
-                  <p className="text-sm font-bold text-slate-900">{lnk.visits}</p>
-                  <p className="text-xs text-slate-400">{lnk.visits === 1 ? 'visit' : 'visits'}</p>
-                </div>
-                <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 bg-white p-3">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Total visits</span>
-                  <span className="text-sm font-bold text-slate-900">{lnk.visits}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Time spent</span>
-                  <span className="text-sm font-bold text-slate-900">{lnk.totalTime || '0m 0s'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Last viewed</span>
-                  <span className="text-sm font-bold text-slate-900">{lnk.lastViewed || 'Never'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Completion</span>
-                  <span className="text-sm font-bold text-slate-900">{lnk.completion || '0%'}</span>
-                </div>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
-        {/* 3-DOT MENU */}
-        <div className="flex justify-end">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="h-7 w-7 rounded-lg border border-slate-200 hover:border-slate-400 hover:bg-slate-100 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                <MoreVertical className="h-3.5 w-3.5 text-slate-400" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-white">
-              <DropdownMenuItem onClick={() => onEditLink(lnk)}>
-  <Edit className="mr-2 h-4 w-4" />
-  <span>Edit link settings</span>
-</DropdownMenuItem>
-              <DropdownMenuItem onClick={async () => {
-  if (!window.confirm('Create a duplicate of this link?')) return;
-  
-  const loadingToast = toast.loading('Duplicating link...');
-  
-  try {
-    const res = await fetch(`/api/documents/${doc._id}/share`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        // Copy all settings from the original link
-        requireEmail: lnk.settings?.requireEmail ?? true,
-        allowDownload: lnk.settings?.allowDownload ?? true,
-        allowPrint: lnk.settings?.allowPrint ?? true,
-        notifyOnView: lnk.settings?.notifyOnView ?? true,
-        recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
-        recipientNames: lnk.recipientName ? [lnk.recipientName + ' (Copy)'] : [],
-        allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
-        password: null,
-        expiresIn: '7',
-        maxViews: lnk.settings?.maxViews ?? null,
-        viewLimit: lnk.settings?.viewLimit ?? null,
-        downloadLimit: lnk.settings?.downloadLimit ?? null,
-        allowForwarding: lnk.settings?.allowForwarding ?? true,
-        notifyOnDownload: lnk.settings?.notifyOnDownload ?? false,
-        selfDestruct: lnk.settings?.selfDestruct ?? false,
-        availableFrom: null,
-        linkType: lnk.settings?.linkType ?? 'email-gated',
-        customMessage: lnk.settings?.customMessage ?? null,
-        sharedByName: lnk.settings?.sharedByName ?? null,
-        logoUrl: lnk.settings?.logoUrl ?? null,
-        enableWatermark: lnk.settings?.enableWatermark ?? false,
-        watermarkText: lnk.settings?.watermarkText ?? null,
-        watermarkPosition: lnk.settings?.watermarkPosition ?? 'bottom',
-        requireNDA: lnk.settings?.requireNDA ?? false,
-        ndaText: lnk.settings?.ndaText ?? null,
-        ndaTemplateId: lnk.settings?.ndaTemplateId ?? null,
-        customNdaText: null,
-        trackDetailedAnalytics: lnk.settings?.trackDetailedAnalytics ?? true,
-        sendEmailNotification: false,
-      }),
-    });
-
-    const data = await res.json();
-    
-    toast.dismiss(loadingToast);
-    
-    if (res.ok) {
-      toast.success('Link duplicated!', {
-        description: 'A new link has been created',
-        action: {
-          label: 'View',
-          onClick: () => {
-            navigator.clipboard.writeText(data.shareLink || data.shareLinks?.[0]?.shareLink);
-            toast.success('New link copied to clipboard');
-          }
-        }
-      });
-      window.location.reload();
-    } else {
-      toast.error('Failed to duplicate', {
-        description: data.error || 'Please try again'
-      });
-    }
-  } catch (error) {
-    toast.dismiss(loadingToast);
-    toast.error('Network error');
-  }
-}}>
-  <Copy className="mr-2 h-4 w-4" />
-  <span>Duplicate link</span>
-</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={async () => {
-                  if (confirm(`Delete link for ${lnk.recipientName || lnk.recipientEmail || 'this recipient'}?`)) {
-                    try {
-                      const res = await fetch(`/api/documents/${doc._id}/share?shareId=${lnk.shareId}`, {
-                        method: 'DELETE',
-                        credentials: 'include',
-                      });
-                      
-                      if (res.ok) {
-                        toast.success('Link deleted');
-                        window.location.reload();
-                      } else {
-                        toast.error('Failed to delete link');
-                      }
-                    } catch (error) {
-                      toast.error('Network error');
-                    }
-                  }
-                }}
-                className="text-red-600 focus:text-red-600 focus:bg-red-50"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                <span>Delete this link</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    ))
-  )}
-</div>
-      {/* ── ALL VISITS ── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <Eye className="h-4 w-4 text-violet-500" />
-            <h3 className="font-bold text-slate-900 text-sm">All Visits</h3>
-            <span className="px-2 py-0.5 bg-violet-100 text-violet-700 text-xs font-bold rounded-full">{allVisits.length}</span>
-          </div>
+      {/* ══ ALL VISITS SECTION ══ */}
+      <div>
+        {/* Section header — just a label + count, no card */}
+        <div className="flex items-center justify-between py-4 border-b border-slate-200">
+          <h3 className="text-base font-semibold text-slate-900">All Visits</h3>
+          <span className="text-sm text-slate-400">{allVisits.length} {allVisits.length === 1 ? 'visit' : 'visits'}</span>
         </div>
 
         {allVisits.length === 0 ? (
-          /* ── Empty state ── */
-          <div className="px-6 py-16 text-center">
-            <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-              <Eye className="h-8 w-8 text-slate-300" />
-            </div>
-            <h4 className="text-base font-semibold text-slate-700 mb-1">No visits yet</h4>
-            <p className="text-sm text-slate-400 max-w-xs mx-auto">
-              No one has opened any link yet. Once a recipient opens the document, their info will appear here.
-            </p>
+          <div className="py-12 text-center border-b border-slate-100">
+            <p className="text-sm text-slate-400">No visits yet. Once someone opens your link, they'll appear here.</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-50">
+          <div>
             {allVisits.map((visit) => {
               const isExpanded = expandedVisit === visit.key;
               const maxTime = getMaxTime(visit.pageData);
 
               return (
-                <div key={visit.key} className="transition-colors hover:bg-slate-50/50">
-                  {/* Visit row */}
-                  <div className="px-6 py-4">
-                    <div className="flex items-start justify-between gap-4">
-                      {/* Left: Avatar + info */}
-                      <div className="flex items-start gap-3 min-w-0 flex-1">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                          {visit.email !== 'Anonymous' ? visit.email.charAt(0).toUpperCase() : '?'}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <p className="text-sm font-semibold text-slate-900">{visit.email}</p>
-                            <span className="text-xs text-slate-400">·</span>
-                            <p className="text-xs text-slate-500">{visit.senderName}</p>
-                            <span className="text-xs text-slate-400">·</span>
-                            <p className="text-xs text-slate-400">{visit.timeAgo}</p>
-                          </div>
+                <div key={visit.key} className="border-b border-slate-100 last:border-b-0">
+                  {/* Visit row — flat, no bg */}
+                  <div className="py-4 flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                      {visit.email !== 'Anonymous' ? visit.email.charAt(0).toUpperCase() : '?'}
+                    </div>
 
-                          {/* Device + location row */}
-                          <div className="flex items-center gap-3 text-xs text-slate-500 mb-2">
-                            <span className="font-semibold text-slate-600 uppercase tracking-wide text-[10px]">
-                              DEVICE, OS, &amp; LOCATION INFO
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-slate-500">
-                            {/* Desktop icon */}
-                            <span className="flex items-center gap-1">
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                              </svg>
-                            </span>
-                            {/* Windows icon */}
-                            <span className="flex items-center gap-1">
-                              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
-                              </svg>
-                            </span>
-                            {/* Location */}
-                            <span className="flex items-center gap-1 font-medium text-slate-700">
-                              {visit.city && visit.city !== 'Unknown' ? `${visit.city}, ` : ''}{visit.country}
-                            </span>
-                          </div>
-                        </div>
+                    {/* Main info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-slate-900">{visit.email}</span>
+                        <span className="text-xs text-slate-400">·</span>
+                        <span className="text-xs text-slate-500">{visit.senderName}</span>
+                        <span className="text-xs text-slate-400">·</span>
+                        <span className="text-xs text-slate-400">{visit.timeAgo}</span>
                       </div>
-
-                      {/* Right: time + expand arrow */}
-                      <div className="flex items-center gap-4 flex-shrink-0">
-                        {/* Status */}
-                        {visit.bounced ? (
-                          <span className="px-2 py-1 bg-red-50 text-red-500 text-xs font-semibold rounded-full">Bounced</span>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <div className="h-5 w-5 rounded-full bg-slate-100 flex items-center justify-center">
-                              <Check className="h-3 w-3 text-slate-500" />
-                            </div>
-                            <span className="text-sm font-bold text-slate-900 tabular-nums">{visit.totalTime}</span>
-                          </div>
-                        )}
-
-                        {/* Expand button */}
-                        <button
-                          onClick={() => setExpandedVisit(isExpanded ? null : visit.key)}
-                          className="h-8 w-8 rounded-lg border border-slate-200 flex items-center justify-center hover:border-violet-400 hover:bg-violet-50 transition-colors"
-                        >
-                          {isExpanded
-                            ? <ChevronUp className="h-4 w-4 text-slate-600" />
-                            : <ChevronDown className="h-4 w-4 text-slate-600" />
-                          }
-                        </button>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                        {/* Desktop icon */}
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        <span>{visit.city && visit.city !== 'Unknown' ? `${visit.city}, ` : ''}{visit.country}</span>
                       </div>
                     </div>
 
-                    {/* ── EXPANDED: Per-page bar chart (DocSend style) ── */}
-                    {isExpanded && (
-                      <div className="mt-5 pt-5 border-t border-slate-100">
-                        {/* Y-axis labels + bars */}
-                        <div className="relative" style={{ paddingLeft: '52px', paddingBottom: '28px' }}>
-                          {/* Y-axis labels */}
-                          {(() => {
-                            const formatYLabel = (secs: number) => {
-                              const m = Math.floor(secs / 60);
-                              const s = secs % 60;
-                              return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-                            };
-                            const steps = [maxTime, Math.round(maxTime * 0.5), 0];
-                            return steps.map((val, i) => (
-                              <div key={i} className="absolute text-right text-[10px] text-slate-400 font-mono"
-                                style={{ left: 0, top: `${(i / 2) * 100}%`, width: '44px', transform: 'translateY(-50%)' }}>
-                                {formatYLabel(val)}
-                              </div>
-                            ));
-                          })()}
+                    {/* Right side: sender badge area (DocSend shows S badge + name) */}
+                    <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+                      <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center">
+                        <span className="text-[10px] font-bold text-slate-500">S</span>
+                      </div>
+                      <span className="text-xs text-slate-500 font-medium truncate max-w-[120px]">{visit.senderName}</span>
+                    </div>
 
-                          {/* Gridlines */}
-                          <div className="absolute inset-0" style={{ paddingLeft: '52px', paddingBottom: '28px' }}>
-                            {[0, 0.5, 1].map((frac, i) => (
-                              <div key={i} className="absolute left-0 right-0 border-t border-slate-100"
-                                style={{ top: `${frac * 100}%` }} />
-                            ))}
-                          </div>
+                    {/* Time + status */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      {visit.bounced ? (
+                        <span className="text-xs font-medium text-red-500">Bounced</span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          {/* Checkmark circle like DocSend */}
+                          <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" strokeWidth="1.5"/>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4"/>
+                          </svg>
+                          <span className="text-sm font-bold text-slate-800 tabular-nums">{visit.totalTime}</span>
+                        </div>
+                      )}
 
-                          {/* Bars container */}
-                          <div className="relative flex items-end gap-2 bg-white" style={{ height: '180px' }}>
-                            {visit.pageData.map((page: any) => {
-                              const heightPct = maxTime > 0 ? (page.timeSpent / maxTime) * 100 : 0;
-                              const hKey = `${visit.key}-${page.page}`;
-                              const isHovered = hoveredPage?.visitKey === visit.key && hoveredPage?.page === page.page;
+                      {/* Expand chevron */}
+                      <button
+                        onClick={() => setExpandedVisit(isExpanded ? null : visit.key)}
+                        className="h-7 w-7 flex items-center justify-center text-slate-300 hover:text-slate-600 transition-colors"
+                      >
+                        {isExpanded
+                          ? <ChevronUp className="h-4 w-4" />
+                          : <ChevronDown className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
 
-                              return (
-                                <div key={page.page} className="flex-1 flex flex-col items-center justify-end h-full relative group"
-                                  onMouseEnter={() => setHoveredPage({ visitKey: visit.key, page: page.page })}
-                                  onMouseLeave={() => setHoveredPage(null)}>
+                  {/* Expanded per-page bars */}
+                  {isExpanded && (
+                    <div className="pb-6 pt-2">
+                      <div className="relative" style={{ paddingLeft: '52px', paddingBottom: '28px' }}>
+                        {/* Y-axis labels */}
+                        {(() => {
+                          const formatYLabel = (secs: number) => {
+                            const m = Math.floor(secs / 60);
+                            const s = secs % 60;
+                            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                          };
+                          return [maxTime, Math.round(maxTime * 0.5), 0].map((val, i) => (
+                            <div key={i} className="absolute text-right text-[10px] text-slate-400 font-mono"
+                              style={{ left: 0, top: `${(i / 2) * 100}%`, width: '44px', transform: 'translateY(-50%)' }}>
+                              {formatYLabel(val)}
+                            </div>
+                          ));
+                        })()}
 
-                                  {/* Tooltip */}
-                                  {isHovered && (
-                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-                                      <div className="bg-slate-900 rounded-xl shadow-2xl overflow-hidden"
-                                        style={{ width: '200px' }}>
-                                        {/* PDF preview iframe */}
-                                        <div className="relative bg-white" style={{ height: '130px' }}>
-                                          <iframe
-                                             src={`/api/documents/${doc._id}/page?page=${page.page}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
-                                            className="w-full h-full border-0 pointer-events-none"
-                                            style={{ display: 'block' }}
-                                            title={`Page ${page.page} preview`}
-                                          />
-                                          {/* Dark overlay with page info */}
-                                          <div className="absolute bottom-0 left-0 right-0 p-2"
-                                            style={{ background: 'linear-gradient(transparent, rgba(0,0,0,0.85))' }}>
-                                          </div>
+                        {/* Gridlines */}
+                        <div className="absolute inset-0" style={{ paddingLeft: '52px', paddingBottom: '28px' }}>
+                          {[0, 0.5, 1].map((frac, i) => (
+                            <div key={i} className="absolute left-0 right-0 border-t border-slate-100"
+                              style={{ top: `${frac * 100}%` }} />
+                          ))}
+                        </div>
+
+                        {/* Bars */}
+                        <div className="relative flex items-end gap-2" style={{ height: '160px' }}>
+                          {visit.pageData.map((page: any) => {
+                            const heightPct = maxTime > 0 ? (page.timeSpent / maxTime) * 100 : 0;
+                            const isHovered = hoveredPage?.visitKey === visit.key && hoveredPage?.page === page.page;
+
+                            return (
+                              <div key={page.page} className="flex-1 flex flex-col items-center justify-end h-full relative"
+                                onMouseEnter={() => setHoveredPage({ visitKey: visit.key, page: page.page })}
+                                onMouseLeave={() => setHoveredPage(null)}>
+
+                                {/* Tooltip */}
+                                {isHovered && (
+                                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                                    <div className="bg-slate-900 rounded-xl shadow-2xl overflow-hidden" style={{ width: '200px' }}>
+                                      <div className="relative bg-white" style={{ height: '130px' }}>
+                                        <iframe
+                                          src={`/api/documents/${doc._id}/page?page=${page.page}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                                          className="w-full h-full border-0 pointer-events-none"
+                                          title={`Page ${page.page} preview`}
+                                        />
+                                      </div>
+                                      <div className="flex items-center justify-between px-3 py-2">
+                                        <div>
+                                          <p className="text-[10px] text-slate-400 uppercase tracking-wide">PAGE</p>
+                                          <p className="text-sm font-bold text-white">{page.page} / {visit.pageData.length}</p>
                                         </div>
-                                        {/* Stats row */}
-                                        <div className="flex items-center justify-between px-3 py-2">
-                                          <div>
-                                            <p className="text-[10px] text-slate-400 uppercase tracking-wide">PAGE</p>
-                                            <p className="text-sm font-bold text-white">{page.page} / {visit.pageData.length}</p>
-                                          </div>
-                                          <div className="text-right">
-                                            <p className="text-[10px] text-slate-400 uppercase tracking-wide">TIME SPENT</p>
-                                            <p className="text-sm font-bold text-white">
-                                              {String(Math.floor(page.timeSpent / 60)).padStart(2,'0')}:{String(page.timeSpent % 60).padStart(2,'0')}
-                                            </p>
-                                          </div>
-                                        </div>
-                                        {/* Blue progress bar */}
-                                        <div className="h-1 bg-slate-700">
-                                          <div className="h-full bg-blue-400 transition-all"
-                                            style={{ width: `${Math.min((page.timeSpent / maxTime) * 100, 100)}%` }} />
+                                        <div className="text-right">
+                                          <p className="text-[10px] text-slate-400 uppercase tracking-wide">TIME SPENT</p>
+                                          <p className="text-sm font-bold text-white">
+                                            {String(Math.floor(page.timeSpent / 60)).padStart(2,'0')}:{String(page.timeSpent % 60).padStart(2,'0')}
+                                          </p>
                                         </div>
                                       </div>
-                                      {/* Arrow */}
-                                      <div className="flex justify-center">
-                                        <div className="w-2.5 h-2.5 bg-slate-900 rotate-45 -mt-1.5" />
+                                      <div className="h-1 bg-slate-700">
+                                        <div className="h-full bg-blue-400 transition-all"
+                                          style={{ width: `${Math.min((page.timeSpent / maxTime) * 100, 100)}%` }} />
                                       </div>
                                     </div>
-                                  )}
+                                    <div className="flex justify-center">
+                                      <div className="w-2.5 h-2.5 bg-slate-900 rotate-45 -mt-1.5" />
+                                    </div>
+                                  </div>
+                                )}
 
-                                  {/* Bar */}
-                                  <div
-                                    className="w-full rounded-t transition-all cursor-pointer"
-                                    style={{
-                                      height: `${Math.max(heightPct, page.timeSpent > 0 ? 2 : 0)}%`,
-                                      background: isHovered
-                                        ? 'linear-gradient(180deg, #7c3aed, #6d28d9)'
-                                        : page.skipped
-                                        ? '#e2e8f0'
-                                        : 'linear-gradient(180deg, #a855f7, #9333ea)',
-                                      minHeight: page.timeSpent > 0 ? '4px' : '0',
-                                    }}
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {/* X-axis: page numbers */}
-                          <div className="flex gap-2 pt-2" style={{ paddingLeft: '0' }}>
-                            {visit.pageData.map((page: any) => (
-                              <div key={page.page} className="flex-1 text-center text-xs text-slate-400 font-medium">
-                                {page.page}
+                                {/* Bar */}
+                                <div
+                                  className="w-full rounded-t transition-all cursor-pointer"
+                                  style={{
+                                    height: `${Math.max(heightPct, page.timeSpent > 0 ? 2 : 0)}%`,
+                                    background: isHovered
+                                      ? '#7c3aed'
+                                      : page.skipped ? '#e2e8f0'
+                                      : '#a855f7',
+                                    minHeight: page.timeSpent > 0 ? '4px' : '0',
+                                  }}
+                                />
                               </div>
-                            ))}
-                          </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* X-axis page numbers */}
+                        <div className="flex gap-2 pt-2">
+                          {visit.pageData.map((page: any) => (
+                            <div key={page.page} className="flex-1 text-center text-xs text-slate-400">
+                              {page.page}
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* ══ SPACER ══ */}
+      <div className="pt-8" />
+
+      {/* ══ ALL LINKS SECTION ══ */}
+      <div>
+        {/* Section header */}
+        <div className="flex items-center justify-between py-4 border-b border-slate-200">
+          <h3 className="text-base font-semibold text-slate-900">All Links</h3>
+          <button
+            onClick={onCreateLink}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}
+          >
+            <LinkIcon className="h-3 w-3" /> New Link
+          </button>
+        </div>
+
+        {/* Column headers — flat label row */}
+        <div className="grid items-center py-2 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide"
+          style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}>
+          <span>NAME</span>
+          <span>LINK</span>
+          <span className="text-center">ACTIVE</span>
+          <span className="text-right mr-10">ACTIVITY</span>
+          <span />
+        </div>
+
+        {/* Link rows */}
+        {allLinks.length === 0 ? (
+          <div className="py-12 text-center border-b border-slate-100">
+            <p className="text-sm text-slate-400">No links yet.</p>
+          </div>
+        ) : (
+          allLinks.map((lnk, i) => (
+            <div
+              key={i}
+              className="grid items-center py-4 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors group"
+              style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}
+            >
+              {/* NAME */}
+              <div className="flex items-center gap-2 pr-4">
+                {/* Small document icon like DocSend */}
+                <div className="h-8 w-8 rounded bg-slate-100 flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-4 w-4 text-slate-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 truncate">
+                    {lnk.recipientName || lnk.recipientEmail || 'Public Link'}
+                  </p>
+                  <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
+                </div>
+              </div>
+
+              {/* LINK */}
+              <div className="flex items-center gap-2 pr-4 min-w-0">
+                {/* Yellow/orange circle like DocSend */}
+                <div className="h-5 w-5 rounded-full bg-amber-400 flex-shrink-0" />
+                <span className="text-xs text-slate-600 font-mono truncate flex-1">
+                  {lnk.link.replace('https://', '').replace('http://', '')}
+                </span>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(lnk.link); toast.success('Copied!', { duration: 2000 }); }}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-slate-400 hover:text-violet-600"
+                  title="Copy link"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* TOGGLE */}
+              <div className="flex justify-center">
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/documents/${doc._id}/share`, {
+                        method: 'PATCH',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ shareId: lnk.shareId, active: !lnk.enabled }),
+                      });
+                      if (res.ok) {
+                        toast.success(lnk.enabled ? 'Link disabled' : 'Link enabled');
+                        window.location.reload();
+                      } else {
+                        toast.error('Failed to update link');
+                      }
+                    } catch { toast.error('Network error'); }
+                  }}
+                  className="w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors"
+                  style={{ background: lnk.enabled ? '#7c3aed' : '#e2e8f0' }}
+                >
+                  <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${lnk.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {/* ACTIVITY */}
+              <div className="flex items-center justify-end mr-4">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-1.5 hover:text-violet-600 transition-colors">
+                      <span className="text-sm font-bold text-slate-900">{lnk.visits}</span>
+                      <span className="text-xs text-slate-400">{lnk.visits === 1 ? 'visit' : 'visits'}</span>
+                      <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 bg-white p-3 space-y-2">
+                    {[
+                      ['Total visits', lnk.visits],
+                      ['Time spent', lnk.totalTime || '0m 0s'],
+                      ['Last viewed', lnk.lastViewed || 'Never'],
+                      ['Completion', lnk.completion || '0%'],
+                    ].map(([label, val]) => (
+                      <div key={label as string} className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500">{label}</span>
+                        <span className="text-sm font-bold text-slate-900">{val}</span>
+                      </div>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* 3-DOT MENU */}
+              <div className="flex justify-end">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center text-slate-400 hover:text-slate-700">
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 bg-white">
+                    <DropdownMenuItem onClick={() => {
+                      onOpenShareDrawer(lnk, 'edit', {
+                        requireEmail: lnk.settings.requireEmail,
+                        allowDownload: lnk.settings.allowDownload,
+                        allowPrint: lnk.settings.allowPrint,
+                        allowForwarding: lnk.settings.allowForwarding,
+                        notifyOnDownload: lnk.settings.notifyOnDownload,
+                        selfDestruct: lnk.settings.selfDestruct,
+                        enableWatermark: lnk.settings.enableWatermark,
+                        watermarkText: lnk.settings.watermarkText,
+                        watermarkPosition: lnk.settings.watermarkPosition,
+                        requireNDA: lnk.settings.requireNDA,
+                        ndaTemplateId: lnk.settings.ndaTemplateId,
+                        customMessage: lnk.settings.customMessage,
+                        sharedByName: lnk.settings.sharedByName,
+                        logoUrl: lnk.settings.logoUrl,
+                        viewLimit: lnk.settings.viewLimit,
+                        downloadLimit: lnk.settings.downloadLimit,
+                        linkType: lnk.settings.linkType,
+                        expiresIn: lnk.settings.expiresIn,
+                        password: '',
+                        recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+                        recipientNames: lnk.recipientName ? [lnk.recipientName] : [],
+                        sendEmailNotification: false,
+                        allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+                        ndaText: '', customNdaText: '', useCustomNda: false, availableFrom: '',
+                      });
+                    }}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      <span>Edit link settings</span>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem onClick={() => {
+                      onOpenShareDrawer(lnk, 'duplicate', {
+                        requireEmail: lnk.settings.requireEmail,
+                        allowDownload: lnk.settings.allowDownload,
+                        allowPrint: lnk.settings.allowPrint,
+                        allowForwarding: lnk.settings.allowForwarding,
+                        notifyOnDownload: lnk.settings.notifyOnDownload,
+                        selfDestruct: lnk.settings.selfDestruct,
+                        enableWatermark: lnk.settings.enableWatermark,
+                        watermarkText: lnk.settings.watermarkText,
+                        watermarkPosition: lnk.settings.watermarkPosition,
+                        requireNDA: lnk.settings.requireNDA,
+                        ndaTemplateId: lnk.settings.ndaTemplateId,
+                        customMessage: lnk.settings.customMessage,
+                        sharedByName: lnk.settings.sharedByName,
+                        logoUrl: lnk.settings.logoUrl,
+                        viewLimit: lnk.settings.viewLimit,
+                        downloadLimit: lnk.settings.downloadLimit,
+                        linkType: lnk.settings.linkType,
+                        expiresIn: lnk.settings.expiresIn,
+                        password: '',
+                        recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+                        recipientNames: lnk.recipientName ? [lnk.recipientName + ' (Copy)'] : [],
+                        sendEmailNotification: false,
+                        allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+                        ndaText: '', customNdaText: '', useCustomNda: false, availableFrom: '',
+                      });
+                    }}>
+                      <Copy className="mr-2 h-4 w-4" />
+                      <span>Duplicate link</span>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        if (!confirm(`Delete link for ${lnk.recipientName || lnk.recipientEmail || 'this recipient'}?`)) return;
+                        try {
+                          const res = await fetch(`/api/documents/${doc._id}/share?shareId=${lnk.shareId}`, {
+                            method: 'DELETE', credentials: 'include',
+                          });
+                          if (res.ok) { toast.success('Link deleted'); window.location.reload(); }
+                          else toast.error('Failed to delete link');
+                        } catch { toast.error('Network error'); }
+                      }}
+                      className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>Delete this link</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
     </div>
   );
 }
+
 
 // Helper
 function formatAgo(date: Date): string {

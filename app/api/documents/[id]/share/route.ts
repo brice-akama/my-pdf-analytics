@@ -632,14 +632,31 @@ export async function GET(
       recipientName: share.recipientName || null,
       active: share.active,
       
-      settings: {
-        requireEmail: share.settings.requireEmail,
-        allowDownload: share.settings.allowDownload,
-        allowPrint: share.settings.allowPrint,
-        hasPassword: share.settings.hasPassword,
-        maxViews: share.settings.maxViews,
-        allowedEmails: share.settings.allowedEmails?.length || 0,
-      },
+     settings: {
+  requireEmail: share.settings.requireEmail,
+  allowDownload: share.settings.allowDownload,
+  allowPrint: share.settings.allowPrint,
+  hasPassword: share.settings.hasPassword,
+  maxViews: share.settings.maxViews,
+  allowedEmails: share.settings.allowedEmails || [],
+  allowForwarding: share.settings.allowForwarding ?? true,
+  notifyOnDownload: share.settings.notifyOnDownload ?? false,
+  selfDestruct: share.settings.selfDestruct ?? false,
+  enableWatermark: share.settings.enableWatermark ?? false,
+  watermarkText: share.settings.watermarkText || '',
+  watermarkPosition: share.settings.watermarkPosition || 'bottom',
+  requireNDA: share.settings.requireNDA ?? false,
+  ndaTemplateId: share.settings.ndaTemplateId || '',
+  customMessage: share.settings.customMessage || '',
+  sharedByName: share.settings.sharedByName || '',
+  logoUrl: share.settings.logoUrl || '',
+  viewLimit: share.settings.viewLimit ?? undefined,
+  downloadLimit: share.settings.downloadLimit ?? undefined,
+  linkType: share.settings.linkType || 'public',
+  expiresIn: share.expiresAt
+    ? Math.ceil((new Date(share.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0,
+},
 
       tracking: {
         views: share.tracking.views,
