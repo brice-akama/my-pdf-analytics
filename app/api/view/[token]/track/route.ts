@@ -2,6 +2,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { notifyDocumentView } from '@/lib/notifications';
+import {
+  sendDocumentOpenedEmail,
+  sendDocumentCompletedEmail,
+  sendDocumentRevisitedEmail,
+  hasNotificationBeenSent,
+  markNotificationSent,
+} from '@/lib/documentNotifications';
+import {
+  syncDocumentOpenedToHubSpot,
+  syncDocumentCompletedToHubSpot,
+  syncEngagementSummaryToHubSpot,
+  isHubSpotConnected,
+} from '@/lib/integrations/hubspotSync';
+
+// ── Helper: get owner email from userId ──────────────────────────
+async function getOwnerEmail(userId: string, db: any) {
+  const profile = await db.collection('profiles').findOne({ user_id: userId });
+  return {
+    email: profile?.email || null,
+    name: profile?.full_name || profile?.first_name || null,
+  };
+}
 
 // ── IP Geolocation ───────────────────────────────────────────────
 async function getLocationFromIP(ip: string) {
@@ -308,6 +330,96 @@ export async function POST(
             );
           }
         }
+         // ── NOTIFICATION: Document Completed ────────────────────
+  // Only fire when viewer hits the LAST page
+  const docForCompletion = await db.collection('documents').findOne({ _id: share.documentId });
+  const isLastPage = docForCompletion && pageNum === docForCompletion.numPages;
+
+  if (isLastPage && share.userId) {
+    const alreadySentCompleted = await hasNotificationBeenSent('completed', currentSessionId, documentId);
+
+    if (!alreadySentCompleted) {
+      const owner = await getOwnerEmail(share.userId, db);
+
+      if (owner.email) {
+        // Get total time this viewer has spent on this doc
+        const viewerLogs = await db.collection('analytics_logs').find({
+          documentId,
+          action: 'page_view',
+          ...(email ? { email } : { viewerId }),
+        }).toArray();
+
+        const totalTimeSeconds = viewerLogs.reduce(
+          (sum: number, l: any) => sum + (l.viewTime || 0), 0
+        );
+
+        // Get top pages by time
+        const pageTimesMap = new Map<number, number>();
+        viewerLogs.forEach((l: any) => {
+          const existing = pageTimesMap.get(l.pageNumber) || 0;
+          pageTimesMap.set(l.pageNumber, existing + (l.viewTime || 0));
+        });
+        const topPages = Array.from(pageTimesMap.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([page, timeSpent]) => ({ page, timeSpent }));
+
+        // Determine intent level
+        const intentLevel = totalTimeSeconds > 300
+          ? 'high'
+          : totalTimeSeconds > 120
+          ? 'medium'
+          : 'low';
+
+        sendDocumentCompletedEmail({
+          ownerEmail: owner.email,
+          viewerEmail: email || undefined,
+          viewerName: email?.split('@')[0] || undefined,
+          documentName: docForCompletion.originalFilename || 'Your document',
+          documentId,
+          totalPages: docForCompletion.numPages,
+          totalTimeSeconds,
+          topPages,
+          intentLevel,
+        }).catch(err => console.error('📧 Completed email error:', err));
+
+        await markNotificationSent('completed', currentSessionId, documentId);
+      }
+    }
+  }
+
+  // ── HUBSPOT SYNC: Document Completed ───────────────────
+if (email && isLastPage && share.userId) {
+  const hubSpotEnabled = await isHubSpotConnected(share.userId);
+  if (hubSpotEnabled) {
+    // Recalculate since we may be outside the email block scope
+    const hsViewerLogs = await db.collection('analytics_logs').find({
+      documentId,
+      action: 'page_view',
+      ...(email ? { email } : { viewerId }),
+    }).toArray();
+    const hsTotalTime = hsViewerLogs.reduce((sum: number, l: any) => sum + (l.viewTime || 0), 0);
+    const hsPageMap = new Map<number, number>();
+    hsViewerLogs.forEach((l: any) => {
+      hsPageMap.set(l.pageNumber, (hsPageMap.get(l.pageNumber) || 0) + (l.viewTime || 0));
+    });
+    const hsTopPages = Array.from(hsPageMap.entries())
+      .sort((a, b) => b[1] - a[1]).slice(0, 3)
+      .map(([p, t]) => ({ page: p, timeSpent: t }));
+    const hsIntentLevel = hsTotalTime > 300 ? 'high' : hsTotalTime > 120 ? 'medium' : 'low';
+
+    syncDocumentCompletedToHubSpot({
+      userId: share.userId,
+      viewerEmail: email,
+      documentName: docForCompletion?.originalFilename || 'Document',
+      documentId,
+      totalPages: docForCompletion?.numPages || 1,
+      totalTimeSeconds: hsTotalTime,
+      topPages: hsTopPages,
+      intentLevel: hsIntentLevel,
+    }).catch(err => console.error('HubSpot sync error:', err));
+  }
+}
         break;
       }  
 
@@ -577,6 +689,108 @@ case 'presence_ping': {
           location,
           isRevisit,
         });
+
+        // ── NOTIFICATION: Document Opened ───────────────────────
+  // Only fire once per session and only if owner has email
+  const alreadySent = await hasNotificationBeenSent('opened', currentSessionId, documentId);
+  
+  if (!alreadySent && share.userId) {
+    const owner = await getOwnerEmail(share.userId, db);
+    
+    if (owner.email) {
+      // Get document name
+      const doc = await db.collection('documents').findOne({ _id: share.documentId });
+      const docName = doc?.originalFilename || 'Your document';
+
+      // Check if this is the VERY first view ever on this document
+      const previousSessions = await db.collection('analytics_sessions').countDocuments({
+        documentId,
+        sessionId: { $ne: currentSessionId },
+      });
+      const isFirstEverView = previousSessions === 0;
+
+      // Fire and forget — don't await to avoid slowing down the response
+      sendDocumentOpenedEmail({
+        ownerEmail: owner.email,
+        ownerName: owner.name,
+        viewerEmail: email || undefined,
+        viewerName: email?.split('@')[0] || undefined,
+        documentName: docName,
+        documentId,
+        location: location || undefined,
+        device,
+        shareToken: token,
+        isFirstEverView,
+      }).catch(err => console.error('📧 Opened email error:', err));
+
+      // Mark as sent so we don't send again for this session
+      await markNotificationSent('opened', currentSessionId, documentId);
+    }
+  }
+
+  // ── NOTIFICATION: Revisit ───────────────────────────────
+  if (isRevisit && share.userId) {
+    const alreadySentRevisit = await hasNotificationBeenSent('revisit', currentSessionId, documentId);
+
+    if (!alreadySentRevisit) {
+      const owner = await getOwnerEmail(share.userId, db);
+
+      if (owner.email) {
+        const doc = await db.collection('documents').findOne({ _id: share.documentId });
+        const docName = doc?.originalFilename || 'Your document';
+
+        // Count total visits for this viewer
+        const visitCount = await db.collection('analytics_sessions').countDocuments({
+          documentId,
+          viewerId,
+        });
+
+        // Get previous session to calculate last visit time
+        const prevSession = await db.collection('analytics_sessions').findOne(
+          { documentId, viewerId, sessionId: { $ne: currentSessionId } },
+          { sort: { startedAt: -1 } }
+        );
+        const lastVisitAgo = prevSession?.startedAt
+          ? formatTimeAgo(new Date(prevSession.startedAt))
+          : undefined;
+
+        sendDocumentRevisitedEmail({
+          ownerEmail: owner.email,
+          viewerEmail: email || undefined,
+          viewerName: email?.split('@')[0] || undefined,
+          documentName: docName,
+          documentId,
+          visitCount,
+          lastVisitAgo,
+          device,
+          location: location || undefined,
+        }).catch(err => console.error('📧 Revisit email error:', err));
+
+        await markNotificationSent('revisit', currentSessionId, documentId);
+      }
+    }
+  }
+
+   // ── HUBSPOT SYNC: Document Opened ──────────────────────
+  if (email && share.userId) {
+    const hubSpotEnabled = await isHubSpotConnected(share.userId);
+    if (hubSpotEnabled) {
+      syncDocumentOpenedToHubSpot({
+        userId: share.userId,
+        viewerEmail: email,
+         documentName: (await db.collection('documents').findOne({ _id: share.documentId }))?.originalFilename || 'Your document',
+        documentId,
+        device,
+        location: location || undefined,
+        isRevisit,
+        visitCount: isRevisit
+          ? await db.collection('analytics_sessions').countDocuments({ documentId, viewerId })
+          : 1,
+      }).catch(err => console.error('HubSpot sync error:', err));
+    }
+  }
+
+
         break;
       }
 
@@ -605,6 +819,37 @@ case 'presence_ping': {
             $set: { updatedAt: now },
           }
         );
+
+        // ── HUBSPOT SYNC: Session summary ──────────────────────
+  if (share.userId) {
+    const hubSpotEnabled = await isHubSpotConnected(share.userId);
+    if (hubSpotEnabled) {
+      // Get email from viewer_identities since session_end may not have it
+      const identity = await db.collection('viewer_identities').findOne({
+        viewerId,
+        documentId,
+      });
+      const viewerEmailForSync = email || identity?.email;
+
+      if (viewerEmailForSync) {
+        const session = await db.collection('analytics_sessions').findOne({
+          sessionId: currentSessionId,
+        });
+        const doc = await db.collection('documents').findOne({ _id: share.documentId });
+
+        syncEngagementSummaryToHubSpot({
+          userId: share.userId,
+          viewerEmail: viewerEmailForSync,
+          documentName: doc?.originalFilename || 'Document',
+          documentId,
+          sessionDurationSeconds: duration,
+          pagesViewed: session?.pagesViewed || [],
+          totalPages: doc?.numPages || 1,
+          device,
+        }).catch(err => console.error('HubSpot sync error:', err));
+      }
+    }
+  }
         break;
       }
 
@@ -708,4 +953,13 @@ case 'presence_ping': {
       { status: 500 }
     );
   }
+}
+
+
+function formatTimeAgo(date: Date): string {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 60) return 'just now';
+  if (secs < 3600) return `${Math.floor(secs / 60)} min ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)} hours ago`;
+  return `${Math.floor(secs / 86400)} days ago`;
 }

@@ -51,7 +51,7 @@ async function sendWithResend(options: EmailOptions) {
         'Content-Type': 'application/json',
       },
 body: JSON.stringify({
- from: options.from || process.env.EMAIL_FROM || 'DocMetrics <noreply@docmetrics.io>',
+ from: options.from || process.env.EMAIL_FROM || 'DocMetrics <support@docmetrics.io>',
   to: options.to,
   subject: options.subject,
   html: options.html,
@@ -95,7 +95,7 @@ async function sendWithSendGrid(options: EmailOptions) {
           to: [{ email: options.to }],
         }],
         from: { 
-          email: options.from || process.env.EMAIL_FROM || 'noreply@docmetrics.io',
+          email: options.from || process.env.EMAIL_FROM || 'support@docmetrics.io',
           name: 'DocMetrics'
         },
         subject: options.subject,
@@ -137,7 +137,7 @@ async function sendWithPostmark(options: EmailOptions) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        From: options.from || process.env.EMAIL_FROM || 'noreply@docmetrics.io',
+        From: options.from || process.env.EMAIL_FROM || 'support@docmetrics.io',
         To: options.to,
         Subject: options.subject,
         HtmlBody: options.html,
