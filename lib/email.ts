@@ -12,7 +12,8 @@ interface EmailOptions {
   subject: string;
   html: string;
   from?: string;
-  attachments?: EmailAttachment[]; // ✅ ADD THIS
+  replyTo?: string;
+  attachments?: EmailAttachment[];
 }
 
 // ✅ Option 1: Using Resend (Recommended - Easy & Free)
@@ -49,12 +50,13 @@ async function sendWithResend(options: EmailOptions) {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: options.from || process.env.EMAIL_FROM || 'DocMetrics <notifications@docmetrics.com>',
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-      }),
+body: JSON.stringify({
+  from: options.from || process.env.EMAIL_FROM || 'DocMetrics <notifications@docmetrics.com>',
+  to: options.to,
+  subject: options.subject,
+  html: options.html,
+  ...(options.replyTo && { reply_to: options.replyTo }),
+}),
     });
 
     if (!response.ok) {
@@ -93,7 +95,7 @@ async function sendWithSendGrid(options: EmailOptions) {
           to: [{ email: options.to }],
         }],
         from: { 
-          email: options.from || process.env.EMAIL_FROM || 'notifications@docmetrics.com',
+          email: options.from || process.env.EMAIL_FROM || 'noreply@docmetrics.io',
           name: 'DocMetrics'
         },
         subject: options.subject,
@@ -135,7 +137,7 @@ async function sendWithPostmark(options: EmailOptions) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        From: options.from || process.env.EMAIL_FROM || 'notifications@docmetrics.com',
+        From: options.from || process.env.EMAIL_FROM || 'noreply@docmetrics.io',
         To: options.to,
         Subject: options.subject,
         HtmlBody: options.html,

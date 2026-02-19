@@ -1,80 +1,91 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* removed unsupported @custom-variant; use the .dark selector in your CSS or define a custom variant in tailwind.config.js */
 :root {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* ── Font mapping ── */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
+
+  /* ── Radius ── */
+  --radius: 0.625rem;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-}
 
-:root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
+  /* ── BRAND COLORS (these win — placed last so nothing overrides them) ── */
+  --background: #ffffff;                /* pure white — matches DocSend */
+  --foreground: #0f172a;                /* slate-900 */
+  --primary: #0ea5e9;                   /* brand.primary.500 — sky blue */
+  --primary-foreground: #ffffff;
+  --secondary: #ffffff;                 /* white bg for secondary surfaces */
+  --secondary-foreground: #0f172a;
+  --muted: #f8fafc;                     /* slate-50 — barely-there bg */
+  --muted-foreground: #64748b;          /* slate-500 */
+  --accent: #f0f9ff;                    /* brand.primary.50 */
+  --accent-foreground: #0369a1;         /* brand.primary.700 */
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --border: #e2e8f0;                    /* slate-200 */
+  --input: #e2e8f0;
+  --ring: #0ea5e9;                      /* brand.primary.500 */
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
+
+  /* ── Brand shortcuts ── */
+  --brand-primary: #0ea5e9;             /* sky blue */
+  --brand-secondary: #a855f7;           /* purple */
+
+  /* ── Charts ── */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+
+  /* ── Sidebar ── */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #0ea5e9;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f9ff;
+  --sidebar-accent-foreground: #0369a1;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #0ea5e9;
+
+  /* ── CSS variable aliases (for Tailwind v4 color resolution) ── */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 }
 
 .dark {
@@ -84,8 +95,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.21 0.006 285.885);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
+  --primary: #38bdf8;                   /* brand.primary.400 — lighter for dark */
+  --primary-foreground: #0c4a6e;
   --secondary: oklch(0.274 0.006 286.033);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.274 0.006 286.033);
@@ -95,7 +106,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
+  --ring: #38bdf8;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -103,90 +114,30 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.21 0.006 285.885);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: #38bdf8;
+  --sidebar-primary-foreground: #0c4a6e;
   --sidebar-accent: oklch(0.274 0.006 286.033);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  --sidebar-ring: #38bdf8;
 }
 
-/* Professional Custom Scrollbars - Enhanced with Firefox Support */
-.custom-scrollbar {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: #94a3b8 #f1f5f9; /* Firefox: thumb track */
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 10px;
-  margin: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
-  border-radius: 10px;
-  border: 2px solid #f1f5f9;
-  min-height: 40px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #7c8ba1 0%, #475569 100%);
-  border: 2px solid #e2e8f0;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:active {
-  background: linear-gradient(180deg, #64748b 0%, #334155 100%);
-}
-
-.custom-scrollbar-horizontal {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: #94a3b8 #f1f5f9; /* Firefox */
-}
-
-.custom-scrollbar-horizontal::-webkit-scrollbar {
-  height: 10px;
-  width: 10px;
-}
-
-.custom-scrollbar-horizontal::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 8px;
-  margin: 4px;
-}
-
-.custom-scrollbar-horizontal::-webkit-scrollbar-thumb {
-  background: linear-gradient(90deg, #94a3b8 0%, #64748b 100%);
-  border-radius: 8px;
-  border: 2px solid #f1f5f9;
-  min-width: 40px;
-}
-
-.custom-scrollbar-horizontal::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(90deg, #7c8ba1 0%, #475569 100%);
-  border: 2px solid #e2e8f0;
-}
-
-.custom-scrollbar-horizontal::-webkit-scrollbar-thumb:active {
-  background: linear-gradient(90deg, #64748b 0%, #334155 100%);
-}
-
+/* ── Base layer ── */
 @layer base {
   * {
     border-color: var(--color-border);
     outline-color: var(--color-ring);
   }
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
+/* ── Accessibility ── */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -199,119 +150,90 @@
   border-width: 0;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  margin-top: 1.5rem; /* Add top spacing */
-  margin-bottom: 1rem; /* Add bottom spacing */
+/* ── Prose content spacing (scoped — won't break UI components) ── */
+.prose-content h1, .prose-content h2, .prose-content h3,
+.prose-content h4, .prose-content h5, .prose-content h6 {
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
   font-weight: bold;
 }
+.prose-content p  { margin-top: 1rem; margin-bottom: 1rem; line-height: 1.6; }
+.prose-content ul, .prose-content ol { margin-top: 1rem; margin-bottom: 1rem; padding-left: 1.5rem; }
+.prose-content li { margin-bottom: 0.5rem; }
 
-p {
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  line-height: 1.6;
-}
+/* ── Product details (existing scoped prose) ── */
+.product-details p  { margin-bottom: 1rem; line-height: 1.6; }
+.product-details ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 1rem; }
+.product-details li { margin-bottom: 0.5rem; }
 
-ul, ol {
-  margin-top: 1rem;
-  margin-bottom: 1rem;
-  padding-left: 1.5rem;
-}
+/* ── Prevent horizontal overflow ── */
+html, body { overflow-x: hidden; }
+#__next  { overflow-x: hidden; }
+main     { overflow-x: hidden; }
 
-li {
-  margin-bottom: 0.5rem;
-}
-
-
-
-.product-details p {
-  margin-bottom: 1rem; /* space between paragraphs */
-  line-height: 1.6;
-}
-
-.product-details ul {
-  list-style-type: disc;
-  padding-left: 1.25rem; /* align bullets nicely */
-  margin-bottom: 1rem;
-}
-
-.product-details li {
-  margin-bottom: 0.5rem;
-}
-
-.product-details p {
-  margin-bottom: 1rem;
-  line-height: 1.6;
-}
-
-
-/* Remove horizontal scrollbar globally */
-html, body {
-  overflow-x: hidden;
-}
-
-/* Ensure proper scrolling for main content */
-#__next {
-  overflow-x: hidden;
-}
-main {
-  overflow-x: hidden;
-}
-
-
-
+/* ── Slide-in animation ── */
 @keyframes slide-in {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
 }
+.animate-slide-in { animation: slide-in 0.3s ease-out; }
 
-.animate-slide-in {
-  animation: slide-in 0.3s ease-out;
-}
+/* ══ SCROLLBARS ══════════════════════════════════════════════ */
 
-
-/* Add this to your global CSS file (e.g., globals.css or app.css) */
-
+/* Scrollball utility */
 .scrollball {
   max-height: 80vh;
   overflow-y: auto;
-}
-
-/* Custom Scrollbar Styles */
-.scrollball::-webkit-scrollbar {
-  width: 8px;
-}
-
-.scrollball::-webkit-scrollbar-track {
-  background: #f1f5f9; /* slate-100 */
-  border-radius: 10px;
-}
-
-.scrollball::-webkit-scrollbar-thumb {
-  background: #cbd5e1; /* slate-300 */
-  border-radius: 10px;
-  transition: background 0.2s ease;
-}
-
-.scrollball::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8; /* slate-400 */
-}
-
-/* Firefox Scrollbar */
-.scrollball {
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 #f1f5f9;
 }
+.scrollball::-webkit-scrollbar        { width: 8px; }
+.scrollball::-webkit-scrollbar-track  { background: #f1f5f9; border-radius: 10px; }
+.scrollball::-webkit-scrollbar-thumb  { background: #cbd5e1; border-radius: 10px; }
+.scrollball::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-/* Hide scrollbar on PDF viewer container */
-[data-pdf-container]::-webkit-scrollbar {
-  display: none;
+/* Custom scrollbar (vertical) */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+.custom-scrollbar::-webkit-scrollbar        { width: 12px; height: 12px; }
+.custom-scrollbar::-webkit-scrollbar-track  { background: #f1f5f9; border-radius: 10px; margin: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb  {
+  background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
+  border-radius: 10px;
+  border: 2px solid #f1f5f9;
+  min-height: 40px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover  {
+  background: linear-gradient(180deg, #7c8ba1 0%, #475569 100%);
+  border: 2px solid #e2e8f0;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, #64748b 0%, #334155 100%);
 }
 
-/* Hide scrollbar on PDF scroll container */
-.pdf-scroll-container::-webkit-scrollbar {
-  display: none;
+/* Custom scrollbar (horizontal) */
+.custom-scrollbar-horizontal {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
 }
+.custom-scrollbar-horizontal::-webkit-scrollbar       { height: 10px; width: 10px; }
+.custom-scrollbar-horizontal::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; margin: 4px; }
+.custom-scrollbar-horizontal::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #94a3b8 0%, #64748b 100%);
+  border-radius: 8px;
+  border: 2px solid #f1f5f9;
+  min-width: 40px;
+}
+.custom-scrollbar-horizontal::-webkit-scrollbar-thumb:hover  {
+  background: linear-gradient(90deg, #7c8ba1 0%, #475569 100%);
+  border: 2px solid #e2e8f0;
+}
+.custom-scrollbar-horizontal::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(90deg, #64748b 0%, #334155 100%);
+}
+
+/* Hide scrollbar on PDF containers */
+[data-pdf-container]::-webkit-scrollbar { display: none; }
+.pdf-scroll-container::-webkit-scrollbar { display: none; }

@@ -406,14 +406,13 @@ if (share.settings.requireNDA) {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const pdfUrl = `${baseUrl}/api/view/${token}/file`;
 
-    console.log('✅ Sharing document:', {
-      documentId: document._id.toString(),
-      filename: document.originalFilename,
-      shareToken: token.substring(0, 8) + '...',
-      pdfUrl,
-      hasCloudinaryUrl: !!document.cloudinaryPdfUrl,
+   
+// Fetch owner profile for sender email
+    const ownerProfile = await db.collection('profiles').findOne({ 
+      user_id: document.userId 
     });
 
+    
     // ✅ Return document data
     return NextResponse.json({
       success: true,
@@ -428,12 +427,15 @@ if (share.settings.requireNDA) {
         pdfUrl,
         previewUrls: [],
       },
+
+      
       settings: {
         allowDownload: share.settings.allowDownload,
         allowPrint: share.settings.allowPrint,
         customMessage: share.settings.customMessage,
         sharedByName: share.settings.sharedByName || null,    
   logoUrl: share.settings.logoUrl || null, 
+  senderEmail: ownerProfile?.email || null,
       },
       tracking: {
         views: share.tracking.views + 1, // Include this view

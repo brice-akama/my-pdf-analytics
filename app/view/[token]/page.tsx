@@ -85,6 +85,9 @@ export default function ViewSharedDocument() {
   const [scale, setScale] = useState(1.0);
   const pageCanvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const [zoomScale, setZoomScale] = useState(1.0);
+  const [contactMessage, setContactMessage] = useState('');
+const [isSendingMessage, setIsSendingMessage] = useState(false);
+const [messageSent, setMessageSent] = useState(false);
   const [brandingInfo, setBrandingInfo] = useState<{
     sharedByName?: string | null;
     logoUrl?: string | null;
@@ -937,18 +940,73 @@ export default function ViewSharedDocument() {
                               <p className="text-xs font-semibold text-white mb-3">
                                 Ask {brandingInfo?.sharedByName || 'the sender'} a question
                               </p>
-                              <textarea
-                                placeholder={`Write your message to ${brandingInfo?.sharedByName || 'the sender'}...`}
-                                className="w-full rounded-lg px-3 py-2.5 text-sm resize-none outline-none transition-all"
-                                rows={3}
-                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
-                              />
-                              <div className="mt-3 flex items-center justify-between">
-                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                                  From: <span style={{ color: '#a5b4fc' }}>{email || 'anonymous'}</span>
-                                </p>
-                                <button className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>Send</button>
-                              </div>
+                              {messageSent ? (
+  <div className="flex flex-col items-center justify-center py-4 gap-2">
+    <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
+      <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      </svg>
+    </div>
+    <p className="text-sm font-semibold text-white">Message sent!</p>
+    <p className="text-xs text-center" style={{ color: 'rgba(255,255,255,0.45)' }}>
+      {brandingInfo?.sharedByName || 'The sender'} will receive your message
+    </p>
+    <button
+      onClick={() => { setMessageSent(false); setContactMessage(''); }}
+      className="mt-1 text-xs underline"
+      style={{ color: 'rgba(165,180,252,0.7)' }}
+    >
+      Send another
+    </button>
+  </div>
+) : (
+  <>
+    <textarea
+      value={contactMessage}
+      onChange={(e) => setContactMessage(e.target.value)}
+      placeholder={`Write your message to ${brandingInfo?.sharedByName || 'the sender'}...`}
+      className="w-full rounded-lg px-3 py-2.5 text-sm resize-none outline-none transition-all"
+      rows={3}
+      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+    />
+    <div className="mt-3 flex items-center justify-between">
+      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+        From: <span style={{ color: '#a5b4fc' }}>{email || 'anonymous'}</span>
+      </p>
+      <button
+        disabled={!contactMessage.trim() || isSendingMessage}
+        onClick={async () => {
+          if (!contactMessage.trim()) return;
+          setIsSendingMessage(true);
+          try {
+            const res = await fetch(`/api/view/${token}/message`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                message: contactMessage.trim(),
+                senderEmail: email || null,
+                sessionId,
+              }),
+            });
+            if (res.ok) {
+              setMessageSent(true);
+            } else {
+              alert('Failed to send message. Please try again.');
+            }
+          } catch {
+            alert('Network error. Please try again.');
+          } finally {
+            setIsSendingMessage(false);
+          }
+        }}
+        className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40"
+        style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+      >
+        {isSendingMessage ? 'Sending...' : 'Send'}
+      </button>
+    </div>
+  </>
+)}
                             </div>
                           </div>
                         </>

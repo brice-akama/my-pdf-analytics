@@ -80,6 +80,7 @@ type DocumentType = {
   originalFilename?: string;
   originalFormat?: string;
   mimeType?: string;
+  ownerEmail?: string;
 };
 
 type Recipient = {
@@ -681,7 +682,7 @@ const handleSaveNotes = async () => {
   
 
   try {
-   const res = await fetch(`/api/documents/${params.id}/notes`, {
+   const res = await fetch(`/api/documents/${params.id}`, {
   method: 'PATCH',
   credentials: 'include', // Send HTTP-only cookies
   headers: {
@@ -1020,8 +1021,46 @@ const handleDownload = async () => {
   }
 };
 
+const handleOpenLinkDrawer = (linkType: 'public' | 'email-gated') => {
+  setEditMode('create');
+  setEditingLink(null);
+  setGeneratedLink(null);
+  setShowCreateLinkDialog(true);
+  setShareSettings({
+    requireEmail: linkType === 'email-gated' ? true : false,
+    allowDownload: false,
+    expiresIn: 7,
+    password: '',
+    recipientEmails: [],
+    recipientNames: [],
+    sendEmailNotification: true,
+    customMessage: '',
+    requireNDA: false,
+    allowedEmails: [],
+    enableWatermark: false,
+    watermarkText: '',
+    watermarkPosition: 'bottom',
+    ndaText: '',
+    ndaTemplateId: '',
+    customNdaText: '',
+    useCustomNda: false,
+    allowPrint: true,
+    allowForwarding: true,
+    notifyOnDownload: false,
+    downloadLimit: undefined,
+    viewLimit: undefined,
+    selfDestruct: false,
+    availableFrom: '',
+    linkType: linkType,           // ← pre-set the correct type
+    sharedByName: '',
+    logoUrl: '',
+  });
+};
+
+  
 // Handle create shareable link
 const handleCreateLink = () => {
+  handleOpenLinkDrawer('public');
   setEditMode('create');
   setEditingLink(null);
   setShowCreateLinkDialog(true);
@@ -1124,7 +1163,7 @@ const handleSendSignatureRequest = async () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+   <div className="min-h-screen bg-white ui-layout">
 
        {/* ✅ DIFFERENT MESSAGE FOR DOCUMENTS PAGE */}
             <PageInfoTooltip 
@@ -1133,203 +1172,337 @@ const handleSendSignatureRequest = async () => {
               position="top"
             />
       {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Left side */}
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push('/dashboard')}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-             <div className="flex items-center gap-3">
-  <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-    <FileText className="h-5 w-5 text-red-600" />
-  </div>
-  <div>
-    <div className="flex items-center gap-2">
-      <h1 className="font-semibold text-slate-900">{doc.filename}</h1>
-      {doc.isTemplate && (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-          <FileSignature className="h-3 w-3 mr-1" />
-          Signable Template
-        </span>
-      )}
-    </div>
-    {!isEditingNotes ? (
-      <button
-        onClick={() => setIsEditingNotes(true)}
-        className="text-xs text-slate-500 hover:text-purple-600 transition-colors text-left"
-      >
-        {doc.notes ? `📝 ${doc.notes}` : ''}
-      </button>
-    ) : (
-    <div className="flex items-center gap-2 mt-1">
-      <input
-        type="text"
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Add a note..."
-        className="text-xs border rounded px-2 py-1 w-64"
-        autoFocus
-      />
-      <button
-        onClick={handleSaveNotes}
-        disabled={isSavingNotes}
-        className="text-xs bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 disabled:opacity-50"
-      >
-        {isSavingNotes ? 'Saving...' : 'Save'}
-      </button>
-      <button
-        onClick={() => {
-          setIsEditingNotes(false);
-          setNotes(doc.notes || '');
-        }}
-        className="text-xs text-slate-500 hover:text-slate-700"
-      >
-        Cancel
-      </button>
-    </div>
-  )}
-</div>
-              </div>
-            </div>
+       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center justify-between py-3 gap-4">
 
-            {/* Right side */}
-            <div className="flex items-center gap-2">
+            {/* ── LEFT: back + thumbnail + title area ── */}
+            <div className="flex items-center gap-4 min-w-0">
+
+              {/* Back arrow */}
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+
+              {/* Doc thumbnail — small PDF icon box like DocSend */}
+              <div className="h-10 w-8 rounded bg-red-50 border border-red-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {doc.thumbnail ? (
+                  <img src={doc.thumbnail} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <FileText className="h-4 w-4 text-red-500" />
+                )}
+              </div>
+
+              {/* Title + note + last updated stacked */}
+             <div className="min-w-0">
+
+                {/* Document title row */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-sm font-semibold text-slate-900 truncate max-w-[320px] leading-tight">
+                    {doc.filename}
+                  </h1>
+                  {doc.isTemplate && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200 flex-shrink-0">
+                      <FileSignature className="h-3 w-3 mr-1" />
+                      Template
+                    </span>
+                  )}
+                  {liveViewerCount > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200 flex-shrink-0">
+                      <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                      {liveViewerCount} live
+                    </span>
+                  )}
+                </div>
+
+                {/* Notes row — pencil + text, expands on click */}
+                {!isEditingNotes ? (
+                  <button
+                    onClick={() => setIsEditingNotes(true)}
+                    className="flex items-center gap-1.5 mt-1 group"
+                  >
+                    <Edit className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />
+                    <span className={`text-xs transition-colors ${
+                      doc.notes
+                        ? 'text-slate-500 group-hover:text-slate-700'
+                        : 'text-slate-300 group-hover:text-slate-500 italic'
+                    }`}>
+                      {doc.notes || 'Add a note to this document'}
+                    </span>
+                  </button>
+                ) : (
+                  // ── Expanded note editor ──
+                  <div className="mt-1.5 flex flex-col gap-1.5 w-full max-w-sm">
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Add a note to this document..."
+                      className="w-full text-xs text-slate-700 border border-slate-200 rounded-lg px-3 py-2 
+                                 resize-none focus:outline-none focus:border-sky-400 focus:ring-2 
+                                 focus:ring-sky-100 transition-all placeholder:text-slate-300
+                                 bg-white shadow-sm leading-relaxed"
+                      rows={2}
+                      autoFocus
+                      maxLength={200}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSaveNotes();
+                        }
+                        if (e.key === 'Escape') {
+                          setIsEditingNotes(false);
+                          setNotes(doc.notes || '');
+                        }
+                      }}
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-300">
+                        {notes.length}/200 · Enter to save, Esc to cancel
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            setIsEditingNotes(false);
+                            setNotes(doc.notes || '');
+                          }}
+                          className="px-2.5 py-1 text-xs text-slate-400 hover:text-slate-600 
+                                     rounded-md hover:bg-slate-100 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveNotes}
+                          disabled={isSavingNotes}
+                          className="px-2.5 py-1 text-xs font-medium text-white bg-sky-500 
+                                     hover:bg-sky-600 rounded-md transition-colors disabled:opacity-50
+                                     flex items-center gap-1"
+                        >
+                          {isSavingNotes ? (
+                            <>
+                              <div className="h-2.5 w-2.5 border border-white border-t-transparent rounded-full animate-spin" />
+                              Saving
+                            </>
+                          ) : (
+                            'Save'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Last updated — only show when NOT editing note */}
+                {!isEditingNotes && (
+                  <p className="text-[11px] text-slate-300 mt-0.5 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Last updated {formatTimeAgo(doc.createdAt)}
+                  </p>
+                )}
+
+              </div>
+              </div>
+
+            {/* ── RIGHT: action buttons ── */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+
+              {/* Preview button — outlined like DocSend */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={handlePreview}>
-                      <Eye className="h-5 w-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Preview</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleDownload}
-                      disabled={isDownloading}
+                    <button
+                      onClick={handlePreview}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors font-medium"
                     >
-                      {isDownloading ? (
-                        <div className="animate-spin h-5 w-5 border-2 border-purple-600 border-t-transparent rounded-full" />
-                      ) : (
-                        <Download className="h-5 w-5" />
-                      )}
-                    </Button>
+                      <Eye className="h-4 w-4" />
+                      <span className="hidden sm:inline">Preview</span>
+                    </button>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Download</p>
-                  </TooltipContent>
+                  <TooltipContent><p>Preview document</p></TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
+              {/* Upload new version button — outlined */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => {
+                        // trigger hidden file input for version upload
+                        document.getElementById('upload-new-version-input')?.click();
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors font-medium"
+                    >
+                      <Upload className="h-4 w-4" />
+                      <span className="hidden sm:inline">Upload new version</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Upload a new version</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {/* Hidden file input for version upload */}
+              <input
+                type="file"
+                id="upload-new-version-input"
+                accept=".pdf"
+                className="hidden"
+                onChange={async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const renamedFile = new File([file], doc.filename, { type: file.type });
+  const formData = new FormData();
+  formData.append('file', renamedFile);
+  
+  try {
+    const res = await fetch(`/api/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+                    if (res.ok) {
+                      toast.success('New version uploaded!');
+                      fetchDocument();
+                    } else {
+                      toast.error('Failed to upload version');
+                    }
+                  } catch {
+                    toast.error('Upload failed');
+                  }
+                  e.target.value = '';
+                }}
+              />
+
+              {/* Create link — solid brand button with split dropdown arrow */}
+              
+              <div className="flex items-center rounded-lg overflow-hidden border border-sky-500 shadow-sm">
+                {/* Main button — always opens "Document link" (public) */}
+                <button
+                  onClick={() => handleOpenLinkDrawer('public')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors"
+                >
+                  <LinkIcon className="h-3.5 w-3.5" />
+                  Create link
+                </button>
+
+                {/* Split arrow — opens link type menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="px-2 py-1.5 bg-sky-500 hover:bg-sky-600 text-white border-l border-sky-400 transition-colors">
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52 bg-white shadow-lg border border-slate-200 p-1">
+                    
+                    {/* Document link — public, no email required */}
+                    <DropdownMenuItem
+                      onClick={() => handleOpenLinkDrawer('public')}
+                      className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-slate-50"
+                    >
+                      <LinkIcon className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">Document link</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Anyone with the link can view</p>
+                      </div>
+                    </DropdownMenuItem>
+
+                    {/* Email-gated link — requires email before viewing */}
+                    <DropdownMenuItem
+                      onClick={() => handleOpenLinkDrawer('email-gated')}
+                      className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-slate-50"
+                    >
+                      <Mail className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">Email-gated link</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Viewer must enter email to access</p>
+                      </div>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuSeparator />
+
+                    {/* Request signatures — goes to signature flow */}
+                    <DropdownMenuItem
+                      onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)}
+                      className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-slate-50"
+                    >
+                      <FileSignature className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">Request signatures</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Send for e-signature</p>
+                      </div>
+                    </DropdownMenuItem>
+
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* ··· more menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <MoreVertical className="h-5 w-5" />
-                  </Button>
+                  <button className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors">
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-white">
-  <DropdownMenuItem onClick={handlePresent}>
-    <Presentation className="mr-2 h-4 w-4" />
-    <span>Present</span>
-  </DropdownMenuItem>
- <DropdownMenuItem 
-  onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)}
->
-  <FileSignature className="mr-2 h-4 w-4" />
-  <span>{doc?.isTemplate ? 'Edit Template' : 'Convert to signable'}</span>
-</DropdownMenuItem>
-
-<DropdownMenuItem 
-    onClick={() => router.push(`/documents/${doc._id}/versions`)}
-  >
-    <Clock className="mr-2 h-4 w-4" />
-    <span>Version History</span>
-  </DropdownMenuItem>
-
-
-<DropdownMenuItem 
-    onClick={() => router.push(`/compliance`)}
-  >
-    <Shield className="mr-2 h-4 w-4" />
-    <span>Compliance Report</span>
-  </DropdownMenuItem>
-
-  <DropdownMenuItem onClick={handleDownload} disabled={isDownloading}>
-    {isDownloading ? (
-      <div className="mr-2 h-4 w-4 animate-spin border-2 border-purple-600 border-t-transparent rounded-full" />
-    ) : (
-      <Download className="mr-2 h-4 w-4" />
-    )}
-    <span>Download</span>
-  </DropdownMenuItem>
-  <DropdownMenuSeparator />
-  <DropdownMenuItem onClick={handleExportVisits}>
-    <Eye className="mr-2 h-4 w-4" />
-    <span>Export visits</span>
-  </DropdownMenuItem>
-  <DropdownMenuItem onClick={handleUpdateThumbnail}>
-    <ImageIcon className="mr-2 h-4 w-4" />
-    <span>Update thumbnail</span>
-  </DropdownMenuItem>
-  <DropdownMenuSeparator />
-  {doc?.isTemplate && (
-  <DropdownMenuItem 
-    onClick={() => router.push(`/documents/${doc._id}/bulk-send`)}
-  >
-    <Users className="mr-2 h-4 w-4" />
-    <span>Bulk Send</span>
-  </DropdownMenuItem>
-)}
-  <DropdownMenuItem 
-    onClick={() => setShowDeleteDialog(true)}
-    className="text-red-600 focus:text-red-600"
-  >
-    <Trash2 className="mr-2 h-4 w-4" />
-    <span>Delete</span>
-  </DropdownMenuItem>
-</DropdownMenuContent>
+                <DropdownMenuContent align="end" className="w-56 bg-white shadow-lg border border-slate-200">
+                  <DropdownMenuItem onClick={handlePresent}>
+                    <Presentation className="mr-2 h-4 w-4" />
+                    <span>Present</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)}>
+                    <FileSignature className="mr-2 h-4 w-4" />
+                    <span>{doc?.isTemplate ? 'Edit Template' : 'Convert to signable'}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push(`/documents/${doc._id}/versions`)}>
+                    <Clock className="mr-2 h-4 w-4" />
+                    <span>Version History</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push('/compliance')}>
+                    <Shield className="mr-2 h-4 w-4" />
+                    <span>Compliance Report</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownload} disabled={isDownloading}>
+                    {isDownloading
+                      ? <div className="mr-2 h-4 w-4 animate-spin border-2 border-sky-500 border-t-transparent rounded-full" />
+                      : <Download className="mr-2 h-4 w-4" />}
+                    <span>Download</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleExportVisits}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    <span>Export visits</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleUpdateThumbnail}>
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    <span>Update thumbnail</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {doc?.isTemplate && (
+                    <DropdownMenuItem onClick={() => router.push(`/documents/${doc._id}/bulk-send`)}>
+                      <Users className="mr-2 h-4 w-4" />
+                      <span>Bulk Send</span>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span>Delete</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
               </DropdownMenu>
-              {liveViewerCount > 0 && (
-  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full">
-    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-    <span className="text-xs font-semibold text-green-700">
-      {liveViewerCount} viewing now
-    </span>
-  </div>
-)}
-<Button 
-  onClick={handleCreateLink}
-  className="bg-gradient-to-r from-purple-600 to-blue-600"
->
-  Create link
-</Button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Last updated info */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <Clock className="h-4 w-4" />
-            <span>Last updated {formatTimeAgo(doc.createdAt)}</span>
-          </div>
-        </div>
-      </div>
+       
 
+      
+      
+
+      
       {/* Delete Confirmation Dialog */}
 <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
   <DialogContent className="max-w-md bg-white">
@@ -1538,47 +1711,79 @@ const handleSendSignatureRequest = async () => {
 
 
       {/* Tabs */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex gap-8">
-            <button
-              onClick={() => setActiveTab('activity')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'activity'
-                  ? 'border-purple-600 text-purple-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Activity
-            </button>
-            <button
-              onClick={() => setActiveTab('performance')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'performance'
-                  ? 'border-purple-600 text-purple-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Performance
-            </button>
-            <button
-              onClick={() => setActiveTab('utilization')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'utilization'
-                  ? 'border-purple-600 text-purple-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Utilization
-            </button>
+      <div className="bg-white border-b border-slate-200 sticky top-[65px] z-40 mt-5">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex gap-0">
+            {(
+              [
+                { id: 'activity', label: 'Activity' },
+                { id: 'performance', label: 'Performance' },
+                { id: 'utilization', label: 'Utilization' },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  relative px-6 py-4 text-sm font-medium transition-colors
+                  ${activeTab === tab.id
+                    ? 'text-slate-900'
+                    : 'text-slate-400 hover:text-slate-600'}
+                `}
+              >
+                {tab.label}
+                {/* Active underline — matches DocSend's thin border-b */}
+                {activeTab === tab.id && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900 rounded-t-full" />
+                )}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-       {activeTab === 'activity' && (
+      {activeTab === 'activity' && (
   <div className="space-y-6">
+
+    {/* ── LOADING SKELETON — shows while analyticsLoading is true ── */}
+    {analyticsLoading && (
+      <div className="space-y-0">
+        {/* Visits skeleton */}
+        <div className="flex items-center justify-between py-4 border-b border-slate-200">
+          <div className="h-5 w-24 bg-slate-100 rounded animate-pulse" />
+          <div className="h-4 w-12 bg-slate-100 rounded animate-pulse" />
+        </div>
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex items-center gap-4 py-4 border-b border-slate-100">
+            <div className="h-9 w-9 rounded-full bg-slate-100 animate-pulse flex-shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-48 bg-slate-100 rounded animate-pulse" />
+              <div className="h-3 w-32 bg-slate-100 rounded animate-pulse" />
+            </div>
+            <div className="h-5 w-16 bg-slate-100 rounded animate-pulse" />
+          </div>
+        ))}
+        {/* Links skeleton */}
+        <div className="pt-8" />
+        <div className="flex items-center justify-between py-4 border-b border-slate-200">
+          <div className="h-5 w-20 bg-slate-100 rounded animate-pulse" />
+          <div className="h-7 w-24 bg-slate-100 rounded animate-pulse" />
+        </div>
+        {[1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-4 py-4 border-b border-slate-100">
+            <div className="h-8 w-8 rounded-full bg-slate-100 animate-pulse flex-shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-4 w-36 bg-slate-100 rounded animate-pulse" />
+              <div className="h-3 w-56 bg-slate-100 rounded animate-pulse" />
+            </div>
+            <div className="h-5 w-10 bg-slate-100 rounded-full animate-pulse" />
+            <div className="h-4 w-14 bg-slate-100 rounded animate-pulse" />
+          </div>
+        ))}
+      </div>
+    )}
 
     {/* ── Template section (unchanged) ── */}
     {doc.isTemplate && (
@@ -1655,82 +1860,85 @@ const handleSendSignatureRequest = async () => {
 )}
 
 {activeTab === 'performance' && (
-  <div className="space-y-6">
+  <div className="space-y-0">
     {analyticsLoading ? (
-      <div className="flex items-center justify-center py-24">
+      <div className="flex items-center justify-center py-32">
         <div className="text-center">
-          <div className="animate-spin h-10 w-10 border-4 border-violet-600 border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-slate-500 text-sm">Loading analytics...</p>
+          <div className="animate-spin h-8 w-8 border-2 border-sky-500 border-t-transparent rounded-full mx-auto mb-3" />
+          <p className="text-sm text-slate-400">Loading analytics...</p>
         </div>
       </div>
-    ) : !analytics || 
-      (analytics.totalViews === 0 && 
-       analytics.uniqueViewers === 0 && 
-       (!analytics.pageEngagement || analytics.pageEngagement.every((p: any) => p.totalViews === 0)) &&
-       (!analytics.heatmapByPage || Object.keys(analytics.heatmapByPage).length === 0) &&
-       (!analytics.realTimeViewers || analytics.realTimeViewers.length === 0)) ? (
-      <div className="bg-white rounded-2xl border shadow-sm p-16 text-center">
-        <BarChart3 className="h-16 w-16 text-slate-200 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-slate-900 mb-2">No views yet</h3>
-        <p className="text-slate-500 mb-6 text-sm">Share your document to start tracking performance</p>
-        <Button onClick={handleCreateLink} className="bg-gradient-to-r from-violet-600 to-blue-600">
+
+    ) : !analytics ||
+      (analytics.totalViews === 0 &&
+       analytics.uniqueViewers === 0 &&
+       (!analytics.pageEngagement || analytics.pageEngagement.every((p: any) => p.totalViews === 0))) ? (
+
+      /* ── EMPTY STATE — flat, no card ── */
+      <div className="py-32 text-center border-b border-slate-100">
+        <BarChart3 className="h-10 w-10 text-slate-200 mx-auto mb-4" />
+        <h3 className="text-base font-semibold text-slate-900 mb-1">No views yet</h3>
+        <p className="text-sm text-slate-400 mb-6">Share your document to start tracking performance</p>
+        <button
+          onClick={handleCreateLink}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors"
+        >
+          <LinkIcon className="h-3.5 w-3.5" />
           Create Share Link
-        </Button>
+        </button>
       </div>
+
     ) : (
       <>
-        {/* ── DEAD DEAL ALERT ── */}
+
+        {/* ═══════════════════════════════════════════════════
+            SECTION 1 — DEAD DEAL ALERT (only if score ≥ 60)
+        ═══════════════════════════════════════════════════ */}
         {analytics.deadDeal?.score >= 60 && (
-          <div className={`rounded-2xl border-2 p-6 ${
+          <div className={`py-5 border-b ${
             analytics.deadDeal.score >= 80
-              ? 'bg-red-50 border-red-300'
-              : 'bg-orange-50 border-orange-300'
+              ? 'border-red-200 bg-red-50/40'
+              : 'border-orange-200 bg-orange-50/40'
           }`}>
             <div className="flex items-start gap-4">
-              <div className={`h-14 w-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-                analytics.deadDeal.score >= 80 ? 'bg-red-100' : 'bg-orange-100'
-              }`}>
-                <AlertTriangle className={`h-7 w-7 ${
-                  analytics.deadDeal.score >= 80 ? 'text-red-600' : 'text-orange-600'
-                }`} />
-              </div>
-              <div className="flex-1">
+              <AlertTriangle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+                analytics.deadDeal.score >= 80 ? 'text-red-500' : 'text-orange-500'
+              }`} />
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className={`text-lg font-bold ${
+                  <p className={`text-sm font-bold ${
                     analytics.deadDeal.score >= 80 ? 'text-red-900' : 'text-orange-900'
                   }`}>
                     {analytics.deadDeal.score >= 80 ? '☠️ Dead Deal Detected' : '⚠️ Deal At Risk'}
-                  </h3>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className={`text-2xl font-black ${
+                  </p>
+                  <div className="flex items-center gap-4 text-right flex-shrink-0">
+                    <div>
+                      <div className={`text-xl font-black tabular-nums ${
                         analytics.deadDeal.score >= 80 ? 'text-red-600' : 'text-orange-600'
                       }`}>{analytics.deadDeal.score}%</div>
-                      <div className="text-xs text-slate-500">dead score</div>
+                      <div className="text-[10px] text-slate-400 uppercase tracking-wide">dead score</div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-black text-green-600">{analytics.deadDeal.recoveryProbability}%</div>
-                      <div className="text-xs text-slate-500">recovery</div>
+                    <div>
+                      <div className="text-xl font-black tabular-nums text-green-600">{analytics.deadDeal.recoveryProbability}%</div>
+                      <div className="text-[10px] text-slate-400 uppercase tracking-wide">recovery</div>
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {analytics.deadDeal.signals?.map((signal: any, i: number) => (
-                    <div key={i} className="flex items-start gap-2 text-sm">
-                      <span className={`mt-0.5 flex-shrink-0 h-4 w-4 rounded-full flex items-center justify-center text-white text-[10px] font-bold ${
+                    <div key={i} className="flex items-center gap-1.5 text-xs text-slate-600">
+                      <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
                         signal.type === 'CRITICAL' ? 'bg-red-500' :
                         signal.type === 'HIGH' ? 'bg-orange-500' : 'bg-yellow-500'
-                      }`}>!</span>
-                      <span className={analytics.deadDeal.score >= 80 ? 'text-red-800' : 'text-orange-800'}>
-                        {signal.signal}
-                      </span>
+                      }`} />
+                      {signal.signal}
                     </div>
                   ))}
                 </div>
                 {analytics.deadDeal.recommendations?.length > 0 && (
-                  <div className="space-y-1">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
                     {analytics.deadDeal.recommendations.map((rec: any, i: number) => (
-                      <div key={i} className="text-xs font-medium text-slate-700 flex items-center gap-1.5">
+                      <div key={i} className="flex items-center gap-1 text-xs text-slate-500">
                         <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
                         {rec.action}
                       </div>
@@ -1742,21 +1950,21 @@ const handleSendSignatureRequest = async () => {
           </div>
         )}
 
-        {/* ── LIVE VIEWERS CARD ── */}
+        {/* ═══════════════════════════════════════════════════
+            SECTION 2 — LIVE VIEWERS (only if active)
+        ═══════════════════════════════════════════════════ */}
         {liveViewerCount > 0 && (
-          <div className="rounded-2xl border-2 border-green-200 bg-green-50 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
-                <h3 className="font-bold text-green-900 text-sm">
-                  {liveViewerCount} person{liveViewerCount !== 1 ? 's' : ''} viewing right now
-                </h3>
-              </div>
-              <Wifi className="h-4 w-4 text-green-600" />
+          <div className="py-5 border-b border-slate-100">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-sm font-semibold text-green-700">
+                {liveViewerCount} viewing right now
+              </span>
+              <Wifi className="h-3.5 w-3.5 text-green-500 ml-auto" />
             </div>
             <div className="space-y-2">
               {liveViewers.map((viewer: any, i: number) => (
-                <div key={i} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2 border border-green-100">
+                <div key={i} className="flex items-center gap-3">
                   <div className="h-7 w-7 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                     {viewer.email ? viewer.email.charAt(0).toUpperCase() : '?'}
                   </div>
@@ -1764,221 +1972,260 @@ const handleSendSignatureRequest = async () => {
                     <p className="text-xs font-medium text-slate-800 truncate">
                       {viewer.email || 'Anonymous viewer'}
                     </p>
-                    <p className="text-xs text-slate-400">Page {viewer.page} · {viewer.device}</p>
+                    <p className="text-[11px] text-slate-400">Page {viewer.page} · {viewer.device}</p>
                   </div>
-                  <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* ── KPI STRIP ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: 'Total Views', value: analytics.totalViews, icon: Eye, color: 'blue', sub: 'all time' },
-            { label: 'Unique Viewers', value: analytics.uniqueViewers, icon: Users, color: 'violet', sub: 'different people' },
-            { label: 'Completion', value: `${analytics.completionRate}%`, icon: TrendingUp, color: 'green', sub: 'read all pages' },
-          ].map((stat) => (
-            <div key={stat.label} className="bg-white rounded-2xl border shadow-sm p-5">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{stat.label}</p>
-                <div className={`h-8 w-8 rounded-xl flex items-center justify-center bg-${stat.color}-50`}>
-                  <stat.icon className={`h-4 w-4 text-${stat.color}-500`} />
-                </div>
+        {/* ═══════════════════════════════════════════════════
+            SECTION 3 — KPI ROW (inline stat strips, no cards)
+        ═══════════════════════════════════════════════════ */}
+        <div className="py-5 border-b border-slate-100">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Overview</p>
+          {/* 3-column grid — just numbers on bare background */}
+          <div className="grid grid-cols-3 gap-0 divide-x divide-slate-100 mb-5">
+            {[
+              { label: 'Total Views', value: analytics.totalViews, icon: Eye, color: 'text-sky-500' },
+              { label: 'Unique Viewers', value: analytics.uniqueViewers, icon: Users, color: 'text-violet-500' },
+              { label: 'Completion', value: `${analytics.completionRate}%`, icon: TrendingUp, color: 'text-green-500' },
+            ].map((stat) => (
+              <div key={stat.label} className="px-6 first:pl-0 last:pr-0">
+                <stat.icon className={`h-4 w-4 ${stat.color} mb-2`} />
+                <div className="text-3xl font-black text-slate-900 tabular-nums leading-none">{stat.value}</div>
+                <div className="text-[11px] text-slate-400 mt-1.5 font-medium">{stat.label}</div>
               </div>
-              <p className="text-3xl font-black text-slate-900">{stat.value}</p>
-              <p className="text-xs text-slate-400 mt-1">{stat.sub}</p>
-            </div>
-          ))}
-
-          {/* Card 1 — Avg per visit (changes each revisit — that's correct) */}
-          <div className="bg-white rounded-2xl border shadow-sm p-5">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Avg. Time per Visit</p>
-              <div className="h-8 w-8 rounded-xl flex items-center justify-center bg-orange-50">
-                <Clock className="h-4 w-4 text-orange-500" />
-              </div>
-            </div>
-            <p className="text-3xl font-black text-slate-900">{analytics.avgTimePerSession}</p>
-            <p className="text-xs text-slate-400 mt-1">across {analytics.totalViews} sessions</p>
+            ))}
           </div>
 
-          {/* Card 2 — Total time per viewer (accumulates, never drops) */}
-          <div className="bg-white rounded-2xl border shadow-sm p-5">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Time / Viewer</p>
-              <div className="h-8 w-8 rounded-xl flex items-center justify-center bg-purple-50">
-                <Clock className="h-4 w-4 text-purple-500" />
-              </div>
+          {/* Second row: time stats */}
+          <div className="grid grid-cols-2 gap-0 divide-x divide-slate-100">
+            <div className="pr-6">
+              <Clock className="h-4 w-4 text-orange-400 mb-2" />
+              <div className="text-2xl font-black text-slate-900 tabular-nums leading-none">{analytics.avgTimePerSession}</div>
+              <div className="text-[11px] text-slate-400 mt-1.5 font-medium">Avg. Time / Visit</div>
+              <div className="text-[11px] text-slate-300">across {analytics.totalViews} sessions</div>
             </div>
-            <p className="text-3xl font-black text-slate-900">{analytics.avgTotalTimePerViewer}</p>
-            <p className="text-xs text-slate-400 mt-1">cumulative across all visits</p>
+            <div className="pl-6">
+              <Clock className="h-4 w-4 text-purple-400 mb-2" />
+              <div className="text-2xl font-black text-slate-900 tabular-nums leading-none">{analytics.avgTotalTimePerViewer}</div>
+              <div className="text-[11px] text-slate-400 mt-1.5 font-medium">Total Time / Viewer</div>
+              <div className="text-[11px] text-slate-300">cumulative across all visits</div>
+            </div>
           </div>
         </div>
 
-        {/* ── REVISIT + INTENT ROW ── */}
-        {analytics.revisitData && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Revisit analytics */}
-            <div className="bg-white rounded-2xl border shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <RefreshCw className="h-4 w-4 text-violet-500" />
-                <h3 className="font-bold text-slate-900 text-sm">Return Visits</h3>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center p-3 bg-violet-50 rounded-xl">
-                  <p className="text-2xl font-black text-violet-700">{analytics.revisitData.totalSessions}</p>
-                  <p className="text-xs text-slate-500 mt-1">Total sessions</p>
-                </div>
-                <div className="text-center p-3 bg-blue-50 rounded-xl">
-                  <p className="text-2xl font-black text-blue-700">{analytics.revisitData.revisits}</p>
-                  <p className="text-xs text-slate-500 mt-1">Revisits</p>
-                </div>
-                <div className="text-center p-3 bg-green-50 rounded-xl">
-                  <p className="text-2xl font-black text-green-700">{analytics.revisitData.avgVisitsPerViewer}x</p>
-                  <p className="text-xs text-slate-500 mt-1">Avg per viewer</p>
-                </div>
-              </div>
-              {analytics.revisitData.highFrequencyViewers?.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">🔥 High-frequency viewers</p>
-                  {analytics.revisitData.highFrequencyViewers.slice(0, 3).map((v: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-2">
-                      <span className="text-slate-700 truncate">{v.email || 'Anonymous'}</span>
-                      <span className="font-bold text-violet-600 ml-2">{v.visitCount} visits</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+         {/* ═══════════════════════════════════════════════════
+            SECTION 12 — DOCSEND STYLE CHARTS (keep existing)
+        ═══════════════════════════════════════════════════ */}
+        <div className="py-5">
+          <DocSendStyleCharts
+            documentId={doc._id}
+            pageEngagement={analytics.pageEngagement}
+            totalPages={doc.numPages}
+            locations={analytics.locations || []}
+          />
+        </div>
 
-            {/* Intent signals */}
-            {analytics.intentScores && (
-              <div className="bg-white rounded-2xl border shadow-sm p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Target className="h-4 w-4 text-orange-500" />
-                  <h3 className="font-bold text-slate-900 text-sm">Buyer Intent Scores</h3>
-                </div>
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  {[
-                    { label: 'High Intent', value: analytics.intentData?.highIntent || 0, color: 'green', icon: '🔥' },
-                    { label: 'Medium', value: analytics.intentData?.mediumIntent || 0, color: 'yellow', icon: '👀' },
-                    { label: 'Low', value: analytics.intentData?.lowIntent || 0, color: 'slate', icon: '😴' },
-                  ].map((s) => (
-                    <div key={s.label} className={`text-center p-3 bg-${s.color}-50 rounded-xl`}>
-                      <p className="text-lg mb-0.5">{s.icon}</p>
-                      <p className={`text-2xl font-black text-${s.color}-700`}>{s.value}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
-                    </div>
-                  ))}
-                </div>
-                {analytics.intentScores.slice(0, 3).map((v: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between text-xs bg-slate-50 rounded-lg px-3 py-2 mb-1.5">
-                    <span className="text-slate-700 truncate">{v.email || 'Anonymous'}</span>
-                    <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                      <div className="w-16 bg-slate-200 rounded-full h-1.5">
-                        <div
-                          className={`h-1.5 rounded-full ${v.intentLevel === 'high' ? 'bg-green-500' : v.intentLevel === 'medium' ? 'bg-yellow-500' : 'bg-slate-400'}`}
-                          style={{ width: `${Math.min((v.intentScore / 50) * 100, 100)}%` }}
-                        />
+        {/* ═══════════════════════════════════════════════════
+            SECTION 4 — VIEWS CHART (inline bars, no wrapper)
+        ═══════════════════════════════════════════════════ */}
+        <div className="py-5 border-b border-slate-100">
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Views — Last 7 Days</p>
+            <BarChart2 className="h-3.5 w-3.5 text-slate-300" />
+          </div>
+          <div className="flex items-end justify-between gap-1.5" style={{ height: '120px' }}>
+            {analytics.viewsByDate.map((day: any, index: number) => {
+              const maxViews = Math.max(...analytics.viewsByDate.map((d: any) => d.views), 1);
+              const height = (day.views / maxViews) * 100;
+              return (
+                <div key={index} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
+                  <div className="relative w-full flex flex-col justify-end" style={{ height: '96px' }}>
+                    {day.views > 0 && (
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-white px-1">
+                        {day.views}
                       </div>
-                      <span className={`font-bold ${v.intentLevel === 'high' ? 'text-green-600' : v.intentLevel === 'medium' ? 'text-yellow-600' : 'text-slate-500'}`}>
-                        {v.intentScore}
-                      </span>
-                    </div>
+                    )}
+                    <div
+                      className="w-full rounded-sm transition-all group-hover:opacity-80"
+                      style={{
+                        height: `${height}%`,
+                        minHeight: day.views > 0 ? '3px' : '0',
+                        background: day.views > 0
+                          ? 'linear-gradient(180deg, #a855f7 0%, #0ea5e9 100%)'
+                          : '#f1f5f9',
+                      }}
+                    />
                   </div>
-                ))}
-              </div>
-            )}
+                  <span className="text-[10px] text-slate-300 font-medium">{day.date}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════
+            SECTION 5 — PAGE ENGAGEMENT (inline bars)
+        ═══════════════════════════════════════════════════ */}
+        {analytics.pageEngagement?.length > 0 && (
+          <div className="py-5 border-b border-slate-100">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-5">Page Engagement</p>
+            <div className="space-y-3">
+              {analytics.pageEngagement.slice(0, 10).map((page: any, i: number) => {
+                const maxViews = Math.max(...analytics.pageEngagement.map((p: any) => p.totalViews), 1);
+                const pct = (page.totalViews / maxViews) * 100;
+                return (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-[11px] text-slate-400 w-8 flex-shrink-0 text-right tabular-nums">
+                      P{page.page}
+                    </span>
+                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${pct}%`,
+                          background: pct > 70
+                            ? '#0ea5e9'
+                            : pct > 40
+                            ? '#a855f7'
+                            : '#cbd5e1',
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-slate-700 tabular-nums w-8 flex-shrink-0">
+                      {page.totalViews}
+                    </span>
+                    {page.avgTimeSpent && (
+                      <span className="text-[11px] text-slate-400 flex-shrink-0 tabular-nums w-14 text-right">
+                        {Math.floor(page.avgTimeSpent / 60)}:{String(Math.round(page.avgTimeSpent % 60)).padStart(2,'0')}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
-       {/* ── VIEWS CHART (keep this) ── */}
-<div className="bg-white rounded-2xl border shadow-sm p-6">
-  <h3 className="font-bold text-slate-900 mb-5 flex items-center gap-2">
-    <BarChart2 className="h-4 w-4 text-violet-500" />
-    Views — Last 7 Days
-  </h3>
-  <div className="h-56 flex items-end justify-between gap-2">
-    {analytics.viewsByDate.map((day: any, index: number) => {
-      const maxViews = Math.max(...analytics.viewsByDate.map((d: any) => d.views), 1);
-      const height = (day.views / maxViews) * 100;
-      return (
-        <div key={index} className="flex-1 flex flex-col items-center gap-1">
-          <div className="relative w-full group cursor-pointer" style={{ height: '200px', display: 'flex', alignItems: 'flex-end' }}>
-            <div
-              className="w-full bg-gradient-to-t from-violet-600 to-blue-400 rounded-t-lg hover:from-violet-700 hover:to-blue-500 transition-all"
-              style={{ height: `${height}%`, minHeight: day.views > 0 ? '6px' : '0' }}
-            >
-              <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs py-1 px-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                {day.views} views
+        {/* ═══════════════════════════════════════════════════
+            SECTION 6 — REVISIT + INTENT (two-col flat layout)
+        ═══════════════════════════════════════════════════ */}
+        {analytics.revisitData && (
+          <div className="py-5 border-b border-slate-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x md:divide-slate-100">
+
+              {/* Return Visits */}
+              <div className="md:pr-8 pb-5 md:pb-0">
+                <div className="flex items-center gap-1.5 mb-4">
+                  <RefreshCw className="h-3.5 w-3.5 text-violet-400" />
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Return Visits</p>
+                </div>
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  {[
+                    { label: 'Total sessions', value: analytics.revisitData.totalSessions, color: 'text-slate-900' },
+                    { label: 'Revisits', value: analytics.revisitData.revisits, color: 'text-violet-600' },
+                    { label: 'Avg / viewer', value: `${analytics.revisitData.avgVisitsPerViewer}×`, color: 'text-sky-600' },
+                  ].map((s) => (
+                    <div key={s.label}>
+                      <div className={`text-2xl font-black tabular-nums ${s.color}`}>{s.value}</div>
+                      <div className="text-[10px] text-slate-400 mt-1 leading-tight">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+                {analytics.revisitData.highFrequencyViewers?.length > 0 && (
+                  <div className="space-y-2 pt-3 border-t border-slate-100">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">🔥 High-frequency</p>
+                    {analytics.revisitData.highFrequencyViewers.slice(0, 3).map((v: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <span className="text-xs text-slate-600 truncate flex-1">{v.email || 'Anonymous'}</span>
+                        <span className="text-xs font-bold text-violet-600 ml-3 flex-shrink-0">{v.visitCount} visits</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Buyer Intent */}
+              {analytics.intentScores && (
+                <div className="md:pl-8 pt-5 md:pt-0 border-t md:border-t-0 border-slate-100">
+                  <div className="flex items-center gap-1.5 mb-4">
+                    <Target className="h-3.5 w-3.5 text-orange-400" />
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Buyer Intent</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    {[
+                      { label: 'High', value: analytics.intentData?.highIntent || 0, color: 'text-green-600', emoji: '🔥' },
+                      { label: 'Medium', value: analytics.intentData?.mediumIntent || 0, color: 'text-amber-500', emoji: '👀' },
+                      { label: 'Low', value: analytics.intentData?.lowIntent || 0, color: 'text-slate-400', emoji: '😴' },
+                    ].map((s) => (
+                      <div key={s.label}>
+                        <div className="text-base mb-0.5">{s.emoji}</div>
+                        <div className={`text-2xl font-black tabular-nums ${s.color}`}>{s.value}</div>
+                        <div className="text-[10px] text-slate-400 mt-1">{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2 pt-3 border-t border-slate-100">
+                    {analytics.intentScores.slice(0, 3).map((v: any, i: number) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <span className="text-xs text-slate-600 truncate flex-1">{v.email || 'Anonymous'}</span>
+                        <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden flex-shrink-0">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${Math.min((v.intentScore / 50) * 100, 100)}%`,
+                              background: v.intentLevel === 'high' ? '#22c55e' : v.intentLevel === 'medium' ? '#f59e0b' : '#94a3b8',
+                            }}
+                          />
+                        </div>
+                        <span className={`text-xs font-bold tabular-nums w-6 text-right flex-shrink-0 ${
+                          v.intentLevel === 'high' ? 'text-green-600' : v.intentLevel === 'medium' ? 'text-amber-500' : 'text-slate-400'
+                        }`}>{v.intentScore}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          <span className="text-xs text-slate-400">{day.date}</span>
-        </div>
-      );
-    })}
-  </div>
-</div>
+        )}
 
-{/* ── 🔥 NEW: DocSend-Style Charts ── */}
-<DocSendStyleCharts 
-  documentId={doc._id}
-  pageEngagement={analytics.pageEngagement}
-  totalPages={doc.numPages}
-  locations={analytics.locations || []}
-/>
-
-{/* ── Heatmap (keep this below) ── */}
-{analytics.heatmapByPage && (
-  <div className="bg-white rounded-2xl border shadow-sm p-6">
-    <DocumentHeatmap
-      pageNumber={heatmapPage}
-      totalPages={doc.numPages}
-      heatmapByPage={analytics.heatmapByPage}
-      onPageChange={setHeatmapPage}
-    />
-  </div>
-)}
-
-        {/* ── RECIPIENT PAGE TRACKING ── */}
+        {/* ═══════════════════════════════════════════════════
+            SECTION 7 — PER-VIEWER PAGE BREAKDOWN
+        ═══════════════════════════════════════════════════ */}
         {analytics.recipientPageTracking?.length > 0 && (
-          <div className="bg-white rounded-2xl border shadow-sm p-6">
-            <h3 className="font-bold text-slate-900 mb-5 flex items-center gap-2">
-              <MousePointer className="h-4 w-4 text-violet-500" />
-              Per-Viewer Page Breakdown
-            </h3>
-            <div className="space-y-4">
+          <div className="py-5 border-b border-slate-100">
+            <div className="flex items-center gap-1.5 mb-5">
+              <MousePointer className="h-3.5 w-3.5 text-sky-400" />
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Per-Viewer Page Breakdown</p>
+            </div>
+            <div className="space-y-5">
               {analytics.recipientPageTracking.map((recipient: any, idx: number) => (
-                <div
-                  key={idx}
-                  className={`border-2 rounded-2xl p-4 ${recipient.bounced ? 'border-red-200 bg-red-50/50' : 'border-slate-100 bg-white'}`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
-                        {recipient.recipientEmail ? recipient.recipientEmail.charAt(0).toUpperCase() : '?'}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900 truncate max-w-[200px]">
-                          {recipient.recipientEmail || 'Anonymous'}
-                        </p>
-                        <p className="text-xs text-slate-400">{recipient.totalTimeOnDoc} total</p>
-                      </div>
+                <div key={idx} className="pb-5 border-b border-slate-100 last:border-b-0 last:pb-0">
+                  {/* Viewer header row */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      {recipient.recipientEmail ? recipient.recipientEmail.charAt(0).toUpperCase() : '?'}
                     </div>
-                    <div className="flex items-center gap-2">
-                      {recipient.neverOpened && (
-                        <span className="px-2 py-1 bg-slate-100 text-slate-500 text-xs rounded-full font-medium">Never opened</span>
-                      )}
-                      {recipient.bounced && !recipient.neverOpened && (
-                        <span className="px-2 py-1 bg-red-100 text-red-600 text-xs rounded-full font-medium">Bounced</span>
-                      )}
-                      {!recipient.bounced && !recipient.neverOpened && (
-                        <span className="px-2 py-1 bg-green-100 text-green-600 text-xs rounded-full font-medium">Engaged</span>
-                      )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 truncate">
+                        {recipient.recipientEmail || 'Anonymous'}
+                      </p>
+                      <p className="text-[11px] text-slate-400">{recipient.totalTimeOnDoc} total</p>
                     </div>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                      recipient.neverOpened
+                        ? 'text-slate-400 bg-slate-100'
+                        : recipient.bounced
+                        ? 'text-red-500 bg-red-50'
+                        : 'text-green-600 bg-green-50'
+                    }`}>
+                      {recipient.neverOpened ? 'Never opened' : recipient.bounced ? 'Bounced' : 'Engaged'}
+                    </span>
                   </div>
                   {/* Page pills */}
                   <div className="flex flex-wrap gap-1.5">
@@ -1986,18 +2233,18 @@ const handleSendSignatureRequest = async () => {
                       <div
                         key={p.page}
                         title={p.skipped ? `Page ${p.page}: Skipped` : `Page ${p.page}: ${p.timeSpent}s · ${p.scrollDepth}% scroll`}
-                        className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border ${
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border ${
                           p.skipped
-                            ? 'bg-slate-100 text-slate-400 border-slate-200'
+                            ? 'bg-slate-50 text-slate-300 border-slate-200'
                             : p.timeSpent > 120
-                            ? 'bg-violet-100 text-violet-700 border-violet-200'
-                            : 'bg-green-100 text-green-700 border-green-200'
+                            ? 'bg-sky-50 text-sky-700 border-sky-200'
+                            : 'bg-violet-50 text-violet-600 border-violet-200'
                         }`}
                       >
-                        <span>P{p.page}</span>
-                        {!p.skipped && <span className="opacity-70">· {p.timeSpent}s</span>}
+                        <span className="tabular-nums">P{p.page}</span>
+                        {!p.skipped && <span className="opacity-60">· {p.timeSpent}s</span>}
                         {p.skipped && <span>⊘</span>}
-                        {!p.skipped && p.visits > 1 && <span>🔄</span>}
+                        {!p.skipped && p.visits > 1 && <span>↩</span>}
                       </div>
                     ))}
                   </div>
@@ -2007,76 +2254,99 @@ const handleSendSignatureRequest = async () => {
           </div>
         )}
 
-        {/* ── BOUNCE ANALYTICS ── */}
+        {/* ═══════════════════════════════════════════════════
+            SECTION 8 — BOUNCE ANALYTICS (flat 4-stat row)
+        ═══════════════════════════════════════════════════ */}
         {analytics.bounceAnalytics && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Total Recipients', value: analytics.bounceAnalytics.totalRecipients, bg: 'bg-slate-50', text: 'text-slate-700' },
-              { label: 'Bounced', value: analytics.bounceAnalytics.bounced, bg: 'bg-red-50', text: 'text-red-700' },
-              { label: 'Engaged', value: analytics.bounceAnalytics.engaged, bg: 'bg-green-50', text: 'text-green-700' },
-              { label: 'Bounce Rate', value: `${analytics.bounceAnalytics.bounceRate}%`, bg: 'bg-orange-50', text: 'text-orange-700' },
-            ].map((s) => (
-              <div key={s.label} className={`${s.bg} rounded-2xl border shadow-sm p-5 text-center`}>
-                <p className={`text-3xl font-black ${s.text}`}>{s.value}</p>
-                <p className="text-xs text-slate-500 mt-1">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── TOP VIEWERS ── */}
-        {analytics.topViewers?.length > 0 && (
-          <div className="bg-white rounded-2xl border shadow-sm p-6">
-            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Users className="h-4 w-4 text-violet-500" />
-              Top Viewers
-            </h3>
-            <div className="space-y-2">
-              {analytics.topViewers.map((viewer: any, index: number) => (
-                <div key={index} className="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl transition-colors group">
-                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                    {viewer.email.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-slate-900 text-sm truncate">{viewer.email}</p>
-                    <p className="text-xs text-slate-400">{viewer.views} views · {viewer.time} total</p>
-                  </div>
-                  <span className="text-xs text-slate-400 group-hover:text-slate-600 transition-colors flex-shrink-0">
-                    {viewer.lastViewed}
-                  </span>
+          <div className="py-5 border-b border-slate-100">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Bounce Analytics</p>
+            <div className="grid grid-cols-4 gap-0 divide-x divide-slate-100">
+              {[
+                { label: 'Total', value: analytics.bounceAnalytics.totalRecipients, color: 'text-slate-900' },
+                { label: 'Bounced', value: analytics.bounceAnalytics.bounced, color: 'text-red-500' },
+                { label: 'Engaged', value: analytics.bounceAnalytics.engaged, color: 'text-green-600' },
+                { label: 'Bounce Rate', value: `${analytics.bounceAnalytics.bounceRate}%`, color: 'text-orange-500' },
+              ].map((s) => (
+                <div key={s.label} className="px-4 first:pl-0 last:pr-0">
+                  <div className={`text-2xl font-black tabular-nums ${s.color}`}>{s.value}</div>
+                  <div className="text-[11px] text-slate-400 mt-1">{s.label}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* ── NDA ACCEPTANCES ── */}
-        {analytics?.ndaAcceptances?.length > 0 && (
-          <div className="bg-white rounded-2xl border shadow-sm p-6">
+        {/* ═══════════════════════════════════════════════════
+            SECTION 9 — TOP VIEWERS (flat list, dividers only)
+        ═══════════════════════════════════════════════════ */}
+        {analytics.topViewers?.length > 0 && (
+          <div className="py-5 border-b border-slate-100">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                <FileText className="h-4 w-4 text-violet-500" />
-                NDA Acceptances ({analytics.ndaAcceptances.length})
-              </h3>
+              <div className="flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-sky-400" />
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Top Viewers</p>
+              </div>
+            </div>
+            {/* Column header */}
+            <div className="grid grid-cols-3 py-2 border-b border-slate-100 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+              <span>Viewer</span>
+              <span className="text-center">Views</span>
+              <span className="text-right">Last seen</span>
+            </div>
+            {analytics.topViewers.map((viewer: any, index: number) => (
+              <div key={index} className="grid grid-cols-3 items-center py-3.5 border-b border-slate-50 last:border-b-0 group hover:bg-slate-50/50 transition-colors -mx-1 px-1 rounded">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {viewer.email.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-slate-900 truncate">{viewer.email}</p>
+                    <p className="text-[11px] text-slate-400">{viewer.time} total</p>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <span className="text-sm font-bold text-slate-900 tabular-nums">{viewer.views}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[11px] text-slate-400">{viewer.lastViewed}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════
+            SECTION 10 — NDA ACCEPTANCES (flat list)
+        ═══════════════════════════════════════════════════ */}
+        {analytics?.ndaAcceptances?.length > 0 && (
+          <div className="py-5 border-b border-slate-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-violet-400" />
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                  NDA Acceptances ({analytics.ndaAcceptances.length})
+                </p>
+              </div>
               <Link href="/nda-records">
-                <Button variant="outline" size="sm" className="gap-1 text-xs">
+                <button className="text-[11px] text-sky-500 hover:text-sky-700 font-semibold flex items-center gap-0.5">
                   View All <ChevronRight className="h-3 w-3" />
-                </Button>
+                </button>
               </Link>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-0">
               {analytics.ndaAcceptances.map((a: any, i: number) => (
-                <div key={i} className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-xl">
-                  <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                    <Check className="h-4 w-4 text-green-600" />
+                <div key={i} className="flex items-center gap-3 py-3 border-b border-slate-50 last:border-b-0">
+                  <div className="h-7 w-7 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <Check className="h-3.5 w-3.5 text-green-600" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{a.viewerName}</p>
-                    <p className="text-xs text-slate-500">{a.viewerEmail}{a.viewerCompany ? ` · ${a.viewerCompany}` : ''}</p>
+                    <p className="text-xs font-semibold text-slate-900">{a.viewerName}</p>
+                    <p className="text-[11px] text-slate-400">{a.viewerEmail}{a.viewerCompany ? ` · ${a.viewerCompany}` : ''}</p>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xs font-medium text-slate-700">{new Date(a.timestamp).toLocaleDateString()}</p>
-                    <Button variant="ghost" size="sm" className="h-6 text-xs text-violet-600 p-0 hover:underline"
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <p className="text-[11px] text-slate-400">{new Date(a.timestamp).toLocaleDateString()}</p>
+                    <button
+                      className="text-[11px] font-semibold text-sky-500 hover:text-sky-700"
                       onClick={async () => {
                         const res = await fetch(`/api/nda-certificates/${a.certificateId}`);
                         if (res.ok) {
@@ -2092,17 +2362,40 @@ const handleSendSignatureRequest = async () => {
                         }
                       }}>
                       Download
-                    </Button>
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         )}
+
+        {/* ═══════════════════════════════════════════════════
+            SECTION 11 — HEATMAP (borderless wrapper)
+        ═══════════════════════════════════════════════════ */}
+        {analytics.heatmapByPage && Object.keys(analytics.heatmapByPage).length > 0 && (
+          <div className="py-5 border-b border-slate-100">
+            <div className="flex items-center gap-1.5 mb-5">
+              <Flame className="h-3.5 w-3.5 text-orange-400" />
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Heatmap</p>
+            </div>
+            <DocumentHeatmap
+              pageNumber={heatmapPage}
+              totalPages={doc.numPages}
+              heatmapByPage={analytics.heatmapByPage}
+              onPageChange={setHeatmapPage}
+            />
+          </div>
+        )}
+
+       
+
       </>
     )}
   </div>
 )}
+
+
 {activeTab === 'utilization' && (
   <div className="space-y-6">
     
@@ -2145,8 +2438,13 @@ const handleSendSignatureRequest = async () => {
                   {analytics.documentInfo?.filename?.charAt(0).toUpperCase() || 'U'}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">You</p>
-                  <p className="text-xs text-slate-500">Document owner</p>
+
+<p className="text-xs text-slate-500">
+  {analytics?.documentInfo?.ownerEmail || 
+   analytics?.ownerEmail || 
+   doc?.ownerEmail || 
+   'Document owner'}
+</p>
                 </div>
               </div>
               <div className="flex items-center justify-center">
@@ -4829,20 +5127,25 @@ function ActivityTab({
               className="grid items-center py-4 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors group"
               style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}
             >
-              {/* NAME */}
-              <div className="flex items-center gap-2 pr-4">
-                {/* Small document icon like DocSend */}
-                <div className="h-8 w-8 rounded bg-slate-100 flex items-center justify-center flex-shrink-0">
-                  <FileText className="h-4 w-4 text-slate-400" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate">
-                    {lnk.recipientName || lnk.recipientEmail || 'Public Link'}
-                  </p>
-                  <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
-                </div>
-              </div>
-
+             {/* NAME */}
+<div className="flex items-center gap-2 pr-4">
+  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
+    <span className="text-white text-xs font-bold">
+      {(lnk.recipientName || lnk.recipientEmail || 'P').charAt(0).toUpperCase()}
+    </span>
+  </div>
+  <div className="min-w-0">
+    <p className="text-sm font-semibold text-slate-900 truncate">
+      {lnk.recipientName}
+    </p>
+    {lnk.recipientEmail && (
+      <p className="text-xs text-slate-400 truncate">{lnk.recipientEmail}</p>
+    )}
+    {!lnk.recipientEmail && (
+      <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
+    )}
+  </div>
+</div>
               {/* LINK */}
               <div className="flex items-center gap-2 pr-4 min-w-0">
                 {/* Yellow/orange circle like DocSend */}

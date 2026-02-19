@@ -24,6 +24,11 @@ export async function GET(
     });
     if (!document) return NextResponse.json({ error: 'Document not found' }, { status: 404 });
 
+    // Fetch owner profile for utilization tab
+const ownerProfile = await db.collection('profiles').findOne({ 
+  user_id: document.userId 
+});
+
     const tracking = document.tracking || {};
     const analyticsData = document.analytics || {};
 
@@ -1028,6 +1033,8 @@ averageTime: formatTime(averageTimeSeconds),
           size: document.size,
           createdAt: document.createdAt,
           updatedAt: document.updatedAt,
+          ownerEmail: ownerProfile?.email || null,
+  ownerName: ownerProfile?.full_name || ownerProfile?.first_name || null,
         },
         sharingInfo: {
           isPublic: document.isPublic || false,
