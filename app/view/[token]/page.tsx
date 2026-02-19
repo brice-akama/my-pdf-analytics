@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Eye, Download, Printer, Lock, Mail, Clock, AlertCircle, Check } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
+import { toast } from 'sonner';
 import 'pdfjs-dist/build/pdf.worker.entry';
 
 import { Button } from '@/components/ui/button';
@@ -148,7 +148,7 @@ const [messageSent, setMessageSent] = useState(false);
           fetch(`/api/view/${token}/track`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ event: 'page_time', page: currentPage, timeSpent: timeOnPage, sessionId, email: emailRef.current || null }),
+            body: JSON.stringify({ event: 'page_time', page: currentPage, timeSpent: timeOnPage, scrollDepth: 100, sessionId, email: emailRef.current || null }),
           }).catch(() => {});
         }
       };
@@ -394,7 +394,7 @@ const [messageSent, setMessageSent] = useState(false);
   };
 
   const handleDownload = async () => {
-    if (!shareData?.settings?.allowDownload) { await trackEvent('download_attempt', { allowed: false }); alert('Downloads are disabled for this document'); return; }
+    if (!shareData?.settings?.allowDownload) { await trackEvent('download_attempt', { allowed: false }); toast.error('Downloads are disabled for this document'); return; }
     await trackEvent('download_attempt', { allowed: true });
     try {
       const res = await fetch(`/api/view/${token}/download`, { method: 'POST' });
@@ -410,11 +410,11 @@ const [messageSent, setMessageSent] = useState(false);
         document.body.removeChild(a);
         await trackEvent('download_success', { filename: shareData.document?.filename });
       }
-    } catch (err) { console.error('Download failed:', err); alert('Failed to download document'); }
+    } catch (err) { console.error('Download failed:', err); toast.error('Failed to download document'); }
   };
 
   const handlePrint = async () => {
-    if (!shareData?.settings?.allowPrint) { await trackEvent('print_attempt', { allowed: false }); alert('Printing is disabled for this document'); return; }
+    if (!shareData?.settings?.allowPrint) { await trackEvent('print_attempt', { allowed: false }); toast.error('Printing is disabled for this document'); return; }
     await trackEvent('print_attempt', { allowed: true });
     window.print();
   };
@@ -728,7 +728,7 @@ const [messageSent, setMessageSent] = useState(false);
                       setLoadingCertificate(true);
                       const res = await fetch(`/api/nda-certificates/${certificateId}?shareId=${token}`);
                       if (res.ok) { const blob = await res.blob(); const url = window.URL.createObjectURL(blob); setCertificatePdfUrl(url); setCertificateDrawerOpen(true); }
-                    } catch (error) { alert('Failed to load certificate'); } finally { setLoadingCertificate(false); }
+                    } catch (error) { toast.error('Failed to load certificate'); } finally { setLoadingCertificate(false); }
                   }}
                   disabled={loadingCertificate}
                   className="gap-2 bg-white hover:bg-green-50 border-green-300"
@@ -990,11 +990,12 @@ const [messageSent, setMessageSent] = useState(false);
             });
             if (res.ok) {
               setMessageSent(true);
+              toast.success('Message sent successfully!');
             } else {
-              alert('Failed to send message. Please try again.');
+              toast.error('Failed to send message. Please try again.');
             }
           } catch {
-            alert('Network error. Please try again.');
+            toast.error('Network error. Please try again.');
           } finally {
             setIsSendingMessage(false);
           }

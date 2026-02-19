@@ -51,7 +51,7 @@ async function sendWithResend(options: EmailOptions) {
         'Content-Type': 'application/json',
       },
 body: JSON.stringify({
-  from: options.from || process.env.EMAIL_FROM || 'DocMetrics <notifications@docmetrics.com>',
+ from: options.from || process.env.EMAIL_FROM || 'DocMetrics <noreply@docmetrics.io>',
   to: options.to,
   subject: options.subject,
   html: options.html,

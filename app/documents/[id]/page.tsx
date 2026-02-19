@@ -19,6 +19,7 @@ import DocSendStyleCharts from '@/components/DocSendStyleCharts';
 import { Copy, Check, TrendingUp, Users, FileCheck, Expand, Minimize, Package, Loader2, Flame, Target, AlertTriangle, Wifi, WifiOff, MousePointer, BookOpen, BarChart2, Globe, RefreshCw  } from "lucide-react"
 import dynamic from 'next/dynamic'
 const DocumentHeatmap = dynamic(() => import('@/components/DocumentHeatmap'), { ssr: false })
+const ViewerMap = dynamic(() => import('@/components/ViewerMap'), { ssr: false })
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -2029,6 +2030,18 @@ const handleSendSignatureRequest = async () => {
             locations={analytics.locations || []}
           />
         </div>
+
+        {analytics.locations && analytics.locations.length > 0 && (
+  <div className="py-5 border-b border-slate-100">
+    <div className="flex items-center gap-1.5 mb-5">
+      <Globe className="h-3.5 w-3.5 text-sky-400" />
+      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+        Viewer Map
+      </p>
+    </div>
+    <ViewerMap locations={analytics.locations} />
+  </div>
+)}
 
         {/* ═══════════════════════════════════════════════════
             SECTION 4 — VIEWS CHART (inline bars, no wrapper)

@@ -9,6 +9,7 @@ type PageData = {
   avgTime: number;
   totalViews: number;
   views: number;
+  totalTime: number;
 };
 
 type LocationData = {
@@ -289,16 +290,28 @@ export default function DocSendStyleCharts({
                           />
                         </div>
                         {/* Stats strip */}
-                        <div className="px-3 py-2.5 flex items-center justify-between">
-                          <div>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wide">Page {hoveredPage}</p>
-                            <p className="text-sm font-black text-white tabular-nums">{formatTime(p.avgTime)}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wide">Visits</p>
-                            <p className="text-sm font-black text-white tabular-nums">{p.totalViews}</p>
-                          </div>
-                        </div>
+<div className="px-3 py-2.5">
+  <div className="flex items-center justify-between mb-1.5">
+    <div>
+      <p className="text-[10px] text-slate-400 uppercase tracking-wide">Page {hoveredPage}</p>
+      <p className="text-sm font-black text-white tabular-nums">{formatTime(p.avgTime)}</p>
+      <p className="text-[9px] text-slate-500">avg per viewer</p>
+    </div>
+    <div className="text-right">
+      <p className="text-[10px] text-slate-400 uppercase tracking-wide">Visits</p>
+      <p className="text-sm font-black text-white tabular-nums">{p.totalViews}</p>
+    </div>
+  </div>
+  {/* Total combined time — new */}
+  {p.totalTime > 0 && (
+    <div className="pt-1.5 border-t border-slate-700/50">
+      <p className="text-[9px] text-slate-400">
+        Combined: <span className="text-slate-200 font-bold">{formatTime(p.totalTime ?? 0)}</span>
+        <span className="text-slate-500"> across {p.totalViews} viewer{p.totalViews !== 1 ? 's' : ''}</span>
+      </p>
+    </div>
+  )}
+</div>
                         {/* Sky accent bar at bottom */}
                         <div className="h-0.5 bg-slate-700">
                           <div
