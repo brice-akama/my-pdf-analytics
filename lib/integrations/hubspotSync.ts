@@ -40,6 +40,7 @@ async function findHubSpotContact(
       }
     );
     const data = await res.json();
+    console.log('🔍 HubSpot search result:', data.results?.length, 'contacts for:', email);
     return data.results?.[0]?.id || null;
   } catch {
     return null;

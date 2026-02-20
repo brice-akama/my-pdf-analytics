@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../../lib/mongodb";
 
+// If we already have this integration saved, just redirect — don't reprocess
+const existing = await db.collection("integrations").findOne({
+  userId: state,
+  provider: "hubspot",
+  isActive: true,
+});
+if (existing) {
+  const url = new URL("/dashboard", request.url);
+  url.searchParams.set("integration", "hubspot");
+  url.searchParams.set("status", "connected");
+  return NextResponse.redirect(url);
+}
+
+
+ 
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -72,9 +88,20 @@ export async function GET(request: NextRequest) {
     console.log("✅ HubSpot connected for user:", state);
 
     const url = new URL("/dashboard", request.url);
-    url.searchParams.set("integration", "hubspot");
-    url.searchParams.set("status", "connected");
-    return NextResponse.redirect(url);
+url.searchParams.set("integration", "hubspot");
+url.searchParams.set("status", "connected");
+
+const response = NextResponse.redirect(url);
+// Forward the auth cookie explicitly so the redirect stays authenticated
+const authCookie = request.cookies.get('auth_token') || request.cookies.get('token');
+if (authCookie) {
+  response.cookies.set(authCookie.name, authCookie.value, {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+  });
+}
+return response;
   } catch (error) {
     console.error("HubSpot callback error:", error);
     const url = new URL("/dashboard", request.url);

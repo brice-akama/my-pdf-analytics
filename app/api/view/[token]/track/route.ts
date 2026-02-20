@@ -10,6 +10,11 @@ import {
   markNotificationSent,
 } from '@/lib/documentNotifications';
 import {
+  notifyDocumentViewed,
+  notifyDocumentCompleted,
+  notifySessionSummary,
+} from '@/lib/integrations/slack';
+import {
   syncDocumentOpenedToHubSpot,
   syncDocumentCompletedToHubSpot,
   syncEngagementSummaryToHubSpot,
@@ -264,7 +269,6 @@ export async function POST(
         if (!page || isNaN(page)) break;
         const pageNum = parseInt(page);
 
-
         // Track which pages this session has visited (for completion rate)
         await db.collection('analytics_sessions').updateOne(
           { sessionId: currentSessionId },
@@ -330,98 +334,128 @@ export async function POST(
             );
           }
         }
-         // ── NOTIFICATION: Document Completed ────────────────────
-  // Only fire when viewer hits the LAST page
-  const docForCompletion = await db.collection('documents').findOne({ _id: share.documentId });
-  const isLastPage = docForCompletion && pageNum === docForCompletion.numPages;
 
-  if (isLastPage && share.userId) {
-    const alreadySentCompleted = await hasNotificationBeenSent('completed', currentSessionId, documentId);
+        // ── Fetch document ONCE — reused by email, HubSpot, Slack ─
+        const docForPage = await db.collection('documents').findOne({ _id: share.documentId });
+        const isLastPage = docForPage && pageNum === docForPage.numPages;
 
-    if (!alreadySentCompleted) {
-      const owner = await getOwnerEmail(share.userId, db);
+        // ── NOTIFICATION: Document Completed (email) ──────────────
+        if (isLastPage && share.userId) {
+          const alreadySentCompleted = await hasNotificationBeenSent('completed', currentSessionId, documentId);
 
-      if (owner.email) {
-        // Get total time this viewer has spent on this doc
-        const viewerLogs = await db.collection('analytics_logs').find({
-          documentId,
-          action: 'page_view',
-          ...(email ? { email } : { viewerId }),
-        }).toArray();
+          if (!alreadySentCompleted) {
+            const owner = await getOwnerEmail(share.userId, db);
 
-        const totalTimeSeconds = viewerLogs.reduce(
-          (sum: number, l: any) => sum + (l.viewTime || 0), 0
-        );
+            if (owner.email) {
+              const viewerLogs = await db.collection('analytics_logs').find({
+                documentId,
+                action: 'page_view',
+                ...(email ? { email } : { viewerId }),
+              }).toArray();
 
-        // Get top pages by time
-        const pageTimesMap = new Map<number, number>();
-        viewerLogs.forEach((l: any) => {
-          const existing = pageTimesMap.get(l.pageNumber) || 0;
-          pageTimesMap.set(l.pageNumber, existing + (l.viewTime || 0));
-        });
-        const topPages = Array.from(pageTimesMap.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3)
-          .map(([page, timeSpent]) => ({ page, timeSpent }));
+              const totalTimeSeconds = viewerLogs.reduce(
+                (sum: number, l: any) => sum + (l.viewTime || 0), 0
+              );
 
-        // Determine intent level
-        const intentLevel = totalTimeSeconds > 300
-          ? 'high'
-          : totalTimeSeconds > 120
-          ? 'medium'
-          : 'low';
+              const pageTimesMap = new Map<number, number>();
+              viewerLogs.forEach((l: any) => {
+                const existing = pageTimesMap.get(l.pageNumber) || 0;
+                pageTimesMap.set(l.pageNumber, existing + (l.viewTime || 0));
+              });
+              const topPages = Array.from(pageTimesMap.entries())
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(([p, t]) => ({ page: p, timeSpent: t }));
 
-        sendDocumentCompletedEmail({
-          ownerEmail: owner.email,
-          viewerEmail: email || undefined,
-          viewerName: email?.split('@')[0] || undefined,
-          documentName: docForCompletion.originalFilename || 'Your document',
-          documentId,
-          totalPages: docForCompletion.numPages,
-          totalTimeSeconds,
-          topPages,
-          intentLevel,
-        }).catch(err => console.error('📧 Completed email error:', err));
+              const intentLevel = totalTimeSeconds > 300 ? 'high' : totalTimeSeconds > 120 ? 'medium' : 'low';
 
-        await markNotificationSent('completed', currentSessionId, documentId);
-      }
-    }
-  }
+              sendDocumentCompletedEmail({
+                ownerEmail: owner.email,
+                viewerEmail: email || undefined,
+                viewerName: email?.split('@')[0] || undefined,
+                documentName: docForPage.originalFilename || 'Your document',
+                documentId,
+                totalPages: docForPage.numPages,
+                totalTimeSeconds,
+                topPages,
+                intentLevel,
+              }).catch(err => console.error('📧 Completed email error:', err));
 
-  // ── HUBSPOT SYNC: Document Completed ───────────────────
-if (email && isLastPage && share.userId) {
-  const hubSpotEnabled = await isHubSpotConnected(share.userId);
-  if (hubSpotEnabled) {
-    // Recalculate since we may be outside the email block scope
-    const hsViewerLogs = await db.collection('analytics_logs').find({
-      documentId,
-      action: 'page_view',
-      ...(email ? { email } : { viewerId }),
-    }).toArray();
-    const hsTotalTime = hsViewerLogs.reduce((sum: number, l: any) => sum + (l.viewTime || 0), 0);
-    const hsPageMap = new Map<number, number>();
-    hsViewerLogs.forEach((l: any) => {
-      hsPageMap.set(l.pageNumber, (hsPageMap.get(l.pageNumber) || 0) + (l.viewTime || 0));
-    });
-    const hsTopPages = Array.from(hsPageMap.entries())
-      .sort((a, b) => b[1] - a[1]).slice(0, 3)
-      .map(([p, t]) => ({ page: p, timeSpent: t }));
-    const hsIntentLevel = hsTotalTime > 300 ? 'high' : hsTotalTime > 120 ? 'medium' : 'low';
+              await markNotificationSent('completed', currentSessionId, documentId);
+            }
+          }
+        }
 
-    syncDocumentCompletedToHubSpot({
-      userId: share.userId,
-      viewerEmail: email,
-      documentName: docForCompletion?.originalFilename || 'Document',
-      documentId,
-      totalPages: docForCompletion?.numPages || 1,
-      totalTimeSeconds: hsTotalTime,
-      topPages: hsTopPages,
-      intentLevel: hsIntentLevel,
-    }).catch(err => console.error('HubSpot sync error:', err));
-  }
-}
+        // ── HUBSPOT SYNC: Document Completed ──────────────────────
+        if (email && isLastPage && share.userId) {
+          const hubSpotEnabled = await isHubSpotConnected(share.userId);
+          if (hubSpotEnabled) {
+            const hsViewerLogs = await db.collection('analytics_logs').find({
+              documentId,
+              action: 'page_view',
+              ...(email ? { email } : { viewerId }),
+            }).toArray();
+            const hsTotalTime = hsViewerLogs.reduce((sum: number, l: any) => sum + (l.viewTime || 0), 0);
+            const hsPageMap = new Map<number, number>();
+            hsViewerLogs.forEach((l: any) => {
+              hsPageMap.set(l.pageNumber, (hsPageMap.get(l.pageNumber) || 0) + (l.viewTime || 0));
+            });
+            const hsTopPages = Array.from(hsPageMap.entries())
+              .sort((a, b) => b[1] - a[1]).slice(0, 3)
+              .map(([p, t]) => ({ page: p, timeSpent: t }));
+            const hsIntentLevel = hsTotalTime > 300 ? 'high' : hsTotalTime > 120 ? 'medium' : 'low';
+
+            syncDocumentCompletedToHubSpot({
+              userId: share.userId,
+              viewerEmail: email,
+              documentName: docForPage.originalFilename || 'Document',
+              documentId,
+              totalPages: docForPage.numPages || 1,
+              totalTimeSeconds: hsTotalTime,
+              topPages: hsTopPages,
+              intentLevel: hsIntentLevel,
+            }).catch(err => console.error('HubSpot sync error:', err));
+          }
+        }
+
+        // ── SLACK: Document Completed ──────────────────────────────
+        if (isLastPage && share.userId) {
+          const slackViewerLogs = await db.collection('analytics_logs').find({
+            documentId,
+            action: 'page_view',
+            ...(email ? { email } : { viewerId }),
+          }).toArray();
+
+          const slackTotalTime = slackViewerLogs.reduce(
+            (sum: number, l: any) => sum + (l.viewTime || 0), 0
+          );
+
+          const slackPageMap = new Map<number, number>();
+          slackViewerLogs.forEach((l: any) => {
+            const existing = slackPageMap.get(l.pageNumber) || 0;
+            slackPageMap.set(l.pageNumber, existing + (l.viewTime || 0));
+          });
+          const slackTopPages = Array.from(slackPageMap.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([p, t]) => ({ page: p, timeSpent: t }));
+
+          const slackIntentLevel = slackTotalTime > 300 ? 'high' : slackTotalTime > 120 ? 'medium' : 'low';
+
+          notifyDocumentCompleted({
+            userId: share.userId,
+            documentName: docForPage.originalFilename || 'Your document',
+            viewerEmail: email || 'Anonymous viewer',
+            totalTimeSeconds: slackTotalTime,
+            totalPages: docForPage.numPages,
+            topPages: slackTopPages,
+            intentLevel: slackIntentLevel as 'high' | 'medium' | 'low',
+            documentId,
+          }).catch(err => console.error('Slack completed error:', err));
+        }
+
         break;
-      }  
+      }
 
       // ── REAL-TIME PRESENCE ────────────────────────────────────────
 case 'presence_ping': {
@@ -790,6 +824,39 @@ case 'presence_ping': {
     }
   }
 
+   // ── Slack: Document Opened ─────────────────────────────────
+  if (share.userId) {
+    const slackDoc = await db.collection('documents').findOne({ _id: share.documentId });
+    const slackDocName = slackDoc?.originalFilename || 'Your document';
+
+    // Count previous sessions to get visit number
+    const previousVisits = await db.collection('analytics_sessions').countDocuments({
+      documentId,
+      viewerId,
+      sessionId: { $ne: currentSessionId },
+    });
+    const visitCount = previousVisits + 1;
+
+    const locationStr = location
+      ? [location.city, location.country].filter(Boolean).join(', ')
+      : undefined;
+
+    notifyDocumentViewed({
+      userId: share.userId,
+      documentName: slackDocName,
+      viewerName: email?.split('@')[0] || 'Anonymous',
+      viewerEmail: email || 'Anonymous viewer',
+      duration: 0, // session just started, no duration yet
+      location: locationStr,
+      device,
+      documentId,
+      pageCount: slackDoc?.numPages,
+      isRevisit,
+      visitCount,
+    }).catch(err => console.error('Slack viewed error:', err));
+  }
+
+
 
         break;
       }
@@ -850,6 +917,41 @@ case 'presence_ping': {
       }
     }
   }
+  // ── Slack: Session Summary ─────────────────────────────────
+if (share.userId && duration > 10) {
+    const slackDoc = await db.collection('documents').findOne({ _id: share.documentId });
+
+    // Get all pages this viewer viewed in this session
+    const sessionLogs = await db.collection('analytics_logs').find({
+      documentId,
+      sessionId: currentSessionId,
+      action: 'page_view',
+    }).toArray();
+    const pagesViewed = [...new Set(sessionLogs.map((l: any) => l.pageNumber))];
+
+    const locationStr = location
+      ? [location.city, location.country].filter(Boolean).join(', ')
+      : undefined;
+
+    // Only fire session summary if NOT already sent a "completed" notification
+    // (avoids duplicate Slack messages when viewer reads entire doc)
+    const alreadyCompleted = slackDoc && pagesViewed.length === slackDoc.numPages;
+
+    if (!alreadyCompleted) {
+      notifySessionSummary({
+        userId: share.userId,
+        documentName: slackDoc?.originalFilename || 'Your document',
+        viewerEmail: email || 'Anonymous viewer',
+        sessionDurationSeconds: totalTimeSeconds,
+        pagesViewed,
+        totalPages: slackDoc?.numPages || 1,
+        device,
+        location: locationStr,
+        documentId,
+      }).catch(err => console.error('Slack session summary error:', err));
+    }
+  }
+
         break;
       }
 
