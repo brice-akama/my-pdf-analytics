@@ -615,148 +615,97 @@ if (signatureRequest.status === 'declined') {
   fetchAttachments();
 }, [signatureId]);
 
-  // Track initial view
-// Track initial view AND first view timing
+
+
+// ── UNIFIED SIGNATURE TRACKING ──────────────────────────────
 useEffect(() => {
   if (!signatureId || !pdfUrl) return;
-  
-  const trackView = async () => {
-    try {
-      // Track page view
-      await fetch(`/api/signature/${signatureId}/track-page`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          page: 1,
-          action: 'view',
-          timestamp: new Date().toISOString(),
-        }),
-      });
 
-      //   NEW: Track first view for timing analytics
-      await fetch(`/api/signature/${signatureId}/track-time`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'first_view',
-        }),
-      });
-      
-      console.log('⏱️ Started timing tracking');
-    } catch (err) {
-      console.error('Failed to track view:', err);
+  // 1. Track initial view
+  fetch(`/api/signature/${signatureId}/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'viewed', timestamp: new Date().toISOString() }),
+  }).catch(() => {});
+
+  // 2. Track time on unload
+  const startTime = Date.now();
+  const handleUnload = () => {
+    const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+    if (timeSpent > 2) {
+      navigator.sendBeacon(
+        `/api/signature/${signatureId}/track`,
+        new Blob(
+          [JSON.stringify({ action: 'time_spent', timeSpent })],
+          { type: 'application/json' }
+        )
+      );
     }
   };
-  trackView();
-}, [signatureId, pdfUrl]);
 
-// ✅ NEW: Track page exits
-useEffect(() => {
-  if (!signatureId) return;
-  const handleBeforeUnload = () => {
-    // Use sendBeacon for reliable exit tracking
-    const data = JSON.stringify({
-      page: 1,
-      action: 'exit',
-      timestamp: new Date().toISOString(),
-    });
-
-    // sendBeacon is more reliable than fetch for page exit
-    navigator.sendBeacon(
-      `/api/signature/${signatureId}/track-page`,
-      new Blob([data], { type: 'application/json' })
-    );
-  };
-  window.addEventListener('beforeunload', handleBeforeUnload);
-  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-}, [signatureId]);
-
-// ✅ NEW: Track scroll behavior (which pages they actually look at)
-useEffect(() => {
-  if (!signatureId || !pdfUrl || !document) return;
-
+  // 3. Track pages scrolled
   const pagesViewed = new Set<number>();
   let scrollTimeout: NodeJS.Timeout;
-
   const handleScroll = () => {
     clearTimeout(scrollTimeout);
-
     scrollTimeout = setTimeout(() => {
-      // ⭐ FIX: Use window.document to access the DOM
-      const container = window.document.getElementById('pdf-signing-container');
-      if (!container) return;
-
-      const scrollTop = window.scrollY;
-      const pageHeight = 297 * 3.78; // mm to pixels
-      const currentPage = Math.floor(scrollTop / pageHeight) + 1;
-
-      // Track each page only once
-      if (currentPage <= document.numPages && !pagesViewed.has(currentPage)) {
+      const pageHeight = 297 * 3.78;
+      const currentPage = Math.floor(window.scrollY / pageHeight) + 1;
+      if (document && currentPage <= (document?.numPages || 1) && !pagesViewed.has(currentPage)) {
         pagesViewed.add(currentPage);
-
-        fetch(`/api/signature/${signatureId}/track-page`, {
+        fetch(`/api/signature/${signatureId}/track`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            page: currentPage,
-            action: 'scroll',
-            timestamp: new Date().toISOString(),
-          }),
-        }).catch(err => console.error('Failed to track scroll:', err));
+          body: JSON.stringify({ action: 'page_scroll', page: currentPage }),
+        }).catch(() => {});
       }
-    }, 500); // Debounce scroll events
+    }, 500);
   };
 
+  window.addEventListener('beforeunload', handleUnload);
   window.addEventListener('scroll', handleScroll);
 
   return () => {
+    window.removeEventListener('beforeunload', handleUnload);
     window.removeEventListener('scroll', handleScroll);
     clearTimeout(scrollTimeout);
   };
 }, [signatureId, pdfUrl, document]);
 
+   useEffect(() => {
+  if (!signatureId || !pdfUrl || !document) return;
 
-  useEffect(() => {
-    if (!signatureId || !pdfUrl) return;
+  const pagesTracked = new Set<number>();
+  let scrollTimer: NodeJS.Timeout;
 
-    const trackView = async () => {
-      try {
-        await fetch(`/api/signature/${signatureId}/track-view`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            page: 1, // Track as page 1 since we're showing all pages
-            timestamp: new Date().toISOString(),
-            userAgent: navigator.userAgent,
-          }),
-        });
-      } catch (err) {
-        console.error('Failed to track view:', err);
+  const handleScroll = () => {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      const pageHeight = 297 * 3.78; // mm to px
+      const currentPage = Math.floor(window.scrollY / pageHeight) + 1;
+
+      if (currentPage <= document.numPages && !pagesTracked.has(currentPage)) {
+        pagesTracked.add(currentPage);
+        fetch(`/api/signature/${signatureId}/track`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "page_scroll", page: currentPage }),
+        }).catch(() => {});
       }
-    };
+    }, 500); // debounce
+  };
 
-    trackView();
-  }, [signatureId, pdfUrl]);
+  window.addEventListener("scroll", handleScroll);
+  return () => {
+    window.removeEventListener("scroll", handleScroll);
+    clearTimeout(scrollTimer);
+  };
+}, [signatureId, pdfUrl, document]);
 
-  useEffect(() => {
-    const startTime = Date.now();
 
-    return () => {
-      const timeSpent = Math.floor((Date.now() - startTime) / 1000);
+  
 
-      if (signatureId && timeSpent > 2) {
-        fetch(`/api/signature/${signatureId}/track-time`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            page: 1, // Track as page 1 since we're showing all pages
-            timeSpent,
-          }),
-        }).catch(() => { });
-      }
-    };
-  }, [signatureId]);
-
+  
   const myFields = signatureFields.filter(f => f.recipientIndex === recipient?.index);
   const allFields = signatureFields;
   const allFieldsFilled = myFields.every(f => {
