@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { sendEmail } from '@/lib/email';
+import { ObjectId } from 'mongodb';
 
 export async function POST(
   request: NextRequest,
@@ -19,7 +20,9 @@ export async function POST(
     const sigRequest = await db.collection('signature_requests').findOne({ uniqueId: signatureId });
     if (!sigRequest) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const document = await db.collection('documents').findOne({ _id: sigRequest.documentId });
+    const document = await db.collection('documents').findOne({ 
+  _id: new ObjectId(sigRequest.documentId.toString()) 
+});
 
     // Reuse same owner lookup pattern as view message route
     const ownerProfile = await db.collection('profiles').findOne({

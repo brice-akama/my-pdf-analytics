@@ -133,6 +133,7 @@ const [isSendingMessage, setIsSendingMessage] = useState(false);
 const [documentOwnerEmail, setDocumentOwnerEmail] = useState<string | null>(null);
 const [agreedToTerms, setAgreedToTerms] = useState(false);
 
+
 // ⭐ STEP 1: Load saved progress when page loads
 useEffect(() => {
   const loadSavedProgress = async () => {
@@ -1283,7 +1284,7 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
         </div>
         <div className="min-w-0">
           <span className="font-semibold text-white text-sm">DocMetrics</span>
-          <p className="text-xs text-white/40 truncate max-w-[200px]">{document.filename}</p>
+           
         </div>
       </div>
     </div>
@@ -1315,6 +1316,7 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
             Saved
           </div>
         )}
+        
 
         {/* Message icon */}
         <div className="relative">
@@ -1341,8 +1343,8 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
     {documentOwnerEmail ? documentOwnerEmail[0].toUpperCase() : '?'}
   </div>
   <div>
-    <p className="text-sm font-semibold text-white truncate max-w-[180px]">
-      {documentOwnerEmail || 'Document Owner'}
+<p className="text-sm font-semibold text-white break-all">
+      {documentOwnerEmail}
     </p>
     <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>Document sender</p>
   </div>
@@ -1552,16 +1554,224 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
     </div>
   </div>
 )}
-      <div className="max-w-7xl mx-auto p-6 sm:p-6 bg-slate-900 min-h-screen pt-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 order-2 lg:order-1">
+      <div className="flex flex-1 overflow-hidden" style={{ height: 'calc(100vh - 57px)' }}>
+
+        {/* Sidebar - LEFT, fixed, does not scroll */}
+       <div className="w-96 flex-shrink-0 overflow-y-auto border-r border-white/10 p-4 bg-slate-900">
+          <div className="rounded-xl shadow-2xl p-6"
+            style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}>
+
+            {isAwaitingTurn && (
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-semibold text-amber-900">Awaiting Turn</span>
+                </div>
+                <p className="text-xs text-amber-700">
+                  You can review the document, but signing is disabled until the previous signer completes.
+                </p>
+              </div>
+            )}
+
+            <h3 className="font-semibold text-white mb-4">Signature Progress</h3>
+
+            <div className="mb-6">
+              <div className="flex justify-between text-sm text-white/60 mb-2">
+                <span>Completed</span>
+                <span>{Object.keys(signatures).length} / {myFields.length}</span>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-2">
+                <div
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all"
+                  style={{
+                    width: `${myFields.length > 0 ? (Object.keys(signatures).length / myFields.length) * 100 : 0}%`
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
+              {allFields.map(field => {
+                const isMyField = field.recipientIndex === recipient?.index;
+                const isFilled = field.type === 'attachment'
+                  ? (attachments[field.id]?.length > 0)
+                  : signatures[field.id];
+                return (
+                  <div
+                    key={field.id}
+                    className={`p-3 rounded-lg border ${isFilled
+                      ? 'bg-green-50 border-green-200'
+                      : isMyField
+                        ? 'bg-yellow-50 border-yellow-200'
+                        : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-slate-900">
+                        {field.type === 'signature' ? '✍️ Signature' :
+                          field.type === 'date' ? '📅 Date' :
+                          field.type === 'text' ? '📝 Text Field' :
+                          field.type === 'checkbox' ? '☑️ Checkbox' :
+                          field.type === 'attachment' ? `📎 ${field.attachmentLabel || 'Attachment'}` :
+                          field.type === 'dropdown' ? `📋 ${field.label || 'Dropdown'}` :
+                          field.type === 'radio' ? `⭕ ${field.label || 'Radio Button'}` :
+                          'Field'}
+                        {!isMyField && ' (Other signer)'}
+                      </span>
+                      {signatures[field.id] && (
+                        <Check className="h-4 w-4 text-green-600" />
+                      )}
+                    </div>
+                    <p className="text-xs text-white/40 mt-1">Page {field.page}</p>
+                    {field.type === 'attachment' && field.isRequired && !isFilled && (
+                      <span className="inline-block mt-1 text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">
+                        Required
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {!isAwaitingTurn && !completed && !isDelegatedMode && (
+              <button
+                onClick={() => setShowDelegateModal(true)}
+                disabled={submitting}
+                className="w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 border-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed mb-3"
+              >
+                <UserPlus className="h-5 w-5" />
+                Delegate to Someone Else
+              </button>
+            )}
+
+            {intentVideoRequired && (
+              <div className={`mb-3 p-3 rounded-lg border ${
+                intentVideoBlob ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <Camera className={`h-5 w-5 ${intentVideoBlob ? 'text-green-600' : 'text-yellow-600'}`} />
+                  <div className="flex-1">
+                    <p className={`text-sm font-semibold ${intentVideoBlob ? 'text-green-900' : 'text-yellow-900'}`}>
+                      {intentVideoBlob ? '✅ Video Recorded' : '📹 Video Recording Required'}
+                    </p>
+                    <p className={`text-xs ${intentVideoBlob ? 'text-green-700' : 'text-yellow-700'}`}>
+                      {intentVideoBlob ? 'Your acknowledgement has been captured' : 'Click "Complete Signing" to record your video'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!allFieldsFilled && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm font-semibold text-red-900 mb-2">⚠️ Missing Required Fields:</p>
+                <ul className="text-xs text-red-700 space-y-1">
+                  {myFields
+                    .filter(f => !signatures[f.id])
+                    .map(f => (
+                      <li key={f.id}>
+                        • Page {f.page}: {f.type} field
+                        <button
+                          onClick={() => scrollToField(f.id)}
+                          className="ml-2 text-blue-600 underline"
+                        >
+                          Go there
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
+
+            {!viewOnlyMode && !isDelegatedMode && !isAwaitingTurn && (
+              <div className="mb-3 p-3 rounded-lg"
+                style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={agreedToTerms}
+                      onChange={(e) => setAgreedToTerms(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-500 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                    {'I agree to use electronic records and signatures and to DocMetrics\' '}
+                    <span
+                      className="underline font-medium cursor-pointer"
+                      style={{ color: '#a5b4fc' }}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open('/terms', '_blank'); }}
+                    >
+                      Terms and Conditions
+                    </span>
+                    {'. By signing, I confirm that I have reviewed and agree to the contents of this document.'}
+                  </p>
+                </label>
+              </div>
+            )}
+
+            <button
+              onClick={completeSignature}
+              disabled={!allFieldsFilled || submitting || isAwaitingTurn || viewOnlyMode || isDelegatedMode || !agreedToTerms}
+              className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                allFieldsFilled && !submitting && !isAwaitingTurn && !viewOnlyMode && !isDelegatedMode && agreedToTerms && !(intentVideoRequired && !intentVideoBlob)
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              {viewOnlyMode || isDelegatedMode ? (
+                <><Eye className="h-5 w-5" />{isDelegatedMode ? 'You Delegated This' : 'View-Only Access'}</>
+              ) : submitting ? (
+                <><Loader2 className="h-5 w-5 animate-spin" />Submitting...</>
+              ) : isAwaitingTurn ? (
+                <><Clock className="h-5 w-5" />Waiting for Your Turn</>
+              ) : selfieRequired && !selfieVerified ? (
+                <><Camera className="h-5 w-5" />Verify Identity & Sign</>
+              ) : intentVideoRequired && !intentVideoBlob ? (
+                <><Camera className="h-5 w-5" />Record Video & Sign</>
+              ) : allFieldsFilled ? (
+                <><Check className="h-5 w-5" />Complete Signing</>
+              ) : (
+                'Complete All Fields'
+              )}
+            </button>
+
+            {!isAwaitingTurn && !isDelegatedMode && (
+              <button
+                onClick={() => setShowDeclineModal(true)}
+                disabled={submitting}
+                className="w-full mt-3 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 border-2 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <X className="h-5 w-5" />
+                Decline to Sign
+              </button>
+            )}
+
+            <p className="text-xs text-slate-500 text-center mt-2">
+              By clicking "Complete Signing", you agree that your signature is legally binding.
+            </p>
+
+          </div>
+        </div>
+
+        {/* PDF Column - scrolls independently, NO scrollbar visible */}
+        <div
+          className="flex-1 overflow-y-auto"
+        id="pdf-scroll-container"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' as any }}
+        >
+          <style>{`
+            #pdf-scroll-container::-webkit-scrollbar { display: none; }
+            #pdf-scroll-container embed::-webkit-scrollbar { display: none; }
+            embed { scrollbar-width: none; }
+          `}</style>
+          <div className="p-4">
             <div className="rounded-lg shadow-2xl overflow-hidden bg-slate-800">
               <div id="pdf-signing-container" className="relative" style={{ minHeight: `${297 * document.numPages}mm` }}>
                 {pdfUrl ? (
                   <>
-                    {/* Single PDF embed showing all pages */}
                     <embed
-                      src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1`}
+                      src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
                       type="application/pdf"
                       className="w-full"
                       style={{
@@ -1571,264 +1781,147 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
                         display: 'block',
                       }}
                     />
-
-                    {/* Signature Field Overlays */}
                     <div className="absolute inset-0 pointer-events-none">
-                     {signatureFields
-  .filter((field) => {
-    const isMyField = field.recipientIndex === recipient?.index;
-    const isVisible = isFieldVisible(field);
-    return isMyField || isVisible; // Show my fields or visible shared fields
-  })
-  .map((field) => {
-    const isFilled = field.type === 'attachment' 
-      ? (attachments[field.id]?.length > 0) // ⭐ Check if attachment uploaded
-      : signatures[field.id];
-    const isMyField = field.recipientIndex === recipient?.index;
-    const isVisible = isFieldVisible(field);
-    const pageHeight = 297 * 3.78;
-    const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
+                      {signatureFields
+                        .filter((field) => {
+                          const isMyField = field.recipientIndex === recipient?.index;
+                          const isVisible = isFieldVisible(field);
+                          return isMyField || isVisible;
+                        })
+                        .map((field) => {
+                          const isFilled = field.type === 'attachment'
+                            ? (attachments[field.id]?.length > 0)
+                            : signatures[field.id];
+                          const isMyField = field.recipientIndex === recipient?.index;
+                          const isVisible = isFieldVisible(field);
+                          const pageHeight = 297 * 3.78;
+                          const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
 
-    return (
-      <div
-        key={field.id}
-        data-field-id={field.id} 
-        className={`absolute rounded transition-all ${
-          isFilled
-            ? "bg-transparent border-0"
-            : !isVisible
-            ? "hidden" // ⭐ Hide if not visible
-            : "bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80"
-        }`}
-       style={{
-  left: `${field.x}%`,
-  top: `${topPosition}px`,
-  width: field.width ? `${field.width}px` : 
-         field.type === "signature" ? "150px" :      // ⭐ Reduced from 200px
-         field.type === "checkbox" ? "24px" :        // ⭐ Reduced from 30px
-         field.type === "attachment" ? "150px" :     // ⭐ Reduced from 200px
-         field.type === "dropdown" ? "180px" :       // ⭐ Reduced from 250px
-         field.type === "radio" ? "150px" :          // ⭐ Reduced from 200px
-         "120px",                                    // ⭐ Reduced from 150px (default text)
-  height: field.height ? `${field.height}px` : 
-          field.type === "signature" ? "45px" :      // ⭐ Reduced from 60px
-          field.type === "checkbox" ? "24px" :       // ⭐ Reduced from 30px
-          field.type === "attachment" ? "40px" :     // ⭐ Reduced from 50px
-          field.type === "dropdown" ? "35px" :       // ⭐ Reduced from 45px
-          field.type === "radio" ? "auto" :
-          "32px",                                    // ⭐ Reduced from 40px (default text)
-          transform: "translate(-50%, 0%)",
-          cursor: field.type === "signature" && !isFilled ? "pointer" :
-          field.type === "attachment" && !isFilled ? "pointer" :
-           "default",
-          pointerEvents: !isVisible ? "none" : field.type === "checkbox" ? "auto" : isFilled ? "none" : "auto",
-          zIndex: 10,
-        }}
-        onClick={() => {
-          if (!isFilled && isMyField && isVisible ) {
-            if (field.type === "signature") {
-              console.log('🖊️ Signature field clicked, setting activeField:', field);
-              setActiveField(field);
-            } else if (field.type === "text") {
-              setActiveTextField(field);
-              setTextFieldInput("");
-            } else if (field.type === "checkbox") {
-              // ⭐ Handle checkbox click
-              handleCheckboxToggle(field.id);
-            }  
-            else if (field.type === "attachment") { // ⭐ ADD THIS
-              setActiveAttachmentField(field);
-              setShowAttachmentModal(true);
-            }
-            else if (field.type === "dropdown") {
-  setActiveDropdownField(field);
-  setShowDropdownModal(true);
-} else if (field.type === "radio") {
-  setActiveRadioField(field);
-  setShowRadioModal(true);
-}
-          }
-        }}
-      >
-        <div className="h-full flex flex-col items-center justify-center p-2">
-          {isFilled ? (
-            <>
-              {field.type === "signature" && (
-                <img
-                  src={signatures[field.id].data}
-                  alt="Signature"
-                  className="max-h-full max-w-full object-contain"
-                  style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.1))" }}
-                />
-              )}
-              {field.type === "date" && (
-                <div className="text-center w-full">
-                  <p className="text-sm font-medium text-slate-900 leading-tight">
-                    {signatures[field.id].data}
-                  </p>
-                </div>
-              )}
-              {field.type === "text" && (
-                <p className="text-sm font-medium text-slate-900 text-center px-2 leading-tight">
-                  {signatures[field.id].data}
-                </p>
-              )}
-              {/* ⭐ NEW: Checkbox display */}
-          {field.type === "checkbox" && (
-  <div 
-    className="flex items-center gap-2 w-full h-full px-2 cursor-pointer"
-    onClick={(e) => {
-      e.stopPropagation();
-      handleCheckboxToggle(field.id);
-    }}
-  >
-    {fieldValues[field.id] ? (
-      <CheckSquare className="h-5 w-5 text-purple-600 flex-shrink-0" />
-    ) : (
-      <Square className="h-5 w-5 text-slate-400 flex-shrink-0" />
-    )}
-   {field.label && (
-     <p className="text-xs font-medium text-slate-900 mt-1 text-center whitespace-nowrap text-ellipsis">
-        {field.label}
-      </p>
-    )}
-  </div>
-)}
-
-{/* ⭐ NEW: Attachment Display */}
-              {field.type === "attachment" && attachments[field.id] && (
-                <div className="text-center w-full">
-                  <Paperclip className="h-5 w-5 text-green-600 mx-auto mb-1" />
-                  <p className="text-xs font-medium text-green-800">
-                    {attachments[field.id].length} file(s) uploaded
-                  </p>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveAttachmentField(field);
-                      setShowAttachmentModal(true);
-                    }}
-                    className="text-xs text-blue-600 hover:underline mt-1"
-                  >
-                    View Files
-                  </button>
-                </div>
-              )}
-
-              {/* ⭐ NEW: Dropdown Display */}
-{field.type === "dropdown" && (
-  <div className="w-full h-full flex items-center justify-center px-2">
-    <p className="text-sm font-medium text-slate-900 text-center truncate">
-      {fieldValues[field.id] || signatures[field.id]?.data || ""}
-    </p>
-  </div>
-)}
-
-{/* ⭐ NEW: Radio Button Display */}
-{field.type === "radio" && (
-  <div className="w-full px-2 space-y-1">
-    {field.label && (
-      <p className="text-xs font-semibold text-slate-700 mb-2">{field.label}</p>
-    )}
-    {field.options?.map((option, idx) => (
-      <label
-        key={idx}
-        className="flex items-center gap-2 cursor-pointer hover:bg-purple-50 p-1 rounded"
-      >
-        <input
-          type="radio"
-          name={`radio-${field.id}`}
-          value={option}
-          checked={fieldValues[field.id] === option}
-          onChange={(e) => {
-            const value = e.target.value;
-            setFieldValues((prev) => ({
-              ...prev,
-              [field.id]: value,
-            }));
-            setSignatures((prev) => ({
-              ...prev,
-              [field.id]: {
-                type: "radio",
-                data: value,
-                timestamp: new Date().toISOString(),
-              },
-            }));
-          }}
-          disabled={!isMyField}
-          className="h-4 w-4 text-purple-600 focus:ring-purple-500"
-        />
-        <span className="text-xs font-medium text-slate-900">{option}</span>
-      </label>
-    ))}
-  </div>
-)}
-
-            </>
-          ) : (
-            <div className="text-center">
-  {field.type === "attachment" ? (
-    <>
-      <Paperclip className="h-5 w-5 text-yellow-700 mx-auto mb-1" />
-      <p className="text-xs font-medium text-yellow-700">
-        📎 {field.attachmentLabel || "Upload Required"}
-      </p>
-      {field.isRequired && (
-        <p className="text-xs text-red-600 font-semibold mt-1">
-          * Required
-        </p>
-      )}
-      <p className="text-xs text-slate-600 mt-1">Click to upload</p>
-    </>
-  ) : field.type === "checkbox" ? (
-    <div className="flex items-center gap-2 w-full h-full px-2">
-      <Square className="h-5 w-5 text-yellow-700 flex-shrink-0" />
-      {field.label && (
-        <p className="text-xs text-yellow-700 font-medium truncate">
-          {field.label}
-        </p>
-      )}
-    </div>
-  ) : (
-    <>
-      <p className="text-xs font-medium text-yellow-700">
-  {field.type === "signature"
-    ? isMyField
-      ? "✍️ Click to Sign"
-      : "⏳ Awaiting Signature"
-    : field.type === "date"
-    ? isMyField
-      ? "📅 Auto-filled"
-      : "📅 Date pending"
-    : field.type === "dropdown"
-    ? isMyField
-      ? "📋 Select Option"
-      : "⏳ Awaiting Selection"
-    : field.type === "radio"
-    ? isMyField
-      ? "⭕ Choose Option"
-      : "⏳ Awaiting Choice"
-    : isMyField
-    ? "📝 Click to Fill"
-    : "⏳ Awaiting Input"}
-</p>
-
-    <p className="text-xs text-slate-600 mt-1 font-semibold">
-  {isMyField 
-    ? recipient.name 
-    : (field as any).recipientName || `Recipient ${field.recipientIndex + 1}`
-  }
-  {isMyField && " (You)"} 
-</p> 
-    </>
-  )}
-</div>
-
-          )}
-        </div>
-      </div>
-    );
-  })}
+                          return (
+                            <div
+                              key={field.id}
+                              data-field-id={field.id}
+                              className={`absolute rounded transition-all ${
+                                isFilled ? "bg-transparent border-0"
+                                  : !isVisible ? "hidden"
+                                  : "bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80"
+                              }`}
+                              style={{
+                                left: `${field.x}%`,
+                                top: `${topPosition}px`,
+                                width: field.width ? `${field.width}px` :
+                                  field.type === "signature" ? "150px" :
+                                  field.type === "checkbox" ? "24px" :
+                                  field.type === "attachment" ? "150px" :
+                                  field.type === "dropdown" ? "180px" :
+                                  field.type === "radio" ? "150px" : "120px",
+                                height: field.height ? `${field.height}px` :
+                                  field.type === "signature" ? "45px" :
+                                  field.type === "checkbox" ? "24px" :
+                                  field.type === "attachment" ? "40px" :
+                                  field.type === "dropdown" ? "35px" :
+                                  field.type === "radio" ? "auto" : "32px",
+                                transform: "translate(-50%, 0%)",
+                                cursor: (field.type === "signature" || field.type === "attachment") && !isFilled ? "pointer" : "default",
+                                pointerEvents: !isVisible ? "none" : field.type === "checkbox" ? "auto" : isFilled ? "none" : "auto",
+                                zIndex: 10,
+                              }}
+                              onClick={() => {
+                                if (!isFilled && isMyField && isVisible) {
+                                  if (field.type === "signature") setActiveField(field);
+                                  else if (field.type === "text") { setActiveTextField(field); setTextFieldInput(""); }
+                                  else if (field.type === "checkbox") handleCheckboxToggle(field.id);
+                                  else if (field.type === "attachment") { setActiveAttachmentField(field); setShowAttachmentModal(true); }
+                                  else if (field.type === "dropdown") { setActiveDropdownField(field); setShowDropdownModal(true); }
+                                  else if (field.type === "radio") { setActiveRadioField(field); setShowRadioModal(true); }
+                                }
+                              }}
+                            >
+                              <div className="h-full flex flex-col items-center justify-center p-2">
+                                {isFilled ? (
+                                  <>
+                                    {field.type === "signature" && (
+                                      <img src={signatures[field.id].data} alt="Signature" className="max-h-full max-w-full object-contain" style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.1))" }} />
+                                    )}
+                                    {field.type === "date" && (
+                                      <div className="text-center w-full">
+                                        <p className="text-sm font-medium text-slate-900 leading-tight">{signatures[field.id].data}</p>
+                                      </div>
+                                    )}
+                                    {field.type === "text" && (
+                                      <p className="text-sm font-medium text-slate-900 text-center px-2 leading-tight">{signatures[field.id].data}</p>
+                                    )}
+                                    {field.type === "checkbox" && (
+                                      <div className="flex items-center gap-2 w-full h-full px-2 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleCheckboxToggle(field.id); }}>
+                                        {fieldValues[field.id] ? <CheckSquare className="h-5 w-5 text-purple-600 flex-shrink-0" /> : <Square className="h-5 w-5 text-slate-400 flex-shrink-0" />}
+                                        {field.label && <p className="text-xs font-medium text-slate-900 mt-1 text-center whitespace-nowrap text-ellipsis">{field.label}</p>}
+                                      </div>
+                                    )}
+                                    {field.type === "attachment" && attachments[field.id] && (
+                                      <div className="text-center w-full">
+                                        <Paperclip className="h-5 w-5 text-green-600 mx-auto mb-1" />
+                                        <p className="text-xs font-medium text-green-800">{attachments[field.id].length} file(s) uploaded</p>
+                                        <button onClick={(e) => { e.stopPropagation(); setActiveAttachmentField(field); setShowAttachmentModal(true); }} className="text-xs text-blue-600 hover:underline mt-1">View Files</button>
+                                      </div>
+                                    )}
+                                    {field.type === "dropdown" && (
+                                      <div className="w-full h-full flex items-center justify-center px-2">
+                                        <p className="text-sm font-medium text-slate-900 text-center truncate">{fieldValues[field.id] || signatures[field.id]?.data || ""}</p>
+                                      </div>
+                                    )}
+                                    {field.type === "radio" && (
+                                      <div className="w-full px-2 space-y-1">
+                                        {field.label && <p className="text-xs font-semibold text-slate-700 mb-2">{field.label}</p>}
+                                        {field.options?.map((option, idx) => (
+                                          <label key={idx} className="flex items-center gap-2 cursor-pointer hover:bg-purple-50 p-1 rounded">
+                                            <input type="radio" name={`radio-${field.id}`} value={option} checked={fieldValues[field.id] === option}
+                                              onChange={(e) => {
+                                                const value = e.target.value;
+                                                setFieldValues(prev => ({ ...prev, [field.id]: value }));
+                                                setSignatures(prev => ({ ...prev, [field.id]: { type: "radio", data: value, timestamp: new Date().toISOString() } }));
+                                              }}
+                                              disabled={!isMyField} className="h-4 w-4 text-purple-600 focus:ring-purple-500" />
+                                            <span className="text-xs font-medium text-slate-900">{option}</span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <div className="text-center">
+                                    {field.type === "attachment" ? (
+                                      <>
+                                        <Paperclip className="h-5 w-5 text-yellow-700 mx-auto mb-1" />
+                                        <p className="text-xs font-medium text-yellow-700">📎 {field.attachmentLabel || "Upload Required"}</p>
+                                        {field.isRequired && <p className="text-xs text-red-600 font-semibold mt-1">* Required</p>}
+                                        <p className="text-xs text-slate-600 mt-1">Click to upload</p>
+                                      </>
+                                    ) : field.type === "checkbox" ? (
+                                      <div className="flex items-center gap-2 w-full h-full px-2">
+                                        <Square className="h-5 w-5 text-yellow-700 flex-shrink-0" />
+                                        {field.label && <p className="text-xs text-yellow-700 font-medium truncate">{field.label}</p>}
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <p className="text-xs font-medium text-yellow-700">
+                                          {field.type === "signature" ? (isMyField ? "✍️ Click to Sign" : "⏳ Awaiting Signature")
+                                            : field.type === "date" ? (isMyField ? "📅 Auto-filled" : "📅 Date pending")
+                                            : field.type === "dropdown" ? (isMyField ? "📋 Select Option" : "⏳ Awaiting Selection")
+                                            : field.type === "radio" ? (isMyField ? "⭕ Choose Option" : "⏳ Awaiting Choice")
+                                            : isMyField ? "📝 Click to Fill" : "⏳ Awaiting Input"}
+                                        </p>
+                                        <p className="text-xs text-slate-600 mt-1 font-semibold">
+                                          {isMyField ? recipient.name : (field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
+                                          {isMyField && " (You)"}
+                                        </p>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                     </div>
                   </>
                 ) : (
@@ -1839,459 +1932,11 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
               </div>
             </div>
           </div>
-          <div className="lg:col-span-1">
-<div className="rounded-xl shadow-2xl p-6 sticky top-24"
-  style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}>
-
-              {/*   ADD status indicator at top */}
-    {isAwaitingTurn && (
-      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-        <div className="flex items-center gap-2 mb-2">
-          <Clock className="h-4 w-4 text-amber-600" />
-          <span className="text-sm font-semibold text-amber-900">Awaiting Turn</span>
         </div>
-        <p className="text-xs text-amber-700">
-          You can review the document, but signing is disabled until the previous signer completes.
-        </p>
+
       </div>
-    )}
-              <h3 className="font-semibold text-white mb-4">Signature Progress</h3>
 
-              <div className="mb-6">
-                <div className="flex justify-between text-sm text-white/60 mb-2">
-                  <span>Completed</span>
-                  <span>{Object.keys(signatures).length} / {myFields.length}</span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all"
-                    style={{
-                      width: `${myFields.length > 0 ? (Object.keys(signatures).length / myFields.length) * 100 : 0}%`
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
-                {allFields.map(field => {  // ⬅️ Show all fields
-                  const isMyField = field.recipientIndex === recipient?.index;
-                  const isFilled = field.type === 'attachment' 
-                  ? (attachments[field.id]?.length > 0) // ⭐ ADD THIS
-      : signatures[field.id];
-                  return (
-                    <div
-                      key={field.id}
-        className={`p-3 rounded-lg border ${isFilled
-          ? 'bg-green-50 border-green-200'
-          : isMyField
-            ? 'bg-yellow-50 border-yellow-200'
-            : 'bg-slate-50 border-slate-200'
-        }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-slate-900">
-                         {field.type === 'signature' ? '✍️ Signature' :
-             field.type === 'date' ? '📅 Date' :
-             field.type === 'text' ? '📝 Text Field' :
-             field.type === 'checkbox' ? '☑️ Checkbox' :
-             field.type === 'attachment' ? `📎 ${field.attachmentLabel || 'Attachment'}` : // ⭐ ADD THIS
-             field.type === 'dropdown' ? `📋 ${field.label || 'Dropdown'}` :
-             field.type === 'radio' ? `⭕ ${field.label || 'Radio Button'}` :
-             'Field'}
-                            
-                          {!isMyField && ' (Other signer)'}  {/* ⬅️ Show indicator */}
-                        </span>
-                        {signatures[field.id] && (
-                          <Check className="h-4 w-4 text-green-600" />
-                        )}
-                      </div>
-                      <p className="text-xs text-white/40 mt-1">Page {field.page}</p>
-                      {/* ⭐ NEW: Show required indicator for attachments */}
-        {field.type === 'attachment' && field.isRequired && !isFilled && (
-          <span className="inline-block mt-1 text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">
-            Required
-          </span>
-        )}
-                    </div>
-                  )
-                })}
-              </div>
-              {/* Delegate Signing Button */}
-{!isAwaitingTurn && !completed && !isDelegatedMode && (
-  <button
-    onClick={() => setShowDelegateModal(true)}
-    disabled={submitting}
-    className="w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 border-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed mb-3"
-  >
-    <UserPlus className="h-5 w-5" />
-    Delegate to Someone Else
-  </button>
-)}
 
-{/* ⭐ NEW: Intent Video Status Indicator */}
-{intentVideoRequired && (
-  <div className={`mb-3 p-3 rounded-lg border ${
-    intentVideoBlob 
-      ? 'bg-green-50 border-green-200' 
-      : 'bg-yellow-50 border-yellow-200'
-  }`}>
-    <div className="flex items-center gap-2">
-      <Camera className={`h-5 w-5 ${
-        intentVideoBlob ? 'text-green-600' : 'text-yellow-600'
-      }`} />
-      <div className="flex-1">
-        <p className={`text-sm font-semibold ${
-          intentVideoBlob ? 'text-green-900' : 'text-yellow-900'
-        }`}>
-          {intentVideoBlob ? '✅ Video Recorded' : '📹 Video Recording Required'}
-        </p>
-        <p className={`text-xs ${
-          intentVideoBlob ? 'text-green-700' : 'text-yellow-700'
-        }`}>
-          {intentVideoBlob 
-            ? 'Your acknowledgement has been captured' 
-            : 'Click "Complete Signing" to record your video'
-          }
-        </p>
-      </div>
-    </div>
-  </div>
-)}
-
-{!allFieldsFilled && (
-  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-    <p className="text-sm font-semibold text-red-900 mb-2">
-      ⚠️ Missing Required Fields:
-    </p>
-    <ul className="text-xs text-red-700 space-y-1">
-      {myFields
-        .filter(f => !signatures[f.id])
-        .map(f => (
-          <li key={f.id}>
-            • Page {f.page}: {f.type} field
-            <button
-              onClick={() => scrollToField(f.id)}
-              className="ml-2 text-blue-600 underline"
-            >
-              Go there
-            </button>
-          </li>
-        ))}
-    </ul>
-  </div>
-)}
-
-{/* Terms & Conditions - DocSend style */}
-{!viewOnlyMode && !isDelegatedMode && !isAwaitingTurn && (
-  <div className="mb-3 p-3 rounded-lg"
-    style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
-    <label className="flex items-start gap-3 cursor-pointer">
-      <div className="flex-shrink-0 mt-0.5">
-        <input
-          type="checkbox"
-          checked={agreedToTerms}
-          onChange={(e) => setAgreedToTerms(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-500 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-        />
-      </div>
-      <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
-        {'I agree to use electronic records and signatures and to DocMetrics\' '}
-        <span
-          className="underline font-medium cursor-pointer"
-          style={{ color: '#a5b4fc' }}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open('/terms', '_blank'); }}
-        >
-          Terms and Conditions
-        </span>
-        {'. By signing, I confirm that I have reviewed and agree to the contents of this document.'}
-      </p>
-    </label>
-  </div>
-)}
-{/* Complete Signing Button */}
-<button
-  onClick={completeSignature}
-  disabled={!allFieldsFilled || submitting || isAwaitingTurn || viewOnlyMode || isDelegatedMode || !agreedToTerms}
-  className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-    allFieldsFilled && !submitting && !isAwaitingTurn && !viewOnlyMode && !isDelegatedMode && agreedToTerms  && !(intentVideoRequired && !intentVideoBlob) // ⭐ ADD viewOnlyMode
-      ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
-      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-  }`}
->
-
-            
-  {viewOnlyMode || isDelegatedMode ? ( //   ADD isDelegatedMode
-  <>
-    <Eye className="h-5 w-5" />
-    {isDelegatedMode ? 'You Delegated This' : 'View-Only Access'} 
-  </>
-) : submitting ? (
-    <>
-      <Loader2 className="h-5 w-5 animate-spin" />
-      Submitting...
-    </>
-  ) : isAwaitingTurn ? (
-    <>
-      <Clock className="h-5 w-5" />
-      Waiting for Your Turn
-    </>
- ) : selfieRequired && !selfieVerified ? (
-  <>
-    <Camera className="h-5 w-5" />
-    Verify Identity & Sign
-  </>
-) : intentVideoRequired && !intentVideoBlob ? ( //   ADD THIS
-  <>
-    <Camera className="h-5 w-5" />
-    Record Video & Sign
-  </>
-) : allFieldsFilled ? (
-  <>
-    <Check className="h-5 w-5" />
-    Complete Signing
-  </>
-  ) : (
-    'Complete All Fields'
-  )}
-</button>
-  {/* Decline to Sign Button */}
-  {!isAwaitingTurn && !isDelegatedMode && (
-    <button
-      onClick={() => setShowDeclineModal(true)}
-      disabled={submitting}
-      className="w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 border-2 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      <X className="h-5 w-5" />
-      Decline to Sign
-    </button>
-  )}
-
-  <p className="text-xs text-slate-500 text-center mt-2">
-    By clicking "Complete Signing", you agree that your signature is legally binding.
-  </p>
-            </div>
-            
-          </div>
-        </div>
-      </div>
-      {/* Floating Navigator - Fields & Pages */}
-<div className="fixed bottom-6 right-6 bg-white rounded-lg shadow-2xl z-50 max-w-xs">
-  {/* Tab Switcher */}
-  <div className="flex border-b">
-    <button
-      onClick={() => setNavigatorTab('fields')}
-      className={`flex-1 px-4 py-2 text-xs font-semibold transition-colors ${
-        navigatorTab === 'fields'
-          ? 'bg-purple-50 text-purple-700 border-b-2 border-purple-600'
-          : 'text-slate-500 hover:text-slate-700'
-      }`}
-    >
-      Your Fields ({Object.keys(signatures).filter(id => myFields.some(f => f.id === id)).length}/{myFields.length})
-    </button>
-    <button
-      onClick={() => setNavigatorTab('pages')}
-      className={`flex-1 px-4 py-2 text-xs font-semibold transition-colors ${
-        navigatorTab === 'pages'
-          ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
-          : 'text-slate-500 hover:text-slate-700'
-      }`}
-    >
-      Pages (1-{document.numPages})
-    </button>
-  </div>
-
-  <div className="p-4">
-    {/* Fields Tab */}
-    {navigatorTab === 'fields' && (
-      <>
-        <div className="space-y-2 max-h-64 overflow-y-auto">
-          {myFields.map((field, idx) => {
-            const isFilled = field.type === 'attachment' 
-              ? (attachments[field.id]?.length > 0) 
-              : signatures[field.id];
-            
-            return (
-              <button
-                key={field.id}
-                onClick={() => {
-                  // Calculate the exact position on the PDF
-                  const pageHeight = 297 * 3.78; // mm to pixels
-                  const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
-                  
-                  // Scroll to that position with offset for header
-                  window.scrollTo({
-                    top: topPosition - 100, // 100px offset for sticky header
-                    behavior: 'smooth'
-                  });
-                  
-                  // Highlight the field briefly
-                  setTimeout(() => {
-                    if (typeof window !== 'undefined') {
-                      const fieldElement = window.document.querySelector(`[data-field-id="${field.id}"]`);
-                      if (fieldElement) {
-                        fieldElement.classList.add('ring-4', 'ring-purple-500', 'ring-opacity-50');
-                        setTimeout(() => {
-                          fieldElement.classList.remove('ring-4', 'ring-purple-500', 'ring-opacity-50');
-                        }, 2000);
-                      }
-                    }
-                  }, 500);
-                }}
-                className={`w-full text-left px-3 py-2 rounded text-xs transition-colors ${
-                  isFilled
-                    ? 'bg-green-50 text-green-700 border border-green-200' 
-                    : 'bg-yellow-50 text-yellow-700 border border-yellow-200 hover:bg-yellow-100'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span>
-                    {isFilled ? '✓' : '○'} Page {field.page}
-                  </span>
-                  <span className="text-xs opacity-75">
-                    {field.type === 'signature' ? '✍️' :
-                     field.type === 'date' ? '📅' :
-                     field.type === 'text' ? '📝' :
-                     field.type === 'checkbox' ? '☑️' :
-                     field.type === 'attachment' ? '📎' :
-                     field.type === 'dropdown' ? '📋' :
-                     field.type === 'radio' ? '⭕' : '📄'}
-                  </span>
-                </div>
-                <p className="text-xs opacity-60 mt-0.5 truncate">
-                  {field.type === 'signature' ? 'Signature' :
-                   field.type === 'date' ? 'Date' :
-                   field.type === 'text' ? 'Text Field' :
-                   field.type === 'checkbox' ? field.label || 'Checkbox' :
-                   field.type === 'attachment' ? field.attachmentLabel || 'Attachment' :
-                   field.type === 'dropdown' ? field.label || 'Dropdown' :
-                   field.type === 'radio' ? field.label || 'Radio Button' : 'Field'}
-                </p>
-              </button>
-            );
-          })}
-        </div>
-        <button
-          onClick={() => {
-            const nextField = myFields.find(f => {
-              const isFilled = f.type === 'attachment' 
-                ? (attachments[f.id]?.length > 0) 
-                : signatures[f.id];
-              return !isFilled;
-            });
-            
-            if (nextField) {
-              const pageHeight = 297 * 3.78;
-              const topPosition = ((nextField.page - 1) * pageHeight) + (nextField.y / 100 * pageHeight);
-              
-              window.scrollTo({
-                top: topPosition - 100,
-                behavior: 'smooth'
-              });
-              
-              setTimeout(() => {
-                if (typeof window !== 'undefined') {
-                  const fieldElement = window.document.querySelector(`[data-field-id="${nextField.id}"]`);
-                  if (fieldElement) {
-                    fieldElement.classList.add('ring-4', 'ring-purple-500', 'ring-opacity-50');
-                    setTimeout(() => {
-                      fieldElement.classList.remove('ring-4', 'ring-purple-500', 'ring-opacity-50');
-                    }, 2000);
-                  }
-                }
-              }, 500);
-            }
-          }}
-          disabled={allFieldsFilled}
-          className="w-full mt-3 bg-purple-600 text-white py-2 rounded text-sm hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-        >
-          <span>Next Field</span>
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </>
-    )}
-
-    {/* Pages Tab */}
-    {navigatorTab === 'pages' && (
-      <>
-        <p className="text-xs text-slate-600 mb-3">
-          Jump to any page to read the document
-        </p>
-        <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
-          {Array.from({ length: document.numPages }, (_, i) => i + 1).map((pageNum) => {
-            // Check if this page has any of the user's fields
-            const hasMyField = myFields.some(f => f.page === pageNum);
-            const hasFilledField = myFields.some(f => 
-              f.page === pageNum && (
-                f.type === 'attachment' 
-                  ? (attachments[f.id]?.length > 0) 
-                  : signatures[f.id]
-              )
-            );
-            
-            return (
-              <button
-                key={pageNum}
-                onClick={() => {
-                  const pageHeight = 297 * 3.78; // mm to pixels
-                  const topPosition = (pageNum - 1) * pageHeight;
-                  
-                  window.scrollTo({
-                    top: topPosition - 80, // Offset for header
-                    behavior: 'smooth'
-                  });
-                }}
-                className={`relative px-3 py-4 rounded-lg text-sm font-medium transition-all ${
-                  hasFilledField
-                    ? 'bg-green-100 text-green-700 border-2 border-green-400'
-                    : hasMyField
-                    ? 'bg-yellow-100 text-yellow-700 border-2 border-yellow-400'
-                    : 'bg-slate-100 text-slate-700 border-2 border-slate-200 hover:bg-slate-200'
-                }`}
-              >
-                {pageNum}
-                {hasFilledField && (
-                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-white" />
-                )}
-                {hasMyField && !hasFilledField && (
-                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-yellow-500 rounded-full border-2 border-white" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-        
-        {/* Quick Jump Buttons */}
-        <div className="flex gap-2 mt-3">
-          <button
-            onClick={() => {
-              window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-              });
-            }}
-            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 flex items-center justify-center gap-1"
-          >
-            <ChevronLeft className="h-3 w-3" />
-            First Page
-          </button>
-          <button
-            onClick={() => {
-              const pageHeight = 297 * 3.78;
-              const lastPagePosition = (document.numPages - 1) * pageHeight;
-              window.scrollTo({
-                top: lastPagePosition - 80,
-                behavior: 'smooth'
-              });
-            }}
-            className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 flex items-center justify-center gap-1"
-          >
-            Last Page
-            <ChevronRight className="h-3 w-3" />
-          </button>
-        </div>
-      </>
-    )}
-  </div>
-</div>
       <SignatureStyleModal
   isOpen={activeField !== null}
   onClose={() => {
