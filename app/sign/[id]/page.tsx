@@ -2,13 +2,15 @@
 
 "use client"
 import React, { useState, useRef, useEffect } from 'react';
-import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download, CheckSquare, Square, Paperclip, Camera, UserPlus, Eye } from 'lucide-react';
+import { FileText, Check, AlertCircle, X, FileSignature, Loader2, Clock, ChevronLeft, ChevronRight, Download, CheckSquare, Square, Paperclip, Camera, UserPlus, Eye, Mail  } from 'lucide-react';
 import { SignatureStyleModal } from '@/components/SignatureStyleModal';
 import { AttachmentModal } from '@/components/AttachmentModal';
 import { AccessCodeModal } from '@/components/AccessCodeModal';
 import { SelfieVerificationModal } from '@/components/SelfieVerificationModal';
 import { DelegateSigningModal } from '@/components/DelegateSigningModal';
 import { useRouter } from 'next/navigation';
+import { toast, Toaster } from 'sonner';
+
 
 
 
@@ -123,6 +125,13 @@ const [mediaRecorderRef, setMediaRecorderRef] = useState<MediaRecorder | null>(n
 const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 const [lastSaved, setLastSaved] = useState<Date | null>(null);
 const [navigatorTab, setNavigatorTab] = useState<'fields' | 'pages'>('fields');
+const [showMessagePopover, setShowMessagePopover] = useState(false);
+const [showHelpPopover, setShowHelpPopover] = useState(false);
+const [messageToSender, setMessageToSender] = useState('');
+const [messageSentToSender, setMessageSentToSender] = useState(false);
+const [isSendingMessage, setIsSendingMessage] = useState(false);
+const [documentOwnerEmail, setDocumentOwnerEmail] = useState<string | null>(null);
+const [agreedToTerms, setAgreedToTerms] = useState(false);
 
 // ⭐ STEP 1: Load saved progress when page loads
 useEffect(() => {
@@ -384,6 +393,13 @@ if (signatureRequest.intentVideoRequired) {
   }
 }
 
+
+
+const ownerRes = await fetch(`/api/signature/${signatureId}/owner-info`);
+if (ownerRes.ok) {
+  const ownerData = await ownerRes.json();
+  setDocumentOwnerEmail(ownerData.email || null);
+}
 
 //   CHECK IF SELFIE VERIFICATION IS REQUIRED
 // ONLY enable selfie if access code was USED and VERIFIED (check BOTH DB and local state)
@@ -1253,118 +1269,293 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
 
   
   return (
-    <div className="min-h-screen bg-slate-100">
-      <div className="bg-white border-b shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+    <div className="min-h-screen bg-slate-900">
+      <Toaster position="top-center" richColors />
+<div className="bg-[#1a1a2e] border-b border-white/10 sticky top-0 z-40">
+  <div className="flex items-center justify-between px-6 py-3">
 
-          {/* View-Only Mode Banner */}
-{/* View-Only Mode Banner */}
-{viewOnlyMode && (reassignmentInfo || delegationInfo) && (
-  <div className="max-w-7xl mx-auto px-4 py-3 mb-4">
-    <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
-      <div className="flex items-start gap-3">
-        <AlertCircle className="h-6 w-6 text-blue-600 flex-shrink-0 mt-0.5" />
-        <div className="flex-1">
-          {delegationInfo ? (
+    {/* Left: DocMetrics branding */}
+    <div className="flex items-center gap-3 min-w-0 flex-1">
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)' }}>
+          <FileText className="h-4 w-4 text-white" />
+        </div>
+        <div className="min-w-0">
+          <span className="font-semibold text-white text-sm">DocMetrics</span>
+          <p className="text-xs text-white/40 truncate max-w-[200px]">{document.filename}</p>
+        </div>
+      </div>
+    </div>
+
+    {/* Center: Progress */}
+    <div className="flex items-center gap-3 flex-shrink-0">
+      <span className="text-xs font-medium px-3 py-1.5 rounded-full tabular-nums"
+        style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: '#a5b4fc' }}>
+        {Object.keys(signatures).filter(id => myFields.some(f => f.id === id)).length}
+        <span className="text-white/30 mx-1">/</span>
+        <span className="text-indigo-300">{myFields.length} fields</span>
+      </span>
+    </div>
+
+    {/* Right: Tools */}
+    <div className="flex-1 flex justify-end">
+      <div className="flex items-center gap-1">
+
+        {/* Auto-save indicator */}
+        {autoSaveStatus === 'saving' && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-white/50">
+            <div className="animate-spin h-3 w-3 border-2 border-white/30 border-t-white/70 rounded-full" />
+            Saving...
+          </div>
+        )}
+        {autoSaveStatus === 'saved' && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-green-400">
+            <Check className="h-3 w-3" />
+            Saved
+          </div>
+        )}
+
+        {/* Message icon */}
+        <div className="relative">
+          <button
+            onClick={() => setShowMessagePopover(v => !v)}
+            className="h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-white/10 group relative"
+            style={{ background: showMessagePopover ? 'rgba(99,102,241,0.2)' : 'transparent' }}
+          >
+            <Mail className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" />
+            <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              Message Sender
+            </span>
+          </button>
+
+          {showMessagePopover && (
             <>
-              <h3 className="font-semibold text-blue-900 mb-1">
-                👁️ View-Only Mode - You Delegated This Document
-              </h3>
-              <p className="text-sm text-blue-800">
-                You delegated signing authority to{' '}
-                <strong>{delegationInfo.delegatedTo?.name}</strong> (
-                {delegationInfo.delegatedTo?.email}). 
-                {delegationInfo.delegatedTo?.reason && (
-                  <span className="block mt-1">
-                    <strong>Reason:</strong> {delegationInfo.delegatedTo.reason}
-                  </span>
-                )}
-              </p>
-              <p className="text-sm text-blue-700 mt-2">
-                You can view the document but cannot sign. Your delegate will sign on your behalf.
-              </p>
-            </>
-          ) : (
-            <>
-              <h3 className="font-semibold text-blue-900 mb-1">
-                👁️ View-Only Mode
-              </h3>
-              <p className="text-sm text-blue-800">
-                This document was reassigned to{' '}
-                <strong>{reassignmentInfo.currentRecipient?.name}</strong> (
-                {reassignmentInfo.currentRecipient?.email}). You can view the document but cannot sign.
-              </p>
+              <div className="fixed inset-0 z-40" onClick={() => setShowMessagePopover(false)} />
+              <div className="absolute right-0 top-12 z-50 w-80 rounded-xl shadow-2xl overflow-hidden"
+                style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="flex items-center gap-3">
+  <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+    style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+    {documentOwnerEmail ? documentOwnerEmail[0].toUpperCase() : '?'}
+  </div>
+  <div>
+    <p className="text-sm font-semibold text-white truncate max-w-[180px]">
+      {documentOwnerEmail || 'Document Owner'}
+    </p>
+    <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>Document sender</p>
+  </div>
+</div>
+                </div>
+                <div className="px-5 py-4">
+                  <p className="text-xs font-semibold text-white mb-3">Send a message</p>
+                  {messageSentToSender ? (
+                    <div className="flex flex-col items-center justify-center py-4 gap-2">
+                      <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                        <Check className="h-5 w-5 text-green-400" />
+                      </div>
+                      <p className="text-sm font-semibold text-white">Message sent!</p>
+                      <button onClick={() => { setMessageSentToSender(false); setMessageToSender(''); }}
+                        className="mt-1 text-xs underline" style={{ color: 'rgba(165,180,252,0.7)' }}>
+                        Send another
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <textarea
+                        value={messageToSender}
+                        onChange={(e) => setMessageToSender(e.target.value)}
+                        placeholder="Type your message to the document owner..."
+                        className="w-full rounded-lg px-3 py-2.5 text-sm resize-none outline-none text-white"
+                        rows={3}
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      />
+                      <div className="mt-3 flex items-center justify-between">
+                        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                          From: <span style={{ color: '#a5b4fc' }}>{recipient.email}</span>
+                        </p>
+                        <button
+                          disabled={!messageToSender.trim() || isSendingMessage}
+                         onClick={async () => {
+  if (!messageToSender.trim()) return;
+  setIsSendingMessage(true);
+  try {
+    const res = await fetch(`/api/signature/${signatureId}/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: messageToSender.trim(),
+        senderEmail: recipient.email,
+        sessionId: `sign-${signatureId}`,
+      }),
+    });
+    if (res.ok) {
+      setMessageSentToSender(true);
+      toast.success('Message sent successfully!');
+    } else {
+      const err = await res.json();
+      toast.error(err.error || 'Failed to send message');
+    }
+  } catch (err) {
+    console.error('Failed to send message:', err);
+    toast.error('Network error — please try again');
+  } finally {
+    setIsSendingMessage(false);
+  }
+}}
+                          className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40"
+                          style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+                        >
+                          {isSendingMessage ? 'Sending...' : 'Send'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </>
           )}
+        </div>
+
+        {/* Help icon */}
+        <div className="relative">
+          <button
+            onClick={() => setShowHelpPopover(v => !v)}
+            className="h-9 w-9 rounded-lg flex items-center justify-center transition-all hover:bg-white/10 group relative"
+            style={{ background: showHelpPopover ? 'rgba(99,102,241,0.2)' : 'transparent' }}
+          >
+            <AlertCircle className="h-5 w-5 text-white/70 group-hover:text-white transition-colors" />
+            <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-xs bg-slate-800 text-white px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              Help
+            </span>
+          </button>
+
+          {showHelpPopover && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowHelpPopover(false)} />
+              <div className="absolute right-0 top-12 z-50 w-72 rounded-xl shadow-2xl p-5"
+                style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                    <FileText className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">DocMetrics</p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Secure E-Signature</p>
+                  </div>
+                </div>
+                <p className="text-xs leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                  Your signature is encrypted, timestamped, and legally binding. All activity is logged for audit purposes.
+                </p>
+                <div className="space-y-2">
+                  {[
+                    { icon: '🔒', text: 'End-to-end encrypted' },
+                    { icon: '⚖️', text: 'Legally binding signature' },
+                    { icon: '📋', text: 'Full audit trail maintained' },
+                  ].map(b => (
+                    <div key={b.text} className="flex items-center gap-2">
+                      <span>{b.icon}</span>
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{b.text}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <span
+  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold text-white transition-all cursor-pointer"
+  style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+  onClick={() => { setShowHelpPopover(false); window.open('/about', '_blank'); }}
+>
+  Learn more about DocMetrics →
+</span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Awaiting turn badge */}
+        {isAwaitingTurn && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs"
+            style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', color: '#fbbf24' }}>
+            <Clock className="h-3.5 w-3.5" />
+            Awaiting turn
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+
+  {/* Progress bar */}
+  <div className="h-0.5 w-full bg-white/5">
+    <div className="h-full transition-all duration-300"
+      style={{
+        width: `${myFields.length > 0 ? (Object.keys(signatures).filter(id => myFields.some(f => f.id === id)).length / myFields.length) * 100 : 0}%`,
+        background: 'linear-gradient(90deg, #6366f1, #8b5cf6)'
+      }} />
+  </div>
+</div>
+
+{/* View-Only Mode Banner */}
+{viewOnlyMode && (reassignmentInfo || delegationInfo) && (
+  <div className="px-4 py-3">
+    <div className="max-w-7xl mx-auto">
+      <div className="bg-blue-950/50 border border-blue-500/30 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            {delegationInfo ? (
+              <>
+                <h3 className="font-semibold text-blue-200 mb-1">
+                  👁️ View-Only — You Delegated This Document
+                </h3>
+                <p className="text-sm text-blue-300">
+                  You delegated signing authority to{' '}
+                  <strong>{delegationInfo.delegatedTo?.name}</strong> ({delegationInfo.delegatedTo?.email}).
+                  {delegationInfo.delegatedTo?.reason && (
+                    <span className="block mt-1"><strong>Reason:</strong> {delegationInfo.delegatedTo.reason}</span>
+                  )}
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="font-semibold text-blue-200 mb-1">👁️ View-Only Mode</h3>
+                <p className="text-sm text-blue-300">
+                  This document was reassigned to{' '}
+                  <strong>{reassignmentInfo.currentRecipient?.name}</strong> ({reassignmentInfo.currentRecipient?.email}).
+                  You can view but cannot sign.
+                </p>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
   </div>
 )}
 
-
-{/* Auto-Save Indicator */}
-<div className="flex items-center gap-2 text-sm">
-  {autoSaveStatus === 'saving' && (
-    <div className="flex items-center gap-2 text-slate-600">
-      <div className="animate-spin h-4 w-4 border-2 border-slate-400 border-t-transparent rounded-full" />
-      <span>Saving...</span>
-    </div>
-  )}
-  
-  {autoSaveStatus === 'saved' && lastSaved && (
-    <div className="flex items-center gap-2 text-green-600">
-      <Check className="h-4 w-4" />
-      <span>Saved {new Date().getTime() - lastSaved.getTime() < 60000 
-        ? 'just now' 
-        : `${Math.floor((new Date().getTime() - lastSaved.getTime()) / 60000)}m ago`}
-      </span>
-    </div>
-  )}
-  
-  {autoSaveStatus === 'error' && (
-    <div className="flex items-center gap-2 text-red-600">
-      <AlertCircle className="h-4 w-4" />
-      <span>Save failed</span>
-    </div>
-  )}
-</div>
-          {/*   ADD WARNING BANNER if awaiting turn */}
-          {isAwaitingTurn && (
-            <div className="mb-3 bg-amber-50 border border-amber-300 rounded-lg p-3">
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-amber-600 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-amber-900">Waiting for Previous Signer</p>
-                  <p className="text-xs text-amber-700">
-                    You can view the document below, but you cannot sign yet. You'll be notified via email when it's your turn.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <FileText className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <h1 className="font-semibold text-slate-900">{document.filename}</h1>
-                <p className="text-sm text-slate-500">Signing as: {recipient.name}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
-                {Object.keys(signatures).filter(id => myFields.some(f => f.id === id)).length} / {myFields.length} your fields completed
-              </span>
-            </div>
+{/* Awaiting Turn Banner */}
+{isAwaitingTurn && (
+  <div className="px-4 py-3">
+    <div className="max-w-7xl mx-auto">
+      <div className="bg-amber-950/50 border border-amber-500/30 rounded-lg p-4">
+        <div className="flex items-center gap-3">
+          <Clock className="h-5 w-5 text-amber-400 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-200">Waiting for Previous Signer</p>
+            <p className="text-xs text-amber-400 mt-0.5">
+              You can review the document, but signing is disabled until the previous signer completes.
+            </p>
           </div>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto p-6 sm:p-6">
+    </div>
+  </div>
+)}
+      <div className="max-w-7xl mx-auto p-6 sm:p-6 bg-slate-900 min-h-screen pt-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 order-2 lg:order-1">
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+            <div className="rounded-lg shadow-2xl overflow-hidden bg-slate-800">
               <div id="pdf-signing-container" className="relative" style={{ minHeight: `${297 * document.numPages}mm` }}>
                 {pdfUrl ? (
                   <>
@@ -1649,7 +1840,8 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
             </div>
           </div>
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-lg p-6 sticky top-24">
+<div className="rounded-xl shadow-2xl p-6 sticky top-24"
+  style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}>
 
               {/*   ADD status indicator at top */}
     {isAwaitingTurn && (
@@ -1663,10 +1855,10 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
         </p>
       </div>
     )}
-              <h3 className="font-semibold text-slate-900 mb-4">Signature Progress</h3>
+              <h3 className="font-semibold text-white mb-4">Signature Progress</h3>
 
               <div className="mb-6">
-                <div className="flex justify-between text-sm text-slate-600 mb-2">
+                <div className="flex justify-between text-sm text-white/60 mb-2">
                   <span>Completed</span>
                   <span>{Object.keys(signatures).length} / {myFields.length}</span>
                 </div>
@@ -1712,7 +1904,7 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
                           <Check className="h-4 w-4 text-green-600" />
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-1">Page {field.page}</p>
+                      <p className="text-xs text-white/40 mt-1">Page {field.page}</p>
                       {/* ⭐ NEW: Show required indicator for attachments */}
         {field.type === 'attachment' && field.isRequired && !isFilled && (
           <span className="inline-block mt-1 text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded">
@@ -1788,16 +1980,45 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
   </div>
 )}
 
-             {/* Complete Signing Button */}
-  <button
- onClick={completeSignature}
-  disabled={!allFieldsFilled || submitting || isAwaitingTurn || viewOnlyMode || isDelegatedMode} // ⭐ ADD viewOnlyMode
+{/* Terms & Conditions - DocSend style */}
+{!viewOnlyMode && !isDelegatedMode && !isAwaitingTurn && (
+  <div className="mb-3 p-3 rounded-lg"
+    style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
+    <label className="flex items-start gap-3 cursor-pointer">
+      <div className="flex-shrink-0 mt-0.5">
+        <input
+          type="checkbox"
+          checked={agreedToTerms}
+          onChange={(e) => setAgreedToTerms(e.target.checked)}
+          className="h-4 w-4 rounded border-slate-500 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+        />
+      </div>
+      <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
+        {'I agree to use electronic records and signatures and to DocMetrics\' '}
+        <span
+          className="underline font-medium cursor-pointer"
+          style={{ color: '#a5b4fc' }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open('/terms', '_blank'); }}
+        >
+          Terms and Conditions
+        </span>
+        {'. By signing, I confirm that I have reviewed and agree to the contents of this document.'}
+      </p>
+    </label>
+  </div>
+)}
+{/* Complete Signing Button */}
+<button
+  onClick={completeSignature}
+  disabled={!allFieldsFilled || submitting || isAwaitingTurn || viewOnlyMode || isDelegatedMode || !agreedToTerms}
   className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-    allFieldsFilled && !submitting && !isAwaitingTurn && !viewOnlyMode && !isDelegatedMode && !(intentVideoRequired && !intentVideoBlob) // ⭐ ADD viewOnlyMode
+    allFieldsFilled && !submitting && !isAwaitingTurn && !viewOnlyMode && !isDelegatedMode && agreedToTerms  && !(intentVideoRequired && !intentVideoBlob) // ⭐ ADD viewOnlyMode
       ? 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl'
       : 'bg-slate-200 text-slate-400 cursor-not-allowed'
   }`}
 >
+
+            
   {viewOnlyMode || isDelegatedMode ? ( //   ADD isDelegatedMode
   <>
     <Eye className="h-5 w-5" />
