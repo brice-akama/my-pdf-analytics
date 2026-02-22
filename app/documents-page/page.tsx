@@ -562,7 +562,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
+    <div className="min-h-screen bg-white">
 
        {/* ✅ DIFFERENT MESSAGE FOR DOCUMENTS PAGE */}
             <PageInfoTooltip 
@@ -571,292 +571,305 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               position="top"
             />
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur">
-      
-        <div className="flex h-16 items-center gap-4 px-4 md:px-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push('/dashboard')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8">
-              <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
-                <defs>
-                  <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style={{stopColor:"#8B5CF6", stopOpacity:1}} />
-                    <stop offset="100%" style={{stopColor:"#3B82F6", stopOpacity:1}} />
-                  </linearGradient>
-                </defs>
-                <path d="M 60 50 L 60 150 L 140 150 L 140 70 L 120 50 Z" fill="url(#logoGrad)"/>
-                <rect x="75" y="100" width="12" height="30" fill="white" opacity="0.9" rx="2"/>
-                <rect x="94" y="85" width="12" height="45" fill="white" opacity="0.9" rx="2"/>
-                <rect x="113" y="70" width="12" height="60" fill="white" opacity="0.9" rx="2"/>
-              </svg>
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              DocMetrics
-            </span>
-          </div>
+      <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white">
+  <div className="grid grid-cols-3 h-16 items-center px-4 md:px-6 gap-4">
 
-          <div className="flex-1 flex justify-center px-8">
-            <div className="relative w-full max-w-xl">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-  type="search"
-  placeholder="Search documents..."
-  className="w-full pl-10 bg-slate-50 border-slate-200"
-  value={searchQuery}
-  onChange={(e) => {
-    const value = e.target.value;
-    setSearchQuery(value);
-    handleSearch(value);
-  }}
-/>
-            </div>
-          </div>
+  {/* LEFT — back + logo */}
+  <div className="flex items-center gap-2">
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => router.push('/dashboard')}
+      className="flex-shrink-0 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl"
+    >
+      <ArrowLeft className="h-5 w-5" />
+    </Button>
+    <div className="flex items-center gap-2">
+      <div className="h-8 w-8 flex-shrink-0">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
+          <defs>
+            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style={{stopColor:"#8B5CF6", stopOpacity:1}} />
+              <stop offset="100%" style={{stopColor:"#3B82F6", stopOpacity:1}} />
+            </linearGradient>
+          </defs>
+          <path d="M 60 50 L 60 150 L 140 150 L 140 70 L 120 50 Z" fill="url(#logoGrad)"/>
+          <rect x="75" y="100" width="12" height="30" fill="white" opacity="0.9" rx="2"/>
+          <rect x="94" y="85" width="12" height="45" fill="white" opacity="0.9" rx="2"/>
+          <rect x="113" y="70" width="12" height="60" fill="white" opacity="0.9" rx="2"/>
+        </svg>
+      </div>
+      <span className="text-base font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent hidden sm:block">
+        DocMetrics
+      </span>
+    </div>
+  </div>
 
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-          >
-            <Upload className="h-4 w-4" />
-            Upload
-          </Button>
-        </div>
-      </header>
+  {/* CENTER — search */}
+  <div className="flex justify-center">
+    <div className="relative w-full max-w-md">
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <Input
+          type="search"
+          placeholder="Search documents..."
+          className="w-full pl-9 h-9 bg-slate-50 border-slate-200 rounded-xl text-sm focus:bg-white transition-colors"
+          value={searchQuery}
+          onChange={(e) => {
+            const value = e.target.value;
+            setSearchQuery(value);
+            handleSearch(value);
+          }}
+        />
+    </div>
+  </div>
+
+  {/* RIGHT — upload */}
+  <div className="flex justify-end">
+    <Button
+      onClick={() => fileInputRef.current?.click()}
+      size="sm"
+      className="gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-4"
+    >
+      <Upload className="h-4 w-4" />
+      <span className="hidden sm:inline">Upload</span>
+    </Button>
+  </div>
+
+</div>
+</header>
+
 
       <div className="flex">
         {/* Sidebar */}
-       <aside className="hidden lg:flex w-64 flex-col border-r bg-white/80 backdrop-blur min-h-screen">
-  <nav className="flex-1 space-y-1 p-4">
-    {/* ⭐ NEW: Create Dropdown Menu */}
-<DropdownMenu  open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
-  <DropdownMenuTrigger asChild>
-        <Button className="w-full gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 mb-6">
+      <aside className="hidden lg:flex w-60 flex-col border-r border-slate-200 bg-white min-h-screen flex-shrink-0">
+  <nav className="flex-1 p-4 space-y-6">
+
+    {/* Create button */}
+    <DropdownMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm h-9">
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Create
+          Create New
         </Button>
       </DropdownMenuTrigger>
-  
-  <DropdownMenuContent align="end" className="w-80 bg-white border shadow-lg">
-    {/* Document Option */}
-    <DropdownMenuItem
-      onClick={() => {
-        setCreateMenuOpen(false)
-        fileInputRef.current?.click()
-      }}
-      className="p-4 cursor-pointer"
-    >
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
-          <FileText className="h-5 w-5 text-white" />
-        </div>
-        <div className="flex-1">
-          <div className="font-semibold text-slate-900">Document</div>
-          <div className="text-sm text-slate-600">Upload a file to get it signed</div>
-        </div>
-      </div>
-    </DropdownMenuItem>
 
-    {/* Template Option */}
-    <DropdownMenuItem
-      onClick={() => {
-        setCreateMenuOpen(false)
-        fileInputRef.current?.click()
-      }}
-      className="p-4 cursor-pointer"
-    >
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-          <FolderOpen className="h-5 w-5 text-white" />
-        </div>
-        <div className="flex-1">
-          <div className="font-semibold text-slate-900">Template</div>
-          <div className="text-sm text-slate-600">Upload a file to resend it multiple times</div>
-        </div>
-      </div>
-    </DropdownMenuItem>
+      <DropdownMenuContent align="start" className="w-80 bg-white border border-slate-200 shadow-lg rounded-2xl p-1">
 
-    <div className="h-px bg-slate-200 my-2" />
+        <DropdownMenuItem
+          onClick={() => { setCreateMenuOpen(false); fileInputRef.current?.click(); }}
+          className="p-3 rounded-xl cursor-pointer hover:bg-slate-50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <FileText className="h-4 w-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Document</p>
+              <p className="text-xs text-slate-500">Upload a file to get it signed</p>
+            </div>
+          </div>
+        </DropdownMenuItem>
 
-    {/* Select from Existing Documents */}
-    <DropdownMenuItem
-      onClick={() => {
-        setCreateMenuOpen(false)
-        setBulkSelectionMode(true)
-        alert('💡 Select 2+ documents below and click "Send for Signature"')
-      }}
-      className="p-4 cursor-pointer"
-    >
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center flex-shrink-0">
-          <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        </div>
-        <div className="flex-1">
-          <div className="font-semibold text-slate-900">Select from Existing Documents</div>
-          <div className="text-sm text-slate-600">Choose documents you've already uploaded</div>
-        </div>
-      </div>
-    </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => { setCreateMenuOpen(false); fileInputRef.current?.click(); }}
+          className="p-3 rounded-xl cursor-pointer hover:bg-slate-50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+              <FolderOpen className="h-4 w-4 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Template</p>
+              <p className="text-xs text-slate-500">Reusable signable document</p>
+            </div>
+          </div>
+        </DropdownMenuItem>
 
-   {/* Create Document Group Template */}
-<DropdownMenuItem
-  onClick={() => {
-    setCreateMenuOpen(false)
-    router.push('/templates/group/create')
-  }}
-  className="p-3 cursor-pointer"
->
-  <div className="flex items-start gap-3">
-    <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-      <Folder className="h-4 w-4 text-white" />
-    </div>
-    <div className="flex-1">
-      <div className="font-semibold text-slate-900 text-sm">Create Group Template</div>
-      <div className="text-xs text-slate-600">Reusable multi-doc workflow</div>
-    </div>
-  </div>
-</DropdownMenuItem>
+        <div className="h-px bg-slate-100 my-1 mx-3" />
 
-    <div className="h-px bg-slate-200 my-2" />
+        <DropdownMenuItem
+          onClick={() => { setCreateMenuOpen(false); setBulkSelectionMode(true); }}
+          className="p-3 rounded-xl cursor-pointer hover:bg-slate-50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+              <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Select Existing</p>
+              <p className="text-xs text-slate-500">Choose from uploaded documents</p>
+            </div>
+          </div>
+        </DropdownMenuItem>
 
-    {/* Import from Cloud */}
-    <DropdownMenuItem
-      onClick={() => {
-        setCreateMenuOpen(false)
-        alert('🚧 Cloud Import coming soon!\n\nYou\'ll be able to import documents from:\n• Google Drive\n• Dropbox\n• OneDrive\n• Box')
-      }}
-      className="p-4 cursor-pointer"
-    >
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
-          <Upload className="h-5 w-5 text-white" />
-        </div>
-        <div className="flex-1">
-          <div className="font-semibold text-slate-900">Import from Cloud</div>
-          <div className="text-sm text-slate-600">Bring documents from Google Drive, Dropbox & more</div>
-        </div>
-      </div>
-    </DropdownMenuItem>
-  </DropdownMenuContent>
-</DropdownMenu>
-    {/* PERSONAL Section */}
-    <div className="mb-6">
+        <DropdownMenuItem
+          onClick={() => { setCreateMenuOpen(false); router.push('/templates/group/create'); }}
+          className="p-3 rounded-xl cursor-pointer hover:bg-slate-50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+              <Folder className="h-4 w-4 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Group Template</p>
+              <p className="text-xs text-slate-500">Multi-doc reusable workflow</p>
+            </div>
+          </div>
+        </DropdownMenuItem>
 
-      <div className="px-3 mb-2">
-        
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-          Personal
-        </span>
-      </div>
-      
-      <button 
-        onClick={() => setActiveView('documents')}
-        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium ${
-          activeView === 'documents' 
-            ? 'bg-purple-50 text-purple-700' 
-            : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors'
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <FileText className="h-5 w-5" />
-          <span>Documents</span>
-        </div>
-        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{documents.length}</span>
-      </button>
-      
-      <button 
-        onClick={() => setActiveView('templates')}
-        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-          activeView === 'templates' 
-            ? 'bg-purple-50 text-purple-700' 
-            : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <FolderOpen className="h-5 w-5" />
-          <span>Templates</span>
-        </div>
-        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{templates.length}</span>
-      </button>
-      
-      <button 
-        onClick={() => setActiveView('archive')}
-        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium transition-colors mt-1 ${
-          activeView === 'archive' 
-            ? 'bg-purple-50 text-purple-700' 
-            : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <Trash2 className="h-5 w-5" />
-          <span>Archive</span>
-        </div>
-        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">{archivedDocuments.length}</span>
-      </button>
-      <button 
-  onClick={() => router.push('/templates/group')}
-  className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
->
-  <div className="flex items-center gap-3">
-    <Folder className="h-5 w-5" />
-    <span>Group Templates</span>
-  </div>
-  <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">
-    {groupTemplatesCount}
-  </span>
-</button>
-    </div>
+        <div className="h-px bg-slate-100 my-1 mx-3" />
 
-    {/* TEAM Section */}
+        <DropdownMenuItem
+          onClick={() => { setCreateMenuOpen(false); }}
+          className="p-3 rounded-xl cursor-pointer hover:bg-slate-50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
+              <Upload className="h-4 w-4 text-indigo-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Import from Cloud</p>
+              <p className="text-xs text-slate-500">Google Drive, Dropbox & more</p>
+            </div>
+          </div>
+        </DropdownMenuItem>
+
+      </DropdownMenuContent>
+    </DropdownMenu>
+
+    {/* PERSONAL section */}
     <div>
-      <div className="px-3 mb-2 flex items-center justify-between">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2">
+        Personal
+      </p>
+      <div className="space-y-0.5">
+
+        <button
+          onClick={() => setActiveView('documents')}
+          className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+            activeView === 'documents'
+              ? 'bg-purple-50 text-purple-700'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <FileText className="h-4 w-4 flex-shrink-0" />
+            <span>Documents</span>
+          </div>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+            activeView === 'documents'
+              ? 'bg-purple-100 text-purple-700'
+              : 'bg-slate-100 text-slate-500'
+          }`}>
+            {documents.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveView('templates')}
+          className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+            activeView === 'templates'
+              ? 'bg-purple-50 text-purple-700'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <FolderOpen className="h-4 w-4 flex-shrink-0" />
+            <span>Templates</span>
+          </div>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+            activeView === 'templates'
+              ? 'bg-purple-100 text-purple-700'
+              : 'bg-slate-100 text-slate-500'
+          }`}>
+            {templates.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveView('archive')}
+          className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+            activeView === 'archive'
+              ? 'bg-purple-50 text-purple-700'
+              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <Trash2 className="h-4 w-4 flex-shrink-0" />
+            <span>Archive</span>
+          </div>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+            activeView === 'archive'
+              ? 'bg-purple-100 text-purple-700'
+              : 'bg-slate-100 text-slate-500'
+          }`}>
+            {archivedDocuments.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => router.push('/templates/group')}
+          className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <Folder className="h-4 w-4 flex-shrink-0" />
+            <span>Group Templates</span>
+          </div>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">
+            {groupTemplatesCount}
+          </span>
+        </button>
+
+      </div>
+    </div>
+
+    {/* TEAM section */}
+    <div>
+      <div className="flex items-center justify-between px-3 mb-2">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
           Team
-        </span>
-        <button className="h-5 w-5 rounded bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 transition-colors">
+        </p>
+        <button className="h-5 w-5 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
           <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
         </button>
       </div>
-      
-      <button 
-        onClick={() => {
-          // TODO: Implement team documents view
-          alert('🚧 Team Documents feature coming soon!')
-        }}
-        className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <FileText className="h-5 w-5" />
-          <span>Documents</span>
-        </div>
-        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">0</span>
-      </button>
-      
-      <button 
-        onClick={() => {
-          // TODO: Implement team templates view
-          alert('🚧 Team Templates feature coming soon!')
-        }}
-        className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg font-medium text-slate-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <FolderOpen className="h-5 w-5" />
-          <span>Templates</span>
-        </div>
-        <span className="text-xs bg-slate-100 px-2 py-0.5 rounded-full">0</span>
-      </button>
+      <div className="space-y-0.5">
+
+        <button
+          onClick={() => {}}
+          className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <FileText className="h-4 w-4 flex-shrink-0" />
+            <span>Documents</span>
+          </div>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">
+            0
+          </span>
+        </button>
+
+        <button
+          onClick={() => {}}
+          className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <FolderOpen className="h-4 w-4 flex-shrink-0" />
+            <span>Templates</span>
+          </div>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">
+            0
+          </span>
+        </button>
+
+      </div>
     </div>
+
   </nav>
 </aside>
 

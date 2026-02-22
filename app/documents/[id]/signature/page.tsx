@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ConditionalFieldBuilder from "@/components/ConditionalFieldBuilder";
+import { toast } from 'sonner';
 
 
 import {
@@ -126,6 +127,7 @@ const [draftSaving, setDraftSaving] = useState(false);
 const [draftLastSaved, setDraftLastSaved] = useState<Date | null>(null);
 const [draftLoaded, setDraftLoaded] = useState(false);
 const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+const [showTemplateSavedModal, setShowTemplateSavedModal] = useState(false);
 
 
   const [signatureRequest, setSignatureRequest] = useState<SignatureRequest>({
@@ -541,7 +543,9 @@ const loadDraft = async () => {
         setDraftLastSaved(new Date(data.draft.lastSaved));
         setDraftLoaded(true);
         
-        alert(`✅ Draft restored from ${new Date(data.draft.lastSaved).toLocaleString()}`);
+      toast.success('Draft restored', {
+  description: `Restored from ${new Date(data.draft.lastSaved).toLocaleString()}`,
+});
       }
     }
   } catch (error) {
@@ -570,7 +574,9 @@ const handleSendSignature = async () => {
     // Template mode: Just need role names (emails optional)
     const validRoles = signatureRequest.recipients.filter((r) => r.name);
     if (validRoles.length === 0) {
-      alert("Please add at least one role (e.g., 'Signer 1', 'Approver')");
+      toast.error('No roles defined', {
+  description: "Add at least one role like 'Signer 1' or 'Approver' before saving.",
+});
       return;
     }
   } else {
@@ -579,7 +585,9 @@ const handleSendSignature = async () => {
       (r) => r.name && r.email
     );
     if (validRecipients.length === 0) {
-      alert("Please add at least one recipient with name and email");
+      toast.error('No recipients added', {
+  description: 'Please add at least one recipient with a name and email address.',
+});
       return;
     }
   }
@@ -600,14 +608,13 @@ const handleSendSignature = async () => {
       });
       const data = await response.json();
       if (response.ok && data.success) {
-        alert("✅ Document saved as signable template!");
-        // Delete draft if exists (since we're saving as template)
-        await deleteDraft();
-        // Redirect back to document page
-        window.location.href = `/documents/${doc?._id}`;
-      } else {
-        alert(data.message || "Failed to save template");
-      }
+  await deleteDraft();
+  setShowTemplateSavedModal(true);
+} else {
+  toast.error('Failed to save template', {
+    description: data.message || 'Something went wrong. Please try again.',
+  });
+}
     } else {
       // ✅ SEND SIGNATURE REQUEST (mode=send or draft)
       console.log('📧 [SIGNATURE PAGE] Sending signature request...');
@@ -679,12 +686,16 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
 }
         setShowSuccessDialog(true);
       } else {
-        alert(data.message || "Failed to send signature request");
+        toast.error('Failed to send request', {
+  description: data.message || 'Something went wrong. Please try again.',
+});
       }
     }
   } catch (error) {
     console.error("Error:", error);
-    alert("Failed to process request");
+    toast.error('Something went wrong', {
+  description: 'Please check your connection and try again.',
+});
   } finally {
     setIsSending(false);
   }
@@ -784,7 +795,9 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
               if (mode === 'edit') {
                 const validRoles = signatureRequest.recipients.filter((r) => r.name);
                 if (validRoles.length === 0) {
-                  alert('Please add at least one role (e.g., "Client", "Manager")');
+toast.error('Please add at least one role', {
+  description: 'Add a role like "Client" or "Manager" to continue.',
+});
                   return;
                 }
               } else {
@@ -792,7 +805,9 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                   (r) => r.name && r.email
                 );
                 if (validRecipients.length === 0) {
-                  alert('Please add recipient names and email addresses');
+                  toast.error('Missing recipient details', {
+  description: 'Please add a name and email address for each recipient.',
+});
                   return;
                 }
               }
@@ -2208,10 +2223,10 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(item.link ?? "");
-                      alert('Link copied to clipboard!');
-                    }}
+onClick={() => {
+  navigator.clipboard.writeText(item.link ?? "");
+  toast.success('Link copied to clipboard');
+}}
                     className="flex-shrink-0"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2280,7 +2295,9 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
             .map((item) => `${item.recipient} (${item.email}): ${item.link}`)
             .join('\n\n');
           navigator.clipboard.writeText(allLinks);
-          alert('All links copied to clipboard!');
+toast.success('All links copied', {
+  description: `${(generatedLinks || []).length} signing links copied to clipboard.`,
+});
         }}
       >
         <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2617,9 +2634,11 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
     const validOptions = (editingFieldLogic?.options || []).filter(o => o.trim());
     
     if (validOptions.length < 2) {
-      alert('Please add at least 2 options');
-      return;
-    }
+  toast.error('Not enough options', {
+    description: 'Add at least 2 options for this field.',
+  });
+  return;
+}
     
     // Save with filtered options
     const updated = signatureRequest.signatureFields.map((f) =>
@@ -3261,19 +3280,25 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
         </Button>
         <Button
           onClick={() => {
-            if (signatureRequest.signatureFields.length === 0) {
-              alert('Please add at least one signature field');
-              return;
-            }
+           if (signatureRequest.signatureFields.length === 0) {
+  toast.error('No fields placed', {
+    description: 'Go back and drag at least one field onto the document.',
+  });
+  return;
+}
             const validRecipients = signatureRequest.recipients.filter(
               (r) => r.name && (mode === 'send' ? r.email : true)
             );
             if (validRecipients.length === 0) {
-              alert(
-                mode === 'send'
-                  ? 'Please add recipient emails'
-                  : 'Please add at least one role'
-              );
+              toast.error(
+  mode === 'send' ? 'Missing recipient emails' : 'No roles defined',
+  {
+    description:
+      mode === 'send'
+        ? 'All recipients need an email address before sending.'
+        : 'Add at least one role to save this template.',
+  }
+);
               return;
             }
             setShowReviewDrawer(false);
@@ -3304,6 +3329,47 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
     </div>
   </>
 )}
+
+{/* Template Saved Modal */}
+<Dialog open={showTemplateSavedModal} onOpenChange={setShowTemplateSavedModal}>
+  <DialogContent className="bg-white sm:max-w-md p-0 overflow-hidden rounded-2xl">
+    <div className="p-8 text-center">
+      {/* Success icon */}
+      <div className="h-16 w-16 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-5">
+        <FileSignature className="h-8 w-8 text-purple-600" />
+      </div>
+      <h2 className="text-xl font-bold text-slate-900 mb-2">
+        Template Saved!
+      </h2>
+      <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+        <span className="font-medium text-slate-700">{doc?.filename}</span> has been
+        saved as a reusable template. You can now send it to recipients anytime without
+        re-placing fields.
+      </p>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button
+          variant="outline"
+          className="flex-1 rounded-xl border-slate-200"
+          onClick={() => {
+            setShowTemplateSavedModal(false);
+            router.push('/dashboard');
+          }}
+        >
+          Go to Dashboard
+        </Button>
+        <Button
+          className="flex-1 bg-purple-600 hover:bg-purple-700 text-white rounded-xl"
+          onClick={() => {
+            setShowTemplateSavedModal(false);
+            window.location.href = `/documents/${doc?._id}`;
+          }}
+        >
+          View Document
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
