@@ -661,63 +661,80 @@ useEffect(() => {
   };
 
   // 3. Track pages scrolled
-  const pagesViewed = new Set<number>();
-  let scrollTimeout: NodeJS.Timeout;
-  const handleScroll = () => {
-    clearTimeout(scrollTimeout);
-    scrollTimeout = setTimeout(() => {
-      const pageHeight = 297 * 3.78;
-      const currentPage = Math.floor(window.scrollY / pageHeight) + 1;
-      if (document && currentPage <= (document?.numPages || 1) && !pagesViewed.has(currentPage)) {
-        pagesViewed.add(currentPage);
-        fetch(`/api/signature/${signatureId}/track`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'page_scroll', page: currentPage }),
-        }).catch(() => {});
+  let currentPageStart = Date.now();
+    let currentTrackedPage = 1;
+    
+    const pagesViewed = new Set<number>();
+    let scrollTimeout: NodeJS.Timeout;
+    const handleScroll = () => {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        const container = globalThis.document.getElementById('pdf-scroll-container');
+        const scrollTop = container ? container.scrollTop : window.scrollY;
+        const pageHeight = 297 * 3.78;
+        const newPage = Math.floor(scrollTop / pageHeight) + 1;
+        
+        if (newPage !== currentTrackedPage) {
+          // Send time spent on previous page
+          const timeSpent = Math.floor((Date.now() - currentPageStart) / 1000);
+          if (timeSpent > 0) {
+            fetch(`/api/signature/${signatureId}/track`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'page_time', page: currentTrackedPage, timeSpent }),
+            }).catch(() => {});
+          }
+          currentTrackedPage = newPage;
+          currentPageStart = Date.now();
+        }
+        
+        if (document && newPage <= (document?.numPages || 1) && !pagesViewed.has(newPage)) {
+          pagesViewed.add(newPage);
+          fetch(`/api/signature/${signatureId}/track`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'page_scroll', page: newPage }),
+          }).catch(() => {});
+        }
+      }, 500);
+    };
+    
+    // Also send page time on unload
+    const handleUnloadPageTime = () => {
+      const timeSpent = Math.floor((Date.now() - currentPageStart) / 1000);
+      if (timeSpent > 0) {
+        navigator.sendBeacon(
+          `/api/signature/${signatureId}/track`,
+          new Blob([JSON.stringify({ action: 'page_time', page: currentTrackedPage, timeSpent })], 
+            { type: 'application/json' })
+        );
       }
-    }, 500);
-  };
+    };
 
   window.addEventListener('beforeunload', handleUnload);
-  window.addEventListener('scroll', handleScroll);
+  window.addEventListener('beforeunload', handleUnloadPageTime);
+
+  const pdfContainer = globalThis.document.getElementById('pdf-scroll-container');
+  if (pdfContainer) {
+    pdfContainer.addEventListener('scroll', handleScroll);
+  } else {
+    window.addEventListener('scroll', handleScroll);
+  }
 
   return () => {
     window.removeEventListener('beforeunload', handleUnload);
-    window.removeEventListener('scroll', handleScroll);
+    window.removeEventListener('beforeunload', handleUnloadPageTime);
+    const pdfContainer = globalThis.document.getElementById('pdf-scroll-container');
+    if (pdfContainer) {
+      pdfContainer.removeEventListener('scroll', handleScroll);
+    } else {
+      window.removeEventListener('scroll', handleScroll);
+    }
     clearTimeout(scrollTimeout);
   };
 }, [signatureId, pdfUrl, document]);
 
-   useEffect(() => {
-  if (!signatureId || !pdfUrl || !document) return;
-
-  const pagesTracked = new Set<number>();
-  let scrollTimer: NodeJS.Timeout;
-
-  const handleScroll = () => {
-    clearTimeout(scrollTimer);
-    scrollTimer = setTimeout(() => {
-      const pageHeight = 297 * 3.78; // mm to px
-      const currentPage = Math.floor(window.scrollY / pageHeight) + 1;
-
-      if (currentPage <= document.numPages && !pagesTracked.has(currentPage)) {
-        pagesTracked.add(currentPage);
-        fetch(`/api/signature/${signatureId}/track`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "page_scroll", page: currentPage }),
-        }).catch(() => {});
-      }
-    }, 500); // debounce
-  };
-
-  window.addEventListener("scroll", handleScroll);
-  return () => {
-    window.removeEventListener("scroll", handleScroll);
-    clearTimeout(scrollTimer);
-  };
-}, [signatureId, pdfUrl, document]);
+   
 
 
   

@@ -67,8 +67,8 @@ export async function POST(
         );
       }
     } else if (action === "page_scroll") {
-      // Track which pages of the doc they actually looked at
       if (typeof page === "number") {
+        // Track simple page list (existing)
         await db.collection("signature_requests").updateOne(
           { uniqueId: signatureId },
           {
@@ -76,6 +76,36 @@ export async function POST(
             $set: { lastActivePage: page, lastSeenAt: now },
           }
         );
+      }
+    } else if (action === "page_time") {
+      // Track time spent per page
+      if (typeof page === "number" && typeof timeSpent === "number" && timeSpent > 0) {
+        // Check if this page already has an entry
+        const existing = signatureRequest.pageData?.find((p: any) => p.page === page);
+        
+        if (existing) {
+          // Increment time on existing page entry
+          await db.collection("signature_requests").updateOne(
+            { uniqueId: signatureId, "pageData.page": page },
+            {
+              $inc: { "pageData.$.timeSpent": timeSpent },
+            }
+          );
+        } else {
+          // Add new page entry
+         await db.collection("signature_requests").updateOne(
+            { uniqueId: signatureId },
+            {
+              $push: {
+                pageData: {
+                  page,
+                  timeSpent,
+                  skipped: false,
+                } as any
+              }
+            }
+          );
+        }
       }
     }
 

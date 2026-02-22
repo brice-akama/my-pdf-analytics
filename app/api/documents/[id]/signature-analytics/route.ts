@@ -97,6 +97,7 @@ export async function GET(
         selfieVerified: !!r.selfieVerifiedAt,
         intentVideoUrl: r.intentVideoUrl || null,
         viewHistory: r.viewHistory || [],
+        pageData: (r.pageData || []).sort((a: any, b: any) => a.page - b.page),
       };
     });
 
