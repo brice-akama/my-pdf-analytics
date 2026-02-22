@@ -961,6 +961,16 @@ try {
 } catch (err) {
   console.error('Failed to track completion time:', err);
 }
+
+// Fire signature notification — Slack, Gmail, HubSpot
+    fetch(`/api/signature/${signatureId}/track`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'signed' }),
+    }).catch(() => {});
+
+
+
     setCompleted(true);
   } catch (err) {
     console.error('Error completing signature:', err);
@@ -1005,6 +1015,13 @@ try {
       setDecliningDocument(false);
       return;
     }
+
+    // Fire decline notification — Slack, Gmail, HubSpot
+    fetch(`/api/signature/${signatureId}/track`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'declined', reason: declineReason.trim() }),
+    }).catch(() => {});
 
     setShowDeclineModal(false);
     setWasDeclined(true);

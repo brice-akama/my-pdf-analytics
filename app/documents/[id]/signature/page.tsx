@@ -712,7 +712,7 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
     );
   }
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
 
        {/* ✅ DIFFERENT MESSAGE FOR SIGNATURE PAGE */}
             <PageInfoTooltip 
@@ -721,705 +721,726 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
               position="top"
             />
       {/* Header */}
-      <header className="bg-white border-b shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push(`/documents/${doc._id}`)}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-  <div className="flex items-center gap-3">
-    <h1 className="text-xl font-bold text-slate-900">{doc.filename}</h1>
-    {/* ⭐ NEW: Draft indicator */}
-    {mode === 'edit' && (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-        <FileSignature className="h-3 w-3 mr-1" />
-        Template Mode
-      </span>
-    )}
-    {draftLastSaved && (
-      <div className="flex items-center gap-2 text-xs">
-        {draftSaving ? (
-          <span className="text-blue-600 flex items-center gap-1">
-            <div className="animate-spin h-3 w-3 border-2 border-blue-600 border-t-transparent rounded-full" />
-            Saving...
-          </span>
-        ) : (
-          <span className="text-green-600 flex items-center gap-1">
-            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            Saved {new Date(draftLastSaved).toLocaleTimeString()}
-          </span>
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6">
+
+    {/* Main nav row */}
+    <div className="flex items-center justify-between h-16 gap-4">
+
+      {/* Left: back + title */}
+      <div className="flex items-center gap-3 min-w-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => router.push(`/documents/${doc._id}`)}
+          className="flex-shrink-0 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-base font-semibold text-slate-900 truncate max-w-[160px] sm:max-w-xs">
+              {doc.filename}
+            </h1>
+            {mode === 'edit' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200 flex-shrink-0">
+                <FileSignature className="h-3 w-3" />
+                Template
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 hidden sm:block">
+            {mode === 'edit'
+              ? 'Create Reusable Template'
+              : mode === 'draft'
+              ? 'Continue Signature Request'
+              : 'Send Signature Request'}
+            {' · '}Step {signatureRequest.step} of 3
+          </p>
+        </div>
+      </div>
+
+      {/* Right: actions */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {signatureRequest.step > 1 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setSignatureRequest({ ...signatureRequest, step: signatureRequest.step - 1 })
+            }
+            className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 hidden sm:flex"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+        )}
+
+        {signatureRequest.step === 1 && (
+          <Button
+            size="sm"
+            onClick={() => {
+              if (mode === 'edit') {
+                const validRoles = signatureRequest.recipients.filter((r) => r.name);
+                if (validRoles.length === 0) {
+                  alert('Please add at least one role (e.g., "Client", "Manager")');
+                  return;
+                }
+              } else {
+                const validRecipients = signatureRequest.recipients.filter(
+                  (r) => r.name && r.email
+                );
+                if (validRecipients.length === 0) {
+                  alert('Please add recipient names and email addresses');
+                  return;
+                }
+              }
+              setSignatureRequest({ ...signatureRequest, step: 2 });
+            }}
+            className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-4"
+          >
+            Continue
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        )}
+
+        {signatureRequest.step === 2 && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowReviewDrawer(true)}
+            className="border-purple-200 text-purple-700 hover:bg-purple-50 rounded-xl"
+          >
+            <FileSignature className="h-4 w-4 mr-1.5" />
+            <span className="hidden sm:inline">Review &amp; Send</span>
+            <span className="sm:hidden">Review</span>
+          </Button>
+        )}
+
+        {signatureRequest.step === 3 && (
+          <Button
+            size="sm"
+            onClick={handleSendSignature}
+            disabled={isSending}
+            className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-4"
+          >
+            {isSending ? (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                {mode === 'edit' ? 'Saving...' : 'Sending...'}
+              </>
+            ) : mode === 'edit' ? (
+              <>
+                <FileSignature className="h-4 w-4 mr-1.5" />
+                Save Template
+              </>
+            ) : (
+              <>
+                <Mail className="h-4 w-4 mr-1.5" />
+                Send Request
+              </>
+            )}
+          </Button>
         )}
       </div>
-    )}
+    </div>
+
+    {/* Step progress bar */}
+    <div className="pb-3">
+      <div className="flex items-center gap-1.5">
+        {[1, 2, 3].map((step) => (
+          <div
+            key={step}
+            className={`flex-1 h-1 rounded-full transition-all duration-300 ${
+              signatureRequest.step >= step ? 'bg-purple-600' : 'bg-slate-200'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
   </div>
-  <p className="text-sm text-slate-500">
-    {mode === 'edit' 
-      ? "Create Reusable Template" 
-      : mode === 'draft'
-      ? "Continue Signature Request"
-      : "Send Signature Request"
-    } - Step {signatureRequest.step} of 3
-  </p>
-</div>
-            </div>
-           <div className="flex items-center gap-3">
-  {signatureRequest.step > 1 && (
-    <Button
-      variant="outline"
-      onClick={() =>
-        setSignatureRequest({ ...signatureRequest, step: signatureRequest.step - 1 })
-      }
+</header>
+
+{/* ── Floating save indicator (bottom of screen, unobtrusive) ── */}
+{draftLastSaved && mode !== 'edit' && (
+  <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+    <div
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium shadow-md border transition-all ${
+        draftSaving
+          ? 'bg-white border-slate-200 text-slate-500'
+          : 'bg-white border-slate-200 text-slate-400'
+      }`}
     >
-      <ChevronLeft className="h-4 w-4 mr-2" />
-      Back
-    </Button>
-  )}
-  
-  {signatureRequest.step === 1 && (
-    <Button
-      onClick={() => {
-        if (mode === 'edit') {
-          // Template mode: Just need role names
-          const validRoles = signatureRequest.recipients.filter((r) => r.name);
-          if (validRoles.length === 0) {
-            alert('Please add at least one role (e.g., "Client", "Manager")');
-            return;
-          }
-        } else {
-          // Send/Draft mode: Need names AND emails
-          const validRecipients = signatureRequest.recipients.filter(
-            (r) => r.name && r.email
-          );
-          if (validRecipients.length === 0) {
-            alert('Please add recipient names and email addresses');
-            return;
-          }
-        }
-        setSignatureRequest({ ...signatureRequest, step: 2 });
-      }}
-      className="bg-purple-600 hover:bg-purple-700"
-    >
-      Continue
-      <ChevronRight className="h-4 w-4 ml-2" />
-    </Button>
-  )}
-  
-  {signatureRequest.step === 2 && (
-    <>
-      <Button
-        variant="outline"
-        onClick={() => setShowReviewDrawer(true)}
-        className="border-purple-600 text-purple-600 hover:bg-purple-50"
-      >
-        <FileSignature className="h-4 w-4 mr-2" />
-        Review & Send
-      </Button>
-       
-    </>
-  )}
-  
- {signatureRequest.step === 3 && (
-  <Button
-    onClick={handleSendSignature}
-    disabled={isSending}
-    className="bg-purple-600 hover:bg-purple-700"
-  >
-    {isSending ? (
-      <>
-        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-        {mode === 'edit' ? 'Saving Template...' : 'Sending Request...'}
-      </>
-    ) : (
-      <>
-        {mode === 'edit' ? (
-          <>
-            <FileSignature className="h-4 w-4 mr-2" />
-            Save as Template
-          </>
-        ) : (
-          <>
-            <Mail className="h-4 w-4 mr-2" />
-            Send Signature Request
-          </>
-        )}
-      </>
-    )}
-  </Button>
+      {draftSaving ? (
+        <>
+          <div className="animate-spin h-3 w-3 border-2 border-slate-400 border-t-transparent rounded-full" />
+          Saving draft…
+        </>
+      ) : (
+        <>
+          <svg className="h-3 w-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          Draft saved
+        </>
+      )}
+    </div>
+  </div>
 )}
-</div>
-          </div>
-        </div>
-        {/* Progress Bar */}
-        <div className="max-w-7xl mx-auto px-6 pb-4">
-          <div className="flex items-center gap-2">
-            <div
-              className={`flex-1 h-2 rounded-full transition-all ${
-                signatureRequest.step >= 1 ? "bg-purple-600" : "bg-slate-200"
-              }`}
-            />
-            <div
-              className={`flex-1 h-2 rounded-full transition-all ${
-                signatureRequest.step >= 2 ? "bg-purple-600" : "bg-slate-200"
-              }`}
-            />
-            <div
-              className={`flex-1 h-2 rounded-full transition-all ${
-                signatureRequest.step >= 3 ? "bg-purple-600" : "bg-slate-200"
-              }`}
-            />
-          </div>
-        </div>
-      </header>
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
         {/* Step 1: Recipients */}
-        {signatureRequest.step === 1 && (
-          <div className="max-w-4xl mx-auto space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border p-8">
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">
-  {mode === 'edit' ? 'Define Recipient Roles' : 'Who needs to sign?'}
-</h2>
-<p className="text-slate-600 mb-6">
-  {mode === 'edit'
-    ? 'Add roles (e.g., "Signer 1", "Approver") and place fields. You\'ll assign real people when using this template.'
-    : 'Add recipients with their email addresses to send signature requests'}
-</p>
+{signatureRequest.step === 1 && (
+  <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 lg:px-0 pb-12">
 
-              <div className="space-y-4">
-                {signatureRequest.recipients.map((recipient, index) => (
-                  <div key={index} className="border rounded-lg p-6 bg-slate-50">
-                    <div className="flex items-start gap-4">
-                      <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-purple-600 font-bold text-lg">{index + 1}</span>
-                      </div>
-                      <div className="flex-1 space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label>Full Name</Label>
-                            <Input
-                              value={recipient.name}
-                              onChange={(e) => {
-                                const updated = [...signatureRequest.recipients];
-                                updated[index].name = e.target.value;
-                                setSignatureRequest({ ...signatureRequest, recipients: updated });
-                              }}
-                              placeholder="John Doe"
-                              className="mt-1"
-                            />
-                          </div>
-                          <div>
-                          <Label>
-    Email Address {mode === 'edit' && ' (optional)'}
-  </Label>
-                            <Input
-    type="email"
-    value={recipient.email}
-    onChange={(e) => {
-      const updated = [...signatureRequest.recipients];
-      updated[index].email = e.target.value;
-      setSignatureRequest({ ...signatureRequest, recipients: updated });
-    }}
-    placeholder={mode === 'edit' ? "Optional for template" : "john@company.com"}
-    className="mt-1"
-  />
-                          </div>
-                        </div>
-                        <div>
-                          <Label>Role (optional)</Label>
-                          <Input
-                            value={recipient.role || ""}
-                            onChange={(e) => {
-                              const updated = [...signatureRequest.recipients];
-                              updated[index].role = e.target.value;
-                              setSignatureRequest({ ...signatureRequest, recipients: updated });
-                            }}
-                            placeholder="e.g., Client, Manager"
-                            className="mt-1"
-                          />
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          const updated = signatureRequest.recipients.filter((_, i) => i !== index);
-                          setSignatureRequest({ ...signatureRequest, recipients: updated });
-                        }}
-                        className="text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const updated = [
-                      ...signatureRequest.recipients,
-                      {
-                        name: "",
-                        email: "",
-                        role: "",
-                        color: `hsl(${Math.random() * 360}, 70%, 50%)`,
-                      },
-                    ];
-                    setSignatureRequest({ ...signatureRequest, recipients: updated });
-                  }}
-                  className="w-full border-dashed border-2 h-16"
-                >
-                  <Users className="h-5 w-5 mr-2" />
-                  Add Another Recipient
-                </Button>
-                 {/* ⭐ NEW: CC Recipients Section */}
-<div className="mt-8 pt-8 border-t">
-  <div className="flex items-center justify-between mb-4">
-    <div>
-      <h3 className="text-lg font-semibold text-slate-900">
-        CC Recipients (Optional)
-      </h3>
-      <p className="text-sm text-slate-600">
-        People who will receive a copy but don't need to sign
-      </p>
-    </div>
-  </div>
-
-  {/* CC Recipients List */}
-  <div className="space-y-3">
-    {(signatureRequest.ccRecipients || []).map((cc, index) => (
-      <div key={index} className="border rounded-lg p-4 bg-slate-50">
-        <div className="flex items-start gap-4">
-          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-            <Mail className="h-5 w-5 text-blue-600" />
-          </div>
-          <div className="flex-1 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Name</Label>
-                <Input
-                  value={cc.name}
-                  onChange={(e) => {
-                    const updated = [...(signatureRequest.ccRecipients || [])];
-                    updated[index].name = e.target.value;
-                    setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
-                  }}
-                  placeholder="John Doe"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Email</Label>
-                <Input
-                  type="email"
-                  value={cc.email}
-                  onChange={(e) => {
-                    const updated = [...(signatureRequest.ccRecipients || [])];
-                    updated[index].email = e.target.value;
-                    setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
-                  }}
-                  placeholder="john@company.com"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs">Send Copy</Label>
-              <select
-                value={cc.notifyWhen}
-                onChange={(e) => {
-                  const updated = [...(signatureRequest.ccRecipients || [])];
-                  updated[index].notifyWhen = e.target.value as 'completed' | 'immediately';
-                  setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
-                }}
-                className="w-full border rounded-lg px-3 py-2 mt-1 text-sm"
-              >
-                <option value="completed">When all signatures are completed</option>
-                <option value="immediately">Immediately after sending</option>
-              </select>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              const updated = (signatureRequest.ccRecipients || []).filter((_, i) => i !== index);
-              setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
-            }}
-            className="text-red-600 hover:bg-red-50"
-          >
-            <Trash2 className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
-    ))}
-
-    {/* Add CC Button */}
-    <Button
-      variant="outline"
-      onClick={() => {
-        const updated = [
-          ...(signatureRequest.ccRecipients || []),
-          {
-            name: "",
-            email: "",
-            notifyWhen: "completed" as const,
-          },
-        ];
-        setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
-      }}
-      className="w-full border-dashed h-12"
-    >
-      <Mail className="h-4 w-4 mr-2" />
-      Add CC Recipient
-    </Button>
-  </div>
-</div>
-
-
-
-{/* ⭐ NEW: Access Code Protection Toggle */}
-<div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
-  <div className="flex items-center justify-between">
-    <div>
-      <Label className="text-sm font-medium text-slate-900">
-        Require Access Code
-      </Label>
-      <p className="text-xs text-slate-600 mt-1">
-        Protect this document with an access code that recipients must enter before viewing
-      </p>
-    </div>
-    <label className="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        checked={signatureRequest.accessCodeRequired || false}
-        onChange={(e) => {
-          setSignatureRequest({
-            ...signatureRequest,
-            accessCodeRequired: e.target.checked,
-            // Reset access code fields if unchecked
-            ...(!e.target.checked && {
-              accessCodeType: undefined,
-              accessCodeHint: undefined,
-            }),
-          });
-        }}
-        className="h-4 w-4 text-purple-600 rounded"
-      />
-      <span className="text-sm font-medium">
-        {signatureRequest.accessCodeRequired ? 'Enabled' : 'Disabled'}
-      </span>
-    </label>
-  </div>
-
-  {/* Show access code settings if enabled */}
-  {signatureRequest.accessCodeRequired && (
-    <div className="mt-4 space-y-3">
-      <div>
-        <Label className="block text-sm font-medium text-slate-700 mb-2">
-          Access Code Type
-        </Label>
-        <select
-          value={signatureRequest.accessCodeType || 'custom'}
-          onChange={(e) => {
-            setSignatureRequest({
-              ...signatureRequest,
-              accessCodeType: e.target.value,
-            });
-          }}
-          className="w-full border rounded-lg px-3 py-2 text-sm"
-        >
-          <option value="custom">Custom Code</option>
-          <option value="last_4_ssn">Last 4 of SSN</option>
-          <option value="employee_id">Employee ID</option>
-          <option value="birth_date">Date of Birth</option>
-          <option value="account_number">Account Number</option>
-          <option value="phone_last_4">Last 4 of Phone</option>
-        </select>
-      </div>
-
-      <div>
-        <Label className="block text-sm font-medium text-slate-700 mb-2">
-          Access Code Hint (Optional)
-        </Label>
-        <Input
-          type="text"
-          value={signatureRequest.accessCodeHint || ''}
-          onChange={(e) => {
-            setSignatureRequest({
-              ...signatureRequest,
-              accessCodeHint: e.target.value,
-            });
-          }}
-          placeholder="e.g., 'Your employee ID' or 'Last 4 of your SSN'"
-          className="w-full"
-        />
-      </div>
-
-      <div>
-        <Label className="block text-sm font-medium text-slate-700 mb-2">
-          Set Access Code
-        </Label>
-        <div className="relative">
-          <Input
-            type={showAccessCode ? 'text' : 'password'} // Toggle between text and password
-            value={signatureRequest.accessCode || ''}
-            onChange={(e) => {
-              setSignatureRequest({
-                ...signatureRequest,
-                accessCode: e.target.value,
-              });
-            }}
-            placeholder="Enter access code"
-            className="w-full pr-10"
-          />
-          {/* Eye icon to toggle visibility */}
-          <button
-            type="button"
-            onClick={() => setShowAccessCode(!showAccessCode)}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
-          >
-            {showAccessCode ? (
-              <EyeOff className="h-5 w-5" />
-            ) : (
-              <Eye className="h-5 w-5" />
-            )}
-          </button>
-        </div>
-        <p className="text-xs text-slate-500 mt-1">
-          Minimum 4 characters. Recipients will need this to access the document.
+    {/* ── SECTION 1: Recipients (most important) ── */}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+      <div className="px-5 py-5 border-b border-slate-100">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-900">
+          {mode === 'edit' ? 'Define Recipient Roles' : 'Who needs to sign?'}
+        </h2>
+        <p className="text-sm text-slate-500 mt-0.5">
+          {mode === 'edit'
+            ? 'Add roles like "Client" or "Manager". Real emails are assigned when you use this template.'
+            : 'Add the people who need to sign this document.'}
         </p>
       </div>
-    </div>
-  )}
-</div>
 
-{/* ⭐ NEW: Intent & Acknowledgement Video Toggle */}
-<div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-  <div className="flex items-center justify-between">
-    <div>
-      <Label className="text-sm font-medium text-slate-900">
-        Require Intent & Acknowledgement Video
-      </Label>
-      <p className="text-xs text-slate-600 mt-1">
-        Signers must record a short video confirming their intent to sign before completing
-      </p>
-    </div>
-    <label className="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        checked={signatureRequest.intentVideoRequired || false}
-        onChange={(e) => {
-          setSignatureRequest({
-            ...signatureRequest,
-            intentVideoRequired: e.target.checked,
-          });
-        }}
-        className="h-4 w-4 text-purple-600 rounded"
-      />
-      <span className="text-sm font-medium">
-        {signatureRequest.intentVideoRequired ? 'Enabled' : 'Disabled'}
-      </span>
-    </label>
-  </div>
-
-  {signatureRequest.intentVideoRequired && (
-    <div className="mt-3 bg-white rounded-lg p-3 border border-purple-300">
-      <p className="text-xs text-purple-900 mb-2">
-        <strong>📹 What signers will record:</strong>
-      </p>
-      <ul className="text-xs text-purple-800 space-y-1 ml-4">
-        <li>• State their full name</li>
-        <li>• Confirm the document name</li>
-        <li>• State the current date</li>
-        <li>• Say "I acknowledge and agree to sign this document"</li>
-      </ul>
-      <p className="text-xs text-purple-700 mt-2">
-        💡 This provides additional legal proof of intent and reduces disputes.
-      </p>
-    </div>
-  )}
-</div>
-
-                {/* ⭐ NEW: Signature View Mode Selector */}
-
-<div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-  <div className="flex items-center justify-between">
-    <div>
-      <Label className="text-sm font-medium text-slate-900">
-        Signature View Mode
-      </Label>
-      <p className="text-xs text-slate-600 mt-1">
-        Choose how recipients view signatures
-      </p>
-    </div>
-    <select
-      value={signatureRequest.viewMode || 'isolated'}
-      onChange={(e) =>
-        setSignatureRequest({
-          ...signatureRequest,
-          viewMode: e.target.value as 'isolated' | 'shared',
-        })
-      }
-      className="border rounded-lg px-3 py-2 text-sm"
-    >
-      <option value="isolated">Isolated - Each sees only their fields</option>
-      <option value="shared">Shared - All see all signatures</option>
-    </select>
-  </div>
-</div>
-{/* ⭐ NEW: Add Signing Order Toggle */}
-<div className="mt-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
-  <div className="flex items-center justify-between">
-    <div>
-      <Label className="text-sm font-medium text-slate-900">
-        Signing Order
-      </Label>
-      <p className="text-xs text-slate-600 mt-1">
-        Require recipients to sign in order?
-      </p>
-    </div>
-    <div className="flex items-center gap-3">
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input
-          type="radio"
-          name="signingOrder"
-          value="any"
-          checked={signatureRequest.signingOrder !== 'sequential'}
-          onChange={() =>
-            setSignatureRequest({
-              ...signatureRequest,
-              signingOrder: 'any',
-            })
-          }
-          className="w-4 h-4 text-purple-600"
-        />
-        <span className="text-sm">Any Order</span>
-      </label>
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input
-          type="radio"
-          name="signingOrder"
-          value="sequential"
-          checked={signatureRequest.signingOrder === 'sequential'}
-          onChange={() =>
-            setSignatureRequest({
-              ...signatureRequest,
-              signingOrder: 'sequential',
-            })
-          }
-          className="w-4 h-4 text-purple-600"
-        />
-        <span className="text-sm">Sequential Order</span>
-      </label>
-    </div>
-  </div>
-  {signatureRequest.signingOrder === 'sequential' && (
-    <div className="mt-3 bg-white rounded-lg p-3 border border-amber-300">
-      <p className="text-xs text-amber-800">
-        📋 Recipients will sign in the order listed above. Each person gets notified only after the previous person signs.
-      </p>
-    </div>
-  )}
-</div>
+      <div className="p-5 space-y-3">
+        {signatureRequest.recipients.map((recipient, index) => (
+          <div
+            key={index}
+            className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 hover:border-purple-300 transition-colors"
+          >
+            <div className="flex items-start gap-3">
+              {/* Number badge */}
+              <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 mt-1">
+                <span className="text-purple-700 font-bold text-sm">{index + 1}</span>
               </div>
-              {mode === 'send' && (
-  <div className="mt-8 pt-8 border-t space-y-4">
-    <div>
-      <Label>Message to Recipients (optional)</Label>
-      <Textarea
-        value={signatureRequest.message}
-        onChange={(e) =>
-          setSignatureRequest({ ...signatureRequest, message: e.target.value })
-        }
-        placeholder="Please review and sign this document..."
-        rows={4}
-        className="mt-1"
-      />
-    </div>
-    <div>
-      <Label>Due Date (optional)</Label>
-      <Input
-        type="date"
-        value={signatureRequest.dueDate}
-        onChange={(e) =>
-          setSignatureRequest({ ...signatureRequest, dueDate: e.target.value })
-        }
-        min={new Date().toISOString().split("T")[0]}
-        className="mt-1"
-      />
+
+              <div className="flex-1 min-w-0 space-y-3">
+                {/* Name + Email row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">
+                      Full Name
+                    </label>
+                    <Input
+                      value={recipient.name}
+                      onChange={(e) => {
+                        const updated = [...signatureRequest.recipients];
+                        updated[index].name = e.target.value;
+                        setSignatureRequest({ ...signatureRequest, recipients: updated });
+                      }}
+                      placeholder="Jane Smith"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">
+                      Email Address
+                      {mode === 'edit' && (
+                        <span className="text-slate-400 font-normal ml-1">(optional)</span>
+                      )}
+                    </label>
+                    <Input
+                      type="email"
+                      value={recipient.email}
+                      onChange={(e) => {
+                        const updated = [...signatureRequest.recipients];
+                        updated[index].email = e.target.value;
+                        setSignatureRequest({ ...signatureRequest, recipients: updated });
+                      }}
+                      placeholder={mode === 'edit' ? 'Optional for template' : 'jane@company.com'}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Role */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Role
+                    <span className="text-slate-400 font-normal ml-1">(optional)</span>
+                  </label>
+                  <Input
+                    value={recipient.role || ''}
+                    onChange={(e) => {
+                      const updated = [...signatureRequest.recipients];
+                      updated[index].role = e.target.value;
+                      setSignatureRequest({ ...signatureRequest, recipients: updated });
+                    }}
+                    placeholder="e.g., Client, Manager, Approver"
+                    className="h-9 text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Delete */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  const updated = signatureRequest.recipients.filter((_, i) => i !== index);
+                  setSignatureRequest({ ...signatureRequest, recipients: updated });
+                }}
+                className="text-red-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0 mt-1"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+
+        <Button
+          variant="outline"
+          onClick={() => {
+            const updated = [
+              ...signatureRequest.recipients,
+              {
+                name: '',
+                email: '',
+                role: '',
+                color: `hsl(${Math.random() * 360}, 70%, 50%)`,
+              },
+            ];
+            setSignatureRequest({ ...signatureRequest, recipients: updated });
+          }}
+          className="w-full border-dashed border-2 h-11 text-sm text-slate-500 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-all rounded-xl"
+        >
+          <Users className="h-4 w-4 mr-2" />
+          Add Another Recipient
+        </Button>
+      </div>
     </div>
 
-    {/*  NEW: Scheduled Send Date */}
-<div>
-  <Label>Schedule Sending (optional)</Label>
-  <Input
-    type="datetime-local"
-    value={signatureRequest.scheduledSendDate || ''}
-    onChange={(e) =>
-      setSignatureRequest({ 
-        ...signatureRequest, 
-        scheduledSendDate: e.target.value 
-      })
-    }
-    min={new Date().toISOString().slice(0, 16)}
-    className="mt-1"
-  />
-  <p className="text-xs text-slate-500 mt-1">
-    Leave blank to send immediately, or choose a date/time to schedule
-  </p>
-</div>
+    {/* ── SECTION 2: Message, Due Date, Scheduling (send/draft mode only) ── */}
+    {(mode === 'send' || mode === 'draft' || !mode) && (
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h3 className="text-base font-semibold text-slate-900">Message & Timing</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Optionally add a note and set deadlines</p>
+        </div>
+        <div className="p-5 space-y-4">
+          {/* Message */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Message to Recipients
+              <span className="text-slate-400 font-normal ml-1">(optional)</span>
+            </label>
+            <Textarea
+              value={signatureRequest.message}
+              onChange={(e) =>
+                setSignatureRequest({ ...signatureRequest, message: e.target.value })
+              }
+              placeholder="Please review and sign this document at your earliest convenience..."
+              rows={3}
+              className="text-sm resize-none"
+            />
+          </div>
 
-    {/* After Due Date field, add this: */}
-<div>
-  <Label>Link Expiration</Label>
-  <select
-    value={signatureRequest.expirationDays || '30'}
-    onChange={(e) =>
-      setSignatureRequest({ 
-        ...signatureRequest, 
-        expirationDays: e.target.value 
-      })
-    }
-    className="mt-1 w-full border rounded-lg px-3 py-2"
-  >
-    <option value="7">7 days</option>
-    <option value="14">14 days</option>
-    <option value="30">30 days (Recommended)</option>
-    <option value="60">60 days</option>
-    <option value="90">90 days</option>
-    <option value="never">Never expire</option>
-  </select>
-  <p className="text-xs text-slate-500 mt-1">
-    Signing links will expire after this period for security
-  </p>
-</div>
-  </div>
-)}
+          {/* Due Date + Scheduled Send — side by side on sm+ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Due Date
+                <span className="text-slate-400 font-normal ml-1">(optional)</span>
+              </label>
+              <Input
+                type="date"
+                value={signatureRequest.dueDate}
+                onChange={(e) =>
+                  setSignatureRequest({ ...signatureRequest, dueDate: e.target.value })
+                }
+                min={new Date().toISOString().split('T')[0]}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Scheduled Send
+                <span className="text-slate-400 font-normal ml-1">(optional)</span>
+              </label>
+              <Input
+                type="datetime-local"
+                value={signatureRequest.scheduledSendDate || ''}
+                onChange={(e) =>
+                  setSignatureRequest({
+                    ...signatureRequest,
+                    scheduledSendDate: e.target.value,
+                  })
+                }
+                min={new Date().toISOString().slice(0, 16)}
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Link Expiration */}
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1">
+              Link Expiration
+            </label>
+            <select
+              value={signatureRequest.expirationDays || '30'}
+              onChange={(e) =>
+                setSignatureRequest({
+                  ...signatureRequest,
+                  expirationDays: e.target.value,
+                })
+              }
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="7">7 days</option>
+              <option value="14">14 days</option>
+              <option value="30">30 days (Recommended)</option>
+              <option value="60">60 days</option>
+              <option value="90">90 days</option>
+              <option value="never">Never expire</option>
+            </select>
+            <p className="text-xs text-slate-400 mt-1">
+              Signing links expire after this period for security
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── SECTION 3: CC Recipients ── */}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <h3 className="text-base font-semibold text-slate-900">
+          CC Recipients
+          <span className="text-slate-400 font-normal text-sm ml-2">(Optional)</span>
+        </h3>
+        <p className="text-xs text-slate-500 mt-0.5">
+          These people receive a copy but are not asked to sign
+        </p>
+      </div>
+      <div className="p-5 space-y-3">
+        {(signatureRequest.ccRecipients || []).map((cc, index) => (
+          <div
+            key={index}
+            className="border border-slate-200 rounded-xl p-4 bg-slate-50/50"
+          >
+            <div className="flex items-start gap-3">
+              <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
+                <Mail className="h-4 w-4 text-blue-600" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Name</label>
+                    <Input
+                      value={cc.name}
+                      onChange={(e) => {
+                        const updated = [...(signatureRequest.ccRecipients || [])];
+                        updated[index].name = e.target.value;
+                        setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
+                      }}
+                      placeholder="John Doe"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Email</label>
+                    <Input
+                      type="email"
+                      value={cc.email}
+                      onChange={(e) => {
+                        const updated = [...(signatureRequest.ccRecipients || [])];
+                        updated[index].email = e.target.value;
+                        setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
+                      }}
+                      placeholder="john@company.com"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    When to send copy
+                  </label>
+                  <select
+                    value={cc.notifyWhen}
+                    onChange={(e) => {
+                      const updated = [...(signatureRequest.ccRecipients || [])];
+                      updated[index].notifyWhen = e.target.value as 'completed' | 'immediately';
+                      setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
+                    }}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="completed">When all signatures are completed</option>
+                    <option value="immediately">Immediately after sending</option>
+                  </select>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  const updated = (signatureRequest.ccRecipients || []).filter(
+                    (_, i) => i !== index
+                  );
+                  setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
+                }}
+                className="text-red-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0 mt-1"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+
+        <Button
+          variant="outline"
+          onClick={() => {
+            const updated = [
+              ...(signatureRequest.ccRecipients || []),
+              { name: '', email: '', notifyWhen: 'completed' as const },
+            ];
+            setSignatureRequest({ ...signatureRequest, ccRecipients: updated });
+          }}
+          className="w-full border-dashed border-2 h-11 text-sm text-slate-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all rounded-xl"
+        >
+          <Mail className="h-4 w-4 mr-2" />
+          Add CC Recipient
+        </Button>
+      </div>
+    </div>
+
+    {/* ── SECTION 4: Signing Order ── */}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+      <div className="px-5 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">Signing Order</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Should recipients sign in a specific order?
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="signingOrder"
+                value="any"
+                checked={signatureRequest.signingOrder !== 'sequential'}
+                onChange={() =>
+                  setSignatureRequest({ ...signatureRequest, signingOrder: 'any' })
+                }
+                className="w-4 h-4 accent-purple-600"
+              />
+              <span className="text-sm text-slate-700">Any order</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="signingOrder"
+                value="sequential"
+                checked={signatureRequest.signingOrder === 'sequential'}
+                onChange={() =>
+                  setSignatureRequest({ ...signatureRequest, signingOrder: 'sequential' })
+                }
+                className="w-4 h-4 accent-purple-600"
+              />
+              <span className="text-sm text-slate-700">Sequential</span>
+            </label>
+          </div>
+        </div>
+        {signatureRequest.signingOrder === 'sequential' && (
+          <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-200">
+            <p className="text-xs text-amber-800">
+              📋 Each person is notified only after the previous person completes their signature.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* ── SECTION 5: Signature View Mode ── */}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+      <div className="px-5 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">Signature Visibility</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              What can each recipient see when signing?
+            </p>
+          </div>
+          <select
+            value={signatureRequest.viewMode || 'isolated'}
+            onChange={(e) =>
+              setSignatureRequest({
+                ...signatureRequest,
+                viewMode: e.target.value as 'isolated' | 'shared',
+              })
+            }
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 sm:w-auto w-full"
+          >
+            <option value="isolated">Isolated — only their own fields</option>
+            <option value="shared">Shared — all signatures visible</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {/* ── SECTION 6: Access Code ── */}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+      <div className="px-5 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">Access Code Protection</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Recipients must enter a code before viewing the document
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={signatureRequest.accessCodeRequired || false}
+              onChange={(e) => {
+                setSignatureRequest({
+                  ...signatureRequest,
+                  accessCodeRequired: e.target.checked,
+                  ...(!e.target.checked && {
+                    accessCodeType: undefined,
+                    accessCodeHint: undefined,
+                    accessCode: undefined,
+                  }),
+                });
+              }}
+              className="sr-only peer"
+            />
+            <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:bg-purple-600 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-4" />
+          </label>
+        </div>
+
+        {signatureRequest.accessCodeRequired && (
+          <div className="mt-4 space-y-3 pt-4 border-t border-slate-100">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Code Type
+              </label>
+              <select
+                value={signatureRequest.accessCodeType || 'custom'}
+                onChange={(e) =>
+                  setSignatureRequest({ ...signatureRequest, accessCodeType: e.target.value })
+                }
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="custom">Custom Code</option>
+                <option value="last_4_ssn">Last 4 of SSN</option>
+                <option value="employee_id">Employee ID</option>
+                <option value="birth_date">Date of Birth</option>
+                <option value="account_number">Account Number</option>
+                <option value="phone_last_4">Last 4 of Phone</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Hint for Recipients
+                <span className="text-slate-400 font-normal ml-1">(optional)</span>
+              </label>
+              <Input
+                type="text"
+                value={signatureRequest.accessCodeHint || ''}
+                onChange={(e) =>
+                  setSignatureRequest({ ...signatureRequest, accessCodeHint: e.target.value })
+                }
+                placeholder="e.g., 'Your employee ID' or 'Last 4 of your SSN'"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Set the Code
+              </label>
+              <div className="relative">
+                <Input
+                  type={showAccessCode ? 'text' : 'password'}
+                  value={signatureRequest.accessCode || ''}
+                  onChange={(e) =>
+                    setSignatureRequest({ ...signatureRequest, accessCode: e.target.value })
+                  }
+                  placeholder="Enter access code (min 4 characters)"
+                  className="h-9 text-sm pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAccessCode(!showAccessCode)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showAccessCode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           </div>
         )}
+      </div>
+    </div>
+
+    {/* ── SECTION 7: Intent Video ── */}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+      <div className="px-5 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">
+              Intent & Acknowledgement Video
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Signers record a short video confirming intent before completing
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={signatureRequest.intentVideoRequired || false}
+              onChange={(e) =>
+                setSignatureRequest({
+                  ...signatureRequest,
+                  intentVideoRequired: e.target.checked,
+                })
+              }
+              className="sr-only peer"
+            />
+            <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:bg-purple-600 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-4" />
+          </label>
+        </div>
+
+        {signatureRequest.intentVideoRequired && (
+          <div className="mt-4 p-3 bg-purple-50 rounded-xl border border-purple-200">
+            <p className="text-xs font-semibold text-purple-900 mb-1.5 flex items-center gap-1.5">
+              <Camera className="h-3.5 w-3.5" />
+              What signers will record:
+            </p>
+            <ul className="text-xs text-purple-800 space-y-1">
+              <li>• Their full name</li>
+              <li>• The document name</li>
+              <li>• The current date</li>
+              <li>• "I acknowledge and agree to sign this document"</li>
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+
+  </div>
+)}
         {/* Step 2: Place Signature Fields */}
-        {signatureRequest.step === 2 && (
-          <div className="grid grid-cols-12 gap-6 h-[calc(100vh-200px)]">
+         {signatureRequest.step === 2 && (
+  <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-auto lg:h-[calc(100vh-200px)]">
             
             {/* Left Sidebar - Field Tools */}
-            <div className="col-span-3 bg-white rounded-xl shadow-sm border p-6 overflow-y-auto">
-             <h3 className="font-bold text-slate-900 mb-6 text-lg">Signature Fields</h3>
-
+            <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 overflow-y-auto">
+  <h3 className="font-semibold text-slate-900 mb-4 text-base">Fields</h3>
 {/*   UNDO/REDO BUTTONS HERE */}
 <div className="mb-4 flex gap-2">
   <Button
     variant="outline"
     size="sm"
-    className="flex-1"
+    className="flex-1 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
     disabled={historyIndex <= 0}
     onClick={() => {
       if (historyIndex > 0) {
@@ -1439,7 +1460,7 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
   <Button
     variant="outline"
     size="sm"
-    className="flex-1"
+    className="flex-1 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40"
     disabled={historyIndex >= fieldHistory.length - 1}
     onClick={() => {
       if (historyIndex < fieldHistory.length - 1) {
@@ -1464,40 +1485,45 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
               {/* Recipients */}
               <div className="space-y-3 mb-6">
   <div className="flex items-center justify-between mb-3">
-    
-    <Label className="text-sm font-medium text-slate-700">Recipients</Label>
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => setShowEditDrawer(true)}
-      className="text-xs"
-    >
-      <Edit className="h-3 w-3 mr-1" />
-      Edit Details
-    </Button>
-  </div>
+  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+    Recipients
+  </span>
+  <Button
+    variant="ghost"
+    size="sm"
+    onClick={() => setShowEditDrawer(true)}
+    className="text-xs text-purple-600 hover:bg-purple-50 rounded-lg h-7 px-2"
+  >
+    <Edit className="h-3 w-3 mr-1" />
+    Edit
+  </Button>
+</div>
                 {signatureRequest.recipients.map((recipient, index) => {
                   const fieldCount = signatureRequest.signatureFields.filter(
                     (f) => f.recipientIndex === index
                   ).length;
                   return (
-                    <div key={index} className="p-3 bg-slate-50 rounded-lg border">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div
-                          className="h-4 w-4 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: recipient.color }}
-                        />
-                        <span className="text-sm font-medium text-slate-900 truncate flex-1">
-                          {recipient.name || `Recipient ${index + 1}`}
-                        </span>
-                        {fieldCount > 0 && (
-                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
-                            {fieldCount}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500 truncate">{recipient.email}</p>
-                    </div>
+                    <div key={index} className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+  <div
+    className="h-7 w-7 rounded-lg flex-shrink-0 flex items-center justify-center"
+    style={{ backgroundColor: recipient.color }}
+  >
+    <span className="text-white text-xs font-bold">
+      {recipient.name?.charAt(0) || (index + 1)}
+    </span>
+  </div>
+  <div className="flex-1 min-w-0">
+    <p className="text-xs font-medium text-slate-900 truncate">
+      {recipient.name || `Recipient ${index + 1}`}
+    </p>
+    <p className="text-xs text-slate-400 truncate">{recipient.email || 'No email'}</p>
+  </div>
+  {fieldCount > 0 && (
+    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">
+      {fieldCount}
+    </span>
+  )}
+</div>
                   );
                 })}
               {mode === 'edit' && (
@@ -1510,95 +1536,59 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
               </div>
               {/* Field Types */}
               <div className="space-y-3">
-                <Label className="text-sm font-medium text-slate-700">Drag to Place</Label>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-12"
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData("fieldType", "signature")}
-                >
-                  <FileSignature className="h-5 w-5 mr-3" />
-                  Signature Field
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-12"
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData("fieldType", "date")}
-                >
-                  <Clock className="h-5 w-5 mr-3" />
-                  Date Field
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-12"
-                  draggable
-                  onDragStart={(e) => e.dataTransfer.setData("fieldType", "text")}
-                >
-                  <Edit className="h-5 w-5 mr-3" />
-                  Text Field
-                </Button>
-                {/*   NEW: CHECKBOX FIELD */}
-<Button
-  variant="outline"
-  className="w-full justify-start h-12"
-  draggable
-  onDragStart={(e) => e.dataTransfer.setData("fieldType", "checkbox")}
->
-  <CheckSquare className="h-5 w-5 mr-3" />
-  Checkbox Field
-</Button>
-{/* Existing buttons: Signature, Date, Text, Checkbox */}
-
-{/*   NEW: ATTACHMENT FIELD */}
-<Button
-  variant="outline"
-  className="w-full justify-start h-12"
-  draggable
-  onDragStart={(e) => e.dataTransfer.setData("fieldType", "attachment")}
->
-  <Paperclip className="h-5 w-5 mr-3" />
-  Attachment Field
-</Button>
-
-{/* ⭐ NEW: Dropdown Field */}
-<Button
-  variant="outline"
-  className="w-full justify-start h-12"
-  draggable
-  onDragStart={(e) => e.dataTransfer.setData("fieldType", "dropdown")}
->
-  <svg className="h-5 w-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-  </svg>
-  Dropdown Field
-</Button>
-
-{/* ⭐ NEW: Radio Button Field */}
-<Button
-  variant="outline"
-  className="w-full justify-start h-12"
-  draggable
-  onDragStart={(e) => e.dataTransfer.setData("fieldType", "radio")}
->
-  <svg className="h-5 w-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="9" strokeWidth={2} />
-    <circle cx="12" cy="12" r="4" fill="currentColor" />
-  </svg>
-  Radio Button Field
-</Button>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-2">
+  Drag to Place
+</span>
+                {[
+  { type: 'signature', label: 'Signature', icon: <FileSignature className="h-4 w-4" /> },
+  { type: 'date', label: 'Date', icon: <Clock className="h-4 w-4" /> },
+  { type: 'text', label: 'Text', icon: <Edit className="h-4 w-4" /> },
+  { type: 'checkbox', label: 'Checkbox', icon: <CheckSquare className="h-4 w-4" /> },
+  { type: 'attachment', label: 'Attachment', icon: <Paperclip className="h-4 w-4" /> },
+  {
+    type: 'dropdown', label: 'Dropdown',
+    icon: (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    ),
+  },
+  {
+    type: 'radio', label: 'Radio',
+    icon: (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" strokeWidth={2} />
+        <circle cx="12" cy="12" r="4" fill="currentColor" />
+      </svg>
+    ),
+  },
+].map(({ type, label, icon }) => (
+  <div
+    key={type}
+    draggable
+    onDragStart={(e) => e.dataTransfer.setData('fieldType', type)}
+    className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50 cursor-grab active:cursor-grabbing transition-all select-none"
+  >
+    <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-slate-600">
+      {icon}
+    </div>
+    <span className="text-sm font-medium text-slate-700">{label}</span>
+    <svg className="h-3.5 w-3.5 text-slate-300 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+    </svg>
+  </div>
+))}
               </div>
               </div>
               
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-xs text-blue-800">
-                  💡 <strong>Tip:</strong> Drag field types onto the document where you want
-                  recipients to sign, date, or enter text.
-                </p>
-              </div>
+              <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+  <p className="text-xs text-slate-500">
+    💡 Drag any field type onto the document to place it.
+  </p>
+</div>
             </div>
             {/* Center - PDF Document */}
-            <div className="col-span-9 bg-white rounded-xl shadow-sm border p-6 overflow-y-auto">
+            <div className="lg:col-span-9 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 overflow-y-auto">
               <div
                 id="pdf-container"
                 className="relative bg-slate-100 rounded-lg mx-auto"
@@ -2652,277 +2642,300 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
 
 
 {/* Edit Details Drawer */}
+{/* Edit Details Drawer */}
 {showEditDrawer && (
   <>
-    {/* Backdrop */}
-    <div 
-      className="fixed inset-0 bg-black/50 z-50 transition-opacity"
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity"
       onClick={() => setShowEditDrawer(false)}
     />
-    
-    {/* Drawer */}
-    <div className="fixed right-0 top-0 bottom-0 w-[600px] bg-white shadow-2xl z-50 flex flex-col animate-slide-in">
+    <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[520px] bg-white shadow-2xl z-50 flex flex-col">
+
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b bg-slate-50">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Edit Details</h2>
-          <p className="text-sm text-slate-600">Make changes without losing your placed fields</p>
+          <h2 className="text-base font-semibold text-slate-900">Edit Details</h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Changes apply without losing placed fields
+          </p>
         </div>
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setShowEditDrawer(false)}
-          className="hover:bg-slate-200"
+          className="rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
         >
           <X className="h-5 w-5" />
         </Button>
       </div>
 
-      {/* Scrollable Content - Copy entire Step 1 content here */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="space-y-6">
-          {/* Recipients Section */}
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Recipients</h3>
-            <div className="space-y-4">
-              {signatureRequest.recipients.map((recipient, index) => (
-                <div key={index} className="border rounded-lg p-4 bg-slate-50">
-                  <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                      <span className="text-purple-600 font-bold">{index + 1}</span>
-                    </div>
-                    <div className="flex-1 space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs">Full Name</Label>
-                          <Input
-                            value={recipient.name}
-                            onChange={(e) => {
-                              const updated = [...signatureRequest.recipients];
-                              updated[index].name = e.target.value;
-                              setSignatureRequest({ ...signatureRequest, recipients: updated });
-                            }}
-                            placeholder="John Doe"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">
-                            Email Address {signatureRequest.isTemplate && ' (optional)'}
-                          </Label>
-                          <Input
-                            type="email"
-                            value={recipient.email}
-                            onChange={(e) => {
-                              const updated = [...signatureRequest.recipients];
-                              updated[index].email = e.target.value;
-                              setSignatureRequest({ ...signatureRequest, recipients: updated });
-                            }}
-                            placeholder={signatureRequest.isTemplate ? "Optional" : "john@company.com"}
-                            className="mt-1"
-                          />
-                        </div>
-                      </div>
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
+        {/* Recipients */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h3 className="text-sm font-semibold text-slate-900">Recipients</h3>
+          </div>
+          <div className="p-5 space-y-3">
+            {signatureRequest.recipients.map((recipient, index) => (
+              <div
+                key={index}
+                className="border border-slate-200 rounded-xl p-4 bg-slate-50/50"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0 mt-1">
+                    <span className="text-purple-700 font-bold text-sm">{index + 1}</span>
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <Label className="text-xs">Role (optional)</Label>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          Full Name
+                        </label>
                         <Input
-                          value={recipient.role || ""}
+                          value={recipient.name}
                           onChange={(e) => {
                             const updated = [...signatureRequest.recipients];
-                            updated[index].role = e.target.value;
+                            updated[index].name = e.target.value;
                             setSignatureRequest({ ...signatureRequest, recipients: updated });
                           }}
-                          placeholder="e.g., Client, Manager"
-                          className="mt-1"
+                          placeholder="Jane Smith"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          Email
+                          {signatureRequest.isTemplate && (
+                            <span className="text-slate-400 font-normal ml-1">(optional)</span>
+                          )}
+                        </label>
+                        <Input
+                          type="email"
+                          value={recipient.email}
+                          onChange={(e) => {
+                            const updated = [...signatureRequest.recipients];
+                            updated[index].email = e.target.value;
+                            setSignatureRequest({ ...signatureRequest, recipients: updated });
+                          }}
+                          placeholder={signatureRequest.isTemplate ? 'Optional' : 'jane@company.com'}
+                          className="h-9 text-sm"
                         />
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        const updated = signatureRequest.recipients.filter((_, i) => i !== index);
-                        setSignatureRequest({ ...signatureRequest, recipients: updated });
-                      }}
-                      className="text-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">
+                        Role
+                        <span className="text-slate-400 font-normal ml-1">(optional)</span>
+                      </label>
+                      <Input
+                        value={recipient.role || ''}
+                        onChange={(e) => {
+                          const updated = [...signatureRequest.recipients];
+                          updated[index].role = e.target.value;
+                          setSignatureRequest({ ...signatureRequest, recipients: updated });
+                        }}
+                        placeholder="e.g., Client, Manager"
+                        className="h-9 text-sm"
+                      />
+                    </div>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      const updated = signatureRequest.recipients.filter((_, i) => i !== index);
+                      setSignatureRequest({ ...signatureRequest, recipients: updated });
+                    }}
+                    className="text-red-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0 mt-1"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-              ))}
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const updated = [
-                    ...signatureRequest.recipients,
-                    {
-                      name: "",
-                      email: "",
-                      role: "",
-                      color: `hsl(${Math.random() * 360}, 70%, 50%)`,
-                    },
-                  ];
-                  setSignatureRequest({ ...signatureRequest, recipients: updated });
-                }}
-                className="w-full border-dashed h-12"
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              onClick={() => {
+                const updated = [
+                  ...signatureRequest.recipients,
+                  { name: '', email: '', role: '', color: `hsl(${Math.random() * 360}, 70%, 50%)` },
+                ];
+                setSignatureRequest({ ...signatureRequest, recipients: updated });
+              }}
+              className="w-full border-dashed border-2 h-11 text-sm text-slate-500 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-all rounded-xl"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Add Another Recipient
+            </Button>
+          </div>
+        </div>
+
+        {/* Signing Order */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Signing Order</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Sign in any order or sequentially?
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="signingOrderDrawer"
+                    value="any"
+                    checked={signatureRequest.signingOrder !== 'sequential'}
+                    onChange={() =>
+                      setSignatureRequest({ ...signatureRequest, signingOrder: 'any' })
+                    }
+                    className="w-4 h-4 accent-purple-600"
+                  />
+                  <span className="text-sm text-slate-700">Any order</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="signingOrderDrawer"
+                    value="sequential"
+                    checked={signatureRequest.signingOrder === 'sequential'}
+                    onChange={() =>
+                      setSignatureRequest({ ...signatureRequest, signingOrder: 'sequential' })
+                    }
+                    className="w-4 h-4 accent-purple-600"
+                  />
+                  <span className="text-sm text-slate-700">Sequential</span>
+                </label>
+              </div>
+            </div>
+            {signatureRequest.signingOrder === 'sequential' && (
+              <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-200">
+                <p className="text-xs text-amber-800">
+                  📋 Each person is notified only after the previous person signs.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Signature Visibility */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Signature Visibility</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  What can each recipient see?
+                </p>
+              </div>
+              <select
+                value={signatureRequest.viewMode || 'isolated'}
+                onChange={(e) =>
+                  setSignatureRequest({
+                    ...signatureRequest,
+                    viewMode: e.target.value as 'isolated' | 'shared',
+                  })
+                }
+                className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 sm:w-auto w-full"
               >
-                <Users className="h-4 w-4 mr-2" />
-                Add Another Recipient
-              </Button>
+                <option value="isolated">Isolated — only their fields</option>
+                <option value="shared">Shared — all signatures visible</option>
+              </select>
             </div>
           </div>
+        </div>
 
-          {/* Settings Sections - Copy all the toggles from Step 1 */}
-          <div className="space-y-4">
-            {/* View Mode */}
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-sm font-medium text-slate-900">
-                    Signature View Mode
-                  </Label>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Choose how recipients view signatures
-                  </p>
-                </div>
-                <select
-                  value={signatureRequest.viewMode || 'isolated'}
+        {/* Access Code */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Access Code</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Require a code before viewing
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={signatureRequest.accessCodeRequired || false}
                   onChange={(e) =>
                     setSignatureRequest({
                       ...signatureRequest,
-                      viewMode: e.target.value as 'isolated' | 'shared',
+                      accessCodeRequired: e.target.checked,
+                      ...(!e.target.checked && {
+                        accessCodeType: undefined,
+                        accessCodeHint: undefined,
+                        accessCode: undefined,
+                      }),
                     })
                   }
-                  className="border rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="isolated">Isolated</option>
-                  <option value="shared">Shared</option>
-                </select>
-              </div>
+                  className="sr-only peer"
+                />
+                <div className="w-10 h-6 bg-slate-200 rounded-full peer peer-checked:bg-purple-600 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-4" />
+              </label>
             </div>
-
-            {/* Signing Order */}
-            <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-              <div className="flex items-center justify-between">
+            {signatureRequest.accessCodeRequired && (
+              <div className="mt-4 space-y-3 pt-4 border-t border-slate-100">
                 <div>
-                  <Label className="text-sm font-medium text-slate-900">
-                    Signing Order
-                  </Label>
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="signingOrderDrawer"
-                      value="any"
-                      checked={signatureRequest.signingOrder !== 'sequential'}
-                      onChange={() =>
-                        setSignatureRequest({
-                          ...signatureRequest,
-                          signingOrder: 'any',
-                        })
-                      }
-                      className="w-4 h-4 text-purple-600"
-                    />
-                    <span className="text-sm">Any Order</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="signingOrderDrawer"
-                      value="sequential"
-                      checked={signatureRequest.signingOrder === 'sequential'}
-                      onChange={() =>
-                        setSignatureRequest({
-                          ...signatureRequest,
-                          signingOrder: 'sequential',
-                        })
-                      }
-                      className="w-4 h-4 text-purple-600"
-                    />
-                    <span className="text-sm">Sequential</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Access Code */}
-            <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <Label className="text-sm font-medium text-slate-900">
-                    Require Access Code
-                  </Label>
-                </div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={signatureRequest.accessCodeRequired || false}
-                    onChange={(e) => {
-                      setSignatureRequest({
-                        ...signatureRequest,
-                        accessCodeRequired: e.target.checked,
-                      });
-                    }}
-                    className="h-4 w-4 text-purple-600 rounded"
-                  />
-                  <span className="text-sm font-medium">
-                    {signatureRequest.accessCodeRequired ? 'Enabled' : 'Disabled'}
-                  </span>
-                </label>
-              </div>
-              {signatureRequest.accessCodeRequired && (
-                <div className="space-y-3 pt-3 border-t">
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Code</label>
                   <Input
                     type="text"
                     value={signatureRequest.accessCode || ''}
-                    onChange={(e) => {
-                      setSignatureRequest({
-                        ...signatureRequest,
-                        accessCode: e.target.value,
-                      });
-                    }}
-                    placeholder="Enter access code"
-                    className="w-full"
+                    onChange={(e) =>
+                      setSignatureRequest({ ...signatureRequest, accessCode: e.target.value })
+                    }
+                    placeholder="Enter access code (min 4 characters)"
+                    className="h-9 text-sm"
                   />
                 </div>
-              )}
-            </div>
-
-            {/* Intent Video */}
-            <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-sm font-medium text-slate-900">
-                    Require Intent Video
-                  </Label>
-                </div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={signatureRequest.intentVideoRequired || false}
-                    onChange={(e) => {
-                      setSignatureRequest({
-                        ...signatureRequest,
-                        intentVideoRequired: e.target.checked,
-                      });
-                    }}
-                    className="h-4 w-4 text-purple-600 rounded"
-                  />
-                  <span className="text-sm font-medium">
-                    {signatureRequest.intentVideoRequired ? 'Enabled' : 'Disabled'}
-                  </span>
-                </label>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Intent Video */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Intent Video</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Signers record a short video confirming intent
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={signatureRequest.intentVideoRequired || false}
+                  onChange={(e) =>
+                    setSignatureRequest({
+                      ...signatureRequest,
+                      intentVideoRequired: e.target.checked,
+                    })
+                  }
+                  className="sr-only peer"
+                />
+                <div className="w-10 h-6 bg-slate-200 rounded-full peer peer-checked:bg-purple-600 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-4" />
+              </label>
             </div>
           </div>
+        </div>
 
-          {/* Message & Due Date - Only show in 'send' mode */}
-          {(mode === 'send' || mode === 'draft') && (
-            <div className="space-y-4">
+        {/* Message & Due Date — send/draft only */}
+        {(mode === 'send' || mode === 'draft') && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h3 className="text-sm font-semibold text-slate-900">Message & Timing</h3>
+            </div>
+            <div className="p-5 space-y-4">
               <div>
-                <Label className="text-sm">Message to Recipients</Label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Message to Recipients
+                </label>
                 <Textarea
                   value={signatureRequest.message}
                   onChange={(e) =>
@@ -2930,42 +2943,47 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
                   }
                   placeholder="Please review and sign..."
                   rows={3}
-                  className="mt-1"
+                  className="text-sm resize-none"
                 />
               </div>
               <div>
-                <Label className="text-sm">Due Date</Label>
+                <label className="block text-xs font-medium text-slate-600 mb-1">
+                  Due Date
+                </label>
                 <Input
                   type="date"
                   value={signatureRequest.dueDate}
                   onChange={(e) =>
                     setSignatureRequest({ ...signatureRequest, dueDate: e.target.value })
                   }
-                  min={new Date().toISOString().split("T")[0]}
-                  className="mt-1"
+                  min={new Date().toISOString().split('T')[0]}
+                  className="h-9 text-sm"
                 />
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
       </div>
 
       {/* Footer */}
-      <div className="p-6 border-t bg-slate-50 flex justify-end gap-3">
+      <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3 bg-white">
         <Button
           variant="outline"
           onClick={() => setShowEditDrawer(false)}
+          className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50"
         >
           Cancel
         </Button>
         <Button
           onClick={() => setShowEditDrawer(false)}
-          className="bg-purple-600 hover:bg-purple-700"
+          className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-5"
         >
           <CheckSquare className="h-4 w-4 mr-2" />
           Save Changes
         </Button>
       </div>
+
     </div>
   </>
 )}
@@ -2973,163 +2991,183 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
 {/* Review & Send Drawer */}
 {showReviewDrawer && (
   <>
-    {/* Backdrop */}
-    <div 
-      className="fixed inset-0 bg-black/50 z-50 transition-opacity"
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 transition-opacity"
       onClick={() => setShowReviewDrawer(false)}
     />
-    
-    {/* Drawer */}
-    <div className="fixed right-0 top-0 bottom-0 w-[700px] bg-white shadow-2xl z-50 flex flex-col animate-slide-in">
+    <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[560px] bg-white shadow-2xl z-50 flex flex-col">
+
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-purple-50 to-blue-50">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <FileSignature className="h-6 w-6 text-purple-600" />
-            Review & Send
+          <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <FileSignature className="h-4 w-4 text-purple-600" />
+            {mode === 'edit' ? 'Review Template' : 'Review & Send'}
           </h2>
-          <p className="text-sm text-slate-600">Final check before sending</p>
+          <p className="text-xs text-slate-400 mt-0.5">Final check before sending</p>
         </div>
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setShowReviewDrawer(false)}
-          className="hover:bg-slate-200"
+          className="rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
         >
           <X className="h-5 w-5" />
         </Button>
       </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        
-        {/* Document Summary */}
-        <div className="bg-slate-50 rounded-lg p-4 border">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center">
-              <FileText className="h-6 w-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="font-semibold text-slate-900">{doc.filename}</p>
-              <p className="text-sm text-slate-500">
-                {signatureRequest.signatureFields.length} field(s) placed on {doc.numPages} page(s)
-              </p>
-            </div>
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
+        {/* Document summary */}
+        <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+          <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+            <FileText className="h-5 w-5 text-purple-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900 truncate">{doc.filename}</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {signatureRequest.signatureFields.length} field(s) · {doc.numPages} page(s)
+            </p>
           </div>
         </div>
 
+        {/* Validation warning */}
+        {signatureRequest.signatureFields.length === 0 && (
+          <div className="flex items-start gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-200">
+            <svg className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+              <p className="text-xs font-semibold text-amber-900">No signature fields placed</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Go back and add at least one field before sending.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Recipients */}
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-            <Users className="h-5 w-5 text-purple-600" />
-            Recipients ({signatureRequest.recipients.length})
-          </h3>
-          <div className="space-y-2">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              Recipients
+            </span>
+            <span className="text-xs text-slate-400">
+              {signatureRequest.recipients.length} total
+            </span>
+          </div>
+          <div className="p-4 space-y-2">
             {signatureRequest.recipients.map((recipient, index) => (
               <div
                 key={index}
-                className="p-3 border rounded-lg bg-slate-50 flex items-center gap-3"
+                className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200"
               >
                 <div
-                  className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0"
+                  className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0"
                   style={{ backgroundColor: recipient.color }}
                 >
-                  <span className="text-white font-bold text-sm">
+                  <span className="text-white font-bold text-xs">
                     {recipient.name?.charAt(0) || index + 1}
                   </span>
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">
                     {recipient.name || `Recipient ${index + 1}`}
                   </p>
-                  <p className="text-sm text-slate-600">{recipient.email}</p>
-                  {recipient.role && (
-                    <p className="text-xs text-slate-500 mt-0.5">{recipient.role}</p>
-                  )}
+                  <p className="text-xs text-slate-500 truncate">{recipient.email}</p>
                 </div>
-                <div className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
-                  {signatureRequest.signatureFields.filter(f => f.recipientIndex === index).length} fields
-                </div>
+                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">
+                  {signatureRequest.signatureFields.filter((f) => f.recipientIndex === index).length} fields
+                </span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Signature Fields Summary */}
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-            <FileSignature className="h-5 w-5 text-purple-600" />
-            Signature Fields ({signatureRequest.signatureFields.length})
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {signatureRequest.signatureFields.map((field) => {
-              const recipient = signatureRequest.recipients[field.recipientIndex];
-              return (
-                <div
-                  key={field.id}
-                  className="p-3 border rounded-lg bg-slate-50 flex items-center gap-2"
-                >
+        {/* Fields placed */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              Placed Fields
+            </span>
+            <span className="text-xs text-slate-400">
+              {signatureRequest.signatureFields.length} total
+            </span>
+          </div>
+          <div className="p-4 grid grid-cols-2 gap-2">
+            {signatureRequest.signatureFields.length > 0 ? (
+              signatureRequest.signatureFields.map((field) => {
+                const recipient = signatureRequest.recipients[field.recipientIndex];
+                return (
                   <div
-                    className="h-6 w-6 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: recipient?.color || "#9333ea" }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">
-                      {field.type === "signature" ? "Signature" :
-                       field.type === "date" ? "Date" :
-                       field.type === "text" ? "Text" :
-                       field.type === "checkbox" ? "Checkbox" :
-                       field.type === "attachment" ? "Attachment" :
-                       field.type === "dropdown" ? "Dropdown" :
-                       field.type === "radio" ? "Radio" :
-                       field.type}
-                    </p>
-                    <p className="text-xs text-slate-600 truncate">
-                      Page {field.page} • {recipient?.name || `Recipient ${field.recipientIndex + 1}`}
-                    </p>
+                    key={field.id}
+                    className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200"
+                  >
+                    <div
+                      className="h-6 w-6 rounded-lg flex-shrink-0"
+                      style={{ backgroundColor: recipient?.color || '#9333ea' }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-slate-900 truncate capitalize">
+                        {field.type}
+                      </p>
+                      <p className="text-xs text-slate-400 truncate">
+                        Pg {field.page} · {recipient?.name || `R${field.recipientIndex + 1}`}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <p className="text-xs text-slate-400 col-span-2 py-2">No fields placed yet.</p>
+            )}
           </div>
         </div>
 
-        {/* Settings Summary */}
-        <div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-            <Settings className="h-5 w-5 text-purple-600" />
-            Settings
-          </h3>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
-              <span className="text-sm text-slate-700">View Mode</span>
+        {/* Settings summary */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3 border-b border-slate-100">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              Settings
+            </span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            <div className="flex items-center justify-between px-5 py-3">
+              <span className="text-sm text-slate-600">Signing order</span>
               <span className="text-sm font-medium text-slate-900">
-                {signatureRequest.viewMode === 'shared' ? 'Shared View' : 'Isolated View'}
+                {signatureRequest.signingOrder === 'sequential' ? 'Sequential' : 'Any order'}
               </span>
             </div>
-            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
-              <span className="text-sm text-slate-700">Signing Order</span>
+            <div className="flex items-center justify-between px-5 py-3">
+              <span className="text-sm text-slate-600">Visibility</span>
               <span className="text-sm font-medium text-slate-900">
-                {signatureRequest.signingOrder === 'sequential' ? 'Sequential' : 'Any Order'}
+                {signatureRequest.viewMode === 'shared' ? 'Shared' : 'Isolated'}
               </span>
             </div>
+            {signatureRequest.expirationDays && (
+              <div className="flex items-center justify-between px-5 py-3">
+                <span className="text-sm text-slate-600">Link expiration</span>
+                <span className="text-sm font-medium text-slate-900">
+                  {signatureRequest.expirationDays === 'never'
+                    ? 'Never'
+                    : `${signatureRequest.expirationDays} days`}
+                </span>
+              </div>
+            )}
             {signatureRequest.accessCodeRequired && (
-              <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
-                <span className="text-sm text-amber-900">Access Code Protection</span>
-                <span className="text-sm font-medium text-amber-900">✓ Enabled</span>
+              <div className="flex items-center justify-between px-5 py-3">
+                <span className="text-sm text-slate-600">Access code</span>
+                <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                  Enabled
+                </span>
               </div>
             )}
             {signatureRequest.intentVideoRequired && (
-              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
-                <span className="text-sm text-purple-900">Intent Video Required</span>
-                <span className="text-sm font-medium text-purple-900">✓ Enabled</span>
-              </div>
-            )}
-            {signatureRequest.expirationDays && (
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
-                <span className="text-sm text-slate-700">Link Expiration</span>
-                <span className="text-sm font-medium text-slate-900">
-                  {signatureRequest.expirationDays === 'never' ? 'Never' : `${signatureRequest.expirationDays} days`}
+              <div className="flex items-center justify-between px-5 py-3">
+                <span className="text-sm text-slate-600">Intent video</span>
+                <span className="text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">
+                  Enabled
                 </span>
               </div>
             )}
@@ -3138,97 +3176,91 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
 
         {/* CC Recipients */}
         {signatureRequest.ccRecipients && signatureRequest.ccRecipients.length > 0 && (
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-              <Mail className="h-5 w-5 text-blue-600" />
-              CC Recipients ({signatureRequest.ccRecipients.length})
-            </h3>
-            <div className="space-y-2">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                CC Recipients
+              </span>
+              <span className="text-xs text-slate-400">
+                {signatureRequest.ccRecipients.length} total
+              </span>
+            </div>
+            <div className="p-4 space-y-2">
               {signatureRequest.ccRecipients.map((cc, index) => (
                 <div
                   key={index}
-                  className="p-3 border rounded-lg bg-blue-50 border-blue-200 flex items-center gap-3"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-200"
                 >
-                  <Mail className="h-5 w-5 text-blue-600" />
-                  <div className="flex-1">
-                    <p className="font-medium text-slate-900">{cc.name}</p>
-                    <p className="text-sm text-slate-600">{cc.email}</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {cc.notifyWhen === 'completed' ? 'Notified when completed' : 'Notified immediately'}
-                    </p>
+                  <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <Mail className="h-4 w-4 text-blue-600" />
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{cc.name}</p>
+                    <p className="text-xs text-slate-500 truncate">{cc.email}</p>
+                  </div>
+                  <span className="text-xs text-blue-600 flex-shrink-0">
+                    {cc.notifyWhen === 'completed' ? 'On complete' : 'Immediately'}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Message & Due Date (only in send mode) */}
-        {mode === 'send' && (
-          <>
-            {signatureRequest.message && (
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-3">Message</h3>
-                <div className="p-4 border rounded-lg bg-slate-50">
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                    {signatureRequest.message}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {signatureRequest.dueDate && (
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-3">Due Date</h3>
-                <div className="p-4 border rounded-lg bg-slate-50">
-                  <p className="text-sm text-slate-700">
-                    {new Date(signatureRequest.dueDate).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {signatureRequest.scheduledSendDate && (
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-3">Scheduled Send</h3>
-                <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
-                  <p className="text-sm text-blue-900">
-                    📅 {new Date(signatureRequest.scheduledSendDate).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            )}
-          </>
+        {/* Message */}
+        {mode === 'send' && signatureRequest.message && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Message
+              </span>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                {signatureRequest.message}
+              </p>
+            </div>
+          </div>
         )}
 
-        {/* Validation Warnings */}
-        {signatureRequest.signatureFields.length === 0 && (
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-3">
-            <svg className="h-5 w-5 text-yellow-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <div>
-              <p className="text-sm font-medium text-yellow-900">No signature fields placed</p>
-              <p className="text-xs text-yellow-700 mt-1">Add at least one signature field before sending</p>
+        {/* Due date + scheduled send */}
+        {mode === 'send' && (signatureRequest.dueDate || signatureRequest.scheduledSendDate) && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="divide-y divide-slate-100">
+              {signatureRequest.dueDate && (
+                <div className="flex items-center justify-between px-5 py-3">
+                  <span className="text-sm text-slate-600">Due date</span>
+                  <span className="text-sm font-medium text-slate-900">
+                    {new Date(signatureRequest.dueDate).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+              {signatureRequest.scheduledSendDate && (
+                <div className="flex items-center justify-between px-5 py-3">
+                  <span className="text-sm text-slate-600">Scheduled send</span>
+                  <span className="text-sm font-medium text-slate-900">
+                    {new Date(signatureRequest.scheduledSendDate).toLocaleString()}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}
 
       </div>
 
-      {/* Footer - Action Buttons */}
-      <div className="p-6 border-t bg-slate-50 flex items-center justify-between">
+      {/* Footer */}
+      <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-white">
         <Button
           variant="outline"
           onClick={() => setShowReviewDrawer(false)}
+          className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Editing
         </Button>
-        
         <Button
           onClick={() => {
-            // Validate before sending
             if (signatureRequest.signatureFields.length === 0) {
               alert('Please add at least one signature field');
               return;
@@ -3237,39 +3269,38 @@ if (data.ccRecipients && data.ccRecipients.length > 0) {
               (r) => r.name && (mode === 'send' ? r.email : true)
             );
             if (validRecipients.length === 0) {
-              alert(mode === 'send' ? 'Please add recipient emails' : 'Please add at least one role');
+              alert(
+                mode === 'send'
+                  ? 'Please add recipient emails'
+                  : 'Please add at least one role'
+              );
               return;
             }
-            
-            // Close drawer and send
             setShowReviewDrawer(false);
             handleSendSignature();
           }}
           disabled={isSending || signatureRequest.signatureFields.length === 0}
-          className="bg-purple-600 hover:bg-purple-700"
+          className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-5 disabled:opacity-50"
         >
           {isSending ? (
             <>
               <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-              {mode === 'send' ? 'Sending...' : 'Saving...'}
+              {mode === 'edit' ? 'Saving...' : 'Sending...'}
+            </>
+          ) : mode === 'edit' ? (
+            <>
+              <FileSignature className="h-4 w-4 mr-2" />
+              Save Template
             </>
           ) : (
             <>
-              {mode === 'send' ? (
-                <>
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send Signature Request
-                </>
-              ) : (
-                <>
-                  <FileSignature className="h-4 w-4 mr-2" />
-                  Save as Template
-                </>
-              )}
+              <Mail className="h-4 w-4 mr-2" />
+              Send Request
             </>
           )}
         </Button>
       </div>
+
     </div>
   </>
 )}
