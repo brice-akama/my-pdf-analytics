@@ -1,8 +1,9 @@
+//app/docments/[id]/bulk-send/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "@/app/api/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { verifyUserFromRequest } from "@/lib/auth";
-import { sendSignatureRequestEmail } from "@/lib/emailService";
+import { sendSignatureRequestEmail, sendCCBulkSummaryEmail } from "@/lib/emailService";
 
 interface BulkRecipient {
   name: string;
@@ -32,7 +33,8 @@ export async function POST(
       message, 
       expirationDays, 
       additionalSigners = [],   
-      hasMultipleSigners = false 
+      hasMultipleSigners = false ,
+      ccRecipients = [],
     } = await request.json();
 
     if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
@@ -152,7 +154,8 @@ export async function POST(
       batchTimestamp,
       request.nextUrl.origin,
       additionalSigners,
-      hasMultipleSigners
+      hasMultipleSigners,
+      ccRecipients,
     );
 
     return NextResponse.json({
@@ -186,7 +189,8 @@ async function processGroupsAsync(
   batchTimestamp: Date,
   origin: string,
   additionalSigners: Array<{name: string; email: string; role: string}>,
-  hasMultipleSigners: boolean
+  hasMultipleSigners: boolean,
+   ccRecipients: Array<{name: string; email: string}> = [],
 ) {
   let sentCount = 0;
   let failedCount = 0;
@@ -210,7 +214,8 @@ async function processGroupsAsync(
         batchTimestamp,
         origin,
         additionalSigners,
-        hasMultipleSigners
+        hasMultipleSigners,
+        ccRecipients,
       );
       sentCount++;
       console.log(`✅ Group ${groupKey} processed (${groupMembers.length} signers)`);
@@ -249,6 +254,67 @@ async function processGroupsAsync(
   }
 
   console.log(`✅ Bulk send completed: ${batchId} - ${sentCount} groups sent, ${failedCount} failed`);
+
+  // Send CC summary email once to each CC recipient with all signing links
+  if (ccRecipients.length > 0) {
+    try {
+      // Fetch all CC records saved during this batch to get their view links
+      const ccRecords = await db.collection('cc_recipients').find({ bulkSendBatchId: batchId }).toArray();
+
+      // Build a map: documentId -> { recipientName, recipientEmail, ccViewLink }
+      const docToRecipient: Record<string, { name: string; email: string }> = {};
+      for (const [groupKey, groupMembers] of recipientGroups.entries()) {
+        groupMembers.forEach(member => {
+          docToRecipient[member.email] = { name: member.name, email: member.email };
+        });
+      }
+
+      // Group CC records by CC email so each CC person gets one email
+      const ccEmailMap: Record<string, { name: string; email: string; records: any[] }> = {};
+      ccRecords.forEach((record: any) => {
+        if (!ccEmailMap[record.email]) {
+          ccEmailMap[record.email] = { name: record.name, email: record.email, records: [] };
+        }
+        ccEmailMap[record.email].records.push(record);
+      });
+
+      // Fetch all signature requests for this batch to get signing links
+      const signatureRequests = await db.collection('signature_requests').find({ bulkSendBatchId: batchId }).toArray();
+      const docIdToSigningLink: Record<string, string> = {};
+      signatureRequests.forEach((req: any) => {
+        docIdToSigningLink[req.documentId] = `${origin}/sign/${req.uniqueId}`;
+      });
+
+      // Send one summary email per CC recipient
+      for (const [ccEmail, ccInfo] of Object.entries(ccEmailMap)) {
+       const recipientList = ccInfo.records.map((record: any) => {
+          const ccViewLink = `${origin}/cc/${record.uniqueId}?email=${encodeURIComponent(ccEmail)}`;
+          // Match back to original recipient by documentId
+          const sigReq = signatureRequests.find((r: any) => r.documentId === record.documentId);
+          return {
+            name: sigReq?.recipient?.name || 'Recipient',
+            email: sigReq?.recipient?.email || '',
+            signingLink: docIdToSigningLink[record.documentId] || '',
+            ccViewLink,
+          };
+        });
+
+        await sendCCBulkSummaryEmail({
+          ccName: ccInfo.name,
+          ccEmail: ccInfo.email,
+          senderName: ownerName,
+          documentName: document.originalFilename,
+          batchId,
+          recipients: recipientList,
+          origin,
+        });
+      }
+
+      console.log(`✅ CC summary emails sent to ${Object.keys(ccEmailMap).length} CC recipient(s)`);
+    } catch (err) {
+      console.error('❌ Failed to send CC summary emails:', err);
+    }
+  }
 }
 
 async function processGroup(
@@ -266,7 +332,8 @@ async function processGroup(
   batchTimestamp: Date,
   origin: string,
   additionalSigners: Array<{name: string; email: string; role: string}>,
-  hasMultipleSigners: boolean
+  hasMultipleSigners: boolean,
+  ccRecipients: Array<{name: string; email: string}> = [],
 ): Promise<void> {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   
@@ -366,6 +433,25 @@ async function processGroup(
     message: message || `Please review and sign: ${document.filename}`,
     dueDate: undefined,
   });
+
+ // Save CC recipients against this group's document copy
+  if (ccRecipients.length > 0) {
+    const ccRecords = ccRecipients.map((cc) => ({
+      uniqueId: `cc_${batchTimestamp.getTime()}_${Math.random().toString(36).substr(2, 9)}_grp${groupIndex}`,
+      documentId: groupDocument._id.toString(),
+      originalTemplateId: documentId,
+      bulkSendBatchId: batchId,
+      name: cc.name,
+      email: cc.email,
+      ownerEmail,
+      notifyWhen: 'all_signed',
+      isBulkSend: true,
+      createdAt: new Date(),
+    }));
+
+    await db.collection('cc_recipients').insertMany(ccRecords);
+    console.log(`✅ Saved ${ccRecords.length} CC recipients for group ${groupIndex}`);
+  }
 
   console.log(`✅ Group ${groupIndex}: Created ${fieldsToUse} signature requests (${groupMembers.length} members, ${signatureFields.length} fields available)`);
 }

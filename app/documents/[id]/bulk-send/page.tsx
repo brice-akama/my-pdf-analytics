@@ -75,6 +75,60 @@ type DocumentType = {
   };
 };
 
+function RecipientSearch({
+  recipients,
+  selectedIndex,
+  onSelect,
+}: {
+  recipients: BulkRecipient[]
+  selectedIndex: number
+  onSelect: (index: number) => void
+}) {
+  const [query, setQuery] = useState('')
+  const filtered = recipients
+    .map((r, i) => ({ ...r, originalIndex: i }))
+    .filter(r =>
+      r.name.toLowerCase().includes(query.toLowerCase()) ||
+      r.email.toLowerCase().includes(query.toLowerCase())
+    )
+
+  return (
+    <div className="space-y-2">
+      <input
+        type="text"
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="Search by name or email..."
+        className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+        autoFocus
+      />
+      {query && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm max-h-48 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-slate-400">No recipients found</p>
+          ) : (
+            filtered.map(r => (
+              <button
+                key={r.originalIndex}
+                onClick={() => onSelect(r.originalIndex)}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-purple-50 transition-colors ${
+                  selectedIndex === r.originalIndex ? 'bg-purple-50' : ''
+                }`}
+              >
+                <span className="text-xs font-bold text-purple-600 w-5">{r.originalIndex + 1}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">{r.name}</p>
+                  <p className="text-xs text-slate-400 truncate">{r.email}</p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function BulkSendPage() {
   const params = useParams();
   const router = useRouter();
@@ -94,18 +148,37 @@ export default function BulkSendPage() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 const [showEditDrawer, setShowEditDrawer] = useState(false);
 const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
+const [showRecipientPickerDrawer, setShowRecipientPickerDrawer] = useState(false)
 const [editingRecipientIndex, setEditingRecipientIndex] = useState<number | null>(null);
 const [editForm, setEditForm] = useState({ name: "", email: "", customFields: {} as Record<string, string> });
 const [templateConfig, setTemplateConfig] = useState<any>(null);
 const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 const [lastSaved, setLastSaved] = useState<Date | null>(null);
+const [previewRecipientIndex, setPreviewRecipientIndex] = useState(0)
 const [generatedLinks, setGeneratedLinks] = useState<Array<{
   recipient: string;
   email: string;
   link: string;
   status: string;
-}>>([]);
+}>>([])
+const [ccRecipientsList, setCcRecipientsList] = useState<Array<{name: string; email: string}>>([])
+const [ccInput, setCcInput] = useState('')
 
+const addCcRecipient = () => {
+  const parts = ccInput.split(',').map(s => s.trim())
+  const name = parts[0] || ''
+  const email = parts[1] || parts[0] || ''
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  if (!emailRegex.test(email)) return
+  if (ccRecipientsList.some(cc => cc.email === email)) return
+
+  setCcRecipientsList(prev => [...prev, {
+    name: name !== email ? name : email.split('@')[0],
+    email,
+  }])
+  setCcInput('')
+}
 
 // ⭐ STEP 1: Save draft to localStorage
 const saveDraft = useCallback(() => {
@@ -155,9 +228,11 @@ const loadDraft = useCallback(() => {
 
     // Ask user if they want to restore
     const shouldRestore = window.confirm(
-      `📋 Found a saved bulk send draft from ${minutesAgo} minute${minutesAgo !== 1 ? 's' : ''} ago.\n\n` +
-      `Recipients: ${draft.recipients.length}\n\n` +
-      `Would you like to continue where you left off?`
+      `📋 Found a saved draft from ${minutesAgo} minute${minutesAgo !== 1 ? 's' : ''} ago on this device.\n\n` +
+      `Recipients: ${draft.recipients.length}\n` +
+      `Step: ${draft.step} of 2\n\n` +
+      `Note: Drafts are saved on this device only.\n\n` +
+      `Continue where you left off?`
     );
 
     if (!shouldRestore) {
@@ -443,11 +518,7 @@ useEffect(() => {
 
       // Add warnings for missing custom fields
       const firstRecipient = parsed[0];
-      if (Object.keys(firstRecipient.customFields).length === 0) {
-        validationResult.warnings.push(
-          "No custom fields detected. Recipients will get identical documents."
-        );
-      }
+      // Custom fields are optional — no warning needed
 
       setRecipients(parsed);
       setValidation(validationResult);
@@ -501,6 +572,7 @@ useEffect(() => {
         recipients,
         message,
         expirationDays: parseInt(expirationDays),
+        ccRecipients: ccRecipientsList,
       }),
     });
     const data = await res.json();
@@ -578,10 +650,10 @@ useEffect(() => {
 
   // Download sample CSV
   const downloadSampleCsv = () => {
-    const csv = `name,email,title,salary
-John Doe,john@company.com,Software Engineer,75000
-Jane Smith,jane@company.com,Product Manager,90000
-Bob Wilson,bob@company.com,Designer,70000`;
+const csv = `name,email,role
+John Doe,john@company.com,Software Engineer
+Jane Smith,jane@company.com,Product Manager
+Bob Wilson,bob@company.com,Designer`
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -618,518 +690,768 @@ Bob Wilson,bob@company.com,Designer,70000`;
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen">
       {/* Header */}
-      <header className="bg-white border-b shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push(`/documents/${doc._id}`)}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">
-                  Bulk Send: {doc.filename}
-                </h1>
-                <p className="text-sm text-slate-500">
-                  Send to multiple recipients at once
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-  {/* ⭐ Auto-Save Indicator */}
-  <div className="flex items-center gap-2 text-sm">
-    {autoSaveStatus === 'saving' && (
-      <div className="flex items-center gap-2 text-slate-600">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        <span>Saving...</span>
-      </div>
-    )}
-    
-    {autoSaveStatus === 'saved' && lastSaved && (
-      <div className="flex items-center gap-2 text-green-600">
-        <CheckCircle className="h-4 w-4" />
-        <span>Saved {Math.floor((Date.now() - lastSaved.getTime()) / 60000)}m ago</span>
-      </div>
-    )}
-    
-    {autoSaveStatus === 'error' && (
-      <div className="flex items-center gap-2 text-red-600">
-        <AlertCircle className="h-4 w-4" />
-        <span>Save failed</span>
-      </div>
-    )}
-  </div>
-  
-  <div className="text-sm text-slate-600">
-    Step {step} of 3
-  </div>
-</div>
-          </div>
-        </div>
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+  <div className="flex h-16 items-center justify-between px-4 md:px-6 gap-4">
 
-        {/* Progress Bar */}
-        <div className="max-w-7xl mx-auto px-6 pb-4">
-          <div className="flex items-center gap-2">
-            <div
-              className={`flex-1 h-2 rounded-full transition-all ${step >= 1 ? "bg-purple-600" : "bg-slate-200"
-                }`}
-            />
-            <div
-              className={`flex-1 h-2 rounded-full transition-all ${step >= 2 ? "bg-purple-600" : "bg-slate-200"
-                }`}
-            />
-            <div
-              className={`flex-1 h-2 rounded-full transition-all ${step >= 3 ? "bg-purple-600" : "bg-slate-200"
-                }`}
-            />
-          </div>
+    {/* Left — back + title */}
+    <div className="flex items-center gap-3 min-w-0">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => router.push(`/documents/${doc._id}`)}
+        className="flex-shrink-0 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl"
+      >
+        <ArrowLeft className="h-5 w-5" />
+      </Button>
+      <div className="min-w-0">
+        <h1 className="text-base font-semibold text-slate-900 truncate max-w-xs">
+          Bulk Send
+        </h1>
+        <p className="text-xs text-slate-400 truncate hidden sm:block">
+          {doc.filename}
+        </p>
+      </div>
+    </div>
+
+    {/* Right — autosave + step */}
+    <div className="flex items-center gap-3 flex-shrink-0">
+      {autoSaveStatus === 'saving' && (
+        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          <span className="hidden sm:inline">Saving...</span>
         </div>
-      </header>
+      )}
+      {autoSaveStatus === 'saved' && lastSaved && (
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <CheckCircle className="h-3 w-3 text-green-500" />
+          <span className="hidden sm:inline">Draft saved</span>
+        </div>
+      )}
+      {autoSaveStatus === 'error' && (
+        <div className="flex items-center gap-1.5 text-xs text-red-500">
+          <AlertCircle className="h-3 w-3" />
+          <span className="hidden sm:inline">Save failed</span>
+        </div>
+      )}
+     <span className="text-xs text-slate-400 border border-slate-200 rounded-lg px-2.5 py-1">
+  Step {step} of 2
+</span>
+    </div>
+  </div>
+
+  {/* Progress bar */}
+  <div className="px-4 md:px-6 pb-3">
+    <div className="flex items-center gap-1.5">
+      {[1, 2].map((s) => (
+        <div
+          key={s}
+          className={`flex-1 h-1 rounded-full transition-all duration-300 ${
+            step >= s ? 'bg-purple-600' : 'bg-slate-200'
+          }`}
+        />
+      ))}
+    </div>
+  </div>
+</header>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Step 1: Upload CSV */}
         {step === 1 && (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-xl shadow-sm border p-8">
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Upload Recipients
-              </h2>
-              <p className="text-slate-600 mb-6">
-                Upload a CSV file or paste CSV data with recipient
-                information
-              </p>
+  <div className="w-full max-w-2xl mx-auto px-4 sm:px-0 pb-12">
 
-              {/* Sample CSV Download */}
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-900 mb-2">
-                      CSV Format Requirements:
-                    </p>
-                    <ul className="text-sm text-blue-800 space-y-1 mb-3">
-                      <li>• Required columns: <code className="bg-blue-100 px-1 rounded">name</code>, <code className="bg-blue-100 px-1 rounded">email</code></li>
-                      <li>• Optional: Add any custom fields (title, salary, etc.)</li>
-                      <li>• First row must be headers</li>
-                      <li>• Each subsequent row is a recipient</li>
-                    </ul>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={downloadSampleCsv}
-                      className="bg-white"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Sample CSV
-                    </Button>
-                  </div>
-                </div>
-              </div>
+    {/* Heading */}
+    <div className="mb-6">
+      <h2 className="text-xl font-bold text-slate-900">Upload Recipients</h2>
+      <p className="text-sm text-slate-500 mt-1">
+        Upload a CSV file with recipient information to send in bulk
+      </p>
+    </div>
 
-              {/* File Upload */}
-              <div className="mb-6">
-                <Label className="text-sm font-medium mb-2 block">
-                  Upload CSV File
-                </Label>
-                <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-purple-400 transition-colors">
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    id="csv-upload"
-                  />
-                  <label
-                    htmlFor="csv-upload"
-                    className="cursor-pointer"
-                  >
-                    <Upload className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-                    <p className="text-slate-600 font-medium mb-1">
-                      {csvFile
-                        ? csvFile.name
-                        : "Click to upload CSV file"}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      or drag and drop
-                    </p>
-                  </label>
-                </div>
-              </div>
+    {/* CSV Format info */}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <h3 className="text-sm font-semibold text-slate-900">CSV Format Requirements</h3>
+      </div>
+      <div className="p-5 space-y-3">
+        <p className="text-xs text-slate-500">
+          Required columns: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono">name</code> and <code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono">email</code>. Add any extra columns as custom fields (title, salary, etc.).
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={downloadSampleCsv}
+          className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 text-xs h-8 gap-2"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Download Sample CSV
+        </Button>
+      </div>
+    </div>
 
-              {/* Or Paste CSV */}
-              <div className="mb-6">
-                <Label className="text-sm font-medium mb-2 block">
-                  Or Paste CSV Data
-                </Label>
-                <Textarea
-                  value={csvText}
-                  onChange={(e) => setCsvText(e.target.value)}
-                  placeholder="name,email,title,salary&#10;John Doe,john@company.com,Engineer,50000&#10;Jane Smith,jane@company.com,Manager,75000"
-                  rows={8}
-                  className="font-mono text-sm"
-                />
-              </div>
+    {/* Upload source — File or Google Drive */}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <h3 className="text-sm font-semibold text-slate-900">Upload CSV</h3>
+        <p className="text-xs text-slate-400 mt-0.5">Choose where to get your CSV file from</p>
+      </div>
+      <div className="p-5 space-y-3">
 
-              {/* Validation Errors */}
-              {validation && !validation.valid && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-red-900 mb-2">
-                        Validation Errors:
-                      </p>
-                      <ul className="text-sm text-red-800 space-y-1">
-                        {validation.errors.map((error, index) => (
-                          <li key={index}>• {error}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
+        {/* Two source options */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-              {/* Actions */}
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => router.push(`/documents/${doc._id}`)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleParseCsv}
-                  disabled={!csvText.trim()}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  Parse & Validate
-                  <ChevronRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
+          {/* From File */}
+          <label
+            htmlFor="csv-upload"
+            className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-slate-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all group"
+          >
+            <div className="h-10 w-10 rounded-xl bg-slate-100 group-hover:bg-purple-100 flex items-center justify-center flex-shrink-0 transition-colors">
+              <Upload className="h-5 w-5 text-slate-400 group-hover:text-purple-600 transition-colors" />
             </div>
-          </div>
-        )}
-
-        {/* Step 2: Review Recipients */}
-        {step === 2 && (
-          <div className="max-w-6xl mx-auto">
-            <div className="bg-white rounded-xl shadow-sm border p-8">
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Review Recipients
-              </h2>
-              <p className="text-slate-600 mb-6">
-                {recipients.length} recipient(s) will receive signature
-                requests
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                {csvFile ? csvFile.name : 'From Device'}
               </p>
-
-              {/* Success Message */}
-              {validation?.valid && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <p className="text-sm font-medium text-green-900">
-                      All recipients validated successfully!
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Warnings */}
-              {validation?.warnings && validation.warnings.length > 0 && (
-                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-yellow-900 mb-2">
-                        Warnings:
-                      </p>
-                      <ul className="text-sm text-yellow-800 space-y-1">
-                        {validation.warnings.map((warning, index) => (
-                          <li key={index}>• {warning}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-             {/* Action Buttons - Preview & Edit All */}
-<div className="flex items-center justify-between mb-4">
-  <h3 className="font-semibold text-slate-900">Recipients List</h3>
-  <div className="flex gap-2">
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => setShowPreviewDrawer(true)}
-      className="gap-2"
-    >
-      <Eye className="h-4 w-4" />
-      Preview Document
-    </Button>
-  </div>
-</div>
-
-{/* Recipients List */}
-<div className="max-h-96 overflow-y-auto mb-6 border rounded-lg">
-  {recipients.map((recipient, index) => (
-    <div
-      key={index}
-      className="border-b last:border-b-0 p-4 hover:bg-slate-50"
-    >
-      <div className="flex items-start gap-4">
-        <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-          <span className="font-bold text-purple-600">
-            {index + 1}
-          </span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-4 mb-2">
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-slate-900 truncate">
-                {recipient.name}
-              </p>
-              <p className="text-sm text-slate-600 truncate">
-                {recipient.email}
-              </p>
+              <p className="text-xs text-slate-500">Upload a .csv file</p>
             </div>
-            {/* ⭐ Edit Button for Each Recipient */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setEditingRecipientIndex(index);
-                setShowEditDrawer(true);
-              }}
-              className="flex-shrink-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-            >
-              <Edit className="h-4 w-4 mr-1" />
-              Edit
-            </Button>
-          </div>
-          {Object.keys(recipient.customFields).length > 0 && (
-            <div className="flex gap-2 flex-wrap mt-2">
-              {Object.entries(recipient.customFields).map(
-                ([key, value]) => (
-                  <span
-                    key={key}
-                    className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded"
-                  >
-                    <strong>{key}:</strong> {value}
-                  </span>
-                )
-              )}
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              className="hidden"
+              id="csv-upload"
+            />
+          </label>
+
+          {/* From Google Drive */}
+          <button
+            onClick={() => {
+              // TODO: Google Drive picker integration
+              const picker = window.open(
+                'https://drive.google.com/drive/my-drive',
+                'Google Drive',
+                'width=800,height=600'
+              )
+            }}
+            className="flex items-center gap-3 p-4 rounded-xl border-2 border-dashed border-slate-200 hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-all group text-left"
+          >
+            <div className="h-10 w-10 rounded-xl bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center flex-shrink-0 transition-colors">
+              <svg className="h-5 w-5" viewBox="0 0 24 24">
+                <path d="M12.01 1.485L3.982 15h4.035l8.028-13.515h-4.035z" fill="#4285F4"/>
+                <path d="M9.982 17l-4.018 6.515h8.071L18.053 17H9.982z" fill="#34A853"/>
+                <path d="M18.053 17l4.018-6.77-4.018-6.745L14.035 10l4.018 7z" fill="#FBBC04"/>
+                <path d="M3.982 15L7.964 8.23 3.946 1.485 0 8.23 3.982 15z" fill="#EA4335"/>
+              </svg>
             </div>
-          )}
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Google Drive</p>
+              <p className="text-xs text-slate-500">Import from Drive</p>
+            </div>
+          </button>
+
         </div>
       </div>
     </div>
-  ))}
-</div>
 
-              {/* Message & Settings */}
-              <div className="space-y-4 mb-6 p-4 bg-slate-50 rounded-lg border">
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">
-                    Message to Recipients (Optional)
-                  </Label>
-                  <Textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Please review and sign this document..."
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">
-                    Link Expiration
-                  </Label>
-                  <select
-                    value={expirationDays}
-                    onChange={(e) => setExpirationDays(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2"
-                  >
-                    <option value="7">7 days</option>
-                    <option value="14">14 days</option>
-                    <option value="30">30 days</option>
-                    <option value="60">60 days</option>
-                    <option value="90">90 days</option>
-                  </select>
-                </div>
-              </div>
+    {/* Paste CSV */}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <h3 className="text-sm font-semibold text-slate-900">Or Paste CSV Data</h3>
+      </div>
+      <div className="p-5">
+        <textarea
+          value={csvText}
+          onChange={(e) => setCsvText(e.target.value)}
+          placeholder={"name,email,title\nJohn Doe,john@company.com,Engineer\nJane Smith,jane@company.com,Manager"}
+          rows={6}
+          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+        />
+      </div>
+    </div>
 
-              {/* Actions */}
-              <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep(1)}>
-                  <ChevronLeft className="h-4 w-4 mr-2" />
-                  Back
-                </Button>
-                <Button
-                  onClick={handleBulkSend}
-                  disabled={isSending || recipients.length === 0}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Send to {recipients.length} Recipients
-                  <ChevronRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
+    {/* Validation errors */}
+    {validation && !validation.valid && (
+      <div className="bg-white rounded-2xl border border-red-200 shadow-sm overflow-hidden mb-4">
+        <div className="px-5 py-4 flex items-center gap-2">
+          <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+          <h3 className="text-sm font-semibold text-red-700">Validation Errors</h3>
+        </div>
+        <div className="px-5 pb-4 space-y-1">
+          {validation.errors.map((error, index) => (
+            <p key={index} className="text-xs text-red-600">• {error}</p>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Actions */}
+    <div className="flex items-center gap-3">
+      <Button
+        variant="outline"
+        onClick={() => router.push(`/documents/${doc._id}`)}
+        className="rounded-xl border-slate-200 text-slate-600"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleParseCsv}
+        disabled={!csvText.trim()}
+        className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-5"
+      >
+        Parse & Validate
+        <ChevronRight className="h-4 w-4 ml-1.5" />
+      </Button>
+    </div>
+
+  </div>
+)}
+
+        {/* Step 2: Review Recipients */}
+       {step === 2 && (
+  <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 h-auto lg:h-[calc(100vh-130px)]">
+
+    {/* LEFT — Recipients sidebar */}
+    <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col    max-h-[calc(100vh-130px)] scrollball  overflow-auto">
+
+      {/* Sidebar header */}
+     <div className="px-5 py-4 border-b border-slate-100">
+          <div className="flex items-center justify-between mb-1.5">
+            <h3 className="text-sm font-semibold text-slate-900">Recipients</h3>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold">
+              {recipients.length} total
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-slate-400">Each will receive a unique signing link</p>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => setShowRecipientPickerDrawer(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-purple-100 hover:text-purple-700 text-slate-600 text-xs font-medium transition-colors"
+                title="Browse recipients"
+              >
+                <Users className="h-3 w-3" />
+                <span>Browse</span>
+              </button>
+              <button
+                onClick={() => setShowEditDrawer(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-purple-100 hover:text-purple-700 text-slate-600 text-xs font-medium transition-colors"
+                title="Edit recipients"
+              >
+                <Edit className="h-3 w-3" />
+                <span>Edit</span>
+              </button>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Step 3: Sending Progress */}
-        {step === 3 && sendStatus && (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-xl shadow-sm border p-8">
-              <div className="text-center">
-                {sendStatus.status === "processing" && (
-                  <>
-                    <Loader2 className="h-16 w-16 animate-spin text-purple-600 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                      Sending Signature Requests...
-                    </h2>
-                    <p className="text-slate-600 mb-8">
-                      Please wait while we process your bulk send
-                    </p>
-                  </>
-                )}
+      {/* Validation success */}
+      {validation?.valid && (
+        <div className="mx-4 mt-3 flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-xl">
+          <CheckCircle className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+          <p className="text-xs font-medium text-green-800">All recipients valid</p>
+        </div>
+      )}
 
-                {sendStatus.status === "completed" && (
-                  <>
-                    <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle className="h-10 w-10 text-green-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                      Bulk Send Complete!
-                    </h2>
-                    <p className="text-slate-600 mb-8">
-                      Successfully sent signature requests to all recipients
-                    </p>
-                  </>
-                )}
+      {/* Warnings */}
+      {validation?.warnings && validation.warnings.length > 0 && (
+        <div className="mx-4 mt-3 flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
+          <AlertCircle className="h-3.5 w-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800">{validation.warnings[0]}</p>
+        </div>
+      )}
 
-                {sendStatus.status === "failed" && (
-                  <>
-                    <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                      <XCircle className="h-10 w-10 text-red-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                      Bulk Send Failed
-                    </h2>
-                    <p className="text-slate-600 mb-8">
-                      Some signature requests could not be sent
-                    </p>
-                  </>
-                )}
+    {/* Recipients list — compact summary + open drawer */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {/* Selected recipient preview card */}
+        <div className="px-4 py-3 border-b border-slate-100">
+          <p className="text-xs text-slate-400 mb-2">Previewing document for:</p>
+          <div className="flex items-center gap-3 p-3 bg-purple-50 border border-purple-200 rounded-xl">
+            <div className="h-8 w-8 rounded-lg bg-purple-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-xs font-bold text-white">{previewRecipientIndex + 1}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-purple-900 truncate">
+                {recipients[previewRecipientIndex]?.name}
+              </p>
+              <p className="text-xs text-purple-500 truncate">
+                {recipients[previewRecipientIndex]?.email}
+              </p>
+            </div>
+          </div>
+        </div>
 
-                {/* Progress Stats */}
-                <div className="grid grid-cols-4 gap-4 mb-8">
-                  <div className="bg-slate-50 rounded-lg p-4 border">
-                    <div className="text-3xl font-bold text-slate-900 mb-1">
-                      {sendStatus.total}
-                    </div>
-                    <div className="text-sm text-slate-600">Total</div>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                    <div className="text-3xl font-bold text-green-600 mb-1">
-                      {sendStatus.sent}
-                    </div>
-                    <div className="text-sm text-green-700">Sent</div>
-                  </div>
-                  <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-                    <div className="text-3xl font-bold text-yellow-600 mb-1">
-                      {sendStatus.pending}
-                    </div>
-                    <div className="text-sm text-yellow-700">Pending</div>
-                  </div>
-                  <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-                    <div className="text-3xl font-bold text-red-600 mb-1">
-                      {sendStatus.failed}
-                    </div>
-                    <div className="text-sm text-red-700">Failed</div>
-                  </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="mb-8">
-                  <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-purple-600 to-blue-600 transition-all duration-500"
-                      style={{
-                        width: `${((sendStatus.sent + sendStatus.failed) /
-                            sendStatus.total) *
-                          100
-                          }%`,
-                      }}
-                    />
-                  </div>
-                  <p className="text-sm text-slate-600 mt-2">
-                    {sendStatus.sent + sendStatus.failed} of{" "}
-                    {sendStatus.total} processed
+        {/* All recipients — scrollable compact list */}
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-medium text-slate-600">All Recipients</p>
+            <button
+              onClick={() => setShowRecipientPickerDrawer(true)}
+              className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+            >
+              Browse all →
+            </button>
+          </div>
+          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            {recipients.map((recipient, index) => (
+              <button
+                key={`sidebar-${index}-${recipient.email}`}
+                onClick={() => setPreviewRecipientIndex(index)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all ${
+                  previewRecipientIndex === index
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+                }`}
+              >
+                <span className={`text-xs font-bold w-5 flex-shrink-0 ${
+                  previewRecipientIndex === index ? 'text-white' : 'text-purple-600'
+                }`}>
+                  {index + 1}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-semibold truncate ${
+                    previewRecipientIndex === index ? 'text-white' : 'text-slate-800'
+                  }`}>
+                    {recipient.name}
+                  </p>
+                  <p className={`text-xs truncate ${
+                    previewRecipientIndex === index ? 'text-purple-200' : 'text-slate-400'
+                  }`}>
+                    {recipient.email}
                   </p>
                 </div>
+                {previewRecipientIndex === index && (
+                  <div className="h-1.5 w-1.5 rounded-full bg-white flex-shrink-0" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
-                {/*  Failed Recipients */}
-                {sendStatus.failedRecipients &&
-                  sendStatus.failedRecipients.length > 0 && (
-                    <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg text-left">
-                      <p className="text-sm font-medium text-red-900 mb-3">
-                        Failed to send to the following recipients:
-                      </p>
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {sendStatus.failedRecipients.map((failed, index) => (
-                          <div
-                            key={index}
-                            className="text-sm text-red-800 bg-white rounded p-2"
-                          >
-                            <strong>{failed.name}</strong> ({failed.email})
-                            <br />
-                            <span className="text-xs">{failed.error}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+      
 
-                {/* Actions */}
-                <div className="flex gap-3 justify-center">
-                  {sendStatus.status === "completed" && (
-                    <Button
-                      onClick={() => router.push("/SignatureDashboard")}
-                      className="bg-purple-600 hover:bg-purple-700"
-                    >
-                      View in Dashboard
-                    </Button>
-                  )}
+     {/* Message, expiry & CC */}
+      <div className="border-t border-slate-100 p-4 space-y-3 overflow-y-auto flex-shrink-0" style={{ maxHeight: '340px' }}>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            Message <span className="text-slate-400 font-normal">(optional)</span>
+          </label>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Please review and sign..."
+            rows={2}
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">
+            Link Expiration
+          </label>
+          <select
+            value={expirationDays}
+            onChange={(e) => setExpirationDays(e.target.value)}
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+          >
+            <option value="7">7 days</option>
+            <option value="14">14 days</option>
+            <option value="30">30 days (Recommended)</option>
+            <option value="60">60 days</option>
+            <option value="90">90 days</option>
+          </select>
+        </div>
 
-                  {sendStatus.failed > 0 && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        /* Implement retry logic */
+        {/* CC Recipients */}
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">
+            CC Recipients <span className="text-slate-400 font-normal">(optional)</span>
+          </label>
+          <p className="text-xs text-slate-400 mb-2">
+            Notified when each recipient signs
+          </p>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              value={ccInput}
+              onChange={(e) => setCcInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addCcRecipient()
+                }
+              }}
+              placeholder="name, email"
+              className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <button
+              type="button"
+              onClick={addCcRecipient}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-medium transition-colors"
+            >
+              Add
+            </button>
+          </div>
+          {ccRecipientsList.length > 0 && (
+            <div className="space-y-1.5">
+              {ccRecipientsList.map((cc, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-slate-900 truncate">{cc.name}</p>
+                    <p className="text-xs text-slate-400 truncate">{cc.email}</p>
+                  </div>
+                  <button
+                    onClick={() => setCcRecipientsList(prev => prev.filter((_, i) => i !== idx))}
+                    className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* Send button */}
+      <div className="px-4 pb-4 pt-2 flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setStep(1)}
+          className="rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </Button>
+        <Button
+          onClick={handleBulkSend}
+          disabled={isSending || recipients.length === 0}
+          className="flex-1 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm"
+        >
+          {isSending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              Sending...
+            </>
+          ) : (
+            <>
+              <FileText className="h-4 w-4 mr-1.5" />
+              Send to {recipients.length}
+            </>
+          )}
+        </Button>
+      </div>
+
+    </div>
+
+    {/* RIGHT — PDF preview with field overlays */}
+    <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+
+      {/* PDF header */}
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-900">Document Preview</h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {templateConfig?.signatureFields?.length || 0} signature field{(templateConfig?.signatureFields?.length || 0) !== 1 ? 's' : ''} placed
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">
+            Template
+          </span>
+        </div>
+      </div>
+
+      {/* PDF with overlays */}
+      <div className="flex-1 overflow-y-auto bg-slate-100 p-6">
+        <div className="max-w-3xl mx-auto">
+
+          {/* Info tip */}
+          <div className="mb-4 flex items-start gap-2.5 px-4 py-3 bg-white border border-slate-200 rounded-xl">
+            <Info className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-slate-500">
+              The colored boxes show where signatures will be placed. Click <strong className="text-slate-600">Browse</strong> in the sidebar to switch between recipients and see how each person's document will look.
+            </p>
+          </div>
+
+          {/* PDF container */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden relative">
+            <div
+              className="relative"
+              style={{ minHeight: `${297 * ((doc?.numPages || 1) * 3.78)}px` }}
+            >
+              <embed
+                src={`/api/documents/${params.id}/file?serve=blob#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                type="application/pdf"
+                className="w-full border-0"
+                style={{
+                  height: `${297 * ((doc?.numPages || 1) * 3.78)}px`,
+                  display: 'block',
+                  pointerEvents: 'none',
+                }}
+              />
+
+              {/* Field overlays */}
+              <div className="absolute inset-0 pointer-events-none">
+                {templateConfig?.signatureFields?.map((field: any, idx: number) => {
+                  const pageHeight = 297 * 3.78
+                  const topPosition = (field.page - 1) * pageHeight + (field.y / 100) * pageHeight
+                 // Use real CSV recipient name if available, fall back to template config
+                  const templateRecipient = templateConfig.recipients?.[field.recipientIndex]
+                 const csvRecipient = recipients[previewRecipientIndex]
+                  const displayName = csvRecipient?.name || templateRecipient?.name || `Recipient ${field.recipientIndex + 1}`
+                  const displayColor = templateRecipient?.color || '#9333ea'
+
+                  return (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: idx * 0.04 }}
+                      className="absolute rounded-lg border-2 bg-white/90 shadow-sm"
+                      style={{
+                        left: `${field.x}%`,
+                        top: `${topPosition}px`,
+                        width: field.type === 'signature' ? '140px' : '120px',
+                        height: field.type === 'signature' ? '50px' : '36px',
+                        transform: 'translate(-50%, 0%)',
+                        borderColor: displayColor,
                       }}
                     >
-                      Retry Failed
-                    </Button>
-                  )}
-
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push(`/documents/${doc._id}`)}
-                  >
-                    Back to Document
-                  </Button>
-                </div>
+                      {/* Recipient label */}
+                      <div
+                        className="absolute -top-5 left-0 text-xs font-semibold px-1.5 py-0.5 rounded-t whitespace-nowrap"
+                        style={{
+                          backgroundColor: displayColor,
+                          color: 'white',
+                        }}
+                      >
+                        {displayName}
+                      </div>
+                      <div className="h-full flex items-center justify-center px-2">
+                        <span className="text-xs font-semibold text-slate-600 truncate">
+                          {field.type === 'signature' ? '✍️ Signature'
+                            : field.type === 'date' ? '📅 Date'
+                            : field.type === 'text' ? '📝 Text'
+                            : field.type === 'checkbox' ? '☑️ Checkbox'
+                            : field.type === 'attachment' ? '📎 Attachment'
+                            : field.type}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )
+                })}
               </div>
             </div>
           </div>
-        )}
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+)}
+        {/* Step 3: Sending Progress */}
+       {step === 3 && sendStatus && (
+  <div className="w-full max-w-2xl mx-auto px-4 sm:px-0 pb-12">
+
+    {/* Status heading */}
+    <div className="mb-6">
+      {sendStatus.status === 'processing' && (
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+            <Loader2 className="h-5 w-5 text-purple-600 animate-spin" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Sending Requests…</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Please keep this page open</p>
+          </div>
+        </div>
+      )}
+      {sendStatus.status === 'completed' && (
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">All Requests Sent!</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Recipients have been emailed their signing links</p>
+          </div>
+        </div>
+      )}
+      {sendStatus.status === 'failed' && (
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+            <XCircle className="h-5 w-5 text-red-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Send Failed</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Some requests could not be delivered</p>
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Progress bar (only while processing) */}
+    {sendStatus.status === 'processing' && (
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-slate-600">Processing</span>
+            <span className="text-xs text-slate-400">
+              {sendStatus.sent + sendStatus.failed} of {sendStatus.total}
+            </span>
+          </div>
+          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div
+              className="h-full bg-purple-600 rounded-full transition-all duration-500"
+              style={{
+                width: `${((sendStatus.sent + sendStatus.failed) / sendStatus.total) * 100}%`,
+              }}
+            />
+          </div>
+          <p className="text-xs text-slate-400 mt-2">
+            This may take a moment depending on the number of recipients
+          </p>
+        </div>
+      </div>
+    )}
+
+    {/* Stats cards */}
+    <div className="grid grid-cols-4 gap-3 mb-4">
+      {[
+        {
+          label: 'Total',
+          value: sendStatus.total,
+          bg: 'bg-slate-50',
+          border: 'border-slate-200',
+          text: 'text-slate-900',
+        },
+        {
+          label: 'Sent',
+          value: sendStatus.sent,
+          bg: 'bg-green-50',
+          border: 'border-green-200',
+          text: 'text-green-700',
+        },
+        {
+          label: 'Pending',
+          value: sendStatus.pending,
+          bg: 'bg-amber-50',
+          border: 'border-amber-200',
+          text: 'text-amber-700',
+        },
+        {
+          label: 'Failed',
+          value: sendStatus.failed,
+          bg: 'bg-red-50',
+          border: 'border-red-200',
+          text: 'text-red-700',
+        },
+      ].map(({ label, value, bg, border, text }) => (
+        <div key={label} className={`${bg} border ${border} rounded-2xl p-4 text-center`}>
+          <p className={`text-2xl font-bold ${text}`}>{value}</p>
+          <p className={`text-xs mt-0.5 ${text} opacity-80`}>{label}</p>
+        </div>
+      ))}
+    </div>
+
+    {/* Failed recipients */}
+    {sendStatus.failedRecipients && sendStatus.failedRecipients.length > 0 && (
+      <div className="bg-white rounded-2xl border border-red-200 shadow-sm overflow-hidden mb-4">
+        <div className="px-5 py-4 border-b border-red-100 flex items-center gap-2">
+          <XCircle className="h-4 w-4 text-red-500" />
+          <h3 className="text-sm font-semibold text-red-700">
+            Failed Recipients ({sendStatus.failedRecipients.length})
+          </h3>
+        </div>
+        <div className="divide-y divide-slate-100 max-h-52 overflow-y-auto">
+          {sendStatus.failedRecipients.map((failed, index) => (
+            <div key={index} className="px-5 py-3 flex items-start gap-3">
+              <div className="h-7 w-7 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <XCircle className="h-3.5 w-3.5 text-red-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-900">{failed.name}</p>
+                <p className="text-xs text-slate-400 truncate">{failed.email}</p>
+                <p className="text-xs text-red-500 mt-0.5">{failed.error}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* What happens next (completed only) */}
+    {sendStatus.status === 'completed' && (
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h3 className="text-sm font-semibold text-slate-900">What happens next?</h3>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {[
+            'Each recipient received an email with their unique signing link',
+            'You\'ll get notified when each person signs',
+            'Track all signing status from your dashboard',
+            'Download completed documents once everyone has signed',
+          ].map((item, i) => (
+            <div key={i} className="flex items-start gap-3 px-5 py-3">
+              <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <CheckCircle className="h-3 w-3 text-green-600" />
+              </div>
+              <p className="text-sm text-slate-600">{item}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Actions */}
+    <div className="flex items-center gap-3">
+      <Button
+        variant="outline"
+        onClick={() => router.push(`/documents/${doc._id}`)}
+        className="rounded-xl border-slate-200 text-slate-600"
+      >
+        Back to Document
+      </Button>
+
+      {sendStatus.failed > 0 && sendStatus.failedRecipients && (
+        <Button
+          variant="outline"
+          onClick={async () => {
+            const failedList = sendStatus.failedRecipients!.map(f => ({
+              name: f.name,
+              email: f.email,
+              customFields: {},
+            }))
+            setRecipients(failedList)
+            setStep(2)
+            setSendStatus(null)
+            setIsSending(false)
+          }}
+          className="rounded-xl border-amber-200 text-amber-700 hover:bg-amber-50"
+        >
+          Retry {sendStatus.failed} Failed
+        </Button>
+      )}
+
+      {sendStatus.status === 'completed' && (
+        <Button
+          onClick={() => router.push('/SignatureDashboard')}
+          className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-5"
+        >
+          View Dashboard
+          <ChevronRight className="h-4 w-4 ml-1.5" />
+        </Button>
+      )}
+    </div>
+
+  </div>
+)}
       </main>
  {/* Add the Dialog component at the end of your return statement */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
@@ -1303,146 +1625,248 @@ Bob Wilson,bob@company.com,Designer,70000`;
         </DialogContent>
       </Dialog>
 
-      {/* ==================== EDIT RECIPIENT DRAWER ==================== */}
+     {/* ==================== EDIT RECIPIENTS DRAWER ==================== */}
 <AnimatePresence>
-  {showEditDrawer && editingRecipientIndex !== null && (
+  {showEditDrawer && (
     <>
-      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={() => setShowEditDrawer(false)}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+        onClick={() => {
+          setShowEditDrawer(false)
+          setEditingRecipientIndex(null)
+        }}
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
       />
 
-      {/* Drawer */}
       <motion.div
-        initial={{ x: "100%" }}
+        initial={{ x: '100%' }}
         animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 25, stiffness: 200 }}
-        className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col"
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="fixed right-0 top-0 h-full w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Edit className="h-5 w-5 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-slate-900">Edit Recipient</h3>
-              <p className="text-sm text-slate-600">
-                Recipient #{editingRecipientIndex + 1}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">Edit Recipients</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {editingRecipientIndex !== null
+                ? `Editing recipient ${editingRecipientIndex + 1} of ${recipients.length}`
+                : `${recipients.length} recipients`}
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setShowEditDrawer(false)
+              setEditingRecipientIndex(null)
+            }}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+
+        {editingRecipientIndex === null ? (
+          /* ── LIST VIEW — all recipients ── */
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4">
+              <p className="text-xs text-slate-400 mb-3">
+                Click any recipient to edit their details
               </p>
             </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowEditDrawer(false)}
-            className="hover:bg-white/50"
-          >
-            <XCircle className="h-5 w-5 text-slate-600" />
-          </Button>
-        </div>
-
-        {/* Form */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Name */}
-          <div>
-            <Label className="text-sm font-medium mb-2 block">
-              Full Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              value={editForm.name}
-              onChange={(e) =>
-                setEditForm({ ...editForm, name: e.target.value })
-              }
-              placeholder="John Doe"
-              className="w-full"
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <Label className="text-sm font-medium mb-2 block">
-              Email Address <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              type="email"
-              value={editForm.email}
-              onChange={(e) =>
-                setEditForm({ ...editForm, email: e.target.value })
-              }
-              placeholder="john@company.com"
-              className="w-full"
-            />
-          </div>
-
-          {/* Custom Fields */}
-          {Object.keys(editForm.customFields).length > 0 && (
-            <div>
-              <Label className="text-sm font-medium mb-3 block">
-                Custom Fields
-              </Label>
-              <div className="space-y-3">
-                {Object.entries(editForm.customFields).map(([key, value]) => (
-                  <div key={key}>
-                    <Label className="text-xs text-slate-600 mb-1 block capitalize">
-                      {key}
-                    </Label>
-                    <Input
-                      value={value}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          customFields: {
-                            ...editForm.customFields,
-                            [key]: e.target.value,
-                          },
-                        })
-                      }
-                      className="w-full"
-                    />
+            <div className="divide-y divide-slate-100">
+              {recipients.map((recipient, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setEditForm({
+                      name: recipient.name,
+                      email: recipient.email,
+                      customFields: { ...recipient.customFields },
+                    })
+                    setEditingRecipientIndex(index)
+                  }}
+                  className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors text-left"
+                >
+                  <div className="h-9 w-9 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-bold text-purple-700">{index + 1}</span>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Info Box */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-blue-800">
-                <p className="font-medium mb-1">Custom Field Mapping</p>
-                <p>
-                  Custom fields will be used to personalize the document for
-                  this recipient.
-                </p>
-              </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{recipient.name}</p>
+                    <p className="text-xs text-slate-400 truncate">{recipient.email}</p>
+                    {Object.keys(recipient.customFields).length > 0 && (
+                      <div className="flex gap-1 flex-wrap mt-1">
+                        {Object.entries(recipient.customFields).slice(0, 3).map(([key, value]) => (
+                          <span key={key} className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">
+                            {key}: {value}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 text-slate-300 flex-shrink-0">
+                    <Edit className="h-3.5 w-3.5" />
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
-        </div>
+        ) : (
+          /* ── EDIT VIEW — single recipient ── */
+          <>
+            {/* Back button */}
+            <button
+              onClick={() => setEditingRecipientIndex(null)}
+              className="flex items-center gap-2 px-5 py-3 text-xs font-medium text-slate-500 hover:text-purple-600 border-b border-slate-100 transition-colors"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Back to all recipients
+            </button>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t bg-slate-50 flex gap-3">
-          <Button
-            variant="outline"
-            onClick={() => setShowEditDrawer(false)}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={saveEditedRecipient}
-            className="flex-1 bg-purple-600 hover:bg-purple-700"
-          >
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Save Changes
-          </Button>
-        </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Full Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  placeholder="John Doe"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Email Address <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  placeholder="john@company.com"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* Custom fields */}
+              {Object.keys(editForm.customFields).length > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-100">
+                    <h4 className="text-xs font-semibold text-slate-700">Custom Fields</h4>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {Object.entries(editForm.customFields).map(([key, value]) => (
+                      <div key={key}>
+                        <label className="block text-xs font-medium text-slate-500 mb-1 capitalize">
+                          {key}
+                        </label>
+                        <input
+                          type="text"
+                          value={value}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              customFields: {
+                                ...editForm.customFields,
+                                [key]: e.target.value,
+                              },
+                            })
+                          }
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Navigation between recipients */}
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  onClick={() => {
+                    if (editingRecipientIndex > 0) {
+                      // Save current before navigating
+                      const updated = [...recipients]
+                      updated[editingRecipientIndex] = {
+                        ...updated[editingRecipientIndex],
+                        name: editForm.name,
+                        email: editForm.email,
+                        customFields: editForm.customFields,
+                      }
+                      setRecipients(updated)
+                      const prev = editingRecipientIndex - 1
+                      setEditForm({
+                        name: updated[prev].name,
+                        email: updated[prev].email,
+                        customFields: { ...updated[prev].customFields },
+                      })
+                      setEditingRecipientIndex(prev)
+                    }
+                  }}
+                  disabled={editingRecipientIndex === 0}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-purple-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Previous
+                </button>
+                <span className="text-xs text-slate-400">
+                  {editingRecipientIndex + 1} / {recipients.length}
+                </span>
+                <button
+                  onClick={() => {
+                    if (editingRecipientIndex < recipients.length - 1) {
+                      const updated = [...recipients]
+                      updated[editingRecipientIndex] = {
+                        ...updated[editingRecipientIndex],
+                        name: editForm.name,
+                        email: editForm.email,
+                        customFields: editForm.customFields,
+                      }
+                      setRecipients(updated)
+                      const next = editingRecipientIndex + 1
+                      setEditForm({
+                        name: updated[next].name,
+                        email: updated[next].email,
+                        customFields: { ...updated[next].customFields },
+                      })
+                      setEditingRecipientIndex(next)
+                    }
+                  }}
+                  disabled={editingRecipientIndex === recipients.length - 1}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-purple-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-slate-100 flex gap-2">
+              <button
+                onClick={() => setEditingRecipientIndex(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEditedRecipient}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-sm font-medium text-white transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </>
+        )}
       </motion.div>
     </>
   )}
@@ -1538,7 +1962,10 @@ Bob Wilson,bob@company.com,Designer,70000`;
                     const pageHeight = 297 * 3.78;
                     const topPosition =
                       (field.page - 1) * pageHeight + (field.y / 100) * pageHeight;
-                    const recipient = templateConfig.recipients[field.recipientIndex];
+                    const templateRecipient = templateConfig.recipients?.[field.recipientIndex];
+                        const csvRecipient = recipients[field.recipientIndex];
+                        const displayName = csvRecipient?.name || templateRecipient?.name || `Recipient ${field.recipientIndex + 1}`;
+                        const displayColor = templateRecipient?.color || '#9333ea';
 
                     return (
                       <motion.div
@@ -1553,7 +1980,7 @@ Bob Wilson,bob@company.com,Designer,70000`;
                           width: field.type === "signature" ? "140px" : "120px",
                           height: field.type === "signature" ? "50px" : "36px",
                           transform: "translate(-50%, 0%)",
-                          borderColor: recipient?.color || "#9333ea",
+                           borderColor: displayColor,
                         }}
                       >
                         <div className="h-full flex items-center justify-center px-2">
@@ -1575,11 +2002,11 @@ Bob Wilson,bob@company.com,Designer,70000`;
                         <div
                           className="absolute -top-6 left-0 text-xs font-medium px-2 py-0.5 rounded whitespace-nowrap"
                           style={{
-                            backgroundColor: recipient?.color || "#9333ea",
+                            backgroundColor: displayColor,
                             color: "white",
                           }}
                         >
-                          {recipient?.name || `Recipient ${field.recipientIndex + 1}`}
+                          {displayName}
                         </div>
                       </motion.div>
                     );
@@ -1598,6 +2025,125 @@ Bob Wilson,bob@company.com,Designer,70000`;
           >
             Close Preview
           </Button>
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
+{/* ==================== RECIPIENT PICKER DRAWER ==================== */}
+<AnimatePresence>
+  {showRecipientPickerDrawer && (
+    <>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={() => setShowRecipientPickerDrawer(false)}
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+      />
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">Select Recipient to Preview</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {recipients.length} recipients — click any to preview their document
+            </p>
+          </div>
+          <button
+            onClick={() => setShowRecipientPickerDrawer(false)}
+            className="h-8 w-8 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-4 py-3 border-b border-slate-100">
+          <RecipientSearch
+            recipients={recipients}
+            selectedIndex={previewRecipientIndex}
+            onSelect={(index) => {
+              setPreviewRecipientIndex(index)
+              setShowRecipientPickerDrawer(false)
+            }}
+          />
+        </div>
+
+        {/* Recipients list */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="divide-y divide-slate-100">
+            {recipients.map((recipient, index) => (
+              <button
+                key={`picker-${index}-${recipient.email}`}
+                onClick={() => {
+                  setPreviewRecipientIndex(index)
+                  setShowRecipientPickerDrawer(false)
+                }}
+                className={`w-full flex items-center gap-3 px-5 py-4 text-left transition-all ${
+                  previewRecipientIndex === index
+                    ? 'bg-purple-50'
+                    : 'hover:bg-slate-50'
+                }`}
+                style={{
+                  borderLeft: previewRecipientIndex === index
+                    ? '3px solid #7c3aed'
+                    : '3px solid transparent'
+                }}
+              >
+                {/* Number */}
+                <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                  previewRecipientIndex === index ? 'bg-purple-600' : 'bg-purple-100'
+                }`}>
+                  <span className={`text-xs font-bold ${
+                    previewRecipientIndex === index ? 'text-white' : 'text-purple-700'
+                  }`}>{index + 1}</span>
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold truncate ${
+                    previewRecipientIndex === index ? 'text-purple-900' : 'text-slate-900'
+                  }`}>
+                    {recipient.name}
+                  </p>
+                  <p className="text-xs text-slate-400 truncate mt-0.5">{recipient.email}</p>
+                  {Object.keys(recipient.customFields).length > 0 && (
+                    <div className="flex gap-1 flex-wrap mt-1.5">
+                      {Object.entries(recipient.customFields).slice(0, 3).map(([key, value]) => (
+                        <span key={key} className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">
+                          {key}: {value}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected check */}
+                {previewRecipientIndex === index && (
+                  <div className="flex-shrink-0 h-5 w-5 rounded-full bg-purple-600 flex items-center justify-center">
+                    <CheckCircle className="h-3 w-3 text-white" />
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-slate-100 bg-slate-50">
+          <p className="text-xs text-slate-400 text-center">
+            Currently previewing: <span className="font-semibold text-purple-600">
+              {recipients[previewRecipientIndex]?.name}
+            </span>
+          </p>
         </div>
       </motion.div>
     </>

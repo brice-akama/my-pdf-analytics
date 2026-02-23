@@ -7,7 +7,8 @@ import {
   sendDocumentSignedNotification, 
   sendAllSignaturesCompleteEmail,
   sendSignatureRequestEmail, // ⭐ Add this import
-  sendCCCompletionEmail
+  sendCCCompletionEmail,
+  sendCCSignatureUpdateEmail
 } from "@/lib/emailService";
 import { generateSignedPDF } from "@/lib/pdfGenerator";
 import { getLocationFromIP } from '@/lib/geoip';
@@ -222,7 +223,6 @@ if (signatureRequest.selfieVerificationRequired &&
       console.log('✅ All recipients updated with new signature');
     }
 
-    
     // Notify owner that someone signed
     if (signatureRequest.ownerEmail) {
       await sendDocumentSignedNotification({
@@ -235,7 +235,7 @@ if (signatureRequest.selfieVerificationRequired &&
       }).catch(err => console.error('Failed to send owner notification:', err));
     }
 
-    // Check if ALL recipients have signed
+    // Check if ALL recipients have signed — must be declared BEFORE CC block
     const allRequests = await db.collection("signature_requests")
       .find({ documentId: signatureRequest.documentId })
       .toArray();
@@ -245,7 +245,7 @@ if (signatureRequest.selfieVerificationRequired &&
 
     console.log(`📊 Progress: ${signedCount}/${totalRecipients} signatures collected`);
 
-    // Update document's signed count
+    // Update document signed count
     await db.collection("documents").updateOne(
       { _id: new ObjectId(signatureRequest.documentId) },
       {
@@ -256,12 +256,50 @@ if (signatureRequest.selfieVerificationRequired &&
       }
     );
 
+    // Notify CC recipients that this specific person signed
+    try {
+      const ccRecordsForDoc = await db.collection('cc_recipients').find({
+        documentId: signatureRequest.documentId,
+      }).toArray();
+
+      const docLevelCCs: any[] = document.ccRecipients || [];
+      const allCCsMap = new Map<string, { name: string; email: string; uniqueId?: string }>();
+
+      docLevelCCs.forEach((cc: any) => allCCsMap.set(cc.email, cc));
+      ccRecordsForDoc.forEach((cc: any) => allCCsMap.set(cc.email, {
+        name: cc.name,
+        email: cc.email,
+        uniqueId: cc.uniqueId,
+      }));
+
+      if (allCCsMap.size > 0) {
+        for (const cc of Array.from(allCCsMap.values())) {
+          const ccViewLink = cc.uniqueId
+            ? `${request.nextUrl.origin}/cc/${cc.uniqueId}?email=${encodeURIComponent(cc.email)}`
+            : `${request.nextUrl.origin}/dashboard`;
+
+          await sendCCSignatureUpdateEmail({
+            ccName: cc.name,
+            ccEmail: cc.email,
+            signerName: signatureRequest.recipient.name,
+            signerEmail: signatureRequest.recipient.email,
+            documentName: document.filename,
+            totalSigned: signedCount,
+            totalRecipients: totalRecipients,
+            ccViewLink,
+          }).catch(err => console.error(`CC update email failed for ${cc.email}:`, err));
+        }
+        console.log(`✅ CC per-signature update sent to ${allCCsMap.size} CC recipient(s)`);
+      }
+    } catch (err) {
+      console.error('❌ Failed to send CC per-signature updates:', err);
+    }
+
     // If ALL signed, generate final PDF and notify everyone
     if (signedCount === totalRecipients) {
       console.log('🎉 All signatures collected! Generating final PDF...');
 
       try {
-        // Generate signed PDF
         const signedPdfUrl = await generateSignedPDF(
           signatureRequest.documentId,
           allRequests
@@ -269,7 +307,6 @@ if (signatureRequest.selfieVerificationRequired &&
 
         console.log('✅ Signed PDF generated:', signedPdfUrl);
 
-        // Update document with signed PDF URL
         await db.collection("documents").updateOne(
           { _id: new ObjectId(signatureRequest.documentId) },
           {
@@ -280,87 +317,87 @@ if (signatureRequest.selfieVerificationRequired &&
             },
           }
         );
-        
-// ✅ Update bulk send record with signed document
-if (signatureRequest.isBulkSend && signedPdfUrl) {
-  await db.collection("bulk_sends").updateOne(
-    { batchId: signatureRequest.bulkSendBatchId },
-    {
-      $push: {
-        signedDocuments: {
-          recipientName: signatureRequest.recipient.name,
-          recipientEmail: signatureRequest.recipient.email,
-          documentId: signatureRequest.documentId,
-          signedPdfUrl: signedPdfUrl,
-          signedAt: new Date(),
+
+        // Update bulk send record
+        if (signatureRequest.isBulkSend && signedPdfUrl) {
+          await db.collection("bulk_sends").updateOne(
+            { batchId: signatureRequest.bulkSendBatchId },
+            {
+              $push: {
+                signedDocuments: {
+                  recipientName: signatureRequest.recipient.name,
+                  recipientEmail: signatureRequest.recipient.email,
+                  documentId: signatureRequest.documentId,
+                  signedPdfUrl: signedPdfUrl,
+                  signedAt: new Date(),
+                }
+              }
+            } as any
+          );
+          console.log('✅ Updated bulk send record with signed document');
         }
-      }
-    } as any // ✅ Add type assertion
-  );
-  console.log('✅ Updated bulk send record with signed document');
-}
-        // Send completion emails to ALL parties (owner + all signers)
+
         const downloadLink = `${request.nextUrl.origin}/api/signature/${signatureId}/download`;
-        
+
         const allSigners = allRequests.map(req => ({
           name: req.recipient.name,
           email: req.recipient.email,
           signedAt: req.signedAt,
         }));
 
-        // Send to all recipients
-        const emailPromises = allRequests.map(req =>
+        // Completion emails to all signers
+        const emailPromises: Promise<any>[] = allRequests.map(req =>
           sendAllSignaturesCompleteEmail({
             recipientEmail: req.recipient.email,
             recipientName: req.recipient.name,
-           originalFilename: document.filename,
+            originalFilename: document.filename,
             downloadLink: downloadLink,
             allSigners: allSigners,
           }).catch(err => console.error('Failed to send completion email:', err))
         );
 
-        
-
-        // ⭐ ADD THIS: Send to CC recipients who want completion notification
-    if (document.ccRecipients) {
-      const completionCCs = document.ccRecipients.filter(
-        (cc: any) => cc.notifyWhen === 'completed'
-      );
-      
-      if (completionCCs.length > 0) {
-        console.log('📤 Sending completion CC to', completionCCs.length, 'recipients');
-        
-        const ccEmailPromises = completionCCs.map((cc: any) =>
-          sendCCCompletionEmail({
-            ccName: cc.name,
-            ccEmail: cc.email,
-            originalFilename: document.filename,
-            downloadLink: `${request.nextUrl.origin}/api/signature/${signatureId}/download`,
-            allSigners: allSigners,
-          }).catch(err => {
-            console.error(`Failed to send CC completion to ${cc.email}:`, err);
-            return null;
-          })
-        );
-        
-        emailPromises.push(...ccEmailPromises);
-      }
-    }
-    
-    await Promise.all(emailPromises);
-
-        // Also send to owner if different from signers
-        if (signatureRequest.ownerEmail && 
+        // Completion email to owner if not already a signer
+        if (signatureRequest.ownerEmail &&
             !allRequests.some(r => r.recipient.email === signatureRequest.ownerEmail)) {
           emailPromises.push(
             sendAllSignaturesCompleteEmail({
               recipientEmail: signatureRequest.ownerEmail,
               recipientName: 'Document Owner',
-               originalFilename: document.filename,
+              originalFilename: document.filename,
               downloadLink: downloadLink,
               allSigners: allSigners,
             }).catch(err => console.error('Failed to send owner completion email:', err))
           );
+        }
+
+        // Completion emails to CC recipients — single deduplicated source
+        const completionDocCCs: any[] = (document.ccRecipients || [])
+          .filter((cc: any) => cc.notifyWhen === 'completed' || cc.notifyWhen === 'all_signed');
+
+        const completionCollectionCCs = await db.collection('cc_recipients').find({
+          documentId: signatureRequest.documentId,
+          notifyWhen: 'all_signed',
+        }).toArray();
+
+        const completionCCMap = new Map<string, { name: string; email: string }>();
+        completionDocCCs.forEach((cc: any) => completionCCMap.set(cc.email, cc));
+        completionCollectionCCs.forEach((cc: any) => completionCCMap.set(cc.email, { name: cc.name, email: cc.email }));
+
+        if (completionCCMap.size > 0) {
+          console.log('📤 Sending completion CC to', completionCCMap.size, 'recipients');
+          Array.from(completionCCMap.values()).forEach(cc => {
+            emailPromises.push(
+              sendCCCompletionEmail({
+                ccName: cc.name,
+                ccEmail: cc.email,
+                originalFilename: document.filename,
+                downloadLink: `${request.nextUrl.origin}/api/signature/${signatureId}/download`,
+                allSigners: allSigners,
+              }).catch(err => {
+                console.error(`Failed to send CC completion to ${cc.email}:`, err);
+              })
+            );
+          });
         }
 
         await Promise.all(emailPromises);

@@ -3109,3 +3109,251 @@ export async function sendFeedbackEmail({
     throw error;
   }
 }
+
+
+// ===================================
+// BULK SEND CC SUMMARY EMAIL
+// ===================================
+export async function sendCCBulkSummaryEmail({
+  ccName,
+  ccEmail,
+  senderName,
+  documentName,
+  batchId,
+  recipients,
+  origin,
+}: {
+  ccName: string;
+  ccEmail: string;
+  senderName: string;
+  documentName: string;
+  batchId: string;
+  recipients: Array<{ name: string; email: string; signingLink: string; ccViewLink: string }>;
+  origin: string;
+}) {
+  const recipientRows = recipients
+    .map(
+      (r, i) => `
+      <tr style="border-bottom: 1px solid #f3f4f6;">
+        <td style="padding: 12px 16px; font-size: 14px; color: #111827; font-weight: 500;">
+          <span style="background: #ede9fe; color: #7c3aed; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; margin-right: 8px;">${i + 1}</span>
+          ${r.name}
+        </td>
+        <td style="padding: 12px 16px; font-size: 13px; color: #6b7280;">${r.email}</td>
+        <td style="padding: 12px 16px;">
+          <a href="${r.ccViewLink}" style="display: inline-block; background: #ede9fe; color: #7c3aed; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">
+            View Doc
+          </a>
+        </td>
+      </tr>
+    `
+    )
+    .join('');
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocMetrics <noreply@docmetrics.io>',
+      to: [ccEmail],
+      subject: `CC: Bulk send summary — ${recipients.length} recipients sent "${documentName}"`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+            .container { max-width: 650px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.08); }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 36px 30px; text-align: center; color: white; }
+            .content { padding: 35px 30px; }
+            .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 25px 0; }
+            .meta-card { background: #f9fafb; border-radius: 8px; padding: 14px 18px; border-left: 3px solid #667eea; }
+            .meta-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; font-weight: 600; margin-bottom: 4px; }
+            .meta-value { font-size: 15px; font-weight: 600; color: #111827; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            thead tr { background: #f9fafb; }
+            thead th { padding: 10px 16px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; font-weight: 600; }
+            .footer { background: #f9fafb; padding: 25px 30px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 13px; color: #9ca3af; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin: 0; font-size: 22px;">📋 Bulk Send Summary (CC)</h1>
+              <p style="margin: 10px 0 0; opacity: 0.9; font-size: 15px;">
+                You were CC'd on this bulk send by <strong>${senderName}</strong>
+              </p>
+            </div>
+
+            <div class="content">
+              <p style="font-size: 15px; color: #374151;">Hi ${ccName},</p>
+              <p style="font-size: 14px; color: #6b7280; margin-bottom: 25px;">
+                <strong>${senderName}</strong> has sent <strong>"${documentName}"</strong> to <strong>${recipients.length} recipient${recipients.length !== 1 ? 's' : ''}</strong> for signature. 
+                You are copied on this send for your records. Use the links below to view each recipient's copy of the document.
+              </p>
+
+              <div class="meta-grid">
+                <div class="meta-card">
+                  <div class="meta-label">Document</div>
+                  <div class="meta-value">${documentName}</div>
+                </div>
+                <div class="meta-card">
+                  <div class="meta-label">Total Recipients</div>
+                  <div class="meta-value">${recipients.length}</div>
+                </div>
+                <div class="meta-card">
+                  <div class="meta-label">Sent By</div>
+                  <div class="meta-value">${senderName}</div>
+                </div>
+                <div class="meta-card">
+                  <div class="meta-label">Sent On</div>
+                  <div class="meta-value">${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                </div>
+              </div>
+
+              <h3 style="font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 0;">Recipients & Document Links</h3>
+              <p style="font-size: 13px; color: #9ca3af; margin-top: 4px;">Click "View Doc" to see each recipient's individual document copy.</p>
+
+              <table>
+                <thead>
+                  <tr>
+                    <th>Recipient</th>
+                    <th>Email</th>
+                    <th>Document</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${recipientRows}
+                </tbody>
+              </table>
+
+              <div style="margin-top: 28px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px 20px;">
+                <p style="margin: 0; font-size: 13px; color: #1e40af;">
+                  <strong>ℹ️ Note:</strong> You will receive a separate notification email when each recipient signs their document. 
+                  You are view-only on these documents — no action is required from you.
+                </p>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p style="margin: 0;">You received this because you were CC'd on a bulk send from ${senderName}.</p>
+              <p style="margin: 8px 0 0;">© ${new Date().getFullYear()} DocMetrics. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error('❌ Failed to send CC bulk summary email:', error);
+      throw error;
+    }
+
+    console.log('✅ CC bulk summary email sent to:', ccEmail);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ CC bulk summary email error:', error);
+    throw error;
+  }
+}
+
+
+
+// ===================================
+// CC PER-SIGNATURE NOTIFICATION
+// ===================================
+export async function sendCCSignatureUpdateEmail({
+  ccName,
+  ccEmail,
+  signerName,
+  signerEmail,
+  documentName,
+  totalSigned,
+  totalRecipients,
+  ccViewLink,
+}: {
+  ccName: string;
+  ccEmail: string;
+  signerName: string;
+  signerEmail: string;
+  documentName: string;
+  totalSigned: number;
+  totalRecipients: number;
+  ccViewLink: string;
+}) {
+  const allDone = totalSigned === totalRecipients;
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'DocMetrics <noreply@docmetrics.io>',
+      to: [ccEmail],
+      subject: `${signerName} signed "${documentName}" (${totalSigned}/${totalRecipients} complete)`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+            .container { max-width: 580px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.08); }
+            .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 30px; text-align: center; color: white; }
+            .content { padding: 32px 30px; }
+            .signer-card { background: #f0fdf4; border-left: 4px solid #10b981; border-radius: 8px; padding: 18px 20px; margin: 20px 0; }
+            .progress-bar-bg { background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden; margin: 8px 0; }
+            .progress-bar-fill { background: #10b981; height: 100%; border-radius: 4px; }
+            .cta-button { display: inline-block; background: #7c3aed; color: white; padding: 13px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; margin-top: 20px; }
+            .footer { background: #f9fafb; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin: 0; font-size: 20px;">✍️ New Signature Received</h1>
+              <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">${documentName}</p>
+            </div>
+            <div class="content">
+              <p style="font-size: 15px; color: #374151;">Hi ${ccName},</p>
+
+              <div class="signer-card">
+                <p style="margin: 0; font-weight: 700; color: #065f46; font-size: 15px;">✅ ${signerName} just signed</p>
+                <p style="margin: 4px 0 0; font-size: 13px; color: #6b7280;">${signerEmail}</p>
+              </div>
+
+              <div style="margin: 20px 0;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                  <span style="font-size: 13px; font-weight: 600; color: #374151;">Signing Progress</span>
+                  <span style="font-size: 13px; color: #6b7280;">${totalSigned} of ${totalRecipients} signed</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill" style="width: ${Math.round((totalSigned / totalRecipients) * 100)}%;"></div>
+                </div>
+                <p style="font-size: 12px; color: #9ca3af; margin-top: 6px;">
+                  ${allDone ? '🎉 All signatures collected — document is complete!' : `${totalRecipients - totalSigned} signature${totalRecipients - totalSigned !== 1 ? 's' : ''} remaining`}
+                </p>
+              </div>
+
+              <center>
+                <a href="${ccViewLink}" class="cta-button">View Document</a>
+              </center>
+
+              <p style="font-size: 12px; color: #9ca3af; margin-top: 24px;">
+                You are receiving this because you were CC'd on this document. No action is required from you.
+              </p>
+            </div>
+            <div class="footer">
+              © ${new Date().getFullYear()} DocMetrics. All rights reserved.
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) throw error;
+    console.log('✅ CC signature update email sent to:', ccEmail);
+    return { success: true, data };
+  } catch (error) {
+    console.error('❌ CC signature update email error:', error);
+    throw error;
+  }
+}
