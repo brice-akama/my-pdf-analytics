@@ -329,6 +329,7 @@ if (ownerRes.ok) {
             {documents.map((doc, idx) => (
               <div key={idx} className="flex items-center gap-1">
                 <div
+                onClick={() => setCurrentDocIndex(idx)}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
                   style={{
                     background: idx < currentDocIndex
@@ -338,6 +339,7 @@ if (ownerRes.ok) {
                       : 'rgba(255,255,255,0.05)',
                     border: `1px solid ${idx < currentDocIndex ? 'rgba(16,185,129,0.3)' : idx === currentDocIndex ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.08)'}`,
                     color: idx < currentDocIndex ? '#34d399' : idx === currentDocIndex ? '#a5b4fc' : '#64748b',
+                     cursor: 'pointer',
                   }}
                 >
                   {idx < currentDocIndex ? <Check className="h-3 w-3" /> : <span>{idx + 1}</span>}
@@ -560,13 +562,15 @@ if (ownerRes.ok) {
 
                 return (
                   <div
-                    key={doc.documentId}
-                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all"
-                    style={{
-                      background: isCurrentDoc ? 'rgba(99,102,241,0.12)' : isDone ? 'rgba(16,185,129,0.08)' : 'transparent',
-                      border: `1px solid ${isCurrentDoc ? 'rgba(99,102,241,0.3)' : isDone ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.04)'}`,
-                    }}
-                  >
+  key={doc.documentId}
+  onClick={() => setCurrentDocIndex(idx)}
+  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all"
+  style={{
+    background: isCurrentDoc ? 'rgba(99,102,241,0.12)' : isDone ? 'rgba(16,185,129,0.08)' : 'transparent',
+    border: `1px solid ${isCurrentDoc ? 'rgba(99,102,241,0.3)' : isDone ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.04)'}`,
+    cursor: isCurrentDoc ? 'default' : 'pointer',
+  }}
+>
                     <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{
                         background: isDone ? 'rgba(16,185,129,0.2)' : isCurrentDoc ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.05)',
@@ -655,17 +659,19 @@ if (ownerRes.ok) {
 
             {/* Next / Complete button */}
             <button
-              onClick={handleNextDocument}
-                disabled={submitting || (currentDocIndex === documents.length - 1 && !agreedToTerms)}
-              className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all"
-              style={{
-                background: allCurrentDocFieldsFilled && agreedToTerms && !submitting
-                  ? 'linear-gradient(135deg,#6366f1,#8b5cf6)'
-                  : 'rgba(255,255,255,0.05)',
-                color: allCurrentDocFieldsFilled && agreedToTerms && !submitting ? 'white' : '#4b5563',
-                cursor: allCurrentDocFieldsFilled && agreedToTerms && !submitting ? 'pointer' : 'not-allowed',
-              }}
-            >
+  onClick={handleNextDocument}
+  disabled={submitting || (currentDocIndex === documents.length - 1 && !agreedToTerms)}
+  className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all"
+  style={{
+    background: !submitting && (currentDocIndex < documents.length - 1 || (allCurrentDocFieldsFilled && agreedToTerms))
+      ? 'linear-gradient(135deg,#6366f1,#8b5cf6)'
+      : 'rgba(255,255,255,0.05)',
+    color: !submitting && (currentDocIndex < documents.length - 1 || (allCurrentDocFieldsFilled && agreedToTerms))
+      ? 'white' : '#4b5563',
+    cursor: !submitting && (currentDocIndex < documents.length - 1 || (allCurrentDocFieldsFilled && agreedToTerms))
+      ? 'pointer' : 'not-allowed',
+  }}
+>
                {submitting ? (
   <><Loader2 className="h-4 w-4 animate-spin" />Submitting...</>
 ) : currentDocIndex === documents.length - 1 ? (
