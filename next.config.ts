@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  turbopack: {
+    resolveAlias: {
+      canvas: './empty-module.ts',
+    },
+  },
   images: {
     remotePatterns: [
       {
@@ -15,16 +19,15 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
-      // ✅ Add other image hosts you might use later
       {
         protocol: 'https',
-        hostname: 'avatars.githubusercontent.com', // For GitHub OAuth (future)
+        hostname: 'avatars.githubusercontent.com',
         port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
-        hostname: 'media.licdn.com', // For LinkedIn OAuth (future)
+        hostname: 'media.licdn.com',
         port: '',
         pathname: '/**',
       },

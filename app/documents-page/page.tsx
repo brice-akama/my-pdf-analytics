@@ -38,6 +38,7 @@ import { AnimatePresence } from "framer-motion"
 import { Label } from "@radix-ui/react-dropdown-menu"
 import Link from "next/link"
 import PageInfoTooltip from "@/components/PageInfoTooltip"
+import PdfThumbnail from "@/components/PdfThumbnail"
 
 type DocumentType = {
   _id: string
@@ -969,8 +970,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       </div>
       
       <h2 className="text-xl font-semibold text-slate-900 mb-4">Archived Documents</h2>
-      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-        <div className="divide-y">
+      <div className="divide-y divide-slate-100">
           {archivedDocuments.map((doc) => (
             <div 
               key={doc._id} 
@@ -1013,7 +1013,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
           ))}
         </div>
       </div>
-    </div>
+    
   ) : (
     <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
       <Trash2 className="h-16 w-16 text-slate-300 mx-auto mb-4" />
@@ -1028,16 +1028,15 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       <h2 className="text-xl font-semibold text-slate-900 mb-4">
         {activeView === 'documents' ? 'Your Documents' : 'Your Templates'}
       </h2>
-      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-        <div className="divide-y">
+      <div className="divide-y divide-slate-100">
          {(activeView === 'documents' ? documents : templates).map((doc) => (
-  <div 
-    key={doc._id} 
-    className="p-4 hover:bg-slate-50 transition-colors relative group"
-    onMouseEnter={() => setHoveredDocId(doc._id)}
-    onMouseLeave={() => setHoveredDocId(null)}
-  >
-    <div className="flex items-center gap-4">
+ <div
+  key={doc._id}
+  className="flex items-center gap-4 px-2 py-3 hover:bg-slate-50 rounded-xl transition-colors relative group cursor-default"
+  onMouseEnter={() => setHoveredDocId(doc._id)}
+  onMouseLeave={() => setHoveredDocId(null)}
+>
+     <>
        
        {/* ⭐ NEW: Checkbox for Bulk Selection */}
       <div className="flex-shrink-0">
@@ -1054,7 +1053,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       </div>
       {/* Document Preview Thumbnail - Shows actual PDF content */}
 <div 
-  className="relative h-32 w-24 rounded-lg overflow-hidden flex-shrink-0 bg-white border border-slate-200 shadow-sm cursor-pointer"
+  className="relative h-36 w-28 rounded-xl overflow-hidden flex-shrink-0 bg-white border border-slate-200 shadow-sm cursor-pointer"
   onClick={async (e) => {
   e.stopPropagation()
   setPreviewDocumentId(doc._id)
@@ -1094,23 +1093,12 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
 }}
 >
   {/* PDF Preview */}
-  <div className="absolute inset-0 overflow-hidden">
-    <iframe
-      src={`/api/documents/${doc._id}/file?serve=blob#page=1&view=FitH&toolbar=0&navpanes=0&scrollbar=0&zoom=85`}
-      className="absolute border-0 pointer-events-none"
-      style={{
-        width: '500px',
-        height: '650px',
-        left: '50%',
-        top: '0',
-        transform: 'translateX(-50%) scale(0.2)',
-        transformOrigin: 'top center',
-        imageRendering: 'crisp-edges',
-      }}
-      scrolling="no"
-      title={`Preview of ${doc.originalFilename || doc.filename}`}
-    />
-  </div>
+ <div className="absolute inset-0 overflow-hidden">
+  <PdfThumbnail
+    documentId={doc._id}
+    filename={doc.originalFilename || doc.filename}
+  />
+</div>
   
   {/* Hover Overlay */}
   <AnimatePresence>
@@ -1158,22 +1146,8 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
             <Clock className="h-3 w-3" />
             {formatTimeAgo(doc.createdAt)}
           </span>
-          {/* ⭐ ADD SHARE LINKS COUNT HERE */}
-          {doc.shareLinks && doc.shareLinks.length > 0 && (
-            <>
-              <span>•</span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  router.push(`/documents/${doc._id}/share-links`);
-                }}
-                className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline"
-              >
-                <Link2 className="h-3 w-3" />
-                <span>{doc.shareLinks.length} share link{doc.shareLinks.length > 1 ? 's' : ''}</span>
-              </button>
-            </>
-          )}
+          
+          {/* share links accessible from document detail page */}
 
         </div>
       </div>
@@ -1268,23 +1242,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
   </Button>
 )}
 
-{/* ⭐ NEW: Manage Share Links Button */}
-        {doc.shareLinks && doc.shareLinks.length > 0 && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/documents/${doc._id}/share-links`);
-            }}
-            className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
-            title="View and manage all share links"
-          >
-            <Link2 className="h-4 w-4" />
-            Links ({doc.shareLinks.length})
-          </Button>
-        )}
-
+{/* Share links visible inside document detail page */}
         <Button 
           variant="ghost" 
           size="sm" 
@@ -1315,120 +1273,89 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                router.push(`/documents/${doc._id}`)
-              }}
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              Open
-            </DropdownMenuItem>
-
-            <DropdownMenuItem
-    onClick={(e) => {
-      e.stopPropagation()
-      router.push(`/documents/${doc._id}/versions`)
-    }}
-  >
-    <Clock className="h-4 w-4 mr-2" />
-    Version History
-  </DropdownMenuItem>
-
-            {/* ⭐ NEW: Manage Share Links */}
-    {doc.shareLinks && doc.shareLinks.length > 0 && (
-      <DropdownMenuItem
-        onClick={(e) => {
-          e.stopPropagation()
-          router.push(`/documents/${doc._id}/share-links`)
-        }}
-        className="text-blue-600 focus:text-blue-600"
-      >
-        <Link2 className="h-4 w-4 mr-2" />
-        Manage Share Links ({doc.shareLinks.length})
-      </DropdownMenuItem>
-    )}
-
-            <DropdownMenuItem
-  onClick={(e) => {
-    e.stopPropagation()
-    setSharingDocumentId(doc._id)
-    setShareDrawerOpen(true)
-  }}
-  className="text-blue-600 focus:text-blue-600"
+         <DropdownMenuContent align="end" className="w-52 bg-white border border-slate-200 shadow-lg rounded-2xl p-1">
+           <DropdownMenuItem
+  onClick={(e) => { e.stopPropagation(); router.push(`/documents/${doc._id}`); }}
+  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
 >
-  <Share2 className="h-4 w-4 mr-2" />
+  <Eye className="h-4 w-4 text-slate-400" />
+  Open
+</DropdownMenuItem>
+
+<DropdownMenuItem
+  onClick={(e) => { e.stopPropagation(); router.push(`/documents/${doc._id}/versions`); }}
+  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+>
+  <Clock className="h-4 w-4 text-slate-400" />
+  Version History
+</DropdownMenuItem>
+
+<DropdownMenuItem
+  onClick={(e) => { e.stopPropagation(); setSharingDocumentId(doc._id); setShareDrawerOpen(true); }}
+  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+>
+  <Share2 className="h-4 w-4 text-slate-400" />
   Share Securely
 </DropdownMenuItem>
-           {/* ⭐ Convert to Signable - Only show if NOT a template */}
-  {!doc.isTemplate && (
-    <DropdownMenuItem
-      onClick={(e) => {
-        e.stopPropagation()
-        router.push(`/documents/${doc._id}/signature?mode=edit`)
-      }}
-      className="text-purple-600 focus:text-purple-600"
-    >
-      <Edit className="h-4 w-4 mr-2" />
-      Convert to Signable
-    </DropdownMenuItem>
-  )}
 
-  {/* ⭐ NEW: Send for Signature - Show for both templates and regular docs */}
+<DropdownMenuItem
+  onClick={(e) => { e.stopPropagation(); router.push(`/documents/${doc._id}/signature?mode=send`); }}
+  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+>
+  <Mail className="h-4 w-4 text-slate-400" />
+  Send for Signature
+</DropdownMenuItem>
+
+{!doc.isTemplate && (
   <DropdownMenuItem
-    onClick={(e) => {
-      e.stopPropagation()
-      router.push(`/documents/${doc._id}/signature?mode=send`)
-    }}
-    className="text-blue-600 focus:text-blue-600"
+    onClick={(e) => { e.stopPropagation(); router.push(`/documents/${doc._id}/signature?mode=edit`); }}
+    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
   >
-    <Mail className="h-4 w-4 mr-2" />
-    Send for Signature
+    <Edit className="h-4 w-4 text-slate-400" />
+    Convert to Signable
   </DropdownMenuItem>
+)}
 
-  <DropdownMenuItem asChild>
-              <Link href="/compliance" className="flex items-center">
-                <Shield className="mr-2 h-4 w-4 text-red-600" />
-                Compliance Report
-              </Link>
-            </DropdownMenuItem>
+{doc.isTemplate && (
+  <DropdownMenuItem
+    onClick={(e) => { e.stopPropagation(); router.push(`/documents/${doc._id}/bulk-send`); }}
+    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+  >
+    <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+    </svg>
+    Bulk Send
+  </DropdownMenuItem>
+)}
 
-  {/* ⭐ NEW: Bulk Send - Only show for templates */}
-  {doc.isTemplate && (
-    <DropdownMenuItem
-      onClick={(e) => {
-        e.stopPropagation()
-        router.push(`/documents/${doc._id}/bulk-send`)
-      }}
-      className="text-green-600 focus:text-green-600"
-    >
-      <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
-      </svg>
-      Bulk Send
-    </DropdownMenuItem>
-  )}
+<DropdownMenuItem asChild>
+  <Link
+    href="/compliance"
+    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+  >
+    <Shield className="h-4 w-4 text-slate-400" />
+    Compliance Report
+  </Link>
+</DropdownMenuItem>
 
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDeleteDocument(doc._id, doc.originalFilename || doc.filename)
-              }}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
+<div className="h-px bg-slate-100 my-1 mx-2" />
+
+<DropdownMenuItem
+  onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc._id, doc.originalFilename || doc.filename); }}
+  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-red-600 hover:bg-red-50 cursor-pointer"
+>
+  <Trash2 className="h-4 w-4" />
+  Delete
+</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </div>
+    </>
   </div>
 ))}
         </div>
       </div>
-    </div>
+    
   ) : (
     <div 
       className={`bg-white rounded-xl border-2 border-dashed shadow-sm p-12 text-center transition-colors cursor-pointer ${
