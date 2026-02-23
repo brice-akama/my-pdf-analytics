@@ -109,6 +109,7 @@ export async function GET(
         cloudinaryPdfUrl: document.cloudinaryPdfUrl,
         extractedText: document.extractedText,
         notes: document.notes || "",
+        ownerEmail: user.email || "",
         analytics: {
           healthScore: document.analytics?.healthScore || 0,
           readabilityScore: document.analytics?.readabilityScore || 0,

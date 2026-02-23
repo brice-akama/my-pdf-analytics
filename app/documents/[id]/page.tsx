@@ -1314,12 +1314,18 @@ const handleSendSignatureRequest = async () => {
                 )}
 
                 {/* Last updated — only show when NOT editing note */}
-                {!isEditingNotes && (
-                  <p className="text-[11px] text-slate-300 mt-0.5 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Last updated {formatTimeAgo(doc.createdAt)}
-                  </p>
-                )}
+{!isEditingNotes && (
+  <p className="text-[11px] text-slate-300 mt-0.5 flex items-center gap-1.5">
+    <Clock className="h-3 w-3" />
+    Last updated {formatTimeAgo(doc.createdAt)}
+    {doc?.ownerEmail && (
+      <>
+        <span className="text-slate-200">·</span>
+        <span>{doc.ownerEmail}</span>
+      </>
+    )}
+  </p>
+)}
 
               </div>
               </div>
@@ -1405,6 +1411,8 @@ const handleSendSignatureRequest = async () => {
                   Create link
                 </button>
 
+                
+
                 {/* Split arrow — opens link type menu */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -1456,6 +1464,7 @@ const handleSendSignatureRequest = async () => {
                 </DropdownMenu>
               </div>
 
+             
               {/* ··· more menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1732,6 +1741,8 @@ const handleSendSignatureRequest = async () => {
       {/* Tabs */}
       <div className="bg-white border-b border-slate-200 sticky top-[65px] z-40 mt-5">
         <div className="max-w-7xl mx-auto px-6">
+
+
           <div className="flex gap-0">
             {(
               [
@@ -4878,66 +4889,122 @@ function ActivityTab({
   };
 
   React.useEffect(() => {
-    fetch(`/api/documents/${doc._id}/share`, { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.shares) {
-          setShareLinks(data.shares.map((s: any) => ({
-            shareId: s.id,
-            name: doc.filename,
-            recipientEmail: s.recipientEmail,
-            recipientName: s.recipientName,
-            createdAgo: formatAgo(new Date(s.createdAt)),
-            link: s.shareLink,
-            visits: s.tracking?.views || 0,
-            totalTime: formatTime(s.tracking?.totalTimeSpent || 0),
-            lastViewed: s.tracking?.lastViewedAt ? formatAgo(new Date(s.tracking.lastViewedAt)) : null,
-            completion: `${Math.round((s.tracking?.views || 0) / Math.max(1, doc.numPages) * 100)}%`,
-            enabled: s.active && !s.expired,
-            shareToken: s.shareToken,
-            settings: {
-              requireEmail: s.settings?.requireEmail ?? true,
-              allowDownload: s.settings?.allowDownload ?? false,
-              allowPrint: s.settings?.allowPrint ?? true,
-              allowForwarding: s.settings?.allowForwarding ?? true,
-              notifyOnDownload: s.settings?.notifyOnDownload ?? false,
-              selfDestruct: s.settings?.selfDestruct ?? false,
-              enableWatermark: s.settings?.enableWatermark ?? false,
-              watermarkText: s.settings?.watermarkText ?? '',
-              watermarkPosition: s.settings?.watermarkPosition ?? 'bottom',
-              requireNDA: s.settings?.requireNDA ?? false,
-              ndaTemplateId: s.settings?.ndaTemplateId ?? '',
-              customMessage: s.settings?.customMessage ?? '',
-              sharedByName: s.settings?.sharedByName ?? '',
-              logoUrl: s.settings?.logoUrl ?? '',
-              viewLimit: s.settings?.viewLimit,
-              downloadLimit: s.settings?.downloadLimit,
-              linkType: s.settings?.linkType ?? 'public',
-              password: '',
-              expiresIn: s.settings?.expiresIn ?? 7,
-            },
-          })));
-        }
-      })
-      .catch(err => console.error('Failed to fetch shares:', err));
-  }, [doc._id, doc.filename, doc.numPages]);
+  // Fetch both share links AND signature requests in parallel
+  Promise.all([
+    fetch(`/api/documents/${doc._id}/share`, { credentials: 'include' }).then(r => r.json()),
+    fetch(`/api/documents/${doc._id}/signature-requests`, { credentials: 'include' }).then(r => r.json()),
+  ]).then(([shareData, sigData]) => {
+    const links: any[] = [];
+
+    // Regular share links
+    if (shareData.success && shareData.shares) {
+      shareData.shares.forEach((s: any) => {
+        links.push({
+          shareId: s.id,
+          name: doc.filename,
+          recipientEmail: s.recipientEmail,
+          recipientName: s.recipientName,
+          createdAgo: formatAgo(new Date(s.createdAt)),
+          link: s.shareLink,
+          visits: s.tracking?.views || 0,
+          totalTime: formatTime(s.tracking?.totalTimeSpent || 0),
+          lastViewed: s.tracking?.lastViewedAt ? formatAgo(new Date(s.tracking.lastViewedAt)) : null,
+          completion: `${Math.round((s.tracking?.views || 0) / Math.max(1, doc.numPages) * 100)}%`,
+          enabled: s.active && !s.expired,
+          linkType: 'share',
+          settings: {
+            requireEmail: s.settings?.requireEmail ?? true,
+            allowDownload: s.settings?.allowDownload ?? false,
+            allowPrint: s.settings?.allowPrint ?? true,
+            allowForwarding: s.settings?.allowForwarding ?? true,
+            notifyOnDownload: s.settings?.notifyOnDownload ?? false,
+            selfDestruct: s.settings?.selfDestruct ?? false,
+            enableWatermark: s.settings?.enableWatermark ?? false,
+            watermarkText: s.settings?.watermarkText ?? '',
+            watermarkPosition: s.settings?.watermarkPosition ?? 'bottom',
+            requireNDA: s.settings?.requireNDA ?? false,
+            ndaTemplateId: s.settings?.ndaTemplateId ?? '',
+            customMessage: s.settings?.customMessage ?? '',
+            sharedByName: s.settings?.sharedByName ?? '',
+            logoUrl: s.settings?.logoUrl ?? '',
+            viewLimit: s.settings?.viewLimit,
+            downloadLimit: s.settings?.downloadLimit,
+            linkType: s.settings?.linkType ?? 'public',
+            password: '',
+            expiresIn: s.settings?.expiresIn ?? 7,
+          },
+        });
+      });
+    }
+
+    // Signature request links
+    if (sigData.success && sigData.requests) {
+  sigData.requests.forEach((r: any) => {
+    links.push({
+      shareId: r.uniqueId,
+      recipientEmail: r.email,
+      recipientName: r.name,
+      createdAgo: r.createdAt ? formatAgo(new Date(r.createdAt)) : '—',
+      link: r.signingLink,  // ← now always correct
+      visits: r.viewCount || 0,
+      totalTime: formatTime(r.totalTimeSpentSeconds || 0),
+      lastViewed: r.viewedAt ? formatAgo(new Date(r.viewedAt)) : null,
+      completion: r.status === 'signed' || r.status === 'completed' ? '100%' : r.viewedAt ? 'In progress' : '—',
+      enabled: !['cancelled', 'declined', 'expired'].includes(r.status),
+      linkType: r.linkType,   // 'signature' | 'envelope'
+      source: r.source,       // 'signature' | 'bulk' | 'envelope'
+      signatureStatus: r.status,
+      pageData: r.pageData || [],
+      envelopeId: r.envelopeId || null,
+      documentCount: r.documentCount || 1,
+      settings: {},
+    });
+  });
+}
+
+    setShareLinks(links);
+  }).catch(err => console.error('Failed to fetch links:', err));
+}, [doc._id, doc.filename, doc.numPages]);
 
   const allLinks = shareLinks;
 
-  const allVisits: any[] = (analytics.recipientPageTracking || []).map((r: any, i: number) => ({
-    key: r.recipientEmail || `anon-${i}`,
-    email: r.recipientEmail || 'Anonymous',
+  const shareVisits: any[] = (analytics.recipientPageTracking || []).map((r: any, i: number) => ({
+  key: r.recipientEmail || `anon-${i}`,
+  email: r.recipientEmail || 'Anonymous',
+  senderName: doc.filename,
+  timeAgo: r.firstOpened ? formatAgo(new Date(r.firstOpened)) : 'Unknown',
+  totalTime: r.totalTimeOnDoc || '0m 0s',
+  totalTimeSeconds: r.totalTimeSeconds || 0,
+  location: analytics.locations?.[0]?.country || 'Unknown',
+  city: analytics.locations?.[0]?.topCities?.[0] || '',
+  country: analytics.locations?.[0]?.country || 'Unknown',
+  pageData: r.pageData || [],
+  bounced: r.bounced || false,
+  firstOpened: r.firstOpened || null,
+  visitType: 'share',
+}));
+
+// Pull signature visits from the already-fetched shareLinks
+const sigVisits: any[] = shareLinks
+  .filter(lnk => lnk.linkType === 'signature' && lnk.visits > 0)
+  .map(lnk => ({
+    key: `sig-${lnk.shareId}`,
+    email: lnk.recipientEmail || 'Unknown',
     senderName: doc.filename,
-    timeAgo: r.firstOpened ? formatAgo(new Date(r.firstOpened)) : 'Unknown',
-    totalTime: r.totalTimeOnDoc || '0m 0s',
-    totalTimeSeconds: r.totalTimeSeconds || 0,
-    location: analytics.locations?.[0]?.country || 'Unknown',
-    city: analytics.locations?.[0]?.topCities?.[0] || '',
-    country: analytics.locations?.[0]?.country || 'Unknown',
-    pageData: r.pageData || [],
-    bounced: r.bounced || false,
-    firstOpened: r.firstOpened || null,
+    timeAgo: lnk.lastViewed || lnk.createdAgo,
+    totalTime: lnk.totalTime || '0m 0s',
+    totalTimeSeconds: 0,
+    location: 'Unknown',
+    city: '',
+    country: 'Unknown',
+    pageData: lnk.pageData || [],
+    bounced: false,
+    firstOpened: null,
+    visitType: 'signature',
+    signatureStatus: lnk.signatureStatus,
   }));
+
+const allVisits: any[] = [...shareVisits, ...sigVisits];
 
   const getMaxTime = (pageData: any[]) =>
     Math.max(...pageData.map((p: any) => p.timeSpent || 0), 1);
@@ -5027,104 +5094,167 @@ function ActivityTab({
 
                   {/* Expanded per-page bars */}
                   {isExpanded && (
-                    <div className="pb-6 pt-2">
-                      <div className="relative" style={{ paddingLeft: '52px', paddingBottom: '28px' }}>
-                        {/* Y-axis labels */}
-                        {(() => {
-                          const formatYLabel = (secs: number) => {
-                            const m = Math.floor(secs / 60);
-                            const s = secs % 60;
-                            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-                          };
-                          return [maxTime, Math.round(maxTime * 0.5), 0].map((val, i) => (
-                            <div key={i} className="absolute text-right text-[10px] text-slate-400 font-mono"
-                              style={{ left: 0, top: `${(i / 2) * 100}%`, width: '44px', transform: 'translateY(-50%)' }}>
-                              {formatYLabel(val)}
+  <div className="pb-6">
+
+    {/* Visit meta row */}
+    <div className="flex items-center gap-4 px-1 pb-4 mb-4 border-b border-slate-100 flex-wrap">
+      <div className="flex items-center gap-1.5">
+        <div className={`h-2 w-2 rounded-full ${visit.visitType === 'signature' ? 'bg-purple-500' : 'bg-sky-500'}`} />
+        <span className="text-xs font-semibold text-slate-500">
+          {visit.visitType === 'signature' ? '✍️ Signature request' : '🔗 Share link view'}
+        </span>
+      </div>
+      <span className="text-xs text-slate-400">{visit.city && visit.city !== 'Unknown' ? `${visit.city}, ` : ''}{visit.country}</span>
+      <span className="text-xs text-slate-400">{visit.timeAgo}</span>
+      {visit.visitType === 'signature' && visit.signatureStatus && (
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+          visit.signatureStatus === 'signed' ? 'bg-green-100 text-green-700' :
+          visit.signatureStatus === 'declined' ? 'bg-red-100 text-red-600' :
+          'bg-amber-100 text-amber-700'
+        }`}>
+          {visit.signatureStatus === 'signed' ? '✓ Signed' :
+           visit.signatureStatus === 'declined' ? '✗ Declined' : '⏳ Pending'}
+        </span>
+      )}
+      <span className="ml-auto text-sm font-bold text-slate-900 tabular-nums">{visit.totalTime}</span>
+    </div>
+
+    {/* Chart — only if pageData exists */}
+    {visit.pageData && visit.pageData.length > 0 ? (
+      <div className="relative" style={{ paddingLeft: '52px', paddingBottom: '28px' }}>
+
+        {/* Y-axis labels */}
+        {(() => {
+          const maxT = Math.max(...visit.pageData.map((p: any) => p.timeSpent || 0), 1);
+          const fmt = (s: number) => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+          return [maxT, Math.round(maxT * 0.5), 0].map((val, i) => (
+            <div key={i}
+              className="absolute text-right text-[10px] text-slate-400 font-mono leading-none"
+              style={{ left: 0, top: `${(i/2) * 100}%`, width: '44px', transform: 'translateY(-50%)' }}>
+              {fmt(val)}
+            </div>
+          ));
+        })()}
+
+        {/* Gridlines */}
+        {[0, 0.5, 1].map((frac, i) => (
+          <div key={i}
+            className="absolute left-0 right-0 border-t border-slate-100"
+            style={{ left: '52px', top: `${frac * 100}%` }} />
+        ))}
+
+        {/* Bars */}
+        {(() => {
+          const maxT = Math.max(...visit.pageData.map((p: any) => p.timeSpent || 0), 1);
+          return (
+            <div className="relative flex items-end gap-1.5" style={{ height: '140px' }}>
+              {visit.pageData.map((page: any) => {
+                const heightPct = (page.timeSpent / maxT) * 100;
+                const isHov = hoveredPage?.visitKey === visit.key && hoveredPage?.page === page.page;
+                const barColor = visit.visitType === 'signature'
+                  ? (isHov ? '#7c3aed' : '#a78bfa')
+                  : (isHov ? '#0284c7' : '#38bdf8');
+
+                return (
+                  <div key={page.page}
+                    className="flex-1 flex flex-col items-center justify-end h-full relative group/bar"
+                    onMouseEnter={() => setHoveredPage({ visitKey: visit.key, page: page.page })}
+                    onMouseLeave={() => setHoveredPage(null)}>
+
+                    {/* Tooltip */}
+                    {isHov && (
+                      <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                        <div className="bg-slate-900 rounded-xl shadow-2xl overflow-hidden w-48">
+                          {/* PDF thumbnail */}
+                          <div className="relative bg-slate-100" style={{ height: '120px' }}>
+                            <iframe
+                              src={`/api/documents/${doc._id}/page?page=${page.page}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                              className="w-full h-full border-0 pointer-events-none"
+                              title={`Page ${page.page}`}
+                            />
+                            {/* Page overlay badge */}
+                            <div className="absolute top-2 left-2 bg-slate-900/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                              P{page.page}
                             </div>
-                          ));
-                        })()}
-
-                        {/* Gridlines */}
-                        <div className="absolute inset-0" style={{ paddingLeft: '52px', paddingBottom: '28px' }}>
-                          {[0, 0.5, 1].map((frac, i) => (
-                            <div key={i} className="absolute left-0 right-0 border-t border-slate-100"
-                              style={{ top: `${frac * 100}%` }} />
-                          ))}
-                        </div>
-
-                        {/* Bars */}
-                        <div className="relative flex items-end gap-2" style={{ height: '160px' }}>
-                          {visit.pageData.map((page: any) => {
-                            const heightPct = maxTime > 0 ? (page.timeSpent / maxTime) * 100 : 0;
-                            const isHovered = hoveredPage?.visitKey === visit.key && hoveredPage?.page === page.page;
-
-                            return (
-                              <div key={page.page} className="flex-1 flex flex-col items-center justify-end h-full relative"
-                                onMouseEnter={() => setHoveredPage({ visitKey: visit.key, page: page.page })}
-                                onMouseLeave={() => setHoveredPage(null)}>
-
-                                {/* Tooltip */}
-                                {isHovered && (
-                                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-                                    <div className="bg-slate-900 rounded-xl shadow-2xl overflow-hidden" style={{ width: '200px' }}>
-                                      <div className="relative bg-white" style={{ height: '130px' }}>
-                                        <iframe
-                                          src={`/api/documents/${doc._id}/page?page=${page.page}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
-                                          className="w-full h-full border-0 pointer-events-none"
-                                          title={`Page ${page.page} preview`}
-                                        />
-                                      </div>
-                                      <div className="flex items-center justify-between px-3 py-2">
-                                        <div>
-                                          <p className="text-[10px] text-slate-400 uppercase tracking-wide">PAGE</p>
-                                          <p className="text-sm font-bold text-white">{page.page} / {visit.pageData.length}</p>
-                                        </div>
-                                        <div className="text-right">
-                                          <p className="text-[10px] text-slate-400 uppercase tracking-wide">TIME SPENT</p>
-                                          <p className="text-sm font-bold text-white">
-                                            {String(Math.floor(page.timeSpent / 60)).padStart(2,'0')}:{String(page.timeSpent % 60).padStart(2,'0')}
-                                          </p>
-                                        </div>
-                                      </div>
-                                      <div className="h-1 bg-slate-700">
-                                        <div className="h-full bg-blue-400 transition-all"
-                                          style={{ width: `${Math.min((page.timeSpent / maxTime) * 100, 100)}%` }} />
-                                      </div>
-                                    </div>
-                                    <div className="flex justify-center">
-                                      <div className="w-2.5 h-2.5 bg-slate-900 rotate-45 -mt-1.5" />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Bar */}
-                                <div
-                                  className="w-full rounded-t transition-all cursor-pointer"
-                                  style={{
-                                    height: `${Math.max(heightPct, page.timeSpent > 0 ? 2 : 0)}%`,
-                                    background: isHovered
-                                      ? '#7c3aed'
-                                      : page.skipped ? '#e2e8f0'
-                                      : '#a855f7',
-                                    minHeight: page.timeSpent > 0 ? '4px' : '0',
-                                  }}
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* X-axis page numbers */}
-                        <div className="flex gap-2 pt-2">
-                          {visit.pageData.map((page: any) => (
-                            <div key={page.page} className="flex-1 text-center text-xs text-slate-400">
-                              {page.page}
+                          </div>
+                          {/* Stats row */}
+                          <div className="flex items-center justify-between px-3 py-2.5">
+                            <div>
+                              <p className="text-[9px] text-slate-400 uppercase tracking-wider">Page</p>
+                              <p className="text-sm font-bold text-white">{page.page} <span className="text-slate-500 font-normal text-xs">/ {visit.pageData.length}</span></p>
                             </div>
-                          ))}
+                            <div className="text-right">
+                              <p className="text-[9px] text-slate-400 uppercase tracking-wider">Time</p>
+                              <p className="text-sm font-bold text-white">
+                                {String(Math.floor(page.timeSpent/60)).padStart(2,'0')}:{String(page.timeSpent%60).padStart(2,'0')}
+                              </p>
+                            </div>
+                          </div>
+                          {/* Mini progress bar */}
+                          <div className="h-1 bg-slate-800 mx-3 mb-3 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${Math.min((page.timeSpent / maxT) * 100, 100)}%`,
+                                background: visit.visitType === 'signature' ? '#a78bfa' : '#38bdf8',
+                              }} />
+                          </div>
+                        </div>
+                        {/* Arrow */}
+                        <div className="flex justify-center -mt-1">
+                          <div className="w-2.5 h-2.5 bg-slate-900 rotate-45" />
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+
+                    {/* Bar */}
+                    <div
+                      className="w-full rounded-t-lg transition-all duration-150 cursor-pointer"
+                      style={{
+                        height: `${Math.max(heightPct, page.timeSpent > 0 ? 3 : 0)}%`,
+                        backgroundColor: page.skipped ? '#e2e8f0' : barColor,
+                        minHeight: page.timeSpent > 0 ? '4px' : '2px',
+                        opacity: page.skipped ? 0.5 : 1,
+                      }}
+                    />
+
+                    {/* Revisit dot */}
+                    {page.visits > 1 && (
+                      <div className="absolute -top-1 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 border-2 border-white shadow-sm"
+                        title={`Revisited ${page.visits} times`} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {/* X-axis */}
+        <div className="flex gap-1.5 pt-2.5">
+          {visit.pageData.map((page: any) => (
+            <div key={page.page} className="flex-1 text-center text-[10px] text-slate-400 tabular-nums">
+              {page.page}
+            </div>
+          ))}
+        </div>
+
+      </div>
+    ) : (
+      /* No page data yet */
+      <div className="flex items-center justify-center py-6 text-center">
+        <div>
+          <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-2">
+            <BarChart2 className="h-5 w-5 text-slate-300" />
+          </div>
+          <p className="text-xs text-slate-400">No page data yet</p>
+          <p className="text-[11px] text-slate-300 mt-0.5">
+            {visit.visitType === 'signature' ? 'Recipient hasn\'t opened yet' : 'Waiting for first view'}
+          </p>
+        </div>
+      </div>
+    )}
+  </div>
+)}
                 </div>
               );
             })}
