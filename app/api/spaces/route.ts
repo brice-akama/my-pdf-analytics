@@ -14,98 +14,135 @@ import { getTeamMemberIds } from '../lib/teamHelpers'
  export async function GET(request: NextRequest) {
   try {
     const user = await verifyUserFromRequest(request);
-    
     if (!user) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Unauthorized' 
-      }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const db = await dbPromise;
-    
-    // ✅ GET USER'S ORGANIZATION AND ROLE
     const profile = await db.collection("profiles").findOne({ user_id: user.id });
-    const userOrgId = profile?.organization_id; // Team organization
+    const userOrgId = profile?.organization_id;
     const userRole = profile?.role || "owner";
-    
+
     console.log(`🔍 Fetching spaces for user: ${user.email}`);
     console.log(`   - Organization: ${userOrgId || 'NONE (personal)'}`);
     console.log(`   - Role: ${userRole}`);
 
+    // ✅ Pagination support
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '0'); // 0 = fetch all
+    const skip = (page - 1) * limit;
+
+    // ✅ Search support
+    const searchQuery = searchParams.get('search') || '';
+    const searchRegex = searchQuery ? new RegExp(searchQuery, 'i') : null; // Case-insensitive search
+
     let ownedSpaces: any[] = [];
     let memberSpaces: any[] = [];
 
-    // Check if user IS the organization owner OR has an organization
-const isOrgOwner = !userOrgId && user.id;
-const effectiveOrgId = userOrgId || user.id;
+    const isOrgOwner = !userOrgId && user.id;
+    const effectiveOrgId = userOrgId || user.id;
+    const hasOrganization = await db.collection('organization_members')
+      .countDocuments({ organizationId: effectiveOrgId }) > 0;
 
-// Check if this user has an organization (either as owner or member)
-const hasOrganization = await db.collection('organization_members')
-  .countDocuments({ organizationId: effectiveOrgId }) > 0;
+    // Base query for search
+    const searchCondition = searchRegex ? {
+      $or: [
+        { name: searchRegex },
+        { description: searchRegex }
+      ]
+    } : {};
 
-if (userOrgId || hasOrganization) {
-  // ========================================
-  // USER HAS A TEAM
-  // ========================================
-  
-  console.log(`👥 Fetching team spaces for org: ${effectiveOrgId}`);
-  console.log(`   User role: ${userRole || 'owner'}`);
-  
-  // Get all spaces in this organization OR created by owner without orgId
-ownedSpaces = await db.collection('spaces')
-  .find({ 
-    $or: [
-      { organizationId: effectiveOrgId },  // Team spaces
-      { 
-        userId: user.id,  // Owner's personal spaces
+    if (userOrgId || hasOrganization) {
+      // ========================================
+      // USER HAS A TEAM
+      // ========================================
+      console.log(`👥 Fetching team spaces for org: ${effectiveOrgId}`);
+      console.log(`   User role: ${userRole || 'owner'}`);
+
+      // Base query for owned spaces
+      const ownedSpacesBaseQuery = {
+        $or: [
+          { organizationId: effectiveOrgId },
+          {
+            userId: user.id,
+            $or: [
+              { organizationId: null },
+              { organizationId: { $exists: false } }
+            ]
+          }
+        ]
+      };
+
+      // Combine with search condition if search query exists
+      const ownedSpacesQuery = searchRegex ? { $and: [ownedSpacesBaseQuery, searchCondition] } : ownedSpacesBaseQuery;
+
+      const ownedSpacesCursor = db.collection('spaces')
+        .find(ownedSpacesQuery)
+        .sort({ updatedAt: -1 });
+
+      ownedSpaces = limit > 0
+        ? await ownedSpacesCursor.skip(skip).limit(limit).toArray()
+        : await ownedSpacesCursor.toArray();
+
+      console.log(`✅ Found ${ownedSpaces.length} team spaces`);
+    } else {
+      // ========================================
+      // NO TEAM - Personal Spaces Only
+      // ========================================
+
+      // Base query for personal owned spaces
+      const personalOwnedSpacesBaseQuery = {
+        userId: user.id,
         $or: [
           { organizationId: null },
           { organizationId: { $exists: false } }
         ]
-      }
-    ]
-  })
-  .sort({ updatedAt: -1 })
-  .toArray();
+      };
 
-  console.log(`✅ Found ${ownedSpaces.length} team spaces`);
+      // Combine with search condition if search query exists
+      const personalOwnedSpacesQuery = searchRegex
+        ? { $and: [personalOwnedSpacesBaseQuery, searchCondition] }
+        : personalOwnedSpacesBaseQuery;
 
-} else {
-      // ========================================
-      // NO TEAM - Personal Spaces Only
-      // ========================================
-      
-      
-      // User's own personal spaces
-      ownedSpaces = await db.collection('spaces')
-        .find({ 
-          userId: user.id,
-          $or: [
-            { organizationId: null },
-            { organizationId: { $exists: false } }
-          ]
-        })
-        .sort({ updatedAt: -1 })
-        .toArray();
+      const personalOwnedSpacesCursor = db.collection('spaces')
+        .find(personalOwnedSpacesQuery)
+        .sort({ updatedAt: -1 });
 
-      // Spaces shared with user
-      memberSpaces = await db.collection('spaces')
-        .find({ 
-          'members.email': user.email,
-          userId: { $ne: user.id },
-          $or: [
-            { organizationId: null },
-            { organizationId: { $exists: false } }
-          ]
-        })
-        .sort({ createdAt: -1 })
-        .toArray();
-      
+      ownedSpaces = limit > 0
+        ? await personalOwnedSpacesCursor.skip(skip).limit(limit).toArray()
+        : await personalOwnedSpacesCursor.toArray();
+
+      // Base query for shared spaces
+      const sharedSpacesBaseQuery = {
+        'members.email': user.email,
+        userId: { $ne: user.id },
+        $or: [
+          { organizationId: null },
+          { organizationId: { $exists: false } }
+        ]
+      };
+
+      // Combine with search condition if search query exists
+      const sharedSpacesQuery = searchRegex
+        ? { $and: [sharedSpacesBaseQuery, searchCondition] }
+        : sharedSpacesBaseQuery;
+
+      const sharedSpacesCursor = db.collection('spaces')
+        .find(sharedSpacesQuery)
+        .sort({ createdAt: -1 });
+
+      memberSpaces = limit > 0
+        ? await sharedSpacesCursor.skip(skip).limit(limit).toArray()
+        : await sharedSpacesCursor.toArray();
+
       console.log(`✅ Personal: ${ownedSpaces.length} owned, ${memberSpaces.length} shared`);
     }
 
-    // Format spaces (same as before)
+    // ✅ Format spaces
     const formattedOwned = ownedSpaces.map(space => ({
       _id: space._id.toString(),
       name: space.name,
@@ -114,29 +151,23 @@ ownedSpaces = await db.collection('spaces')
       status: space.status || 'active',
       template: space.template,
       color: space.color || '#8B5CF6',
-      
       organizationId: space.organizationId || null,
       createdBy: space.createdBy || space.userId,
-      
       owner: {
         name: user.email,
         email: user.email
       },
-      
       documentsCount: space.documentsCount || 0,
       teamMembers: space.teamMembers || space.members?.length || 1,
       viewsCount: space.viewsCount || 0,
-      
       lastActivity: space.lastActivity || space.updatedAt || space.createdAt,
       createdAt: space.createdAt,
-      
       permissions: {
         canView: true,
         canEdit: true,
         canShare: true,
         canDownload: true
       },
-      
       isOwner: space.userId === user.id || space.createdBy === user.id,
       role: space.userId === user.id ? 'owner' : 'admin'
     }));
@@ -145,13 +176,6 @@ ownedSpaces = await db.collection('spaces')
       const member = space.members?.find((m: any) => m.email === user.email);
       const role = member?.role || 'viewer';
 
-      console.log(`📊 Raw spaces found:`, ownedSpaces.map(s => ({
-  id: s._id.toString(),
-  name: s.name,
-  userId: s.userId,
-  createdBy: s.createdBy
-})));
-      
       return {
         _id: space._id.toString(),
         name: space.name,
@@ -160,24 +184,19 @@ ownedSpaces = await db.collection('spaces')
         status: space.status || 'active',
         template: space.template,
         color: space.color || '#8B5CF6',
-        
         organizationId: space.organizationId || null,
         createdBy: space.createdBy || space.userId,
-        
         documentsCount: space.documentsCount || 0,
         teamMembers: space.teamMembers || space.members?.length || 1,
         viewsCount: space.viewsCount || 0,
-        
         lastActivity: space.lastActivity || space.updatedAt || space.createdAt,
         createdAt: space.createdAt,
-        
         permissions: {
           canView: true,
           canEdit: role === 'editor' || role === 'admin',
           canShare: role === 'admin',
           canDownload: space.settings?.allowDownloads !== false
         },
-        
         isOwner: false,
         role: role
       };
@@ -185,21 +204,34 @@ ownedSpaces = await db.collection('spaces')
 
     const allSpaces = [...formattedOwned, ...formattedMember];
 
+    // ✅ Pagination metadata
+    const totalSpaces = allSpaces.length;
+    const totalPages = limit > 0 ? Math.ceil(totalSpaces / limit) : 1;
+
     console.log(`✅ Returning ${allSpaces.length} total spaces`);
 
     return NextResponse.json({
       success: true,
-      spaces: allSpaces
+      spaces: allSpaces,
+      pagination: limit > 0 ? {
+        page,
+        limit,
+        totalSpaces,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      } : null
     });
 
   } catch (error) {
     console.error('❌ Fetch spaces error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Server error' 
-    }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: 'Server error' },
+      { status: 500 }
+    );
   }
 }
+
 
 // Create new space
 

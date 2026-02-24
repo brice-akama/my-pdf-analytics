@@ -73,14 +73,16 @@ export async function POST(
       return NextResponse.json({ error: 'Space not found' }, { status: 404 });
     }
     
-    // Check if user has access
-    const hasAccess = space.members?.some(
-      (m: any) => m.email === user.email && ['owner', 'admin', 'editor'].includes(m.role)
-    );
-    
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
+    // ✅ Check if user has access
+const isSpaceOwner = space.userId === user.id || space.createdBy === user.id
+
+const isMemberWithAccess = space.members?.some(
+  (m: any) => m.email === user.email && ['owner', 'admin', 'editor'].includes(m.role)
+)
+
+if (!isSpaceOwner && !isMemberWithAccess) {
+  return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+}
     
     // Generate unique share link (or reuse existing)
     const shareLink = space.publicAccess?.shareLink || generateShareLink(space.name);

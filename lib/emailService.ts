@@ -3,6 +3,7 @@ import { sendEmail } from './email';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const FROM = 'DocMetrics <noreply@docmetrics.io>'
 // ===================================
 // SIGNATURE REQUEST EMAIL
 // ===================================
@@ -3356,4 +3357,290 @@ export async function sendCCSignatureUpdateEmail({
     console.error('❌ CC signature update email error:', error);
     throw error;
   }
+}
+
+
+
+ 
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. SPACE VIEW NOTIFICATION
+//    Fires when a visitor enters a space (once per 24h per visitor)
+//    Owner receives this if settings.notifyOnView = true
+// ─────────────────────────────────────────────────────────────────────────────
+export async function sendSpaceViewNotification({
+  ownerEmail,
+  spaceName,
+  visitorEmail,
+  spaceId,
+}: {
+  ownerEmail: string
+  spaceName: string
+  visitorEmail: string
+  spaceId: string
+}) {
+  const spaceUrl = `${process.env.NEXT_PUBLIC_APP_URL}/spaces/${spaceId}`
+
+  const { data, error } = await resend.emails.send({
+    from: FROM,
+    to: [ownerEmail],
+    subject: `👁️ ${visitorEmail} viewed your data room "${spaceName}"`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+          .header { background: linear-gradient(135deg, #111 0%, #333 100%); padding: 32px; text-align: center; }
+          .header h1 { color: white; margin: 0; font-size: 22px; font-weight: 600; }
+          .header p { color: rgba(255,255,255,0.7); margin: 6px 0 0; font-size: 14px; }
+          .body { padding: 32px; }
+          .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; border-radius: 8px; overflow: hidden; border: 1px solid #eee; }
+          .info-table td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; }
+          .info-table td:first-child { color: #888; font-weight: 500; width: 120px; background: #f9fafb; }
+          .info-table td:last-child { color: #111; font-weight: 500; }
+          .info-table tr:last-child td { border-bottom: none; }
+          .cta { display: inline-block; margin-top: 24px; padding: 12px 24px; background: #111; color: white !important; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600; }
+          .footer { padding: 20px 32px; border-top: 1px solid #eee; font-size: 12px; color: #aaa; text-align: center; }
+          .footer a { color: #888; }
+          .badge { display: inline-flex; align-items: center; gap: 6px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>New Visitor Alert</h1>
+            <p>Someone just accessed your data room</p>
+          </div>
+          <div class="body">
+            <div class="badge">👁️ View Activity</div>
+            <p style="font-size: 15px; color: #555; margin: 0 0 20px;">
+              <strong style="color: #111;">${visitorEmail}</strong> just accessed your data room 
+              <strong style="color: #111;">"${spaceName}"</strong>.
+            </p>
+            <table class="info-table">
+              <tr>
+                <td>Data Room</td>
+                <td>${spaceName}</td>
+              </tr>
+              <tr>
+                <td>Visitor</td>
+                <td>${visitorEmail}</td>
+              </tr>
+              <tr>
+                <td>Time</td>
+                <td>${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+              </tr>
+            </table>
+            <a href="${spaceUrl}" class="cta">View Data Room →</a>
+          </div>
+          <div class="footer">
+            You're receiving this because view notifications are enabled for this data room.<br/>
+            <a href="${spaceUrl}?action=settings">Manage notification settings</a>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  })
+
+  if (error) {
+    console.error('❌ Space view notification email failed:', error)
+    throw error
+  }
+
+  console.log('✅ Space view notification sent to:', ownerEmail)
+  return data
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. NDA SIGNED NOTIFICATION
+//    Fires when a visitor signs the NDA
+//    Owner receives this immediately after signing
+// ─────────────────────────────────────────────────────────────────────────────
+export async function sendNdaSignedNotification({
+  ownerEmail,
+  spaceName,
+  signerEmail,
+  signerName,
+  spaceId,
+  signedAt,
+}: {
+  ownerEmail: string
+  spaceName: string
+  signerEmail: string
+  signerName?: string
+  spaceId: string
+  signedAt: Date
+}) {
+  const spaceUrl = `${process.env.NEXT_PUBLIC_APP_URL}/spaces/${spaceId}`
+  const displayName = signerName ? `${signerName} (${signerEmail})` : signerEmail
+
+  const { data, error } = await resend.emails.send({
+    from: FROM,
+    to: [ownerEmail],
+    subject: `✅ NDA signed — ${signerEmail} can now access "${spaceName}"`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+          .header { background: linear-gradient(135deg, #14532d 0%, #16a34a 100%); padding: 32px; text-align: center; }
+          .header h1 { color: white; margin: 0; font-size: 22px; font-weight: 600; }
+          .header p { color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px; }
+          .body { padding: 32px; }
+          .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; border-radius: 8px; overflow: hidden; border: 1px solid #eee; }
+          .info-table td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; }
+          .info-table td:first-child { color: #888; font-weight: 500; width: 120px; background: #f9fafb; }
+          .info-table td:last-child { color: #111; font-weight: 500; }
+          .info-table tr:last-child td { border-bottom: none; }
+          .cta { display: inline-block; margin-top: 24px; padding: 12px 24px; background: #111; color: white !important; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600; }
+          .footer { padding: 20px 32px; border-top: 1px solid #eee; font-size: 12px; color: #aaa; text-align: center; }
+          .badge { display: inline-flex; align-items: center; gap: 6px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+          .legal-note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #92400e; margin-top: 16px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>NDA Signed</h1>
+            <p>A visitor has accepted your Non-Disclosure Agreement</p>
+          </div>
+          <div class="body">
+            <div class="badge">✅ NDA Complete</div>
+            <p style="font-size: 15px; color: #555; margin: 0 0 20px;">
+              <strong style="color: #111;">${displayName}</strong> has signed the NDA for 
+              <strong style="color: #111;">"${spaceName}"</strong> and now has full access to the data room.
+            </p>
+            <table class="info-table">
+              <tr>
+                <td>Signer</td>
+                <td>${displayName}</td>
+              </tr>
+              <tr>
+                <td>Data Room</td>
+                <td>${spaceName}</td>
+              </tr>
+              <tr>
+                <td>Signed At</td>
+                <td>${signedAt.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+              </tr>
+            </table>
+            <div class="legal-note">
+              ⚖️ This signature is legally binding. The signer's email, timestamp, and IP address have been recorded.
+            </div>
+            <a href="${spaceUrl}" class="cta">View Data Room →</a>
+          </div>
+          <div class="footer">
+            Sent by DocMetrics · <a href="${spaceUrl}?tab=nda">View all NDA signatures</a>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  })
+
+  if (error) {
+    console.error('❌ NDA signed notification email failed:', error)
+    throw error
+  }
+
+  console.log('✅ NDA signed notification sent to:', ownerEmail)
+  return data
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. SPACE INVITE EMAIL
+//    Fires when owner invites someone via the Quick Invite drawer
+//    or the Add Contact dialog inside spaces/[id]
+// ─────────────────────────────────────────────────────────────────────────────
+export async function sendSpaceInviteEmail({
+  recipientEmail,
+  senderName,
+  spaceName,
+  role,
+  inviteLink,
+  message,
+}: {
+  recipientEmail: string
+  senderName: string
+  spaceName: string
+  role: 'viewer' | 'editor' | 'admin'
+  inviteLink: string
+  message?: string
+}) {
+  const roleLabel = role === 'admin' ? 'Admin' : role === 'editor' ? 'Editor' : 'Viewer'
+  const roleDesc = role === 'admin'
+    ? 'You have full access to manage this data room.'
+    : role === 'editor'
+    ? 'You can upload, edit, and manage documents.'
+    : 'You can view and download documents.'
+
+  const { data, error } = await resend.emails.send({
+    from: FROM,
+    to: [recipientEmail],
+    subject: `${senderName} invited you to "${spaceName}"`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+          .header { background: linear-gradient(135deg, #111 0%, #374151 100%); padding: 32px; text-align: center; }
+          .header h1 { color: white; margin: 0; font-size: 22px; font-weight: 600; }
+          .header p { color: rgba(255,255,255,0.7); margin: 6px 0 0; font-size: 14px; }
+          .body { padding: 32px; }
+          .role-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #f3f4f6; color: #374151; margin-bottom: 4px; }
+          .message-box { background: #f9fafb; border-left: 3px solid #d1d5db; padding: 12px 16px; border-radius: 0 8px 8px 0; font-size: 14px; color: #555; font-style: italic; margin: 20px 0; }
+          .cta { display: block; margin-top: 24px; padding: 14px 24px; background: #111; color: white !important; text-decoration: none; border-radius: 8px; font-size: 15px; font-weight: 600; text-align: center; }
+          .footer { padding: 20px 32px; border-top: 1px solid #eee; font-size: 12px; color: #aaa; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>You've been invited</h1>
+            <p>Access a secure data room on DocMetrics</p>
+          </div>
+          <div class="body">
+            <p style="font-size: 15px; color: #555; margin: 0 0 8px;">
+              <strong style="color: #111;">${senderName}</strong> has invited you to access the data room
+              <strong style="color: #111;">"${spaceName}"</strong>.
+            </p>
+            <div class="role-badge">${roleLabel} — ${roleDesc}</div>
+            ${message ? `
+            <div class="message-box">
+              "${message}"
+            </div>
+            ` : ''}
+            <a href="${inviteLink}" class="cta">Accept Invitation & View Data Room →</a>
+            <p style="font-size: 12px; color: #aaa; margin-top: 16px;">
+              This link is personal to you. Do not share it with others.
+            </p>
+          </div>
+          <div class="footer">
+            Sent via DocMetrics · If you weren't expecting this, you can ignore this email.
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+  })
+
+  if (error) {
+    console.error('❌ Space invite email failed:', error)
+    throw error
+  }
+
+  console.log('✅ Space invite email sent to:', recipientEmail)
+  return data
 }

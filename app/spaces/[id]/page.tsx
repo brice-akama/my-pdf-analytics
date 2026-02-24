@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Drawer } from "@/components/ui/drawer"
 import { motion } from "framer-motion"
+import { toast } from 'sonner'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -360,9 +361,12 @@ useEffect(() => {
     if (!user || !params.id) return;
 
     try {
-      const res = await fetch(`/api/spaces/${params.id}/nda`, {
-        credentials: 'include'
-      });
+      const res = await fetch(`/api/spaces/${params.id}/nda-sign`, {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: user?.email }),
+});
 
       if (res.ok) {
         const data = await res.json();
@@ -445,7 +449,7 @@ const handleBulkInvite = async () => {
     .filter(e => e.length > 0)
 
   if (emailList.length < 2) {
-    alert('Please enter at least 2 email addresses')
+   toast.error('Please enter at least 2 email addresses')
     return
   }
 
@@ -483,11 +487,11 @@ const handleBulkInvite = async () => {
         }, 3000)
       }
     } else {
-      alert(data.error || 'Bulk invite failed')
+     toast.error(data.error || 'Bulk invite failed')
     }
   } catch (error) {
     console.error('Bulk invite error:', error)
-    alert('Failed to send invitations')
+    toast.error('Failed to send invitations')
   } finally {
     setBulkInviting(false)
   }
@@ -1339,7 +1343,7 @@ const fetchFolders = async () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-slate-600">Loading space...</p>
@@ -1361,7 +1365,7 @@ const fetchFolders = async () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
+    <div className="min-h-screen bg-white">
 
        {/* ✅ DIFFERENT MESSAGE FOR SPACES PAGE */}
             <PageInfoTooltip 
@@ -1386,7 +1390,7 @@ const fetchFolders = async () => {
         </div>
       )}
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-50 border-b bg-white">
         <div className="flex items-center justify-between h-16 px-6">
           <div className="flex items-center gap-4">
             {isOwner && (
@@ -1576,7 +1580,7 @@ const fetchFolders = async () => {
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Sidebar */}
           
-<aside className="w-64 border-r bg-white/50 backdrop-blur overflow-y-auto">
+<aside className="w-64 border-r bg-white overflow-y-auto">
   <div className="p-4 space-y-1">
     {/* Home */}
     <button
@@ -1754,9 +1758,7 @@ const fetchFolders = async () => {
         <Button 
           variant="destructive"
           onClick={() => {
-            if (confirm('Permanently delete ALL items in trash? This cannot be undone!')) {
-              handleEmptyTrash()
-            }
+           handleEmptyTrash()
           }}
         >
           <Trash2 className="h-4 w-4 mr-2" />
@@ -1848,9 +1850,7 @@ const fetchFolders = async () => {
                       variant="destructive"
                       size="sm"
                       onClick={() => {
-                        if (confirm(`Permanently delete "${doc.name}"? This cannot be undone!`)) {
-                          handlePermanentDelete(doc.id)
-                        }
+                        handlePermanentDelete(doc.id)
                       }}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -2597,7 +2597,7 @@ const fetchFolders = async () => {
                           onClick={(e) => {
                             e.stopPropagation()
                             // TODO: Add rename functionality
-                            alert('Rename coming soon!')
+                            toast.info('Rename coming soon')
                           }}
                         >
                           <Edit className="mr-2 h-4 w-4" />
@@ -2607,7 +2607,7 @@ const fetchFolders = async () => {
                           onClick={(e) => {
                             e.stopPropagation()
                             // TODO: Add share functionality
-                            alert('Share coming soon!')
+                            toast.info('Share coming soon')
                           }}
                         >
                           <Share2 className="mr-2 h-4 w-4" />
@@ -2618,10 +2618,7 @@ const fetchFolders = async () => {
                           className="text-red-600"
                           onClick={(e) => {
                             e.stopPropagation()
-                            if (confirm(`Delete "${folder.name}"? This cannot be undone.`)) {
-                              // TODO: Add delete functionality
-                              alert('Delete coming soon!')
-                            }
+                            toast.info('Folder delete coming soon')
                           }}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
@@ -4845,7 +4842,7 @@ const fetchFolders = async () => {
                           <DropdownMenuItem
                             onClick={() => {
                               console.log('NDA Signature:', signature);
-                              alert('Details logged to console');
+                              toast.info('Details logged to console');
                             }}
                           >
                             <Eye className="mr-2 h-4 w-4" />
@@ -4857,10 +4854,7 @@ const fetchFolders = async () => {
                           <DropdownMenuItem
                             className="text-red-600"
                             onClick={() => {
-                              if (confirm(`Revoke NDA signature from ${signature.email}?`)) {
-                                // TODO: Implement revoke
-                                alert('Revoke feature coming soon');
-                              }
+                              toast.info('Revoke coming soon')
                             }}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
