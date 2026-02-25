@@ -88,7 +88,7 @@ if (!userHasAccess) {
       query = { 
   spaceId,
   belongsToSpace: true,
-  organizationId, // ✅ ENSURE TEAM OWNERSHIP
+  
 };
 
       

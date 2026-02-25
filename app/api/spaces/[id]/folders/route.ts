@@ -33,9 +33,9 @@ export async function GET(
     }
 
     // Check if user has access (by email in members array)
-    const hasAccess = space.members?.some(
-      (m: any) => m.email === user.email
-    );
+    const hasAccess = space.userId === user.id || 
+  space.members?.some((m: any) => m.email === user.email)
+ 
 
     if (!hasAccess) {
       console.log('❌ Access denied for user:', user.email);
@@ -109,15 +109,16 @@ export async function POST(
     }
 
     // Check if user is owner, admin, or editor
-    const userMember = space.members?.find(
-      (m: any) => m.email === user.email
-    );
+    
+const isOwner = space.userId === user.id
+const userMember = space.members?.find((m: any) => m.email === user.email)
+const userRole = isOwner ? 'owner' : userMember?.role
 
-    if (!userMember || !['owner', 'admin', 'editor'].includes(userMember.role)) {
-      return NextResponse.json({ 
-        error: 'You do not have permission to create folders' 
-      }, { status: 403 });
-    }
+if (!isOwner && (!userMember || !['admin', 'editor'].includes(userRole))) {
+  return NextResponse.json({ 
+    error: 'You do not have permission to create folders' 
+  }, { status: 403 });
+}
 
     const { name, description, parentFolderId } = await request.json();
 

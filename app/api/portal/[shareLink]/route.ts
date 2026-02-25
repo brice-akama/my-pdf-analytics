@@ -12,77 +12,91 @@ export async function GET(
       : context.params;
     
     const shareLink = params.shareLink;
-
     console.log('🔍 Portal access:', shareLink);
 
     const db = await dbPromise;
 
-    // Find space by share link
     const space = await db.collection('spaces').findOne({
       'publicAccess.shareLink': shareLink,
       'publicAccess.enabled': true
     });
 
     if (!space) {
-      console.log('❌ Space not found for link:', shareLink);
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid or expired link'
-      }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Invalid or expired link' }, { status: 404 });
     }
 
-    // Check if expired
     if (space.publicAccess.expiresAt && new Date(space.publicAccess.expiresAt) < new Date()) {
-      console.log('❌ Link expired:', shareLink);
-      return NextResponse.json({
-        success: false,
-        error: 'This link has expired'
-      }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'This link has expired' }, { status: 403 });
     }
 
-    // Check view limit
     if (space.publicAccess.viewLimit && space.publicAccess.currentViews >= space.publicAccess.viewLimit) {
-      console.log('❌ View limit reached:', shareLink);
-      return NextResponse.json({
-        success: false,
-        error: 'This link has reached its view limit'
-      }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'This link has reached its view limit' }, { status: 403 });
     }
 
-    // Get documents for this space
+    const spaceId = space._id.toString();
+
+    // ✅ Fix: space_folders collection, spaceId as STRING (matches how they're saved)
+    const foldersRaw = await db.collection('space_folders')
+      .find({ spaceId: spaceId })
+      .sort({ order: 1, createdAt: 1 })
+      .toArray();
+
+    console.log(`📁 Found ${foldersRaw.length} folders in space_folders`);
+
+    // ✅ Fix: relaxed document query — no belongsToSpace or organizationId filter
     const documents = await db.collection('documents')
-      .find({ 
-        spaceId: space._id.toString(),
-        belongsToSpace: true
+      .find({
+        $or: [
+          { spaceId: spaceId },
+          { spaceId: space._id }
+        ],
+        archived: { $ne: true }
       })
       .toArray();
 
-    // Transform documents
-    const transformedDocs = documents.map(doc => ({
-      id: doc._id.toString(),
-      name: doc.originalFilename,
-      type: doc.originalFormat || doc.mimeType,
-      size: `${(doc.size / 1024).toFixed(2)} KB`,
-      cloudinaryPdfUrl: doc.cloudinaryPdfUrl,
-      folderId: doc.folder || null
+    console.log(`📄 Found ${documents.length} documents`);
+
+    // ✅ Fix: handle both `folder` and `folderId` fields (upload saves as `folder`)
+    const folderCountMap: Record<string, number> = {};
+
+    const transformedDocs = documents.map(doc => {
+      const folderId = doc.folderId?.toString() || doc.folder?.toString() || null;
+      if (folderId) folderCountMap[folderId] = (folderCountMap[folderId] || 0) + 1;
+      return {
+        id: doc._id.toString(),
+        name: doc.originalFilename || doc.name || 'Untitled',
+        type: (doc.originalFormat || doc.mimeType || 'PDF').toUpperCase(),
+        size: doc.size ? `${(doc.size / 1024).toFixed(1)} KB` : '',
+        cloudinaryPdfUrl: doc.cloudinaryPdfUrl || null,
+        folderId
+      };
+    });
+
+    const folders = foldersRaw.map(f => ({
+      id: f._id.toString(),
+      name: f.name,
+      parentId: f.parentFolderId?.toString() || null,
+      index: f.index ?? null,
+      documentCount: folderCountMap[f._id.toString()] || 0
     }));
 
-    // Get folders (from template or custom)
-    const folders = space.template ? getTemplateFolders(space.template) : [];
-
-    console.log(`✅ Portal loaded: ${transformedDocs.length} documents`);
+    console.log(`✅ Portal loaded: ${transformedDocs.length} documents, ${folders.length} folders`);
+    console.log('📁 Folder IDs:', folders.map(f => f.id));
+    console.log('📄 Doc folderIds:', transformedDocs.map(d => d.folderId));
 
     return NextResponse.json({
       success: true,
       space: {
         name: space.name,
         description: space.description || '',
+        allowDownloads: space.allowDownloads ?? true,
+        ndaRequired: space.ndaSettings?.enabled ?? false,
+        ndaDocumentUrl: space.ndaSettings?.documentUrl || null,
         branding: space.branding || {
           primaryColor: '#6366f1',
           welcomeMessage: 'Welcome to our secure document portal',
           companyName: null,
           logoUrl: null,
-          coverImageUrl: null
         },
         documents: transformedDocs,
         folders
@@ -93,26 +107,6 @@ export async function GET(
 
   } catch (error) {
     console.error('❌ Portal error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to load portal'
-    }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to load portal' }, { status: 500 });
   }
-}
-
-// Helper function to get template folders
-function getTemplateFolders(templateId: string) {
-  const templates: { [key: string]: string[] } = {
-    'client-portal': ['Company Information', 'Proposals', 'Contracts', 'Invoices', 'Reports'],
-    'ma-deal': ['Financial Statements', 'Legal Documents', 'Customer Contracts', 'Employee Information'],
-    'fundraising': ['Pitch Deck', 'Financial Projections', 'Cap Table', 'Product Demo'],
-    'simple-data-room': ['Documents', 'Financials', 'Legal', 'Presentations'],
-  };
-
-  const folderNames = templates[templateId] || ['Documents'];
-  
-  return folderNames.map(name => ({
-    id: name.toLowerCase().replace(/\s+/g, '-'),
-    name
-  }));
 }
