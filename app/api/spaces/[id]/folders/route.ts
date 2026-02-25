@@ -60,6 +60,7 @@ export async function GET(
         return {
           id: folder._id.toString(),
           name: folder.name,
+          parentId: folder.parentFolderId || null,
           documentCount: docCount,
           lastUpdated: folder.updatedAt?.toISOString() || 'Never',
           createdAt: folder.createdAt

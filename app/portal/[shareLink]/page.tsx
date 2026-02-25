@@ -404,6 +404,30 @@ function AskQuestionModal({ onClose, visitorEmail, shareLink, spaceName }: {
   const [message, setMessage] = useState("")
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [comments, setComments] = useState<Comment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const pollRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    fetchGeneralComments()
+    pollRef.current = setInterval(fetchGeneralComments, 15000)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [])
+
+  const fetchGeneralComments = async (showRefreshing = false) => {
+    if (showRefreshing) setRefreshing(true)
+    try {
+      const res = await fetch(`/api/portal/${shareLink}/comments?documentId=general`, { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) setComments(data.comments || [])
+      }
+    } catch { /* silent */ } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
 
   const handleSend = async () => {
     if (!message.trim() || sending) return
@@ -414,7 +438,12 @@ function AskQuestionModal({ onClose, visitorEmail, shareLink, spaceName }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ documentId: 'general', documentName: 'General Question', message: message.trim(), email: visitorEmail })
       })
-      if (res.ok) { setSent(true); setTimeout(onClose, 2000) }
+      if (res.ok) {
+        setSent(true)
+        setMessage("")
+        await fetchGeneralComments()
+        setTimeout(() => setSent(false), 2000)
+      }
     } catch { /* silent */ } finally { setSending(false) }
   }
 
@@ -424,46 +453,102 @@ function AskQuestionModal({ onClose, visitorEmail, shareLink, spaceName }: {
         initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.97 }} transition={{ duration: 0.15 }}
         onClick={e => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 w-full max-w-md"
+       className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 w-full max-w-2xl max-h-[85vh] flex flex-col"
       >
-        <div className="flex items-center justify-between mb-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <h3 className="text-base font-semibold text-gray-900">Ask a question</h3>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-all">
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fetchGeneralComments(true)}
+              className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-all"
+              title="Refresh for replies"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-all">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <p className="text-sm text-gray-500 mb-4">
+
+        <p className="text-sm text-gray-500 mb-4 flex-shrink-0">
           Ask anything about <span className="font-medium text-gray-700">{spaceName}</span> — the owner will be notified.
         </p>
 
-        {sent ? (
-          <div className="text-center py-6">
-            <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-              <Check className="h-6 w-6 text-green-600" />
-            </div>
-            <p className="text-sm font-medium text-gray-900">Question sent!</p>
-            <p className="text-xs text-gray-400 mt-1">The owner will reply soon.</p>
+        {/* Previous questions + replies */}
+        {loading ? (
+          <div className="flex items-center gap-2 text-xs text-gray-400 py-2 flex-shrink-0">
+            <Loader2 className="h-3 w-3 animate-spin" /> Loading…
           </div>
-        ) : (
-          <>
-            <textarea
-              autoFocus rows={4} value={message}
-              onChange={e => setMessage(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-              placeholder="Type your question here…"
-              className="w-full text-sm px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all mb-3"
-            />
-            <div className="flex gap-2 justify-end">
-              <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-xl hover:border-gray-400 transition-all">
-                Cancel
-              </button>
-              <button onClick={handleSend} disabled={sending || !message.trim()}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-40">
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send Question'}
-              </button>
-            </div>
-          </>
-        )}
+        ) : comments.length > 0 ? (
+          <div className="space-y-3 mb-4 overflow-y-auto flex-1 pr-1">
+            {comments.map(c => (
+              <div key={c.id}>
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="h-5 w-5 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-gray-700">{c.author.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <p className="text-xs font-medium text-gray-600 truncate">{c.author}</p>
+                    <p className="text-xs text-gray-400 ml-auto flex-shrink-0">
+                      {new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <p className="text-sm text-gray-800">{c.message}</p>
+                </div>
+                {c.reply ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                    className="ml-4 mt-1.5 bg-blue-50 border border-blue-100 rounded-xl p-3"
+                  >
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-bold text-white">O</span>
+                      </div>
+                      <p className="text-xs font-semibold text-blue-700">Owner replied</p>
+                      {c.repliedAt && (
+                        <p className="text-xs text-blue-400 ml-auto flex-shrink-0">
+                          {new Date(c.repliedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                    </div>
+                    <p className="text-sm text-blue-900">{c.reply}</p>
+                  </motion.div>
+                ) : (
+                  <div className="ml-4 mt-1 px-3 py-1.5 rounded-lg bg-gray-50 border border-dashed border-gray-200">
+                    <p className="text-xs text-gray-400 italic">Awaiting reply from owner…</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Input */}
+        <div className="flex-shrink-0 pt-3 border-t border-gray-100">
+          <textarea
+            autoFocus={comments.length === 0}
+            rows={4} value={message}
+            onChange={e => setMessage(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+            placeholder="Type your question here…"
+            className="w-full text-sm px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all mb-3"
+          />
+          <div className="flex gap-2 justify-end">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-xl hover:border-gray-400 transition-all">
+              Close
+            </button>
+            <button onClick={handleSend} disabled={sending || !message.trim()}
+              className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-40 flex items-center gap-1.5">
+              {sent
+                ? <><Check className="h-3.5 w-3.5" /> Sent!</>
+                : sending
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
+                : <><Send className="h-3.5 w-3.5" /> Send Question</>}
+            </button>
+          </div>
+        </div>
       </motion.div>
     </div>
   )

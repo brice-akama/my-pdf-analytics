@@ -69,7 +69,9 @@ import {
   Calendar,
   Copy,
   FileSignature,
-  Package
+  Package,
+  MessageSquare, RefreshCw, 
+  Send
 } from "lucide-react"
 import { useSearchParams } from 'next/navigation'
 import { Switch } from "@radix-ui/react-switch"
@@ -148,6 +150,7 @@ type FolderType = {
   id: string
   name: string
   documentCount: number
+  parentId: string | null
   lastUpdated: string
 }
 
@@ -176,6 +179,63 @@ type DocumentType = {
   | null
   | undefined
 
+}
+
+
+// ADD this helper function above SpaceDetailPage:
+function OwnerFolderTree({
+  folders,
+  parentId = null,
+  depth = 0,
+  selectedFolder,
+  onSelect,
+}: {
+  folders: FolderType[]
+  parentId: string | null
+  depth: number
+  selectedFolder: string | null
+  onSelect: (id: string) => void
+}) {
+  const children = folders.filter(f => (f.parentId || null) === parentId)
+  if (children.length === 0) return null
+
+  return (
+    <>
+      {children.map(folder => {
+        const hasChildren = folders.some(f => f.parentId === folder.id)
+        const isSelected = selectedFolder === folder.id
+        return (
+          <div key={folder.id}>
+            <button
+              onClick={() => onSelect(folder.id)}
+              className={`w-full flex items-center gap-2 py-1.5 pr-3 rounded-lg text-sm transition-colors ${
+                isSelected
+                  ? 'bg-purple-50 text-purple-700 font-medium'
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+              style={{ paddingLeft: `${12 + depth * 14}px` }}
+            >
+              <Folder className={`h-3.5 w-3.5 flex-shrink-0 ${isSelected ? 'text-purple-500' : 'text-blue-400'}`} />
+              <span className="truncate flex-1 text-left">{folder.name}</span>
+              {folder.documentCount > 0 && (
+                <span className="text-xs text-slate-400 flex-shrink-0">{folder.documentCount}</span>
+              )}
+            </button>
+            {/* Render children recursively — capped at depth 3 */}
+            {hasChildren && depth < 3 && (
+              <OwnerFolderTree
+                folders={folders}
+                parentId={folder.id}
+                depth={depth + 1}
+                selectedFolder={selectedFolder}
+                onSelect={onSelect}
+              />
+            )}
+          </div>
+        )
+      })}
+    </>
+  )
 }
 
 
@@ -290,6 +350,21 @@ const [addingPermission, setAddingPermission] = useState(false)
 const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
 const [selectAll, setSelectAll] = useState(false);
 const [myRole, setMyRole] = useState<string>('');
+const [qaComments, setQaComments] = useState<Array<{
+  id: string
+  documentId: string
+  documentName: string
+  email: string
+  message: string
+  reply: string | null
+  repliedAt: string | null
+  createdAt: string
+}>>([])
+const [qaLoading, setQaLoading] = useState(false)
+const [replyingTo, setReplyingTo] = useState<string | null>(null)
+const [replyText, setReplyText] = useState('')
+const [sendingReply, setSendingReply] = useState(false)
+const [qaFilter, setQaFilter] = useState<'all' | 'unanswered' | 'answered'>('all')
 const [permissions, setPermissions] = useState({
   canManageMembers: false,
   canUpload: false,
@@ -439,6 +514,47 @@ const handleSelectDoc = (docId: string) => {
       : [...prev, docId]
   );
 };
+
+
+const fetchQAComments = async () => {
+  setQaLoading(true)
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/comments`, {
+      credentials: 'include'
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) setQaComments(data.comments || [])
+    }
+  } catch (error) {
+    console.error('Failed to fetch Q&A comments:', error)
+  } finally {
+    setQaLoading(false)
+  }
+}
+
+const handleReply = async (commentId: string) => {
+  if (!replyText.trim()) return
+  setSendingReply(true)
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/comments`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commentId, reply: replyText.trim() })
+    })
+    const data = await res.json()
+    if (data.success) {
+      setReplyingTo(null)
+      setReplyText('')
+      await fetchQAComments()
+    }
+  } catch (error) {
+    console.error('Reply failed:', error)
+  } finally {
+    setSendingReply(false)
+  }
+}
 
 
 const handleBulkInvite = async () => {
@@ -706,6 +822,7 @@ const handleCreateFolder = async () => {
       },
       body: JSON.stringify({
         name: newFolderName.trim(),
+        parentFolderId: selectedFolder || null,
       }),
     });
 
@@ -1533,7 +1650,7 @@ const fetchFolders = async () => {
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="bg-white z-10">
   {canCreateFolders && (
     <DropdownMenuItem onClick={() => setShowCreateFolderDialog(true)}>
       <Folder className="mr-2 h-4 w-4" />
@@ -1611,6 +1728,21 @@ const fetchFolders = async () => {
       <span>Analytics</span>
     </button>
 
+    <button
+  onClick={() => { setActiveTab('qa'); fetchQAComments() }}
+  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+    activeTab === 'qa' ? 'bg-purple-50 text-purple-700' : 'text-slate-700 hover:bg-slate-50'
+  }`}
+>
+  <MessageSquare className="h-4 w-4" />
+  <span>Q&amp;A</span>
+  {qaComments.filter((c: typeof qaComments[0]) => !c.reply).length > 0 && (
+    <span className="ml-auto h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
+      {qaComments.filter((c: typeof qaComments[0]) => !c.reply).length}
+    </span>
+  )}
+</button>
+
     {/* Audit Log */}
     <button
       onClick={() => setActiveTab('audit')}
@@ -1623,6 +1755,7 @@ const fetchFolders = async () => {
       <FileText className="h-4 w-4" />
       <span>Audit log</span>
     </button>
+    
   </div>
 
   {/* ✅ NEW: Folders Section */}
@@ -1665,45 +1798,17 @@ const fetchFolders = async () => {
       </button>
 
       {/* Show first 5 folders as quick access */}
-      {folders.slice(0, 5).map((folder) => (
-        <button
-          key={folder.id}
-          onClick={() => {
-      setSelectedFolder(folder.id);
-      setShowUnfiledOnly(false); // ✅ Clear filter when selecting folder
-      setActiveTab('home');
-    }}
-          className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-            selectedFolder === folder.id
-              ? 'bg-purple-50 text-purple-700 font-medium'
-              : 'text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <Folder className="h-3.5 w-3.5 flex-shrink-0" />
-            <span className="truncate">{folder.name}</span>
-          </div>
-          {folder.documentCount > 0 && (
-            <span className="text-xs text-slate-500 flex-shrink-0">
-              {folder.documentCount}
-            </span>
-          )}
-        </button>
-      ))}
-
-      {/* "View All" if more than 5 folders */}
-      {folders.length > 5 && (
-        <button
-          onClick={() => {
-            setActiveTab('folders')
-            setSelectedFolder(null)
-          }}
-          className="w-full flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm text-purple-600 hover:bg-purple-50 transition-colors font-medium"
-        >
-          <span>View all {folders.length} folders</span>
-          <ChevronRight className="h-3 w-3" />
-        </button>
-      )}
+     <OwnerFolderTree
+  folders={folders}
+  parentId={null}
+  depth={0}
+  selectedFolder={selectedFolder}
+  onSelect={(id) => {
+    setSelectedFolder(id)
+    setShowUnfiledOnly(false)
+    setActiveTab('home')
+  }}
+/>
     </div>
   </div>
 
@@ -2579,6 +2684,19 @@ const fetchFolders = async () => {
                           <FolderOpen className="mr-2 h-4 w-4" />
                           Open Folder
                         </DropdownMenuItem>
+
+                        {canCreateFolders && (
+  <DropdownMenuItem
+    onClick={(e) => {
+      e.stopPropagation()
+      setSelectedFolder(folder.id)        // ← sets parent context
+      setShowCreateFolderDialog(true)     // ← opens dialog
+    }}
+  >
+    <Plus className="mr-2 h-4 w-4" />
+    Create Subfolder
+  </DropdownMenuItem>
+)}
                         {/*   NEW: Manage Access */}
   {canManageContacts && (
     <DropdownMenuItem
@@ -2683,12 +2801,209 @@ const fetchFolders = async () => {
 )}
 
             {activeTab === 'qa' && (
-              <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
-                <Activity className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-slate-900 mb-2">Q&A Coming Soon</h3>
-                <p className="text-slate-600">Ask and answer questions about documents</p>
+  <div>
+    {/* Header */}
+    <div className="flex items-center justify-between mb-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">Q&A</h2>
+        <p className="text-sm text-slate-600 mt-1">
+          Questions from portal visitors
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        {/* Filter tabs */}
+        <div className="flex items-center bg-slate-100 rounded-lg p-1 gap-1">
+          {(['all', 'unanswered', 'answered'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setQaFilter(f)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize ${
+                qaFilter === f
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {f}
+              {f === 'unanswered' && qaComments.filter(c => !c.reply).length > 0 && (
+                <span className="ml-1.5 h-4 w-4 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
+                  {qaComments.filter(c => !c.reply).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={fetchQAComments}
+          className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all"
+          title="Refresh"
+        >
+          <RefreshCw className={`h-4 w-4 ${qaLoading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+    </div>
+
+    {qaLoading ? (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    ) : qaComments.length === 0 ? (
+      <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
+        <MessageSquare className="h-16 w-16 text-slate-200 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">No questions yet</h3>
+        <p className="text-sm text-slate-500">
+          Questions from portal visitors will appear here
+        </p>
+      </div>
+    ) : (
+      <div className="space-y-3">
+        {qaComments
+          .filter(c => {
+            if (qaFilter === 'unanswered') return !c.reply
+            if (qaFilter === 'answered') return !!c.reply
+            return true
+          })
+          .map(comment => (
+            <div
+              key={comment.id}
+              className={`bg-white rounded-xl border shadow-sm overflow-hidden ${
+                !comment.reply ? 'border-l-4 border-l-orange-400' : 'border-l-4 border-l-green-400'
+              }`}
+            >
+              {/* Question */}
+              <div className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-slate-600">
+                        {comment.email.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-sm font-semibold text-slate-900 truncate">
+                          {comment.email}
+                        </span>
+                        <span className="text-xs text-slate-400 flex-shrink-0">
+                          {new Date(comment.createdAt).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                          })}
+                        </span>
+                        {comment.documentId !== 'general' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-100 text-xs text-blue-600 truncate max-w-[200px]">
+                            <FileText className="h-3 w-3 flex-shrink-0" />
+                            {comment.documentName}
+                          </span>
+                        )}
+                        {!comment.reply ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">
+                            Needs reply
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+                            Answered
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-700">{comment.message}</p>
+                    </div>
+                  </div>
+
+                  {/* Reply button */}
+                  {!comment.reply && replyingTo !== comment.id && (
+                    <button
+                      onClick={() => {
+                        setReplyingTo(comment.id)
+                        setReplyText('')
+                      }}
+                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      Reply
+                    </button>
+                  )}
+                </div>
+
+                {/* Existing reply */}
+                {comment.reply && (
+                  <div className="mt-3 ml-11 bg-blue-50 border border-blue-100 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-bold text-white">Y</span>
+                      </div>
+                      <span className="text-xs font-semibold text-blue-700">You replied</span>
+                      {comment.repliedAt && (
+                        <span className="text-xs text-blue-400 ml-auto">
+                          {new Date(comment.repliedAt).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                          })}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-blue-900">{comment.reply}</p>
+                  </div>
+                )}
+
+                {/* Reply input */}
+                {replyingTo === comment.id && (
+                  <div className="mt-3 ml-11 space-y-2">
+                    <textarea
+                      autoFocus
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleReply(comment.id)
+                        }
+                        if (e.key === 'Escape') {
+                          setReplyingTo(null)
+                          setReplyText('')
+                        }
+                      }}
+                      placeholder="Type your reply… (Enter to send, Esc to cancel)"
+                      rows={3}
+                      className="w-full text-sm px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-gray-400 transition-all resize-none"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={() => { setReplyingTo(null); setReplyText('') }}
+                        className="px-3 py-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg hover:border-slate-400 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleReply(comment.id)}
+                        disabled={sendingReply || !replyText.trim()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-40"
+                      >
+                        {sendingReply
+                          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…</>
+                          : <><Send className="h-3.5 w-3.5" /> Send Reply</>}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+          ))}
+
+        {/* Empty filtered state */}
+        {qaComments.filter(c => {
+          if (qaFilter === 'unanswered') return !c.reply
+          if (qaFilter === 'answered') return !!c.reply
+          return true
+        }).length === 0 && (
+          <div className="text-center py-12 text-slate-400">
+            <MessageSquare className="h-10 w-10 mx-auto mb-2 text-slate-200" />
+            <p className="text-sm">No {qaFilter} questions</p>
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+)}
 
             {activeTab === 'analytics' && (
               <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
@@ -2826,9 +3141,13 @@ const fetchFolders = async () => {
 <Dialog open={showCreateFolderDialog} onOpenChange={setShowCreateFolderDialog}>
   <DialogContent className="max-w-md bg-white">
     <DialogHeader>
-      <DialogTitle>Create New Folder</DialogTitle>
+      <DialogTitle>
+        {selectedFolder ? 'Create Subfolder' : 'Create New Folder'}
+      </DialogTitle>
       <DialogDescription>
-        Add a new folder to organize your documents in this space
+        {selectedFolder
+          ? `Creating subfolder inside "${folders.find(f => f.id === selectedFolder)?.name}"`
+          : 'Add a new folder to organize your documents in this space'}
       </DialogDescription>
     </DialogHeader>
     
