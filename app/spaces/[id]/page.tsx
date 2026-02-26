@@ -73,12 +73,14 @@ import {
   MessageSquare, RefreshCw, 
   Send,
   ChevronDown,
-  Target
+  Target,
+  Inbox
 } from "lucide-react"
 import { useSearchParams } from 'next/navigation'
 import { Switch } from "@radix-ui/react-switch"
 import PageInfoTooltip from "@/components/PageInfoTooltip"
 import { DiligenceTab } from "./components/DiligenceTab"
+import { RequestFilesDrawer } from "@/components/RequestFilesDrawer"
 
 // Role Badge Component
 const RoleBadge = ({ role }: { role: string }) => {
@@ -163,6 +165,7 @@ type DocumentType = {
   type: string
   size: string
   views: number
+  originalFilename: string
   downloads: number
   lastUpdated: string
   folderId: string | null
@@ -275,6 +278,8 @@ export function AuditLogTab({ spaceId }: { spaceId: string }) {
   const [category, setCategory] = useState<'all' | 'documents' | 'members' | 'links' | 'visitors' | 'settings'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [showRequestFilesDrawer, setShowRequestFilesDrawer] = useState(false)
+  const [requestFilesFolder, setRequestFilesFolder] = useState<{ id: string; name: string } | null>(null)
 
   const fetchAudit = useCallback(async (cat = category) => {
     setLoading(true)
@@ -1469,7 +1474,7 @@ export default function SpaceDetailPage() {
   const router = useRouter()
   const [space, setSpace] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'home' | 'folders'  | 'qa' | 'trash' | 'analytics' | 'audit' | 'diligence'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'folders'  | 'qa' | 'trash' | 'analytics' | 'audit' | 'diligence' | 'members'>('home')
   const [folders, setFolders] = useState<FolderType[]>([])
   const [documents, setDocuments] = useState<DocumentType[]>([])
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
@@ -1515,6 +1520,7 @@ const [signingNDA, setSigningNDA] = useState(false)
 const ndaFileInputRef = useRef<HTMLInputElement>(null)
 const [showSignaturesDrawer, setShowSignaturesDrawer] = useState(false)
 const [showSettingsDrawer, setShowSettingsDrawer] = useState(false)
+const [searchFolderResults, setSearchFolderResults] = useState<FolderType[]>([])
 const [bulkInviteResults, setBulkInviteResults] = useState<{
   success: string[]
   failed: { email: string; reason: string }[]
@@ -1523,6 +1529,7 @@ const [contacts, setContacts] = useState<Array<{
   id: string
   email: string
   role: 'viewer' | 'editor' | 'admin'
+  invitationStatus?: 'pending' | 'accepted'
   addedAt: string
 }>>([])
 const [user, setUser] = useState<{ email: string } | null>(null)
@@ -1574,6 +1581,8 @@ const [addingPermission, setAddingPermission] = useState(false)
 const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
 const [selectAll, setSelectAll] = useState(false);
 const [shareLinkLabel, setShareLinkLabel] = useState('')
+const [showRequestFilesDrawer, setShowRequestFilesDrawer] = useState(false)
+const [requestFilesFolder, setRequestFilesFolder] = useState<{ id: string; name: string } | null>(null)
 const [myRole, setMyRole] = useState<string>('');
 const [qaComments, setQaComments] = useState<Array<{
   id: string
@@ -1945,42 +1954,32 @@ const handleRevokeFolderPermission = async (email: string) => {
 
 const handleSearch = async (query: string) => {
   if (!query.trim()) {
-    setSearchResults([]);
-    setIsSearching(false);
-    return;
+    setSearchResults([])
+    setSearchFolderResults([])
+    setIsSearching(false)
+    return
   }
-
-  setIsSearching(true);
-
+  setIsSearching(true)
   try {
     const res = await fetch(
       `/api/documents/search?spaceId=${params.id}&query=${encodeURIComponent(query)}`,
-      {
-        method: "GET",
-        credentials: "include", // ✅ REQUIRED for http-only cookies
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!res.ok) {
-      throw new Error("Search request failed");
-    }
-
-    const data = await res.json();
-
+      { method: "GET", credentials: "include" }
+    )
+    if (!res.ok) throw new Error("Search request failed")
+    const data = await res.json()
     if (data.success) {
-      setSearchResults(data.documents);
+      setSearchResults(data.documents || [])
+      setSearchFolderResults(data.folders || [])
     } else {
-      setSearchResults([]);
+      setSearchResults([])
+      setSearchFolderResults([])
     }
   } catch (error) {
-    console.error("Search failed:", error);
+    console.error("Search failed:", error)
   } finally {
-    setIsSearching(false);
+    setIsSearching(false)
   }
-};
+}
 
 const fetchContacts = async () => {
   try {
@@ -2441,30 +2440,25 @@ const fetchRecentFiles = async () => {
 };
 
 const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
-  const sorted = [...documents].sort((a, b) => {
+  const sorted = [...allDocuments].sort((a, b) => {
     let comparison = 0
-    
     switch (sortType) {
       case 'name':
         comparison = a.name.localeCompare(b.name)
         break
       case 'date':
-        // Assuming lastUpdated can be parsed
         comparison = new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
         break
       case 'size':
-        const sizeA = parseFloat(a.size)
-        const sizeB = parseFloat(b.size)
-        comparison = sizeA - sizeB
+        comparison = parseFloat(a.size) - parseFloat(b.size)
         break
       case 'views':
         comparison = a.views - b.views
         break
     }
-    
     return sortOrder === 'asc' ? comparison : -comparison
   })
-  
+  setAllDocuments(sorted)
   setDocuments(sorted)
 }
 
@@ -2852,7 +2846,7 @@ const fetchFolders = async () => {
 <Button 
   variant="outline" 
   className="gap-2"
-  onClick={() => router.push(`/spaces/${params.id}/members`)}
+  onClick={() => setActiveTab('members')}
 >
   <Users className="h-4 w-4" />
   Members ({contacts.length})
@@ -3223,6 +3217,47 @@ const fetchFolders = async () => {
 
 {activeTab === 'home' && (
   <>
+
+  {/* Search Results Banner */}
+{searchQuery.trim() && (
+  <div className="mb-6">
+    {isSearching ? (
+      <div className="flex items-center gap-2 text-sm text-slate-500 mb-4">
+        <div className="h-4 w-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+        Searching...
+      </div>
+    ) : (
+      <div className="flex items-center gap-2 text-sm text-slate-600 mb-4">
+        <Search className="h-4 w-4" />
+        <span>
+          Found <strong>{searchResults.length}</strong> document{searchResults.length !== 1 ? 's' : ''}
+          {searchFolderResults.length > 0 && <> and <strong>{searchFolderResults.length}</strong> folder{searchFolderResults.length !== 1 ? 's' : ''}</>}
+          {' '}for "<strong>{searchQuery}</strong>"
+        </span>
+      </div>
+    )}
+
+    {/* Folder results */}
+    {searchFolderResults.length > 0 && (
+      <div className="mb-4">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Folders</p>
+        <div className="flex flex-wrap gap-2">
+          {searchFolderResults.map(f => (
+            <button
+              key={f.id}
+              onClick={() => { setSelectedFolder(f.id); setSearchQuery(''); setSearchFolderResults([]); setSearchResults([]); setActiveTab('home') }}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-white border rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors text-sm font-medium text-slate-700"
+            >
+              <Folder className="h-4 w-4 text-blue-500" />
+              {f.name}
+              <span className="text-xs text-slate-400">{f.documentCount} files</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+)}
     {/* Breadcrumb */}
     <div className="flex items-center gap-2 text-sm text-slate-600 mb-6">
       
@@ -3456,52 +3491,7 @@ const fetchFolders = async () => {
     ) : (
       /* ✅ Home View - Recent documents + Quick stats (NO FOLDER GRID!) */
       <div>
-        {/* Quick Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-xl border p-6 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <FileText className="h-5 w-5 text-blue-600" />
-              </div>
-              <p className="text-2xl font-bold text-slate-900">{documents.length}</p>
-            </div>
-            <p className="text-sm text-slate-600">Total Documents</p>
-          </div>
-          
-          <div className="bg-white rounded-xl border p-6 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Folder className="h-5 w-5 text-purple-600" />
-              </div>
-              <p className="text-2xl font-bold text-slate-900">{folders.length}</p>
-            </div>
-            <p className="text-sm text-slate-600">Folders</p>
-          </div>
-          
-          <div className="bg-white rounded-xl border p-6 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <Eye className="h-5 w-5 text-green-600" />
-              </div>
-              <p className="text-2xl font-bold text-slate-900">
-                {documents.reduce((sum, d) => sum + d.views, 0)}
-              </p>
-            </div>
-            <p className="text-sm text-slate-600">Total Views</p>
-          </div>
-          
-          <div className="bg-white rounded-xl border p-6 hover:shadow-lg transition-shadow">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                <Download className="h-5 w-5 text-orange-600" />
-              </div>
-              <p className="text-2xl font-bold text-slate-900">
-                {documents.reduce((sum, d) => sum + d.downloads, 0)}
-              </p>
-            </div>
-            <p className="text-sm text-slate-600">Downloads</p>
-          </div>
-        </div>
+       
 
         {/* Recent Documents */}
         <div>
@@ -3932,6 +3922,17 @@ const fetchFolders = async () => {
     Create Subfolder
   </DropdownMenuItem>
 )}
+
+<DropdownMenuItem
+  onClick={(e) => {
+    e.stopPropagation()
+    setRequestFilesFolder({ id: folder.id, name: folder.name })
+    setShowRequestFilesDrawer(true)
+  }}
+>
+  <Inbox className="mr-2 h-4 w-4" />
+  Request Files
+</DropdownMenuItem>
                         {/*   NEW: Manage Access */}
   {canManageContacts && (
     <DropdownMenuItem
@@ -4230,6 +4231,159 @@ const fetchFolders = async () => {
       </div>
 )}
 
+
+{activeTab === 'members' && (
+  <div>
+    {/* Header */}
+    <div className="flex items-center justify-between mb-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">Members</h2>
+        <p className="text-sm text-slate-600 mt-1">{contacts.length} people have access to this space</p>
+      </div>
+      {canManageContacts && (
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowBulkInviteDialog(true)} className="gap-2">
+            <Users className="h-4 w-4" />
+            Bulk Invite
+          </Button>
+          <Button onClick={() => setShowAddContactDialog(true)} className="gap-2 bg-slate-900 hover:bg-slate-800 text-white">
+            <Plus className="h-4 w-4" />
+            Add Member
+          </Button>
+        </div>
+      )}
+    </div>
+
+    {contacts.length === 0 ? (
+      <div className="bg-white rounded-xl border p-12 text-center">
+        <Users className="h-16 w-16 text-slate-200 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">No members yet</h3>
+        <p className="text-sm text-slate-500 mb-6">Invite people to collaborate in this space</p>
+        {canManageContacts && (
+          <Button onClick={() => setShowAddContactDialog(true)} className="gap-2 bg-slate-900 hover:bg-slate-800 text-white">
+            <Plus className="h-4 w-4" />
+            Add First Member
+          </Button>
+        )}
+      </div>
+    ) : (
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-slate-50 border-b">
+            <tr>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Member</th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Role</th>
+              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Added</th>
+              {canManageContacts && <th className="text-right px-6 py-3"></th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {/* Owner row */}
+            <tr className="bg-purple-50/40">
+              <td className="px-6 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-semibold">
+                    {user?.email?.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">{user?.email}</p>
+                    <p className="text-xs text-slate-500">Space owner</p>
+                  </div>
+                </div>
+              </td>
+              <td className="px-6 py-4">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border bg-purple-100 text-purple-700 border-purple-300 text-xs font-semibold">
+                  👑 Owner
+                </span>
+              </td>
+              <td className="px-6 py-4">
+                <span className="text-sm text-slate-500">—</span>
+              </td>
+              {canManageContacts && <td className="px-6 py-4"></td>}
+            </tr>
+
+            {/* Contacts */}
+            {contacts.map((contact) => (
+              <tr key={contact.email} className="hover:bg-slate-50">
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold">
+                      {contact.email.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">{contact.email}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${
+                    contact.role === 'admin' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                    contact.role === 'editor' ? 'bg-green-100 text-green-700 border-green-300' :
+                    'bg-slate-100 text-slate-700 border-slate-300'
+                  }`}>
+                    {contact.role === 'admin' ? '⚡' : contact.role === 'editor' ? '✏️' : '👁️'} {contact.role.charAt(0).toUpperCase() + contact.role.slice(1)}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <span className="text-sm text-slate-500">
+                    {new Date(contact.addedAt).toLocaleDateString()}
+                  </span>
+                </td>
+                {canManageContacts && (
+                  <td className="px-6 py-4 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48 bg-white">
+                {contact.invitationStatus === 'pending' && (
+    <DropdownMenuItem onClick={async () => {
+      try {
+        const res = await fetch(`/api/spaces/${params.id}/contacts`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: contact.email, role: contact.role, resend: true })
+        })
+        const data = await res.json()
+        if (data.success) toast.success(`Invitation resent to ${contact.email}`)
+        else toast.error(data.error || 'Failed to resend')
+      } catch { toast.error('Failed to resend invitation') }
+    }}>
+      <Mail className="mr-2 h-4 w-4" />
+      Resend Invite
+    </DropdownMenuItem>
+  )}
+  <DropdownMenuSeparator />
+  <DropdownMenuItem className="text-red-600" onClick={async () => {
+    if (!confirm(`Remove ${contact.email}?`)) return
+    try {
+      const res = await fetch(`/api/spaces/${params.id}/members/${contact.email}`, {
+        method: 'DELETE', credentials: 'include'
+      })
+      const data = await res.json()
+      if (data.success) { toast.success('Member removed'); fetchContacts(); }
+      else toast.error(data.error || 'Failed to remove')
+    } catch { toast.error('Failed to remove member') }
+  }}>
+    <Trash2 className="mr-2 h-4 w-4" />
+    Remove
+  </DropdownMenuItem>
+</DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+)}
+
             {activeTab === 'analytics' && (
   <AnalyticsTab spaceId={params.id as string} spaceName={space?.name} />
 )}
@@ -4242,51 +4396,117 @@ const fetchFolders = async () => {
         </main>
       </div>
       
-      {/* Recent Files Dialog */}
-<Dialog open={showRecentFiles} onOpenChange={setShowRecentFiles}>
-  <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-white">
-    <DialogHeader>
-      <DialogTitle>Recent Files</DialogTitle>
-      <DialogDescription>
-        Recently accessed documents in this space
-      </DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-2">
-      {recentFiles.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
-          <Clock className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-          <p>No recent files</p>
+      {/* Recent Files Drawer */}
+{showRecentFiles && (
+  <div className="fixed inset-0 z-50 flex justify-end">
+    {/* Backdrop */}
+    <div 
+      className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+      onClick={() => setShowRecentFiles(false)}
+    />
+    {/* Drawer */}
+    <div className="relative w-[560px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-5 border-b bg-white">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-purple-600" />
+            Recent Files
+          </h2>
+          <p className="text-sm text-slate-500 mt-0.5">Recently uploaded documents in this space</p>
         </div>
-      ) : (
-        recentFiles.map((doc) => (
-          <div
-            key={`recent-${doc.id}`}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 border"
-          >
-            <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-red-600" />
+        <button
+          onClick={() => setShowRecentFiles(false)}
+          className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+        >
+          <X className="h-5 w-5 text-slate-500" />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {recentFiles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center py-16">
+            <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+              <Clock className="h-8 w-8 text-slate-300" />
             </div>
-            <div className="flex-1">
-              <p className="font-medium text-slate-900">{doc.name}</p>
-              <p className="text-sm text-slate-500">{doc.lastUpdated}</p>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-slate-600">
-              <span className="flex items-center gap-1">
-                <Eye className="h-3 w-3" />
-                {doc.views}
-              </span>
-            </div>
-            <Button variant="ghost" size="sm">
-              <Eye className="h-4 w-4 mr-2" />
-              View
-            </Button>
+            <p className="font-semibold text-slate-700 mb-1">No recent files</p>
+            <p className="text-sm text-slate-400">Documents you upload will appear here</p>
           </div>
-        ))
-      )}
+        ) : (
+          <div className="space-y-2">
+            {recentFiles.map((doc, index) => (
+              <div
+                key={`recent-${doc.id}`}
+                className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 hover:border-purple-200 hover:bg-purple-50/30 transition-all group"
+              >
+                {/* File icon with index */}
+                <div className="relative flex-shrink-0">
+                  <div className="h-12 w-12 rounded-xl bg-red-100 flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-red-600" />
+                  </div>
+                  <span className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-slate-200 text-slate-600 text-xs flex items-center justify-center font-bold">
+                    {index + 1}
+                  </span>
+                </div>
+
+                {/* File info */}
+                <div className="flex-1 min-w-0">
+                 <p className="font-semibold text-slate-900 truncate">{doc.name || doc.originalFilename || "Untitled"}</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {doc.lastUpdated}
+                    </span>
+                    <span className="text-xs text-slate-400">•</span>
+                    <span className="text-xs text-slate-400">{doc.type}</span>
+                    {doc.size && doc.size !== '—' && (
+                      <>
+                        <span className="text-xs text-slate-400">•</span>
+                        <span className="text-xs text-slate-400">{doc.size}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="flex items-center gap-3 text-xs text-slate-500 flex-shrink-0">
+                  <span className="flex items-center gap-1">
+                    <Eye className="h-3.5 w-3.5" />
+                    {doc.views}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Download className="h-3.5 w-3.5" />
+                    {doc.downloads}
+                  </span>
+                </div>
+
+                {/* View button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                  onClick={() => {
+                    window.open(`/api/spaces/${params.id}/files/${doc.id}/view`, '_blank')
+                  }}
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="border-t px-6 py-4 bg-slate-50">
+        <p className="text-xs text-slate-400 text-center">
+          Showing {recentFiles.length} most recently uploaded document{recentFiles.length !== 1 ? 's' : ''}
+        </p>
+      </div>
     </div>
-  </DialogContent>
-</Dialog>
+  </div>
+)}
 
 {/* Add Contact Dialog */}
 <Dialog open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
@@ -6425,6 +6645,17 @@ const fetchFolders = async () => {
     )}
   </div>
 </Drawer>
+
+{requestFilesFolder && (
+  <RequestFilesDrawer
+    open={showRequestFilesDrawer}
+    onClose={() => { setShowRequestFilesDrawer(false); setRequestFilesFolder(null) }}
+    spaceId={params.id as string}
+    spaceName={space?.name || ""}
+    folderId={requestFilesFolder.id}
+    folderName={requestFilesFolder.name}
+  />
+)}
 
     </div>
   )

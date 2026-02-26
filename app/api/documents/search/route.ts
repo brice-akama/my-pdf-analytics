@@ -5,10 +5,8 @@ import { dbPromise } from "../../lib/mongodb"
 
 export async function GET(req: NextRequest) {
   try {
-    // ✅ FIX: extract the authorization header as a string
-    const authHeader = req.headers.get("authorization")
-
-    const user = await verifyUserFromRequest(authHeader) // ✅ pass string, not req
+    // ✅ FIX 1: Pass req directly (not authHeader string)
+    const user = await verifyUserFromRequest(req)
 
     if (!user) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
@@ -24,26 +22,58 @@ export async function GET(req: NextRequest) {
 
     const db = await dbPromise
 
-    const documents = await db
-      .collection("documents")
-      .find({
-        spaceId: new ObjectId(spaceId),
-        name: { $regex: query, $options: "i" },
-      })
-      .sort({ updatedAt: -1 })
-      .toArray()
+    const regex = { $regex: query, $options: "i" }
+
+    //   Search spaceId as plain string AND ObjectId (covers both storage formats)
+    //   Search across name, originalFilename, title, AND folders
+    const [documents, folders] = await Promise.all([
+     db.collection("documents").find({
+  $and: [
+    {
+      $or: [
+        { spaceId: spaceId },
+        { spaceId: new ObjectId(spaceId) },
+      ]
+    },
+    { archived: { $ne: true } },
+    {
+      $or: [
+        { name: regex },
+        { originalFilename: regex },
+        { title: regex },
+      ]
+    }
+  ]
+}).sort({ updatedAt: -1 }).toArray(),
+
+      db.collection("space_folders").find({
+        $or: [
+          { spaceId: spaceId },
+          { spaceId: new ObjectId(spaceId) },
+        ],
+        name: regex,
+      }).sort({ updatedAt: -1 }).toArray(),
+    ])
 
     return NextResponse.json({
       success: true,
       documents: documents.map(doc => ({
         id: doc._id.toString(),
-        name: doc.name,
-        type: doc.type || "PDF",
-        size: doc.size || "0 MB",
-        views: doc.views || 0,
-        downloads: doc.downloads || 0,
-        lastUpdated: formatDate(doc.updatedAt),
-        folderId: doc.folderId?.toString() || null,
+        name: doc.originalFilename || doc.name || doc.title || "Untitled",
+        type: doc.originalFormat?.toUpperCase() || doc.fileType?.toUpperCase() || "PDF",
+        size: formatSize(doc.size || doc.fileSize || 0),
+        views: doc.tracking?.views ?? doc.views ?? 0,
+        downloads: doc.tracking?.downloads ?? doc.downloads ?? 0,
+        lastUpdated: formatDate(doc.updatedAt || doc.createdAt),
+        folder: doc.folder || doc.folderId?.toString() || null,
+        cloudinaryPdfUrl: doc.cloudinaryPdfUrl || null,
+        canDownload: doc.canDownload !== false,
+      })),
+      folders: folders.map(f => ({
+        id: f._id.toString(),
+        name: f.name,
+        documentCount: f.documentCount || 0,
+        lastUpdated: formatDate(f.updatedAt || f.createdAt),
       })),
     })
   } catch (error) {
@@ -52,11 +82,23 @@ export async function GET(req: NextRequest) {
   }
 }
 
-function formatDate(date: Date): string {
-  const now = new Date()
-  const diffTime = Math.abs(now.getTime() - date.getTime())
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+function formatSize(bytes: any): string {
+  if (!bytes || isNaN(bytes)) return "—"
+  const b = Number(bytes)
+  if (b < 1024) return b + " B"
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + " KB"
+  return (b / (1024 * 1024)).toFixed(1) + " MB"
+}
 
+function formatDate(date: any): string {
+  if (!date) return "Unknown"
+  const now = new Date()
+  const diffMs = now.getTime() - new Date(date).getTime()
+  const diffDays = Math.floor(diffMs / 86400000)
+  const diffMins = Math.floor(diffMs / 60000)
+
+  if (diffMins < 1) return "Just now"
+  if (diffMins < 60) return `${diffMins}m ago`
   if (diffDays === 0) return "Today"
   if (diffDays === 1) return "Yesterday"
   if (diffDays < 7) return `${diffDays}d ago`

@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     // ✅ Fetch recent documents sorted by last updated
     const documents = await db
       .collection("documents")
-      .find({ spaceId: new ObjectId(spaceId) })
+      .find({ spaceId: spaceId }) 
       .sort({ updatedAt: -1 })
       .limit(limit)
       .toArray()
@@ -54,16 +54,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       documents: documents.map(doc => ({
-        id: doc._id.toString(),
-        name: doc.name,
-        type: doc.type || "PDF",
-        size: doc.size || "0 MB",
-        views: doc.views || 0,
-        downloads: doc.downloads || 0,
-        lastUpdated: formatDate(doc.updatedAt),
-        folderId: doc.folderId?.toString() || null,
-        cloudinaryPdfUrl: doc.cloudinaryPdfUrl || null
-      }))
+  id: doc._id.toString(),
+  name: doc.originalFilename || doc.name || doc.title || "Untitled",
+  type: doc.originalFormat?.toUpperCase() || doc.fileType?.toUpperCase() || "PDF",
+  size: formatSize(doc.size || doc.fileSize),
+  views: doc.tracking?.views ?? doc.views ?? 0,
+  downloads: doc.tracking?.downloads ?? doc.downloads ?? 0,
+  lastUpdated: formatDate(doc.updatedAt || doc.createdAt),
+  folderId: doc.folder || doc.folderId?.toString() || null,
+  cloudinaryPdfUrl: doc.cloudinaryPdfUrl || null,
+}))
     })
   } catch (error) {
     console.error("Recent files error:", error)
@@ -86,4 +86,12 @@ function formatDate(date: Date): string {
   if (diffDays < 7) return `${diffDays}d ago`
   if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
   return `${Math.floor(diffDays / 30)}mo ago`
+}
+
+function formatSize(bytes: any): string {
+  if (!bytes || isNaN(bytes)) return "—"
+  const b = Number(bytes)
+  if (b < 1024) return b + " B"
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + " KB"
+  return (b / (1024 * 1024)).toFixed(1) + " MB"
 }
