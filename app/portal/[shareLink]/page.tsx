@@ -268,18 +268,23 @@ function CommentThread({ docId, docName, visitorEmail, shareLink }: {
   }, [docId])
 
   const fetchComments = async (showRefreshing = false) => {
-    if (showRefreshing) setRefreshing(true)
-    try {
-      const res = await fetch(`/api/portal/${shareLink}/comments?documentId=${docId}`, { credentials: 'include' })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success) setComments(data.comments || [])
-      }
-    } catch { /* silent */ } finally {
-      setLoading(false)
-      setRefreshing(false)
+  if (showRefreshing) setRefreshing(true)
+  try {
+    // ← ADD email param so backend filters to this visitor's own comments only
+    const url = new URL(`/api/portal/${shareLink}/comments`, window.location.origin)
+    url.searchParams.set('documentId', docId)
+    url.searchParams.set('email', visitorEmail)   // ← KEY CHANGE
+
+    const res = await fetch(url.toString(), { credentials: 'include' })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) setComments(data.comments || [])
     }
+  } catch { /* silent */ } finally {
+    setLoading(false)
+    setRefreshing(false)
   }
+}
 
   const handleSend = async () => {
     if (!message.trim() || sending) return
@@ -696,10 +701,45 @@ export default function PortalPage() {
   }
 
   const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setGateError("")
-    if (requiresEmail && !visitorEmail.trim()) { setGateError("Email is required"); return }
-    if (step === 'password' && !password.trim()) { setGateError("Password is required"); return }
+  e.preventDefault()
+  setGateError("")
+
+  // ✅ EMAIL STEP: just collect email and advance if no password needed
+  if (step === 'email') {
+    if (!visitorEmail.trim()) { setGateError("Email is required"); return }
+
+    // If no password required, verify email only
+    if (!requiresPassword) {
+      setSubmitting(true)
+      try {
+        const res = await fetch(`/api/portal/${shareLink}/verify`, {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: visitorEmail.trim(), password: '' })
+        })
+        const data = await res.json()
+        if (data.success) {
+          trackVisit()
+          advanceStep()
+        } else {
+          setGateError(
+            res.status === 403 ? "This email is not authorized. Contact the sender." :
+            data.error || "Access denied."
+          )
+        }
+      } catch { setGateError("Connection error. Please try again.") }
+      finally { setSubmitting(false) }
+      return
+    }
+
+    // Password is required — just advance to the password step without calling verify yet
+    advanceStep()
+    return
+  }
+
+  // ✅ PASSWORD STEP: now we have both email + password, call verify
+  if (step === 'password') {
+    if (!password.trim()) { setGateError("Password is required"); return }
     setSubmitting(true)
     try {
       const res = await fetch(`/api/portal/${shareLink}/verify`, {
@@ -720,7 +760,9 @@ export default function PortalPage() {
       }
     } catch { setGateError("Connection error. Please try again.") }
     finally { setSubmitting(false) }
+    return
   }
+}
 
   const handleSignNDA = async () => {
     if (!ndaAccepted) return
@@ -765,20 +807,33 @@ export default function PortalPage() {
   }
 
   const handleDownload = async (doc: Doc) => {
-    if (!spaceData?.allowDownloads) return
-    setDownloadingId(doc.id)
-    try {
-      const res = await fetch(`/api/portal/${shareLink}/documents/${doc.id}?download=true`)
-      if (!res.ok) throw new Error()
-      const blob = await res.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = doc.name
-      document.body.appendChild(a); a.click()
-      window.URL.revokeObjectURL(url); document.body.removeChild(a)
-    } catch { /* silent */ }
-    finally { setDownloadingId(null) }
-  }
+  if (!spaceData?.allowDownloads) return
+  setDownloadingId(doc.id)
+  try {
+    const res = await fetch(`/api/portal/${shareLink}/documents/${doc.id}?download=true`)
+    if (!res.ok) throw new Error()
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = doc.name
+    document.body.appendChild(a); a.click()
+    window.URL.revokeObjectURL(url); document.body.removeChild(a)
+
+    // ✅ Track the download
+    await fetch(`/api/portal/${shareLink}/track`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: visitorEmail,
+        event: 'download',
+        documentId: doc.id,
+        documentName: doc.name
+      })
+    })
+  } catch { /* silent */ }
+  finally { setDownloadingId(null) }
+}
 
   const getDocCount = (folderId: string) =>
     (spaceData?.documents || []).filter(d => d.folderId === folderId).length

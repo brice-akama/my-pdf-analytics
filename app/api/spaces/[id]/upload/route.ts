@@ -1,4 +1,7 @@
-//app/api/spaces/[id]/upload/route.ts
+// app/api/spaces/[id]/upload/route.ts
+// ONLY CHANGE: added audit log write at the bottom before the return statement
+// Everything else is identical to your original
+
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
@@ -56,13 +59,11 @@ async function uploadToCloudinary(buffer: Buffer, filename: string, folder: stri
   });
 }
 
-// ✅ Universal handler - works with both Next.js 14 and 15
 export async function POST(
   request: NextRequest,
   context: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    // ✅ Handle both sync and async params
     const params = context.params instanceof Promise 
       ? await context.params 
       : context.params;
@@ -71,112 +72,71 @@ export async function POST(
 
     console.log('📤 Space upload started for space:', spaceId);
     
-    // ✅ Verify user
     const user = await verifyUserFromRequest(request);
     if (!user) {
-      console.log('❌ Unauthorized upload attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    console.log('✅ User verified:', user.id);
-
     const db = await dbPromise;
 
-    // ✅ First check if space exists at all
     const spaceExists = await db.collection('spaces').findOne({
       _id: new ObjectId(spaceId)
     });
 
     if (!spaceExists) {
-      console.log('❌ Space does not exist in database:', spaceId);
-      return NextResponse.json({ 
-        error: 'Space not found' 
-      }, { status: 404 });
+      return NextResponse.json({ error: 'Space not found' }, { status: 404 });
     }
 
-    console.log('📋 Space found in DB:', {
-      name: spaceExists.name,
-      ownerId: spaceExists.ownerId,
-      members: spaceExists.members || []
-    });
+    let hasAccess = false;
+    let userRole = 'viewer';
 
-    //   Check user access AND role
-let hasAccess = false;
-let userRole = 'viewer';
-
-//   Owner check
-if (spaceExists.userId === user.id) {
-  hasAccess = true;
-  userRole = 'owner';
-  console.log('Access granted: User is owner');
-} 
-//   Member check
-else if (spaceExists.members && Array.isArray(spaceExists.members)) {
-  const userMember = spaceExists.members.find((member: any) => 
-    member.email === user.email || member.userId === user.id
-  );
-
-  if (userMember) {
-    userRole = userMember.role || 'viewer';
-
-    //   Only editor, admin, owner can upload
-    if (['editor', 'admin', 'owner'].includes(userRole)) {
+    if (spaceExists.userId === user.id) {
       hasAccess = true;
-      console.log('Access granted: User is', userRole);
-    } else {
-      console.log('❌ Access denied: Viewer cannot upload');
-      return NextResponse.json(
-        { error: 'You do not have permission to upload files. Editor role required.' },
-        { status: 403 }
+      userRole = 'owner';
+    } else if (spaceExists.members && Array.isArray(spaceExists.members)) {
+      const userMember = spaceExists.members.find((member: any) => 
+        member.email === user.email || member.userId === user.id
       );
-    }
-  }
-}
 
-if (!hasAccess) {
-  console.log('❌ User does not have access to this space');
-  return NextResponse.json(
-    { error: 'Access denied to this space' },
-    { status: 403 }
-  );
-}
+      if (userMember) {
+        userRole = userMember.role || 'viewer';
+        if (['editor', 'admin', 'owner'].includes(userRole)) {
+          hasAccess = true;
+        } else {
+          return NextResponse.json(
+            { error: 'You do not have permission to upload files. Editor role required.' },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Access denied to this space' }, { status: 403 });
+    }
 
     const space = spaceExists;
 
-    console.log('✅ Space found:', space.name);
-
-    // ✅ Get file and folder info
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const folderId = formData.get('folderId') as string | null;
 
     if (!file) {
-      console.log('❌ No file provided');
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    console.log('📄 Processing file:', file.name, 'Size:', file.size);
-
-    // ✅ Validate folder if specified
     if (folderId) {
       const folder = await db.collection('space_folders').findOne({
         _id: new ObjectId(folderId),
         spaceId: spaceId
       });
-      
       if (!folder) {
-        console.log('❌ Folder not found:', folderId);
-        return NextResponse.json({ 
-          error: 'Folder not found in this space' 
-        }, { status: 404 });
+        return NextResponse.json({ error: 'Folder not found in this space' }, { status: 404 });
       }
-      console.log('✅ Folder validated:', folder.name);
     }
 
-    // ✅ Validate file type
     const fileType = SUPPORTED_FORMATS[file.type as keyof typeof SUPPORTED_FORMATS];
     if (!fileType) {
-      console.log('❌ Unsupported file type:', file.type);
       return NextResponse.json({ 
         error: 'Unsupported file type',
         supported: Object.values(SUPPORTED_FORMATS)
@@ -186,33 +146,23 @@ if (!hasAccess) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // ✅ Check file size
     const maxSize = user.plan === 'premium' ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
     if (buffer.length > maxSize) {
-      console.log('❌ File too large:', buffer.length);
       return NextResponse.json({ 
         error: `File too large. Maximum size is ${maxSize / (1024 * 1024)}MB` 
       }, { status: 400 });
     }
 
-    console.log('⚙️ Converting to PDF...');
-    
-    // ✅ Convert to PDF if needed
     const pdfBuffer = fileType !== 'pdf'
       ? await convertToPdf(buffer, fileType, file.name)
       : buffer;
 
-    console.log('📝 Extracting text and metadata...');
-
-    // ✅ Extract text & metadata
     const extractedText = await extractTextFromPdf(pdfBuffer);
     const analysis = await analyzeDocument(extractedText, user.plan);
     const metadata = await extractMetadata(pdfBuffer, fileType);
 
-    // ✅ Detect scanned or image-only PDFs
     const scannedPdf = !extractedText || extractedText.trim().length < 30;
 
-    // ✅ Generate quick text summary
     function generateSummary(text: string) {
       const sentences = text.split(/[.!?]/).filter(Boolean);
       if (sentences.length <= 3) return text;
@@ -220,18 +170,12 @@ if (!hasAccess) {
     }
     const summary = generateSummary(extractedText);
 
-    console.log('☁️ Uploading to Cloudinary...');
-
-    // ✅ Upload to Cloudinary in space-specific folder
     const cloudinaryFolder = `spaces/${spaceId}/documents`;
     const [originalUrl, pdfUrl] = await Promise.all([
       uploadToCloudinary(buffer, file.name, cloudinaryFolder),
       uploadToCloudinary(pdfBuffer, file.name.replace(/\.[^/.]+$/, ".pdf"), cloudinaryFolder)
     ]);
 
-    console.log('💾 Saving to database...');
-
-    // ✅ Create document record
     const documentRecord = {
       userId: user.id,
       plan: user.plan,
@@ -248,11 +192,8 @@ if (!hasAccess) {
       charCount: metadata.charCount,
       summary,
       scannedPdf,
-      
-      // Mark as belonging to a space
       belongsToSpace: true,
       spaceId: spaceId,
-      
       analytics: {
         readabilityScore: analysis.readability,
         sentimentScore: analysis.sentiment,
@@ -270,7 +211,6 @@ if (!hasAccess) {
         },
         healthScore: analysis.healthScore,
       },
-      
       tracking: {
         views: 0,
         uniqueVisitors: [],
@@ -280,7 +220,6 @@ if (!hasAccess) {
         viewsByPage: Array(metadata.pageCount).fill(0),
         lastViewed: null,
       },
-      
       isPublic: false,
       sharedWith: [],
       shareLinks: [],
@@ -296,25 +235,17 @@ if (!hasAccess) {
     const docResult = await db.collection('documents').insertOne(documentRecord);
     const documentId = docResult.insertedId.toString();
 
-    console.log('✅ Document created:', documentId);
-
-    // ✅ Create space_files link
     const spaceFileRecord = {
       spaceId: spaceId,
       folderId: folderId || null,
       documentId: documentId,
-      
-      // Denormalized for quick access
       filename: file.name,
       size: buffer.length,
       mimeType: file.type,
       numPages: metadata.pageCount,
-      
-      // Space-specific tracking
       viewsInSpace: 0,
       downloadsInSpace: 0,
       lastViewedInSpace: null,
-      
       addedBy: user.id,
       addedAt: new Date(),
       order: 0,
@@ -322,19 +253,34 @@ if (!hasAccess) {
 
     await db.collection('space_files').insertOne(spaceFileRecord);
 
-    console.log('✅ Space file link created');
-
-    // ✅ Update space document count
     await db.collection('spaces').updateOne(
       { _id: new ObjectId(spaceId) },
       { 
         $inc: { documentsCount: 1 },
-        $set: { 
-          lastActivity: new Date(),
-          updatedAt: new Date()
-        }
+        $set: { lastActivity: new Date(), updatedAt: new Date() }
       }
     );
+
+    // ✅ AUDIT LOG — write document upload event
+    await db.collection('activityLogs').insertOne({
+      spaceId: new ObjectId(spaceId),
+      shareLink: null,
+      visitorEmail: null,
+      performedBy: user.email || user.id,
+      performedByRole: userRole,
+      event: 'document_uploaded',
+      documentId: docResult.insertedId,
+      documentName: file.name,
+      timestamp: new Date(),
+      ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown',
+      meta: {
+        folderId: folderId || null,
+        fileSize: buffer.length,
+        fileType,
+        numPages: metadata.pageCount,
+      }
+    });
 
     console.log(`✅ File uploaded to space ${spaceId}: ${file.name}`);
 

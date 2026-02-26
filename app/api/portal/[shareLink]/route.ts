@@ -16,26 +16,38 @@ export async function GET(
 
     const db = await dbPromise;
 
+    // ✅ FIX: Query using $elemMatch since publicAccess is now an array
     const space = await db.collection('spaces').findOne({
-      'publicAccess.shareLink': shareLink,
-      'publicAccess.enabled': true
+      'publicAccess': {
+        $elemMatch: { shareLink: shareLink, enabled: true }
+      }
     });
 
     if (!space) {
       return NextResponse.json({ success: false, error: 'Invalid or expired link' }, { status: 404 });
     }
 
-    if (space.publicAccess.expiresAt && new Date(space.publicAccess.expiresAt) < new Date()) {
+    // ✅ FIX: Find the specific link config from the array
+    const linkConfig = Array.isArray(space.publicAccess)
+      ? space.publicAccess.find((l: any) => l.shareLink === shareLink && l.enabled !== false)
+      : space.publicAccess;
+
+    if (!linkConfig) {
+      return NextResponse.json({ success: false, error: 'Invalid or expired link' }, { status: 404 });
+    }
+
+    // ✅ FIX: Check expiry and view limit on linkConfig, not space.publicAccess
+    if (linkConfig.expiresAt && new Date(linkConfig.expiresAt) < new Date()) {
       return NextResponse.json({ success: false, error: 'This link has expired' }, { status: 403 });
     }
 
-    if (space.publicAccess.viewLimit && space.publicAccess.currentViews >= space.publicAccess.viewLimit) {
+    if (linkConfig.viewLimit && linkConfig.currentViews >= linkConfig.viewLimit) {
       return NextResponse.json({ success: false, error: 'This link has reached its view limit' }, { status: 403 });
     }
 
     const spaceId = space._id.toString();
 
-    // ✅ Fix: space_folders collection, spaceId as STRING (matches how they're saved)
+    // Fetch folders
     const foldersRaw = await db.collection('space_folders')
       .find({ spaceId: spaceId })
       .sort({ order: 1, createdAt: 1 })
@@ -43,7 +55,7 @@ export async function GET(
 
     console.log(`📁 Found ${foldersRaw.length} folders in space_folders`);
 
-    // ✅ Fix: relaxed document query — no belongsToSpace or organizationId filter
+    // Fetch documents
     const documents = await db.collection('documents')
       .find({
         $or: [
@@ -56,7 +68,7 @@ export async function GET(
 
     console.log(`📄 Found ${documents.length} documents`);
 
-    // ✅ Fix: handle both `folder` and `folderId` fields (upload saves as `folder`)
+    // Build folder document count map
     const folderCountMap: Record<string, number> = {};
 
     const transformedDocs = documents.map(doc => {
@@ -83,6 +95,7 @@ export async function GET(
     console.log(`✅ Portal loaded: ${transformedDocs.length} documents, ${folders.length} folders`);
     console.log('📁 Folder IDs:', folders.map(f => f.id));
     console.log('📄 Doc folderIds:', transformedDocs.map(d => d.folderId));
+    console.log('🔒 Link security:', linkConfig.securityLevel, '| requireEmail:', linkConfig.requireEmail, '| requirePassword:', linkConfig.requirePassword);
 
     return NextResponse.json({
       success: true,
@@ -101,8 +114,9 @@ export async function GET(
         documents: transformedDocs,
         folders
       },
-      requiresEmail: space.publicAccess.requireEmail,
-      requiresPassword: space.publicAccess.requirePassword
+      // ✅ FIX: Read from linkConfig not space.publicAccess
+      requiresEmail: linkConfig.requireEmail ?? true,
+      requiresPassword: linkConfig.requirePassword ?? false
     });
 
   } catch (error) {

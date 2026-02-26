@@ -1,58 +1,58 @@
-// app/api/spaces/[id]/public-access/route.ts
+/// app/api/spaces/[id]/public-access/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import crypto from 'crypto';
 
-// Generate a unique, readable share link slug
+// Generate a UNIQUE share link slug every single time
 function generateShareLink(spaceName: string): string {
-  // Convert space name to URL-friendly slug
   const slug = spaceName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-    .substring(0, 30);
-  
-  // Add random suffix for uniqueness
-  const randomSuffix = crypto.randomBytes(4).toString('hex');
-  
+    .substring(0, 20);
+
+  // 8 random bytes = 16 hex chars — guaranteed unique every call
+  const randomSuffix = crypto.randomBytes(8).toString('hex');
+
   return `${slug}-${randomSuffix}`;
 }
 
-// POST - Enable public access with hybrid security
+// ─────────────────────────────────────────────────────────────────────────────
+// POST — Create a NEW share link (never reuses old ones)
+// ─────────────────────────────────────────────────────────────────────────────
 export async function POST(
   request: NextRequest,
   context: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const params = context.params instanceof Promise 
-      ? await context.params 
+    const params = context.params instanceof Promise
+      ? await context.params
       : context.params;
-    
+
     const spaceId = params.id;
-    
-    // Verify user owns this space
+
     const user = await verifyUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     const body = await request.json();
     const {
-      securityLevel = 'open', // 'open', 'password', 'whitelist'
-      allowedEmails = [], // Array of pre-approved emails
-      allowedDomains = [], // Array of allowed domains (e.g., ["client.com"])
+      label        = null,
+      securityLevel = 'open',
+      allowedEmails = [],
+      allowedDomains = [],
       password,
       expiresAt,
       viewLimit,
-      branding
     } = body;
 
-    // ✅ Validate security level
-    if (securityLevel === 'whitelist' && (!allowedEmails || allowedEmails.length === 0)) {
+    // Validation
+    if (securityLevel === 'whitelist' && allowedEmails.length === 0 && (!allowedDomains || allowedDomains.length === 0)) {
       return NextResponse.json({
-        error: 'Whitelist security requires at least one allowed email'
+        error: 'Whitelist security requires at least one allowed email or domain'
       }, { status: 400 });
     }
 
@@ -61,231 +61,250 @@ export async function POST(
         error: 'Password required for this security level'
       }, { status: 400 });
     }
-    
+
     const db = await dbPromise;
-    
-    // Get space
+
     const space = await db.collection('spaces').findOne({
       _id: new ObjectId(spaceId)
     });
-    
+
     if (!space) {
       return NextResponse.json({ error: 'Space not found' }, { status: 404 });
     }
-    
-    // ✅ Check if user has access
-const isSpaceOwner = space.userId === user.id || space.createdBy === user.id
 
-const isMemberWithAccess = space.members?.some(
-  (m: any) => m.email === user.email && ['owner', 'admin', 'editor'].includes(m.role)
-)
+    const isOwner = space.userId === user.id || space.createdBy === user.id;
+    const isMember = space.members?.some(
+      (m: any) => m.email === user.email && ['owner', 'admin', 'editor'].includes(m.role)
+    );
 
-if (!isSpaceOwner && !isMemberWithAccess) {
-  return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-}
-    
-    // Generate unique share link (or reuse existing)
-    const shareLink = space.publicAccess?.shareLink || generateShareLink(space.name);
-    
-    // ✅ Hash password if needed (based on security level)
+    if (!isOwner && !isMember) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // ── ALWAYS generate a fresh unique slug ───────────────────────────────
+    const shareLink = generateShareLink(space.name);
+
+    // Hash password if needed
     let hashedPassword = null;
     if ((securityLevel === 'password' || securityLevel === 'whitelist') && password) {
       const bcrypt = require('bcryptjs');
       hashedPassword = await bcrypt.hash(password, 10);
     }
-    
-    // ✅ Build public access config with all security settings
-    const publicAccessConfig = {
-      enabled: true,
+
+    const publicUrl = `${process.env.NEXT_PUBLIC_APP_URL}/portal/${shareLink}`;
+
+    // ── Build the new link entry ──────────────────────────────────────────
+    const newLinkEntry = {
       shareLink,
-      
-      // Security settings
-      securityLevel, // 'open', 'password', 'whitelist'
-      requireEmail: true, // Always require email for tracking
+      label:         label || null,
+      securityLevel,
+
+      requireEmail:    true,
       requirePassword: securityLevel === 'password' || securityLevel === 'whitelist',
-      password: hashedPassword,
-      
-      // Whitelist settings (only for whitelist mode)
-      allowedEmails: securityLevel === 'whitelist' ? allowedEmails.map((e: string) => e.toLowerCase()) : [],
+      password:        hashedPassword,
+
+      allowedEmails:  securityLevel === 'whitelist'
+        ? allowedEmails.map((e: string) => e.toLowerCase())
+        : [],
       allowedDomains: allowedDomains || [],
-      
-      // Limits
-      expiresAt: expiresAt ? new Date(expiresAt) : null,
-      viewLimit: viewLimit || null,
-      currentViews: space.publicAccess?.currentViews || 0,
-      
-      enabledAt: new Date(),
-      enabledBy: user.id
+
+      expiresAt:  expiresAt  ? new Date(expiresAt)  : null,
+      viewLimit:  viewLimit  ? parseInt(viewLimit)   : null,
+      currentViews: 0,
+
+      publicUrl,
+      createdAt: new Date(),
+      createdBy: user.id,
+      enabled:   true,
     };
-    
-    const brandingConfig = branding || space.branding || {
-      primaryColor: '#6366f1',
-      companyName: user.email.split('@')[0]
-    };
-    
-    await db.collection('spaces').updateOne(
-      { _id: new ObjectId(spaceId) },
-      {
-        $set: {
-          publicAccess: publicAccessConfig,
-          branding: brandingConfig,
-          updatedAt: new Date()
+
+    // ── Migrate old single-object format to array if needed ──────────────
+    const currentAccess = space.publicAccess;
+    const isAlreadyArray = Array.isArray(currentAccess);
+
+    if (!isAlreadyArray && currentAccess && typeof currentAccess === 'object') {
+      // Convert the existing object into an array first, then push new entry
+      await db.collection('spaces').updateOne(
+        { _id: new ObjectId(spaceId) },
+        {
+          $set: {
+            publicAccess: [currentAccess, newLinkEntry], // migrate + add new
+            updatedAt: new Date()
+          }
         }
-      }
-    );
-    
-    console.log(`✅ Public access enabled for space: ${spaceId}`);
-    console.log(`   Security level: ${securityLevel}`);
-    console.log(`   Share link: ${shareLink}`);
-    if (securityLevel === 'whitelist') {
-      console.log(`   Allowed emails: ${allowedEmails.join(', ')}`);
+      );
+    } else {
+      // Already an array (or empty) — just push
+      await db.collection('spaces').updateOne(
+        { _id: new ObjectId(spaceId) },
+        {
+          $push: { publicAccess: newLinkEntry } as any,
+          $set:  { updatedAt: new Date() }
+        }
+      );
     }
-    
+
+    console.log(`✅ New share link created for space: ${spaceId}`);
+    console.log(`   Label: ${label || '(none)'}`);
+    console.log(`   Security: ${securityLevel}`);
+    console.log(`   Slug: ${shareLink}`);
+
     return NextResponse.json({
       success: true,
-      message: 'Public access enabled',
+      message: 'Share link created',
       shareLink,
-      publicUrl: `${process.env.NEXT_PUBLIC_APP_URL}/portal/${shareLink}`,
+      publicUrl,
       settings: {
+        label,
         securityLevel,
         requireEmail: true,
         requirePassword: securityLevel === 'password' || securityLevel === 'whitelist',
         allowedEmails: securityLevel === 'whitelist' ? allowedEmails : [],
+        allowedDomains,
         expiresAt,
-        viewLimit
+        viewLimit,
       }
     });
-    
+
   } catch (error) {
-    console.error('❌ Enable public access error:', error);
+    console.error('❌ Create share link error:', error);
     return NextResponse.json({
-      error: 'Failed to enable public access',
+      error: 'Failed to create share link',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
 
-// PATCH - Update public access settings
+// ─────────────────────────────────────────────────────────────────────────────
+// GET — Return all share links for this space (for analytics)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function GET(
+  request: NextRequest,
+  context: { params: { id: string } | Promise<{ id: string }> }
+) {
+  try {
+    const params = context.params instanceof Promise
+      ? await context.params
+      : context.params;
+
+    const spaceId = params.id;
+    const user = await verifyUserFromRequest(request);
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const db = await dbPromise;
+    const space = await db.collection('spaces').findOne({ _id: new ObjectId(spaceId) });
+    if (!space) return NextResponse.json({ error: 'Space not found' }, { status: 404 });
+
+    const links = Array.isArray(space.publicAccess)
+      ? space.publicAccess
+      : space.publicAccess ? [space.publicAccess] : [];
+
+    return NextResponse.json({
+      success: true,
+      links: links.map((l: any) => ({
+        shareLink:     l.shareLink,
+        label:         l.label || null,
+        securityLevel: l.securityLevel || 'open',
+        createdAt:     l.createdAt,
+        expiresAt:     l.expiresAt,
+        viewLimit:     l.viewLimit,
+        currentViews:  l.currentViews || 0,
+        enabled:       l.enabled !== false,
+        publicUrl:     l.publicUrl,
+      }))
+    });
+
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to fetch links' }, { status: 500 });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH — Update a specific share link (disable, rename, etc.)
+// ─────────────────────────────────────────────────────────────────────────────
 export async function PATCH(
   request: NextRequest,
   context: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const params = context.params instanceof Promise 
-      ? await context.params 
+    const params = context.params instanceof Promise
+      ? await context.params
       : context.params;
-    
+
     const spaceId = params.id;
     const user = await verifyUserFromRequest(request);
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await request.json();
+    const { shareLink, updates } = body;
+
+    if (!shareLink) {
+      return NextResponse.json({ error: 'shareLink required' }, { status: 400 });
     }
-    
-    const updates = await request.json();
+
     const db = await dbPromise;
-    
-    // Build update query
-    const updateFields: any = {
-      updatedAt: new Date()
-    };
-    
-    // ✅ Update security level
-    if (updates.securityLevel !== undefined) {
-      updateFields['publicAccess.securityLevel'] = updates.securityLevel;
-      updateFields['publicAccess.requirePassword'] = 
-        updates.securityLevel === 'password' || updates.securityLevel === 'whitelist';
-    }
-    
-    if (updates.requireEmail !== undefined) {
-      updateFields['publicAccess.requireEmail'] = updates.requireEmail;
-    }
-    
-    // ✅ Update allowed emails (whitelist)
-    if (updates.allowedEmails !== undefined) {
-      updateFields['publicAccess.allowedEmails'] = 
-        updates.allowedEmails.map((e: string) => e.toLowerCase());
-    }
-    
-    // ✅ Update allowed domains
-    if (updates.allowedDomains !== undefined) {
-      updateFields['publicAccess.allowedDomains'] = updates.allowedDomains;
-    }
-    
-    if (updates.password) {
-      const bcrypt = require('bcryptjs');
-      updateFields['publicAccess.password'] = await bcrypt.hash(updates.password, 10);
-    }
-    
-    if (updates.expiresAt !== undefined) {
-      updateFields['publicAccess.expiresAt'] = updates.expiresAt ? new Date(updates.expiresAt) : null;
-    }
-    
-    if (updates.viewLimit !== undefined) {
-      updateFields['publicAccess.viewLimit'] = updates.viewLimit;
-    }
-    
-    if (updates.branding) {
-      Object.keys(updates.branding).forEach(key => {
-        updateFields[`branding.${key}`] = updates.branding[key];
-      });
-    }
-    
+
+    // Build $set for the specific array element
+    const setFields: any = {};
+    if (updates.label       !== undefined) setFields['publicAccess.$[link].label']         = updates.label;
+    if (updates.enabled     !== undefined) setFields['publicAccess.$[link].enabled']        = updates.enabled;
+    if (updates.expiresAt   !== undefined) setFields['publicAccess.$[link].expiresAt']      = updates.expiresAt ? new Date(updates.expiresAt) : null;
+    if (updates.viewLimit   !== undefined) setFields['publicAccess.$[link].viewLimit']      = updates.viewLimit;
+
     await db.collection('spaces').updateOne(
       { _id: new ObjectId(spaceId) },
-      { $set: updateFields }
+      { $set: setFields },
+      { arrayFilters: [{ 'link.shareLink': shareLink }] }
     );
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Public access settings updated'
-    });
-    
+
+    return NextResponse.json({ success: true, message: 'Share link updated' });
+
   } catch (error) {
-    console.error('❌ Update public access error:', error);
-    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update share link' }, { status: 500 });
   }
 }
 
-// DELETE - Disable public access
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE — Disable a specific share link (or all)
+// ─────────────────────────────────────────────────────────────────────────────
 export async function DELETE(
   request: NextRequest,
   context: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const params = context.params instanceof Promise 
-      ? await context.params 
+    const params = context.params instanceof Promise
+      ? await context.params
       : context.params;
-    
+
     const spaceId = params.id;
     const user = await verifyUserFromRequest(request);
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { searchParams } = new URL(request.url);
+    const targetLink = searchParams.get('shareLink');
+
     const db = await dbPromise;
-    
-    // Disable public access but keep the share link (in case they want to re-enable)
-    await db.collection('spaces').updateOne(
-      { _id: new ObjectId(spaceId) },
-      {
-        $set: {
-          'publicAccess.enabled': false,
-          updatedAt: new Date()
-        }
-      }
-    );
-    
-    console.log(`✅ Public access disabled for space: ${spaceId}`);
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Public access disabled'
-    });
-    
+
+    if (targetLink) {
+      // Disable a specific link
+      await db.collection('spaces').updateOne(
+        { _id: new ObjectId(spaceId) },
+        {
+          $set: { 'publicAccess.$[link].enabled': false },
+        },
+        { arrayFilters: [{ 'link.shareLink': targetLink }] }
+      );
+    } else {
+      // Disable ALL links
+      await db.collection('spaces').updateOne(
+        { _id: new ObjectId(spaceId) },
+        { $set: { 'publicAccess.$[].enabled': false } }
+      );
+    }
+
+    return NextResponse.json({ success: true, message: 'Share link disabled' });
+
   } catch (error) {
-    console.error('❌ Disable public access error:', error);
-    return NextResponse.json({ error: 'Failed to disable' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to disable share link' }, { status: 500 });
   }
 }

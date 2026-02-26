@@ -3,7 +3,7 @@
 //app/spaces/[id]/page.tsx
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -71,7 +71,8 @@ import {
   FileSignature,
   Package,
   MessageSquare, RefreshCw, 
-  Send
+  Send,
+  ChevronDown
 } from "lucide-react"
 import { useSearchParams } from 'next/navigation'
 import { Switch } from "@radix-ui/react-switch"
@@ -179,6 +180,1227 @@ type DocumentType = {
   | null
   | undefined
 
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+type AuditEvent = {
+  id: string
+  category: 'documents' | 'members' | 'links' | 'visitors' | 'settings'
+  event: string
+  actor: string | null
+  actorType: 'owner' | 'visitor'
+  target: string | null
+  detail: string
+  icon: string
+  timestamp: string
+  ipAddress: string | null
+  shareLink: string | null
+  documentName: string | null
+  documentId: string | null
+  meta: Record<string, any>
+}
+
+type AuditSummary = {
+  total: number
+  documents: number
+  members: number
+  links: number
+  visitors: number
+  settings: number
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+// used the same one as in analytics
+
+function formatTimestamp(dateStr: string): string {
+  return new Date(dateStr).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  })
+}
+
+const CATEGORY_CONFIG = {
+  all: {
+    label: 'All Activity',
+    icon: Activity,
+    color: 'text-slate-600',
+    bg: 'bg-slate-100',
+    border: 'border-slate-200'
+  },
+  documents: {
+    label: 'Documents',
+    icon: FileText,
+    color: 'text-blue-600',
+    bg: 'bg-blue-50',
+    border: 'border-blue-200'
+  },
+  members: {
+    label: 'Members',
+    icon: Users,
+    color: 'text-purple-600',
+    bg: 'bg-purple-50',
+    border: 'border-purple-200'
+  },
+  links: {
+    label: 'Share Links',
+    icon: Share2,
+    color: 'text-indigo-600',
+    bg: 'bg-indigo-50',
+    border: 'border-indigo-200'
+  },
+  visitors: {
+    label: 'Visitors',
+    icon: Eye,
+    color: 'text-green-600',
+    bg: 'bg-green-50',
+    border: 'border-green-200'
+  },
+  settings: {
+    label: 'Settings',
+    icon: Settings,
+    color: 'text-orange-600',
+    bg: 'bg-orange-50',
+    border: 'border-orange-200'
+  },
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+export function AuditLogTab({ spaceId }: { spaceId: string }) {
+  const [events, setEvents] = useState<AuditEvent[]>([])
+  const [summary, setSummary] = useState<AuditSummary | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [category, setCategory] = useState<'all' | 'documents' | 'members' | 'links' | 'visitors' | 'settings'>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const fetchAudit = useCallback(async (cat = category) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(
+        `/api/spaces/${spaceId}/audit?category=${cat}&limit=200`,
+        { credentials: 'include' }
+      )
+      const data = await res.json()
+      if (data.success) {
+        setEvents(data.events)
+        setSummary(data.summary)
+      } else {
+        setError(data.error || 'Failed to load audit log')
+      }
+    } catch {
+      setError('Failed to load audit log')
+    } finally {
+      setLoading(false)
+    }
+  }, [spaceId, category])
+
+  useEffect(() => { fetchAudit(category) }, [category])
+
+  // ── Filter by search ───────────────────────────────────────────────────────
+  const filtered = searchQuery.trim()
+    ? events.filter(e =>
+        e.detail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.actor?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.documentName?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : events
+
+  // ── CSV Export ─────────────────────────────────────────────────────────────
+  const handleExport = () => {
+    const rows = [
+      ['Timestamp', 'Category', 'Event', 'Actor', 'Detail', 'IP Address'].join(','),
+      ...filtered.map(e => [
+        formatTimestamp(e.timestamp),
+        e.category,
+        e.event,
+        e.actor || 'System',
+        `"${e.detail.replace(/"/g, '""')}"`,
+        e.ipAddress || ''
+      ].join(','))
+    ].join('\n')
+
+    const blob = new Blob([rows], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // ── Group events by date ───────────────────────────────────────────────────
+  const groupedEvents = filtered.reduce((acc: Record<string, AuditEvent[]>, event) => {
+    const date = new Date(event.timestamp).toLocaleDateString('en-US', {
+      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    })
+    if (!acc[date]) acc[date] = []
+    acc[date].push(event)
+    return acc
+  }, {})
+
+  // ── Loading ────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-purple-600 mx-auto mb-4" />
+          <p className="text-slate-500 text-sm">Loading audit log…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-3" />
+          <p className="text-slate-700 font-medium mb-2">{error}</p>
+          <Button onClick={() => fetchAudit()} variant="outline" size="sm">Try Again</Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Audit Log</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Complete history of all activity in this space
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+          <button
+            onClick={() => fetchAudit(category)}
+            className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all"
+            title="Refresh"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Summary Cards ──────────────────────────────────────────────────── */}
+      {summary && (
+        <div className="grid grid-cols-6 gap-3">
+          {(Object.keys(CATEGORY_CONFIG) as Array<keyof typeof CATEGORY_CONFIG>).map(cat => {
+            const config = CATEGORY_CONFIG[cat]
+            const Icon = config.icon
+            const count = cat === 'all' ? summary.total : summary[cat as keyof AuditSummary]
+            const isActive = category === cat
+
+            return (
+              <button
+                key={cat}
+                onClick={() => setCategory(cat as typeof category)}
+                className={`p-4 rounded-xl border text-left transition-all hover:shadow-sm ${
+                  isActive
+                    ? `${config.bg} ${config.border} shadow-sm`
+                    : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className={`inline-flex items-center justify-center h-8 w-8 rounded-lg mb-2 ${
+                  isActive ? 'bg-white shadow-sm' : config.bg
+                }`}>
+                  <Icon className={`h-4 w-4 ${config.color}`} />
+                </div>
+                <p className={`text-xl font-bold ${isActive ? config.color : 'text-slate-900'}`}>
+                  {count}
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">{config.label}</p>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Search Bar ─────────────────────────────────────────────────────── */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <Input
+          placeholder="Search by actor, document name, or action…"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="pl-10 pr-10"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* ── Results count ──────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between text-sm text-slate-500">
+        <span>
+          {filtered.length} event{filtered.length !== 1 ? 's' : ''}
+          {searchQuery && ` matching "${searchQuery}"`}
+          {category !== 'all' && ` in ${CATEGORY_CONFIG[category].label}`}
+        </span>
+      </div>
+
+      {/* ── Empty State ────────────────────────────────────────────────────── */}
+      {filtered.length === 0 && (
+        <div className="bg-white rounded-2xl border p-16 text-center">
+          <Activity className="h-16 w-16 text-slate-200 mx-auto mb-4" />
+          <p className="font-semibold text-slate-700 mb-1">No activity yet</p>
+          <p className="text-sm text-slate-400">
+            {searchQuery
+              ? 'No events match your search'
+              : 'Events will appear here as people interact with this space'}
+          </p>
+        </div>
+      )}
+
+      {/* ── Timeline Grouped by Date ────────────────────────────────────────── */}
+      {Object.entries(groupedEvents).map(([date, dateEvents]) => (
+        <div key={date} className="space-y-1">
+          {/* Date separator */}
+          <div className="flex items-center gap-3 py-2">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">
+              {date}
+            </span>
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+
+          {/* Events for this date */}
+          <div className="bg-white rounded-2xl border overflow-hidden">
+            {dateEvents.map((event, idx) => {
+              const isExpanded = expandedId === event.id
+              const isLast = idx === dateEvents.length - 1
+              const catConfig = CATEGORY_CONFIG[event.category] || CATEGORY_CONFIG.settings
+
+              return (
+                <div key={event.id}>
+                  <div
+                    className={`flex items-start gap-4 px-5 py-4 hover:bg-slate-50 transition-colors cursor-pointer ${
+                      !isLast ? 'border-b border-slate-100' : ''
+                    } ${isExpanded ? 'bg-slate-50' : ''}`}
+                    onClick={() => setExpandedId(isExpanded ? null : event.id)}
+                  >
+                    {/* Icon */}
+                    <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 text-base ${catConfig.bg}`}>
+                      {event.icon}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm text-slate-800 leading-snug">
+                            {event.detail}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            {/* Category badge */}
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${catConfig.bg} ${catConfig.color} ${catConfig.border}`}>
+                              {event.category}
+                            </span>
+                            {/* Actor type badge */}
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              event.actorType === 'owner'
+                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                : 'bg-slate-100 text-slate-600 border border-slate-200'
+                            }`}>
+                              {event.actorType === 'owner' ? '👑 Owner' : '👤 Visitor'}
+                            </span>
+                            {/* Share link badge */}
+                            {event.shareLink && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium border border-indigo-100">
+                                🔗 {event.shareLink.slice(0, 14)}…
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Timestamp */}
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-slate-400">{timeAgo(event.timestamp)}</p>
+                          <p className="text-xs text-slate-300 mt-0.5">
+                            {new Date(event.timestamp).toLocaleTimeString('en-US', {
+                              hour: '2-digit', minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expand chevron */}
+                    <ChevronDown className={`h-4 w-4 text-slate-300 flex-shrink-0 transition-transform mt-0.5 ${
+                      isExpanded ? 'rotate-180' : ''
+                    }`} />
+                  </div>
+
+                  {/* Expanded detail row */}
+                  {isExpanded && (
+                    <div className={`px-5 py-4 bg-slate-50 border-t border-slate-100 ${!isLast ? 'border-b border-slate-100' : ''}`}>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                            Event Details
+                          </p>
+                          <div className="space-y-1.5">
+                            <div className="flex gap-2">
+                              <span className="text-slate-500 w-24 flex-shrink-0">Event</span>
+                              <span className="font-mono text-xs bg-slate-200 px-2 py-0.5 rounded text-slate-700">
+                                {event.event}
+                              </span>
+                            </div>
+                            {event.actor && (
+                              <div className="flex gap-2">
+                                <span className="text-slate-500 w-24 flex-shrink-0">Actor</span>
+                                <span className="text-slate-800">{event.actor}</span>
+                              </div>
+                            )}
+                            {event.documentName && (
+                              <div className="flex gap-2">
+                                <span className="text-slate-500 w-24 flex-shrink-0">Document</span>
+                                <span className="text-slate-800 truncate">{event.documentName}</span>
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <span className="text-slate-500 w-24 flex-shrink-0">Time</span>
+                              <span className="text-slate-800">{formatTimestamp(event.timestamp)}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                            Technical Info
+                          </p>
+                          <div className="space-y-1.5">
+                            {event.ipAddress && (
+                              <div className="flex gap-2">
+                                <span className="text-slate-500 w-24 flex-shrink-0">IP Address</span>
+                                <code className="text-xs bg-slate-200 px-2 py-0.5 rounded text-slate-700">
+                                  {event.ipAddress}
+                                </code>
+                              </div>
+                            )}
+                            {event.shareLink && (
+                              <div className="flex gap-2">
+                                <span className="text-slate-500 w-24 flex-shrink-0">Share Link</span>
+                                <code className="text-xs bg-slate-200 px-2 py-0.5 rounded text-slate-700 truncate max-w-[200px]">
+                                  {event.shareLink}
+                                </code>
+                              </div>
+                            )}
+                            {/* Meta fields */}
+                            {Object.entries(event.meta || {}).map(([key, val]) =>
+                              val != null ? (
+                                <div key={key} className="flex gap-2">
+                                  <span className="text-slate-500 w-24 flex-shrink-0 capitalize">
+                                    {key.replace(/([A-Z])/g, ' $1').trim()}
+                                  </span>
+                                  <span className="text-slate-700 text-xs truncate max-w-[200px]">
+                                    {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                                  </span>
+                                </div>
+                              ) : null
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  AnalyticsTab-component.tsx
+// 
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Types ────────────────────────────────────────────────────────────────────
+type ShareLinkStat = {
+  shareLink: string
+  label: string | null
+  securityLevel: string
+  createdAt: string | null
+  expiresAt: string | null
+  isExpired: boolean
+  visits: number
+  visitors: number
+  downloads: number
+  docsVisited: number
+  totalDocs: number
+  lastActivity: string | null
+  heatScore: number
+  status: 'hot' | 'warm' | 'cold' | 'never'
+  publicUrl: string
+}
+
+type AnalyticsData = {
+  overview: {
+    totalViews: number
+    totalDownloads: number
+    uniqueVisitors: number
+    totalEvents: number
+    lastActivity: string | null
+    dealHeatScore: number
+    totalShareLinks: number
+  }
+  shareLinks: ShareLinkStat[]
+  visitors: Array<{
+    email: string
+    totalEvents: number
+    docsViewed: number
+    downloads: number
+    firstSeen: string
+    lastSeen: string
+    engagementScore: number
+    status: 'hot' | 'warm' | 'cold' | 'new'
+  }>
+  documents: Array<{
+    documentId: string
+    documentName: string
+    views: number
+    downloads: number
+    uniqueViewers: number
+    lastViewed: string | null
+  }>
+  timeline: Array<{
+    id: string
+    email: string
+    event: string
+    documentName: string | null
+    documentId: string | null
+    timestamp: string
+    ipAddress: string | null
+    shareLink: string | null
+  }>
+  dailyVisits: Array<{
+    date: string
+    count: number
+  }>
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return 'Never'
+  const diff  = Date.now() - new Date(dateStr).getTime()
+  const mins  = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days  = Math.floor(diff / 86400000)
+  if (mins < 1)   return 'Just now'
+  if (mins < 60)  return `${mins}m ago`
+  if (hours < 24) return `${hours}h ago`
+  if (days < 7) return `${days}d ago`
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  
+}
+
+function eventLabel(event: string): { label: string; color: string; icon: string } {
+  const map: Record<string, { label: string; color: string; icon: string }> = {
+    'document_view':  { label: 'Viewed document',  color: 'text-blue-600 bg-blue-50',     icon: '👁️' },
+    'view':           { label: 'Viewed document',  color: 'text-blue-600 bg-blue-50',     icon: '👁️' },
+    'download':       { label: 'Downloaded',       color: 'text-green-600 bg-green-50',   icon: '⬇️' },
+    'space_open':     { label: 'Opened space',     color: 'text-purple-600 bg-purple-50', icon: '🔓' },
+    'portal_enter':   { label: 'Entered portal',   color: 'text-purple-600 bg-purple-50', icon: '🚪' },
+    'question_asked': { label: 'Asked a question', color: 'text-orange-600 bg-orange-50', icon: '💬' },
+    'nda_signed':     { label: 'Signed NDA',       color: 'text-green-700 bg-green-100',  icon: '✍️' },
+  }
+  return map[event] || { label: event, color: 'text-slate-600 bg-slate-100', icon: '📌' }
+}
+
+function securityIcon(level: string) {
+  if (level === 'whitelist') return { icon: '🛡️', label: 'Whitelist', color: 'text-purple-700 bg-purple-50' }
+  if (level === 'password')  return { icon: '🔒', label: 'Password',  color: 'text-blue-700 bg-blue-50' }
+  return { icon: '🌐', label: 'Open', color: 'text-slate-600 bg-slate-100' }
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+function AnalyticsTab({ spaceId, spaceName }: { spaceId: string; spaceName: string }) {
+  const [data, setData]             = useState<AnalyticsData | null>(null)
+  const [loading, setLoading]       = useState(true)
+  const [error, setError]           = useState<string | null>(null)
+  const [activeSection, setActiveSection] = useState<'links' | 'visitors' | 'documents' | 'timeline'>('links')
+  const [expandedLink, setExpandedLink]   = useState<string | null>(null)
+
+  const fetchAnalytics = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res  = await fetch(`/api/spaces/${spaceId}/analytics`, { credentials: 'include' })
+      const json = await res.json()
+      if (json.success) setData(json.analytics)
+      else setError(json.error || 'Failed to load analytics')
+    } catch {
+      setError('Failed to load analytics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchAnalytics() }, [spaceId])
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-24">
+      <div className="text-center">
+        <div className="animate-spin h-10 w-10 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4" />
+        <p className="text-slate-500 text-sm">Loading deal analytics...</p>
+      </div>
+    </div>
+  )
+
+  if (error) return (
+    <div className="flex items-center justify-center py-24">
+      <div className="text-center">
+        <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-3" />
+        <p className="text-slate-700 font-medium mb-2">{error}</p>
+        <Button onClick={fetchAnalytics} variant="outline" size="sm">Try Again</Button>
+      </div>
+    </div>
+  )
+
+  if (!data) return null
+
+  const { overview, visitors, documents, timeline, dailyVisits } = data
+const shareLinks = data.shareLinks ?? []   // ← safe fallback
+  const maxDaily = Math.max(...dailyVisits.map(d => d.count), 1)
+
+  const heatLabel =
+    overview.dealHeatScore >= 70 ? { text: 'Hot Deal 🔥',    color: 'text-red-600 bg-red-50 border-red-200' }
+    : overview.dealHeatScore >= 40 ? { text: 'Warming Up ⚡', color: 'text-orange-600 bg-orange-50 border-orange-200' }
+    : overview.dealHeatScore >= 15 ? { text: 'Cool 🌤️',       color: 'text-blue-600 bg-blue-50 border-blue-200' }
+    : { text: 'Quiet 💤',            color: 'text-slate-500 bg-slate-50 border-slate-200' }
+
+  return (
+    <div className="space-y-6">
+
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Deal Analytics</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            Real-time engagement intelligence for <span className="font-medium text-slate-700">{spaceName}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border font-semibold text-sm ${heatLabel.color}`}>
+            <div className={`h-2 w-2 rounded-full animate-pulse ${
+              overview.dealHeatScore >= 70 ? 'bg-red-500' :
+              overview.dealHeatScore >= 40 ? 'bg-orange-500' :
+              overview.dealHeatScore >= 15 ? 'bg-blue-500' : 'bg-slate-400'
+            }`} />
+            {heatLabel.text}
+          </div>
+          <button onClick={fetchAnalytics} className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all" title="Refresh">
+            <RefreshCw className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* ── Overview Stats ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-5 gap-4">
+        <div className="col-span-1 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-5 text-white">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Deal Heat</p>
+          <div className="flex items-end gap-1 mb-2">
+            <p className="text-4xl font-black">{overview.dealHeatScore}</p>
+            <p className="text-slate-400 mb-1 text-sm">/100</p>
+          </div>
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${
+                overview.dealHeatScore >= 70 ? 'bg-red-500' :
+                overview.dealHeatScore >= 40 ? 'bg-orange-400' :
+                overview.dealHeatScore >= 15 ? 'bg-blue-400' : 'bg-slate-500'
+              }`}
+              style={{ width: `${overview.dealHeatScore}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border p-5 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+              <Share2 className="h-4 w-4 text-indigo-600" />
+            </div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Links</p>
+          </div>
+          <p className="text-3xl font-bold text-slate-900">{overview.totalShareLinks}</p>
+          <p className="text-xs text-slate-500 mt-1">share links created</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border p-5 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Users className="h-4 w-4 text-purple-600" />
+            </div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Visitors</p>
+          </div>
+          <p className="text-3xl font-bold text-slate-900">{overview.uniqueVisitors}</p>
+          <p className="text-xs text-slate-500 mt-1">unique people</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border p-5 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+              <Eye className="h-4 w-4 text-blue-600" />
+            </div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Views</p>
+          </div>
+          <p className="text-3xl font-bold text-slate-900">{overview.totalViews}</p>
+          <p className="text-xs text-slate-500 mt-1">document opens</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border p-5 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
+              <Download className="h-4 w-4 text-green-600" />
+            </div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Downloads</p>
+          </div>
+          <p className="text-3xl font-bold text-slate-900">{overview.totalDownloads}</p>
+          <p className="text-xs text-slate-500 mt-1">files saved</p>
+        </div>
+      </div>
+
+      {/* ── 30-Day Activity Chart ──────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-slate-900">Activity (Last 30 Days)</h3>
+          <p className="text-xs text-slate-500">{overview.totalEvents} total events</p>
+        </div>
+        <div className="flex items-end gap-1 h-24">
+          {dailyVisits.map((day, i) => {
+            const height  = maxDaily > 0 ? (day.count / maxDaily) * 100 : 0
+            const isToday = i === dailyVisits.length - 1
+            return (
+              <div key={day.date} className="flex-1 flex flex-col items-center gap-1 group relative" title={`${day.date}: ${day.count} events`}>
+                <div className="w-full flex items-end justify-center" style={{ height: '80px' }}>
+                  <div
+                    className={`w-full rounded-t-sm transition-all duration-300 ${
+                      day.count === 0 ? 'bg-slate-100'
+                      : isToday ? 'bg-purple-600'
+                      : 'bg-purple-300 group-hover:bg-purple-500'
+                    }`}
+                    style={{ height: `${Math.max(height, day.count > 0 ? 8 : 0)}%` }}
+                  />
+                </div>
+                {day.count > 0 && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">
+                    {day.count} events
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        <div className="flex justify-between mt-2 text-xs text-slate-400">
+          <span>{dailyVisits[0]?.date ? new Date(dailyVisits[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
+          <span>Today</span>
+        </div>
+      </div>
+
+      {/* ── Section Tabs ───────────────────────────────────────────── */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+        {(['links', 'visitors', 'documents', 'timeline'] as const).map(s => (
+          <button
+            key={s}
+            onClick={() => setActiveSection(s)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeSection === s ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+           {s === 'links'     && `🔗 Share Links (${shareLinks?.length ?? 0})`}
+{s === 'visitors'  && `👥 Visitors (${visitors?.length ?? 0})`}
+{s === 'documents' && `📄 Documents (${documents?.length ?? 0})`}
+            {s === 'timeline'  && `⚡ Activity Feed`}
+          </button>
+        ))}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          SHARE LINKS TAB — DocSend-style "Most visited links" table
+          ══════════════════════════════════════════════════════════ */}
+      {activeSection === 'links' && (
+        <div className="space-y-4">
+          {/* Section header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-slate-900">Most Visited Links</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Each row = one share link you sent. See exactly which investor is most engaged.
+              </p>
+            </div>
+          </div>
+
+          {shareLinks.length === 0 ? (
+            <div className="bg-white rounded-2xl border p-16 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <Share2 className="h-8 w-8 text-slate-400" />
+              </div>
+              <p className="font-semibold text-slate-700 mb-1">No share links created yet</p>
+              <p className="text-sm text-slate-400">
+                Use "Share with Client" to generate links. Each link tracks separately.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border overflow-hidden">
+              {/* Table header */}
+              <div className="grid grid-cols-[2fr_80px_80px_80px_100px_100px_120px_60px] gap-4 px-6 py-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span>Account / Link</span>
+                <span className="text-center">Visits</span>
+                <span className="text-center">Visitors</span>
+                <span className="text-center">Downloads</span>
+                <span className="text-center">Docs visited</span>
+                <span className="text-center">Last active</span>
+                <span className="text-center">Status</span>
+                <span></span>
+              </div>
+
+              {/* Table rows */}
+              <div className="divide-y divide-slate-100">
+                {shareLinks.map((link) => {
+                  const sec       = securityIcon(link.securityLevel)
+                  const isExpanded = expandedLink === link.shareLink
+                  const docsLabel  = link.totalDocs > 0
+                    ? `${link.docsVisited} / ${link.totalDocs}`
+                    : `${link.docsVisited}`
+
+                  return (
+                    <div key={link.shareLink}>
+                      {/* Main row */}
+                      <div
+                        className={`grid grid-cols-[2fr_80px_80px_80px_100px_100px_120px_60px] gap-4 px-6 py-4 items-center hover:bg-slate-50 transition-colors cursor-pointer ${
+                          isExpanded ? 'bg-slate-50' : ''
+                        }`}
+                        onClick={() => setExpandedLink(isExpanded ? null : link.shareLink)}
+                      >
+                        {/* Account / Label */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 text-base ${
+                            link.status === 'hot'  ? 'bg-red-100' :
+                            link.status === 'warm' ? 'bg-orange-100' :
+                            link.status === 'never'? 'bg-slate-100' : 'bg-blue-100'
+                          }`}>
+                            {link.status === 'hot'   ? '🔥' :
+                             link.status === 'warm'  ? '⚡' :
+                             link.status === 'never' ? '💤' : '👁️'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 text-sm truncate">
+                              {link.label || `Share Link`}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${sec.color}`}>
+                                {sec.icon} {sec.label}
+                              </span>
+                              {link.isExpired && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
+                                  Expired
+                                </span>
+                              )}
+                              <span className="text-xs text-slate-400 font-mono truncate max-w-[100px]">
+                                {link.shareLink.slice(0, 10)}…
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Visits */}
+                        <div className="text-center">
+                          <span className={`text-lg font-bold ${link.visits === 0 ? 'text-slate-300' : 'text-slate-900'}`}>
+                            {link.visits}
+                          </span>
+                        </div>
+
+                        {/* Visitors */}
+                        <div className="text-center">
+                          <span className={`text-lg font-bold ${link.visitors === 0 ? 'text-slate-300' : 'text-slate-900'}`}>
+                            {link.visitors}
+                          </span>
+                        </div>
+
+                        {/* Downloads */}
+                        <div className="text-center">
+                          {link.downloads > 0 ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md text-sm font-bold">
+                              <Download className="h-3 w-3" />
+                              {link.downloads}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 font-bold text-lg">0</span>
+                          )}
+                        </div>
+
+                        {/* Docs visited */}
+                        <div className="text-center">
+                          <span className={`text-sm font-semibold ${link.docsVisited === 0 ? 'text-slate-300' : 'text-slate-900'}`}>
+                            {docsLabel}
+                          </span>
+                          {link.totalDocs > 0 && link.docsVisited > 0 && (
+                            <div className="mt-1 h-1 bg-slate-100 rounded-full overflow-hidden mx-auto w-16">
+                              <div
+                                className="h-full bg-purple-400 rounded-full"
+                                style={{ width: `${(link.docsVisited / link.totalDocs) * 100}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Last active */}
+                        <div className="text-center">
+                          <span className={`text-sm ${link.lastActivity ? 'text-slate-700' : 'text-slate-300'}`}>
+                            {timeAgo(link.lastActivity)}
+                          </span>
+                        </div>
+
+                        {/* Status badge */}
+                        <div className="flex justify-center">
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                            link.status === 'hot'   ? 'bg-red-100 text-red-700' :
+                            link.status === 'warm'  ? 'bg-orange-100 text-orange-700' :
+                            link.status === 'cold'  ? 'bg-blue-100 text-blue-700' :
+                            'bg-slate-100 text-slate-500'
+                          }`}>
+                            {link.status === 'hot'   && '🔥 Hot'}
+                            {link.status === 'warm'  && '⚡ Warm'}
+                            {link.status === 'cold'  && '❄️ Cold'}
+                            {link.status === 'never' && '💤 No visits'}
+                          </span>
+                        </div>
+
+                        {/* Expand chevron */}
+                        <div className="flex justify-center">
+                          <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                        </div>
+                      </div>
+
+                      {/* ── Expanded row — per-link visitor breakdown ── */}
+                      {isExpanded && (
+                        <div className="bg-slate-50 border-t px-6 py-4 space-y-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                              Visitors via this link
+                            </p>
+                            {/* Copy link button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigator.clipboard.writeText(link.publicUrl)
+                                toast.success('Link copied!')
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+                            >
+                              <Copy className="h-3 w-3" />
+                              Copy Link
+                            </button>
+                          </div>
+
+                          {/* Visitors who came from this link */}
+                          {(() => {
+                            // Find visitors from timeline that used this shareLink
+                            const linkVisitorEmails = [
+                              ...new Set(
+                                timeline
+                                  .filter(t => t.shareLink === link.shareLink)
+                                  .map(t => t.email)
+                                  .filter(e => e !== 'Anonymous')
+                              )
+                            ]
+
+                            if (linkVisitorEmails.length === 0) {
+                              return (
+                                <div className="text-center py-6 text-slate-400">
+                                  <p className="text-sm">No visitors have used this link yet</p>
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div className="space-y-2">
+                                {linkVisitorEmails.map(email => {
+                                  const visitorData = visitors.find(v => v.email === email)
+                                  return (
+                                    <div key={email} className="flex items-center gap-3 bg-white rounded-xl border px-4 py-3">
+                                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
+                                        <span className="text-xs font-bold text-white">{email.charAt(0).toUpperCase()}</span>
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-slate-900 truncate">{email}</p>
+                                        {visitorData && (
+                                          <p className="text-xs text-slate-400">
+                                            {visitorData.docsViewed} docs · {visitorData.downloads} downloads · last seen {timeAgo(visitorData.lastSeen)}
+                                          </p>
+                                        )}
+                                      </div>
+                                      {visitorData && (
+                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                          visitorData.status === 'hot'  ? 'bg-red-100 text-red-700' :
+                                          visitorData.status === 'warm' ? 'bg-orange-100 text-orange-700' :
+                                          visitorData.status === 'new'  ? 'bg-purple-100 text-purple-700' :
+                                          'bg-slate-100 text-slate-500'
+                                        }`}>
+                                          {visitorData.status === 'hot'  && '🔥 Hot'}
+                                          {visitorData.status === 'warm' && '⚡ Warm'}
+                                          {visitorData.status === 'new'  && '✨ New'}
+                                          {visitorData.status === 'cold' && '❄️ Cold'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })()}
+
+                          {/* Link metadata */}
+                          <div className="flex gap-4 pt-2 text-xs text-slate-400 border-t mt-2">
+                            {link.createdAt && <span>Created {timeAgo(link.createdAt)}</span>}
+                            {link.expiresAt && (
+                              <span className={link.isExpired ? 'text-red-500' : ''}>
+                                {link.isExpired ? 'Expired' : 'Expires'} {new Date(link.expiresAt).toLocaleDateString()}
+                              </span>
+                            )}
+                            <span>{link.securityLevel === 'whitelist' ? '🛡️ Whitelist' : link.securityLevel === 'password' ? '🔒 Password' : '🌐 Open'} access</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── VISITORS TABLE ─────────────────────────────────────────── */}
+      {activeSection === 'visitors' && (
+        <div className="bg-white rounded-2xl border overflow-hidden">
+          {visitors.length === 0 ? (
+            <div className="py-16 text-center">
+              <Users className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+              <p className="text-slate-500 font-medium">No visitors yet</p>
+              <p className="text-sm text-slate-400 mt-1">Share your space to start tracking engagement</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Visitor</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Docs Viewed</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Downloads</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Last Seen</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Engagement</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {visitors.map((v) => (
+                  <tr key={v.email} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm font-bold text-white">{v.email.charAt(0).toUpperCase()}</span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900 text-sm">{v.email}</p>
+                          <p className="text-xs text-slate-400">First seen {timeAgo(v.firstSeen)}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-semibold text-slate-900">{v.docsViewed}</span>
+                      <span className="text-xs text-slate-400 ml-1">docs</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {v.downloads > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md text-xs font-medium">
+                          <Download className="h-3 w-3" />{v.downloads}
+                        </span>
+                      ) : <span className="text-xs text-slate-400">—</span>}
+                    </td>
+                    <td className="px-6 py-4"><span className="text-sm text-slate-700">{timeAgo(v.lastSeen)}</span></td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden w-24">
+                          <div
+                            className={`h-full rounded-full ${
+                              v.engagementScore >= 70 ? 'bg-red-500' :
+                              v.engagementScore >= 40 ? 'bg-orange-400' :
+                              v.engagementScore >= 15 ? 'bg-blue-400' : 'bg-slate-300'
+                            }`}
+                            style={{ width: `${v.engagementScore}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-slate-600 w-8">{v.engagementScore}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        v.status === 'hot'  ? 'bg-red-100 text-red-700' :
+                        v.status === 'warm' ? 'bg-orange-100 text-orange-700' :
+                        v.status === 'new'  ? 'bg-purple-100 text-purple-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        {v.status === 'hot' && '🔥'}{v.status === 'warm' && '⚡'}{v.status === 'new' && '✨'}{v.status === 'cold' && '❄️'}
+                        {v.status.charAt(0).toUpperCase() + v.status.slice(1)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* ── DOCUMENTS TABLE ────────────────────────────────────────── */}
+      {activeSection === 'documents' && (
+        <div className="bg-white rounded-2xl border overflow-hidden">
+          {documents.length === 0 ? (
+            <div className="py-16 text-center">
+              <FileText className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+              <p className="text-slate-500 font-medium">No document activity yet</p>
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Document</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Views</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Unique Viewers</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Downloads</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Last Viewed</th>
+                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Interest</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {documents.map((doc, idx) => {
+                  const maxViews    = documents[0]?.views || 1
+                  const interestPct = Math.round((doc.views / maxViews) * 100)
+                  return (
+                    <tr key={doc.documentId} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 ${idx === 0 ? 'bg-yellow-100' : 'bg-red-100'}`}>
+                            {idx === 0 ? <span className="text-base">🏆</span> : <FileText className="h-4 w-4 text-red-600" />}
+                          </div>
+                          <p className="font-medium text-slate-900 text-sm truncate max-w-[200px]">{doc.documentName}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4"><span className="text-sm font-bold text-slate-900">{doc.views}</span></td>
+                      <td className="px-6 py-4"><span className="text-sm text-slate-700">{doc.uniqueViewers}</span></td>
+                      <td className="px-6 py-4">
+                        {doc.downloads > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md text-xs font-medium">
+                            <Download className="h-3 w-3" />{doc.downloads}
+                          </span>
+                        ) : <span className="text-xs text-slate-400">—</span>}
+                      </td>
+                      <td className="px-6 py-4"><span className="text-sm text-slate-600">{timeAgo(doc.lastViewed)}</span></td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-purple-500 rounded-full" style={{ width: `${interestPct}%` }} />
+                          </div>
+                          <span className="text-xs text-slate-500">{interestPct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* ── ACTIVITY TIMELINE ──────────────────────────────────────── */}
+      {activeSection === 'timeline' && (
+        <div className="bg-white rounded-2xl border overflow-hidden">
+          {timeline.length === 0 ? (
+            <div className="py-16 text-center">
+              <Activity className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+              <p className="text-slate-500 font-medium">No activity yet</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {timeline.map((event) => {
+                const { label, color, icon } = eventLabel(event.event)
+                // Find which link label this came from
+                const linkInfo = event.shareLink
+                  ? shareLinks.find(l => l.shareLink === event.shareLink)
+                  : null
+                return (
+                  <div key={event.id} className="flex items-start gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
+                    <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm ${color}`}>
+                      {icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-slate-900 text-sm">{event.email}</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>{label}</span>
+                        {event.documentName && (
+                          <span className="text-xs text-slate-500 truncate max-w-[200px]">"{event.documentName}"</span>
+                        )}
+                        {/* Show which link they came from */}
+                        {linkInfo && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium">
+                            🔗 {linkInfo.label || `Link ${linkInfo.shareLink.slice(0, 6)}…`}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">{timeAgo(event.timestamp)}</p>
+                    </div>
+                    <span className="text-xs text-slate-400 flex-shrink-0">
+                      {new Date(event.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Hot visitor alert ──────────────────────────────────────── */}
+      {visitors.filter(v => v.status === 'hot').length > 0 && (
+        <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-2xl p-4">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔥</span>
+            <div>
+              <p className="font-semibold text-red-900 text-sm">
+                {visitors.filter(v => v.status === 'hot').length} hot visitor{visitors.filter(v => v.status === 'hot').length > 1 ? 's' : ''} — follow up now!
+              </p>
+              <p className="text-xs text-red-700 mt-0.5">
+                {visitors.filter(v => v.status === 'hot').map(v => v.email).join(', ')} {visitors.filter(v => v.status === 'hot').length === 1 ? 'is' : 'are'} highly engaged. Strike while it's hot.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
 }
 
 
@@ -349,6 +1571,7 @@ const [newPermissionWatermark, setNewPermissionWatermark] = useState(false)
 const [addingPermission, setAddingPermission] = useState(false)
 const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
 const [selectAll, setSelectAll] = useState(false);
+const [shareLinkLabel, setShareLinkLabel] = useState('')
 const [myRole, setMyRole] = useState<string>('');
 const [qaComments, setQaComments] = useState<Array<{
   id: string
@@ -356,6 +1579,8 @@ const [qaComments, setQaComments] = useState<Array<{
   documentName: string
   email: string
   message: string
+  shareLink: string | null    
+  linkLabel: string | null  
   reply: string | null
   repliedAt: string | null
   createdAt: string
@@ -1377,7 +2602,8 @@ const handleGenerateShareLink = async () => {
         allowedEmails: securityLevel === 'whitelist' ? finalAllowedEmails : [], // ✅ Use final array
         allowedDomains: securityLevel === 'whitelist' ? finalAllowedDomains : [], // ✅ Use final array
         expiresAt: expiresAt || null,
-        viewLimit: viewLimit ? parseInt(viewLimit) : null
+        viewLimit: viewLimit ? parseInt(viewLimit) : null,
+        label: shareLinkLabel.trim() || null,
       })
     });
     
@@ -2855,171 +4081,154 @@ const fetchFolders = async () => {
         </p>
       </div>
     ) : (
-      <div className="space-y-3">
-        {qaComments
-          .filter(c => {
-            if (qaFilter === 'unanswered') return !c.reply
-            if (qaFilter === 'answered') return !!c.reply
-            return true
-          })
-          .map(comment => (
-            <div
-              key={comment.id}
-              className={`bg-white rounded-xl border shadow-sm overflow-hidden ${
-                !comment.reply ? 'border-l-4 border-l-orange-400' : 'border-l-4 border-l-green-400'
-              }`}
-            >
-              {/* Question */}
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-slate-600">
-                        {comment.email.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="text-sm font-semibold text-slate-900 truncate">
-                          {comment.email}
-                        </span>
-                        <span className="text-xs text-slate-400 flex-shrink-0">
-                          {new Date(comment.createdAt).toLocaleDateString('en-US', {
-                            month: 'short', day: 'numeric',
-                            hour: '2-digit', minute: '2-digit'
-                          })}
-                        </span>
-                        {comment.documentId !== 'general' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-100 text-xs text-blue-600 truncate max-w-[200px]">
-                            <FileText className="h-3 w-3 flex-shrink-0" />
-                            {comment.documentName}
-                          </span>
-                        )}
-                        {!comment.reply ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">
-                            Needs reply
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
-                            Answered
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-slate-700">{comment.message}</p>
-                    </div>
-                  </div>
+     <div className="space-y-3">
+        {(() => {
+          const groupedComments = qaComments
+            .filter(c => {
+              if (qaFilter === 'unanswered') return !c.reply
+              if (qaFilter === 'answered') return !!c.reply
+              return true
+            })
+            .reduce((acc: Record<string, typeof qaComments>, comment) => {
+              const key = comment.email
+              if (!acc[key]) acc[key] = []
+              acc[key].push(comment)
+              return acc
+            }, {})
 
-                  {/* Reply button */}
-                  {!comment.reply && replyingTo !== comment.id && (
-                    <button
-                      onClick={() => {
-                        setReplyingTo(comment.id)
-                        setReplyText('')
-                      }}
-                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      Reply
-                    </button>
-                  )}
+          const entries = Object.entries(groupedComments)
+
+          if (entries.length === 0) {
+            return (
+              <div className="text-center py-12 text-slate-400">
+                <MessageSquare className="h-10 w-10 mx-auto mb-2 text-slate-200" />
+                <p className="text-sm">No {qaFilter} questions</p>
+              </div>
+            )
+          }
+
+          return entries.map(([email, investorComments]) => {
+            const firstComment = investorComments[0]
+            const unansweredCount = investorComments.filter(c => !c.reply).length
+            return (
+              <div key={email} className="border rounded-xl overflow-hidden shadow-sm">
+                {/* Investor header */}
+                <div className={`px-4 py-2.5 flex items-center gap-3 ${
+                  unansweredCount > 0 ? 'bg-orange-50 border-b border-orange-100' : 'bg-slate-50 border-b'
+                }`}>
+                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-bold text-white">{email.charAt(0).toUpperCase()}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-semibold text-slate-900">{email}</span>
+                    {firstComment.linkLabel && (
+                      <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium">
+                        🔗 {firstComment.linkLabel}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs text-slate-500">{investorComments.length} message{investorComments.length !== 1 ? 's' : ''}</span>
+                    {unansweredCount > 0 && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-orange-500 text-white text-xs font-bold">
+                        {unansweredCount} new
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* Existing reply */}
-                {comment.reply && (
-                  <div className="mt-3 ml-11 bg-blue-50 border border-blue-100 rounded-xl p-3">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                        <span className="text-xs font-bold text-white">Y</span>
-                      </div>
-                      <span className="text-xs font-semibold text-blue-700">You replied</span>
-                      {comment.repliedAt && (
-                        <span className="text-xs text-blue-400 ml-auto">
-                          {new Date(comment.repliedAt).toLocaleDateString('en-US', {
-                            month: 'short', day: 'numeric',
-                            hour: '2-digit', minute: '2-digit'
-                          })}
+                {/* Individual messages */}
+                <div className="divide-y divide-slate-100 bg-white">
+                  {investorComments.map(comment => (
+                    <div key={comment.id} className={`p-4 ${!comment.reply ? 'border-l-4 border-l-orange-400' : 'border-l-4 border-l-green-400'}`}>
+                      {/* Document tag */}
+                      {comment.documentId !== 'general' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-100 text-xs text-blue-600 mb-2">
+                          <FileText className="h-3 w-3" />
+                          {comment.documentName}
                         </span>
                       )}
-                    </div>
-                    <p className="text-sm text-blue-900">{comment.reply}</p>
-                  </div>
-                )}
 
-                {/* Reply input */}
-                {replyingTo === comment.id && (
-                  <div className="mt-3 ml-11 space-y-2">
-                    <textarea
-                      autoFocus
-                      value={replyText}
-                      onChange={e => setReplyText(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleReply(comment.id)
-                        }
-                        if (e.key === 'Escape') {
-                          setReplyingTo(null)
-                          setReplyText('')
-                        }
-                      }}
-                      placeholder="Type your reply… (Enter to send, Esc to cancel)"
-                      rows={3}
-                      className="w-full text-sm px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-gray-400 transition-all resize-none"
-                    />
-                    <div className="flex gap-2 justify-end">
-                      <button
-                        onClick={() => { setReplyingTo(null); setReplyText('') }}
-                        className="px-3 py-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg hover:border-slate-400 transition-all"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => handleReply(comment.id)}
-                        disabled={sendingReply || !replyText.trim()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-40"
-                      >
-                        {sendingReply
-                          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…</>
-                          : <><Send className="h-3.5 w-3.5" /> Send Reply</>}
-                      </button>
+                      <p className="text-sm text-slate-700 mb-1">{comment.message}</p>
+                      <p className="text-xs text-slate-400">
+                        {new Date(comment.createdAt).toLocaleDateString('en-US', {
+                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </p>
+
+                      {comment.reply ? (
+                        <div className="mt-3 ml-4 bg-blue-50 border border-blue-100 rounded-xl p-3">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center">
+                              <span className="text-xs font-bold text-white">Y</span>
+                            </div>
+                            <span className="text-xs font-semibold text-blue-700">You replied</span>
+                            {comment.repliedAt && (
+                              <span className="text-xs text-blue-400 ml-auto">
+                                {new Date(comment.repliedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-blue-900">{comment.reply}</p>
+                        </div>
+                      ) : replyingTo === comment.id ? (
+                        <div className="mt-3 ml-4 space-y-2">
+                          <textarea
+                            autoFocus
+                            value={replyText}
+                            onChange={e => setReplyText(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(comment.id) }
+                              if (e.key === 'Escape') { setReplyingTo(null); setReplyText('') }
+                            }}
+                            placeholder="Type your reply… (Enter to send)"
+                            rows={3}
+                            className="w-full text-sm px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 resize-none"
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => { setReplyingTo(null); setReplyText('') }}
+                              className="px-3 py-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg hover:border-slate-400"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleReply(comment.id)}
+                              disabled={sendingReply || !replyText.trim()}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg disabled:opacity-40"
+                            >
+                              {sendingReply ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…</> : <><Send className="h-3.5 w-3.5" /> Reply</>}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setReplyingTo(comment.id); setReplyText('') }}
+                          className="mt-2 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800"
+                        >
+                          <Send className="h-3.5 w-3.5" /> Reply
+                        </button>
+                      )}
                     </div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-
-        {/* Empty filtered state */}
-        {qaComments.filter(c => {
-          if (qaFilter === 'unanswered') return !c.reply
-          if (qaFilter === 'answered') return !!c.reply
-          return true
-        }).length === 0 && (
-          <div className="text-center py-12 text-slate-400">
-            <MessageSquare className="h-10 w-10 mx-auto mb-2 text-slate-200" />
-            <p className="text-sm">No {qaFilter} questions</p>
-          </div>
-        )}
+            )
+          })
+        })()}
       </div>
-    )}
-  </div>
+      )}
+      </div>
 )}
 
             {activeTab === 'analytics' && (
-              <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
-                <BarChart3 className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-slate-900 mb-2">Analytics Coming Soon</h3>
-                <p className="text-slate-600">Track views, downloads, and engagement</p>
-              </div>
-            )}
+  <AnalyticsTab spaceId={params.id as string} spaceName={space?.name} />
+)}
 
-            {activeTab === 'audit' && (
-              <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
-                <FileText className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-slate-900 mb-2">Audit Log Coming Soon</h3>
-                <p className="text-slate-600">View all activity and changes in this space</p>
-              </div>
-            )}
+            
+{activeTab === 'audit' && (
+  <AuditLogTab spaceId={params.id as string} />
+)}
           </div>
         </main>
       </div>
@@ -3413,6 +4622,21 @@ const fetchFolders = async () => {
     {/* Configuration Form (idle state) */}
     {sharingStatus === 'idle' && (
       <div className="space-y-6 py-4">
+
+        {/* Link Label */}
+<div>
+  <Label className="text-sm font-semibold text-slate-900 mb-2 block">
+    Link Label <span className="text-slate-400 font-normal">(optional)</span>
+  </Label>
+  <Input
+    placeholder="e.g. Sequoia – Series A, Tiger Global, a16z..."
+    value={shareLinkLabel}
+    onChange={(e) => setShareLinkLabel(e.target.value)}
+  />
+  <p className="text-xs text-slate-500 mt-1">
+    Name this link so you recognize it in analytics later
+  </p>
+</div>
         {/* Security Level Selector */}
         <div>
           <Label className="text-sm font-semibold text-slate-900 mb-3 block">
@@ -3744,6 +4968,7 @@ const fetchFolders = async () => {
               setAllowedDomains([])
               setExpiresAt('')
               setViewLimit('')
+              setShareLinkLabel('') 
             }}
           >
             Done

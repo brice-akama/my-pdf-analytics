@@ -8,14 +8,19 @@ interface Space {
   _id: ObjectId;
   userId: string;
   name: string;
-  publicAccess: {
+  publicAccess: Array<{
     enabled: boolean;
     shareLink: string | null;
     requireEmail: boolean;
     requirePassword: boolean;
     password: string | null;
     currentViews: number;
-  };
+    securityLevel: string;
+    allowedEmails: string[];
+    allowedDomains: string[];
+    expiresAt?: Date | null;
+    viewLimit?: number | null;
+  }>;
   visitors: Array<{
     id: string;
     email: string;
@@ -46,10 +51,11 @@ export async function POST(
 
     const db = await dbPromise;
 
-    // Find space
+    // ✅ FIX: Query using $elemMatch since publicAccess is now an array
     const space = await db.collection('spaces').findOne({
-      'publicAccess.shareLink': shareLink,
-      'publicAccess.enabled': true
+      'publicAccess': {
+        $elemMatch: { shareLink: shareLink, enabled: true }
+      }
     });
 
     if (!space) {
@@ -59,27 +65,39 @@ export async function POST(
       }, { status: 404 });
     }
 
-    // Check if link expired
-    if (space.publicAccess.expiresAt && new Date(space.publicAccess.expiresAt) < new Date()) {
+    // ✅ FIX: Find the specific link config from the array
+    const linkConfig = Array.isArray(space.publicAccess)
+      ? space.publicAccess.find((l: any) => l.shareLink === shareLink && l.enabled !== false)
+      : space.publicAccess;
+
+    if (!linkConfig) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid or expired link'
+      }, { status: 404 });
+    }
+
+    // ✅ FIX: Check expiry on linkConfig
+    if (linkConfig.expiresAt && new Date(linkConfig.expiresAt) < new Date()) {
       return NextResponse.json({
         success: false,
         error: 'This link has expired'
       }, { status: 403 });
     }
 
-    // Check view limit
-    if (space.publicAccess.viewLimit && space.publicAccess.currentViews >= space.publicAccess.viewLimit) {
+    // ✅ FIX: Check view limit on linkConfig
+    if (linkConfig.viewLimit && linkConfig.currentViews >= linkConfig.viewLimit) {
       return NextResponse.json({
         success: false,
         error: 'This link has reached its view limit'
       }, { status: 403 });
     }
 
-    // 🆕 Get security level
-    const securityLevel = space.publicAccess.securityLevel || 'open';
+    // ✅ FIX: Get security level from linkConfig
+    const securityLevel = linkConfig.securityLevel || 'open';
     console.log(`🔒 Security level: ${securityLevel}`);
 
-    // 🆕 STEP 1: Check email whitelist (for 'whitelist' level)
+    // STEP 1: Check email whitelist (for 'whitelist' level)
     if (securityLevel === 'whitelist') {
       if (!email) {
         return NextResponse.json({
@@ -89,8 +107,10 @@ export async function POST(
       }
 
       const emailLower = email.toLowerCase();
-      const allowedEmails = space.publicAccess.allowedEmails || [];
-      const allowedDomains = space.publicAccess.allowedDomains || [];
+
+      // ✅ FIX: Read from linkConfig
+      const allowedEmails = linkConfig.allowedEmails || [];
+      const allowedDomains = linkConfig.allowedDomains || [];
       
       // Check exact email match
       const emailAllowed = allowedEmails.includes(emailLower);
@@ -112,8 +132,9 @@ export async function POST(
       console.log(`✅ Email whitelisted: ${email}`);
     }
 
-    // 🆕 STEP 2: Check password (for 'password' and 'whitelist' levels)
-    if (space.publicAccess.requirePassword) {
+    // STEP 2: Check password (for 'password' and 'whitelist' levels)
+    // ✅ FIX: Read requirePassword and password from linkConfig
+    if (linkConfig.requirePassword) {
       if (!password) {
         return NextResponse.json({
           success: false,
@@ -122,7 +143,7 @@ export async function POST(
       }
 
       const bcrypt = require('bcryptjs');
-      const passwordMatch = await bcrypt.compare(password, space.publicAccess.password);
+      const passwordMatch = await bcrypt.compare(password, linkConfig.password);
       
       if (!passwordMatch) {
         console.log(`❌ Incorrect password attempt for: ${email}`);
@@ -153,12 +174,12 @@ export async function POST(
       timeSpent: 0
     };
 
-    // Update space with new visitor
+    // ✅ FIX: Use positional $ operator to increment the correct array element's currentViews
     await db.collection('spaces').updateOne(
-      { _id: space._id },
+      { _id: space._id, 'publicAccess.shareLink': shareLink },
       {
         $push: { visitors: visitor },
-        $inc: { 'publicAccess.currentViews': 1 }
+        $inc: { 'publicAccess.$.currentViews': 1 }
       } as any
     );
 
