@@ -90,49 +90,104 @@ function StepDots({ current, steps }: { current: Step; steps: Step[] }) {
 }
 
 // ─── Document Viewer Drawer ─────────────────────────────────────────────────────
-function DocViewerDrawer({ doc, onClose, shareLink, allowDownloads, onDownload, downloadingId }: {
+function DocViewerDrawer({ doc, onClose, shareLink, allowDownloads, onDownload, downloadingId, visitorEmail }: {
   doc: Doc | null
   onClose: () => void
   shareLink: string
   allowDownloads: boolean
   onDownload: (doc: Doc) => void
   downloadingId: string | null
+  visitorEmail: string  // ← ADD this prop
 }) {
   const [loadError, setLoadError] = useState(false)
   const [iframeLoading, setIframeLoading] = useState(true)
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
 
+  // ── Diligence: heartbeat tracking ─────────────────────────────────────────
+  const sessionIdRef = useRef<string | null>(null)
+  const totalSecondsRef = useRef(0)
+  const heartbeatRef = useRef<NodeJS.Timeout | null>(null)
+  const HEARTBEAT_INTERVAL = 10 // seconds
+
+  // Start heartbeat when doc opens
   useEffect(() => {
-    if (doc) { setLoadError(false); setIframeLoading(true) }
+    if (!doc) return
+
+    // New session every time a doc is opened
+    sessionIdRef.current = `${visitorEmail || 'anon'}-${doc.id}-${Date.now()}`
+    totalSecondsRef.current = 0
+
+    // Fire every 10 seconds
+    heartbeatRef.current = setInterval(async () => {
+      totalSecondsRef.current += HEARTBEAT_INTERVAL
+
+      try {
+        await fetch(`/api/portal/${shareLink}/track`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email:         visitorEmail,
+            event:         'page_heartbeat',
+            documentId:    doc.id,
+            documentName:  doc.name,
+            sessionId:     sessionIdRef.current,
+            secondsOnPage: HEARTBEAT_INTERVAL,
+            totalSeconds:  totalSecondsRef.current,
+          })
+        })
+      } catch { /* silent — never break the portal */ }
+    }, HEARTBEAT_INTERVAL * 1000)
+
+    return () => {
+      // Send final heartbeat on close with actual total
+      if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+
+      // Fire one final flush when they close the drawer
+      if (totalSecondsRef.current > 0 && sessionIdRef.current) {
+        fetch(`/api/portal/${shareLink}/track`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email:         visitorEmail,
+            event:         'page_heartbeat',
+            documentId:    doc.id,
+            documentName:  doc.name,
+            sessionId:     sessionIdRef.current,
+            secondsOnPage: 0, // flush — no new seconds, just update total
+            totalSeconds:  totalSecondsRef.current,
+          })
+        }).catch(() => {})
+      }
+    }
   }, [doc?.id])
 
-  // ADD these two states inside DocViewerDrawer (after the existing useState lines):
-const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  // ── Blob URL loading ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!doc) return
+    setLoadError(false)
+    setIframeLoading(true)
+    setBlobUrl(null)
 
-useEffect(() => {
-  if (!doc) return
-  setLoadError(false)
-  setIframeLoading(true)
-  setBlobUrl(null)
+    fetch(`/api/portal/${shareLink}/documents/${doc.id}`)
+      .then(res => {
+        if (!res.ok) throw new Error()
+        return res.blob()
+      })
+      .then(blob => {
+        const url = URL.createObjectURL(blob)
+        setBlobUrl(url)
+      })
+      .catch(() => {
+        setLoadError(true)
+        setIframeLoading(false)
+      })
 
-  fetch(`/api/portal/${shareLink}/documents/${doc.id}`)
-    .then(res => {
-      if (!res.ok) throw new Error()
-      return res.blob()
-    })
-    .then(blob => {
-      const url = URL.createObjectURL(blob)
-      setBlobUrl(url)
-    })
-    .catch(() => {
-      setLoadError(true)
-      setIframeLoading(false)
-    })
-
-  // Cleanup blob URL on unmount or doc change
-  return () => {
-    if (blobUrl) URL.revokeObjectURL(blobUrl)
-  }
-}, [doc?.id])
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
+    }
+  }, [doc?.id])
 
   // Close on Escape
   useEffect(() => {
@@ -140,6 +195,9 @@ useEffect(() => {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
+
+  // ── REST OF THE COMPONENT IS IDENTICAL TO YOUR CURRENT VERSION ────────────
+  // (the JSX return stays exactly the same — only the hook section above changed)
 
   return (
     <AnimatePresence>
@@ -230,15 +288,14 @@ useEffect(() => {
                   </div>
                 </div>
               ) : (
-               
-               <iframe
-  key={doc.id}
-  src={blobUrl ? `${blobUrl}#toolbar=0&navpanes=0&scrollbar=0` : undefined}
-  className="w-full h-full border-0"
-  title={doc.name}
-  onLoad={() => { if (blobUrl) setIframeLoading(false) }}
-  onError={() => { setLoadError(true); setIframeLoading(false) }}
-/>
+                <iframe
+                  key={doc.id}
+                  src={blobUrl ? `${blobUrl}#toolbar=0&navpanes=0&scrollbar=0` : undefined}
+                  className="w-full h-full border-0"
+                  title={doc.name}
+                  onLoad={() => { if (blobUrl) setIframeLoading(false) }}
+                  onError={() => { setLoadError(true); setIframeLoading(false) }}
+                />
               )}
             </div>
           </motion.div>
@@ -1252,6 +1309,7 @@ export default function PortalPage() {
         allowDownloads={spaceData.allowDownloads}
         onDownload={handleDownload}
         downloadingId={downloadingId}
+        visitorEmail={visitorEmail}   
       />
 
       {/* Ask Question Modal */}

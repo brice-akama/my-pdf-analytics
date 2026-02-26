@@ -72,11 +72,13 @@ import {
   Package,
   MessageSquare, RefreshCw, 
   Send,
-  ChevronDown
+  ChevronDown,
+  Target
 } from "lucide-react"
 import { useSearchParams } from 'next/navigation'
 import { Switch } from "@radix-ui/react-switch"
 import PageInfoTooltip from "@/components/PageInfoTooltip"
+import { DiligenceTab } from "./components/DiligenceTab"
 
 // Role Badge Component
 const RoleBadge = ({ role }: { role: string }) => {
@@ -1467,7 +1469,7 @@ export default function SpaceDetailPage() {
   const router = useRouter()
   const [space, setSpace] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'home' | 'folders'  | 'qa' | 'trash' | 'analytics' | 'audit'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'folders'  | 'qa' | 'trash' | 'analytics' | 'audit' | 'diligence'>('home')
   const [folders, setFolders] = useState<FolderType[]>([])
   const [documents, setDocuments] = useState<DocumentType[]>([])
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
@@ -2954,6 +2956,11 @@ const fetchFolders = async () => {
       <span>Analytics</span>
     </button>
 
+    <button className=" w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors" onClick={() => setActiveTab('diligence')}>
+  <Target className="h-4 w-4" />
+  Diligence
+</button>
+
     <button
   onClick={() => { setActiveTab('qa'); fetchQAComments() }}
   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
@@ -3075,6 +3082,8 @@ const fetchFolders = async () => {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
           <div className="p-8">
+
+            {activeTab === 'diligence' && <DiligenceTab spaceId={params.id as string} />}
 
              {activeTab === 'trash' && (
   <div>
