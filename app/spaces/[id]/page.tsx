@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Drawer } from "@/components/ui/drawer"
 import { motion } from "framer-motion"
 import { toast } from 'sonner'
+import { ShareSpaceDrawer } from "@/components/ShareSpaceDrawer"
+import { SendDigestButton } from "@/components/SendDigestButton"
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1977,14 +1980,14 @@ const handleRevokeFolderPermission = async (email: string) => {
     const data = await res.json()
 
     if (res.ok && data.success) {
-      alert(data.message)
+      toast.success(data.message)
       await fetchFolderPermissions(selectedFolderForPermissions)
     } else {
-      alert(data.error || 'Failed to revoke permission')
+      toast.error(data.error || 'Failed to revoke permission')
     }
   } catch (error) {
     console.error('Failed to revoke permission:', error)
-    alert('Failed to revoke permission')
+    toast.error('Failed to revoke permission')
   }
 }
 
@@ -2059,11 +2062,11 @@ const handleSignNDA = async () => {
       await fetchSpace();
       
     } else {
-      alert(data.error || 'Failed to sign NDA');
+      toast.error(data.error || 'Failed to sign NDA');
     }
   } catch (error) {
     console.error('Sign NDA error:', error);
-    alert('Failed to sign NDA');
+    toast.error('Failed to sign NDA');
   } finally {
     setSigningNDA(false);
   }
@@ -2097,13 +2100,13 @@ const handleCreateFolder = async () => {
       
       setNewFolderName('');
       setShowCreateFolderDialog(false);
-      alert('Folder created successfully!');
+      toast.success('Folder created successfully!');
     } else {
-      alert(data.error || 'Failed to create folder');
+      toast.error(data.error || 'Failed to create folder');
     }
   } catch (error) {
     console.error('Failed to create folder:', error);
-    alert('Failed to create folder');
+    toast.error('Failed to create folder');
   } finally {
     setCreatingFolder(false);
   }
@@ -3119,6 +3122,7 @@ const fetchFolders = async () => {
       <Settings className="h-4 w-4" />
       <span>Space Settings</span>
     </button>
+    <SendDigestButton spaceId={params.id as string} />
   </div>
 )}
 
@@ -4937,420 +4941,20 @@ const fetchFolders = async () => {
           </div>
         </DialogContent>
       </Dialog>
-      {/* Share with Client Dialog */}
-{/* Share with Client Dialog */}
-<Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2 text-xl">
-        <Share2 className="h-5 w-5 text-purple-600" />
-        Share Space with Client
-      </DialogTitle>
-      <DialogDescription>
-        Choose security level and generate a secure share link
-      </DialogDescription>
-    </DialogHeader>
-
-    {/* Generating State */}
-    {sharingStatus === 'generating' && (
-      <div className="text-center py-12">
-        <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
-        <p className="text-slate-900 font-semibold">Generating secure link...</p>
-      </div>
-    )}
-
-    {/* Configuration Form (idle state) */}
-    {sharingStatus === 'idle' && (
-      <div className="space-y-6 py-4">
-
-        {/* Link Label */}
-<div>
-  <Label className="text-sm font-semibold text-slate-900 mb-2 block">
-    Link Label <span className="text-slate-400 font-normal">(optional)</span>
-  </Label>
-  <Input
-    placeholder="e.g. Sequoia – Series A, Tiger Global, a16z..."
-    value={shareLinkLabel}
-    onChange={(e) => setShareLinkLabel(e.target.value)}
-  />
-  <p className="text-xs text-slate-500 mt-1">
-    Name this link so you recognize it in analytics later
-  </p>
-</div>
-        {/* Security Level Selector */}
-        <div>
-          <Label className="text-sm font-semibold text-slate-900 mb-3 block">
-            Security Level
-          </Label>
-          <div className="grid grid-cols-3 gap-3">
-            {/* Open Level */}
-            <button
-              onClick={() => setSecurityLevel('open')}
-              className={`p-4 border-2 rounded-lg text-left transition-all ${
-                securityLevel === 'open'
-                  ? 'border-purple-500 bg-purple-50'
-                  : 'border-slate-200 hover:border-purple-300'
-              }`}
-            >
-              <Globe className="h-5 w-5 text-slate-700 mb-2" />
-              <div className="font-semibold text-slate-900 text-sm">Open</div>
-              <div className="text-xs text-slate-600 mt-1">Email only</div>
-            </button>
-
-            {/* Password Level */}
-            <button
-              onClick={() => setSecurityLevel('password')}
-              className={`p-4 border-2 rounded-lg text-left transition-all ${
-                securityLevel === 'password'
-                  ? 'border-purple-500 bg-purple-50'
-                  : 'border-slate-200 hover:border-purple-300'
-              }`}
-            >
-              <Lock className="h-5 w-5 text-slate-700 mb-2" />
-              <div className="font-semibold text-slate-900 text-sm">Password</div>
-              <div className="text-xs text-slate-600 mt-1">Email + Password</div>
-            </button>
-
-            {/* Whitelist Level */}
-            <button
-              onClick={() => setSecurityLevel('whitelist')}
-              className={`p-4 border-2 rounded-lg text-left transition-all ${
-                securityLevel === 'whitelist'
-                  ? 'border-purple-500 bg-purple-50'
-                  : 'border-slate-200 hover:border-purple-300'
-              }`}
-            >
-              <ShieldCheck className="h-5 w-5 text-slate-700 mb-2" />
-              <div className="font-semibold text-slate-900 text-sm">Whitelist</div>
-              <div className="text-xs text-slate-600 mt-1">Specific emails only</div>
-            </button>
-          </div>
-        </div>
-
-        {/* Password Field (for password and whitelist levels) */}
-        {(securityLevel === 'password' || securityLevel === 'whitelist') && (
-          <div>
-  <Label className="text-sm font-medium text-slate-700 mb-2 block">
-    <Key className="inline h-4 w-4 mr-1" />
-    Password *
-  </Label>
-  <div className="relative">
-    <Input
-      type={showPassword ? "text" : "password"}
-      placeholder="Enter a secure password"
-      value={password}
-      onChange={(e) => setPassword(e.target.value)}
-      className="font-mono pr-10"
-    />
-    <button
-      type="button"
-      onClick={() => setShowPassword(!showPassword)}
-      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-    >
-      {showPassword ? (
-        <Eye className="h-4 w-4" />
-      ) : (
-        <Lock className="h-4 w-4" />
-      )}
-    </button>
-  </div>
-  <p className="text-xs text-slate-500 mt-1">
-    Visitors will need this password to access documents
-  </p>
-</div>
-        )}
-
-        {/* Whitelist Settings (only for whitelist level) */}
-        {securityLevel === 'whitelist' && (
-          <div className="space-y-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div>
-              <Label className="text-sm font-medium text-slate-700 mb-2 block">
-                <Mail className="inline h-4 w-4 mr-1" />
-                Allowed Emails
-              </Label>
-              <div className="flex gap-2 mb-2">
-  <Input
-    type="email"
-    placeholder="john@client.com"
-    value={emailInput}
-    onChange={(e) => setEmailInput(e.target.value)}
-    onKeyDown={(e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault(); // ✅ Prevent form submission
-        handleAddEmail();
-      }
-    }}
-  />
-  <Button
-    type="button"
-    onClick={(e) => {
-      e.preventDefault(); // ✅ Prevent form submission
-      handleAddEmail();
-    }}
-    variant="outline"
-    size="sm"
-    disabled={!emailInput.trim()}
-  >
-    <Plus className="h-4 w-4" />
-  </Button>
-</div>
-              {allowedEmails.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {allowedEmails.map((email) => (
-                    <span
-                      key={email}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-white border rounded-full text-sm"
-                    >
-                      {email}
-                      <button
-                        onClick={() => setAllowedEmails(allowedEmails.filter(e => e !== email))}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium text-slate-700 mb-2 block">
-                Allowed Domains (Optional)
-              </Label>
-              <div className="flex gap-2 mb-2">
-                <Input
-                  placeholder="client.com"
-                  value={domainInput}
-                  onChange={(e) => setDomainInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddDomain()}
-                />
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (domainInput.trim() && !allowedDomains.includes(domainInput.toLowerCase())) {
-                      setAllowedDomains([...allowedDomains, domainInput.toLowerCase()])
-                      setDomainInput('')
-                    }
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              {allowedDomains.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {allowedDomains.map((domain) => (
-                    <span
-                      key={domain}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-white border rounded-full text-sm"
-                    >
-                      @{domain}
-                      <button
-                        onClick={() => setAllowedDomains(allowedDomains.filter(d => d !== domain))}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <p className="text-xs text-slate-500 mt-2">
-                Anyone with email @domain.com can access
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Expiration Date */}
-        <div>
-          <Label className="text-sm font-medium text-slate-700 mb-2 block">
-            <Calendar className="inline h-4 w-4 mr-1" />
-            Expiration Date (Optional)
-          </Label>
-          <Input
-            type="datetime-local"
-            value={expiresAt}
-            onChange={(e) => setExpiresAt(e.target.value)}
-          />
-          <p className="text-xs text-slate-500 mt-1">
-            Link will automatically expire after this date
-          </p>
-        </div>
-
-        {/* View Limit */}
-        <div>
-          <Label className="text-sm font-medium text-slate-700 mb-2 block">
-            <Eye className="inline h-4 w-4 mr-1" />
-            View Limit (Optional)
-          </Label>
-          <Input
-            type="number"
-            placeholder="e.g., 100"
-            value={viewLimit}
-            onChange={(e) => setViewLimit(e.target.value)}
-            min="1"
-          />
-          <p className="text-xs text-slate-500 mt-1">
-            Maximum number of times this link can be accessed
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 justify-end pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setShowShareDialog(false)
-              setSharingStatus('idle')
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-           onClick={handleGenerateShareLink}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-          >
-            Generate Share Link
-          </Button>
-        </div>
-      </div>
-    )}
-
-    {/* Error Message Display */}
-{shareError && sharingStatus === 'idle' && (
-  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-    <div className="flex items-start gap-2">
-      <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-      <p className="text-sm text-red-800">{shareError}</p>
-    </div>
-  </div>
-)}
-
-    {/* Success State */}
-    {sharingStatus === 'success' && (
-      <div className="py-4 space-y-4">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
-            <div>
-              <p className="font-semibold text-green-900 mb-1">Share link created!</p>
-              <p className="text-sm text-green-700">
-                Copy and send this link to your client
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <Label className="text-sm font-medium text-slate-700 mb-2 block">
-            Secure Share Link
-          </Label>
-          <div className="flex gap-2">
-            <Input
-              value={shareLink}
-              readOnly
-              className="flex-1 font-mono text-sm bg-slate-50"
-              onClick={(e) => e.currentTarget.select()}
-            />
-            <Button onClick={handleCopyLink} className="gap-2">
-              <Copy className="h-4 w-4" />
-              Copy
-            </Button>
-          </div>
-        </div>
-
-        {/* Security Summary */}
-        <div className="p-4 bg-slate-50 rounded-lg border">
-          <p className="text-sm font-semibold text-slate-900 mb-2">Security Settings:</p>
-          <ul className="text-sm text-slate-600 space-y-1">
-            <li className="flex items-center gap-2">
-              <CheckCircle2 className="h-3 w-3 text-green-600" />
-              Security Level: <span className="font-semibold capitalize">{securityLevel}</span>
-            </li>
-            {(securityLevel === 'password' || securityLevel === 'whitelist') && (
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-3 w-3 text-green-600" />
-                Password protected
-              </li>
-            )}
-            {securityLevel === 'whitelist' && (
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-3 w-3 text-green-600" />
-                {allowedEmails.length} email(s) whitelisted
-              </li>
-            )}
-            {expiresAt && (
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-3 w-3 text-green-600" />
-                Expires: {new Date(expiresAt).toLocaleString()}
-              </li>
-            )}
-            {viewLimit && (
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="h-3 w-3 text-green-600" />
-                View limit: {viewLimit}
-              </li>
-            )}
-          </ul>
-        </div>
-
-        <div className="flex gap-2 justify-end pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setShowShareDialog(false)
-              setSharingStatus('idle')
-              setPassword('')
-              setAllowedEmails([])
-              setAllowedDomains([])
-              setExpiresAt('')
-              setViewLimit('')
-              setShareLinkLabel('') 
-            }}
-          >
-            Done
-          </Button>
-        </div>
-      </div>
-    )}
-
-    {/* Error State */}
-    {sharingStatus === 'error' && (
-      <div className="py-4">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-            <div>
-              <p className="font-semibold text-red-900 mb-1">Failed to create link</p>
-              <p className="text-sm text-red-700">{shareError}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex gap-2 justify-end">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setShowShareDialog(false)
-              setSharingStatus('idle')
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => setSharingStatus('idle')}
-            className="bg-purple-600 hover:bg-purple-700"
-          >
-            Try Again
-          </Button>
-        </div>
-      </div>
-    )}
-  </DialogContent>
-</Dialog>
+      {/* Share Space — Professional Drawer */}
+<ShareSpaceDrawer
+  open={showShareDialog}
+  onClose={() => {
+    setShowShareDialog(false)
+    setSharingStatus('idle')
+  }}
+  spaceId={params.id as string}
+  spaceName={space?.name || ""}
+  onSuccess={(url) => {
+    setShareLink(url)
+    setSharingStatus('success')
+  }}
+/>
 {/* Members Dialog */}
  
 <Dialog open={showMembersDialog} onOpenChange={setShowMembersDialog}>
