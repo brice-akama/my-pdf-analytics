@@ -57,14 +57,25 @@ export async function GET(
 
     // Fetch documents
     const documents = await db.collection('documents')
-      .find({
+  .find({
+    $and: [
+      {
         $or: [
           { spaceId: spaceId },
           { spaceId: space._id }
-        ],
-        archived: { $ne: true }
-      })
-      .toArray();
+        ]
+      },
+      { archived: { $ne: true } },
+      {
+        $or: [
+          { expiresAt: null },
+          { expiresAt: { $exists: false } },
+          { expiresAt: { $gt: new Date() } }
+        ]
+      }
+    ]
+  })
+  .toArray()
 
     console.log(`📄 Found ${documents.length} documents`);
 

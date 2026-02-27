@@ -8,7 +8,7 @@ import { ObjectId } from 'mongodb';
 async function checkSpacePermission(
   db: any,
   spaceId: string,
-  userId: string,
+  user: { id: string; email: string },
   requiredRole: 'viewer' | 'editor' | 'admin' | 'owner'
 ): Promise<{ allowed: boolean; userRole: string | null }> {
   const space = await db.collection('spaces').findOne({
@@ -16,25 +16,21 @@ async function checkSpacePermission(
   });
 
   if (!space) return { allowed: false, userRole: null };
-  if (space.ownerId === userId) return { allowed: true, userRole: 'owner' };
+  if (space.userId === user.id) return { allowed: true, userRole: 'owner' };
 
-  const member = space.members?.find((m: any) => m.userId === userId);
+  const member = space.members?.find((m: any) => 
+    m.email === user.email || m.userId === user.id
+  );
   if (!member) return { allowed: false, userRole: null };
 
   const roleHierarchy: Record<string, number> = {
-    owner: 4,
-    admin: 3,
-    editor: 2,
-    viewer: 1
+    owner: 4, admin: 3, editor: 2, viewer: 1
   };
 
   const userLevel = roleHierarchy[member.role] || 0;
   const requiredLevel = roleHierarchy[requiredRole] || 0;
 
-  return {
-    allowed: userLevel >= requiredLevel,
-    userRole: member.role
-  };
+  return { allowed: userLevel >= requiredLevel, userRole: member.role };
 }
 
 // ✅ PATCH: Rename folder
@@ -56,7 +52,7 @@ export async function PATCH(
     const db = await dbPromise;
 
     // Check permission
-    const { allowed } = await checkSpacePermission(db, spaceId, user.id, 'editor');
+    const { allowed } = await checkSpacePermission(db, spaceId, user, 'editor');
     if (!allowed) {
       return NextResponse.json({ 
         success: false,
@@ -167,7 +163,7 @@ export async function DELETE(
     const db = await dbPromise;
 
     // Check permission
-    const { allowed } = await checkSpacePermission(db, spaceId, user.id, 'editor');
+    const { allowed } = await checkSpacePermission(db, spaceId, user, 'editor');
     if (!allowed) {
       return NextResponse.json({ 
         success: false,
@@ -188,36 +184,30 @@ export async function DELETE(
       }, { status: 404 });
     }
     // Check if folder has files
-const filesCount = await db.collection('space_files').countDocuments({
-spaceId,
-folderId: folderId,
-deleted: { $ne: true }
+const filesCount = await db.collection('documents').countDocuments({
+  spaceId: spaceId,
+  folder: folderId,
+  archived: { $ne: true }
 });
 
-// Check query param for force deletion
 const { searchParams } = new URL(request.url);
 const force = searchParams.get('force') === 'true';
 
 if (filesCount > 0 && !force) {
   return NextResponse.json({ 
     success: false,
-    error: `Folder contains ${filesCount} file(s). Add ?force=true to delete anyway (files will be moved to root).`,
-    filesCount
+    error: `Folder contains ${filesCount} file(s). They will be moved to root.`,
+    filesCount,
+    requiresForce: true
   }, { status: 400 });
 }
 
-// If force, move files to root
 if (filesCount > 0) {
-  await db.collection('space_files').updateMany(
-    { spaceId, folderId: folderId },
-    { 
-      $set: { 
-        folderId: null,
-        updatedAt: new Date()
-      } 
-    }
+  await db.collection('documents').updateMany(
+    { spaceId: spaceId, folder: folderId },
+    { $set: { folder: null, folderId: null, updatedAt: new Date() } }
   );
-  console.log(`✅ Moved ${filesCount} files to root before deleting folder`);
+  console.log(`✅ Moved ${filesCount} docs to root`);
 }
 
 // Delete folder

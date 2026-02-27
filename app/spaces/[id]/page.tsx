@@ -165,6 +165,7 @@ type DocumentType = {
   type: string
   size: string
   views: number
+  expiresAt?: string | null
   originalFilename: string
   downloads: number
   lastUpdated: string
@@ -651,6 +652,7 @@ type ShareLinkStat = {
   createdAt: string | null
   expiresAt: string | null
   isExpired: boolean
+  enabled: boolean
   visits: number
   visitors: number
   downloads: number
@@ -1119,6 +1121,41 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
                               <Copy className="h-3 w-3" />
                               Copy Link
                             </button>
+                            {/* Inside the expanded link row, next to Copy Link button */}
+<button
+  onClick={async (e) => {
+    e.stopPropagation()
+    if (!confirm(`Disable this link? Visitors will no longer be able to access it.`)) return
+    try {
+      const res = await fetch(`/api/spaces/${spaceId}/public-access`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shareLink: link.shareLink,
+          updates: { enabled: false }
+        })
+      })
+      const data = await res.json()
+      if (data.success) { toast.success('Link disabled'); fetchAnalytics() }
+      else toast.error(data.error || 'Failed to disable')
+    } catch { toast.error('Failed to disable link') }
+  }}
+  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+    link.enabled === false
+      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+      : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+  }`}
+  disabled={link.enabled === false}
+>
+  {link.enabled === false ? (
+    <><Lock className="h-3 w-3" /> Disabled</>
+  ) : (
+    <><X className="h-3 w-3" /> Revoke Link</>
+  )}
+</button>
+
+
                           </div>
 
                           {/* Visitors who came from this link */}
@@ -2903,6 +2940,38 @@ const fetchFolders = async () => {
       <Settings className="mr-2 h-4 w-4" />
       <span className="">Space Settings</span>
       </DropdownMenuItem>
+      <DropdownMenuItem onClick={async () => {
+  const newName = prompt('Name for the duplicated space:', `${space?.name} (Copy)`)
+  if (!newName) return
+
+  const toastId = toast.loading('Duplicating space...')
+
+  try {
+    const res = await fetch(`/api/spaces/${params.id}/duplicate`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName.trim() })
+    })
+    const data = await res.json()
+
+    if (data.success) {
+      toast.success(
+        `Duplicated! ${data.summary.folders} folders, ${data.summary.documents} docs copied.`,
+        { id: toastId }
+      )
+      // Navigate to new space
+      router.push(`/spaces/${data.newSpaceId}`)
+    } else {
+      toast.error(data.error || 'Duplication failed', { id: toastId })
+    }
+  } catch {
+    toast.error('Duplication failed', { id: toastId })
+  }
+}}>
+  <Copy className="mr-2 h-4 w-4" />
+  Duplicate Space
+</DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem className="text-red-600">
         <Trash2 className="mr-2 h-4 w-4" />
@@ -2911,6 +2980,7 @@ const fetchFolders = async () => {
     </>
   )}
 </DropdownMenuContent>
+
             </DropdownMenu>
           </div>
         </div>
@@ -3457,6 +3527,26 @@ const fetchFolders = async () => {
         <Edit className="mr-2 h-4 w-4" />
         Rename
       </DropdownMenuItem>
+
+      {canEdit && (
+  <DropdownMenuItem onClick={() => {
+    const current = doc.expiresAt ? new Date(doc.expiresAt).toISOString().split('T')[0] : ''
+    const dateInput = prompt('Set expiry date (YYYY-MM-DD), or leave blank to remove:', current)
+    if (dateInput === null) return // cancelled
+    fetch(`/api/spaces/${params.id}/documents/${doc.id}/expiry`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expiresAt: dateInput || null })
+    }).then(r => r.json()).then(data => {
+      if (data.success) { toast.success(data.message); }
+      else toast.error(data.error || 'Failed to set expiry')
+    })
+  }}>
+    <Clock className="mr-2 h-4 w-4" />
+    {doc.expiresAt ? 'Change Expiry' : 'Set Expiry'}
+  </DropdownMenuItem>
+)}
       <DropdownMenuItem onClick={() => {
         setSelectedFile(doc)
         setShowMoveDialog(true)
@@ -3947,37 +4037,58 @@ const fetchFolders = async () => {
       Manage Access
     </DropdownMenuItem>
   )}
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            // TODO: Add rename functionality
-                            toast.info('Rename coming soon')
-                          }}
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            // TODO: Add share functionality
-                            toast.info('Share coming soon')
-                          }}
-                        >
-                          <Share2 className="mr-2 h-4 w-4" />
-                          Share
-                        </DropdownMenuItem>
+                       <DropdownMenuItem
+  onClick={(e) => {
+    e.stopPropagation()
+    const newName = prompt(`Rename "${folder.name}" to:`, folder.name)
+    if (!newName || newName.trim() === folder.name) return
+    fetch(`/api/spaces/${params.id}/folders/${folder.id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName.trim() })
+    }).then(r => r.json()).then(data => {
+      if (data.success) { toast.success(`Renamed to "${newName.trim()}"`); fetchFolders() }
+      else toast.error(data.error || 'Rename failed')
+    }).catch(() => toast.error('Rename failed'))
+  }}
+>
+  <Edit className="mr-2 h-4 w-4" />
+  Rename
+</DropdownMenuItem>
+                       
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toast.info('Folder delete coming soon')
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Folder
-                        </DropdownMenuItem>
+  className="text-red-600"
+  onClick={async (e) => {
+    e.stopPropagation()
+    const docCount = folder.documentCount || 0
+    const message = docCount > 0
+      ? `Delete "${folder.name}"? The ${docCount} file(s) inside will be moved to root (unfiled).`
+      : `Delete "${folder.name}"?`
+    if (!confirm(message)) return
+
+    try {
+      const res = await fetch(
+        `/api/spaces/${params.id}/folders/${folder.id}?force=true`,
+        { method: 'DELETE', credentials: 'include' }
+      )
+      const data = await res.json()
+      if (data.success) {
+        toast.success(data.message)
+        fetchFolders()
+        fetchSpace() // refresh doc list so moved docs appear as unfiled
+      } else {
+        toast.error(data.error || 'Delete failed')
+      }
+    } catch {
+      toast.error('Delete failed')
+    }
+  }}
+>
+  <Trash2 className="mr-2 h-4 w-4" />
+  Delete Folder
+</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -5566,6 +5677,8 @@ const fetchFolders = async () => {
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete Space Permanently
               </Button>
+
+              
             </div>
           </div>
         </TabsContent>

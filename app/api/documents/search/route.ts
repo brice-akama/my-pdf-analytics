@@ -69,12 +69,21 @@ export async function GET(req: NextRequest) {
         cloudinaryPdfUrl: doc.cloudinaryPdfUrl || null,
         canDownload: doc.canDownload !== false,
       })),
-      folders: folders.map(f => ({
-        id: f._id.toString(),
-        name: f.name,
-        documentCount: f.documentCount || 0,
-        lastUpdated: formatDate(f.updatedAt || f.createdAt),
-      })),
+      folders: await Promise.all(folders.map(async f => {
+  const docCount = await db.collection("documents").countDocuments({
+    $and: [
+      { $or: [{ spaceId: spaceId }, { spaceId: new ObjectId(spaceId) }] },
+      { folder: f._id.toString() },
+      { archived: { $ne: true } }
+    ]
+  })
+  return {
+    id: f._id.toString(),
+    name: f.name,
+    documentCount: docCount,
+    lastUpdated: formatDate(f.updatedAt || f.createdAt),
+  }
+})),
     })
   } catch (error) {
     console.error("Search error:", error)
