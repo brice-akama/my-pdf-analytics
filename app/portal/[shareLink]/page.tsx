@@ -446,6 +446,7 @@ function AskQuestionModal({ onClose, visitorEmail, shareLink, spaceName }: {
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
             <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-all"><X className="h-4 w-4" /></button>
+            
           </div>
         </div>
         <p className="text-sm text-gray-500 mb-4 flex-shrink-0">
@@ -508,6 +509,8 @@ function AskQuestionModal({ onClose, visitorEmail, shareLink, spaceName }: {
           </div>
         </div>
       </motion.div>
+    
+
     </div>
   )
 }
@@ -870,12 +873,14 @@ export default function PortalPage() {
       )}
       <div className="text-center mb-6">
         {spaceData.branding.logoUrl ? (
-          <img src={spaceData.branding.logoUrl} alt="Logo" className="h-9 mx-auto mb-4" />
-        ) : (
-          <div className="h-11 w-11 rounded-xl flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: accent }}>
-            <FolderOpen className="h-5 w-5 text-white" />
-          </div>
-        )}
+  <img src={spaceData.branding.logoUrl} alt="Logo" className="h-7 object-contain" />
+) : (
+  <div className="flex items-center gap-1.5">
+    <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: accent }}>
+      <FolderOpen className="h-4 w-4 text-white" />
+    </div>
+  </div>
+)}
         <h1 className="text-lg font-semibold text-gray-900">{spaceData.name}</h1>
         {spaceData.branding.companyName && <p className="text-xs text-gray-400 mt-0.5">{spaceData.branding.companyName}</p>}
       </div>
@@ -1051,8 +1056,20 @@ export default function PortalPage() {
           </div>
         </div>
         <div className="mx-7 mb-4 rounded-xl border border-gray-200 overflow-hidden bg-gray-50" style={{ height: 360 }}>
-          {spaceData.ndaDocumentUrl ? (
-            <iframe src={spaceData.ndaDocumentUrl} className="w-full h-full" title="NDA" />
+        {spaceData.ndaDocumentUrl ? (
+            <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+              <iframe
+                src={`/api/portal/${shareLink}/nda-proxy?url=${encodeURIComponent(spaceData.ndaDocumentUrl || '')}#toolbar=0&navpanes=0&scrollbar=0`}
+                title="NDA"
+                style={{
+                  display:   'block',
+                  border:    'none',
+                  width:     '100%',
+                  height:    'calc(100% + 40px)',
+                  marginTop: '-40px',
+                }}
+              />
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full text-gray-400">
               <div className="text-center"><FileText className="h-10 w-10 mx-auto mb-2" /><p className="text-sm">NDA Document</p></div>
@@ -1116,9 +1133,12 @@ export default function PortalPage() {
             </div>
           )}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-900">{spaceData.name}</span>
-            {spaceData.branding.companyName && <span className="text-sm text-gray-400">· {spaceData.branding.companyName}</span>}
-          </div>
+   
+  <span className="text-sm text-gray-400">·</span>
+  <span className="text-sm text-gray-400">
+    {spaceData.branding.companyName || 'DocMetrics'}
+  </span>
+</div>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative hidden md:block">
@@ -1166,7 +1186,10 @@ export default function PortalPage() {
             {selectedFolder && (<><ChevronRight className="h-3.5 w-3.5 text-gray-300" /><span className="text-gray-900 font-medium">{selectedFolder.name}</span></>)}
           </div>
           <div className="px-6 pt-5 pb-3">
-            <h2 className="text-lg font-semibold text-gray-900">{selectedFolder ? selectedFolder.name : 'Home'}</h2>
+  {!selectedFolder && (
+    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{spaceData.name}</p>
+  )}
+  <h2 className="text-lg font-semibold text-gray-900">{selectedFolder ? selectedFolder.name : 'Home'}</h2>
             <p className="text-sm text-gray-400 mt-0.5">{panelDocs.length} {panelDocs.length === 1 ? 'document' : 'documents'}</p>
           </div>
           <div className="px-6 pb-8">

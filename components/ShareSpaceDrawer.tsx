@@ -152,14 +152,16 @@ const [ndaLoading, setNdaLoading] = useState(false)
     try {
       let ndaDocumentUrl = null, ndaDocumentName = null
       if (cfg.requireNDA && cfg.ndaFile) {
-        const ndaForm = new FormData()
-        ndaForm.append("file", cfg.ndaFile)
-        ndaForm.append("isNDA", "true")
-        const ndaRes  = await fetch(`/api/spaces/${spaceId}/upload`, { method: "POST", body: ndaForm, credentials: "include" })
-        const ndaData = await ndaRes.json()
-        if (!ndaData.success) throw new Error(ndaData.error || "NDA upload failed")
-        ndaDocumentUrl  = ndaData.document.cloudinaryPdfUrl
-        ndaDocumentName = ndaData.document.name
+        
+const ndaForm = new FormData()
+ndaForm.append("file", cfg.ndaFile)
+const ndaRes = await fetch(`/api/agreements/upload`, { 
+  method: "POST", body: ndaForm, credentials: "include" 
+})
+const ndaData = await ndaRes.json()
+if (!ndaData.success) throw new Error(ndaData.error || "NDA upload failed")
+ndaDocumentUrl  = ndaData.document.cloudinaryPdfUrl
+ndaDocumentName = ndaData.document.filename
       }
 
       let logoUrl = null
