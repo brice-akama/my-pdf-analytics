@@ -38,6 +38,13 @@ export async function POST(
       password,
       expiresAt,
       viewLimit,
+      allowDownloads  = true,
+  allowQA         = true,
+  enableWatermark = false,
+  requireNDA      = false,
+  ndaDocumentUrl  = null,
+  ndaDocumentName = null,
+  branding        = null,
     } = body;
 
     if (securityLevel === 'whitelist' && allowedEmails.length === 0 && (!allowedDomains || allowedDomains.length === 0)) {
@@ -85,6 +92,14 @@ export async function POST(
       createdAt:       new Date(),
       createdBy:       user.id,
       enabled:         true,
+      allowDownloads,
+  allowQA,
+  enableWatermark,
+  requireNDA,
+  requireOtp: body.requireOtp ?? false,
+  ndaDocumentUrl,
+  ndaDocumentName,
+  branding,
     };
 
     // Migrate old single-object format to array if needed

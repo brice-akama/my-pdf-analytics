@@ -113,10 +113,13 @@ export async function GET(
       space: {
         name: space.name,
         description: space.description || '',
-        allowDownloads: space.allowDownloads ?? true,
-        ndaRequired: space.ndaSettings?.enabled ?? false,
-        ndaDocumentUrl: space.ndaSettings?.documentUrl || null,
-        branding: space.branding || {
+        allowDownloads:  linkConfig.allowDownloads  ?? true,
+        allowQA:         linkConfig.allowQA         ?? true,
+        enableWatermark: linkConfig.enableWatermark ?? false,
+        ndaRequired: linkConfig.requireNDA ?? space.ndaSettings?.enabled ?? false,
+        ndaDocumentUrl: linkConfig.ndaDocumentUrl ?? space.ndaSettings?.documentUrl ?? null,
+        ndaDocumentName: linkConfig.ndaDocumentName ?? space.ndaSettings?.ndaDocumentName ?? null,
+        branding: linkConfig.branding ?? space.branding ?? {
           primaryColor: '#6366f1',
           welcomeMessage: 'Welcome to our secure document portal',
           companyName: null,
@@ -127,7 +130,8 @@ export async function GET(
       },
       // ✅ FIX: Read from linkConfig not space.publicAccess
       requiresEmail: linkConfig.requireEmail ?? true,
-      requiresPassword: linkConfig.requirePassword ?? false
+      requiresPassword: linkConfig.requirePassword ?? false,
+      requiresOtp: linkConfig.requireOtp ?? false,
     });
 
   } catch (error) {
