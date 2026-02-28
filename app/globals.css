@@ -237,3 +237,9 @@ main     { overflow-x: hidden; }
 /* Hide scrollbar on PDF containers */
 [data-pdf-container]::-webkit-scrollbar { display: none; }
 .pdf-scroll-container::-webkit-scrollbar { display: none; }
+
+[data-radix-dropdown-menu-item]:hover,
+[role="menuitem"]:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}

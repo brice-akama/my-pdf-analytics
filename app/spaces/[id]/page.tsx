@@ -1624,6 +1624,7 @@ const [shareLinkLabel, setShareLinkLabel] = useState('')
 const [showRequestFilesDrawer, setShowRequestFilesDrawer] = useState(false)
 const [requestFilesFolder, setRequestFilesFolder] = useState<{ id: string; name: string } | null>(null)
 const [myRole, setMyRole] = useState<string>('');
+const [bulkMode, setBulkMode] = useState(false)
 const [qaComments, setQaComments] = useState<Array<{
   id: string
   documentId: string
@@ -2922,21 +2923,12 @@ const fetchFolders = async () => {
   {canManageContacts && (
   <>
     <DropdownMenuItem onClick={() => setShowAddContactDialog(true)}>
-      <Users className="mr-2 h-4 w-4" />
-      Add Single Contact
-    </DropdownMenuItem>
-    <DropdownMenuItem onClick={() => setShowBulkInviteDialog(true)}>
-      <Users className="mr-2 h-4 w-4" />
-      Bulk Invite Contacts
-    </DropdownMenuItem>
+  <Users className="mr-2 h-4 w-4" />
+  Add Contact
+</DropdownMenuItem>
   </>
 )}
-  {canShareSpace && (
-    <DropdownMenuItem onClick={handleShareWithClient}>
-      <Share2 className="mr-2 h-4 w-4" />
-      Share with Client
-    </DropdownMenuItem>
-  )}
+ 
   {canManageSpace && (
     <>
       <DropdownMenuItem onClick={() => setShowSettingsDrawer(true)}>
@@ -3584,14 +3576,30 @@ const fetchFolders = async () => {
       </div>
     ) : (
       /* ✅ Home View - Recent documents + Quick stats (NO FOLDER GRID!) */
+
+     
       <div>
+
+      
        
 
         {/* Recent Documents */}
         <div>
+          
           <div className="flex items-center justify-between mb-4">
+            
             <h2 className="text-lg font-semibold text-slate-900">Recent Documents</h2>
            <div className="flex gap-2">
+              {canShareSpace && (
+  <Button
+    onClick={handleShareWithClient}
+    variant="outline"
+    className="gap-2 bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200 hover:text-sky-800 hover:border-sky-400"
+  >
+    <Share2 className="h-4 w-4" />
+    Share
+  </Button>
+)}
           <Button
   variant={showUnfiledOnly ? 'default' : 'outline'}
   size="sm"
@@ -4625,66 +4633,100 @@ const fetchFolders = async () => {
 
 {/* Add Contact Dialog */}
 <Dialog open={showAddContactDialog} onOpenChange={setShowAddContactDialog}>
-  <DialogContent className="max-w-md bg-white">
+  <DialogContent className="max-w-lg bg-white">
     <DialogHeader>
-      <DialogTitle>Add Contact to Space</DialogTitle>
-      <DialogDescription>
-        Invite someone to access this space
-      </DialogDescription>
+      <DialogTitle className="flex items-center gap-2">
+        <Users className="h-5 w-5" />
+        Add Contact
+      </DialogTitle>
+      <DialogDescription>Invite one person or multiple at once</DialogDescription>
     </DialogHeader>
-    
-    <div className="space-y-4 py-4">
-      <div>
-        <label className="text-sm font-medium text-slate-700 mb-2 block">
-          Email address
-        </label>
-        <Input
-          type="email"
-          placeholder="contact@example.com"
-          value={contactEmail}
-          onChange={(e) => setContactEmail(e.target.value)}
-        />
-      </div>
 
-      <div>
-        <label className="text-sm font-medium text-slate-700 mb-2 block">
-          Role
-        </label>
-        <select
-          value={contactRole}
-          onChange={(e) => setContactRole(e.target.value as 'viewer' | 'editor' | 'admin')}
-          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="viewer">Viewer - Can view documents</option>
-          <option value="editor">Editor - Can upload and edit</option>
-          <option value="admin">Admin - Full access</option>
-        </select>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <p className="text-sm text-blue-800">
-          <strong>Note:</strong> The contact will receive an email invitation to access this space.
-        </p>
-      </div>
+    {/* Toggle */}
+    <div className="flex items-center bg-slate-100 rounded-lg p-1 w-fit gap-1 mt-2">
+      <button
+        onClick={() => setBulkMode(false)}
+        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${!bulkMode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+      >
+        Single
+      </button>
+      <button
+        onClick={() => setBulkMode(true)}
+        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${bulkMode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+      >
+        Bulk
+      </button>
     </div>
 
-    <div className="flex gap-2 justify-end">
-      <Button 
-        variant="outline" 
-        onClick={() => {
-          setShowAddContactDialog(false)
-          setContactEmail("")
-          setContactRole('viewer')
-        }}
-      >
+    <div className="space-y-4 py-2">
+      {!bulkMode ? (
+        <>
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-2 block">Email address</label>
+            <Input type="email" placeholder="contact@example.com" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-2 block">Role</label>
+            <select value={contactRole} onChange={(e) => setContactRole(e.target.value as any)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900">
+              <option value="viewer">Viewer — can view documents</option>
+              <option value="editor">Editor — can upload and edit</option>
+              <option value="admin">Admin — full access</option>
+            </select>
+          </div>
+        </>
+      ) : (
+        <>
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-2 block">Email addresses</label>
+            <Textarea
+              placeholder={"john@company.com\njane@company.com\nmike@company.com"}
+              value={bulkEmails}
+              onChange={(e) => setBulkEmails(e.target.value)}
+              rows={6}
+              className="font-mono text-sm"
+            />
+            <p className="text-xs text-slate-400 mt-1">Separate with commas or new lines</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-2 block">Role for all</label>
+            <select value={bulkRole} onChange={(e) => setBulkRole(e.target.value as any)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900">
+              <option value="viewer">Viewer — can view documents</option>
+              <option value="editor">Editor — can upload and edit</option>
+              <option value="admin">Admin — full access</option>
+            </select>
+          </div>
+        </>
+      )}
+
+      {/* Bulk results */}
+      {bulkInviteResults && (
+        <div className="space-y-2">
+          {bulkInviteResults.success.length > 0 && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+              ✅ {bulkInviteResults.success.length} invited: {bulkInviteResults.success.join(', ')}
+            </div>
+          )}
+          {bulkInviteResults.failed.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+              ❌ {bulkInviteResults.failed.map(f => `${f.email} (${f.reason})`).join(', ')}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+
+    <div className="flex gap-2 justify-end pt-2 border-t">
+      <Button variant="outline" onClick={() => { setShowAddContactDialog(false); setContactEmail(''); setBulkEmails(''); setBulkInviteResults(null) }}>
         Cancel
       </Button>
-      <Button 
-        onClick={handleAddContact}
-        disabled={!contactEmail.trim() || addingContact}
-        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+      <Button
+        onClick={bulkMode ? handleBulkInvite : handleAddContact}
+        disabled={bulkMode ? (bulkInviting || !bulkEmails.trim()) : (!contactEmail.trim() || addingContact)}
+        className="bg-slate-900 hover:bg-slate-800 text-white"
       >
-        {addingContact ? "Adding..." : "Add Contact"}
+        {(bulkMode ? bulkInviting : addingContact) ? 'Sending...' : bulkMode ? 'Send Invitations' : 'Add Contact'}
       </Button>
     </div>
   </DialogContent>
@@ -5255,10 +5297,33 @@ const fetchFolders = async () => {
                   </p>
                 </div>
               </div>
-              <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
-                <Archive className="h-4 w-4 mr-2" />
-                Archive Space
-              </Button>
+              <Button
+  variant="outline"
+  className="border-red-300 text-red-700 hover:bg-red-100"
+  onClick={async () => {
+    if (!confirm(`Archive "${space?.name}"? It will be hidden from your active spaces but not deleted.`)) return
+    try {
+      const res = await fetch(`/api/spaces/${params.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived: true })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success('Space archived')
+        router.push('/spaces')
+      } else {
+        toast.error(data.error || 'Failed to archive space')
+      }
+    } catch {
+      toast.error('Failed to archive space')
+    }
+  }}
+>
+  <Archive className="h-4 w-4 mr-2" />
+  Archive Space
+</Button>
             </div>
 
             <div className="border border-red-200 bg-red-50 rounded-lg p-6">

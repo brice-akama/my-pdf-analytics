@@ -464,7 +464,7 @@ export default function SpacesPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <PageInfoTooltip pageId="spaces" message="Manage your secure data rooms." position="top" />
 
       {/* ── Header ── */}
