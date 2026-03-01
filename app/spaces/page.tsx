@@ -469,13 +469,14 @@ export default function SpacesPage() {
 
       {/* ── Header ── */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push('/dashboard')}
               className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors"
             >
-              <ArrowLeft className="h-4 w-4" /> Dashboard
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Dashboard</span>
             </button>
             <span className="text-gray-300">·</span>
             <span className="text-sm font-semibold text-gray-900">Data Rooms</span>
@@ -483,7 +484,7 @@ export default function SpacesPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowTemplatesDrawer(true)}
-              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 rounded-lg transition-all bg-white"
+              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 rounded-lg transition-all bg-white hidden sm:block"
             >
               Templates
             </button>
@@ -491,16 +492,17 @@ export default function SpacesPage() {
               onClick={() => setShowCreateDrawer(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
             >
-              <Plus className="h-3.5 w-3.5" /> New Space
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">New Space</span>
             </button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
 
         {/* ── Stats ── */}
-        <div className="grid grid-cols-4 gap-3 mb-6">
+         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[
             { label: 'Total Spaces', value: allSpaces.length, cls: 'bg-blue-50 text-blue-700 border-blue-100' },
             { label: 'Active', value: activeCount, cls: 'bg-green-50 text-green-700 border-green-100' },
@@ -515,7 +517,7 @@ export default function SpacesPage() {
         </div>
 
         {/* ── Search + Filter ── */}
-        <div className="flex items-center gap-3 mb-5">
+         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-5">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
@@ -603,172 +605,188 @@ export default function SpacesPage() {
 
         {/* ── My Spaces Table ── */}
         {filteredSpaces.length > 0 && (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6 shadow-sm">
-            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2 px-1">
               <h2 className="text-sm font-semibold text-gray-900">My Spaces</h2>
               <span className="text-xs text-gray-400">{filteredSpaces.length} spaces</span>
             </div>
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/60">
-                  {['', 'Name', 'Type', 'Docs', 'Members', 'Last Activity', 'Status', ''].map((h, i) => (
-                    <th
-                      key={i}
-                      className={`px-5 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                        i === 7 ? 'text-right' : 'text-left'
-                      } ${i === 0 ? 'w-8' : ''}`}
-                    >
-                      {i === 0 ? <input type="checkbox" className="rounded border-gray-300" /> : h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredSpaces.map(space => (
-                  <tr
-                    key={space._id}
-                    className={`hover:bg-gray-50 transition-colors cursor-pointer group ${
-                      space.status === 'archived' ? 'opacity-55' : ''
-                    }`}
-                    onClick={() => router.push(`/spaces/${space._id}`)}
-                  >
-                    {/* Checkbox */}
-                    <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
-                      <input type="checkbox" className="rounded border-gray-300" />
-                    </td>
 
-                    {/* Name */}
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${iconBg[space.type] || iconBg.custom}`}>
-                          <SpaceIcon type={space.type} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                            {space.name}
-                          </p>
-                          {space.description && (
-                            <p className="text-xs text-gray-400 truncate max-w-xs">{space.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Type */}
-                    <td className="px-5 py-3.5">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${typeBadge[space.type] || typeBadge.custom}`}>
-                        {typeLabel[space.type] || 'Custom'}
-                      </span>
-                    </td>
-
-                    {/* Docs / Members / Activity */}
-                    <td className="px-5 py-3.5 text-sm text-gray-700">{space.documentsCount || 0}</td>
-                    <td className="px-5 py-3.5 text-sm text-gray-700">{space.teamMembers || 0}</td>
-                    <td className="px-5 py-3.5 text-xs text-gray-500">
-                      {formatTimeAgo(space.lastActivity || space.createdAt)}
-                    </td>
-
-                    {/* Status toggle */}
-                    <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={e => handleToggleSpace(space._id, space.status, e)}
-                          disabled={togglingId === space._id}
-                          title={space.status === 'active' ? 'Click to archive' : 'Click to activate'}
-                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
-                            space.status === 'active' ? 'bg-green-500' : 'bg-gray-300'
-                          } ${togglingId === space._id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                        >
-                          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${
-                            space.status === 'active' ? 'translate-x-4' : 'translate-x-0.5'
-                          }`} />
-                        </button>
-                        <span className={`text-xs font-medium ${space.status === 'active' ? 'text-green-700' : 'text-gray-400'}`}>
-                          {togglingId === space._id ? '…' : space.status === 'active' ? 'Active' : 'Archived'}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-5 py-3.5 text-right" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
-                        {/* ── Quick Open button (hover) ── */}
-                        {space.status === 'active' && (
-                          <button
-                            onClick={e => { e.stopPropagation(); router.push(`/spaces/${space._id}`) }}
-                            className="px-2.5 py-1 text-xs text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-400 rounded-md transition-all opacity-0 group-hover:opacity-100 bg-white"
-                          >
-                            Open
-                          </button>
-                        )}
-
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md hover:bg-gray-100 transition-all"
-                              onClick={e => e.stopPropagation()}
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 bg-white border-gray-200 shadow-lg">
-                            {space.status === 'active' && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={e => { e.stopPropagation(); router.push(`/spaces/${space._id}`) }}
-                                  className="cursor-pointer text-sm"
-                                >
-                                  <FolderOpen className="mr-2 h-4 w-4" /> Open Space
-                                </DropdownMenuItem>
-
-                                {/* ✅ QUICK INVITE — opens drawer inline, no navigation */}
-                                <DropdownMenuItem
-                                  onClick={e => openInviteDrawer(space, e)}
-                                  className="cursor-pointer text-sm"
-                                >
-                                  <Share2 className="mr-2 h-4 w-4" /> Share Access
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem
-                                  onClick={e => handleDuplicateSpace(space, e)}
-                                  className="cursor-pointer text-sm"
-                                >
-                                  <Copy className="mr-2 h-4 w-4" /> Duplicate
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={e => handleToggleSpace(space._id, space.status, e)}
-                                  className="cursor-pointer text-sm"
-                                >
-                                  <Archive className="mr-2 h-4 w-4" /> Archive
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {space.status === 'archived' && (
-                              <DropdownMenuItem
-                                onClick={e => handleToggleSpace(space._id, space.status, e)}
-                                className="cursor-pointer text-sm text-green-700 focus:text-green-700 focus:bg-green-50"
-                              >
-                                <RotateCcw className="mr-2 h-4 w-4" /> Restore
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={e => handleDeleteSpace(space._id, space.name, e)}
-                              className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer text-sm"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              {space.status === 'archived' ? 'Delete Permanently' : 'Delete'}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </td>
+            {/* Desktop table — hidden on mobile */}
+            <div className="hidden lg:block border-t border-gray-100">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="px-4 py-2.5 w-8"><input type="checkbox" className="rounded border-gray-300" /></th>
+                    {['Name', 'Type', 'Docs', 'Members', 'Last Activity', 'Status', ''].map((h, i) => (
+                      <th key={i} className={`px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wider ${i === 6 ? 'text-right' : 'text-left'}`}>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="border-t border-gray-100 bg-gray-50/50 px-5 py-2.5 flex items-center justify-between">
-              <p className="text-xs text-gray-400">{filteredSpaces.length} of {allSpaces.length} spaces shown</p>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredSpaces.map(space => (
+                    <tr
+                      key={space._id}
+                      className={`hover:bg-gray-50 transition-colors cursor-pointer group ${space.status === 'archived' ? 'opacity-55' : ''}`}
+                      onClick={() => router.push(`/spaces/${space._id}`)}
+                    >
+                      <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                        <input type="checkbox" className="rounded border-gray-300" />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${iconBg[space.type] || iconBg.custom}`}>
+                            <SpaceIcon type={space.type} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{space.name}</p>
+                            {space.description && <p className="text-xs text-gray-400 truncate max-w-xs">{space.description}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${typeBadge[space.type] || typeBadge.custom}`}>
+                          {typeLabel[space.type] || 'Custom'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-gray-700">{space.documentsCount || 0}</td>
+                      <td className="px-4 py-3.5 text-sm text-gray-700">{space.teamMembers || 0}</td>
+                      <td className="px-4 py-3.5 text-xs text-gray-500">{formatTimeAgo(space.lastActivity || space.createdAt)}</td>
+                      <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={e => handleToggleSpace(space._id, space.status, e)}
+                            disabled={togglingId === space._id}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${space.status === 'active' ? 'bg-green-500' : 'bg-gray-300'} ${togglingId === space._id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${space.status === 'active' ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                          </button>
+                          <span className={`text-xs font-medium ${space.status === 'active' ? 'text-green-700' : 'text-gray-400'}`}>
+                            {togglingId === space._id ? '…' : space.status === 'active' ? 'Active' : 'Archived'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          {space.status === 'active' && (
+                            <button
+                              onClick={e => { e.stopPropagation(); router.push(`/spaces/${space._id}`) }}
+                              className="px-2.5 py-1 text-xs text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-400 rounded-md transition-all opacity-0 group-hover:opacity-100 bg-white"
+                            >
+                              Open
+                            </button>
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md hover:bg-gray-100 transition-all" onClick={e => e.stopPropagation()}>
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 bg-white border-gray-200 shadow-lg">
+                              {space.status === 'active' && (
+                                <>
+                                  <DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/spaces/${space._id}`) }} className="cursor-pointer text-sm">
+                                    <FolderOpen className="mr-2 h-4 w-4" /> Open Space
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={e => openInviteDrawer(space, e)} className="cursor-pointer text-sm">
+                                    <Share2 className="mr-2 h-4 w-4" /> Share Access
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={e => handleDuplicateSpace(space, e)} className="cursor-pointer text-sm">
+                                    <Copy className="mr-2 h-4 w-4" /> Duplicate
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={e => handleToggleSpace(space._id, space.status, e)} className="cursor-pointer text-sm">
+                                    <Archive className="mr-2 h-4 w-4" /> Archive
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {space.status === 'archived' && (
+                                <DropdownMenuItem onClick={e => handleToggleSpace(space._id, space.status, e)} className="cursor-pointer text-sm text-green-700 focus:text-green-700 focus:bg-green-50">
+                                  <RotateCcw className="mr-2 h-4 w-4" /> Restore
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={e => handleDeleteSpace(space._id, space.name, e)} className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer text-sm">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                {space.status === 'archived' ? 'Delete Permanently' : 'Delete'}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile list — shown below lg */}
+            <div className="lg:hidden divide-y divide-gray-100 border-t border-gray-100">
+              {filteredSpaces.map(space => (
+                <div
+                  key={space._id}
+                  className={`flex items-center gap-3 py-3.5 px-1 cursor-pointer hover:bg-gray-50 transition-colors ${space.status === 'archived' ? 'opacity-55' : ''}`}
+                  onClick={() => router.push(`/spaces/${space._id}`)}
+                >
+                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 ${iconBg[space.type] || iconBg.custom}`}>
+                    <SpaceIcon type={space.type} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{space.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-gray-400">{typeLabel[space.type] || 'Custom'}</span>
+                      <span className="text-gray-200">·</span>
+                      <span className="text-xs text-gray-400">{space.documentsCount || 0} docs</span>
+                      <span className="text-gray-200">·</span>
+                      <span className="text-xs text-gray-400">{formatTimeAgo(space.lastActivity || space.createdAt)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                    <span className={`text-xs font-medium ${space.status === 'active' ? 'text-green-600' : 'text-gray-400'}`}>
+                      {space.status === 'active' ? 'Active' : 'Archived'}
+                    </span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md hover:bg-gray-100 transition-all">
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48 bg-white border-gray-200 shadow-lg">
+                        {space.status === 'active' && (
+                          <>
+                            <DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/spaces/${space._id}`) }} className="cursor-pointer text-sm">
+                              <FolderOpen className="mr-2 h-4 w-4" /> Open Space
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={e => openInviteDrawer(space, e)} className="cursor-pointer text-sm">
+                              <Share2 className="mr-2 h-4 w-4" /> Share Access
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={e => handleDuplicateSpace(space, e)} className="cursor-pointer text-sm">
+                              <Copy className="mr-2 h-4 w-4" /> Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={e => handleToggleSpace(space._id, space.status, e)} className="cursor-pointer text-sm">
+                              <Archive className="mr-2 h-4 w-4" /> Archive
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        {space.status === 'archived' && (
+                          <DropdownMenuItem onClick={e => handleToggleSpace(space._id, space.status, e)} className="cursor-pointer text-sm text-green-700 focus:text-green-700 focus:bg-green-50">
+                            <RotateCcw className="mr-2 h-4 w-4" /> Restore
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={e => handleDeleteSpace(space._id, space.name, e)} className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer text-sm">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {space.status === 'archived' ? 'Delete Permanently' : 'Delete'}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-gray-100 px-1 pt-2.5 flex items-center justify-between">
+              <p className="text-xs text-gray-400">{filteredSpaces.length} of {allSpaces.length} spaces</p>
               <p className="text-xs text-gray-400">
                 {filteredSpaces.reduce((n, s) => n + (s.documentsCount || 0), 0)} docs ·{' '}
                 {filteredSpaces.reduce((n, s) => n + (s.viewsCount || 0), 0)} views
@@ -779,79 +797,96 @@ export default function SpacesPage() {
 
         {/* ── Shared With You ── */}
         {filteredMemberSpaces.length > 0 && (
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2 px-1">
               <h2 className="text-sm font-semibold text-gray-900">Shared with You</h2>
               <span className="text-xs text-gray-400">{filteredMemberSpaces.length} spaces</span>
             </div>
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/60">
-                  <th className="text-left px-5 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider w-8">
-                    <input type="checkbox" className="rounded border-gray-300" />
-                  </th>
-                  {['Name', 'Your Role', 'Docs', 'Members', ''].map((h, i) => (
-                    <th
-                      key={h}
-                      className={`px-5 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                        i === 4 ? 'text-right' : 'text-left'
-                      }`}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredMemberSpaces.map(space => (
-                  <tr
-                    key={space._id}
-                    className="hover:bg-gray-50 transition-colors cursor-pointer group"
-                    onClick={() => router.push(`/spaces/${space._id}`)}
-                  >
-                    <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
-                      <input type="checkbox" className="rounded border-gray-300" />
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ background: space.color || '#6366f1' }}
-                        >
-                          <FolderOpen className="h-4 w-4 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                            {space.name}
-                          </p>
-                          {space.description && (
-                            <p className="text-xs text-gray-400 truncate max-w-xs">{space.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700">
-                        {space.role === 'admin' ? '⚡ Admin' : space.role === 'editor' ? '✏️ Editor' : '👁️ Viewer'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-sm text-gray-700">{space.documentsCount || 0}</td>
-                    <td className="px-5 py-3.5 text-sm text-gray-700">{space.teamMembers || 0}</td>
-                    <td className="px-5 py-3.5 text-right" onClick={e => e.stopPropagation()}>
-                      <button
-                        onClick={e => { e.stopPropagation(); router.push(`/spaces/${space._id}`) }}
-                        className="px-2.5 py-1 text-xs text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-400 rounded-md transition-all opacity-0 group-hover:opacity-100 bg-white"
-                      >
-                        Open
-                      </button>
-                    </td>
+
+            {/* Desktop table */}
+            <div className="hidden lg:block border-t border-gray-100">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="px-4 py-2.5 w-8"><input type="checkbox" className="rounded border-gray-300" /></th>
+                    {['Name', 'Your Role', 'Docs', 'Members', ''].map((h, i) => (
+                      <th key={h} className={`px-4 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wider ${i === 4 ? 'text-right' : 'text-left'}`}>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredMemberSpaces.map(space => (
+                    <tr
+                      key={space._id}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer group"
+                      onClick={() => router.push(`/spaces/${space._id}`)}
+                    >
+                      <td className="px-4 py-3.5" onClick={e => e.stopPropagation()}>
+                        <input type="checkbox" className="rounded border-gray-300" />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: space.color || '#6366f1' }}>
+                            <FolderOpen className="h-4 w-4 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{space.name}</p>
+                            {space.description && <p className="text-xs text-gray-400 truncate max-w-xs">{space.description}</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className="text-xs font-medium text-slate-600 capitalize">{space.role}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-gray-700">{space.documentsCount || 0}</td>
+                      <td className="px-4 py-3.5 text-sm text-gray-700">{space.teamMembers || 0}</td>
+                      <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={e => { e.stopPropagation(); router.push(`/spaces/${space._id}`) }}
+                          className="px-2.5 py-1 text-xs text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-400 rounded-md transition-all opacity-0 group-hover:opacity-100 bg-white"
+                        >
+                          Open
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile list */}
+            <div className="lg:hidden divide-y divide-gray-100 border-t border-gray-100">
+              {filteredMemberSpaces.map(space => (
+                <div
+                  key={space._id}
+                  className="flex items-center gap-3 py-3.5 px-1 cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => router.push(`/spaces/${space._id}`)}
+                >
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: space.color || '#6366f1' }}>
+                    <FolderOpen className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{space.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-gray-400 capitalize">{space.role}</span>
+                      <span className="text-gray-200">·</span>
+                      <span className="text-xs text-gray-400">{space.documentsCount || 0} docs</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={e => { e.stopPropagation(); router.push(`/spaces/${space._id}`) }}
+                    className="px-2.5 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-md hover:border-gray-400 hover:text-gray-900 transition-all flex-shrink-0"
+                  >
+                    Open
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-      </div>
+             </div>
 
       {/* ════════════════════════════════════════════════════════════════════════
           QUICK INVITE DRAWER

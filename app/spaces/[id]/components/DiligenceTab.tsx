@@ -1,16 +1,4 @@
 // app/spaces/[id]/components/DiligenceTab.tsx
-//
-// WHAT CHANGED vs previous version:
-//   1. InvestorCard: linkLabel badge (🔗 Sequoia link) next to email.
-//   2. InvestorCard: "Returning" badge when isReturningInvestor === true.
-//   3. InvestorCard: firstSeen shown alongside lastSeen in meta line.
-//   4. InvestorCard expanded view: green dot = first open, purple = return visit.
-//      Small "First" / "Return" badge next to each doc bar.
-//   5. Per-link filter strip below summary stats — click a link pill to filter
-//      the investor list to only people who came through that link.
-//   6. View toggle count updates to reflect filtered list.
-//   7. Types updated to include new fields from the route.
-
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
@@ -133,56 +121,94 @@ function HeatmapRow({ doc, maxSeconds, rank }: {
 }) {
   const pct = maxSeconds > 0 ? (doc.totalSeconds / maxSeconds) * 100 : 0
 
+  const statusLabel =
+    doc.totalSeconds === 0 ? { text: 'Not opened', cls: 'bg-slate-100 text-slate-400' } :
+    pct >= 70              ? { text: 'High',        cls: 'bg-red-100 text-red-600' } :
+    pct >= 30              ? { text: 'Medium',      cls: 'bg-orange-100 text-orange-600' } :
+                             { text: 'Low',         cls: 'bg-blue-100 text-blue-600' }
+
   return (
     <motion.div
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: rank * 0.05 }}
-      className="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50 transition-colors"
+      className="hover:bg-slate-50 transition-colors"
     >
-      <div className={`h-7 w-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-        rank === 0 ? 'bg-yellow-100 text-yellow-700' :
-        rank === 1 ? 'bg-slate-200 text-slate-600' :
-        rank === 2 ? 'bg-orange-100 text-orange-600' :
-        'bg-slate-100 text-slate-400'
-      }`}>
-        {rank + 1}
+      {/* Mobile layout */}
+      <div className="lg:hidden px-4 py-3 border-b border-slate-100">
+        <div className="flex items-start gap-3">
+          <div className={`h-6 w-6 rounded-md flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 ${
+            rank === 0 ? 'bg-yellow-100 text-yellow-700' :
+            rank === 1 ? 'bg-slate-200 text-slate-600' :
+            rank === 2 ? 'bg-orange-100 text-orange-600' :
+            'bg-slate-100 text-slate-400'
+          }`}>
+            {rank + 1}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <p className="text-sm font-medium text-slate-900 truncate">{doc.documentName}</p>
+              <span className={`text-xs px-2 py-0.5 rounded flex-shrink-0 font-medium ${statusLabel.cls}`}>
+                {statusLabel.text}
+              </span>
+            </div>
+            <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${pct}%` }}
+                transition={{ duration: 0.8, ease: 'easeOut', delay: rank * 0.05 }}
+                className="h-full rounded-full"
+                style={{ backgroundColor: heatBg(pct) }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span>{doc.viewerCount} {doc.viewerCount === 1 ? 'viewer' : 'viewers'}{doc.viewerCount > 0 && ` · avg ${formatSeconds(doc.avgSecondsPerViewer)}`}</span>
+              <span className={`font-semibold ${doc.totalSeconds === 0 ? 'text-slate-300' : 'text-slate-700'}`}>{doc.formattedTime}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="w-52 min-w-0">
-        <p className="text-sm font-medium text-slate-900 truncate">{doc.documentName}</p>
-        <p className="text-xs text-slate-400 mt-0.5">
-          {doc.viewerCount} {doc.viewerCount === 1 ? 'viewer' : 'viewers'}
-          {doc.viewerCount > 0 && ` · avg ${formatSeconds(doc.avgSecondsPerViewer)}`}
-        </p>
-      </div>
+      {/* Desktop layout */}
+      <div className="hidden lg:flex items-center gap-4 px-5 py-3.5 border-b border-slate-100">
+        <div className={`h-7 w-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+          rank === 0 ? 'bg-yellow-100 text-yellow-700' :
+          rank === 1 ? 'bg-slate-200 text-slate-600' :
+          rank === 2 ? 'bg-orange-100 text-orange-600' :
+          'bg-slate-100 text-slate-400'
+        }`}>
+          {rank + 1}
+        </div>
 
-      <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.8, ease: 'easeOut', delay: rank * 0.05 }}
-          className="h-full rounded-full"
-          style={{ backgroundColor: heatBg(pct) }}
-        />
-      </div>
+        <div className="w-52 min-w-0">
+          <p className="text-sm font-medium text-slate-900 truncate">{doc.documentName}</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {doc.viewerCount} {doc.viewerCount === 1 ? 'viewer' : 'viewers'}
+            {doc.viewerCount > 0 && ` · avg ${formatSeconds(doc.avgSecondsPerViewer)}`}
+          </p>
+        </div>
 
-      <div className="text-right w-20 flex-shrink-0">
-        <p className={`text-sm font-bold ${doc.totalSeconds === 0 ? 'text-slate-300' : 'text-slate-900'}`}>
-          {doc.formattedTime}
-        </p>
-      </div>
+        <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.8, ease: 'easeOut', delay: rank * 0.05 }}
+            className="h-full rounded-full"
+            style={{ backgroundColor: heatBg(pct) }}
+          />
+        </div>
 
-      <div className="w-20 flex-shrink-0 flex justify-end">
-        {doc.totalSeconds === 0 ? (
-          <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-400 text-xs font-medium">Not opened</span>
-        ) : pct >= 70 ? (
-          <span className="px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-bold">🔥 Hot</span>
-        ) : pct >= 30 ? (
-          <span className="px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-bold">⚡ Warm</span>
-        ) : (
-          <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-600 text-xs font-medium">👁 Viewed</span>
-        )}
+        <div className="text-right w-20 flex-shrink-0">
+          <p className={`text-sm font-bold ${doc.totalSeconds === 0 ? 'text-slate-300' : 'text-slate-900'}`}>
+            {doc.formattedTime}
+          </p>
+        </div>
+
+        <div className="w-24 flex-shrink-0 flex justify-end">
+          <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${statusLabel.cls}`}>
+            {statusLabel.text}
+          </span>
+        </div>
       </div>
     </motion.div>
   )
@@ -197,7 +223,6 @@ function InvestorCard({ investor, allDocs, rank }: {
 }) {
   const [expanded, setExpanded] = useState(false)
 
-  // Merge allDocs with this investor's breakdown (including unvisited docs)
   const docGrid = allDocs.map(hDoc => {
     const bd = investor.docBreakdown.find(d => d.documentId === hDoc.documentId)
     return {
@@ -212,103 +237,115 @@ function InvestorCard({ investor, allDocs, rank }: {
     }
   })
 
-  const engagementColor =
-    investor.engagementScore >= 70 ? 'text-red-600 bg-red-50 border-red-200' :
-    investor.engagementScore >= 40 ? 'text-orange-600 bg-orange-50 border-orange-200' :
-    investor.engagementScore >= 15 ? 'text-blue-600 bg-blue-50 border-blue-200' :
-    'text-slate-500 bg-slate-50 border-slate-200'
-
-  // Insight text
-  const skipped = docGrid.filter(d => d.totalSeconds === 0)
+  const skipped    = docGrid.filter(d => d.totalSeconds === 0)
   const returnDocs = docGrid.filter(d => d.isReturnVisit && d.totalSeconds > 0)
-  const topDoc = [...docGrid].sort((a, b) => b.totalSeconds - a.totalSeconds)[0]
+  const topDoc     = [...docGrid].sort((a, b) => b.totalSeconds - a.totalSeconds)[0]
+
+  const scoreColor =
+    investor.engagementScore >= 70 ? 'bg-red-50 text-red-600 border-red-200' :
+    investor.engagementScore >= 40 ? 'bg-orange-50 text-orange-600 border-orange-200' :
+    investor.engagementScore >= 15 ? 'bg-blue-50 text-blue-600 border-blue-200' :
+    'bg-slate-100 text-slate-500 border-slate-200'
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: rank * 0.07 }}
-      className="bg-white rounded-2xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+      className="bg-white border rounded-xl overflow-hidden"
     >
-      {/* ── Header row ──────────────────────────────────────────────── */}
+      {/* Header */}
       <div
-        className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-slate-50 transition-colors"
+        className="flex items-start sm:items-center gap-3 px-4 py-4 cursor-pointer hover:bg-slate-50 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         {/* Avatar */}
-        <div className="h-11 w-11 rounded-full bg-gradient-to-br from-slate-700 to-slate-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-          <span className="text-sm font-black text-white">
+        <div className="h-9 w-9 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0">
+          <span className="text-sm font-bold text-white">
             {investor.email.charAt(0).toUpperCase()}
           </span>
         </div>
 
-        {/* Email + badges + meta */}
+        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-slate-900 text-sm truncate">{investor.email}</p>
-
-            {/* NEW: link label badge */}
-            {investor.linkLabel && (
-              <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium border border-indigo-100">
-                🔗 {investor.linkLabel}
-              </span>
-            )}
-
-            {/* NEW: returning investor badge */}
+            <p className="text-sm font-medium text-slate-900 truncate">{investor.email}</p>
             {investor.isReturningInvestor && (
-              <span className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-xs font-bold border border-purple-200">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600 flex-shrink-0">
                 <RotateCcw className="h-2.5 w-2.5" />
                 Returning
               </span>
             )}
-
             {rank === 0 && (
-              <span className="flex-shrink-0 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-bold">
-                👑 Most engaged
+              <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 flex-shrink-0">
+                Top
               </span>
             )}
           </div>
-
-          {/* NEW: firstSeen → lastSeen */}
-          <p className="text-xs text-slate-400 mt-0.5">
-            {investor.sessionCount} session{investor.sessionCount !== 1 ? 's' : ''} ·{' '}
-            {investor.docsOpened} / {investor.totalDocs} docs ·{' '}
-            {investor.firstSeen && investor.firstSeen !== investor.lastSeen
-              ? <>first seen {timeAgo(investor.firstSeen)} · last seen {timeAgo(investor.lastSeen)}</>
-              : <>last seen {timeAgo(investor.lastSeen)}</>
-            }
-          </p>
-        </div>
-
-        {/* Time spent */}
-        <div className="text-right flex-shrink-0">
-          <p className="text-lg font-black text-slate-900">{investor.formattedTime}</p>
-          <p className="text-xs text-slate-400">total time</p>
-        </div>
-
-        {/* Coverage bar */}
-        <div className="w-24 flex-shrink-0">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-slate-400">Coverage</span>
-            <span className="text-xs font-semibold text-slate-700">{investor.coveragePct}%</span>
-          </div>
-          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full bg-slate-700 transition-all"
-              style={{ width: `${investor.coveragePct}%` }}
-            />
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            {investor.linkLabel && (
+              <span className="text-xs text-slate-400">via {investor.linkLabel}</span>
+            )}
+            <span className="text-xs text-slate-400">
+              {investor.sessionCount} session{investor.sessionCount !== 1 ? 's' : ''}
+            </span>
+            <span className="text-slate-200">·</span>
+            <span className="text-xs text-slate-400">
+              {investor.docsOpened}/{investor.totalDocs} docs
+            </span>
+            <span className="text-slate-200">·</span>
+            <span className="text-xs text-slate-400">{timeAgo(investor.lastSeen)}</span>
           </div>
         </div>
 
-        {/* Engagement score */}
-        <div className={`flex-shrink-0 px-3 py-1.5 rounded-xl border text-sm font-bold ${engagementColor}`}>
-          {investor.engagementScore}
-        </div>
+        {/* Right side stats */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Coverage — hidden on mobile */}
+          <div className="hidden sm:block w-20">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-slate-400">Coverage</span>
+              <span className="text-xs font-medium text-slate-700">{investor.coveragePct}%</span>
+            </div>
+            <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full bg-slate-700"
+                style={{ width: `${investor.coveragePct}%` }}
+              />
+            </div>
+          </div>
 
-        <ChevronDown className={`h-4 w-4 text-slate-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          {/* Time */}
+          <div className="text-right hidden sm:block">
+            <p className="text-base font-bold text-slate-900">{investor.formattedTime}</p>
+            <p className="text-xs text-slate-400">total</p>
+          </div>
+
+          {/* Score */}
+          <div className={`text-xs font-bold px-2 py-1 rounded border ${scoreColor}`}>
+            {investor.engagementScore}
+          </div>
+
+          <ChevronDown className={`h-4 w-4 text-slate-300 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </div>
       </div>
 
-      {/* ── Expanded: per-doc heat bars ─────────────────────────────── */}
+      {/* Mobile stats row */}
+      <div className="sm:hidden grid grid-cols-3 divide-x border-t">
+        <div className="px-3 py-2 text-center">
+          <p className="text-sm font-bold text-slate-900">{investor.formattedTime}</p>
+          <p className="text-xs text-slate-400">Time</p>
+        </div>
+        <div className="px-3 py-2 text-center">
+          <p className="text-sm font-bold text-slate-900">{investor.coveragePct}%</p>
+          <p className="text-xs text-slate-400">Coverage</p>
+        </div>
+        <div className="px-3 py-2 text-center">
+          <p className="text-sm font-bold text-slate-900">{investor.sessionCount}</p>
+          <p className="text-xs text-slate-400">Sessions</p>
+        </div>
+      </div>
+
+      {/* Expanded */}
       <AnimatePresence>
         {expanded && (
           <motion.div
@@ -318,124 +355,113 @@ function InvestorCard({ investor, allDocs, rank }: {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-5 pb-5 pt-2 border-t border-slate-100">
+            <div className="px-4 pb-4 pt-3 border-t border-slate-100">
 
-              {/* Header + legend */}
+              {/* Legend */}
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Time spent per document
-                </p>
-                {/* NEW: legend */}
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">Time per document</p>
                 <div className="flex items-center gap-3 text-xs text-slate-400">
                   <span className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-green-400 inline-block" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-400 inline-block" />
                     First open
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-purple-400 inline-block" />
-                    Return visit
+                    <span className="h-1.5 w-1.5 rounded-full bg-purple-400 inline-block" />
+                    Return
                   </span>
                 </div>
               </div>
 
               {/* Doc grid */}
-              <div className="grid gap-2">
+              <div className="space-y-2">
                 {docGrid.map((doc, i) => (
-                  <div key={doc.documentId} className="flex items-center gap-3">
-
-                    {/* NEW: first/return dot */}
+                  <div key={doc.documentId} className="flex items-center gap-2 sm:gap-3">
+                    {/* Dot */}
                     <div className="flex-shrink-0">
                       {doc.totalSeconds > 0 ? (
-                        <div
-                          className={`h-2 w-2 rounded-full ${doc.isReturnVisit ? 'bg-purple-400' : 'bg-green-400'}`}
-                          title={doc.isReturnVisit ? 'Return visit via this link' : 'First open via this link'}
-                        />
+                        <div className={`h-1.5 w-1.5 rounded-full ${doc.isReturnVisit ? 'bg-purple-400' : 'bg-green-400'}`} />
                       ) : (
-                        <div className="h-2 w-2 rounded-full bg-slate-200" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-slate-200" />
                       )}
                     </div>
 
-                    {/* Doc name */}
-                    <div className="w-44 min-w-0">
-                      <p className={`text-xs truncate ${doc.totalSeconds === 0 ? 'text-slate-400' : 'text-slate-800 font-medium'}`}>
+                    {/* Name */}
+                    <div className="w-28 sm:w-44 min-w-0 flex-shrink-0">
+                      <p className={`text-xs truncate ${doc.totalSeconds === 0 ? 'text-slate-400' : 'text-slate-700 font-medium'}`}>
                         {doc.documentName}
                       </p>
                     </div>
 
-                    {/* Heat bar */}
-                    <div className="flex-1 h-7 bg-slate-100 rounded-lg overflow-hidden relative">
+                    {/* Bar */}
+                    <div className="flex-1 h-6 bg-slate-100 rounded-md overflow-hidden relative">
                       {doc.totalSeconds > 0 && (
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${Math.min(100, doc.intensity)}%` }}
                           transition={{ duration: 0.6, ease: 'easeOut', delay: i * 0.04 }}
-                          className="h-full rounded-lg"
+                          className="h-full rounded-md"
                           style={{ backgroundColor: heatBg(doc.intensity) }}
                         />
                       )}
                       {doc.totalSeconds > 0 && (
-                        <div className="absolute inset-0 flex items-center px-2.5">
-                          <span className={`text-xs font-semibold ${doc.intensity > 40 ? 'text-white' : 'text-slate-700'}`}>
+                        <div className="absolute inset-0 flex items-center px-2">
+                          <span className={`text-xs font-medium ${doc.intensity > 40 ? 'text-white' : 'text-slate-700'}`}>
                             {doc.formattedTime}
                             {doc.sessionCount > 1 && (
-                              <span className="ml-1.5 opacity-75">· {doc.sessionCount} opens</span>
+                              <span className="ml-1 opacity-75 hidden sm:inline">· {doc.sessionCount}x</span>
                             )}
                           </span>
                         </div>
                       )}
                     </div>
 
-                    {/* NEW: first / return badge */}
-                    {doc.totalSeconds > 0 ? (
-                      <div className="flex-shrink-0 w-20 text-right">
-                        {doc.isReturnVisit ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 text-xs font-medium">
-                            <RotateCcw className="h-2.5 w-2.5" />
-                            Return
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-600 text-xs font-medium">
-                            <ArrowRight className="h-2.5 w-2.5" />
-                            First
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-300 w-20 text-right flex-shrink-0">Skipped</span>
-                    )}
+                    {/* Badge */}
+                    <div className="w-14 sm:w-20 flex-shrink-0 text-right">
+                      {doc.totalSeconds > 0 ? (
+                        <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                          doc.isReturnVisit
+                            ? 'bg-purple-50 text-purple-600'
+                            : 'bg-green-50 text-green-600'
+                        }`}>
+                          {doc.isReturnVisit ? 'Return' : 'First'}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-300">Skipped</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
 
-              {/* Insight callouts */}
+              {/* Insights */}
               <div className="mt-4 space-y-2">
                 {returnDocs.length > 0 && (
-                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl">
-                    <p className="text-xs text-purple-800 font-medium">
-                      🔁 Returned to {returnDocs.length} doc{returnDocs.length > 1 ? 's' : ''} via this link after viewing via another link:{' '}
-                      {returnDocs.slice(0, 2).map(d => `"${d.documentName}"`).join(', ')}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <p className="text-xs text-slate-600">
+                      Returned to {returnDocs.length} doc{returnDocs.length > 1 ? 's' : ''} via this link:{' '}
+                      <span className="font-medium">{returnDocs.slice(0, 2).map(d => d.documentName).join(', ')}</span>
                       {returnDocs.length > 2 && ` +${returnDocs.length - 2} more`}
                     </p>
                   </div>
                 )}
 
                 {skipped.length === 0 && topDoc && topDoc.totalSeconds > 0 ? (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-xl">
-                    <p className="text-xs text-green-800 font-medium">
-                      ✅ Reviewed all documents — most time on "{topDoc.documentName}" ({topDoc.formattedTime})
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <p className="text-xs text-slate-600">
+                      Reviewed all documents — most time on{' '}
+                      <span className="font-medium">"{topDoc.documentName}"</span> ({topDoc.formattedTime})
                     </p>
                   </div>
                 ) : skipped.length > 0 ? (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                    <p className="text-xs text-amber-800 font-medium">
-                      ⚠️ Skipped {skipped.length} doc{skipped.length > 1 ? 's' : ''}:{' '}
-                      {skipped.slice(0, 3).map(d => `"${d.documentName}"`).join(', ')}
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <p className="text-xs text-slate-600">
+                      Skipped {skipped.length} doc{skipped.length > 1 ? 's' : ''}:{' '}
+                      <span className="font-medium">{skipped.slice(0, 3).map(d => d.documentName).join(', ')}</span>
                       {skipped.length > 3 && ` +${skipped.length - 3} more`}
                     </p>
                   </div>
                 ) : null}
               </div>
-
             </div>
           </motion.div>
         )}
@@ -473,14 +499,11 @@ export function DiligenceTab({ spaceId }: { spaceId: string }) {
   if (loading) return (
     <div className="flex items-center justify-center py-24">
       <div className="text-center">
-        <div className="relative mx-auto mb-6 h-16 w-16">
-          <div className="absolute inset-0 rounded-full border-4 border-slate-200" />
+        <div className="relative mx-auto mb-5 h-12 w-12">
+          <div className="absolute inset-0 rounded-full border-4 border-slate-100" />
           <div className="absolute inset-0 rounded-full border-4 border-t-slate-900 animate-spin" />
-          <div className="absolute inset-2 rounded-full bg-slate-900 flex items-center justify-center">
-            <Target className="h-4 w-4 text-white" />
-          </div>
         </div>
-        <p className="text-slate-500 text-sm font-medium">Analyzing diligence patterns…</p>
+        <p className="text-slate-500 text-sm">Loading diligence data...</p>
       </div>
     </div>
   )
@@ -488,8 +511,8 @@ export function DiligenceTab({ spaceId }: { spaceId: string }) {
   if (error) return (
     <div className="flex items-center justify-center py-24">
       <div className="text-center">
-        <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-3" />
-        <p className="text-slate-700 font-medium mb-3">{error}</p>
+        <AlertCircle className="h-8 w-8 text-red-400 mx-auto mb-3" />
+        <p className="text-slate-700 text-sm font-medium mb-3">{error}</p>
         <Button onClick={fetch_} variant="outline" size="sm">Try Again</Button>
       </div>
     </div>
@@ -500,12 +523,10 @@ export function DiligenceTab({ spaceId }: { spaceId: string }) {
   const { investors, heatmap, summary } = data
   const maxHeatSeconds = heatmap.length > 0 ? heatmap[0].totalSeconds : 1
 
-  // Apply link filter
   const filteredInvestors = linkFilter === 'all'
     ? investors
     : investors.filter(i => i.shareLink === linkFilter)
 
-  // Links that actually have investors
   const activeLinks = [
     ...new Map(
       investors
@@ -517,21 +538,15 @@ export function DiligenceTab({ spaceId }: { spaceId: string }) {
   if (investors.length === 0) return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Diligence Tracking</h2>
-        <p className="text-sm text-slate-500 mt-1">Time-based engagement intelligence per investor</p>
+        <h2 className="text-xl font-bold text-slate-900">Diligence Tracking</h2>
+        <p className="text-sm text-slate-500 mt-1">Time-based engagement per investor</p>
       </div>
-      <div className="bg-white rounded-2xl border p-16 text-center">
-        <div className="h-20 w-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-5">
-          <Clock className="h-10 w-10 text-slate-400" />
-        </div>
-        <h3 className="text-lg font-bold text-slate-900 mb-2">No diligence data yet</h3>
-        <p className="text-sm text-slate-500 max-w-md mx-auto">
-          Once investors open documents through your portal, you'll see exactly how long they spend on each one — including which documents they skip.
+      <div className="border rounded-xl bg-white p-12 text-center">
+        <Clock className="h-8 w-8 text-slate-300 mx-auto mb-3" />
+        <p className="text-sm font-medium text-slate-600 mb-1">No diligence data yet</p>
+        <p className="text-xs text-slate-400 max-w-sm mx-auto">
+          Once investors open documents through your portal, you'll see exactly how long they spend on each one.
         </p>
-        <div className="mt-6 inline-flex items-center gap-2 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm text-slate-600">
-          <Zap className="h-4 w-4 text-amber-500" />
-          Tracking starts automatically when portal is opened
-        </div>
       </div>
     </div>
   )
@@ -539,137 +554,119 @@ export function DiligenceTab({ spaceId }: { spaceId: string }) {
   return (
     <div className="space-y-6">
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Diligence Tracking</h2>
-          <p className="text-sm text-slate-500 mt-1">
-            How long each investor spends on each document — per share link
-          </p>
+          <h2 className="text-xl font-bold text-slate-900">Diligence Tracking</h2>
+          <p className="text-sm text-slate-500 mt-1">How long each investor spends on each document</p>
         </div>
         <button
           onClick={fetch_}
-          className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all"
-          title="Refresh"
+          className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all self-start sm:self-auto"
         >
           <RefreshCw className="h-4 w-4" />
         </button>
       </div>
 
-      {/* ── Summary Stats ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-slate-900 text-white rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="h-4 w-4 text-slate-400" />
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Time</p>
-          </div>
-          <p className="text-3xl font-black">{formatSeconds(summary.totalTimeSeconds)}</p>
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-slate-900 text-white rounded-xl p-4">
+          <p className="text-xs font-medium text-slate-400 mb-2">Total Time</p>
+          <p className="text-2xl font-bold">{formatSeconds(summary.totalTimeSeconds)}</p>
           <p className="text-xs text-slate-500 mt-1">across all investors</p>
         </div>
 
-        <div className="bg-white rounded-2xl border p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Users className="h-4 w-4 text-purple-500" />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Investors</p>
-          </div>
-          <p className="text-3xl font-black text-slate-900">{summary.totalInvestors}</p>
-          <p className="text-xs text-slate-500 mt-1">tracked readers</p>
+        <div className="bg-white border rounded-xl p-4">
+          <p className="text-xs font-medium text-slate-500 mb-2">Investors</p>
+          <p className="text-2xl font-bold text-slate-900">{summary.totalInvestors}</p>
+          <p className="text-xs text-slate-400 mt-1">tracked readers</p>
         </div>
 
-        <div className="bg-white rounded-2xl border p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Activity className="h-4 w-4 text-blue-500" />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Avg Time</p>
-          </div>
-          <p className="text-3xl font-black text-slate-900">{formatSeconds(summary.avgSecondsPerInvestor)}</p>
-          <p className="text-xs text-slate-500 mt-1">per investor</p>
+        <div className="bg-white border rounded-xl p-4">
+          <p className="text-xs font-medium text-slate-500 mb-2">Avg Time</p>
+          <p className="text-2xl font-bold text-slate-900">{formatSeconds(summary.avgSecondsPerInvestor)}</p>
+          <p className="text-xs text-slate-400 mt-1">per investor</p>
         </div>
 
-        <div className="bg-white rounded-2xl border p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="h-4 w-4 text-green-500" />
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Sessions</p>
-          </div>
-          <p className="text-3xl font-black text-slate-900">{summary.totalSessions}</p>
-          <p className="text-xs text-slate-500 mt-1">total document opens</p>
+        <div className="bg-white border rounded-xl p-4">
+          <p className="text-xs font-medium text-slate-500 mb-2">Sessions</p>
+          <p className="text-2xl font-bold text-slate-900">{summary.totalSessions}</p>
+          <p className="text-xs text-slate-400 mt-1">total opens</p>
         </div>
       </div>
 
-      {/* ── NEW: Per-link filter strip ───────────────────────────────────── */}
+      {/* Per-link filter */}
       {activeLinks.length > 1 && (
-        <div className="bg-white rounded-2xl border p-5">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-            Filter by share link
-          </p>
+        <div className="bg-white border rounded-xl p-4">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Filter by link</p>
           <div className="flex flex-wrap gap-2">
-            {/* All links option */}
             <button
               onClick={() => setLinkFilter('all')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
                 linkFilter === 'all'
                   ? 'bg-slate-900 border-slate-900 text-white'
-                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-400'
+                  : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
               }`}
             >
               All links
-              <span className={`text-xs px-1.5 py-0.5 rounded-md font-bold ${
-                linkFilter === 'all' ? 'bg-white text-slate-900' : 'bg-slate-200 text-slate-700'
+              <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                linkFilter === 'all' ? 'bg-white text-slate-900' : 'bg-slate-100 text-slate-600'
               }`}>
                 {investors.length}
               </span>
             </button>
 
-            {summary.linkSummary
-              .filter(l => l.investorCount > 0)
-              .map(l => {
-                const label = l.label || activeLinks.find(a => a.shareLink === l.shareLink)?.label || l.shareLink.slice(-6)
-                const active = linkFilter === l.shareLink
-                return (
-                  <button
-                    key={l.shareLink}
-                    onClick={() => setLinkFilter(active ? 'all' : l.shareLink)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${
-                      active
-                        ? 'bg-indigo-600 border-indigo-600 text-white'
-                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-indigo-300'
-                    }`}
-                  >
-                    <Share2 className="h-3.5 w-3.5" />
-                    <span className="font-medium">{label}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded-md font-bold ${
-                      active ? 'bg-white text-indigo-700' : 'bg-slate-200 text-slate-700'
-                    }`}>
-                      {l.investorCount}
-                    </span>
-                    <span className={`text-xs ${active ? 'text-indigo-200' : 'text-slate-400'}`}>
-                      {l.formattedTime}
-                    </span>
-                  </button>
-                )
-              })}
+            {summary.linkSummary.filter(l => l.investorCount > 0).map(l => {
+              const label  = l.label || activeLinks.find(a => a.shareLink === l.shareLink)?.label || l.shareLink.slice(-6)
+              const active = linkFilter === l.shareLink
+              return (
+                <button
+                  key={l.shareLink}
+                  onClick={() => setLinkFilter(active ? 'all' : l.shareLink)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                    active
+                      ? 'bg-slate-900 border-slate-900 text-white'
+                      : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
+                  }`}
+                >
+                  <span>{label}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                    active ? 'bg-white text-slate-900' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {l.investorCount}
+                  </span>
+                  <span className={`hidden sm:inline ${active ? 'text-slate-300' : 'text-slate-400'}`}>
+                    {l.formattedTime}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
 
-      {/* ── Insights Strip ───────────────────────────────────────────────── */}
+      {/* Insights */}
       {(summary.hotDocs.length > 0 || summary.coldDocs.length > 0) && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {summary.hotDocs.length > 0 && (
-            <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-2xl p-4">
-              <p className="text-xs font-bold text-orange-700 uppercase tracking-wider mb-2">🔥 Most read documents</p>
-              <div className="space-y-1">
+            <div className="border rounded-xl p-4 bg-white">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Most read</p>
+              <div className="space-y-1.5">
                 {summary.hotDocs.map((name, i) => (
-                  <p key={i} className="text-sm text-orange-900 font-medium truncate">{i + 1}. {name}</p>
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400 w-4">{i + 1}</span>
+                    <p className="text-sm text-slate-800 font-medium truncate">{name}</p>
+                  </div>
                 ))}
               </div>
             </div>
           )}
           {summary.coldDocs.length > 0 && (
-            <div className="bg-gradient-to-br from-slate-50 to-blue-50 border border-slate-200 rounded-2xl p-4">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">❄️ Documents nobody opened</p>
-              <div className="space-y-1">
+            <div className="border rounded-xl p-4 bg-white">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Not opened</p>
+              <div className="space-y-1.5">
                 {summary.coldDocs.slice(0, 3).map((name, i) => (
-                  <p key={i} className="text-sm text-slate-600 truncate">• {name}</p>
+                  <p key={i} className="text-sm text-slate-500 truncate">{name}</p>
                 ))}
                 {summary.coldDocs.length > 3 && (
                   <p className="text-xs text-slate-400">+{summary.coldDocs.length - 3} more</p>
@@ -680,48 +677,49 @@ export function DiligenceTab({ spaceId }: { spaceId: string }) {
         </div>
       )}
 
-      {/* ── View Toggle ──────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+      {/* View Toggle */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
         <button
           onClick={() => setView('investors')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
             view === 'investors' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          👤 By Investor ({filteredInvestors.length})
+          By Investor ({filteredInvestors.length})
         </button>
         <button
           onClick={() => setView('heatmap')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
             view === 'heatmap' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          🗺 Document Heatmap
+          Document Heatmap
         </button>
       </div>
 
       {/* Active filter label */}
       {linkFilter !== 'all' && view === 'investors' && (
-        <div className="flex items-center gap-2 text-sm text-indigo-700">
-          <Filter className="h-3.5 w-3.5" />
-          Showing investors via{' '}
-          <span className="font-semibold">
-            {activeLinks.find(l => l.shareLink === linkFilter)?.label || linkFilter}
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <Filter className="h-3 w-3" />
+          <span>
+            Showing {filteredInvestors.length} of {investors.length} investors via{' '}
+            <span className="font-medium text-slate-700">
+              {activeLinks.find(l => l.shareLink === linkFilter)?.label || linkFilter}
+            </span>
           </span>
-          <span className="text-slate-400">({filteredInvestors.length} of {investors.length})</span>
-          <button onClick={() => setLinkFilter('all')} className="text-xs underline text-indigo-500 ml-1">
+          <button onClick={() => setLinkFilter('all')} className="text-slate-400 underline hover:text-slate-600">
             Clear
           </button>
         </div>
       )}
 
-      {/* ── INVESTORS VIEW ───────────────────────────────────────────────── */}
+      {/* Investors View */}
       {view === 'investors' && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {filteredInvestors.length === 0 ? (
-            <div className="bg-white rounded-2xl border p-12 text-center">
-              <Users className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-              <p className="text-slate-500 text-sm">No investors for this link yet</p>
+            <div className="border rounded-xl bg-white p-10 text-center">
+              <Users className="h-6 w-6 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm text-slate-500">No investors for this link yet</p>
             </div>
           ) : (
             filteredInvestors.map((investor, i) => (
@@ -736,36 +734,36 @@ export function DiligenceTab({ spaceId }: { spaceId: string }) {
         </div>
       )}
 
-      {/* ── HEATMAP VIEW ─────────────────────────────────────────────────── */}
+      {/* Heatmap View */}
       {view === 'heatmap' && (
-        <div className="bg-white rounded-2xl border overflow-hidden">
-          <div className="px-5 py-4 bg-slate-50 border-b">
-            <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <span className="w-7">#</span>
-              <span className="w-52">Document</span>
-              <span className="flex-1">Engagement</span>
-              <span className="w-20 text-right">Total time</span>
-              <span className="w-20 text-right">Status</span>
-            </div>
+        <div className="border rounded-xl bg-white overflow-hidden">
+          {/* Desktop header */}
+          <div className="hidden lg:flex items-center gap-4 px-5 py-3 bg-slate-50 border-b">
+            <span className="w-7 text-xs font-medium text-slate-400 uppercase">#</span>
+            <span className="w-52 text-xs font-medium text-slate-400 uppercase">Document</span>
+            <span className="flex-1 text-xs font-medium text-slate-400 uppercase">Engagement</span>
+            <span className="w-20 text-right text-xs font-medium text-slate-400 uppercase">Time</span>
+            <span className="w-24 text-right text-xs font-medium text-slate-400 uppercase">Status</span>
           </div>
 
-          <div className="divide-y divide-slate-100">
+          <div>
             {heatmap.map((doc, i) => (
               <HeatmapRow key={doc.documentId} doc={doc} maxSeconds={maxHeatSeconds} rank={i} />
             ))}
           </div>
 
-          <div className="px-5 py-3 bg-slate-50 border-t flex items-center gap-4">
-            <p className="text-xs text-slate-400 font-medium mr-2">Heat scale:</p>
+          {/* Heat scale legend */}
+          <div className="px-4 py-3 bg-slate-50 border-t flex items-center gap-3 flex-wrap">
+            <p className="text-xs text-slate-400 font-medium">Scale:</p>
             {[
-              { label: 'Not opened', color: '#f1f5f9' },
-              { label: 'Low',        color: '#dbeafe' },
-              { label: 'Medium',     color: '#fef08a' },
-              { label: 'High',       color: '#fb923c' },
-              { label: 'Very high',  color: '#ef4444' },
+              { label: 'None',      color: '#f1f5f9' },
+              { label: 'Low',       color: '#dbeafe' },
+              { label: 'Medium',    color: '#fef08a' },
+              { label: 'High',      color: '#fb923c' },
+              { label: 'Very high', color: '#ef4444' },
             ].map(({ label, color }) => (
               <div key={label} className="flex items-center gap-1.5">
-                <div className="h-3.5 w-5 rounded" style={{ backgroundColor: color }} />
+                <div className="h-3 w-4 rounded-sm" style={{ backgroundColor: color }} />
                 <span className="text-xs text-slate-500">{label}</span>
               </div>
             ))}

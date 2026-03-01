@@ -378,73 +378,61 @@ export function AuditLogTab({ spaceId }: { spaceId: string }) {
   return (
     <div className="space-y-6">
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Audit Log</h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Complete history of all activity in this space
-          </p>
+          <h2 className="text-xl font-bold text-slate-900">Audit Log</h2>
+          <p className="text-sm text-slate-500 mt-1">Complete history of all activity in this space</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExport}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={handleExport} className="gap-2 text-xs">
+            <Download className="h-3.5 w-3.5" />
             Export CSV
           </Button>
           <button
             onClick={() => fetchAudit(category)}
             className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all"
-            title="Refresh"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* ── Summary Cards ──────────────────────────────────────────────────── */}
+      {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           {(Object.keys(CATEGORY_CONFIG) as Array<keyof typeof CATEGORY_CONFIG>).map(cat => {
             const config = CATEGORY_CONFIG[cat]
             const Icon = config.icon
             const count = cat === 'all' ? summary.total : summary[cat as keyof AuditSummary]
             const isActive = category === cat
-
             return (
               <button
                 key={cat}
                 onClick={() => setCategory(cat as typeof category)}
-                className={`p-4 rounded-xl border text-left transition-all hover:shadow-sm ${
+                className={`p-3 rounded-xl border text-left transition-all ${
                   isActive
-                    ? `${config.bg} ${config.border} shadow-sm`
+                    ? 'bg-slate-900 border-slate-900'
                     : 'bg-white border-slate-200 hover:border-slate-300'
                 }`}
               >
-                <div className={`inline-flex items-center justify-center h-8 w-8 rounded-lg mb-2 ${
-                  isActive ? 'bg-white shadow-sm' : config.bg
-                }`}>
-                  <Icon className={`h-4 w-4 ${config.color}`} />
-                </div>
-                <p className={`text-xl font-bold ${isActive ? config.color : 'text-slate-900'}`}>
+                <p className={`text-xl font-bold ${isActive ? 'text-white' : 'text-slate-900'}`}>
                   {count}
                 </p>
-                <p className="text-xs text-slate-500 mt-0.5">{config.label}</p>
+                <p className={`text-xs mt-0.5 truncate ${isActive ? 'text-slate-300' : 'text-slate-500'}`}>
+                  {config.label}
+                </p>
               </button>
             )
           })}
         </div>
       )}
 
-      {/* ── Search Bar ─────────────────────────────────────────────────────── */}
+      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
         <Input
-          placeholder="Search by actor, document name, or action…"
+          placeholder="Search events..."
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           className="pl-10 pr-10"
@@ -459,42 +447,39 @@ export function AuditLogTab({ spaceId }: { spaceId: string }) {
         )}
       </div>
 
-      {/* ── Results count ──────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between text-sm text-slate-500">
-        <span>
-          {filtered.length} event{filtered.length !== 1 ? 's' : ''}
-          {searchQuery && ` matching "${searchQuery}"`}
-          {category !== 'all' && ` in ${CATEGORY_CONFIG[category].label}`}
-        </span>
-      </div>
+      {/* Count */}
+      <p className="text-xs text-slate-400">
+        {filtered.length} event{filtered.length !== 1 ? 's' : ''}
+        {searchQuery && ` matching "${searchQuery}"`}
+        {category !== 'all' && ` in ${CATEGORY_CONFIG[category].label}`}
+      </p>
 
-      {/* ── Empty State ────────────────────────────────────────────────────── */}
+      {/* Empty */}
       {filtered.length === 0 && (
-        <div className="bg-white rounded-2xl border p-16 text-center">
-          <Activity className="h-16 w-16 text-slate-200 mx-auto mb-4" />
-          <p className="font-semibold text-slate-700 mb-1">No activity yet</p>
-          <p className="text-sm text-slate-400">
-            {searchQuery
-              ? 'No events match your search'
-              : 'Events will appear here as people interact with this space'}
+        <div className="border rounded-xl bg-white p-12 text-center">
+          <Activity className="h-6 w-6 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm font-medium text-slate-600">No activity yet</p>
+          <p className="text-xs text-slate-400 mt-1">
+            {searchQuery ? 'No events match your search' : 'Events will appear here as people interact with this space'}
           </p>
         </div>
       )}
 
-      {/* ── Timeline Grouped by Date ────────────────────────────────────────── */}
+      {/* Timeline */}
       {Object.entries(groupedEvents).map(([date, dateEvents]) => (
         <div key={date} className="space-y-1">
-          {/* Date separator */}
-          <div className="flex items-center gap-3 py-2">
-            <div className="h-px flex-1 bg-slate-200" />
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">
+
+          {/* Date divider */}
+          <div className="flex items-center gap-3 py-1">
+            <div className="h-px flex-1 bg-slate-100" />
+            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider px-2">
               {date}
             </span>
-            <div className="h-px flex-1 bg-slate-200" />
+            <div className="h-px flex-1 bg-slate-100" />
           </div>
 
-          {/* Events for this date */}
-          <div className="bg-white rounded-2xl border overflow-hidden">
+          {/* Events */}
+          <div className="border rounded-xl bg-white overflow-hidden">
             {dateEvents.map((event, idx) => {
               const isExpanded = expandedId === event.id
               const isLast = idx === dateEvents.length - 1
@@ -503,131 +488,105 @@ export function AuditLogTab({ spaceId }: { spaceId: string }) {
               return (
                 <div key={event.id}>
                   <div
-                    className={`flex items-start gap-4 px-5 py-4 hover:bg-slate-50 transition-colors cursor-pointer ${
+                    className={`flex items-start gap-3 px-4 py-3.5 hover:bg-slate-50 transition-colors cursor-pointer ${
                       !isLast ? 'border-b border-slate-100' : ''
                     } ${isExpanded ? 'bg-slate-50' : ''}`}
                     onClick={() => setExpandedId(isExpanded ? null : event.id)}
                   >
-                    {/* Icon */}
-                    <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 text-base ${catConfig.bg}`}>
-                      {event.icon}
-                    </div>
+                    {/* Category dot */}
+                    <div className={`h-1.5 w-1.5 rounded-full mt-2 flex-shrink-0 ${
+                      event.category === 'documents' ? 'bg-blue-400' :
+                      event.category === 'members'   ? 'bg-purple-400' :
+                      event.category === 'links'     ? 'bg-indigo-400' :
+                      event.category === 'visitors'  ? 'bg-green-400' :
+                      event.category === 'settings'  ? 'bg-orange-400' :
+                      'bg-slate-400'
+                    }`} />
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm text-slate-800 leading-snug">
-                            {event.detail}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            {/* Category badge */}
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${catConfig.bg} ${catConfig.color} ${catConfig.border}`}>
-                              {event.category}
+                      <p className="text-sm text-slate-800 leading-snug">{event.detail}</p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-xs text-slate-400 capitalize">{event.category}</span>
+                        <span className="text-slate-200">·</span>
+                        <span className="text-xs text-slate-400">
+                          {event.actorType === 'owner' ? 'Owner' : 'Visitor'}
+                        </span>
+                        {event.shareLink && (
+                          <>
+                            <span className="text-slate-200">·</span>
+                            <span className="text-xs text-slate-400 font-mono">
+                              {event.shareLink.slice(0, 10)}…
                             </span>
-                            {/* Actor type badge */}
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                              event.actorType === 'owner'
-                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                                : 'bg-slate-100 text-slate-600 border border-slate-200'
-                            }`}>
-                              {event.actorType === 'owner' ? '👑 Owner' : '👤 Visitor'}
-                            </span>
-                            {/* Share link badge */}
-                            {event.shareLink && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium border border-indigo-100">
-                                🔗 {event.shareLink.slice(0, 14)}…
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Timestamp */}
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-xs text-slate-400">{timeAgo(event.timestamp)}</p>
-                          <p className="text-xs text-slate-300 mt-0.5">
-                            {new Date(event.timestamp).toLocaleTimeString('en-US', {
-                              hour: '2-digit', minute: '2-digit'
-                            })}
-                          </p>
-                        </div>
+                          </>
+                        )}
                       </div>
                     </div>
 
-                    {/* Expand chevron */}
-                    <ChevronDown className={`h-4 w-4 text-slate-300 flex-shrink-0 transition-transform mt-0.5 ${
-                      isExpanded ? 'rotate-180' : ''
-                    }`} />
+                    {/* Time + chevron */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="text-right hidden sm:block">
+                        <p className="text-xs text-slate-400">{timeAgo(event.timestamp)}</p>
+                        <p className="text-xs text-slate-300">
+                          {new Date(event.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <p className="text-xs text-slate-400 sm:hidden">
+                        {new Date(event.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      <ChevronDown className={`h-3.5 w-3.5 text-slate-300 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    </div>
                   </div>
 
-                  {/* Expanded detail row */}
+                  {/* Expanded detail */}
                   {isExpanded && (
-                    <div className={`px-5 py-4 bg-slate-50 border-t border-slate-100 ${!isLast ? 'border-b border-slate-100' : ''}`}>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                            Event Details
-                          </p>
-                          <div className="space-y-1.5">
-                            <div className="flex gap-2">
-                              <span className="text-slate-500 w-24 flex-shrink-0">Event</span>
-                              <span className="font-mono text-xs bg-slate-200 px-2 py-0.5 rounded text-slate-700">
-                                {event.event}
-                              </span>
+                    <div className={`px-4 py-4 bg-slate-50 border-t border-slate-100 ${!isLast ? 'border-b border-slate-100' : ''}`}>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Details</p>
+                          {[
+                            { label: 'Event', value: event.event, mono: true },
+                            event.actor ? { label: 'Actor', value: event.actor } : null,
+                            event.documentName ? { label: 'Document', value: event.documentName } : null,
+                            { label: 'Time', value: formatTimestamp(event.timestamp) },
+                          ].filter(Boolean).map((item: any) => (
+                            <div key={item.label} className="flex gap-2">
+                              <span className="text-slate-400 w-20 flex-shrink-0 text-xs">{item.label}</span>
+                              {item.mono ? (
+                                <code className="text-xs bg-slate-200 px-1.5 py-0.5 rounded text-slate-700 truncate">{item.value}</code>
+                              ) : (
+                                <span className="text-xs text-slate-700 truncate">{item.value}</span>
+                              )}
                             </div>
-                            {event.actor && (
-                              <div className="flex gap-2">
-                                <span className="text-slate-500 w-24 flex-shrink-0">Actor</span>
-                                <span className="text-slate-800">{event.actor}</span>
-                              </div>
-                            )}
-                            {event.documentName && (
-                              <div className="flex gap-2">
-                                <span className="text-slate-500 w-24 flex-shrink-0">Document</span>
-                                <span className="text-slate-800 truncate">{event.documentName}</span>
-                              </div>
-                            )}
-                            <div className="flex gap-2">
-                              <span className="text-slate-500 w-24 flex-shrink-0">Time</span>
-                              <span className="text-slate-800">{formatTimestamp(event.timestamp)}</span>
-                            </div>
-                          </div>
+                          ))}
                         </div>
-                        <div>
-                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                            Technical Info
-                          </p>
-                          <div className="space-y-1.5">
-                            {event.ipAddress && (
-                              <div className="flex gap-2">
-                                <span className="text-slate-500 w-24 flex-shrink-0">IP Address</span>
-                                <code className="text-xs bg-slate-200 px-2 py-0.5 rounded text-slate-700">
-                                  {event.ipAddress}
-                                </code>
+
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Technical</p>
+                          {event.ipAddress && (
+                            <div className="flex gap-2">
+                              <span className="text-slate-400 w-20 flex-shrink-0 text-xs">IP</span>
+                              <code className="text-xs bg-slate-200 px-1.5 py-0.5 rounded text-slate-700">{event.ipAddress}</code>
+                            </div>
+                          )}
+                          {event.shareLink && (
+                            <div className="flex gap-2">
+                              <span className="text-slate-400 w-20 flex-shrink-0 text-xs">Link</span>
+                              <code className="text-xs bg-slate-200 px-1.5 py-0.5 rounded text-slate-700 truncate max-w-[180px]">{event.shareLink}</code>
+                            </div>
+                          )}
+                          {Object.entries(event.meta || {}).map(([key, val]) =>
+                            val != null ? (
+                              <div key={key} className="flex gap-2">
+                                <span className="text-slate-400 w-20 flex-shrink-0 text-xs capitalize truncate">
+                                  {key.replace(/([A-Z])/g, ' $1').trim()}
+                                </span>
+                                <span className="text-xs text-slate-600 truncate max-w-[180px]">
+                                  {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                                </span>
                               </div>
-                            )}
-                            {event.shareLink && (
-                              <div className="flex gap-2">
-                                <span className="text-slate-500 w-24 flex-shrink-0">Share Link</span>
-                                <code className="text-xs bg-slate-200 px-2 py-0.5 rounded text-slate-700 truncate max-w-[200px]">
-                                  {event.shareLink}
-                                </code>
-                              </div>
-                            )}
-                            {/* Meta fields */}
-                            {Object.entries(event.meta || {}).map(([key, val]) =>
-                              val != null ? (
-                                <div key={key} className="flex gap-2">
-                                  <span className="text-slate-500 w-24 flex-shrink-0 capitalize">
-                                    {key.replace(/([A-Z])/g, ' $1').trim()}
-                                  </span>
-                                  <span className="text-slate-700 text-xs truncate max-w-[200px]">
-                                    {typeof val === 'object' ? JSON.stringify(val) : String(val)}
-                                  </span>
-                                </div>
-                              ) : null
-                            )}
-                          </div>
+                            ) : null
+                          )}
                         </div>
                       </div>
                     </div>
@@ -641,7 +600,6 @@ export function AuditLogTab({ spaceId }: { spaceId: string }) {
     </div>
   )
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 //  AnalyticsTab-component.tsx
 // 
@@ -805,41 +763,41 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
   return (
     <div className="space-y-6">
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-  <div>
-    <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Deal Analytics</h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Real-time engagement intelligence for <span className="font-medium text-slate-700">{spaceName}</span>
-          </p>
+        <div>
+          <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Analytics</h2>
+          <p className="text-sm text-slate-500 mt-1">{spaceName}</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border font-semibold text-sm ${heatLabel.color}`}>
-            <div className={`h-2 w-2 rounded-full animate-pulse ${
+          <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium ${heatLabel.color}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${
               overview.dealHeatScore >= 70 ? 'bg-red-500' :
               overview.dealHeatScore >= 40 ? 'bg-orange-500' :
               overview.dealHeatScore >= 15 ? 'bg-blue-500' : 'bg-slate-400'
             }`} />
-            {heatLabel.text}
-          </div>
-          <button onClick={fetchAnalytics} className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all" title="Refresh">
+            {overview.dealHeatScore >= 70 ? 'High activity' :
+             overview.dealHeatScore >= 40 ? 'Moderate activity' :
+             overview.dealHeatScore >= 15 ? 'Low activity' : 'No activity'}
+          </span>
+          <button onClick={fetchAnalytics} className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all">
             <RefreshCw className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* ── Overview Stats ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
-         <div className="col-span-2 lg:col-span-1 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-5 text-white">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Deal Heat</p>
-          <div className="flex items-end gap-1 mb-2">
-            <p className="text-4xl font-black">{overview.dealHeatScore}</p>
+      {/* Overview Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="col-span-2 lg:col-span-1 bg-slate-900 rounded-xl p-4 text-white">
+          <p className="text-xs font-medium text-slate-400 mb-3">Deal Score</p>
+          <div className="flex items-end gap-1 mb-3">
+            <p className="text-4xl font-bold">{overview.dealHeatScore}</p>
             <p className="text-slate-400 mb-1 text-sm">/100</p>
           </div>
-          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-700 ${
-                overview.dealHeatScore >= 70 ? 'bg-red-500' :
+                overview.dealHeatScore >= 70 ? 'bg-red-400' :
                 overview.dealHeatScore >= 40 ? 'bg-orange-400' :
                 overview.dealHeatScore >= 15 ? 'bg-blue-400' : 'bg-slate-500'
               }`}
@@ -848,76 +806,46 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border p-5 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-              <Share2 className="h-4 w-4 text-indigo-600" />
+        {[
+          { label: 'Share Links', value: overview.totalShareLinks, icon: Share2 },
+          { label: 'Visitors', value: overview.uniqueVisitors, icon: Users },
+          { label: 'Views', value: overview.totalViews, icon: Eye },
+          { label: 'Downloads', value: overview.totalDownloads, icon: Download },
+        ].map(({ label, value, icon: Icon }) => (
+          <div key={label} className="bg-white rounded-xl border p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium text-slate-500">{label}</p>
+              <Icon className="h-3.5 w-3.5 text-slate-400" />
             </div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Links</p>
+            <p className="text-2xl font-bold text-slate-900">{value}</p>
           </div>
-          <p className="text-3xl font-bold text-slate-900">{overview.totalShareLinks}</p>
-          <p className="text-xs text-slate-500 mt-1">share links created</p>
-        </div>
-
-        <div className="bg-white rounded-2xl border p-5 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Users className="h-4 w-4 text-purple-600" />
-            </div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Visitors</p>
-          </div>
-          <p className="text-3xl font-bold text-slate-900">{overview.uniqueVisitors}</p>
-          <p className="text-xs text-slate-500 mt-1">unique people</p>
-        </div>
-
-        <div className="bg-white rounded-2xl border p-5 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Eye className="h-4 w-4 text-blue-600" />
-            </div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Views</p>
-          </div>
-          <p className="text-3xl font-bold text-slate-900">{overview.totalViews}</p>
-          <p className="text-xs text-slate-500 mt-1">document opens</p>
-        </div>
-
-        <div className="bg-white rounded-2xl border p-5 hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
-              <Download className="h-4 w-4 text-green-600" />
-            </div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Downloads</p>
-          </div>
-          <p className="text-3xl font-bold text-slate-900">{overview.totalDownloads}</p>
-          <p className="text-xs text-slate-500 mt-1">files saved</p>
-        </div>
+        ))}
       </div>
 
-      {/* ── 30-Day Activity Chart ──────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border p-6">
+      {/* Activity Chart */}
+      <div className="bg-white rounded-xl border p-4 lg:p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-slate-900">Activity (Last 30 Days)</h3>
-          <p className="text-xs text-slate-500">{overview.totalEvents} total events</p>
+          <p className="text-sm font-semibold text-slate-700">Last 30 Days</p>
+          <p className="text-xs text-slate-400">{overview.totalEvents} events</p>
         </div>
-        <div className="flex items-end gap-1 h-24">
+        <div className="flex items-end gap-0.5 h-16">
           {dailyVisits.map((day, i) => {
-            const height  = maxDaily > 0 ? (day.count / maxDaily) * 100 : 0
+            const height = maxDaily > 0 ? (day.count / maxDaily) * 100 : 0
             const isToday = i === dailyVisits.length - 1
             return (
-              <div key={day.date} className="flex-1 flex flex-col items-center gap-1 group relative" title={`${day.date}: ${day.count} events`}>
-                <div className="w-full flex items-end justify-center" style={{ height: '80px' }}>
+              <div key={day.date} className="flex-1 group relative" title={`${day.date}: ${day.count}`}>
+                <div className="w-full flex items-end" style={{ height: '64px' }}>
                   <div
-                    className={`w-full rounded-t-sm transition-all duration-300 ${
-                      day.count === 0 ? 'bg-slate-100'
-                      : isToday ? 'bg-purple-600'
-                      : 'bg-purple-300 group-hover:bg-purple-500'
+                    className={`w-full rounded-sm transition-all ${
+                      day.count === 0 ? 'bg-slate-100' :
+                      isToday ? 'bg-slate-900' : 'bg-slate-300 group-hover:bg-slate-500'
                     }`}
-                    style={{ height: `${Math.max(height, day.count > 0 ? 8 : 0)}%` }}
+                    style={{ height: `${Math.max(height, day.count > 0 ? 10 : 0)}%` }}
                   />
                 </div>
                 {day.count > 0 && (
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">
-                    {day.count} events
+                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none z-10">
+                    {day.count}
                   </div>
                 )}
               </div>
@@ -930,493 +858,326 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
         </div>
       </div>
 
-      {/* ── Section Tabs ───────────────────────────────────────────── */}
-       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto max-w-full">
+      {/* Section Tabs */}
+      <div className="flex gap-1 bg-slate-100 p-1 rounded-lg overflow-x-auto">
         {(['links', 'visitors', 'documents', 'timeline'] as const).map(s => (
-  <button
-    key={s}
-    onClick={() => setActiveSection(s)}
-    className={`px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
+          <button
+            key={s}
+            onClick={() => setActiveSection(s)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap flex-shrink-0 capitalize ${
               activeSection === s ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-           {s === 'links'     && `🔗 Share Links (${shareLinks?.length ?? 0})`}
-{s === 'visitors'  && `👥 Visitors (${visitors?.length ?? 0})`}
-{s === 'documents' && `📄 Documents (${documents?.length ?? 0})`}
-            {s === 'timeline'  && `⚡ Activity Feed`}
+            {s === 'links'     && `Links (${shareLinks?.length ?? 0})`}
+            {s === 'visitors'  && `Visitors (${visitors?.length ?? 0})`}
+            {s === 'documents' && `Documents (${documents?.length ?? 0})`}
+            {s === 'timeline'  && `Activity`}
           </button>
         ))}
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════
-          SHARE LINKS TAB — DocSend-style "Most visited links" table
-          ══════════════════════════════════════════════════════════ */}
+      {/* SHARE LINKS */}
       {activeSection === 'links' && (
-        <div className="space-y-4">
-          {/* Section header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-slate-900">Most Visited Links</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Each row = one share link you sent. See exactly which investor is most engaged.
-              </p>
-            </div>
-          </div>
-
+        <div className="space-y-3">
           {shareLinks.length === 0 ? (
-            <div className="bg-white rounded-2xl border p-16 text-center">
-              <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                <Share2 className="h-8 w-8 text-slate-400" />
-              </div>
-              <p className="font-semibold text-slate-700 mb-1">No share links created yet</p>
-              <p className="text-sm text-slate-400">
-                Use "Share with Client" to generate links. Each link tracks separately.
-              </p>
+            <div className="py-16 text-center border rounded-xl bg-white">
+              <Share2 className="h-6 w-6 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-medium text-slate-500">No share links created yet</p>
+              <p className="text-xs text-slate-400 mt-1">Generate a link to start tracking engagement</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border overflow-hidden">
-              {/* Table header */}
-              <div className="grid grid-cols-[2fr_80px_80px_80px_100px_100px_120px_60px] gap-4 px-6 py-3 bg-slate-50 border-b text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                <span>Account / Link</span>
-                <span className="text-center">Visits</span>
-                <span className="text-center">Visitors</span>
-                <span className="text-center">Downloads</span>
-                <span className="text-center">Docs visited</span>
-                <span className="text-center">Last active</span>
-                <span className="text-center">Status</span>
-                <span></span>
-              </div>
+            shareLinks.map((link) => {
+              const sec = securityIcon(link.securityLevel)
+              const isExpanded = expandedLink === link.shareLink
+              const docsLabel = link.totalDocs > 0 ? `${link.docsVisited}/${link.totalDocs}` : `${link.docsVisited}`
 
-              {/* Table rows */}
-              <div className="divide-y divide-slate-100">
-                {shareLinks.map((link) => {
-                  const sec       = securityIcon(link.securityLevel)
-                  const isExpanded = expandedLink === link.shareLink
-                  const docsLabel  = link.totalDocs > 0
-                    ? `${link.docsVisited} / ${link.totalDocs}`
-                    : `${link.docsVisited}`
+              return (
+                <div key={link.shareLink} className="border rounded-xl bg-white overflow-hidden">
+                  {/* Row */}
+                  <div
+                    className="flex items-center gap-3 p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                    onClick={() => setExpandedLink(isExpanded ? null : link.shareLink)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-slate-900 text-sm truncate">
+                          {link.label || 'Untitled Link'}
+                        </p>
+                        {link.isExpired && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600 flex-shrink-0">Expired</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-slate-400">{sec.label}</span>
+                        <span className="text-slate-200">·</span>
+                        <span className="text-xs text-slate-400 font-mono">{link.shareLink.slice(0, 10)}…</span>
+                        <span className="text-slate-200">·</span>
+                        <span className="text-xs text-slate-400">{timeAgo(link.lastActivity)}</span>
+                      </div>
+                    </div>
 
-                  return (
-                    <div key={link.shareLink}>
-                      {/* Main row */}
-                      <div
-                        className={`grid grid-cols-[2fr_80px_80px_80px_100px_100px_120px_60px] gap-4 px-6 py-4 items-center hover:bg-slate-50 transition-colors cursor-pointer ${
-                          isExpanded ? 'bg-slate-50' : ''
-                        }`}
-                        onClick={() => setExpandedLink(isExpanded ? null : link.shareLink)}
-                      >
-                        {/* Account / Label */}
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 text-base ${
-                            link.status === 'hot'  ? 'bg-red-100' :
-                            link.status === 'warm' ? 'bg-orange-100' :
-                            link.status === 'never'? 'bg-slate-100' : 'bg-blue-100'
-                          }`}>
-                            {link.status === 'hot'   ? '🔥' :
-                             link.status === 'warm'  ? '⚡' :
-                             link.status === 'never' ? '💤' : '👁️'}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-slate-900 text-sm truncate">
-                              {link.label || `Share Link`}
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${sec.color}`}>
-                                {sec.icon} {sec.label}
-                              </span>
-                              {link.isExpired && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
-                                  Expired
-                                </span>
-                              )}
-                              <span className="text-xs text-slate-400 font-mono truncate max-w-[100px]">
-                                {link.shareLink.slice(0, 10)}…
-                              </span>
-                            </div>
-                          </div>
-                        </div>
+                    <div className={`text-xs font-medium px-2.5 py-1 rounded-md flex-shrink-0 ${
+                      link.status === 'hot'   ? 'bg-red-50 text-red-600' :
+                      link.status === 'warm'  ? 'bg-orange-50 text-orange-600' :
+                      link.status === 'cold'  ? 'bg-blue-50 text-blue-600' :
+                      'bg-slate-100 text-slate-400'
+                    }`}>
+                      {link.status === 'hot' ? 'Hot' : link.status === 'warm' ? 'Warm' : link.status === 'cold' ? 'Cold' : 'No visits'}
+                    </div>
 
-                        {/* Visits */}
-                        <div className="text-center">
-                          <span className={`text-lg font-bold ${link.visits === 0 ? 'text-slate-300' : 'text-slate-900'}`}>
-                            {link.visits}
-                          </span>
-                        </div>
+                    <ChevronRight className={`h-4 w-4 text-slate-300 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                  </div>
 
-                        {/* Visitors */}
-                        <div className="text-center">
-                          <span className={`text-lg font-bold ${link.visitors === 0 ? 'text-slate-300' : 'text-slate-900'}`}>
-                            {link.visitors}
-                          </span>
-                        </div>
+                  {/* Stats strip */}
+                  <div className="grid grid-cols-4 divide-x border-t bg-slate-50">
+                    {[
+                      { label: 'Visits', value: link.visits },
+                      { label: 'People', value: link.visitors },
+                      { label: 'Downloads', value: link.downloads },
+                      { label: 'Docs', value: docsLabel },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="px-3 py-2 text-center">
+                        <p className={`text-base font-bold ${value === 0 || value === '0' ? 'text-slate-300' : 'text-slate-900'}`}>{value}</p>
+                        <p className="text-xs text-slate-400">{label}</p>
+                      </div>
+                    ))}
+                  </div>
 
-                        {/* Downloads */}
-                        <div className="text-center">
-                          {link.downloads > 0 ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md text-sm font-bold">
-                              <Download className="h-3 w-3" />
-                              {link.downloads}
-                            </span>
-                          ) : (
-                            <span className="text-slate-300 font-bold text-lg">0</span>
-                          )}
-                        </div>
-
-                        {/* Docs visited */}
-                        <div className="text-center">
-                          <span className={`text-sm font-semibold ${link.docsVisited === 0 ? 'text-slate-300' : 'text-slate-900'}`}>
-                            {docsLabel}
-                          </span>
-                          {link.totalDocs > 0 && link.docsVisited > 0 && (
-                            <div className="mt-1 h-1 bg-slate-100 rounded-full overflow-hidden mx-auto w-16">
-                              <div
-                                className="h-full bg-purple-400 rounded-full"
-                                style={{ width: `${(link.docsVisited / link.totalDocs) * 100}%` }}
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Last active */}
-                        <div className="text-center">
-                          <span className={`text-sm ${link.lastActivity ? 'text-slate-700' : 'text-slate-300'}`}>
-                            {timeAgo(link.lastActivity)}
-                          </span>
-                        </div>
-
-                        {/* Status badge */}
-                        <div className="flex justify-center">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                            link.status === 'hot'   ? 'bg-red-100 text-red-700' :
-                            link.status === 'warm'  ? 'bg-orange-100 text-orange-700' :
-                            link.status === 'cold'  ? 'bg-blue-100 text-blue-700' :
-                            'bg-slate-100 text-slate-500'
-                          }`}>
-                            {link.status === 'hot'   && '🔥 Hot'}
-                            {link.status === 'warm'  && '⚡ Warm'}
-                            {link.status === 'cold'  && '❄️ Cold'}
-                            {link.status === 'never' && '💤 No visits'}
-                          </span>
-                        </div>
-
-                        {/* Expand chevron */}
-                        <div className="flex justify-center">
-                          <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                  {/* Expanded */}
+                  {isExpanded && (
+                    <div className="border-t px-4 py-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Visitors</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(link.publicUrl); toast.success('Copied') }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border rounded-lg text-xs text-slate-600 hover:bg-slate-50"
+                          >
+                            <Copy className="h-3 w-3" /> Copy link
+                          </button>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              if (!confirm('Disable this link?')) return
+                              try {
+                                const res = await fetch(`/api/spaces/${spaceId}/public-access`, {
+                                  method: 'PATCH', credentials: 'include',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ shareLink: link.shareLink, updates: { enabled: false } })
+                                })
+                                const data = await res.json()
+                                if (data.success) { toast.success('Link disabled'); fetchAnalytics() }
+                                else toast.error(data.error || 'Failed')
+                              } catch { toast.error('Failed') }
+                            }}
+                            disabled={link.enabled === false}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition-colors ${
+                              link.enabled === false
+                                ? 'bg-slate-50 text-slate-300 border-slate-200 cursor-not-allowed'
+                                : 'text-red-500 border-red-200 hover:bg-red-50'
+                            }`}
+                          >
+                            <X className="h-3 w-3" />
+                            {link.enabled === false ? 'Disabled' : 'Revoke'}
+                          </button>
                         </div>
                       </div>
 
-                      {/* ── Expanded row — per-link visitor breakdown ── */}
-                      {isExpanded && (
-                        <div className="bg-slate-50 border-t px-6 py-4 space-y-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                              Visitors via this link
-                            </p>
-                            {/* Copy link button */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                navigator.clipboard.writeText(link.publicUrl)
-                                toast.success('Link copied!')
-                              }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
-                            >
-                              <Copy className="h-3 w-3" />
-                              Copy Link
-                            </button>
-                            {/* Inside the expanded link row, next to Copy Link button */}
-<button
-  onClick={async (e) => {
-    e.stopPropagation()
-    if (!confirm(`Disable this link? Visitors will no longer be able to access it.`)) return
-    try {
-      const res = await fetch(`/api/spaces/${spaceId}/public-access`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          shareLink: link.shareLink,
-          updates: { enabled: false }
-        })
-      })
-      const data = await res.json()
-      if (data.success) { toast.success('Link disabled'); fetchAnalytics() }
-      else toast.error(data.error || 'Failed to disable')
-    } catch { toast.error('Failed to disable link') }
-  }}
-  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-    link.enabled === false
-      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-      : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-  }`}
-  disabled={link.enabled === false}
->
-  {link.enabled === false ? (
-    <><Lock className="h-3 w-3" /> Disabled</>
-  ) : (
-    <><X className="h-3 w-3" /> Revoke Link</>
-  )}
-</button>
-
-
-                          </div>
-
-                          {/* Visitors who came from this link */}
-                          {(() => {
-                            // Find visitors from timeline that used this shareLink
-                            const linkVisitorEmails = [
-                              ...new Set(
-                                timeline
-                                  .filter(t => t.shareLink === link.shareLink)
-                                  .map(t => t.email)
-                                  .filter(e => e !== 'Anonymous')
-                              )
-                            ]
-
-                            if (linkVisitorEmails.length === 0) {
+                      {(() => {
+                        const emails = [...new Set(
+                          timeline.filter(t => t.shareLink === link.shareLink).map(t => t.email).filter(e => e !== 'Anonymous')
+                        )]
+                        if (emails.length === 0) return (
+                          <p className="text-sm text-slate-400 py-4 text-center">No visitors have used this link yet</p>
+                        )
+                        return (
+                          <div className="space-y-1.5">
+                            {emails.map(email => {
+                              const vd = visitors.find(v => v.email === email)
                               return (
-                                <div className="text-center py-6 text-slate-400">
-                                  <p className="text-sm">No visitors have used this link yet</p>
+                                <div key={email} className="flex items-center gap-3 py-2 border-b last:border-0">
+                                  <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-xs font-semibold text-slate-600">{email.charAt(0).toUpperCase()}</span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm text-slate-900 truncate">{email}</p>
+                                    {vd && <p className="text-xs text-slate-400">{vd.docsViewed} docs · {vd.downloads} downloads · {timeAgo(vd.lastSeen)}</p>}
+                                  </div>
+                                  {vd && (
+                                    <span className={`text-xs font-medium px-2 py-0.5 rounded flex-shrink-0 ${
+                                      vd.status === 'hot'  ? 'bg-red-50 text-red-600' :
+                                      vd.status === 'warm' ? 'bg-orange-50 text-orange-600' :
+                                      vd.status === 'new'  ? 'bg-purple-50 text-purple-600' :
+                                      'bg-slate-100 text-slate-400'
+                                    }`}>{vd.status}</span>
+                                  )}
                                 </div>
                               )
-                            }
-
-                            return (
-                              <div className="space-y-2">
-                                {linkVisitorEmails.map(email => {
-                                  const visitorData = visitors.find(v => v.email === email)
-                                  return (
-                                    <div key={email} className="flex items-center gap-3 bg-white rounded-xl border px-4 py-3">
-                                      <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
-                                        <span className="text-xs font-bold text-white">{email.charAt(0).toUpperCase()}</span>
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-slate-900 truncate">{email}</p>
-                                        {visitorData && (
-                                          <p className="text-xs text-slate-400">
-                                            {visitorData.docsViewed} docs · {visitorData.downloads} downloads · last seen {timeAgo(visitorData.lastSeen)}
-                                          </p>
-                                        )}
-                                      </div>
-                                      {visitorData && (
-                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                                          visitorData.status === 'hot'  ? 'bg-red-100 text-red-700' :
-                                          visitorData.status === 'warm' ? 'bg-orange-100 text-orange-700' :
-                                          visitorData.status === 'new'  ? 'bg-purple-100 text-purple-700' :
-                                          'bg-slate-100 text-slate-500'
-                                        }`}>
-                                          {visitorData.status === 'hot'  && '🔥 Hot'}
-                                          {visitorData.status === 'warm' && '⚡ Warm'}
-                                          {visitorData.status === 'new'  && '✨ New'}
-                                          {visitorData.status === 'cold' && '❄️ Cold'}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            )
-                          })()}
-
-                          {/* Link metadata */}
-                          <div className="flex gap-4 pt-2 text-xs text-slate-400 border-t mt-2">
-                            {link.createdAt && <span>Created {timeAgo(link.createdAt)}</span>}
-                            {link.expiresAt && (
-                              <span className={link.isExpired ? 'text-red-500' : ''}>
-                                {link.isExpired ? 'Expired' : 'Expires'} {new Date(link.expiresAt).toLocaleDateString()}
-                              </span>
-                            )}
-                            <span>{link.securityLevel === 'whitelist' ? '🛡️ Whitelist' : link.securityLevel === 'password' ? '🔒 Password' : '🌐 Open'} access</span>
+                            })}
                           </div>
-                        </div>
-                      )}
+                        )
+                      })()}
+
+                      <div className="flex gap-4 pt-2 text-xs text-slate-400 border-t">
+                        {link.createdAt && <span>Created {timeAgo(link.createdAt)}</span>}
+                        {link.expiresAt && (
+                          <span className={link.isExpired ? 'text-red-400' : ''}>
+                            {link.isExpired ? 'Expired' : 'Expires'} {new Date(link.expiresAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  )
-                })}
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+
+      {/* VISITORS */}
+      {activeSection === 'visitors' && (
+        <div className="space-y-2">
+          {visitors.length === 0 ? (
+            <div className="py-16 text-center border rounded-xl bg-white">
+              <Users className="h-6 w-6 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-medium text-slate-500">No visitors yet</p>
+            </div>
+          ) : visitors.map((v) => (
+            <div key={v.email} className="bg-white border rounded-xl p-4">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-semibold text-slate-600">{v.email.charAt(0).toUpperCase()}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{v.email}</p>
+                    <p className="text-xs text-slate-400">First seen {timeAgo(v.firstSeen)}</p>
+                  </div>
+                </div>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded flex-shrink-0 ${
+                  v.status === 'hot'  ? 'bg-red-50 text-red-600' :
+                  v.status === 'warm' ? 'bg-orange-50 text-orange-600' :
+                  v.status === 'new'  ? 'bg-purple-50 text-purple-600' :
+                  'bg-slate-100 text-slate-500'
+                }`}>{v.status}</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{v.docsViewed}</p>
+                  <p className="text-xs text-slate-400">Docs viewed</p>
+                </div>
+                <div>
+                  <p className={`text-sm font-semibold ${v.downloads > 0 ? 'text-slate-900' : 'text-slate-300'}`}>{v.downloads}</p>
+                  <p className="text-xs text-slate-400">Downloads</p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{timeAgo(v.lastSeen)}</p>
+                  <p className="text-xs text-slate-400">Last seen</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mt-3">
+                <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full ${
+                    v.engagementScore >= 70 ? 'bg-red-400' :
+                    v.engagementScore >= 40 ? 'bg-orange-400' :
+                    v.engagementScore >= 15 ? 'bg-blue-400' : 'bg-slate-300'
+                  }`} style={{ width: `${v.engagementScore}%` }} />
+                </div>
+                <span className="text-xs text-slate-400 w-6 text-right">{v.engagementScore}</span>
               </div>
             </div>
-          )}
+          ))}
         </div>
       )}
 
-      {/* ── VISITORS TABLE ─────────────────────────────────────────── */}
-      {activeSection === 'visitors' && (
-        <div className="bg-white rounded-2xl border overflow-hidden">
-          {visitors.length === 0 ? (
-            <div className="py-16 text-center">
-              <Users className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-              <p className="text-slate-500 font-medium">No visitors yet</p>
-              <p className="text-sm text-slate-400 mt-1">Share your space to start tracking engagement</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b">
-                <tr>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Visitor</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Docs Viewed</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Downloads</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Last Seen</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Engagement</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {visitors.map((v) => (
-                  <tr key={v.email} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
-                          <span className="text-sm font-bold text-white">{v.email.charAt(0).toUpperCase()}</span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-slate-900 text-sm">{v.email}</p>
-                          <p className="text-xs text-slate-400">First seen {timeAgo(v.firstSeen)}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-semibold text-slate-900">{v.docsViewed}</span>
-                      <span className="text-xs text-slate-400 ml-1">docs</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {v.downloads > 0 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md text-xs font-medium">
-                          <Download className="h-3 w-3" />{v.downloads}
-                        </span>
-                      ) : <span className="text-xs text-slate-400">—</span>}
-                    </td>
-                    <td className="px-6 py-4"><span className="text-sm text-slate-700">{timeAgo(v.lastSeen)}</span></td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden w-24">
-                          <div
-                            className={`h-full rounded-full ${
-                              v.engagementScore >= 70 ? 'bg-red-500' :
-                              v.engagementScore >= 40 ? 'bg-orange-400' :
-                              v.engagementScore >= 15 ? 'bg-blue-400' : 'bg-slate-300'
-                            }`}
-                            style={{ width: `${v.engagementScore}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-semibold text-slate-600 w-8">{v.engagementScore}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        v.status === 'hot'  ? 'bg-red-100 text-red-700' :
-                        v.status === 'warm' ? 'bg-orange-100 text-orange-700' :
-                        v.status === 'new'  ? 'bg-purple-100 text-purple-700' :
-                        'bg-slate-100 text-slate-600'
-                      }`}>
-                        {v.status === 'hot' && '🔥'}{v.status === 'warm' && '⚡'}{v.status === 'new' && '✨'}{v.status === 'cold' && '❄️'}
-                        {v.status.charAt(0).toUpperCase() + v.status.slice(1)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
-      {/* ── DOCUMENTS TABLE ────────────────────────────────────────── */}
+      {/* DOCUMENTS */}
       {activeSection === 'documents' && (
-        <div className="bg-white rounded-2xl border overflow-hidden">
+        <div className="space-y-2">
           {documents.length === 0 ? (
-            <div className="py-16 text-center">
-              <FileText className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-              <p className="text-slate-500 font-medium">No document activity yet</p>
+            <div className="py-16 text-center border rounded-xl bg-white">
+              <FileText className="h-6 w-6 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-medium text-slate-500">No document activity yet</p>
             </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b">
-                <tr>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Document</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Views</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Unique Viewers</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Downloads</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Last Viewed</th>
-                  <th className="text-left px-6 py-4 text-xs font-semibold text-slate-600 uppercase tracking-wider">Interest</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {documents.map((doc, idx) => {
-                  const maxViews    = documents[0]?.views || 1
-                  const interestPct = Math.round((doc.views / maxViews) * 100)
-                  return (
-                    <tr key={doc.documentId} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 ${idx === 0 ? 'bg-yellow-100' : 'bg-red-100'}`}>
-                            {idx === 0 ? <span className="text-base">🏆</span> : <FileText className="h-4 w-4 text-red-600" />}
-                          </div>
-                          <p className="font-medium text-slate-900 text-sm truncate max-w-[200px]">{doc.documentName}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4"><span className="text-sm font-bold text-slate-900">{doc.views}</span></td>
-                      <td className="px-6 py-4"><span className="text-sm text-slate-700">{doc.uniqueViewers}</span></td>
-                      <td className="px-6 py-4">
-                        {doc.downloads > 0 ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded-md text-xs font-medium">
-                            <Download className="h-3 w-3" />{doc.downloads}
-                          </span>
-                        ) : <span className="text-xs text-slate-400">—</span>}
-                      </td>
-                      <td className="px-6 py-4"><span className="text-sm text-slate-600">{timeAgo(doc.lastViewed)}</span></td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-purple-500 rounded-full" style={{ width: `${interestPct}%` }} />
-                          </div>
-                          <span className="text-xs text-slate-500">{interestPct}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
+          ) : documents.map((doc, idx) => {
+            const maxViews = documents[0]?.views || 1
+            const interestPct = Math.round((doc.views / maxViews) * 100)
+            return (
+              <div key={doc.documentId} className="bg-white border rounded-xl p-4">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                    <FileText className="h-4 w-4 text-slate-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-slate-900 truncate">{doc.documentName}</p>
+                      {idx === 0 && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 flex-shrink-0">Top</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">Last viewed {timeAgo(doc.lastViewed)}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 pt-3 border-t">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{doc.views}</p>
+                    <p className="text-xs text-slate-400">Views</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{doc.uniqueViewers}</p>
+                    <p className="text-xs text-slate-400">Viewers</p>
+                  </div>
+                  <div>
+                    <p className={`text-sm font-semibold ${doc.downloads > 0 ? 'text-slate-900' : 'text-slate-300'}`}>{doc.downloads}</p>
+                    <p className="text-xs text-slate-400">Downloads</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 mt-3">
+                  <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-slate-400 rounded-full" style={{ width: `${interestPct}%` }} />
+                  </div>
+                  <span className="text-xs text-slate-400 w-8 text-right">{interestPct}%</span>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {/* ── ACTIVITY TIMELINE ──────────────────────────────────────── */}
+      {/* ACTIVITY TIMELINE */}
       {activeSection === 'timeline' && (
-        <div className="bg-white rounded-2xl border overflow-hidden">
+        <div className="border rounded-xl bg-white overflow-hidden">
           {timeline.length === 0 ? (
             <div className="py-16 text-center">
-              <Activity className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-              <p className="text-slate-500 font-medium">No activity yet</p>
+              <Activity className="h-6 w-6 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm font-medium text-slate-500">No activity yet</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
               {timeline.map((event) => {
-                const { label, color, icon } = eventLabel(event.event)
-                // Find which link label this came from
-                const linkInfo = event.shareLink
-                  ? shareLinks.find(l => l.shareLink === event.shareLink)
-                  : null
+                const { label } = eventLabel(event.event)
+                const linkInfo = event.shareLink ? shareLinks.find(l => l.shareLink === event.shareLink) : null
                 return (
-                  <div key={event.id} className="flex items-start gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm ${color}`}>
-                      {icon}
-                    </div>
+                  <div key={event.id} className="flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
+                    <div className="h-1.5 w-1.5 rounded-full bg-slate-300 mt-2 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-slate-900 text-sm">{event.email}</span>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>{label}</span>
+                      <div className="flex items-baseline gap-1.5 flex-wrap">
+                        <span className="text-sm font-medium text-slate-900 truncate">{event.email}</span>
+                        <span className="text-xs text-slate-500">{label.toLowerCase()}</span>
                         {event.documentName && (
-                          <span className="text-xs text-slate-500 truncate max-w-[200px]">"{event.documentName}"</span>
-                        )}
-                        {/* Show which link they came from */}
-                        {linkInfo && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium">
-                            🔗 {linkInfo.label || `Link ${linkInfo.shareLink.slice(0, 6)}…`}
-                          </span>
+                          <span className="text-xs text-slate-400 truncate max-w-[160px]">{event.documentName}</span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">{timeAgo(event.timestamp)}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-slate-400">{timeAgo(event.timestamp)}</span>
+                        {linkInfo && (
+                          <span className="text-xs text-slate-400">via {linkInfo.label || 'link'}</span>
+                        )}
+                      </div>
                     </div>
                     <span className="text-xs text-slate-400 flex-shrink-0">
                       {new Date(event.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
@@ -1429,17 +1190,17 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
         </div>
       )}
 
-      {/* ── Hot visitor alert ──────────────────────────────────────── */}
+      {/* High engagement alert */}
       {visitors.filter(v => v.status === 'hot').length > 0 && (
-        <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-2xl p-4">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🔥</span>
+        <div className="border border-slate-200 rounded-xl p-4 bg-white">
+          <div className="flex items-start gap-3">
+            <div className="h-2 w-2 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
             <div>
-              <p className="font-semibold text-red-900 text-sm">
-                {visitors.filter(v => v.status === 'hot').length} hot visitor{visitors.filter(v => v.status === 'hot').length > 1 ? 's' : ''} — follow up now!
+              <p className="text-sm font-semibold text-slate-900">
+                {visitors.filter(v => v.status === 'hot').length} highly engaged visitor{visitors.filter(v => v.status === 'hot').length > 1 ? 's' : ''}
               </p>
-              <p className="text-xs text-red-700 mt-0.5">
-                {visitors.filter(v => v.status === 'hot').map(v => v.email).join(', ')} {visitors.filter(v => v.status === 'hot').length === 1 ? 'is' : 'are'} highly engaged. Strike while it's hot.
+              <p className="text-xs text-slate-500 mt-0.5">
+                {visitors.filter(v => v.status === 'hot').map(v => v.email).join(', ')}
               </p>
             </div>
           </div>
@@ -1449,7 +1210,6 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
     </div>
   )
 }
-
 
 // ADD this helper function above SpaceDetailPage:
 function OwnerFolderTree({
@@ -3857,42 +3617,41 @@ const fetchFolders = async () => {
         {/* Recent Documents */}
         <div>
           
-          <div className="flex items-center justify-between mb-4">
-            
+         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <h2 className="text-lg font-semibold text-slate-900">Recent Documents</h2>
-           <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {canShareSpace && (
-  <Button
-    onClick={handleShareWithClient}
-    variant="outline"
-    className="gap-2 bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200 hover:text-sky-800 hover:border-sky-400"
-  >
-    <Share2 className="h-4 w-4" />
-    Share
-  </Button>
-)}
-          <Button
-  variant={showUnfiledOnly ? 'default' : 'outline'}
-  size="sm"
-  onClick={() => {
-    setShowUnfiledOnly(!showUnfiledOnly);
-    setSelectedFolder(null); // Clear folder selection when toggling filter
-  }}
-  className="gap-2"
->
-  <FileText className="h-4 w-4" />
-  {showUnfiledOnly ? 'Show All' : 'Unfiled Only'}
-</Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setActiveTab('folders')}
-            className="gap-2"
-          >
-            <Folder className="h-4 w-4" />
-            View All Folders
-          </Button>
-        </div>
+                <Button
+                  onClick={handleShareWithClient}
+                  variant="outline"
+                  className="gap-2 bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200 hover:text-sky-800 hover:border-sky-400 flex-1 sm:flex-none justify-center"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share
+                </Button>
+              )}
+              <Button
+                variant={showUnfiledOnly ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  setShowUnfiledOnly(!showUnfiledOnly);
+                  setSelectedFolder(null);
+                }}
+                className="gap-2 flex-1 sm:flex-none justify-center"
+              >
+                <FileText className="h-4 w-4" />
+                {showUnfiledOnly ? 'Show All' : 'Unfiled Only'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab('folders')}
+                className="gap-2 flex-1 sm:flex-none justify-center"
+              >
+                <Folder className="h-4 w-4" />
+                View All Folders
+              </Button>
+            </div>
           </div>
           
           {documents.length === 0 ? (
@@ -3908,20 +3667,107 @@ const fetchFolders = async () => {
                 Upload Document
               </Button>
             </div>
-          ) : (
-            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b">
+           ) : (
+            <>
+              {/* Mobile: stacked cards */}
+              <div className="lg:hidden divide-y divide-slate-100">
+                {getFilteredDocuments()
+                  .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
+                  .slice(0, 10)
+                  .map((doc) => (
+                    <div key={`mobile-home-${doc.id}`} className="flex items-center gap-3 py-3 px-1">
+                      <div className="h-9 w-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                        <FileText className="h-4 w-4 text-red-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900 text-sm truncate">{doc.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {doc.folder ? (
+                            <span className="text-xs text-blue-600 flex items-center gap-1">
+                              <Folder className="h-3 w-3" />
+                              {folders.find(f => f.id === doc.folder)?.name || 'Folder'}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400">Unfiled</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-xs text-slate-500 flex items-center gap-1"><Eye className="h-3 w-3" />{doc.views}</span>
+                          <span className="text-xs text-slate-500 flex items-center gap-1"><Download className="h-3 w-3" />{doc.downloads}</span>
+                          {doc.signatureRequestId && (
+                            <span className={`text-xs font-medium ${doc.signatureStatus === 'completed' ? 'text-green-600' : 'text-yellow-600'}`}>
+                              {doc.signatureStatus === 'completed' ? '✅ Signed' : '🖊️ Pending'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 bg-white">
+                          <DropdownMenuItem onClick={() => window.open(`/api/spaces/${params.id}/files/${doc.id}/view`, '_blank')}>
+                            <Eye className="mr-2 h-4 w-4" />View
+                          </DropdownMenuItem>
+                          {doc.canDownload !== false ? (
+                            <DropdownMenuItem onClick={async () => {
+                              const response = await fetch(`/api/spaces/${params.id}/files/${doc.id}/download`, { credentials: 'include' })
+                              const blob = await response.blob()
+                              const url = window.URL.createObjectURL(blob)
+                              const a = document.createElement('a'); a.href = url; a.download = doc.name
+                              document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url); document.body.removeChild(a)
+                            }}>
+                              <Download className="mr-2 h-4 w-4" />Download
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem disabled className="text-slate-400"><Lock className="mr-2 h-4 w-4" />Restricted</DropdownMenuItem>
+                          )}
+                          {canEdit && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => router.push(`/documents/${doc.id}/signature?mode=send&returnTo=/spaces/${params.id}`)}>
+                                <FileSignature className="mr-2 h-4 w-4" />Send for Signature
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setSelectedFile(doc); setNewFilename(doc.name); setShowRenameDialog(true) }}>
+                                <Edit className="mr-2 h-4 w-4" />Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setSelectedFile(doc); setShowMoveDialog(true) }}>
+                                <Activity className="mr-2 h-4 w-4" />Move to Folder
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {canDelete && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteFile(doc.id, doc.name)}>
+                                <Trash2 className="mr-2 h-4 w-4" />Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ))}
+              </div>
+
+              {/* Desktop: clean table, no card wrapper */}
+              <table className="w-full hidden lg:table">
+                <thead className="border-b border-slate-100">
                   <tr>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Name</th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Folder</th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Activity</th>
-                    <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Last updated</th>
-                    <th className="text-right px-6 py-3"></th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider w-10">
+                      <input type="checkbox" className="rounded" checked={selectAll} onChange={handleSelectAll} />
+                    </th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Folder</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Activity</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">Last updated</th>
+                    <th className="text-right px-4 py-3"></th>
                   </tr>
                 </thead>
-                
-                <tbody className="divide-y">
+
+                <tbody className="divide-y divide-slate-100">
   {getFilteredDocuments() // ✅ Use the filtered documents
     .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
     .slice(0, 10)
@@ -4127,7 +3973,7 @@ const fetchFolders = async () => {
     ))}
 </tbody>
               </table>
-            </div>
+             </>
           )}
         </div>
       </div>
@@ -4521,18 +4367,14 @@ const fetchFolders = async () => {
   </div>
 )}
 
-            {activeTab === 'qa' && (
+           {activeTab === 'qa' && (
   <div>
-    {/* Header */}
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Q&A</h2>
-        <p className="text-sm text-slate-600 mt-1">
-          Questions from portal visitors
-        </p>
+        <h2 className="text-xl font-bold text-slate-900">Q&A</h2>
+        <p className="text-sm text-slate-500 mt-1">Questions from portal visitors</p>
       </div>
       <div className="flex items-center gap-2">
-        {/* Filter tabs */}
         <div className="flex items-center bg-slate-100 rounded-lg p-1 gap-1">
           {(['all', 'unanswered', 'answered'] as const).map(f => (
             <button
@@ -4546,7 +4388,7 @@ const fetchFolders = async () => {
             >
               {f}
               {f === 'unanswered' && qaComments.filter(c => !c.reply).length > 0 && (
-                <span className="ml-1.5 h-4 w-4 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-xs">
+                <span className="ml-1.5 inline-flex items-center justify-center h-4 w-4 rounded-full bg-red-500 text-white text-xs">
                   {qaComments.filter(c => !c.reply).length}
                 </span>
               )}
@@ -4556,7 +4398,6 @@ const fetchFolders = async () => {
         <button
           onClick={fetchQAComments}
           className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all"
-          title="Refresh"
         >
           <RefreshCw className={`h-4 w-4 ${qaLoading ? 'animate-spin' : ''}`} />
         </button>
@@ -4565,18 +4406,16 @@ const fetchFolders = async () => {
 
     {qaLoading ? (
       <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
       </div>
     ) : qaComments.length === 0 ? (
-      <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
-        <MessageSquare className="h-16 w-16 text-slate-200 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">No questions yet</h3>
-        <p className="text-sm text-slate-500">
-          Questions from portal visitors will appear here
-        </p>
+      <div className="border rounded-xl bg-white p-12 text-center">
+        <MessageSquare className="h-6 w-6 text-slate-300 mx-auto mb-3" />
+        <p className="text-sm font-medium text-slate-600">No questions yet</p>
+        <p className="text-xs text-slate-400 mt-1">Questions from portal visitors will appear here</p>
       </div>
     ) : (
-     <div className="space-y-3">
+      <div className="space-y-3">
         {(() => {
           const groupedComments = qaComments
             .filter(c => {
@@ -4593,81 +4432,78 @@ const fetchFolders = async () => {
 
           const entries = Object.entries(groupedComments)
 
-          if (entries.length === 0) {
-            return (
-              <div className="text-center py-12 text-slate-400">
-                <MessageSquare className="h-10 w-10 mx-auto mb-2 text-slate-200" />
-                <p className="text-sm">No {qaFilter} questions</p>
-              </div>
-            )
-          }
+          if (entries.length === 0) return (
+            <div className="border rounded-xl bg-white p-10 text-center">
+              <p className="text-sm text-slate-400">No {qaFilter} questions</p>
+            </div>
+          )
 
           return entries.map(([email, investorComments]) => {
-            const firstComment = investorComments[0]
             const unansweredCount = investorComments.filter(c => !c.reply).length
+            const firstComment = investorComments[0]
             return (
-              <div key={email} className="border rounded-xl overflow-hidden shadow-sm">
-                {/* Investor header */}
-                <div className={`px-4 py-2.5 flex items-center gap-3 ${
-                  unansweredCount > 0 ? 'bg-orange-50 border-b border-orange-100' : 'bg-slate-50 border-b'
-                }`}>
-                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-bold text-white">{email.charAt(0).toUpperCase()}</span>
+              <div key={email} className="border rounded-xl overflow-hidden bg-white">
+                {/* Visitor header */}
+                <div className="flex items-center gap-3 px-4 py-3 border-b bg-slate-50">
+                  <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-semibold text-slate-600">{email.charAt(0).toUpperCase()}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-semibold text-slate-900">{email}</span>
+                    <p className="text-sm font-medium text-slate-900 truncate">{email}</p>
                     {firstComment.linkLabel && (
-                      <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium">
-                        🔗 {firstComment.linkLabel}
-                      </span>
+                      <p className="text-xs text-slate-400">via {firstComment.linkLabel}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs text-slate-500">{investorComments.length} message{investorComments.length !== 1 ? 's' : ''}</span>
+                    <span className="text-xs text-slate-400">{investorComments.length} message{investorComments.length !== 1 ? 's' : ''}</span>
                     {unansweredCount > 0 && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-orange-500 text-white text-xs font-bold">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-900 text-white text-xs font-medium">
                         {unansweredCount} new
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* Individual messages */}
-                <div className="divide-y divide-slate-100 bg-white">
+                {/* Messages */}
+                <div className="divide-y divide-slate-100">
                   {investorComments.map(comment => (
-                    <div key={comment.id} className={`p-4 ${!comment.reply ? 'border-l-4 border-l-orange-400' : 'border-l-4 border-l-green-400'}`}>
+                    <div
+                      key={comment.id}
+                      className={`p-4 ${!comment.reply ? 'border-l-2 border-l-slate-900' : 'border-l-2 border-l-slate-200'}`}
+                    >
                       {/* Document tag */}
                       {comment.documentId !== 'general' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-100 text-xs text-blue-600 mb-2">
+                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-100 text-xs text-slate-600 mb-2">
                           <FileText className="h-3 w-3" />
                           {comment.documentName}
-                        </span>
+                        </div>
                       )}
 
-                      <p className="text-sm text-slate-700 mb-1">{comment.message}</p>
-                      <p className="text-xs text-slate-400">
+                      {/* Message */}
+                      <p className="text-sm text-slate-800 leading-relaxed">{comment.message}</p>
+                      <p className="text-xs text-slate-400 mt-1.5">
                         {new Date(comment.createdAt).toLocaleDateString('en-US', {
                           month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
                         })}
                       </p>
 
+                      {/* Reply */}
                       {comment.reply ? (
-                        <div className="mt-3 ml-4 bg-blue-50 border border-blue-100 rounded-xl p-3">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <div className="h-5 w-5 rounded-full bg-blue-600 flex items-center justify-center">
-                              <span className="text-xs font-bold text-white">Y</span>
-                            </div>
-                            <span className="text-xs font-semibold text-blue-700">You replied</span>
+                        <div className="mt-3 ml-3 sm:ml-6 border rounded-lg p-3 bg-slate-50">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-medium text-slate-700">Your reply</p>
                             {comment.repliedAt && (
-                              <span className="text-xs text-blue-400 ml-auto">
-                                {new Date(comment.repliedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              </span>
+                              <p className="text-xs text-slate-400">
+                                {new Date(comment.repliedAt).toLocaleDateString('en-US', {
+                                  month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                                })}
+                              </p>
                             )}
                           </div>
-                          <p className="text-sm text-blue-900">{comment.reply}</p>
+                          <p className="text-sm text-slate-700">{comment.reply}</p>
                         </div>
                       ) : replyingTo === comment.id ? (
-                        <div className="mt-3 ml-4 space-y-2">
+                        <div className="mt-3 ml-3 sm:ml-6 space-y-2">
                           <textarea
                             autoFocus
                             value={replyText}
@@ -4676,32 +4512,35 @@ const fetchFolders = async () => {
                               if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(comment.id) }
                               if (e.key === 'Escape') { setReplyingTo(null); setReplyText('') }
                             }}
-                            placeholder="Type your reply… (Enter to send)"
+                            placeholder="Write a reply..."
                             rows={3}
-                            className="w-full text-sm px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/10 resize-none"
+                            className="w-full text-sm px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-200 resize-none"
                           />
-                          <div className="flex gap-2 justify-end">
+                          <div className="flex items-center gap-2 justify-end">
                             <button
                               onClick={() => { setReplyingTo(null); setReplyText('') }}
-                              className="px-3 py-1.5 text-xs text-slate-600 border border-slate-200 rounded-lg hover:border-slate-400"
+                              className="px-3 py-1.5 text-xs text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50"
                             >
                               Cancel
                             </button>
                             <button
                               onClick={() => handleReply(comment.id)}
                               disabled={sendingReply || !replyText.trim()}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg disabled:opacity-40"
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 disabled:opacity-40"
                             >
-                              {sendingReply ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…</> : <><Send className="h-3.5 w-3.5" /> Reply</>}
+                              {sendingReply
+                                ? <><Loader2 className="h-3 w-3 animate-spin" /> Sending</>
+                                : <><Send className="h-3 w-3" /> Reply</>
+                              }
                             </button>
                           </div>
                         </div>
                       ) : (
                         <button
                           onClick={() => { setReplyingTo(comment.id); setReplyText('') }}
-                          className="mt-2 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800"
+                          className="mt-2 ml-3 sm:ml-6 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                         >
-                          <Send className="h-3.5 w-3.5" /> Reply
+                          <Send className="h-3 w-3" /> Reply
                         </button>
                       )}
                     </div>
@@ -4712,27 +4551,34 @@ const fetchFolders = async () => {
           })
         })()}
       </div>
-      )}
-      </div>
+    )}
+  </div>
 )}
-
 
 {activeTab === 'members' && (
   <div>
-    {/* Header */}
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900">Members</h2>
-        <p className="text-sm text-slate-600 mt-1">{contacts.length} people have access to this space</p>
+        <h2 className="text-xl font-bold text-slate-900">Members</h2>
+        <p className="text-sm text-slate-500 mt-1">{contacts.length} people have access</p>
       </div>
       {canManageContacts && (
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowBulkInviteDialog(true)} className="gap-2">
-            <Users className="h-4 w-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowBulkInviteDialog(true)}
+            className="gap-2 text-xs flex-1 sm:flex-none justify-center"
+          >
+            <Users className="h-3.5 w-3.5" />
             Bulk Invite
           </Button>
-          <Button onClick={() => setShowAddContactDialog(true)} className="gap-2 bg-slate-900 hover:bg-slate-800 text-white">
-            <Plus className="h-4 w-4" />
+          <Button
+            size="sm"
+            onClick={() => setShowAddContactDialog(true)}
+            className="gap-2 text-xs bg-slate-900 hover:bg-slate-800 text-white flex-1 sm:flex-none justify-center"
+          >
+            <Plus className="h-3.5 w-3.5" />
             Add Member
           </Button>
         </div>
@@ -4740,135 +4586,130 @@ const fetchFolders = async () => {
     </div>
 
     {contacts.length === 0 ? (
-      <div className="bg-white rounded-xl border p-12 text-center">
-        <Users className="h-16 w-16 text-slate-200 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">No members yet</h3>
-        <p className="text-sm text-slate-500 mb-6">Invite people to collaborate in this space</p>
+      <div className="border rounded-xl bg-white p-12 text-center">
+        <Users className="h-6 w-6 text-slate-300 mx-auto mb-3" />
+        <p className="text-sm font-medium text-slate-600">No members yet</p>
+        <p className="text-xs text-slate-400 mt-1 mb-4">Invite people to collaborate in this space</p>
         {canManageContacts && (
-          <Button onClick={() => setShowAddContactDialog(true)} className="gap-2 bg-slate-900 hover:bg-slate-800 text-white">
-            <Plus className="h-4 w-4" />
+          <Button
+            size="sm"
+            onClick={() => setShowAddContactDialog(true)}
+            className="gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs"
+          >
+            <Plus className="h-3.5 w-3.5" />
             Add First Member
           </Button>
         )}
       </div>
     ) : (
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-slate-50 border-b">
-            <tr>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Member</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Role</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Added</th>
-              {canManageContacts && <th className="text-right px-6 py-3"></th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {/* Owner row */}
-            <tr className="bg-purple-50/40">
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-semibold">
-                    {user?.email?.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-900">{user?.email}</p>
-                    <p className="text-xs text-slate-500">Space owner</p>
-                  </div>
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border bg-purple-100 text-purple-700 border-purple-300 text-xs font-semibold">
-                  👑 Owner
-                </span>
-              </td>
-              <td className="px-6 py-4">
-                <span className="text-sm text-slate-500">—</span>
-              </td>
-              {canManageContacts && <td className="px-6 py-4"></td>}
-            </tr>
+      <div className="border rounded-xl bg-white overflow-hidden">
 
-            {/* Contacts */}
-            {contacts.map((contact) => (
-              <tr key={contact.email} className="hover:bg-slate-50">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold">
-                      {contact.email.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-900">{contact.email}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-semibold ${
-                    contact.role === 'admin' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                    contact.role === 'editor' ? 'bg-green-100 text-green-700 border-green-300' :
-                    'bg-slate-100 text-slate-700 border-slate-300'
-                  }`}>
-                    {contact.role === 'admin' ? '⚡' : contact.role === 'editor' ? '✏️' : '👁️'} {contact.role.charAt(0).toUpperCase() + contact.role.slice(1)}
+        {/* Owner row */}
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b bg-slate-50">
+          <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-semibold text-white">
+              {user?.email?.charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-slate-900 truncate">{user?.email}</p>
+            <p className="text-xs text-slate-400">Space owner</p>
+          </div>
+          <span className="text-xs font-medium px-2 py-0.5 rounded bg-slate-900 text-white flex-shrink-0">
+            Owner
+          </span>
+        </div>
+
+        {/* Members list */}
+        <div className="divide-y divide-slate-100">
+          {contacts.map((contact) => (
+            <div key={contact.email} className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 transition-colors">
+              <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-semibold text-slate-600">
+                  {contact.email.charAt(0).toUpperCase()}
+                </span>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900 truncate">{contact.email}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-slate-400 capitalize">{contact.role}</span>
+                  <span className="text-slate-200">·</span>
+                  <span className="text-xs text-slate-400">
+                    Added {new Date(contact.addedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className="text-sm text-slate-500">
-                    {new Date(contact.addedAt).toLocaleDateString()}
-                  </span>
-                </td>
-                {canManageContacts && (
-                  <td className="px-6 py-4 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 bg-white">
-                {contact.invitationStatus === 'pending' && (
-    <DropdownMenuItem onClick={async () => {
-      try {
-        const res = await fetch(`/api/spaces/${params.id}/contacts`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: contact.email, role: contact.role, resend: true })
-        })
-        const data = await res.json()
-        if (data.success) toast.success(`Invitation resent to ${contact.email}`)
-        else toast.error(data.error || 'Failed to resend')
-      } catch { toast.error('Failed to resend invitation') }
-    }}>
-      <Mail className="mr-2 h-4 w-4" />
-      Resend Invite
-    </DropdownMenuItem>
-  )}
-  <DropdownMenuSeparator />
-  <DropdownMenuItem className="text-red-600" onClick={async () => {
-    if (!confirm(`Remove ${contact.email}?`)) return
-    try {
-      const res = await fetch(`/api/spaces/${params.id}/members/${contact.email}`, {
-        method: 'DELETE', credentials: 'include'
-      })
-      const data = await res.json()
-      if (data.success) { toast.success('Member removed'); fetchContacts(); }
-      else toast.error(data.error || 'Failed to remove')
-    } catch { toast.error('Failed to remove member') }
-  }}>
-    <Trash2 className="mr-2 h-4 w-4" />
-    Remove
-  </DropdownMenuItem>
-</DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  {contact.invitationStatus === 'pending' && (
+                    <>
+                      <span className="text-slate-200">·</span>
+                      <span className="text-xs text-orange-500">Pending</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {canManageContacts && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44 bg-white">
+                    {contact.invitationStatus === 'pending' && (
+                      <>
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/spaces/${params.id}/contacts`, {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email: contact.email, role: contact.role, resend: true })
+                              })
+                              const data = await res.json()
+                              if (data.success) toast.success(`Invitation resent`)
+                              else toast.error(data.error || 'Failed to resend')
+                            } catch { toast.error('Failed to resend') }
+                          }}
+                        >
+                          <Mail className="mr-2 h-3.5 w-3.5" />
+                          Resend Invite
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                      </>
+                    )}
+                    <DropdownMenuItem
+                      className="text-red-600"
+                      onClick={async () => {
+                        if (!confirm(`Remove ${contact.email}?`)) return
+                        try {
+                          const res = await fetch(`/api/spaces/${params.id}/members/${contact.email}`, {
+                            method: 'DELETE', credentials: 'include'
+                          })
+                          const data = await res.json()
+                          if (data.success) { toast.success('Member removed'); fetchContacts() }
+                          else toast.error(data.error || 'Failed to remove')
+                        } catch { toast.error('Failed to remove member') }
+                      }}
+                    >
+                      <Trash2 className="mr-2 h-3.5 w-3.5" />
+                      Remove
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Footer count */}
+        <div className="px-4 py-3 border-t bg-slate-50">
+          <p className="text-xs text-slate-400">{contacts.length + 1} total member{contacts.length + 1 !== 1 ? 's' : ''} including owner</p>
+        </div>
       </div>
     )}
   </div>
 )}
-
             {activeTab === 'analytics' && (
   <AnalyticsTab spaceId={params.id as string} spaceName={space?.name} />
 )}
