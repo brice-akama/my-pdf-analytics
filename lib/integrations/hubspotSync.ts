@@ -345,3 +345,77 @@ export async function isHubSpotConnected(userId: string): Promise<boolean> {
     return false;
   }
 }
+
+
+// ════════════════════════════════════════════════════════════════
+// SYNC 4 — Portal/Space Event (portal_enter, revisit, doc view, download)
+// ════════════════════════════════════════════════════════════════
+export async function syncPortalEventToHubSpot({
+  userId,
+  visitorEmail,
+  spaceName,
+  event,
+  documentName,
+  isRevisit,
+  visitCount,
+}: {
+  userId: string;
+  visitorEmail: string;
+  spaceName: string;
+  event: 'portal_enter' | 'revisit' | 'document_view' | 'download';
+  documentName?: string;
+  isRevisit?: boolean;
+  visitCount?: number;
+}) {
+  if (!visitorEmail) return { success: false, reason: 'no_email' };
+
+  try {
+    const token = await getValidHubSpotToken(userId);
+    const contactId = await findHubSpotContact(token, visitorEmail);
+
+    if (!contactId) {
+      console.log(`⚠️ HubSpot: no contact found for ${visitorEmail} — skipping`);
+      return { success: false, reason: 'contact_not_in_hubspot' };
+    }
+
+    const eventConfig: Record<string, { emoji: string; title: string; body: string }> = {
+      portal_enter: {
+        emoji: '👁️',
+        title: 'Space Opened',
+        body: `${visitorEmail} opened your space for the first time.\n\n• Space: ${spaceName}\n• Time: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}\n\n💡 Reach out while they're browsing for best response rate.`,
+      },
+      revisit: {
+        emoji: '🔄',
+        title: 'Space Revisited',
+        body: `${visitorEmail} returned to your space${visitCount ? ` (visit #${visitCount})` : ''}.\n\n• Space: ${spaceName}\n• Time: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}\n\n⚡ Returning visitor — high intent signal. Follow up now.`,
+      },
+      document_view: {
+        emoji: '📄',
+        title: 'Document Viewed',
+        body: `${visitorEmail} viewed a document in your space.\n\n• Space: ${spaceName}\n• Document: ${documentName || 'Unknown'}\n• Time: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`,
+      },
+      download: {
+        emoji: '⬇️',
+        title: 'Document Downloaded',
+        body: `${visitorEmail} downloaded a document from your space.\n\n• Space: ${spaceName}\n• Document: ${documentName || 'Unknown'}\n• Time: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}\n\n🎯 Downloads signal serious interest. Follow up today.`,
+      },
+    };
+
+    const config = eventConfig[event] || eventConfig['portal_enter'];
+    const noteBody = `${config.emoji} <b>DocMetrics — ${config.title}</b>\n\n${config.body}`;
+
+    await createContactNote(token, contactId, noteBody, new Date());
+
+    // Update contact's last activity properties
+    await updateContactProperties(token, contactId, {
+      docmetrics_last_document: documentName || spaceName,
+      docmetrics_last_viewed:   new Date().toISOString(),
+    });
+
+    console.log(`✅ HubSpot synced: ${event} — contact ${contactId}`);
+    return { success: true, contactId };
+  } catch (err) {
+    console.error('HubSpot sync error (portal event):', err);
+    return { success: false, error: err };
+  }
+}

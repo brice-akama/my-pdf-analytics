@@ -806,9 +806,9 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
     <div className="space-y-6">
 
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Deal Analytics</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+  <div>
+    <h2 className="text-xl lg:text-2xl font-bold text-slate-900">Deal Analytics</h2>
           <p className="text-sm text-slate-500 mt-1">
             Real-time engagement intelligence for <span className="font-medium text-slate-700">{spaceName}</span>
           </p>
@@ -829,8 +829,8 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
       </div>
 
       {/* ── Overview Stats ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-5 gap-4">
-        <div className="col-span-1 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-5 text-white">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
+         <div className="col-span-2 lg:col-span-1 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-5 text-white">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Deal Heat</p>
           <div className="flex items-end gap-1 mb-2">
             <p className="text-4xl font-black">{overview.dealHeatScore}</p>
@@ -931,12 +931,12 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
       </div>
 
       {/* ── Section Tabs ───────────────────────────────────────────── */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto max-w-full">
         {(['links', 'visitors', 'documents', 'timeline'] as const).map(s => (
-          <button
-            key={s}
-            onClick={() => setActiveSection(s)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+  <button
+    key={s}
+    onClick={() => setActiveSection(s)}
+    className={`px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
               activeSection === s ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -1508,6 +1508,189 @@ function OwnerFolderTree({
 }
 
 
+function SidebarContent({
+  activeTab,
+  setActiveTab,
+  selectedFolder,
+  setSelectedFolder,
+  setShowUnfiledOnly,
+  folders,
+  qaComments,
+  fetchQAComments,
+  trashedDocuments,
+  fetchTrashedDocuments,
+  canManageSpace,
+  setShowCreateFolderDialog,
+  setShowSettingsDialog,
+  params,
+}: {
+  activeTab: string
+  setActiveTab: (tab: any) => void
+  selectedFolder: string | null
+  setSelectedFolder: (id: string | null) => void
+  setShowUnfiledOnly: (v: boolean) => void
+  folders: FolderType[]
+  qaComments: any[]
+  fetchQAComments: () => void
+  trashedDocuments: any[]
+  fetchTrashedDocuments: () => void
+  canManageSpace: boolean
+  setShowCreateFolderDialog: (v: boolean) => void
+  setShowSettingsDialog: (v: boolean) => void
+  params: any
+}) {
+  return (
+    <>
+      {/* Main Nav */}
+      <div className="p-4 space-y-1">
+        <button
+          onClick={() => { setActiveTab('home'); setSelectedFolder(null) }}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'home' && !selectedFolder
+              ? 'bg-purple-50 text-purple-700'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <Home className="h-4 w-4" />
+          <span>Home</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('analytics')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'analytics'
+              ? 'bg-purple-50 text-purple-700'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <BarChart3 className="h-4 w-4" />
+          <span>Analytics</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('diligence')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'diligence'
+              ? 'bg-purple-50 text-purple-700'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <Target className="h-4 w-4" />
+          <span>Diligence</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveTab('qa'); fetchQAComments() }}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'qa'
+              ? 'bg-purple-50 text-purple-700'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <MessageSquare className="h-4 w-4" />
+          <span>Q&amp;A</span>
+          {qaComments.filter((c) => !c.reply).length > 0 && (
+            <span className="ml-auto h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
+              {qaComments.filter((c) => !c.reply).length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('audit')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'audit'
+              ? 'bg-purple-50 text-purple-700'
+              : 'text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <FileText className="h-4 w-4" />
+          <span>Audit Log</span>
+        </button>
+      </div>
+
+      {/* Folders Section */}
+      <div className="p-4 border-t">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Folders
+          </h3>
+          <button
+            onClick={() => setShowCreateFolderDialog(true)}
+            className="h-6 w-6 rounded-md hover:bg-slate-200 flex items-center justify-center transition-colors"
+            title="Create new folder"
+          >
+            <Plus className="h-4 w-4 text-slate-600" />
+          </button>
+        </div>
+
+        <div className="space-y-1">
+          <button
+            onClick={() => { setActiveTab('folders'); setSelectedFolder(null) }}
+            className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+              activeTab === 'folders' && !selectedFolder
+                ? 'bg-purple-50 text-purple-700 font-medium'
+                : 'text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <FolderOpen className="h-4 w-4" />
+              <span>All Folders</span>
+            </div>
+            {folders.length > 0 && (
+              <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-medium">
+                {folders.length}
+              </span>
+            )}
+          </button>
+
+          <OwnerFolderTree
+            folders={folders}
+            parentId={null}
+            depth={0}
+            selectedFolder={selectedFolder}
+            onSelect={(id) => {
+              setSelectedFolder(id)
+              setShowUnfiledOnly(false)
+              setActiveTab('home')
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Settings */}
+      {canManageSpace && (
+        <div className="p-4 border-t">
+          <button
+            onClick={() => setShowSettingsDialog(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <Settings className="h-4 w-4" />
+            <span>Space Settings</span>
+          </button>
+          <SendDigestButton spaceId={params.id as string} />
+        </div>
+      )}
+
+      {/* Trash */}
+      <div className="p-4 border-t">
+        <button
+          onClick={() => { setActiveTab('trash'); fetchTrashedDocuments() }}
+          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+            activeTab === 'trash'
+              ? 'bg-red-50 text-red-700'
+              : 'text-slate-500 hover:bg-slate-50'
+          }`}
+        >
+          <Trash2 className="h-4 w-4" />
+          <span>Trash</span>
+          <span className="ml-auto text-xs">({trashedDocuments.length})</span>
+        </button>
+      </div>
+    </>
+  )
+}
+
 
 export default function SpaceDetailPage() {
   const params = useParams()
@@ -1642,6 +1825,7 @@ const [replyingTo, setReplyingTo] = useState<string | null>(null)
 const [replyText, setReplyText] = useState('')
 const [sendingReply, setSendingReply] = useState(false)
 const [qaFilter, setQaFilter] = useState<'all' | 'unanswered' | 'answered'>('all')
+const [showMobileSidebar, setShowMobileSidebar] = useState(false)
 const [permissions, setPermissions] = useState({
   canManageMembers: false,
   canUpload: false,
@@ -2770,378 +2954,334 @@ const fetchFolders = async () => {
         </div>
       )}
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-white">
-        <div className="flex items-center justify-between h-16 px-6">
-          <div className="flex items-center gap-4">
-            {isOwner && (
-  <Button
-    variant="ghost"
-    size="icon"
-    onClick={() => router.push('/spaces')}
-  >
-    <ArrowLeft className="h-5 w-5" />
-  </Button>
-)}
-            
-            <div className="flex items-center gap-3">
-  <div 
-    className="h-9 w-9 rounded-lg flex items-center justify-center shadow-sm"
-    style={{ background: space.color }}
-  >
-    <FolderOpen className="h-4 w-4 text-white" />
-  </div>
-  <h1 className="text-base font-semibold text-slate-900">{space.name}</h1>
-  <div className="flex items-center gap-2 mt-0.5">
-            <RoleBadge role={userRole} />
-          </div>
-</div>
-          </div>
+      {/* Mobile Sidebar Toggle State */}
+{/* Add this to your state declarations at the top of the component: */}
+{/* const [showMobileSidebar, setShowMobileSidebar] = useState(false) */}
 
-          <div className="flex items-center gap-3">
-            <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-<Input
-  placeholder="Search documents..."
-  value={searchQuery}
-  onChange={(e) => {
-    setSearchQuery(e.target.value)
-    handleSearch(e.target.value)
-  }}
-  className="pl-10 w-64"
-/>
-            </div>
+<header className="sticky top-0 z-50 border-b bg-white">
+  <div className="flex items-center justify-between h-14 lg:h-16 px-3 lg:px-6">
 
-            <DropdownMenu open={showOrganizeMenu} onOpenChange={setShowOrganizeMenu}>
-  <DropdownMenuTrigger asChild>
-    <Button variant="outline" className="gap-2">
-      <Filter className="h-4 w-4" />
-      Organize
-    </Button>
-  </DropdownMenuTrigger>
-  <DropdownMenuContent align="end" className="w-56">
-    <div className="px-2 py-1.5 text-sm font-semibold">Sort by</div>
-    <DropdownMenuItem 
-      key="sort-name"
-      onClick={() => {
-        setSortBy('name')
-        applySorting('name')
-      }}
-    >
-      <FileText className="mr-2 h-4 w-4" />
-      Name {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
-    </DropdownMenuItem>
-    <DropdownMenuItem 
-      key="sort-date"
-      onClick={() => {
-        setSortBy('date')
-        applySorting('date')
-      }}
-    >
-      <Clock className="mr-2 h-4 w-4" />
-      Date modified {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
-    </DropdownMenuItem>
-    <DropdownMenuItem 
-      key="sort-size"
-      onClick={() => {
-        setSortBy('size')
-        applySorting('size')
-      }}
-    >
-      <Download className="mr-2 h-4 w-4" />
-      Size {sortBy === 'size' && (sortOrder === 'asc' ? '↑' : '↓')}
-    </DropdownMenuItem>
-    <DropdownMenuItem 
-      key="sort-views"
-      onClick={() => {
-        setSortBy('views')
-        applySorting('views')
-      }}
-    >
-      <Eye className="mr-2 h-4 w-4" />
-      Views {sortBy === 'views' && (sortOrder === 'asc' ? '↑' : '↓')}
-    </DropdownMenuItem>
-    <DropdownMenuSeparator />
-    <DropdownMenuItem 
-      key="sort-order"
-      onClick={() => {
-        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-        applySorting(sortBy)
-      }}
-    >
-      {sortOrder === 'asc' ? 'Descending' : 'Ascending'} order
-    </DropdownMenuItem>
-  </DropdownMenuContent>
-</DropdownMenu>
+    {/* LEFT: Back + Space Info */}
+    <div className="flex items-center gap-2 lg:gap-4 min-w-0">
 
-<Button 
-  variant="outline" 
-  className="gap-2"
-  onClick={() => {
-    fetchRecentFiles()
-    setShowRecentFiles(true)
-  }}
->
-  <Clock className="h-4 w-4" />
-  Recent files
-</Button>
-<Button 
-  variant="outline" 
-  className="gap-2"
-  onClick={() => setActiveTab('members')}
->
-  <Users className="h-4 w-4" />
-  Members ({contacts.length})
-</Button>
+      {/* Hamburger — mobile + tablet */}
+      <button
+        className="lg:hidden p-2 rounded-lg hover:bg-slate-100 flex-shrink-0"
+        onClick={() => setShowMobileSidebar(true)}
+      >
+        <svg className="h-5 w-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
 
+      {/* Back button — desktop only */}
+      {isOwner && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden lg:flex flex-shrink-0"
+          onClick={() => router.push('/spaces')}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+      )}
 
-
-
-
-           {canUpload && (
-  <Button 
-    onClick={() => setShowUploadDialog(true)}
-    className="gap-2 bg-slate-900 hover:bg-slate-800 text-white"
-  >
-    <Upload className="h-4 w-4" />
-    Upload
-  </Button>
-)}
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white z-10">
-  {canCreateFolders && (
-    <DropdownMenuItem onClick={() => setShowCreateFolderDialog(true)}>
-      <Folder className="mr-2 h-4 w-4" />
-      Create Folder
-    </DropdownMenuItem>
-  )}
-  {canManageContacts && (
-  <>
-    <DropdownMenuItem onClick={() => setShowAddContactDialog(true)}>
-  <Users className="mr-2 h-4 w-4" />
-  Add Contact
-</DropdownMenuItem>
-  </>
-)}
- 
-  {canManageSpace && (
-    <>
-      <DropdownMenuItem onClick={() => setShowSettingsDrawer(true)}>
-      <Settings className="mr-2 h-4 w-4" />
-      <span className="">Space Settings</span>
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={async () => {
-  const newName = prompt('Name for the duplicated space:', `${space?.name} (Copy)`)
-  if (!newName) return
-
-  const toastId = toast.loading('Duplicating space...')
-
-  try {
-    const res = await fetch(`/api/spaces/${params.id}/duplicate`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName.trim() })
-    })
-    const data = await res.json()
-
-    if (data.success) {
-      toast.success(
-        `Duplicated! ${data.summary.folders} folders, ${data.summary.documents} docs copied.`,
-        { id: toastId }
-      )
-      // Navigate to new space
-      router.push(`/spaces/${data.newSpaceId}`)
-    } else {
-      toast.error(data.error || 'Duplication failed', { id: toastId })
-    }
-  } catch {
-    toast.error('Duplication failed', { id: toastId })
-  }
-}}>
-  <Copy className="mr-2 h-4 w-4" />
-  Duplicate Space
-</DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem className="text-red-600">
-        <Trash2 className="mr-2 h-4 w-4" />
-        Delete space
-      </DropdownMenuItem>
-    </>
-  )}
-</DropdownMenuContent>
-
-            </DropdownMenu>
-          </div>
+      {/* Space name + role */}
+      <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+        <div
+          className="h-8 w-8 lg:h-9 lg:w-9 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0"
+          style={{ background: space.color }}
+        >
+          <FolderOpen className="h-4 w-4 text-white" />
         </div>
-      </header>
+        <h1 className="text-sm lg:text-base font-semibold text-slate-900 truncate max-w-[140px] sm:max-w-[220px] lg:max-w-none">
+          {space.name}
+        </h1>
+        <div className="hidden sm:flex items-center gap-2">
+          <RoleBadge role={userRole} />
+        </div>
+      </div>
+    </div>
+
+    {/* RIGHT: Actions */}
+    <div className="flex items-center gap-1.5 lg:gap-3 flex-shrink-0">
+
+      {/* Search — desktop only */}
+      <div className="relative hidden lg:block">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Input
+          placeholder="Search documents..."
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value)
+            handleSearch(e.target.value)
+          }}
+          className="pl-10 w-64"
+        />
+      </div>
+
+      {/* Organize — desktop only */}
+      <div className="hidden lg:block">
+        <DropdownMenu open={showOrganizeMenu} onOpenChange={setShowOrganizeMenu}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <Filter className="h-4 w-4" />
+              Organize
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="px-2 py-1.5 text-sm font-semibold">Sort by</div>
+            <DropdownMenuItem onClick={() => { setSortBy('name'); applySorting('name') }}>
+              <FileText className="mr-2 h-4 w-4" />Name {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setSortBy('date'); applySorting('date') }}>
+              <Clock className="mr-2 h-4 w-4" />Date {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setSortBy('size'); applySorting('size') }}>
+              <Download className="mr-2 h-4 w-4" />Size {sortBy === 'size' && (sortOrder === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setSortBy('views'); applySorting('views') }}>
+              <Eye className="mr-2 h-4 w-4" />Views {sortBy === 'views' && (sortOrder === 'asc' ? '↑' : '↓')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => { setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); applySorting(sortBy) }}>
+              {sortOrder === 'asc' ? 'Descending' : 'Ascending'} order
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Recent Files — desktop only */}
+      <Button
+        variant="outline"
+        className="hidden lg:flex gap-2"
+        onClick={() => { fetchRecentFiles(); setShowRecentFiles(true) }}
+      >
+        <Clock className="h-4 w-4" />
+        Recent files
+      </Button>
+
+      {/* Members — desktop only */}
+      <Button
+        variant="outline"
+        className="hidden lg:flex gap-2"
+        onClick={() => setActiveTab('members')}
+      >
+        <Users className="h-4 w-4" />
+        <span>Members ({contacts.length})</span>
+      </Button>
+
+      {/* Upload — always visible, icon-only on mobile/tablet */}
+      {canUpload && (
+        <Button
+          onClick={() => setShowUploadDialog(true)}
+          className="gap-2 bg-slate-900 hover:bg-slate-800 text-white"
+        >
+          <Upload className="h-4 w-4" />
+          <span className="hidden lg:inline">Upload</span>
+        </Button>
+      )}
+
+      {/* More menu — always visible */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="bg-white z-10 w-52">
+
+          {/* Mobile + tablet only items */}
+          <div className="lg:hidden">
+            <DropdownMenuItem onClick={() => {
+              setShowMobileSidebar(true)
+              // sidebar has search built in
+            }}>
+              <Search className="mr-2 h-4 w-4" />
+              Search
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { fetchRecentFiles(); setShowRecentFiles(true) }}>
+              <Clock className="mr-2 h-4 w-4" />
+              Recent Files
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setActiveTab('members')}>
+              <Users className="mr-2 h-4 w-4" />
+              Members ({contacts.length})
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </div>
+
+          {/* Always visible */}
+          {canCreateFolders && (
+            <DropdownMenuItem onClick={() => setShowCreateFolderDialog(true)}>
+              <Folder className="mr-2 h-4 w-4" />
+              Create Folder
+            </DropdownMenuItem>
+          )}
+          {canManageContacts && (
+            <DropdownMenuItem onClick={() => setShowAddContactDialog(true)}>
+              <Users className="mr-2 h-4 w-4" />
+              Add Contact
+            </DropdownMenuItem>
+          )}
+          {canManageSpace && (
+            <>
+              <DropdownMenuItem onClick={() => setShowSettingsDrawer(true)}>
+                <Settings className="mr-2 h-4 w-4" />
+                Space Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={async () => {
+                const newName = prompt('Name for the duplicated space:', `${space?.name} (Copy)`)
+                if (!newName) return
+                const toastId = toast.loading('Duplicating space...')
+                try {
+                  const res = await fetch(`/api/spaces/${params.id}/duplicate`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName.trim() })
+                  })
+                  const data = await res.json()
+                  if (data.success) {
+                    toast.success(`Duplicated! ${data.summary.folders} folders, ${data.summary.documents} docs copied.`, { id: toastId })
+                    router.push(`/spaces/${data.newSpaceId}`)
+                  } else {
+                    toast.error(data.error || 'Duplication failed', { id: toastId })
+                  }
+                } catch { toast.error('Duplication failed', { id: toastId }) }
+              }}>
+                <Copy className="mr-2 h-4 w-4" />
+                Duplicate Space
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-red-600">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Space
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+    </div>
+  </div>
+</header>
 
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Sidebar */}
           
-<aside className="w-64 border-r bg-white overflow-y-auto">
-  <div className="p-4 space-y-1">
-    {/* Home */}
-    <button
-      onClick={() => {
-        setActiveTab('home')
-        setSelectedFolder(null)
-      }}
-      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-        activeTab === 'home' && !selectedFolder
-          ? 'bg-purple-50 text-purple-700'
-          : 'text-slate-700 hover:bg-slate-50'
-      }`}
-    >
-      <Home className="h-4 w-4" />
-      <span>Home</span>
-    </button>
-
-    {/* Analytics */}
-    <button
-      onClick={() => setActiveTab('analytics')}
-      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-        activeTab === 'analytics'
-          ? 'bg-purple-50 text-purple-700'
-          : 'text-slate-700 hover:bg-slate-50'
-      }`}
-    >
-      <BarChart3 className="h-4 w-4" />
-      <span>Analytics</span>
-    </button>
-
-    <button className=" w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors" onClick={() => setActiveTab('diligence')}>
-  <Target className="h-4 w-4" />
-  Diligence
-</button>
-
-    <button
-  onClick={() => { setActiveTab('qa'); fetchQAComments() }}
-  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-    activeTab === 'qa' ? 'bg-purple-50 text-purple-700' : 'text-slate-700 hover:bg-slate-50'
-  }`}
->
-  <MessageSquare className="h-4 w-4" />
-  <span>Q&amp;A</span>
-  {qaComments.filter((c: typeof qaComments[0]) => !c.reply).length > 0 && (
-    <span className="ml-auto h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
-      {qaComments.filter((c: typeof qaComments[0]) => !c.reply).length}
-    </span>
-  )}
-</button>
-
-    {/* Audit Log */}
-    <button
-      onClick={() => setActiveTab('audit')}
-      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-        activeTab === 'audit'
-          ? 'bg-purple-50 text-purple-700'
-          : 'text-slate-700 hover:bg-slate-50'
-      }`}
-    >
-      <FileText className="h-4 w-4" />
-      <span>Audit log</span>
-    </button>
-    
-  </div>
-
-  {/* ✅ NEW: Folders Section */}
-  <div className="p-4 border-t">
-    <div className="flex items-center justify-between mb-3">
-      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-        Folders
-      </h3>
-      <button
-        onClick={() => setShowCreateFolderDialog(true)}
-        className="h-6 w-6 rounded-md hover:bg-slate-200 flex items-center justify-center transition-colors"
-        title="Create new folder"
-      >
-        <Plus className="h-4 w-4 text-slate-600" />
-      </button>
-    </div>
-    
-    <div className="space-y-1">
-      {/* All Folders Button */}
-      <button
-        onClick={() => {
-          setActiveTab('folders')
-          setSelectedFolder(null)
-        }}
-        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-          activeTab === 'folders' && !selectedFolder
-            ? 'bg-purple-50 text-purple-700 font-medium'
-            : 'text-slate-700 hover:bg-slate-50'
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <FolderOpen className="h-4 w-4" />
-          <span>All Folders</span>
+{/* ── Mobile Sidebar Overlay ──────────────────────────────────── */}
+{showMobileSidebar && (
+  <div className="fixed inset-0 z-50 lg:hidden">
+    {/* Backdrop */}
+    <div
+      className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+      onClick={() => setShowMobileSidebar(false)}
+    />
+    {/* Drawer */}
+    <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
+      
+      {/* Drawer Header */}
+      <div className="flex items-center justify-between px-4 py-4 border-b">
+        <div className="flex items-center gap-3">
+          <div
+            className="h-8 w-8 rounded-lg flex items-center justify-center shadow-sm"
+            style={{ background: space.color }}
+          >
+            <FolderOpen className="h-4 w-4 text-white" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-slate-900 text-sm truncate max-w-[160px]">{space.name}</p>
+            <RoleBadge role={userRole} />
+          </div>
         </div>
-        {folders.length > 0 && (
-          <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-medium">
-            {folders.length}
-          </span>
-        )}
-      </button>
+        <button
+          onClick={() => setShowMobileSidebar(false)}
+          className="h-8 w-8 rounded-lg hover:bg-slate-100 flex items-center justify-center"
+        >
+          <X className="h-4 w-4 text-slate-500" />
+        </button>
+      </div>
 
-      {/* Show first 5 folders as quick access */}
-     <OwnerFolderTree
-  folders={folders}
-  parentId={null}
-  depth={0}
-  selectedFolder={selectedFolder}
-  onSelect={(id) => {
-    setSelectedFolder(id)
-    setShowUnfiledOnly(false)
-    setActiveTab('home')
-  }}
-/>
+      {/* Mobile Search */}
+      <div className="px-4 py-3 border-b">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            placeholder="Search documents..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+              handleSearch(e.target.value)
+            }}
+            className="pl-10 text-sm"
+          />
+        </div>
+      </div>
+
+      {/* Drawer Nav — scrollable */}
+      <div className="flex-1 overflow-y-auto">
+        <SidebarContent
+          activeTab={activeTab}
+          setActiveTab={(tab) => { setActiveTab(tab); setShowMobileSidebar(false) }}
+          selectedFolder={selectedFolder}
+          setSelectedFolder={(id) => { setSelectedFolder(id); setShowMobileSidebar(false) }}
+          setShowUnfiledOnly={setShowUnfiledOnly}
+          folders={folders}
+          qaComments={qaComments}
+          fetchQAComments={fetchQAComments}
+          trashedDocuments={trashedDocuments}
+          fetchTrashedDocuments={fetchTrashedDocuments}
+          canManageSpace={canManageSpace}
+          setShowCreateFolderDialog={setShowCreateFolderDialog}
+          setShowSettingsDialog={setShowSettingsDialog}
+          params={params}
+        />
+      </div>
+
+      {/* Mobile bottom actions */}
+      {isOwner && (
+        <div className="border-t p-4">
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => router.push('/spaces')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Spaces
+          </Button>
+        </div>
+      )}
     </div>
-  </div>
-
-  {/* Settings - Only for Owner/Admin */}
-{canManageSpace && (
-  <div className="p-4 border-t">
-    <button 
-      onClick={() => setShowSettingsDialog(true)}
-      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-    >
-      <Settings className="h-4 w-4" />
-      <span>Space Settings</span>
-    </button>
-    <SendDigestButton spaceId={params.id as string} />
   </div>
 )}
 
-  {/* Trash */}
-<div className="p-4 border-t">
-  <button 
-    onClick={() => {
-      setActiveTab('trash')
-      fetchTrashedDocuments()
+{/* ── Desktop Sidebar ─────────────────────────────────────────── */}
+<aside className="hidden lg:flex w-64 border-r bg-white overflow-y-auto flex-col flex-shrink-0">
+  <SidebarContent
+    activeTab={activeTab}
+    setActiveTab={setActiveTab}
+    selectedFolder={selectedFolder}
+    setSelectedFolder={(id) => {
+      setSelectedFolder(id)
+      setShowUnfiledOnly(false)
+      setActiveTab('home')
     }}
-    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-      activeTab === 'trash' 
-        ? 'bg-red-50 text-red-700' 
-        : 'text-slate-500 hover:bg-slate-50'
-    }`}
-  >
-    <Trash2 className="h-4 w-4" />
-    <span>Trash</span>
-    <span className="ml-auto text-xs">({trashedDocuments.length})</span>
-  </button>
-</div>
- 
+    setShowUnfiledOnly={setShowUnfiledOnly}
+    folders={folders}
+    qaComments={qaComments}
+    fetchQAComments={fetchQAComments}
+    trashedDocuments={trashedDocuments}
+    fetchTrashedDocuments={fetchTrashedDocuments}
+    canManageSpace={canManageSpace}
+    setShowCreateFolderDialog={setShowCreateFolderDialog}
+    setShowSettingsDialog={setShowSettingsDialog}
+    params={params}
+  />
 </aside>
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="p-8">
+           <div className="p-4 lg:p-8">
 
             {activeTab === 'diligence' && <DiligenceTab spaceId={params.id as string} />}
 
@@ -3174,26 +3314,103 @@ const fetchFolders = async () => {
         <p className="text-slate-600">Deleted files will appear here</p>
       </div>
     ) : (
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-slate-50 border-b">
-            <tr>
-              {/*  Select All Checkbox */}
-    <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider w-12">
-      <input 
-        type="checkbox" 
-        className="rounded"
-        checked={selectAll}
-        onChange={handleSelectAll}
-        disabled={getUnsignedDocs().length === 0}
-      />
-    </th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Name</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Original Folder</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Deleted</th>
-              <th className="text-right px-6 py-3"></th>
-            </tr>
-          </thead>
+     <div className="overflow-hidden">
+  {/* Mobile: stacked cards */}
+  <div className="lg:hidden divide-y divide-slate-100">
+    {getFilteredDocuments()
+      .sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime())
+      .slice(0, 10)
+      .map((doc) => (
+        <div key={`mobile-${doc.id}`} className="flex items-center gap-3 py-3 px-1">
+          <div className="h-9 w-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+            <FileText className="h-4 w-4 text-red-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-slate-900 text-sm truncate">{doc.name}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              {doc.folder ? (
+                <span className="text-xs text-blue-600 flex items-center gap-1">
+                  <Folder className="h-3 w-3" />
+                  {folders.find(f => f.id === doc.folder)?.name || 'Folder'}
+                </span>
+              ) : (
+                <span className="text-xs text-slate-400">Unfiled</span>
+              )}
+              <span className="text-xs text-slate-400">·</span>
+              <span className="text-xs text-slate-400">{doc.lastUpdated}</span>
+            </div>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-xs text-slate-500 flex items-center gap-1"><Eye className="h-3 w-3" />{doc.views}</span>
+              <span className="text-xs text-slate-500 flex items-center gap-1"><Download className="h-3 w-3" />{doc.downloads}</span>
+              {doc.signatureRequestId && (
+                <span className={`text-xs font-medium ${doc.signatureStatus === 'completed' ? 'text-green-600' : 'text-yellow-600'}`}>
+                  {doc.signatureStatus === 'completed' ? '✅ Signed' : '🖊️ Pending'}
+                </span>
+              )}
+            </div>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-white">
+              <DropdownMenuItem onClick={() => window.open(`/api/spaces/${params.id}/files/${doc.id}/view`, '_blank')}>
+                <Eye className="mr-2 h-4 w-4" />View
+              </DropdownMenuItem>
+              {doc.canDownload !== false ? (
+                <DropdownMenuItem onClick={async () => {
+                  const response = await fetch(`/api/spaces/${params.id}/files/${doc.id}/download`, { credentials: 'include' })
+                  const blob = await response.blob()
+                  const url = window.URL.createObjectURL(blob)
+                  const a = document.createElement('a'); a.href = url; a.download = doc.name
+                  document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url); document.body.removeChild(a)
+                }}>
+                  <Download className="mr-2 h-4 w-4" />Download
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem disabled className="text-slate-400"><Lock className="mr-2 h-4 w-4" />Restricted</DropdownMenuItem>
+              )}
+              {canEdit && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push(`/documents/${doc.id}/signature?mode=send&returnTo=/spaces/${params.id}`)}>
+                    <FileSignature className="mr-2 h-4 w-4" />Send for Signature
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setSelectedFile(doc); setNewFilename(doc.name); setShowRenameDialog(true) }}>
+                    <Edit className="mr-2 h-4 w-4" />Rename
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setSelectedFile(doc); setShowMoveDialog(true) }}>
+                    <Activity className="mr-2 h-4 w-4" />Move to Folder
+                  </DropdownMenuItem>
+                </>
+              )}
+              {canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteFile(doc.id, doc.name)}>
+                    <Trash2 className="mr-2 h-4 w-4" />Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ))}
+  </div>
+
+  {/* Desktop: full table, no card border */}
+  <table className="w-full hidden lg:table">
+    <thead className="border-b border-slate-100">
+      <tr>
+        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">Name</th>
+        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">Folder</th>
+        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">Activity</th>
+        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase">Last updated</th>
+        <th className="text-right px-4 py-3"></th>
+      </tr>
+    </thead>
           <tbody className="divide-y">
             {trashedDocuments.map((doc) => (
               <tr key={doc.id} className="hover:bg-slate-50">
@@ -3354,13 +3571,67 @@ const fetchFolders = async () => {
   </Button>
 )}
         </div>
+
+        {/* Mobile folder list */}
+<div className="lg:hidden divide-y divide-slate-100">
+  {filteredDocuments.length === 0 ? (
+    <div className="py-12 text-center">
+      <Folder className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+      <p className="text-slate-500 text-sm">This folder is empty</p>
+    </div>
+  ) : filteredDocuments.map((doc) => (
+    <div key={doc.id} className="flex items-center gap-3 py-3 px-1">
+      <div className="h-9 w-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+        <FileText className="h-4 w-4 text-red-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-slate-900 text-sm truncate">{doc.name}</p>
+        <div className="flex items-center gap-3 mt-1">
+          <span className="text-xs text-slate-500 flex items-center gap-1"><Eye className="h-3 w-3" />{doc.views}</span>
+          <span className="text-xs text-slate-500 flex items-center gap-1"><Download className="h-3 w-3" />{doc.downloads}</span>
+          <span className="text-xs text-slate-400">{doc.lastUpdated}</span>
+        </div>
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48 bg-white">
+          <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+            <Eye className="mr-2 h-4 w-4" />View
+          </DropdownMenuItem>
+          {canEdit && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => { setSelectedFile(doc); setNewFilename(doc.name); setShowRenameDialog(true) }}>
+                <Edit className="mr-2 h-4 w-4" />Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setSelectedFile(doc); setShowMoveDialog(true) }}>
+                <Activity className="mr-2 h-4 w-4" />Move
+              </DropdownMenuItem>
+            </>
+          )}
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteFile(doc.id, doc.name)}>
+                <Trash2 className="mr-2 h-4 w-4" />Delete
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  ))}
+</div>
         
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b">
-              <tr>
-                <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase w-12">
-                  <input type="checkbox" className="rounded" />
+        <div className="overflow-hidden">
+  <table className="w-full hidden lg:table">
+    <thead className="border-b border-slate-100">
+      <tr>
+        <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider w-12">
                 </th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Name</th>
                 <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase">Activity</th>
@@ -3887,230 +4158,321 @@ const fetchFolders = async () => {
 
     {/* Empty State */}
     {folders.length === 0 ? (
-      <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
-        <div className="h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-          <Folder className="h-10 w-10 text-slate-400" />
-        </div>
-        <h3 className="text-xl font-semibold text-slate-900 mb-2">No folders yet</h3>
-        <p className="text-slate-600 mb-6 max-w-md mx-auto">
-          Create folders to organize your documents and keep everything tidy
-        </p>
-        <Button
-          onClick={() => setShowCreateFolderDialog(true)}
-          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+  <div className="py-16 text-center">
+    <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+      <Folder className="h-8 w-8 text-slate-400" />
+    </div>
+    <h3 className="text-lg font-semibold text-slate-900 mb-2">No folders yet</h3>
+    <p className="text-slate-500 text-sm mb-6 max-w-sm mx-auto">
+      Create folders to organize your documents and keep everything tidy
+    </p>
+    {canCreateFolders && (
+      <Button
+        onClick={() => setShowCreateFolderDialog(true)}
+        className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+      >
+        <Plus className="h-4 w-4" />
+        Create Your First Folder
+      </Button>
+    )}
+  </div>
+) : (
+  <>
+    {/* ── Mobile: stacked rows ───────────────────────── */}
+    <div className="lg:hidden divide-y divide-slate-100">
+      {folders.map((folder) => (
+        <div
+          key={folder.id}
+          className="flex items-center gap-3 py-3 px-1"
+          onClick={() => { setSelectedFolder(folder.id); setActiveTab('home') }}
         >
-          <Plus className="h-4 w-4" />
-          Create Your First Folder
-        </Button>
-      </div>
-    ) : (
-      /*     Table View */
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-slate-50 border-b">
-            <tr>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider w-12">
-                <input type="checkbox" className="rounded" />
-              </th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
-                Name
-              </th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
-                Items
-              </th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
-                Last Modified
-              </th>
-              <th className="text-right px-6 py-3 text-xs font-medium text-slate-600 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {folders.map((folder) => (
-              <tr
-                key={folder.id}
-                className="hover:bg-slate-50 transition-colors cursor-pointer group"
-                onClick={() => {
-                  setSelectedFolder(folder.id)
-                  setActiveTab('home')
+          {/* Icon */}
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <Folder className="h-5 w-5 text-white" />
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-slate-900 text-sm truncate">{folder.name}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-xs text-slate-500 flex items-center gap-1">
+                <FileText className="h-3 w-3" />
+                {folder.documentCount} {folder.documentCount === 1 ? 'file' : 'files'}
+              </span>
+              <span className="text-xs text-slate-400">·</span>
+              <span className="text-xs text-slate-400">{folder.lastUpdated}</span>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 flex-shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-white">
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation()
+                setSelectedFolder(folder.id); setActiveTab('home')
+              }}>
+                <FolderOpen className="mr-2 h-4 w-4" />Open Folder
+              </DropdownMenuItem>
+
+              {canCreateFolders && (
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation()
+                  setSelectedFolder(folder.id); setShowCreateFolderDialog(true)
+                }}>
+                  <Plus className="mr-2 h-4 w-4" />Create Subfolder
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation()
+                setRequestFilesFolder({ id: folder.id, name: folder.name })
+                setShowRequestFilesDrawer(true)
+              }}>
+                <Inbox className="mr-2 h-4 w-4" />Request Files
+              </DropdownMenuItem>
+
+              {canManageContacts && (
+                <DropdownMenuItem onClick={(e) => {
+                  e.stopPropagation()
+                  setSelectedFolderForPermissions(folder.id)
+                  fetchFolderPermissions(folder.id)
+                  setShowFolderPermissionsDialog(true)
+                }}>
+                  <Lock className="mr-2 h-4 w-4" />Manage Access
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation()
+                const newName = prompt(`Rename "${folder.name}" to:`, folder.name)
+                if (!newName || newName.trim() === folder.name) return
+                fetch(`/api/spaces/${params.id}/folders/${folder.id}`, {
+                  method: 'PATCH', credentials: 'include',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ name: newName.trim() })
+                }).then(r => r.json()).then(data => {
+                  if (data.success) { toast.success(`Renamed to "${newName.trim()}"`); fetchFolders() }
+                  else toast.error(data.error || 'Rename failed')
+                })
+              }}>
+                <Edit className="mr-2 h-4 w-4" />Rename
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-red-600"
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  const docCount = folder.documentCount || 0
+                  const message = docCount > 0
+                    ? `Delete "${folder.name}"? The ${docCount} file(s) inside will be moved to root.`
+                    : `Delete "${folder.name}"?`
+                  if (!confirm(message)) return
+                  const res = await fetch(`/api/spaces/${params.id}/folders/${folder.id}?force=true`, {
+                    method: 'DELETE', credentials: 'include'
+                  })
+                  const data = await res.json()
+                  if (data.success) { toast.success(data.message); fetchFolders(); fetchSpace() }
+                  else toast.error(data.error || 'Delete failed')
                 }}
               >
-                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" className="rounded" />
-                </td>
-                
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
-                      <Folder className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 truncate group-hover:text-purple-600 transition-colors">
-                        {folder.name}
-                      </p>
-                      <p className="text-xs text-slate-500">Folder</p>
-                    </div>
-                  </div>
-                </td>
-                
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-slate-400" />
-                    <span className="text-sm text-slate-700 font-medium">
-                      {folder.documentCount}
-                    </span>
-                    <span className="text-sm text-slate-500">
-                      {folder.documentCount === 1 ? 'file' : 'files'}
-                    </span>
-                  </div>
-                </td>
-                
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Clock className="h-3.5 w-3.5 text-slate-400" />
-                    {folder.lastUpdated}
-                  </div>
-                </td>
-                
-                <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-end gap-2">
+                <Trash2 className="mr-2 h-4 w-4" />Delete Folder
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ))}
+    </div>
+
+    {/* ── Desktop: clean table, no card border ──────── */}
+    <table className="w-full hidden lg:table">
+      <thead className="border-b border-slate-100">
+        <tr>
+          <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider w-10">
+            <input type="checkbox" className="rounded" />
+          </th>
+          <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
+            Name
+          </th>
+          <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
+            Items
+          </th>
+          <th className="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
+            Last Modified
+          </th>
+          <th className="text-right px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wider">
+            Actions
+          </th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100">
+        {folders.map((folder) => (
+          <tr
+            key={folder.id}
+            className="hover:bg-slate-50 transition-colors cursor-pointer group"
+            onClick={() => { setSelectedFolder(folder.id); setActiveTab('home') }}
+          >
+            <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+              <input type="checkbox" className="rounded" />
+            </td>
+
+            <td className="px-4 py-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <Folder className="h-4 w-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-900 truncate group-hover:text-purple-600 transition-colors">
+                    {folder.name}
+                  </p>
+                  <p className="text-xs text-slate-400">Folder</p>
+                </div>
+              </div>
+            </td>
+
+            <td className="px-4 py-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-slate-400" />
+                <span className="text-sm text-slate-700 font-medium">{folder.documentCount}</span>
+                <span className="text-sm text-slate-400">{folder.documentCount === 1 ? 'file' : 'files'}</span>
+              </div>
+            </td>
+
+            <td className="px-4 py-4">
+              <span className="text-sm text-slate-500">{folder.lastUpdated}</span>
+            </td>
+
+            <td className="px-4 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-end gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => { e.stopPropagation(); setSelectedFolder(folder.id); setActiveTab('home') }}
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Open
+                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
-                      size="sm"
-                      className="gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => {
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 bg-white">
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedFolder(folder.id); setActiveTab('home')
+                    }}>
+                      <FolderOpen className="mr-2 h-4 w-4" />Open Folder
+                    </DropdownMenuItem>
+
+                    {canCreateFolders && (
+                      <DropdownMenuItem onClick={(e) => {
                         e.stopPropagation()
-                        setSelectedFolder(folder.id)
-                        setActiveTab('home')
+                        setSelectedFolder(folder.id); setShowCreateFolderDialog(true)
+                      }}>
+                        <Plus className="mr-2 h-4 w-4" />Create Subfolder
+                      </DropdownMenuItem>
+                    )}
+
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation()
+                      setRequestFilesFolder({ id: folder.id, name: folder.name })
+                      setShowRequestFilesDrawer(true)
+                    }}>
+                      <Inbox className="mr-2 h-4 w-4" />Request Files
+                    </DropdownMenuItem>
+
+                    {canManageContacts && (
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedFolderForPermissions(folder.id)
+                        fetchFolderPermissions(folder.id)
+                        setShowFolderPermissionsDialog(true)
+                      }}>
+                        <Lock className="mr-2 h-4 w-4" />Manage Access
+                      </DropdownMenuItem>
+                    )}
+
+                    <DropdownMenuItem onClick={(e) => {
+                      e.stopPropagation()
+                      const newName = prompt(`Rename "${folder.name}" to:`, folder.name)
+                      if (!newName || newName.trim() === folder.name) return
+                      fetch(`/api/spaces/${params.id}/folders/${folder.id}`, {
+                        method: 'PATCH', credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newName.trim() })
+                      }).then(r => r.json()).then(data => {
+                        if (data.success) { toast.success(`Renamed to "${newName.trim()}"`); fetchFolders() }
+                        else toast.error(data.error || 'Rename failed')
+                      })
+                    }}>
+                      <Edit className="mr-2 h-4 w-4" />Rename
+                    </DropdownMenuItem>
+
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-red-600"
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        const docCount = folder.documentCount || 0
+                        const message = docCount > 0
+                          ? `Delete "${folder.name}"? The ${docCount} file(s) inside will be moved to root.`
+                          : `Delete "${folder.name}"?`
+                        if (!confirm(message)) return
+                        const res = await fetch(`/api/spaces/${params.id}/folders/${folder.id}?force=true`, {
+                          method: 'DELETE', credentials: 'include'
+                        })
+                        const data = await res.json()
+                        if (data.success) { toast.success(data.message); fetchFolders(); fetchSpace() }
+                        else toast.error(data.error || 'Delete failed')
                       }}
                     >
-                      <Eye className="h-4 w-4" />
-                      Open
-                    </Button>
-                    
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedFolder(folder.id)
-                            setActiveTab('home')
-                          }}
-                        >
-                          <FolderOpen className="mr-2 h-4 w-4" />
-                          Open Folder
-                        </DropdownMenuItem>
+                      <Trash2 className="mr-2 h-4 w-4" />Delete Folder
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
 
-                        {canCreateFolders && (
-  <DropdownMenuItem
-    onClick={(e) => {
-      e.stopPropagation()
-      setSelectedFolder(folder.id)        // ← sets parent context
-      setShowCreateFolderDialog(true)     // ← opens dialog
-    }}
-  >
-    <Plus className="mr-2 h-4 w-4" />
-    Create Subfolder
-  </DropdownMenuItem>
+    {/* ── Footer stats ──────────────────────────────── */}
+    <div className="flex items-center gap-6 pt-4 mt-2 border-t border-slate-100 text-sm text-slate-500">
+      <span className="flex items-center gap-1.5">
+        <Folder className="h-4 w-4 text-blue-500" />
+        <strong className="text-slate-700">{folders.length}</strong> folders
+      </span>
+      <span className="flex items-center gap-1.5">
+        <FileText className="h-4 w-4 text-green-500" />
+        <strong className="text-slate-700">{folders.reduce((sum, f) => sum + f.documentCount, 0)}</strong> files total
+      </span>
+      <span className="flex items-center gap-1.5">
+        <Activity className="h-4 w-4 text-purple-500" />
+        <strong className="text-slate-700">{folders.filter(f => f.documentCount > 0).length}</strong> active
+      </span>
+    </div>
+  </>
 )}
-
-<DropdownMenuItem
-  onClick={(e) => {
-    e.stopPropagation()
-    setRequestFilesFolder({ id: folder.id, name: folder.name })
-    setShowRequestFilesDrawer(true)
-  }}
->
-  <Inbox className="mr-2 h-4 w-4" />
-  Request Files
-</DropdownMenuItem>
-                        {/*   NEW: Manage Access */}
-  {canManageContacts && (
-    <DropdownMenuItem
-      onClick={(e) => {
-        e.stopPropagation()
-        setSelectedFolderForPermissions(folder.id)
-        fetchFolderPermissions(folder.id)
-        setShowFolderPermissionsDialog(true)
-      }}
-    >
-      <Lock className="mr-2 h-4 w-4" />
-      Manage Access
-    </DropdownMenuItem>
-  )}
-                       <DropdownMenuItem
-  onClick={(e) => {
-    e.stopPropagation()
-    const newName = prompt(`Rename "${folder.name}" to:`, folder.name)
-    if (!newName || newName.trim() === folder.name) return
-    fetch(`/api/spaces/${params.id}/folders/${folder.id}`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName.trim() })
-    }).then(r => r.json()).then(data => {
-      if (data.success) { toast.success(`Renamed to "${newName.trim()}"`); fetchFolders() }
-      else toast.error(data.error || 'Rename failed')
-    }).catch(() => toast.error('Rename failed'))
-  }}
->
-  <Edit className="mr-2 h-4 w-4" />
-  Rename
-</DropdownMenuItem>
-                       
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-  className="text-red-600"
-  onClick={async (e) => {
-    e.stopPropagation()
-    const docCount = folder.documentCount || 0
-    const message = docCount > 0
-      ? `Delete "${folder.name}"? The ${docCount} file(s) inside will be moved to root (unfiled).`
-      : `Delete "${folder.name}"?`
-    if (!confirm(message)) return
-
-    try {
-      const res = await fetch(
-        `/api/spaces/${params.id}/folders/${folder.id}?force=true`,
-        { method: 'DELETE', credentials: 'include' }
-      )
-      const data = await res.json()
-      if (data.success) {
-        toast.success(data.message)
-        fetchFolders()
-        fetchSpace() // refresh doc list so moved docs appear as unfiled
-      } else {
-        toast.error(data.error || 'Delete failed')
-      }
-    } catch {
-      toast.error('Delete failed')
-    }
-  }}
->
-  <Trash2 className="mr-2 h-4 w-4" />
-  Delete Folder
-</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    )}
 
     {/* Folder Stats */}
     {folders.length > 0 && (
@@ -5340,12 +5702,37 @@ const fetchFolders = async () => {
                 </div>
               </div>
               <Button
-                variant="destructive"
-                className="bg-red-600 hover:bg-red-700"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Space Permanently
-              </Button>
+  variant="destructive"
+  className="bg-red-600 hover:bg-red-700"
+  onClick={async () => {
+    const confirmed = confirm(
+      `Permanently delete "${space?.name}"?\n\nThis will delete all ${documents.length} documents and cannot be undone.`
+    )
+    if (!confirmed) return
+
+    const doubleConfirmed = confirm(`Are you absolutely sure? Type OK to confirm deletion.`)
+    if (!doubleConfirmed) return
+
+    try {
+      const res = await fetch(`/api/spaces/${params.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success('Space permanently deleted')
+        router.push('/spaces')
+      } else {
+        toast.error(data.error || 'Failed to delete space')
+      }
+    } catch {
+      toast.error('Failed to delete space')
+    }
+  }}
+>
+  <Trash2 className="h-4 w-4 mr-2" />
+  Delete Space Permanently
+</Button>
 
               
             </div>

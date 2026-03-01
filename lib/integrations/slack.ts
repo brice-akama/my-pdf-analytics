@@ -475,3 +475,120 @@ export async function notifyDailyDigest({
     ],
   });
 }
+
+
+// ════════════════════════════════════════════════════════════════
+// PORTAL EVENT NOTIFICATION (space open, revisit, doc view, download)
+// ════════════════════════════════════════════════════════════════
+export async function notifyPortalEvent({
+  userId,
+  visitorEmail,
+  spaceName,
+  spaceId,
+  event,
+  documentName,
+  isRevisit,
+  visitCount,
+}: {
+  userId: string;
+  visitorEmail: string;
+  spaceName: string;
+  spaceId: string;
+  event: 'portal_enter' | 'revisit' | 'document_view' | 'download';
+  documentName?: string;
+  isRevisit?: boolean;
+  visitCount?: number;
+}) {
+  const spaceUrl = `${process.env.NEXT_PUBLIC_APP_URL}/spaces/${spaceId}`;
+
+  const config: Record<string, { emoji: string; title: string; detail: string; tip: string }> = {
+    portal_enter: {
+      emoji: '👁️',
+      title: 'Space Opened',
+      detail: `*${visitorEmail}* opened your space for the first time.`,
+      tip: '💡 Reach out while they\'re browsing for the best response rate.',
+    },
+    revisit: {
+      emoji: '🔄',
+      title: `Space Revisited${visitCount ? ` — Visit #${visitCount}` : ''}`,
+      detail: `*${visitorEmail}* returned to your space.`,
+      tip: '⚡ Returning visitor — high intent signal. Follow up now.',
+    },
+    document_view: {
+      emoji: '📄',
+      title: 'Document Viewed',
+      detail: `*${visitorEmail}* viewed *${documentName || 'a document'}* in your space.`,
+      tip: '📬 They\'re reading — a timely follow-up could close the deal.',
+    },
+    download: {
+      emoji: '⬇️',
+      title: 'Document Downloaded',
+      detail: `*${visitorEmail}* downloaded *${documentName || 'a document'}* from your space.`,
+      tip: '🎯 Downloads signal serious interest. Follow up today.',
+    },
+  };
+
+  const c = config[event] || config['portal_enter'];
+
+  return sendSlackNotification({
+    userId,
+    message: `${c.emoji} ${visitorEmail} — ${c.title} — ${spaceName}`,
+    blocks: [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*${c.emoji} ${c.title}*\n${c.detail}`,
+        },
+        accessory: {
+          type: 'button',
+          text: { type: 'plain_text', text: 'View Space →' },
+          url: spaceUrl,
+          style: 'primary',
+        },
+      },
+      divider(),
+      {
+        type: 'section',
+        fields: [
+          { type: 'mrkdwn', text: `*👤 Visitor*\n${visitorEmail}` },
+          { type: 'mrkdwn', text: `*🏠 Space*\n${spaceName}` },
+          ...(documentName ? [{ type: 'mrkdwn', text: `*📄 Document*\n${documentName}` }] : []),
+          { type: 'mrkdwn', text: `*🕐 Time*\n${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}` },
+        ],
+      },
+      divider(),
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: c.tip },
+      },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: '🏠 View Space' },
+            url: spaceUrl,
+            style: 'primary',
+          },
+        ],
+      },
+      context(`DocMetrics • ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`),
+    ],
+  });
+}
+
+export async function isSlackConnected(userId: string): Promise<boolean> {
+  try {
+    const db = await dbPromise;
+    const integration = await db.collection('integrations').findOne({
+      userId,
+      provider: 'slack',
+      isActive: true,
+      'metadata.channelId': { $exists: true },
+    });
+    return !!integration;
+  } catch {
+    return false;
+  }
+}

@@ -200,43 +200,45 @@ function DocViewerDrawer({ doc, onClose, shareLink, enableWatermark, allowDownlo
             className="fixed inset-0 bg-black/40 z-40" onClick={onClose}
           />
           <motion.div
-            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 h-full z-50 flex flex-col bg-white shadow-2xl"
-            style={{ width: 'min(780px, 92vw)' }}
-          >
+  initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+  transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+ className="fixed right-0 top-0 h-full z-50 flex flex-col bg-white shadow-2xl w-full md:w-[min(780px,92vw)]"
+ >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 bg-white flex-shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-                  <FileText className="h-4 w-4 text-red-500" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{doc.name}</p>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">{doc.type} · {doc.size}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0 ml-4">
-                {allowDownloads && (
-                  <button
-                    onClick={() => onDownload(doc)}
-                    disabled={downloadingId === doc.id}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-400 bg-white transition-all disabled:opacity-40"
-                  >
-                    {downloadingId === doc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                    Download
-                  </button>
-                )}
-                <a href={doc.cloudinaryPdfUrl} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-400 bg-white transition-all">
-                  <ExternalLink className="h-3.5 w-3.5" /> Open tab
-                </a>
-                <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-all">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
+           <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0 gap-2">
+  {/* Top row: icon + name + close */}
+  <div className="flex items-center gap-3 min-w-0">
+    <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-all flex-shrink-0 sm:hidden">
+      <ArrowLeft className="h-5 w-5" />
+    </button>
+    <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+      <FileText className="h-4 w-4 text-red-500" />
+    </div>
+    <div className="min-w-0 flex-1">
+      <p className="text-base font-semibold text-gray-900 truncate">{doc.name}</p>
+<p className="text-xs md:text-sm text-gray-400 uppercase tracking-wide">{doc.type} · {doc.size}</p>
+    </div>
+    <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-all flex-shrink-0 hidden sm:flex">
+      <X className="h-5 w-5" />
+    </button>
+  </div>
+  {/* Action buttons row */}
+  <div className="flex items-center gap-2 sm:flex-shrink-0">
+    {allowDownloads && (
+      <button
+        onClick={() => onDownload(doc)}
+        disabled={downloadingId === doc.id}
+      className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-400 bg-white transition-all disabled:opacity-40">
+        {downloadingId === doc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+        Download
+      </button>
+    )}
+    <a href={doc.cloudinaryPdfUrl} target="_blank" rel="noopener noreferrer"
+      className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-400 bg-white transition-all">
+      <ExternalLink className="h-3.5 w-3.5" /> Open in tab
+    </a>
+  </div>
+</div>
             {/* PDF area — watermark ONLY lives here */}
             <div className="flex-1 relative bg-gray-100 overflow-hidden">
               {enableWatermark && <Watermark email={visitorEmail} />}
@@ -264,7 +266,7 @@ function DocViewerDrawer({ doc, onClose, shareLink, enableWatermark, allowDownlo
               ) : (
                 <iframe
                   key={doc.id}
-                  src={blobUrl ? `${blobUrl}#toolbar=0&navpanes=0&scrollbar=0` : undefined}
+                  src={blobUrl ? `${blobUrl}#toolbar=0&navpanes=0&scrollbar=0&zoom=${typeof window !== 'undefined' && window.innerWidth < 768 ? 60 : 100}` : undefined}
                   className="w-full h-full border-0" title={doc.name}
                   onLoad={() => { if (blobUrl) setIframeLoading(false) }}
                   onError={() => { setLoadError(true); setIframeLoading(false) }}
@@ -580,6 +582,7 @@ export default function PortalPage() {
   const [requiresEmail, setRequiresEmail]       = useState(true)
   const [requiresPassword, setRequiresPassword] = useState(false)
   const [requiresOtp, setRequiresOtp]           = useState(false)  // ← NEW
+  const [docMenuOpen, setDocMenuOpen] = useState<string | null>(null)
 
   // OTP state
   const [otpCode, setOtpCode]         = useState("")          // ← NEW
@@ -1132,10 +1135,9 @@ export default function PortalPage() {
               <FolderOpen className="h-4 w-4 text-white" />
             </div>
           )}
-          <div className="flex items-center gap-2">
-   
+         <div className="hidden sm:flex items-center gap-2">
   <span className="text-sm text-gray-400">·</span>
-  <span className="text-sm text-gray-400">
+  <span className="text-sm text-gray-400 truncate max-w-[140px]">
     {spaceData.branding.companyName || 'DocMetrics'}
   </span>
 </div>
@@ -1144,7 +1146,7 @@ export default function PortalPage() {
           <div className="relative hidden md:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
             <input placeholder="Search this space" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              className="pl-8 pr-4 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg w-52 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 focus:w-64 transition-all" />
+              className="pl-8 pr-4 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg w-52 focu.s:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 focus:w-64 transition-all" />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700">
                 <X className="h-3.5 w-3.5" />
@@ -1152,23 +1154,53 @@ export default function PortalPage() {
             )}
           </div>
           {spaceData.allowQA && (
-            <button onClick={() => setShowAskModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-all"
-              style={{ backgroundColor: accent }}>
-              <MessageSquare className="h-4 w-4" /> Ask a question
-            </button>
-          )}
+  <button onClick={() => setShowAskModal(true)}
+    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-all"
+    style={{ backgroundColor: accent }}>
+    <MessageSquare className="h-4 w-4" />
+    <span className="hidden sm:inline">Ask a question</span>
+  </button>
+)}
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
+  {sidebarOpen && (
+    <div
+      className="fixed inset-0 top-14 bg-black/20 z-20 md:hidden"
+      onClick={() => setSidebarOpen(false)}
+    />
+  )}
         {/* Sidebar */}
-        <aside className={`${sidebarOpen ? 'w-64' : 'w-0'} flex-shrink-0 border-r border-gray-200 overflow-y-auto transition-all duration-200 bg-white`}>
+        <aside className={`
+  ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+  fixed md:relative md:translate-x-0
+  ${sidebarOpen ? 'md:w-64' : 'md:w-0'}
+  top-14 md:top-0 left-0 h-[calc(100vh-56px)] md:h-full
+  w-64 flex-shrink-0 border-r border-gray-200 overflow-y-auto
+  transition-all duration-200 bg-white z-30
+`}>
           <div className="p-3">
-            <button onClick={() => setSelectedFolderId(null)}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-all mb-1 ${selectedFolderId === null ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}>
-              <FolderOpen className="h-4 w-4 flex-shrink-0 text-blue-400" /> <span>Home</span>
-            </button>
+  {/* Search — only visible on mobile since navbar search is hidden there */}
+  <div className="relative mb-3 md:hidden">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+    <input
+      placeholder="Search documents…"
+      value={searchQuery}
+      onChange={e => setSearchQuery(e.target.value)}
+      className="w-full pl-8 pr-8 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all"
+    />
+    {searchQuery && (
+      <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700">
+        <X className="h-3.5 w-3.5" />
+      </button>
+    )}
+  </div>
+
+  <button onClick={() => setSelectedFolderId(null)}
+    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-all mb-1 ${selectedFolderId === null ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}>
+    <FolderOpen className="h-4 w-4 flex-shrink-0 text-blue-400" /> <span>Home</span>
+  </button>
             <div className="space-y-0.5">
               {rootFolders.map(folder => (
                 <FolderTreeItem key={folder.id} folder={folder} allFolders={spaceData.folders}
@@ -1204,49 +1236,61 @@ export default function PortalPage() {
                   const isCommentOpen = openComments.has(doc.id)
                   return (
                     <motion.div key={doc.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="border border-gray-100 rounded-xl hover:border-gray-200 hover:shadow-sm transition-all">
-                      <div className="flex items-center gap-3 px-4 py-3.5">
-                        <span className="text-xs text-gray-300 font-mono w-5 text-right flex-shrink-0">{i + 1}</span>
-                        <div className="h-9 w-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                          <FileText className="h-4 w-4 text-gray-500" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{doc.name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5 uppercase tracking-wide">{doc.type} · {doc.size}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <button onClick={() => handleView(doc)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-400 hover:text-gray-900 bg-white transition-all">
-                            <Eye className="h-3.5 w-3.5" /> View
-                          </button>
-                          {spaceData.allowDownloads && (
-                            <button onClick={() => handleDownload(doc)} disabled={downloadingId === doc.id}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-400 bg-white transition-all disabled:opacity-40">
-                              {downloadingId === doc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                              Download
-                            </button>
-                          )}
-                          {spaceData.allowQA && (
-                            <button
-                              onClick={() => setOpenComments(prev => { const next = new Set(prev); next.has(doc.id) ? next.delete(doc.id) : next.add(doc.id); return next })}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg transition-all ${isCommentOpen ? 'bg-gray-900 text-white border-gray-900' : 'text-gray-700 border-gray-200 bg-white hover:border-gray-400'}`}>
-                              <MessageSquare className="h-3.5 w-3.5" /> Q&A
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <AnimatePresence>
-                        {isCommentOpen && (
-                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden">
-                            <div className="px-4 pb-4">
-                              <CommentThread docId={doc.id} docName={doc.name} visitorEmail={visitorEmail} shareLink={shareLink} />
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
+  transition={{ delay: i * 0.03 }}
+  className="border border-gray-100 rounded-xl hover:border-gray-200 hover:shadow-sm transition-all">
+  <div className="flex items-center gap-3 px-4 py-3.5">
+    <span className="text-xs text-gray-300 font-mono w-5 text-right flex-shrink-0">{i + 1}</span>
+    <div className="h-9 w-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+      <FileText className="h-4 w-4 text-gray-500" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-medium text-gray-900 truncate">{doc.name}</p>
+      <p className="text-xs text-gray-400 mt-0.5 uppercase tracking-wide">{doc.type} · {doc.size}</p>
+    </div>
+
+    {/* Desktop buttons — hidden on mobile */}
+    <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
+      <button onClick={() => handleView(doc)}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-400 hover:text-gray-900 bg-white transition-all">
+        <Eye className="h-3.5 w-3.5" /> View
+      </button>
+      {spaceData.allowDownloads && (
+        <button onClick={() => handleDownload(doc)} disabled={downloadingId === doc.id}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-400 bg-white transition-all disabled:opacity-40">
+          {downloadingId === doc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          Download
+        </button>
+      )}
+      {spaceData.allowQA && (
+        <button
+          onClick={() => setOpenComments(prev => { const next = new Set(prev); next.has(doc.id) ? next.delete(doc.id) : next.add(doc.id); return next })}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg transition-all ${isCommentOpen ? 'bg-gray-900 text-white border-gray-900' : 'text-gray-700 border-gray-200 bg-white hover:border-gray-400'}`}>
+          <MessageSquare className="h-3.5 w-3.5" /> Q&A
+        </button>
+      )}
+    </div>
+
+    {/* Mobile 3-dot button — hidden on desktop */}
+    <button
+      onClick={() => setDocMenuOpen(doc.id)}
+      className="md:hidden p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-all flex-shrink-0">
+      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+        <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+      </svg>
+    </button>
+  </div>
+
+  <AnimatePresence>
+    {isCommentOpen && (
+      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden">
+        <div className="px-4 pb-4">
+          <CommentThread docId={doc.id} docName={doc.name} visitorEmail={visitorEmail} shareLink={shareLink} />
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+</motion.div>
                   )
                 })}
               </div>
@@ -1271,6 +1315,99 @@ export default function PortalPage() {
             visitorEmail={visitorEmail} shareLink={shareLink} spaceName={spaceData.name} />
         )}
       </AnimatePresence>
+      {/* Mobile Doc Action Drawer */}
+<AnimatePresence>
+  {docMenuOpen && (() => {
+    const menuDoc = panelDocs.find(d => d.id === docMenuOpen)
+    if (!menuDoc) return null
+    const isCommentOpenForMenu = openComments.has(menuDoc.id)
+    return (
+      <>
+        {/* Backdrop */}
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/30 z-40 md:hidden"
+          onClick={() => setDocMenuOpen(null)}
+        />
+        {/* Drawer */}
+        <motion.div
+          initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+          className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl md:hidden"
+        >
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="h-1 w-10 bg-gray-200 rounded-full" />
+          </div>
+
+          {/* Doc info */}
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100">
+            <div className="h-9 w-9 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+              <FileText className="h-4 w-4 text-gray-500" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{menuDoc.name}</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wide">{menuDoc.type} · {menuDoc.size}</p>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="p-4 space-y-2">
+            <button
+              onClick={() => { handleView(menuDoc); setDocMenuOpen(null) }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-gray-800 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all">
+              <div className="h-8 w-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
+                <Eye className="h-4 w-4 text-gray-600" />
+              </div>
+              View Document
+            </button>
+
+            {spaceData.allowDownloads && (
+              <button
+                onClick={() => { handleDownload(menuDoc); setDocMenuOpen(null) }}
+                disabled={downloadingId === menuDoc.id}
+                className="w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-gray-800 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all disabled:opacity-40">
+                <div className="h-8 w-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
+                  {downloadingId === menuDoc.id
+                    ? <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                    : <Download className="h-4 w-4 text-gray-600" />}
+                </div>
+                {downloadingId === menuDoc.id ? 'Downloading…' : 'Download'}
+              </button>
+            )}
+
+            {spaceData.allowQA && (
+              <button
+                onClick={() => {
+                  setOpenComments(prev => { const next = new Set(prev); next.has(menuDoc.id) ? next.delete(menuDoc.id) : next.add(menuDoc.id); return next })
+                  setDocMenuOpen(null)
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium rounded-xl transition-all ${
+                  isCommentOpenForMenu ? 'bg-gray-900 text-white' : 'text-gray-800 bg-gray-50 hover:bg-gray-100'
+                }`}>
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 border ${
+                  isCommentOpenForMenu ? 'bg-white/10 border-white/20' : 'bg-white border-gray-200'
+                }`}>
+                  <MessageSquare className={`h-4 w-4 ${isCommentOpenForMenu ? 'text-white' : 'text-gray-600'}`} />
+                </div>
+                {isCommentOpenForMenu ? 'Close Q&A' : 'Ask a Question'}
+              </button>
+            )}
+
+            <button
+              onClick={() => setDocMenuOpen(null)}
+              className="w-full py-3 text-sm text-gray-500 font-medium rounded-xl hover:bg-gray-50 transition-all mt-1">
+              Cancel
+            </button>
+          </div>
+
+          {/* Safe area spacing for iPhone */}
+          <div className="h-safe-area-inset-bottom pb-4" />
+        </motion.div>
+      </>
+    )
+  })()}
+</AnimatePresence>
     </div>
   )
 }
