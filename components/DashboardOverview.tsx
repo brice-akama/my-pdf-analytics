@@ -1,925 +1,608 @@
 // components/DashboardOverview.tsx
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { 
-  FileText, Activity, TrendingUp, Eye, Users, Download, 
-  Clock, BarChart3, ArrowUp, ArrowDown, Loader2, Globe,
-  MapPin, Monitor, Smartphone, Tablet, Calendar, Filter,
-  TrendingDown, Target, Zap, Share2, ChevronRight, Mail, ExternalLink, MousePointer 
-} from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
-  Legend, ResponsiveContainer 
-} from 'recharts';
-
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import SignatureDashboard from '@/components/SignatureDashboard';
- 
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  Eye,
+  Users,
+  Link2,
+  FileSignature,
+  Radio,
+  TrendingUp,
+  Clock,
+  FileText,
+  ChevronRight,
+  Flame,
+  Shield,
+  Loader2,
+  Monitor,
+  Smartphone,
+  Tablet,
+  MapPin,
+} from "lucide-react";
 
-interface Viewer {
-  email: string;
-  name: string;
-  company: string | null;
-  firstAccessAt: string;
-  lastAccessAt: string;
-  totalViews: number;
-  totalTimeSpent: number;
-  location: {
-    city: string;
-    country: string;
-  } | null;
-  engagement: 'high' | 'medium' | 'low';
+// ── Helpers ──────────────────────────────────────────────────────
+function formatTime(seconds: number): string {
+  if (!seconds || seconds < 0) return "0m 0s";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}m ${secs}s`;
 }
 
-interface Document {
-  id: string;
-  name: string;
-  views: number;
-  downloads: number;
-  engagement: number;
-  viewers: Viewer[];
+function formatTimeAgo(dateStr: string | Date): string {
+  const date = new Date(dateStr);
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 60) return "Just now";
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  return `${Math.floor(secs / 86400)}d ago`;
 }
 
-
-interface DashboardStats {
-  totalDocuments: number;
-  totalViews: number;
-  uniqueViewers: number;
-  totalDownloads: number;
-  averageEngagement: number;
-  averageTimeSpent: number;
-  activeShares: number;
-  recentActivity: Array<{
-    id: string;
-    type: 'view' | 'download' | 'share';
-    documentName: string;
-    timestamp: string;
-    viewer?: string;
-  }>;
-  trending: {
-    viewsChange: number;
-    downloadsChange: number;
-    engagementChange: number;
-  };
-  // Advanced analytics
-  viewsOverTime: Array<{ date: string; views: number; downloads: number }>;
-  geographicData: Array<{ country: string; city: string; views: number; lat: number; lng: number }>;
-  deviceBreakdown: Array<{ device: string; count: number; percentage: number }>;
-  browserBreakdown: Array<{ browser: string; count: number }>;
-  topDocuments: Document[];
-  hourlyActivity: Array<{ hour: number; views: number }>;
-  conversionFunnel: Array<{ stage: string; count: number; percentage: number }>;
-  viewerEngagement: Array<{ segment: string; count: number; avgTime: number }>;
+function formatMMSS(seconds: number): string {
+  if (!seconds || seconds <= 0) return "00:00";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
+function getDeviceIcon(device: string) {
+  if (device === "mobile") return <Smartphone className="h-3 w-3" />;
+  if (device === "tablet") return <Tablet className="h-3 w-3" />;
+  return <Monitor className="h-3 w-3" />;
+}
 
-export default function DashboardOverview() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
-  const [activeTab, setActiveTab] = useState('overview');
-  // Document details modal
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
-  const [showDocumentDetails, setShowDocumentDetails] = useState(false);
-
-  useEffect(() => {
-    fetchDashboardStats();
-    const interval = setInterval(fetchDashboardStats, 30000);
-    return () => clearInterval(interval);
-  }, [timeRange]);
-
-  const fetchDashboardStats = async () => {
-    try {
-      const res = await fetch(`/api/dashboard/stats?range=${timeRange}`, {
-        credentials: 'include',
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data.stats);
-        setError(null);
-      } else {
-        throw new Error('Failed to fetch stats');
-      }
-    } catch (err) {
-      console.error('Dashboard stats error:', err);
-      setError('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatTimeSpent = (seconds: number): string => {
-    if (seconds < 60) return `${seconds}s`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
-  };
-
-  const formatTimeAgo = (timestamp: string): string => {
-    const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
-    if (seconds < 60) return 'Just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    return `${Math.floor(seconds / 86400)}d ago`;
-  };
-
-  const getTrendIcon = (change: number) => {
-    if (change > 0) return <ArrowUp className="h-4 w-4 text-green-600" />;
-    if (change < 0) return <ArrowDown className="h-4 w-4 text-red-600" />;
-    return null;
-  };
-
-  const getTrendColor = (change: number) => {
-    if (change > 0) return 'text-green-600';
-    if (change < 0) return 'text-red-600';
-    return 'text-slate-600';
-  };const getEngagementColor = (level: 'high' | 'medium' | 'low') => {
-  switch(level) {
-    case 'high': return 'bg-green-100 text-green-700 border-green-200';
-    case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-    case 'low': return 'bg-slate-100 text-slate-700 border-slate-200';
-  }
-};
-
-const handleDocumentClick = (doc: Document) => {
-  setSelectedDocument(doc);
-  setShowDocumentDetails(true);
-};
-
-
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
-          <p className="text-slate-600">Loading advanced analytics...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !stats) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <p className="text-red-900 font-medium">{error || 'Failed to load dashboard'}</p>
-        <button
-          onClick={fetchDashboardStats}
-          className="mt-3 text-sm text-red-600 hover:text-red-700 underline"
-        >
-          Try again
-        </button>
-      </div>
-    );
-  }
+// ── Custom Tooltip for the line chart ────────────────────────────
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null;
+  const data = payload[0]?.payload;
 
   return (
-    <div className="space-y-6">
-      {/* Header with Time Range Selector */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Analytics Dashboard</h2>
-          <p className="text-sm text-slate-600 mt-1">Track document performance and viewer engagement</p>
-        </div>
-        
-        <div className="flex gap-2 bg-slate-100 rounded-lg p-1">
-          {(['7d', '30d', '90d'] as const).map((range) => (
-            <button
-              key={range}
-              onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                timeRange === range
-                  ? 'bg-white text-purple-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : '90 Days'}
-            </button>
+    <div className="bg-white border border-slate-200 rounded-lg shadow-xl p-3 min-w-[180px]">
+      <p className="text-xs font-semibold text-slate-500 mb-2">{label}</p>
+      <p className="text-lg font-black text-slate-900 mb-2">
+        {data?.views ?? 0}{" "}
+        <span className="text-xs font-normal text-slate-500">
+          {data?.views === 1 ? "visit" : "visits"}
+        </span>
+      </p>
+      {data?.topDocs?.length > 0 && (
+        <div className="border-t border-slate-100 pt-2 space-y-1">
+          {data.topDocs.map((doc: any, i: number) => (
+            <div key={i} className="flex items-center justify-between gap-2">
+              <span
+                className="text-xs text-slate-600 truncate max-w-[120px]"
+                title={doc.name}
+              >
+                {doc.name}
+              </span>
+              <span className="text-xs font-semibold text-slate-900 flex-shrink-0">
+                {doc.views}
+              </span>
+            </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+};
+
+// ── KPI Card ─────────────────────────────────────────────────────
+function KPICard({
+  icon,
+  label,
+  value,
+  sub,
+  live,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  sub?: string;
+  live?: boolean;
+}) {
+  return (
+    <div className="bg-white border-b border-r border-slate-100 px-6 py-5">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-slate-400">{icon}</span>
+        {live && (
+          <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+            LIVE
+          </span>
+        )}
       </div>
-
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Total Views</CardTitle>
-            <Eye className="h-5 w-5 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{stats.totalViews.toLocaleString()}</div>
-            <p className={`text-sm mt-2 flex items-center gap-1 ${getTrendColor(stats.trending.viewsChange)}`}>
-              {getTrendIcon(stats.trending.viewsChange)}
-              <span className="font-medium">{Math.abs(stats.trending.viewsChange)}%</span>
-              <span className="text-slate-500">vs last period</span>
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-green-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Unique Viewers</CardTitle>
-            <Users className="h-5 w-5 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{stats.uniqueViewers.toLocaleString()}</div>
-            <p className="text-sm text-slate-500 mt-2">
-              <span className="font-medium text-green-600">{stats.totalDownloads}</span> downloads
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-purple-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Engagement</CardTitle>
-            <Target className="h-5 w-5 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{stats.averageEngagement}%</div>
-            <p className={`text-sm mt-2 flex items-center gap-1 ${getTrendColor(stats.trending.engagementChange)}`}>
-              {getTrendIcon(stats.trending.engagementChange)}
-              <span className="font-medium">{Math.abs(stats.trending.engagementChange)}%</span>
-              <span className="text-slate-500">vs last period</span>
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-orange-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Avg. Time</CardTitle>
-            <Clock className="h-5 w-5 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900">{formatTimeSpent(stats.averageTimeSpent)}</div>
-            <p className="text-sm text-slate-500 mt-2">per document</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Advanced Analytics Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-slate-100 p-1">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger> 
-          <TabsTrigger value="signatures">📝 E-Signatures</TabsTrigger>
-          <TabsTrigger value="geography">Geography</TabsTrigger>
-          <TabsTrigger value="devices">Devices</TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-        </TabsList>
-
-        {/* OVERVIEW TAB */}
-        <TabsContent value="overview" className="space-y-6">
-          {/* Views & Downloads Over Time */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-purple-600" />
-                Views & Downloads Over Time
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={stats.viewsOverTime}>
-                  <defs>
-                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorDownloads" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="date" stroke="#64748b" fontSize={12} />
-                  <YAxis stroke="#64748b" fontSize={12} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
-                  />
-                  <Legend />
-                  <Area type="monotone" dataKey="views" stroke="#8B5CF6" fillOpacity={1} fill="url(#colorViews)" />
-                  <Area type="monotone" dataKey="downloads" stroke="#10B981" fillOpacity={1} fill="url(#colorDownloads)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Hourly Activity Heatmap */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-blue-600" />
-                  Activity by Hour
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={stats.hourlyActivity}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="hour" stroke="#64748b" fontSize={12} />
-                    <YAxis stroke="#64748b" fontSize={12} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
-                    />
-                    <Bar dataKey="views" fill="#3B82F6" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            {/* Conversion Funnel */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-orange-600" />
-                  Engagement Funnel
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {stats.conversionFunnel.map((stage, index) => (
-                    <div key={stage.stage}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium text-slate-700">{stage.stage}</span>
-                        <span className="text-slate-600">{stage.count} ({stage.percentage}%)</span>
-                      </div>
-                      <div className="h-8 bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full flex items-center justify-end px-3 text-white text-xs font-medium transition-all`}
-                          style={{ 
-                            width: `${stage.percentage}%`,
-                            backgroundColor: COLORS[index % COLORS.length]
-                          }}
-                        >
-                          {stage.percentage}%
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          
-
-          {/* Top Performing Documents */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-purple-600" />
-                Top Performing Documents
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-sm text-slate-600 border-b">
-                      <th className="pb-3 font-medium">Document</th>
-                      <th className="pb-3 font-medium">Views</th>
-                      <th className="pb-3 font-medium">Downloads</th>
-                      <th className="pb-3 font-medium">Engagement</th>
-                      <th className="pb-3 font-medium">Trend</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm">
-                    {stats.topDocuments.map((doc, index) => (
-                      <tr key={index} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="py-3 font-medium text-slate-900">{doc.name}</td>
-                        <td className="py-3">{doc.views.toLocaleString()}</td>
-                        <td className="py-3">{doc.downloads}</td>
-                        <td className="py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-gradient-to-r from-purple-500 to-blue-500"
-                                style={{ width: `${doc.engagement}%` }}
-                              />
-                            </div>
-                            <span className="text-xs">{doc.engagement}%</span>
-                          </div>
-                        </td>
-                        <td className="py-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-                            index < 2 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'
-                          }`}>
-                            {index < 2 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                            {index < 2 ? 'Rising' : 'Stable'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="signatures" className="space-y-6">
-  <SignatureDashboard />  {/* ← ADD THIS */}
-</TabsContent>
-
-        {/* NEW DOCUMENTS TAB - PER-DOCUMENT ANALYTICS */}
-        <TabsContent value="documents" className="space-y-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">Document Performance</h3>
-              <p className="text-sm text-slate-600">Click on any document to see detailed viewer analytics</p>
-            </div>
-            <div className="text-sm text-slate-600">
-              {stats.topDocuments.length} documents
-            </div>
-          </div>
-
-          {stats.topDocuments.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <FileText className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">No Documents Yet</h3>
-                <p className="text-sm text-slate-600">Upload documents and share them to see analytics here</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {stats.topDocuments.map((doc) => (
-                <Card 
-                  key={doc.id} 
-                  className="hover:shadow-lg transition-all cursor-pointer border-l-4 border-l-purple-500"
-                  onClick={() => handleDocumentClick(doc)}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-4 flex-1">
-                        <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center flex-shrink-0">
-                          <FileText className="h-6 w-6 text-purple-600" />
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-slate-900 text-lg mb-2 truncate">
-                            {doc.name}
-                          </h4>
-                          
-                          {/* Stats Row */}
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 mb-3">
-                            <div className="flex items-center gap-1">
-                              <Eye className="h-4 w-4" />
-                              <span className="font-medium">{doc.views}</span> views
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Users className="h-4 w-4" />
-                              <span className="font-medium">{doc.viewers.length}</span> viewers
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Download className="h-4 w-4" />
-                              <span className="font-medium">{doc.downloads}</span> downloads
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Target className="h-4 w-4" />
-                              <span className="font-medium">{doc.engagement}%</span> engagement
-                            </div>
-                          </div>
-
-                          {/* Viewer Emails Preview */}
-                          {doc.viewers.length > 0 && (
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Mail className="h-4 w-4 text-slate-400" />
-                              <div className="flex flex-wrap gap-2">
-                                {doc.viewers.slice(0, 3).map((viewer, idx) => (
-                                  <span
-                                    key={idx}
-                                    className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200"
-                                  >
-                                    {viewer.email}
-                                  </span>
-                                ))}
-                                {doc.viewers.length > 3 && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700">
-                                    +{doc.viewers.length - 3} more
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <button className="flex items-center gap-1 text-purple-600 hover:text-purple-700 text-sm font-medium ml-4">
-                        View Details
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* GEOGRAPHY TAB */}
-        <TabsContent value="geography" className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Geographic Map (Simulated) */}
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-blue-600" />
-                  Geographic Distribution
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {/* World Map Visualization (Placeholder - would use real map library) */}
-                <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg p-8 border-2 border-dashed border-slate-300">
-                  <div className="text-center">
-                    <Globe className="h-16 w-16 text-slate-400 mx-auto mb-4" />
-                    <h3 className="font-semibold text-slate-900 mb-2">Interactive World Map</h3>
-                    <p className="text-sm text-slate-600 mb-4">
-                      Geographic visualization showing viewer locations worldwide
-                    </p>
-                    <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
-                      {stats.geographicData.slice(0, 6).map((location, index) => (
-                        <div key={index} className="bg-white rounded-lg p-4 border border-slate-200">
-                          <MapPin className="h-5 w-5 text-purple-600 mb-2" />
-                          <p className="font-semibold text-slate-900">{location.city}</p>
-                          <p className="text-xs text-slate-600">{location.country}</p>
-                          <p className="text-lg font-bold text-purple-600 mt-1">{location.views}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Top Countries */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-green-600" />
-                  Top Countries
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {stats.geographicData.slice(0, 5).map((location, index) => (
-                    <div key={index} className="flex items-center gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">
-                        {index + 1}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-medium text-slate-900">{location.country}</span>
-                          <span className="text-sm text-slate-600">{location.views} views</span>
-                        </div>
-                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
-                            style={{ width: `${(location.views / stats.totalViews) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Top Cities */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-blue-600" />
-                  Top Cities
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {stats.geographicData.slice(0, 8).map((location, index) => (
-                    <div key={index} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-400 text-sm">#{index + 1}</span>
-                        <span className="font-medium text-slate-900">{location.city}</span>
-                      </div>
-                      <span className="text-sm text-slate-600">{location.views} views</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* DEVICES TAB */}
-        <TabsContent value="devices" className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Device Breakdown */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Monitor className="h-5 w-5 text-purple-600" />
-                  Device Types
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={stats.deviceBreakdown}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ payload, percent }) => `${payload?.device}: ${Math.round((percent || 0) * 100)}%`}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="count"
-                    >
-                      {stats.deviceBreakdown.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                
-                <div className="mt-4 space-y-2">
-                  {stats.deviceBreakdown.map((device, index) => (
-                    <div key={device.device} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        />
-                        <span className="text-sm text-slate-700">{device.device}</span>
-                      </div>
-                      <span className="text-sm font-medium text-slate-900">{device.count}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Browser Breakdown */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-blue-600" />
-                  Browsers
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {stats.browserBreakdown.map((browser, index) => {
-                    const percentage = (browser.count / stats.totalViews) * 100;
-                    return (
-                      <div key={browser.browser}>
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="font-medium text-slate-700">{browser.browser}</span>
-                          <span className="text-slate-600">{browser.count} ({percentage.toFixed(1)}%)</span>
-                        </div>
-                        <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full rounded-full transition-all"
-                            style={{ 
-                              width: `${percentage}%`,
-                              backgroundColor: COLORS[index % COLORS.length]
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* PERFORMANCE TAB */}
-        <TabsContent value="performance" className="space-y-6">
-          <div className="grid md:grid-cols-3 gap-6">
-            {/* Viewer Engagement Segments */}
-            {stats.viewerEngagement.map((segment, index) => (
-              <Card key={segment.segment}>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-slate-600">
-                    {segment.segment} Engagement
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-slate-900 mb-2">
-                    {segment.count}
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    Avg. {formatTimeSpent(segment.avgTime)}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-green-600" />
-                Recent Activity
-              </CardTitle>
-              <button className="text-sm text-purple-600 hover:text-purple-700 font-medium">
-                View All
-              </button>
-            </CardHeader>
-            <CardContent>
-              {stats.recentActivity.length > 0 ? (
-                <div className="space-y-3">
-                  {stats.recentActivity.slice(0, 8).map((activity) => (
-                    <div 
-                      key={activity.id}
-                      className="flex items-start gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        activity.type === 'view' ? 'bg-blue-100' :
-                        activity.type === 'download' ? 'bg-green-100' :
-                        'bg-purple-100'
-                      }`}>
-                        {activity.type === 'view' && <Eye className="h-5 w-5 text-blue-600" />}
-                        {activity.type === 'download' && <Download className="h-5 w-5 text-green-600" />}
-                        {activity.type === 'share' && <Share2 className="h-5 w-5 text-purple-600" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 truncate">
-                          {activity.documentName}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          {activity.type === 'view' && 'was viewed'}
-                          {activity.type === 'download' && 'was downloaded'}
-                          {activity.type === 'share' && 'was shared'}
-                          {activity.viewer && ` by ${activity.viewer}`}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-1">
-                          {formatTimeAgo(activity.timestamp)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <Activity className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-sm text-slate-600">No recent activity yet</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-     {/* Document Details Modal */}
-      <Dialog open={showDocumentDetails} onOpenChange={setShowDocumentDetails}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-white">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-              <FileText className="h-6 w-6 text-purple-600" />
-              {selectedDocument?.name}
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedDocument && (
-            <div className="space-y-6 mt-4">
-              {/* Document Stats */}
-              <div className="grid grid-cols-4 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Eye className="h-4 w-4 text-blue-600" />
-                    <span className="text-xs font-medium text-blue-900">Views</span>
-                  </div>
-                  <div className="text-2xl font-bold text-blue-900">{selectedDocument.views}</div>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Users className="h-4 w-4 text-green-600" />
-                    <span className="text-xs font-medium text-green-900">Viewers</span>
-                  </div>
-                  <div className="text-2xl font-bold text-green-900">{selectedDocument.viewers.length}</div>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Download className="h-4 w-4 text-purple-600" />
-                    <span className="text-xs font-medium text-purple-900">Downloads</span>
-                  </div>
-                  <div className="text-2xl font-bold text-purple-900">{selectedDocument.downloads}</div>
-                </div>
-                <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Target className="h-4 w-4 text-orange-600" />
-                    <span className="text-xs font-medium text-orange-900">Engagement</span>
-                  </div>
-                  <div className="text-2xl font-bold text-orange-900">{selectedDocument.engagement}%</div>
-                </div>
-              </div>
-
-              {/* Viewers Table */}
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                  <Users className="h-5 w-5 text-purple-600" />
-                  All Viewers ({selectedDocument.viewers.length})
-                </h3>
-
-                {selectedDocument.viewers.length === 0 ? (
-                  <div className="bg-slate-50 rounded-lg p-8 text-center border-2 border-dashed border-slate-200">
-                    <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                    <p className="text-sm text-slate-600">No viewers yet</p>
-                  </div>
-                ) : (
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-slate-50 border-b">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Viewer</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Location</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">First View</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Last View</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Views</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Time Spent</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 uppercase">Engagement</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {selectedDocument.viewers.map((viewer, index) => (
-                          <tr key={index} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-4">
-                              <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                                  {viewer.email.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="font-medium text-slate-900 truncate">{viewer.email}</p>
-                                  {viewer.company && (
-                                    <p className="text-xs text-slate-500 truncate">{viewer.company}</p>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-4">
-                              {viewer.location ? (
-                                <div className="flex items-center gap-1 text-sm text-slate-700">
-                                  <MapPin className="h-4 w-4 text-slate-400" />
-                                  <span>{viewer.location.city}, {viewer.location.country}</span>
-                                </div>
-                              ) : (
-                                <span className="text-sm text-slate-400">Unknown</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-4 text-sm text-slate-700">
-                              {formatTimeAgo(viewer.firstAccessAt)}
-                            </td>
-                            <td className="px-4 py-4 text-sm text-slate-700">
-                              {formatTimeAgo(viewer.lastAccessAt)}
-                            </td>
-                            <td className="px-4 py-4">
-                              <span className="inline-flex items-center gap-1 text-sm font-medium text-slate-900">
-                                <MousePointer className="h-3.5 w-3.5" />
-                                {viewer.totalViews}
-                              </span>
-                            </td>
-                            <td className="px-4 py-4 text-sm font-medium text-slate-900">
-                              {formatTimeSpent(viewer.totalTimeSpent)}
-                            </td>
-                            <td className="px-4 py-4">
-                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getEngagementColor(viewer.engagement)}`}>
-                                {viewer.engagement.charAt(0).toUpperCase() + viewer.engagement.slice(1)}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-       
+      <p className="text-2xl font-black text-slate-900 tabular-nums">{value}</p>
+      <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
     </div>
   );
 }
 
+// ── Intent badge ─────────────────────────────────────────────────
+function IntentBadge({ level }: { level: string }) {
+  const map: Record<string, string> = {
+    high: "bg-green-50 text-green-700 border-green-200",
+    medium: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    low: "bg-slate-50 text-slate-500 border-slate-200",
+  };
+  return (
+    <span
+      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wide ${map[level] || map.low}`}
+    >
+      {level}
+    </span>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────
+export default function DashboardOverview() {
+  const router = useRouter();
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [contactTab, setContactTab] = useState<"my" | "team">("my");
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      const res = await fetch("/api/dashboard/analytics", {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      if (data.success) setAnalytics(data.analytics);
+    } catch (e) {
+      setError("Could not load analytics");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAnalytics();
+    // Poll every 30s for live viewer count
+    const interval = setInterval(fetchAnalytics, 30000);
+    return () => clearInterval(interval);
+  }, [fetchAnalytics]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-violet-600 mx-auto mb-3" />
+          <p className="text-sm text-slate-500">Loading dashboard…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !analytics) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <p className="text-sm text-slate-400">{error || "No data"}</p>
+      </div>
+    );
+  }
+
+  const {
+    totalViews,
+    uniqueViewers,
+    activeLinks,
+    pendingSignatures,
+     mostEngagedContacts,
+    liveViewers,
+    viewsByDate,
+    topDocuments,
+    recentVisits,
+    hotVisitors,
+    recentNDAs,
+  } = analytics;
+
+  // X-axis: show every 5th label to avoid crowding
+  const tickFormatter = (val: string, idx: number) =>
+    idx % 5 === 0 ? val : "";
+
+  return (
+    <div className="space-y-0 bg-white border border-slate-200 rounded-lg overflow-hidden">
+      {/* ── KPI strip ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 md:grid-cols-5 border-b border-slate-100">
+        <KPICard
+          icon={<Eye className="h-4 w-4" />}
+          label="Total views"
+          value={totalViews.toLocaleString()}
+        />
+        <KPICard
+          icon={<Users className="h-4 w-4" />}
+          label="Unique viewers"
+          value={uniqueViewers.toLocaleString()}
+        />
+        <KPICard
+          icon={<Link2 className="h-4 w-4" />}
+          label="Active links"
+          value={activeLinks.toLocaleString()}
+        />
+        <KPICard
+          icon={<FileSignature className="h-4 w-4" />}
+          label="Pending signatures"
+          value={pendingSignatures.toLocaleString()}
+        />
+        <KPICard
+          icon={<Radio className="h-4 w-4" />}
+          label="Live right now"
+          value={liveViewers}
+          live={liveViewers > 0}
+        />
+      </div>
+
+      {/* ── Visit stats chart ─────────────────────────────────── */}
+      <div className="px-6 pt-6 pb-2 border-b border-slate-100">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">
+              Visit stats
+            </h2>
+            <p className="text-xs text-slate-400">number per day · last 30 days</p>
+          </div>
+          {liveViewers > 0 && (
+            <span className="flex items-center gap-1.5 text-xs text-green-600 font-medium bg-green-50 border border-green-200 px-2 py-1 rounded-full">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+              {liveViewers} viewing now
+            </span>
+          )}
+        </div>
+
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart
+            data={viewsByDate}
+            margin={{ top: 4, right: 16, left: -24, bottom: 0 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#f1f5f9"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 10, fill: "#94a3b8" }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={tickFormatter}
+            />
+            <YAxis
+              tick={{ fontSize: 10, fill: "#94a3b8" }}
+              axisLine={false}
+              tickLine={false}
+              allowDecimals={false}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Line
+              type="monotone"
+              dataKey="views"
+              stroke="#7c3aed"
+              strokeWidth={2}
+              dot={(props: any) => {
+                const { cx, cy, payload } = props;
+                return (
+                  <circle
+                    key={`dot-${payload.date}`}
+                    cx={cx}
+                    cy={cy}
+                    r={payload.views > 0 ? 3 : 2}
+                    fill={payload.views > 0 ? "#7c3aed" : "#e2e8f0"}
+                    stroke={payload.views > 0 ? "#7c3aed" : "#cbd5e1"}
+                    strokeWidth={1}
+                  />
+                );
+              }}
+              activeDot={{ r: 5, fill: "#7c3aed", stroke: "#fff", strokeWidth: 2 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* ── Bottom 3-column section ───────────────────────────── */}
+      <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+
+        {/* Top documents */}
+        <div className="px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
+              Top Documents
+            </h3>
+            <TrendingUp className="h-3.5 w-3.5 text-slate-400" />
+          </div>
+
+          {topDocuments.length === 0 ? (
+            <p className="text-xs text-slate-400 py-4 text-center">
+              No documents yet
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {topDocuments.map((doc: any, i: number) => (
+                <button
+                  key={doc.id}
+                  onClick={() => router.push(`/documents/${doc.id}`)}
+                  className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-slate-50 transition-colors group text-left"
+                >
+                  <span className="text-xs text-slate-400 w-4 flex-shrink-0 font-mono">
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
+                      {doc.name}
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      {doc.numPages} pages
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Eye className="h-3 w-3 text-slate-300" />
+                    <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                      {doc.views}
+                    </span>
+                  </div>
+                  <ChevronRight className="h-3 w-3 text-slate-300 group-hover:text-violet-400 transition-colors" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent visits */}
+        <div className="px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
+              Recent Visits
+            </h3>
+            <Clock className="h-3.5 w-3.5 text-slate-400" />
+          </div>
+
+          {recentVisits.length === 0 ? (
+            <p className="text-xs text-slate-400 py-4 text-center">
+              No visits yet
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {recentVisits.slice(0, 6).map((visit: any, i: number) => (
+                <button
+                  key={i}
+                  onClick={() => router.push(`/documents/${visit.documentId}`)}
+                  className="w-full flex items-start gap-2 px-2 py-2 rounded hover:bg-slate-50 transition-colors group text-left"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-slate-800 truncate">
+                      {visit.email}
+                    </p>
+                    <p
+                      className="text-[10px] text-slate-400 truncate"
+                      title={visit.documentName}
+                    >
+                      {visit.documentName}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
+                    <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                      {formatTimeAgo(visit.startedAt)}
+                    </span>
+                    <div className="flex items-center gap-1 text-slate-300">
+                      {getDeviceIcon(visit.device)}
+                      {visit.location && (
+                        <span className="text-[9px] text-slate-400 truncate max-w-[60px]">
+                          {visit.location}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Hot visitors + NDAs */}
+        <div className="px-5 py-4 space-y-4">
+          {/* Hot visitors */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
+                Hot Visitors
+              </h3>
+              <Flame className="h-3.5 w-3.5 text-orange-400" />
+            </div>
+
+            {hotVisitors.length === 0 ? (
+              <p className="text-xs text-slate-400 py-2 text-center">
+                No high-intent visitors yet
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {hotVisitors.map((v: any, i: number) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-slate-800 truncate">
+                        {v.email}
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        {v.visits} visits · {formatTime(v.totalTime)} ·{" "}
+                        {v.docsViewed} doc
+                        {v.docsViewed !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <IntentBadge level={v.intentLevel} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recent NDA signings */}
+          {recentNDAs.length > 0 && (
+            <div className="border-t border-slate-100 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
+                  NDA Signings
+                </h3>
+                <Shield className="h-3.5 w-3.5 text-slate-400" />
+              </div>
+              <div className="space-y-1">
+                {recentNDAs.map((n: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 px-2 py-1.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-slate-800 truncate">
+                        {n.email}
+                      </p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        {n.documentName}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-slate-400 flex-shrink-0">
+                      {formatTimeAgo(n.timestamp)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Empty state for both */}
+          {hotVisitors.length === 0 && recentNDAs.length === 0 && (
+            <div className="text-center py-6">
+              <FileText className="h-8 w-8 text-slate-200 mx-auto mb-2" />
+              <p className="text-xs text-slate-400">
+                Share documents to start tracking engagement
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
 
 
 
+      {/* ── Most engaged contacts ─────────────────────────────── */}
+      <div className="border-t border-slate-100 px-6 py-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">
+              Most engaged contacts
+            </h2>
+            <p className="text-xs text-slate-400">Last 30 days</p>
+          </div>
+          <div className="flex border border-slate-200 rounded-md overflow-hidden text-xs">
+            <button
+              onClick={() => setContactTab("my")}
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                contactTab === "my"
+                  ? "bg-slate-900 text-white"
+                  : "bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              My visits
+            </button>
+            <button
+              onClick={() => setContactTab("team")}
+              className={`px-3 py-1.5 font-medium transition-colors border-l border-slate-200 ${
+                contactTab === "team"
+                  ? "bg-slate-900 text-white"
+                  : "bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Team visits
+            </button>
+          </div>
+        </div>
+
+        {mostEngagedContacts.length === 0 ? (
+          <div className="text-center py-10">
+            <Users className="h-8 w-8 text-slate-200 mx-auto mb-2" />
+            <p className="text-xs text-slate-400">
+              No contacts have viewed your documents yet
+            </p>
+          </div>
+        ) : (
+          <div>
+            {/* Table header */}
+            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+              <div className="col-span-5">Contact</div>
+              <div className="col-span-3">Document</div>
+              <div className="col-span-1 text-center">Visits ↓</div>
+              <div className="col-span-1 text-center">Docs</div>
+              <div className="col-span-2 text-right">Time spent</div>
+            </div>
+
+            {/* Table rows */}
+            <div className="divide-y divide-slate-50">
+              {mostEngagedContacts.map((contact: any, i: number) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-12 gap-2 px-3 py-3 items-center hover:bg-slate-50 transition-colors group"
+                >
+                  {/* Contact */}
+                  <div className="col-span-5 flex items-center gap-2 min-w-0">
+                    <div
+                      className="h-7 w-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                      style={{
+                        background: `hsl(${(contact.email.charCodeAt(0) * 37) % 360}, 55%, 55%)`,
+                      }}
+                    >
+                      {contact.email.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
+                        {contact.email.split("@")[0]}
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        {formatTimeAgo(contact.lastSeen)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Most-viewed doc name (truncated) */}
+                  <div className="col-span-3 min-w-0">
+                    <p className="text-[10px] text-slate-500 truncate">
+                      {contact.topDocName || "—"}
+                    </p>
+                  </div>
+
+                  {/* Visits */}
+                  <div className="col-span-1 text-center">
+                    <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                      {contact.visits}
+                    </span>
+                  </div>
+
+                  {/* Docs */}
+                  <div className="col-span-1 text-center">
+                    <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                      {contact.docs}
+                    </span>
+                  </div>
+
+                  {/* Time spent */}
+                  <div className="col-span-2 text-right">
+                    <span className="text-xs font-mono font-semibold text-slate-700 tabular-nums">
+                      {formatMMSS(contact.totalTime)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

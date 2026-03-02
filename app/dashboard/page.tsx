@@ -93,6 +93,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import GlobalSearch from "@/components/GlobalSearch"
 import PageInfoTooltip from "@/components/PageInfoTooltip"
 import { Drawer } from "@/components/ui/drawer"
+import SpacesView from "@/components/SpacesView"
 
 type UserType = {
   email: string
@@ -889,11 +890,7 @@ useEffect(() => {
   }
 }, [showTeamDrawer])
 
-useEffect(() => {
-  if (activePage === 'reports') {
-    router.push('/reports')
-  }
-}, [activePage, router])
+ 
 
 
 const fetchTeamMembers = async () => {
@@ -1276,13 +1273,7 @@ const resetContactForm = () => {
 
 
 
-// Add this with your other useEffects
-useEffect(() => {
-  // Redirect to /spaces page when activePage is 'spaces'
-  if (activePage === 'spaces') {
-    router.push('/spaces')
-  }
-}, [activePage, router])
+
 
 // Handle document sharing
 const handleShareDocument = async () => {
@@ -2367,7 +2358,6 @@ const TemplatesSection = () => {
   const sidebarItems: Array<{ id: PageType; icon: any; label: string; badge: string | null }> = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', badge: null },
     { id: 'content-library', icon: Folder, label: 'Content library', badge: null },
-    { id: 'reports', icon: BarChart3, label: 'Reports', badge: 'Analytics' },
     { id: 'spaces', icon: FolderOpen, label: 'Spaces', badge: 'Data rooms' },
     { id: 'documents', icon: FileText, label: 'Documents', badge: null },
     { id: 'agreements', icon: FileSignature, label: 'Agreements', badge: null },
@@ -2948,32 +2938,14 @@ case 'dashboard':
           </div>
         )
 
-  
-      case 'spaces':
-  // Show loading state while redirecting
+  case 'spaces':
   return (
-    <div className="flex items-center justify-center min-h-[400px]">
-       
-      <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
-        <p className="text-slate-600">Redirecting to Spaces...</p>
-      </div>
+    <div className="p-6">
+      <SpacesView />
     </div>
   )
-
-
-  case 'reports':
-  // Show loading state while redirecting
-  return (
-    <div className="flex items-center justify-center min-h-[400px]">
       
-      <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
-        <p className="text-slate-600">Redirecting to Reports...</p>
-      </div>
-    </div>
-  )
-
+  
   case 'documents':
   return (
     <div className="flex items-center justify-center min-h-[400px]">
