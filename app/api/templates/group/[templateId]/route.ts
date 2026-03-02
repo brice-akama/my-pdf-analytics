@@ -18,14 +18,11 @@ export async function GET(
 
     const db = await dbPromise;
     
-    const profile = await db.collection('profiles').findOne({
-      user_id: user.id,
-    });
-    const organizationId = profile?.organization_id || user.id;
+     
 
     const template = await db.collection('document_group_templates').findOne({
       _id: new ObjectId(templateId),
-      organizationId: organizationId,
+        userId: user.id,
       isActive: true
     });
 
@@ -92,17 +89,15 @@ export async function PATCH(
 
     const db = await dbPromise;
     
-    const profile = await db.collection('profiles').findOne({
-      user_id: user.id,
-    });
-    const organizationId = profile?.organization_id || user.id;
+     
+     
 
     const updates = await request.json();
 
     const result = await db.collection('document_group_templates').updateOne(
       {
         _id: new ObjectId(templateId),
-        organizationId: organizationId
+        userId: user.id,
       },
       {
         $set: {

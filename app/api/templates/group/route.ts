@@ -15,19 +15,11 @@ export async function GET(request: NextRequest) {
     const db = await dbPromise;
     
     // Get user's organization
-    const profile = await db.collection('profiles').findOne({
-      user_id: user.id,
-    });
-    const organizationId = profile?.organization_id || user.id;
-
-    console.log('🔍 [GROUP TEMPLATES] Fetching templates for org:', organizationId);
-
-    // Fetch all active group templates for this organization
-    const templates = await db.collection('document_group_templates')
-      .find({
-        organizationId: organizationId,
-        isActive: true
-      })
+   const templates = await db.collection('document_group_templates')
+  .find({
+    userId: user.id,  // HARD LOCK — only own templates
+    isActive: true
+  })
       .sort({ lastUsed: -1, createdAt: -1 })
       .toArray();
 
@@ -83,11 +75,8 @@ export async function POST(request: NextRequest) {
 
     const db = await dbPromise;
     
-    // Get user's organization
-    const profile = await db.collection('profiles').findOne({
-      user_id: user.id,
-    });
-    const organizationId = profile?.organization_id || user.id;
+    
+     
 
     const {
       name,
@@ -105,15 +94,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('📝 [GROUP TEMPLATES] Creating template:', name);
-    console.log('📄 Documents:', documents.length);
-    console.log('👥 Recipient roles:', recipientRoles.length);
+    
 
     // Verify all documents exist and belong to user/org
     for (const doc of documents) {
       const docExists = await db.collection('documents').findOne({
         _id: new ObjectId(doc.documentId),
-        organizationId: organizationId
+         userId: user.id 
       });
 
       if (!docExists) {
@@ -129,7 +116,7 @@ export async function POST(request: NextRequest) {
       name,
       description: description || '',
       userId: user.id,
-      organizationId: organizationId,
+       
       documents: documents.map((doc: any, index: number) => ({
         documentId: doc.documentId,
         order: index + 1,

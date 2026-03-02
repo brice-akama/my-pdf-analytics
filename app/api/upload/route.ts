@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
 
     const db = await dbPromise;
     const profile = await db.collection('profiles').findOne({ user_id: user.id });
-    const organizationId = profile?.organization_id || user.id;
+    //  Organization should NOT replace personal ownership of documents
+const organizationId = profile?.organization_id || null;
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -218,6 +219,7 @@ const doc = {
   version: 1, // ⭐ START AT VERSION 1
   originalFilename: file.name,
   originalFormat: fileType,
+  visibility: "personal",   //  — prevents owner from seeing member uploads
   mimeType: file.type,
   size: buffer.length,
   pdfSize: pdfBuffer.length,

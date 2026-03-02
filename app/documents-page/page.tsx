@@ -24,7 +24,8 @@ import {
   Edit,
   Mail,
   Link2, 
-  Shield
+  Shield,
+  Users
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -39,12 +40,14 @@ import { Label } from "@radix-ui/react-dropdown-menu"
 import Link from "next/link"
 import PageInfoTooltip from "@/components/PageInfoTooltip"
 import PdfThumbnail from "@/components/PdfThumbnail"
+import { toast } from "sonner"
 
 type DocumentType = {
   _id: string
   filename: string
   size: number
   originalFilename?: string 
+  sharedToTeam: string
   archived?: boolean 
   numPages: number
   createdAt: string
@@ -84,7 +87,7 @@ export default function DocumentsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [templates, setTemplates] = useState<DocumentType[]>([])
 const [archivedDocuments, setArchivedDocuments] = useState<DocumentType[]>([])
-const [activeView, setActiveView] = useState<'documents' | 'templates' | 'archive'>('documents')
+const [activeView, setActiveView] = useState<'documents' | 'templates' | 'archive' | 'team-documents'>('documents')
 const [previewDrawerOpen, setPreviewDrawerOpen] = useState(false)
 const [previewDocumentId, setPreviewDocumentId] = useState<string | null>(null)
 const [hoveredDocId, setHoveredDocId] = useState<string | null>(null)
@@ -102,7 +105,10 @@ const [sharingDocumentId, setSharingDocumentId] = useState<string | null>(null)
 const [currentPage, setCurrentPage] = useState(1)
 const [totalPages, setTotalPages] = useState(1)
 const [totalDocuments, setTotalDocuments] = useState(0)
-const [itemsPerPage] = useState(5) // You can adjust this as needed
+const [itemsPerPage] = useState(5) 
+const [teamDocuments, setTeamDocuments] = useState<any[]>([])
+const [teamName, setTeamName] = useState<string>('Team')
+const [loadingTeamDocs, setLoadingTeamDocs] = useState(false)
 const [shareSettings, setShareSettings] = useState({
   requireEmail: true,
   allowDownload: false,
@@ -169,6 +175,62 @@ useEffect(() => {
   }
 }, [shareDrawerOpen]);
 
+
+const fetchTeamDocuments = async () => {
+  setLoadingTeamDocs(true)
+  try {
+    const res = await fetch('/api/documents/team', { credentials: 'include' })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        setTeamDocuments(data.documents)
+        setTeamName(data.teamName || 'Team')
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch team docs:', error)
+  } finally {
+    setLoadingTeamDocs(false)
+  }
+}
+
+const handleShareToTeam = async (docId: string, docName: string) => {
+  try {
+    const res = await fetch(`/api/documents/${docId}/team`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+    const data = await res.json()
+    if (res.ok) {
+      toast.success(`"${docName}" shared to team`)
+      fetchDocuments()       // refresh personal list (now shows shared badge)
+      fetchTeamDocuments()   // refresh team list
+    } else {
+      toast.error(data.error || 'Failed to share')
+    }
+  } catch (error) {
+    toast.error('Network error')
+  }
+}
+
+const handleUnshareFromTeam = async (docId: string, docName: string) => {
+  try {
+    const res = await fetch(`/api/documents/${docId}/team`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+    const data = await res.json()
+    if (res.ok) {
+      toast.success(`"${docName}" removed from team`)
+      fetchDocuments()
+      fetchTeamDocuments()
+    } else {
+      toast.error(data.error || 'Failed to unshare')
+    }
+  } catch (error) {
+    toast.error('Network error')
+  }
+}
 
 // Fetch group templates count
 const fetchGroupTemplatesCount = async () => {
@@ -829,47 +891,35 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
     </div>
 
     {/* TEAM section */}
-    <div>
-      <div className="flex items-center justify-between px-3 mb-2">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          Team
-        </p>
-        <button className="h-5 w-5 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors">
-          <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
+   <div>
+  <div className="flex items-center justify-between px-3 mb-2">
+    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+      Team — {teamName}
+    </p>
+  </div>
+  <div className="space-y-0.5">
+    <button
+      onClick={() => { setActiveView('team-documents'); fetchTeamDocuments(); }}
+      className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+        activeView === 'team-documents'
+          ? 'bg-purple-50 text-purple-700'
+          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+      }`}
+    >
+      <div className="flex items-center gap-2.5">
+        <Users className="h-4 w-4 flex-shrink-0" />
+        <span>Documents</span>
       </div>
-      <div className="space-y-0.5">
-
-        <button
-          onClick={() => {}}
-          className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <FileText className="h-4 w-4 flex-shrink-0" />
-            <span>Documents</span>
-          </div>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">
-            0
-          </span>
-        </button>
-
-        <button
-          onClick={() => {}}
-          className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <FolderOpen className="h-4 w-4 flex-shrink-0" />
-            <span>Templates</span>
-          </div>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">
-            0
-          </span>
-        </button>
-
-      </div>
-    </div>
+      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+        activeView === 'team-documents'
+          ? 'bg-purple-100 text-purple-700'
+          : 'bg-slate-100 text-slate-500'
+      }`}>
+        {teamDocuments.length}
+      </span>
+    </button>
+  </div>
+</div>
 
   </nav>
 </aside>
@@ -956,6 +1006,86 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
                 </span>
               </div>
             )}
+
+
+            {activeView === 'team-documents' && (
+  <div>
+    {loadingTeamDocs ? (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    ) : teamDocuments.length === 0 ? (
+      <div className="bg-white rounded-xl border-2 border-dashed p-12 text-center">
+        <Users className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-slate-900 mb-2">No team documents yet</h3>
+        <p className="text-slate-600">
+          Go to your personal documents and click <strong>Share to Team</strong> on any document.
+          It will appear here for all team members.
+        </p>
+      </div>
+    ) : (
+      <div className="divide-y divide-slate-100">
+        {teamDocuments.map((doc) => (
+          <div key={doc._id} className="flex items-center gap-4 px-2 py-3 hover:bg-slate-50 rounded-xl">
+            {/* Thumbnail */}
+            <div className="relative h-36 w-28 rounded-xl overflow-hidden flex-shrink-0 bg-white border border-slate-200 shadow-sm">
+              <PdfThumbnail
+                documentId={doc._id}
+                filename={doc.originalFilename || doc.filename}
+              />
+            </div>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-slate-900 truncate">
+                  {doc.originalFilename || doc.filename}
+                </h3>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                  Team
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                <span>{doc.numPages} pages</span>
+                <span>•</span>
+                <span>Shared by {doc.isOwner ? 'you' : doc.sharedByEmail}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {formatTimeAgo(doc.sharedAt || doc.createdAt)}
+                </span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push(`/documents/${doc._id}`)}
+                title="View analytics"
+              >
+                <BarChart3 className="h-4 w-4" />
+              </Button>
+              {/* Only owner can remove from team */}
+              {doc.isOwner && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleUnshareFromTeam(doc._id, doc.originalFilename || doc.filename)}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  title="Remove from team"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
 
             {/* Upload Area */}
           {activeView === 'archive' ? (
@@ -1336,6 +1466,21 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
     <Shield className="h-4 w-4 text-slate-400" />
     Compliance Report
   </Link>
+</DropdownMenuItem>
+
+<DropdownMenuItem
+  onClick={(e) => {
+    e.stopPropagation()
+    if (doc.sharedToTeam) {
+      handleUnshareFromTeam(doc._id, doc.originalFilename || doc.filename)
+    } else {
+      handleShareToTeam(doc._id, doc.originalFilename || doc.filename)
+    }
+  }}
+  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+>
+  <Users className="h-4 w-4 text-slate-400" />
+  {doc.sharedToTeam ? 'Remove from Team' : 'Share to Team'}
 </DropdownMenuItem>
 
 <div className="h-px bg-slate-100 my-1 mx-2" />
