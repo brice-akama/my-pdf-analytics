@@ -25,7 +25,8 @@ import {
   Mail,
   Link2, 
   Shield,
-  Users
+  Users,
+   FileSignature
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -271,7 +272,7 @@ const fetchGroupTemplatesCount = async () => {
     if (res.ok) {
       const data = await res.json()
       if (data.success) {
-        setDocuments(data.documents)
+         setDocuments(data.documents.filter((doc: DocumentType) => !doc.isTemplate))
         setCurrentPage(data.currentPage)
         setTotalPages(data.totalPages)
         setTotalDocuments(data.totalDocuments)
@@ -443,6 +444,7 @@ const handleRestoreDocument = async (docId: string, docName: string) => {
     await fetchArchivedDocuments(1);
     await fetchDrafts();
       await fetchGroupTemplatesCount();
+      await fetchTeamDocuments();
      
   };
   
@@ -1051,7 +1053,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
       </div>
-    ) : teamDocuments.filter(d => d.isTemplate).length === 0 ? (
+    ) : teamDocuments.filter(d => d.isTemplate && !d.archived).length === 0 ? (
       <div className="bg-white rounded-xl border-2 border-dashed p-12 text-center">
         <FileSignature className="h-16 w-16 text-slate-300 mx-auto mb-4" />
         <h3 className="text-xl font-semibold text-slate-900 mb-2">
@@ -1065,7 +1067,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       </div>
     ) : (
       <div className="divide-y divide-slate-100">
-        {teamDocuments.filter(d => d.isTemplate).map((doc) => (
+        {teamDocuments.filter(d => d.isTemplate && !d.archived).map((doc) => (
           <div
             key={doc._id}
             className="flex items-center gap-4 px-2 py-3 hover:bg-slate-50 rounded-xl transition-colors relative group"
@@ -1568,9 +1570,10 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       <p className="text-slate-600 mb-6">Deleted documents will appear here</p>
     </div>
   )
-) : (
+) : (activeView === 'documents' || activeView === 'templates') ? (
   /* Documents/Templates View */
   (activeView === 'documents' ? documents : templates).length > 0 ? (
+
     <div className="mb-8">
       <h2 className="text-xl font-semibold text-slate-900 mb-4">
         {activeView === 'documents' ? 'Your Documents' : 'Your Templates'}
@@ -1918,28 +1921,8 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
         </div>
       </div>
     
-  ) : (
-    <div 
-      className={`bg-white rounded-xl border-2 border-dashed shadow-sm p-12 text-center transition-colors cursor-pointer ${
-        isDragging ? 'border-purple-500 bg-purple-50' : 'border-slate-300 hover:border-purple-400 hover:bg-slate-50'
-      }`}
-      onClick={() => fileInputRef.current?.click()}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <Upload className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-      <h3 className="text-xl font-semibold text-slate-900 mb-2">
-        {activeView === 'documents' ? 'Drop your PDF here' : 'No templates yet'}
-      </h3>
-      <p className="text-slate-600 mb-6">
-        {activeView === 'documents' 
-          ? 'or click the Upload button above' 
-          : 'Convert a document to a signable template to see it here'}
-      </p>
-    </div>
-  )
-)}
+  ) : null
+) : null}
 
 {/* Pagination Controls */}
 {totalPages > 1 && (

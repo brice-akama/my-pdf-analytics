@@ -115,7 +115,7 @@ export default function GroupTemplatesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
         <div className="flex h-16 items-center gap-4 px-6">
@@ -191,12 +191,12 @@ export default function GroupTemplatesPage() {
               <p className="mt-4 text-slate-600 text-sm">Loading templates...</p>
             </div>
           ) : filteredTemplates.length > 0 ? (
-            <div className="bg-white rounded-lg border shadow-sm">
+            <div className="">
               {/* Table */}
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b bg-slate-50">
+                    <tr className="border-b">
                       <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">
                         Template
                       </th>
