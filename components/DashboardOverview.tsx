@@ -198,13 +198,13 @@ export default function DashboardOverview() {
     uniqueViewers,
     activeLinks,
     pendingSignatures,
-     mostEngagedContacts,
+    mostEngagedContacts = [],
     liveViewers,
-    viewsByDate,
-    topDocuments,
-    recentVisits,
-    hotVisitors,
-    recentNDAs,
+    viewsByDate = [],
+    topDocuments = [],
+    recentVisits = [],
+    hotVisitors = [],
+    recentNDAs = [],
   } = analytics;
 
   // X-axis: show every 5th label to avoid crowding

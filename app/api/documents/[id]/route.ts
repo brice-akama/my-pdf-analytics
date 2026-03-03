@@ -11,84 +11,92 @@ export async function GET(
   try {
     console.log("📍 GET /api/documents/:id");
 
-    // Await params (your requested logic)
     const { id } = await context.params;
 
-    // Verify user
     const user = await verifyUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const db = await dbPromise;
+
+    // 1. Fetch document WITHOUT userId filter
     let document = null;
 
-    // Try ObjectId
     if (ObjectId.isValid(id)) {
       document = await db.collection("documents").findOne({
         _id: new ObjectId(id),
-        userId: user.id,
       });
     }
 
-    // Try string id
     if (!document) {
-      document = await db.collection("documents").findOne({
-        id: id,
-        userId: user.id,
-      });
+      document = await db.collection("documents").findOne({ id });
     }
 
     if (!document) {
       return NextResponse.json(
-        {
-          error: "Document not found",
-          debug: { id, userId: user.id },
-        },
+        { error: "Document not found", debug: { id } },
         { status: 404 }
       );
     }
 
+    // 2. Unified access check
+    const isOwner = document.userId === user.id;
 
-    //   NEW: Check if document belongs to a space
-    if (document.belongsToSpace && document.spaceId) {
-      // Verify user has access to this space
-      const space = await db.collection('spaces').findOne({
-        _id: new ObjectId(document.spaceId)
-      });
+    // PATH 1: Team shared doc (workspaceId)
+    let isTeamMember = false;
+    if (document.sharedToTeam && document.workspaceId) {
+      const profile = await db.collection('profiles').findOne({ user_id: user.id });
+      const userOrgId = profile?.organization_id || user.id;
 
-      if (!space) {
-        return NextResponse.json(
-          { error: "Space not found" },
-          { status: 404 }
-        );
-      }
-
-      // Check if user is owner or member
-      const isOwner = space.userId === user.id;
-      const isMember = space.members?.some((m: any) => 
-        m.email === user.email || m.userId === user.id
-      );
-
-      if (!isOwner && !isMember) {
-        return NextResponse.json(
-          { error: "Access denied to this document" },
-          { status: 403 }
-        );
-      }
-
-      console.log("✅ Space document access granted");
-    } else {
-      // Personal document - check ownership
-      if (document.userId !== user.id) {
-        return NextResponse.json(
-          { error: "Access denied to this document" },
-          { status: 403 }
-        );
+      if (userOrgId === document.workspaceId) {
+        isTeamMember = true;
+      } else {
+        const memberRecord = await db.collection('organization_members').findOne({
+          organizationId: document.workspaceId,
+          $or: [{ userId: user.id }, { email: user.email }],
+          status: 'active',
+        });
+        isTeamMember = !!memberRecord;
       }
     }
 
-    // Return document
+    // PATH 2: Space doc (spaceId)
+    let hasSpaceAccess = false;
+    if (document.belongsToSpace && document.spaceId) {
+      const space = await db.collection('spaces').findOne({
+        _id: new ObjectId(document.spaceId),
+      });
+      if (space) {
+        hasSpaceAccess =
+          space.userId === user.id ||
+          !!space.members?.some((m: any) => m.email === user.email || m.userId === user.id);
+      }
+    }
+
+    // PATH 3: Signature recipient
+    const hasSignatureAccess = await db.collection('signature_requests').findOne({
+      documentId: id,
+      'recipient.email': user.email,
+    });
+
+    const hasAccess = isOwner || isTeamMember || hasSpaceAccess || !!hasSignatureAccess;
+
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Access denied to this document" },
+        { status: 403 }
+      );
+    }
+
+    console.log('✅ Document access granted:', {
+      isOwner,
+      isTeamMember,
+      hasSpaceAccess,
+      hasSignatureAccess: !!hasSignatureAccess,
+    });
+
+    // 3. Return document
     return NextResponse.json({
       success: true,
       document: {

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 
-// GET — fetch all team-shared docs visible to the current user
 export async function GET(request: NextRequest) {
   try {
     const user = await verifyUserFromRequest(request);
@@ -10,56 +9,44 @@ export async function GET(request: NextRequest) {
 
     const db = await dbPromise;
 
-    // Find the team this user belongs to
-    const teamRecord = await db.collection('teams').findOne({
-      $or: [
-        { ownerId: user.id },
-        { 'members.userId': user.id },
-        { 'members.email': user.email },
-      ],
-    });
+    // ✅ USE YOUR ACTUAL STRUCTURE
+    const profile = await db.collection('profiles').findOne({ user_id: user.id });
+    const organizationId = profile?.organization_id || user.id;
 
-    if (!teamRecord) {
-      // Not in a team — return empty, not an error
-      return NextResponse.json({
-        success: true,
-        documents: [],
-        teamName: null,
-      });
-    }
+    console.log('🏢 Fetching team docs for org:', organizationId);
 
-    const workspaceId = teamRecord._id.toString();
-
-    // Fetch all documents shared to this workspace
-    // IMPORTANT: we do NOT filter by userId here — that's the whole point.
-    // Any team member can see all docs shared to the workspace.
     const documents = await db.collection('documents')
       .find(
         {
-          workspaceId,
+          workspaceId: organizationId,
           sharedToTeam: true,
           archived: { $ne: true },
         },
-        { projection: { fileData: 0 } } // never return raw file binary
+        { projection: { fileData: 0 } }
       )
       .sort({ sharedToTeamAt: -1 })
       .toArray();
 
+    console.log(`✅ Found ${documents.length} team documents`);
+
     const transformed = documents.map(doc => ({
       ...doc,
       _id: doc._id.toString(),
-      // Flag whether the current user owns this doc
       isOwner: doc.userId === user.id,
-      // Show who shared it
       sharedByEmail: doc.sharedToTeamByEmail || 'Unknown',
       sharedAt: doc.sharedToTeamAt || doc.createdAt,
     }));
 
+    // Get org name from owner profile
+    const ownerProfile = await db.collection('profiles').findOne({
+      user_id: organizationId,
+    });
+
     return NextResponse.json({
       success: true,
       documents: transformed,
-      teamName: teamRecord.name || teamRecord.companyName || 'Team',
-      workspaceId,
+      teamName: ownerProfile?.company_name || profile?.company_name || 'Team',
+      workspaceId: organizationId,
     });
 
   } catch (error) {

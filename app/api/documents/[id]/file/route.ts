@@ -51,7 +51,34 @@ const isCCRecipient = await db.collection('cc_recipients').findOne({
   email: user.email,
 });
 
-const hasAccess = isOwner || hasSignatureRequest || isCCRecipient;
+ // Check if doc is shared to team AND user is in that team
+let isTeamMember = false;
+if (document.sharedToTeam && document.workspaceId) {
+  const profile = await db.collection('profiles').findOne({ user_id: user.id });
+  const userOrgId = profile?.organization_id || user.id;
+  
+  // User belongs to same workspace
+  if (userOrgId === document.workspaceId) {
+    isTeamMember = true;
+  } else {
+    // Also check if user is an active member of that org
+    const memberRecord = await db.collection('organization_members').findOne({
+      organizationId: document.workspaceId,
+      $or: [{ userId: user.id }, { email: user.email }],
+      status: 'active',
+    });
+    isTeamMember = !!memberRecord;
+  }
+}
+
+const hasAccess = isOwner || hasSignatureRequest || isCCRecipient || isTeamMember;
+
+console.log('✅ Access check:', {
+  isOwner,
+  hasSignatureRequest: !!hasSignatureRequest,
+  isCCRecipient: !!isCCRecipient,
+  isTeamMember,
+});
 
 if (!hasAccess) {
   console.log('❌ Access denied for user:', user.email);

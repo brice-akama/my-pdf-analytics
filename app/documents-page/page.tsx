@@ -195,12 +195,17 @@ const fetchTeamDocuments = async () => {
 }
 
 const handleShareToTeam = async (docId: string, docName: string) => {
+  console.log('🔍 Sharing doc - ID received:', docId)
+  console.log('🔍 ID type:', typeof docId)
+  console.log('🔍 ID length:', docId?.length)
   try {
     const res = await fetch(`/api/documents/${docId}/team`, {
       method: 'POST',
       credentials: 'include',
     })
+     console.log('📡 Response status:', res.status)
     const data = await res.json()
+    console.log('📦 Response data:', data)
     if (res.ok) {
       toast.success(`"${docName}" shared to team`)
       fetchDocuments()       // refresh personal list (now shows shared badge)
@@ -918,6 +923,26 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
         {teamDocuments.length}
       </span>
     </button>
+    <button
+  onClick={() => { setActiveView('team-templates'); fetchTeamDocuments(); }}
+  className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+    activeView === 'team-templates'
+      ? 'bg-purple-50 text-purple-700'
+      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+  }`}
+>
+  <div className="flex items-center gap-2.5">
+    <FolderOpen className="h-4 w-4 flex-shrink-0" />
+    <span>Templates</span>
+  </div>
+  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+    activeView === 'team-templates'
+      ? 'bg-purple-100 text-purple-700'
+      : 'bg-slate-100 text-slate-500'
+  }`}>
+    {teamDocuments.filter(d => d.isTemplate).length}
+  </span>
+</button>
   </div>
 </div>
 
@@ -1008,47 +1033,101 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
             )}
 
 
-            {activeView === 'team-documents' && (
+            {activeView === 'team-templates' && (
   <div>
+    {/* Header */}
+    <div className="flex items-center justify-between mb-6">
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900">
+          {teamName} — Shared Templates
+        </h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Signable templates shared by team members. Only owners can remove their own templates.
+        </p>
+      </div>
+    </div>
+
     {loadingTeamDocs ? (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
       </div>
-    ) : teamDocuments.length === 0 ? (
+    ) : teamDocuments.filter(d => d.isTemplate).length === 0 ? (
       <div className="bg-white rounded-xl border-2 border-dashed p-12 text-center">
-        <Users className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-slate-900 mb-2">No team documents yet</h3>
-        <p className="text-slate-600">
-          Go to your personal documents and click <strong>Share to Team</strong> on any document.
-          It will appear here for all team members.
+        <FileSignature className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-slate-900 mb-2">
+          No team templates yet
+        </h3>
+        <p className="text-slate-600 max-w-md mx-auto">
+          Go to <strong>Personal → Documents</strong>, convert a document to a signable
+          template, then click <strong>"Share to Team"</strong> from the 3-dot menu.
+          It will appear here for all team members to send for signature.
         </p>
       </div>
     ) : (
       <div className="divide-y divide-slate-100">
-        {teamDocuments.map((doc) => (
-          <div key={doc._id} className="flex items-center gap-4 px-2 py-3 hover:bg-slate-50 rounded-xl">
-            {/* Thumbnail */}
-            <div className="relative h-36 w-28 rounded-xl overflow-hidden flex-shrink-0 bg-white border border-slate-200 shadow-sm">
-              <PdfThumbnail
-                documentId={doc._id}
-                filename={doc.originalFilename || doc.filename}
-              />
+        {teamDocuments.filter(d => d.isTemplate).map((doc) => (
+          <div
+            key={doc._id}
+            className="flex items-center gap-4 px-2 py-3 hover:bg-slate-50 rounded-xl transition-colors relative group"
+            onMouseEnter={() => setHoveredDocId(doc._id)}
+            onMouseLeave={() => setHoveredDocId(null)}
+          >
+            {/* PDF Thumbnail */}
+            <div
+              className="relative h-36 w-28 rounded-xl overflow-hidden flex-shrink-0 bg-white border border-slate-200 shadow-sm cursor-pointer"
+              onClick={() => {
+                setPreviewDocumentId(doc._id)
+                setPreviewDrawerOpen(true)
+              }}
+            >
+              <div className="absolute inset-0 overflow-hidden">
+                <PdfThumbnail
+                  documentId={doc._id}
+                  filename={doc.originalFilename || doc.filename}
+                />
+              </div>
+              <AnimatePresence>
+                {hoveredDocId === doc._id && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-[2px]"
+                  >
+                    <Eye className="h-6 w-6 text-white" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Info */}
+            {/* Document Info */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-slate-900 truncate">
                   {doc.originalFilename || doc.filename}
                 </h3>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                  <FileSignature className="h-3 w-3 mr-1" />
+                  Template
+                </span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                   Team
                 </span>
+                {doc.isOwner && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                    You shared this
+                  </span>
+                )}
               </div>
-              <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+              <div className="flex items-center gap-3 text-sm text-slate-500 mt-1 flex-wrap">
                 <span>{doc.numPages} pages</span>
                 <span>•</span>
-                <span>Shared by {doc.isOwner ? 'you' : doc.sharedByEmail}</span>
+                <span>{formatFileSize(doc.size)}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  Shared by {doc.isOwner ? 'you' : doc.sharedByEmail}
+                </span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
@@ -1057,8 +1136,21 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               </div>
             </div>
 
-            {/* Actions */}
+            {/* Action Buttons */}
             <div className="flex items-center gap-2">
+
+              {/* Send for Signature — primary action for templates */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)}
+                className="gap-1.5 border-purple-200 text-purple-700 hover:bg-purple-50"
+              >
+                <Mail className="h-4 w-4" />
+                <span className="hidden sm:inline">Send for Signature</span>
+              </Button>
+
+              {/* Analytics */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -1067,18 +1159,343 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               >
                 <BarChart3 className="h-4 w-4" />
               </Button>
-              {/* Only owner can remove from team */}
-              {doc.isOwner && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleUnshareFromTeam(doc._id, doc.originalFilename || doc.filename)}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                  title="Remove from team"
+
+              {/* 3-dot dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-52 bg-white border border-slate-200 shadow-lg rounded-2xl p-1"
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
+                  {/* Open */}
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/documents/${doc._id}`)}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <Eye className="h-4 w-4 text-slate-400" />
+                    Open
+                  </DropdownMenuItem>
+
+                  {/* Send for Signature */}
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <Mail className="h-4 w-4 text-slate-400" />
+                    Send for Signature
+                  </DropdownMenuItem>
+
+                  {/* Edit Template — owner only */}
+                  {doc.isOwner && (
+                    <DropdownMenuItem
+                      onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                    >
+                      <Edit className="h-4 w-4 text-slate-400" />
+                      Edit Template
+                    </DropdownMenuItem>
+                  )}
+
+                  {/* View Analytics */}
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/documents/${doc._id}`)}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <BarChart3 className="h-4 w-4 text-slate-400" />
+                    View Analytics
+                  </DropdownMenuItem>
+
+                  {/* Share Securely */}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSharingDocumentId(doc._id)
+                      setShareDrawerOpen(true)
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <Share2 className="h-4 w-4 text-slate-400" />
+                    Share Securely
+                  </DropdownMenuItem>
+
+                  {/* Download */}
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(
+                          `/api/documents/${doc._id}/file?action=download&serve=blob`
+                        )
+                        const blob = await response.blob()
+                        const url = window.URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = doc.originalFilename || doc.filename || 'document.pdf'
+                        document.body.appendChild(a)
+                        a.click()
+                        window.URL.revokeObjectURL(url)
+                        document.body.removeChild(a)
+                      } catch {
+                        alert('Failed to download document')
+                      }
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download PDF
+                  </DropdownMenuItem>
+
+                  {/* Divider + Remove — owner only */}
+                  {doc.isOwner && (
+                    <>
+                      <div className="h-px bg-slate-100 my-1 mx-2" />
+                      <DropdownMenuItem
+                        onClick={() => handleUnshareFromTeam(
+                          doc._id,
+                          doc.originalFilename || doc.filename
+                        )}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-red-600 hover:bg-red-50 cursor-pointer"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remove from Team
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
+
+              {activeView === 'team-documents' && (
+  <div>
+    {/* Header */}
+    <div className="flex items-center justify-between mb-6">
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900">
+          {teamName} — Shared Documents
+        </h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Documents shared by team members. Only owners can remove their own docs.
+        </p>
+      </div>
+    </div>
+
+    {loadingTeamDocs ? (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    ) : teamDocuments.length === 0 ? (
+      <div className="bg-white rounded-xl border-2 border-dashed p-12 text-center">
+        <Users className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-slate-900 mb-2">
+          No team documents yet
+        </h3>
+        <p className="text-slate-600 max-w-md mx-auto">
+          Go to <strong>Personal → Documents</strong>, click the 3-dot menu on any 
+          document and select <strong>"Share to Team"</strong>. It will appear here 
+          for all team members.
+        </p>
+      </div>
+    ) : (
+      <div className="divide-y divide-slate-100">
+        {teamDocuments.map((doc) => (
+          <div
+            key={doc._id}
+            className="flex items-center gap-4 px-2 py-3 hover:bg-slate-50 rounded-xl transition-colors relative group"
+            onMouseEnter={() => setHoveredDocId(doc._id)}
+            onMouseLeave={() => setHoveredDocId(null)}
+          >
+            {/* PDF Thumbnail */}
+            <div
+              className="relative h-36 w-28 rounded-xl overflow-hidden flex-shrink-0 bg-white border border-slate-200 shadow-sm cursor-pointer"
+              onClick={() => {
+                setPreviewDocumentId(doc._id)
+                setPreviewDrawerOpen(true)
+              }}
+            >
+              <div className="absolute inset-0 overflow-hidden">
+                <PdfThumbnail
+                  documentId={doc._id}
+                  filename={doc.originalFilename || doc.filename}
+                />
+              </div>
+              <AnimatePresence>
+                {hoveredDocId === doc._id && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-[2px]"
+                  >
+                    <Eye className="h-6 w-6 text-white" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Document Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-semibold text-slate-900 truncate">
+                  {doc.originalFilename || doc.filename}
+                </h3>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                  Team
+                </span>
+                {doc.isOwner && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                    You shared this
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-sm text-slate-500 mt-1 flex-wrap">
+                <span>{doc.numPages} pages</span>
+                <span>•</span>
+                <span>{formatFileSize(doc.size)}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  Shared by {doc.isOwner ? 'you' : doc.sharedByEmail}
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {formatTimeAgo(doc.sharedAt || doc.createdAt)}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              {/* Analytics — everyone */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push(`/documents/${doc._id}`)}
+                title="View analytics"
+              >
+                <BarChart3 className="h-4 w-4" />
+              </Button>
+
+              {/* Share — everyone */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSharingDocumentId(doc._id)
+                  setShareDrawerOpen(true)
+                }}
+                title="Share securely"
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+
+              {/* 3-dot dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-52 bg-white border border-slate-200 shadow-lg rounded-2xl p-1"
+                >
+                  {/* Open — everyone */}
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/documents/${doc._id}`)}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <Eye className="h-4 w-4 text-slate-400" />
+                    Open
+                  </DropdownMenuItem>
+
+                  {/* Send for Signature — everyone */}
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <Mail className="h-4 w-4 text-slate-400" />
+                    Send for Signature
+                  </DropdownMenuItem>
+
+                  {/* Share Securely — everyone */}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSharingDocumentId(doc._id)
+                      setShareDrawerOpen(true)
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <Share2 className="h-4 w-4 text-slate-400" />
+                    Share Securely
+                  </DropdownMenuItem>
+
+                  {/* Analytics — everyone */}
+                  <DropdownMenuItem
+                    onClick={() => router.push(`/documents/${doc._id}`)}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <BarChart3 className="h-4 w-4 text-slate-400" />
+                    View Analytics
+                  </DropdownMenuItem>
+
+                  {/* Download — everyone */}
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(
+                          `/api/documents/${doc._id}/file?action=download&serve=blob`
+                        )
+                        const blob = await response.blob()
+                        const url = window.URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = doc.originalFilename || doc.filename || 'document.pdf'
+                        document.body.appendChild(a)
+                        a.click()
+                        window.URL.revokeObjectURL(url)
+                        document.body.removeChild(a)
+                      } catch (error) {
+                        alert('Failed to download document')
+                      }
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download PDF
+                  </DropdownMenuItem>
+
+                  {/* Divider + Remove — OWNER ONLY */}
+                  {doc.isOwner && (
+                    <>
+                      <div className="h-px bg-slate-100 my-1 mx-2" />
+                      <DropdownMenuItem
+                        onClick={() => handleUnshareFromTeam(
+                          doc._id,
+                          doc.originalFilename || doc.filename
+                        )}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-red-600 hover:bg-red-50 cursor-pointer"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remove from Team
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         ))}

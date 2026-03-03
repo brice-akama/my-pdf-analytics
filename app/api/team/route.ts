@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
 // POST - Invite a new team member
 
 export async function POST(request: NextRequest) {
+  
   try {
     const user = await verifyUser(request);
     if (!user) {

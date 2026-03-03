@@ -1,19 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
-// POST — share doc to team
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: documentId } = await params;
+  console.log('📥 POST /team - Document ID:', documentId);
+
   try {
     const user = await verifyUserFromRequest(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const db = await dbPromise;
-    const documentId = params.id;
 
     if (!ObjectId.isValid(documentId)) {
       return NextResponse.json({ error: 'Invalid document ID' }, { status: 400 });
@@ -33,29 +34,29 @@ export async function POST(
     }
 
     if (document.sharedToTeam === true) {
-      return NextResponse.json(
-        { error: 'Already shared to team' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: 'Already shared to team' }, { status: 409 });
     }
 
-    // Find the workspace/team this user belongs to
-    const teamRecord = await db.collection('teams').findOne({
-      $or: [
-        { ownerId: user.id },
-        { 'members.userId': user.id },
-        { 'members.email': user.email },
-      ],
+    // ✅ USE YOUR ACTUAL STRUCTURE: profiles + organization_members
+    const profile = await db.collection('profiles').findOne({ user_id: user.id });
+    const organizationId = profile?.organization_id || user.id;
+
+    console.log('🏢 Organization ID:', organizationId);
+
+    // Verify user is part of an org (either owner OR member)
+    const isOwner = organizationId === user.id || profile?.organization_id == null;
+    const isMember = await db.collection('organization_members').findOne({
+      organizationId,
+      userId: user.id,
+      status: 'active',
     });
 
-    if (!teamRecord) {
+    if (!isOwner && !isMember) {
       return NextResponse.json(
-        { error: 'You are not part of any team. Invite members first.' },
+        { error: 'You are not part of any team workspace.' },
         { status: 400 }
       );
     }
-
-    const workspaceId = teamRecord._id.toString();
 
     // Mark document as shared to team
     await db.collection('documents').updateOne(
@@ -63,7 +64,7 @@ export async function POST(
       {
         $set: {
           sharedToTeam: true,
-          workspaceId,
+          workspaceId: organizationId,        // ✅ use organizationId not teamId
           sharedToTeamAt: new Date(),
           sharedToTeamBy: user.id,
           sharedToTeamByEmail: user.email,
@@ -73,11 +74,11 @@ export async function POST(
 
     // Log in team_documents for fast team-wide queries
     await db.collection('team_documents').updateOne(
-      { documentId, workspaceId },
+      { documentId, workspaceId: organizationId },
       {
         $set: {
           documentId,
-          workspaceId,
+          workspaceId: organizationId,
           sharedBy: user.id,
           sharedByEmail: user.email,
           sharedAt: new Date(),
@@ -88,10 +89,12 @@ export async function POST(
       { upsert: true }
     );
 
+    console.log(`✅ Document ${documentId} shared to org ${organizationId} by ${user.email}`);
+
     return NextResponse.json({
       success: true,
-      message: 'Document shared to team',
-      workspaceId,
+      message: 'Document shared to team successfully',
+      workspaceId: organizationId,
     });
 
   } catch (error) {
@@ -100,25 +103,27 @@ export async function POST(
   }
 }
 
-// DELETE — unshare from team (owner only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: documentId } = await params;
+  console.log('📥 DELETE /team - Document ID:', documentId);
+
   try {
     const user = await verifyUserFromRequest(request);
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const db = await dbPromise;
-    const documentId = params.id;
 
     if (!ObjectId.isValid(documentId)) {
       return NextResponse.json({ error: 'Invalid document ID' }, { status: 400 });
     }
 
+    // Only the original owner can unshare
     const document = await db.collection('documents').findOne({
       _id: new ObjectId(documentId),
-      userId: user.id, // ONLY the owner can unshare
+      userId: user.id,
     });
 
     if (!document) {
@@ -155,6 +160,8 @@ export async function DELETE(
       { documentId },
       { $set: { isActive: false, unsharedAt: new Date() } }
     );
+
+    console.log(`✅ Document ${documentId} unshared by ${user.email}`);
 
     return NextResponse.json({
       success: true,
