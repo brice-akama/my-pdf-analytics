@@ -72,7 +72,7 @@ export async function PATCH(request: NextRequest) {
     if (notificationId) {
       // Mark single notification as read
       await db.collection('notifications').updateOne(
-        { _id: notificationId, userId: user.id },
+         { _id: new ObjectId(notificationId), userId: user.id },
         { $set: { read: true, readAt: new Date() } }
       );
     } else {

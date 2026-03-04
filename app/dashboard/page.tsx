@@ -359,7 +359,10 @@ const [gmailStatus, setGmailStatus] = useState<{
   connected: boolean;
   email?: string;
 }>({ connected: false });
-
+const [outlookStatus, setOutlookStatus] = useState<{
+  connected: boolean
+  email?: string
+}>({ connected: false })
 const [showGmailSendDialog, setShowGmailSendDialog] = useState(false);
 const [gmailRecipients, setGmailRecipients] = useState('');
 const [gmailSubject, setGmailSubject] = useState('');
@@ -409,6 +412,7 @@ const [showDriveFilesDialog, setShowDriveFilesDialog] = useState(false)
 const [driveFiles, setDriveFiles] = useState<any[]>([])
 const [loadingDriveFiles, setLoadingDriveFiles] = useState(false)
 const [driveSearchQuery, setDriveSearchQuery] = useState('')
+const [autoOpenRequestId, setAutoOpenRequestId] = useState<string | null>(null)
 
 // Computed filtered files
 const filteredDriveFiles = driveFiles.filter(file =>
@@ -436,6 +440,28 @@ useEffect(() => {
   }
 }, [showIntegrationsDialog])
 
+
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const page = params.get('page')
+  const openRequest = params.get('openRequest')
+
+  if (page === 'file-requests') {
+    setActivePage('file-requests')
+
+    // If a specific request ID is in the URL, the FileRequestsSection
+    // needs to know to auto-open that drawer.
+    // Store it in state so FileRequestsSection can pick it up.
+    if (openRequest) {
+      setAutoOpenRequestId(openRequest)
+    }
+
+    // Clean the URL so refreshing doesn't re-trigger
+    window.history.replaceState({}, '', '/dashboard')
+  }
+}, [])
+
 // Show success notification after Google Drive connection
 useEffect(() => {
   const params = new URLSearchParams(window.location.search)
@@ -452,6 +478,72 @@ useEffect(() => {
     window.history.replaceState({}, '', '/dashboard')
   }
 }, [])
+
+
+useEffect(() => {
+  fetchOutlookStatus()
+}, [])
+
+// Success toast after OAuth redirect
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('integration') === 'outlook' && params.get('status') === 'connected') {
+    toast.success('Outlook connected!', {
+      description: 'You can now send tracked emails',
+      duration: 5000,
+    })
+    window.history.replaceState({}, '', '/dashboard')
+  }
+}, [])
+
+
+// Fetch Outlook status
+const fetchOutlookStatus = async () => {
+  try {
+    const res = await fetch('/api/integrations/outlook/status', {
+      credentials: 'include',
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setOutlookStatus(data)
+    }
+  } catch (error) {
+    console.error('Failed to fetch Outlook status:', error)
+  }
+}
+
+const handleConnectOutlook = () => {
+  window.location.href = '/api/integrations/outlook/connect'
+}
+
+const handleDisconnectOutlook = async () => {
+  const confirmed = await new Promise((resolve) => {
+    toast.warning('Disconnect Outlook?', {
+      description: 'You can reconnect anytime',
+      duration: 10000,
+      action: { label: 'Disconnect', onClick: () => resolve(true) },
+      cancel: { label: 'Cancel', onClick: () => resolve(false) },
+    })
+  })
+
+  if (!confirmed) return
+
+  const loadingToast = toast.loading('Disconnecting...')
+  try {
+    const res = await fetch('/api/integrations/outlook/disconnect', {
+      method: 'POST',
+      credentials: 'include',
+    })
+    if (res.ok) {
+      toast.success('Outlook disconnected', { id: loadingToast })
+      setOutlookStatus({ connected: false })
+    } else {
+      toast.error('Failed to disconnect', { id: loadingToast })
+    }
+  } catch {
+    toast.error('Network error', { id: loadingToast })
+  }
+}
 
 
 const handleDeleteFileRequest = async (id: string) => {
@@ -4980,40 +5072,13 @@ case 'dashboard':
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-5xl">
-            {/* Search Bar */}
-            <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <Input
-                  type="search"
-                  placeholder="Search integrations..."
-                  className="pl-10 h-12 bg-slate-50 border-2 border-slate-200 focus:border-brand-primary-400"
-                />
-              </div>
-            </div>
+           
 
-            {/* Categories - UPDATED COLORS */}
-            <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-              {['All', 'Communication', 'Storage', 'CRM', 'Automation', 'Analytics'].map((cat) => (
-                <button
-                  key={cat}
-                  className={`px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                    cat === 'All'
-                      ? 'bg-gradient-to-r from-brand-primary-600 to-brand-secondary-600 text-white shadow-lg'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-2 border-transparent hover:border-brand-primary-300'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
+             
 
             {/* Popular Integrations - UPDATED STYLING */}
             <div className="mb-8">
-              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-yellow-500" />
-                Popular Integrations
-              </h3>
+               
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {/* Slack Integration Card - FULL FEATURED */}
 <div 
@@ -5135,6 +5200,54 @@ case 'dashboard':
                     </p>
                   )}
                 </div>
+
+                {/* Outlook Integration Card */}
+<div 
+  key="outlook-integration"
+  className="group bg-white border-2 border-slate-200 rounded-xl p-5 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer"
+>
+  <div className="flex items-start justify-between mb-3">
+    {/* Outlook Icon */}
+    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+      <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M7.88 12.04q0 .45-.11.87-.1.41-.33.74-.22.33-.58.52-.37.2-.87.2t-.85-.2q-.36-.19-.59-.52-.22-.33-.33-.74-.11-.42-.11-.87t.11-.87q.11-.41.33-.74.23-.33.59-.52.36-.2.85-.2t.87.2q.36.19.58.52.23.33.33.74.11.42.11.87zM24 12v9.38q0 .46-.33.8-.33.32-.8.32H7.13q-.46 0-.8-.32-.32-.34-.32-.8V18H1q-.41 0-.7-.3-.3-.29-.3-.7V7q0-.41.3-.7Q.58 6 1 6h6.5V2.55q0-.44.3-.75.3-.3.75-.3h12.9q.44 0 .75.3.3.31.3.75V10.85l1.24.72h.01q.06.04.12.09l-.01-.01q.4.26.4.72zm-7.85-3.06l-2.35 4.56-2.56-4.56H9.3l3.57 6.17-3.57 6.17h1.97l2.56-4.57 2.35 4.57h2.09l-3.6-6.17 3.6-6.17h-2.12z"/>
+      </svg>
+    </div>
+
+    {/* Connect/Connected Button */}
+    {outlookStatus.connected ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline" className="gap-2">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            Connected
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleDisconnectOutlook} className="text-red-600">
+            <X className="h-4 w-4 mr-2" />
+            Disconnect
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : (
+      <Button size="sm" variant="outline" onClick={handleConnectOutlook}>
+        Connect
+      </Button>
+    )}
+  </div>
+
+  <h4 className="font-bold text-slate-900 mb-1">Outlook</h4>
+  <p className="text-sm text-slate-600">Send tracked emails via Outlook</p>
+
+  {outlookStatus.connected && outlookStatus.email && (
+    <div className="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+      <p className="text-xs text-blue-900">
+        ✓ Sending as <span className="font-semibold">{outlookStatus.email}</span>
+      </p>
+    </div>
+  )}
+</div>
 
                
 
@@ -7343,7 +7456,7 @@ case 'dashboard':
   }
   
   if (targetUrl) {
-    router.push(targetUrl);
+     window.location.href = targetUrl;
   }
 }}   >
                   {/* Delete Button */}

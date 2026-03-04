@@ -6,6 +6,7 @@ import { ObjectId } from 'mongodb';
 import { Resend } from 'resend';
 import { sendSlackNotification } from '@/lib/integrations/slack';
 import { getValidHubSpotToken } from '@/lib/integrations/hubspot';
+import { createNotification } from '@/lib/notifications'; // ✅ ADD THIS
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = 'DocMetrics <noreply@docmetrics.io>';
@@ -37,7 +38,7 @@ function buildFileRequestEmailHtml({
   <div style="height:5px;background:linear-gradient(90deg,${color},#3b82f6)"></div>
   <div style="padding:28px 32px 20px">
     <div style="display:inline-flex;align-items:center;gap:8px;background:${color}15;border-radius:999px;padding:6px 14px;margin-bottom:16px">
-      <span style="font-size:13px;font-weight:700;color:${color}">📁 File Request Update</span>
+      <span style="font-size:13px;font-weight:700;color:${color}">File Request Update</span>
     </div>
     <h1 style="margin:0 0 6px;font-size:20px;font-weight:800;color:#0f172a">${title}</h1>
     <p style="margin:0;font-size:14px;color:#64748b">${subtitle}</p>
@@ -104,7 +105,7 @@ async function syncToHubSpot(
       );
     }
   } catch (err) {
-    console.error('❌ HubSpot sync error:', err);
+    console.error('HubSpot sync error:', err);
   }
 }
 
@@ -126,13 +127,11 @@ export async function POST(
 
     const db = await dbPromise;
 
-    // ── Find the file request by shareToken ──
     const fileRequest = await db.collection('fileRequests').findOne({ shareToken: token });
     if (!fileRequest) {
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
-    // ── Resolve owner ──
     const owner = await db.collection('users').findOne({
       _id: new ObjectId(fileRequest.userId.toString()),
     });
@@ -140,17 +139,17 @@ export async function POST(
     const ownerId = owner?._id?.toString();
 
     const requestTitle = fileRequest.title || 'File Request';
+    const fileRequestId = fileRequest._id.toString();
     const now = new Date();
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'Unknown';
     const visitorEmail = recipientEmail || 'Someone';
 
-    console.log(`📁 FILE REQUEST TRACK: action=${action} | title="${requestTitle}" | visitor=${visitorEmail}`);
+    console.log(`FILE REQUEST TRACK: action=${action} | title="${requestTitle}" | visitor=${visitorEmail}`);
 
     // ════════════════════════════════════════
     // ACTION: opened
     // ════════════════════════════════════════
     if (action === 'opened') {
-      // Update open tracking on the file request
       await db.collection('fileRequests').updateOne(
         { shareToken: token },
         {
@@ -168,12 +167,33 @@ export async function POST(
 
       const openCount = (fileRequest.openCount || 0) + 1;
 
+      // ── In-app notification ──
+      // Clicking takes the owner to file-requests page
+      // The query param tells the dashboard to open that specific request's drawer
+      if (ownerId) {
+        createNotification({
+          userId: ownerId,
+          type: 'view',
+          title: 'File Request Opened',
+          message: `${visitorEmail} opened your file request "${requestTitle}"`,
+          redirectUrl: `/dashboard?page=file-requests&openRequest=${fileRequestId}`,
+          actorName: visitorEmail,
+          actorEmail: recipientEmail || undefined,
+          metadata: {
+            fileRequestId,
+            requestTitle,
+            openCount,
+            openedAt: now,
+          },
+        }).catch(() => {});
+      }
+
       // ── Email to owner ──
       if (ownerEmail) {
         resend.emails.send({
           from: FROM,
           to: ownerEmail,
-          subject: `👀 Someone opened your file request "${requestTitle}"`,
+          subject: `Someone opened your file request "${requestTitle}"`,
           html: buildFileRequestEmailHtml({
             title: 'File Request Opened',
             subtitle: `${visitorEmail} just opened your file request link.`,
@@ -184,20 +204,20 @@ export async function POST(
             ],
             color: '#0ea5e9',
           }),
-        }).catch((err) => console.error('❌ Email error:', err));
+        }).catch((err) => console.error('Email error:', err));
       }
 
       // ── Slack ──
       if (ownerId) {
         sendSlackNotification({
           userId: ownerId,
-          message: `👀 ${visitorEmail} opened file request "${requestTitle}" (open #${openCount})`,
+          message: `${visitorEmail} opened file request "${requestTitle}" (open #${openCount})`,
           blocks: [
             {
               type: 'section',
               text: {
                 type: 'mrkdwn',
-                text: `👀 *File Request Opened*\n*${visitorEmail}* opened "${requestTitle}"\nOpen #${openCount} · ${now.toLocaleString()}`,
+                text: `*File Request Opened*\n*${visitorEmail}* opened "${requestTitle}"\nOpen #${openCount} · ${now.toLocaleString()}`,
               },
             },
           ],
@@ -210,7 +230,7 @@ export async function POST(
           ownerId,
           recipientEmail,
           requestTitle,
-          `👀 File Request Opened\n\nRequest: ${requestTitle}\nVisitor: ${visitorEmail}\nOpen #${openCount}\nTime: ${now.toLocaleString()}`,
+          `File Request Opened\n\nRequest: ${requestTitle}\nVisitor: ${visitorEmail}\nOpen #${openCount}\nTime: ${now.toLocaleString()}`,
           {
             docmetrics_last_document: requestTitle,
             docmetrics_last_viewed: now.toISOString(),
@@ -227,14 +247,36 @@ export async function POST(
       const uploadedCount = fileCount || 1;
       const uploadedName = fileName || 'a file';
 
+      // ── In-app notification ──
+      // This is the most important one — clicking goes straight to the request
+      // so the owner can see and download what was uploaded
+      if (ownerId) {
+        createNotification({
+          userId: ownerId,
+          type: 'upload',
+          title: 'File Uploaded',
+          message: `${visitorEmail} uploaded "${uploadedName}" to "${requestTitle}"`,
+          redirectUrl: `/dashboard?page=file-requests&openRequest=${fileRequestId}`,
+          actorName: visitorEmail,
+          actorEmail: recipientEmail || undefined,
+          metadata: {
+            fileRequestId,
+            requestTitle,
+            fileName: uploadedName,
+            fileCount: uploadedCount,
+            uploadedAt: now,
+          },
+        }).catch(() => {});
+      }
+
       // ── Email to owner ──
       if (ownerEmail) {
         resend.emails.send({
           from: FROM,
           to: ownerEmail,
-          subject: `📁 ${visitorEmail} uploaded to your file request "${requestTitle}"`,
+          subject: `${visitorEmail} uploaded to your file request "${requestTitle}"`,
           html: buildFileRequestEmailHtml({
-            title: 'File Uploaded! 🎉',
+            title: 'File Uploaded',
             subtitle: `${visitorEmail} just uploaded to "${requestTitle}".`,
             stats: [
               { label: 'Uploader', value: visitorEmail === 'Someone' ? '—' : visitorEmail.split('@')[0] },
@@ -243,26 +285,26 @@ export async function POST(
             ],
             color: '#22c55e',
           }),
-        }).catch((err) => console.error('❌ Email error:', err));
+        }).catch((err) => console.error('Email error:', err));
       }
 
       // ── Slack ──
       if (ownerId) {
         sendSlackNotification({
           userId: ownerId,
-          message: `📁 ${visitorEmail} uploaded ${uploadedCount} file(s) to "${requestTitle}"`,
+          message: `${visitorEmail} uploaded ${uploadedCount} file(s) to "${requestTitle}"`,
           blocks: [
             {
               type: 'section',
               text: {
                 type: 'mrkdwn',
-                text: `📁 *File Uploaded!*\n*${visitorEmail}* uploaded *${uploadedCount} file(s)* to "${requestTitle}"\n📄 File: ${uploadedName}`,
+                text: `*File Uploaded*\n*${visitorEmail}* uploaded *${uploadedCount} file(s)* to "${requestTitle}"\nFile: ${uploadedName}`,
               },
             },
             { type: 'divider' },
             {
               type: 'context',
-              elements: [{ type: 'mrkdwn', text: `🕐 ${now.toLocaleString()} · 🌐 ${ip}` }],
+              elements: [{ type: 'mrkdwn', text: `${now.toLocaleString()} · ${ip}` }],
             },
           ],
         }).catch(() => {});
@@ -274,7 +316,7 @@ export async function POST(
           ownerId,
           recipientEmail,
           requestTitle,
-          `📁 File Uploaded\n\nRequest: ${requestTitle}\nUploader: ${visitorEmail}\nFile: ${uploadedName}\nCount: ${uploadedCount}\nTime: ${now.toLocaleString()}`,
+          `File Uploaded\n\nRequest: ${requestTitle}\nUploader: ${visitorEmail}\nFile: ${uploadedName}\nCount: ${uploadedCount}\nTime: ${now.toLocaleString()}`,
           {
             docmetrics_last_document: requestTitle,
             docmetrics_completed_read: 'true',
@@ -286,7 +328,7 @@ export async function POST(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('❌ File request track error:', error);
-     return NextResponse.json({ success: true, warning: 'Track failed silently' });
+    console.error('File request track error:', error);
+    return NextResponse.json({ success: true, warning: 'Track failed silently' });
   }
 }

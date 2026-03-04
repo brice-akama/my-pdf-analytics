@@ -1,13 +1,12 @@
-//app/api/contacts/route.ts
+// app/api/contacts/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "../lib/mongodb"
 import { ObjectId } from "mongodb"
 import { verifyUserFromRequest } from "@/lib/auth"
-import { getTeamMemberIds } from "../lib/teamHelpers" // ✅ ADD THIS
 
 export const dynamic = 'force-dynamic'
 
-//  UPDATED GET - Team isolation
+// GET - Only return contacts belonging to the requesting user
 export async function GET(req: NextRequest) {
   try {
     const user = await verifyUserFromRequest(req)
@@ -16,22 +15,10 @@ export async function GET(req: NextRequest) {
     }
 
     const db = await dbPromise
-    
-    //   GET USER ROLE
-    const profile = await db.collection("profiles").findOne({ user_id: user.id })
-    const userRole = profile?.role || "owner"
-    
-    //   GET VISIBLE USER IDS
-    const visibleUserIds = await getTeamMemberIds(user.id, userRole)
-    
-    console.log(`📇 User ${user.email} (${userRole}) can see contacts from:`, visibleUserIds)
-    
-    //   Convert string IDs to ObjectIds for query
-    const visibleObjectIds = visibleUserIds.map(id => new ObjectId(id))
-    
+
     const contacts = await db
       .collection("contacts")
-      .find({ userId: { $in: visibleObjectIds } }) // ✅ TEAM ISOLATION
+      .find({ userId: new ObjectId(user.id) }) // ✅ strict: only this user's contacts
       .sort({ createdAt: -1 })
       .toArray()
 
@@ -45,7 +32,7 @@ export async function GET(req: NextRequest) {
         phone: c.phone,
         notes: c.notes,
         createdAt: c.createdAt,
-        addedBy: c.userId.toString(), //    ADD THIS to show who added the contact
+        addedBy: c.userId.toString(),
       })),
     })
   } catch (error) {
@@ -54,7 +41,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-//   POST - Keep as is (contacts are owned by who creates them)
+// POST - Create contact owned strictly by the requesting user
 export async function POST(req: NextRequest) {
   try {
     const user = await verifyUserFromRequest(req)
@@ -70,40 +57,22 @@ export async function POST(req: NextRequest) {
     }
 
     const db = await dbPromise
-    
-    //   UPDATED: Check for duplicate across entire team (owner/admin can see)
-    const profile = await db.collection("profiles").findOne({ user_id: user.id })
-    const userRole = profile?.role || "owner"
-    const visibleUserIds = await getTeamMemberIds(user.id, userRole)
-    const visibleObjectIds = visibleUserIds.map(id => new ObjectId(id))
-    
+
+    // Check duplicate only within this user's own contacts
     const existing = await db.collection("contacts").findOne({
-      userId: { $in: visibleObjectIds }, // Check across team's contacts
-      email: email.toLowerCase().trim()
+      userId: new ObjectId(user.id), // ✅ strict: only check this user's contacts
+      email: email.toLowerCase().trim(),
     })
 
     if (existing) {
-      return NextResponse.json({ 
-        error: existing.userId.toString() === user.id 
-          ? "You already have a contact with this email" 
-          : "This contact already exists in your team" 
-      }, { status: 400 })
-    }
-
-    //   OPTIONAL: Get creator's info for better attribution
-    const creatorInfo = {
-      userId: user.id,
-      name: profile?.full_name || user.email,
-      email: user.email,
-      role: profile?.role || "owner"
+      return NextResponse.json(
+        { error: "You already have a contact with this email" },
+        { status: 400 }
+      )
     }
 
     const contact = {
-      userId: new ObjectId(user.id), //  Keep as creator's ID
-      
-      //   OPTIONAL: Add metadata
-      addedBy: creatorInfo,
-      
+      userId: new ObjectId(user.id),
       name: name.trim(),
       email: email.toLowerCase().trim(),
       company: company?.trim() || null,

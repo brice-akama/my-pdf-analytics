@@ -1,14 +1,11 @@
 // app/api/file-requests/route.ts
- 
-// Only change: POST now accepts optional spaceId + folderId for space-linked requests
-
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "../lib/mongodb"
 import { ObjectId } from "mongodb"
 import crypto from "crypto"
 import { verifyUserFromRequest } from "@/lib/auth"
 
-// GET - Fetch all file requests (unchanged)
+// GET - Only return file requests belonging to the requesting user
 export async function GET(req: NextRequest) {
   try {
     const user = await verifyUserFromRequest(req)
@@ -18,18 +15,10 @@ export async function GET(req: NextRequest) {
 
     const db = await dbPromise
 
-    const profile = await db.collection('profiles').findOne({ user_id: user.id })
-    const organizationId = profile?.organization_id || user.id
-    const isOrgOwner = organizationId === user.id
-
-    let query: any = { organizationId }
-    if (!isOrgOwner) {
-      query.userId = new ObjectId(user.id)
-    }
-
+    // ✅ strict: only this user's file requests — no org/team sharing
     const fileRequests = await db
       .collection("fileRequests")
-      .find(query)
+      .find({ userId: new ObjectId(user.id) })
       .sort({ createdAt: -1 })
       .toArray()
 
@@ -46,7 +35,6 @@ export async function GET(req: NextRequest) {
         dueDate: r.dueDate,
         createdAt: r.createdAt,
         recipients: r.recipients,
-        // ── Space-linked fields ──
         spaceId: r.spaceId || null,
         folderId: r.folderId || null,
         spaceName: r.spaceName || null,
@@ -59,7 +47,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST - Create new file request (now supports optional spaceId + folderId)
+// POST - Create file request owned strictly by the requesting user
 export async function POST(req: NextRequest) {
   try {
     const user = await verifyUserFromRequest(req)
@@ -74,7 +62,6 @@ export async function POST(req: NextRequest) {
       recipients,
       dueDate,
       expectedFiles,
-      // ── NEW optional space-linking fields ──
       spaceId,
       folderId,
     } = body
@@ -84,23 +71,20 @@ export async function POST(req: NextRequest) {
     }
 
     const db = await dbPromise
-    const profile = await db.collection('profiles').findOne({ user_id: user.id })
-    const organizationId = profile?.organization_id || user.id
 
-    // ── If space-linked: validate space + folder exist and user has access ──
+    // Space-linking validation (unchanged)
     let spaceName: string | null = null
     let folderName: string | null = null
 
     if (spaceId) {
       const space = await db.collection('spaces').findOne({
-        _id: new ObjectId(spaceId)
+        _id: new ObjectId(spaceId),
       })
 
       if (!space) {
         return NextResponse.json({ error: "Space not found" }, { status: 404 })
       }
 
-      // Verify user owns or is a member of the space
       const isOwner = space.userId === user.id
       const isMember = space.members?.some((m: any) => m.email === user.email)
       if (!isOwner && !isMember) {
@@ -112,7 +96,7 @@ export async function POST(req: NextRequest) {
       if (folderId) {
         const folder = await db.collection('space_folders').findOne({
           _id: new ObjectId(folderId),
-          spaceId: spaceId
+          spaceId: spaceId,
         })
         if (!folder) {
           return NextResponse.json({ error: "Folder not found in this space" }, { status: 404 })
@@ -124,8 +108,7 @@ export async function POST(req: NextRequest) {
     const shareToken = crypto.randomBytes(32).toString('hex')
 
     const fileRequest = {
-      userId: new ObjectId(user.id),
-      organizationId,
+      userId: new ObjectId(user.id), // ✅ strict ownership — no organizationId
       title: title.trim(),
       description: description || "",
       recipients: recipients.map((email: string) => ({
@@ -138,7 +121,6 @@ export async function POST(req: NextRequest) {
       uploadedFiles: [],
       status: "active",
       shareToken,
-      // ── Space-linking fields (null for general requests) ──
       spaceId: spaceId || null,
       folderId: folderId || null,
       spaceName: spaceName || null,

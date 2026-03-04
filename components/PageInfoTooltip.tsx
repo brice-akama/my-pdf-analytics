@@ -1,8 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { X, Sparkles } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { X, Info } from 'lucide-react'
 
 interface PageInfoTooltipProps {
   pageId: string
@@ -10,19 +9,16 @@ interface PageInfoTooltipProps {
   position?: 'top' | 'bottom' | 'center'
 }
 
-export default function PageInfoTooltip({ 
-  pageId, 
-  message, 
+export default function PageInfoTooltip({
+  pageId,
+  message,
 }: PageInfoTooltipProps) {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
     const hasSeenTooltip = localStorage.getItem(`tooltip-seen-${pageId}`)
-    
     if (!hasSeenTooltip) {
-      setTimeout(() => {
-        setShow(true)
-      }, 800)
+      setTimeout(() => setShow(true), 800)
     }
   }, [pageId])
 
@@ -34,52 +30,145 @@ export default function PageInfoTooltip({
   if (!show) return null
 
   return (
-    <>
-      {/* Subtle backdrop - NO CLICK TO DISMISS */}
-      <div className="fixed inset-0   z-[100] animate-in fade-in duration-500 pointer-events-none" />
-      
-      {/* ✅ FIXED TOP-RIGHT TOOLTIP - CURVED & BEAUTIFUL */}
-      <div className="fixed top-6 right-6 z-[101] animate-in slide-in-from-top-2 fade-in duration-500 max-w-sm">
-        <div className="relative">
-          
-          
-          {/* Main tooltip card */}
-          <div className="relative bg-gradient-to-br from-purple-600 via-blue-600 to-purple-700 text-white rounded-2xl shadow-2xl p-6 border border-white/20">
-            {/* Sparkle icon */}
-            <div className="flex items-start gap-3 mb-4">
-              <div className="h-10 w-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 animate-bounce">
-                <Sparkles className="h-5 w-5 text-yellow-300" />
-              </div>
-              
-              {/* Close button */}
-              <button
-                onClick={handleDismiss}
-                className="ml-auto h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-all flex items-center justify-center group"
-                aria-label="Dismiss tooltip"
+    <div
+      className="fixed top-5 right-5 z-[101] max-w-[340px] w-full"
+      style={{
+        animation: 'tooltipEnter 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+      }}
+    >
+      <style>{`
+        @keyframes tooltipEnter {
+          from {
+            opacity: 0;
+            transform: translateY(-6px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
+
+      {/* Card */}
+      <div
+        className="relative rounded-xl overflow-hidden"
+        style={{
+          background: '#fff',
+          border: '1px solid #e2e8f0',
+          boxShadow:
+            '0 4px 6px -1px rgba(0,0,0,0.06), 0 10px 15px -3px rgba(0,0,0,0.07)',
+        }}
+      >
+        {/* Top accent line */}
+        <div
+          style={{
+            height: '3px',
+            background: 'linear-gradient(90deg, #0ea5e9, #38bdf8)',
+          }}
+        />
+
+        <div className="px-4 py-4">
+          {/* Header row */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div
+                className="flex items-center justify-center rounded-md"
+                style={{
+                  width: 28,
+                  height: 28,
+                  background: '#f0f9ff',
+                  border: '1px solid #bae6fd',
+                }}
               >
-                <X className="h-4 w-4 text-white group-hover:rotate-90 transition-transform duration-300" />
-              </button>
+                <Info
+                  style={{ width: 14, height: 14, color: '#0284c7' }}
+                  strokeWidth={2}
+                />
+              </div>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#0369a1',
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Page Guide
+              </span>
             </div>
 
-            {/* Message */}
-            <p className="text-sm leading-relaxed text-white/95 mb-5 pr-2">
-              {message}
-            </p>
-
-            {/* Got It button - Curved & Fancy */}
-            <Button
+            <button
               onClick={handleDismiss}
-              className="w-full bg-white text-purple-700 hover:bg-purple-50 font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 rounded-xl h-11"
+              aria-label="Dismiss"
+              className="flex items-center justify-center rounded-md transition-colors"
+              style={{
+                width: 26,
+                height: 26,
+                color: '#94a3b8',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background =
+                  '#f1f5f9'
+                ;(e.currentTarget as HTMLButtonElement).style.color = '#475569'
+              }}
+              onMouseLeave={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background =
+                  'transparent'
+                ;(e.currentTarget as HTMLButtonElement).style.color = '#94a3b8'
+              }}
             >
-              Got It
-            </Button>
+              <X style={{ width: 14, height: 14 }} strokeWidth={2} />
+            </button>
+          </div>
 
-            {/* Decorative corner accent */}
-            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-yellow-400/20 to-transparent rounded-tr-2xl pointer-events-none"></div>
-            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tl from-blue-400/20 to-transparent rounded-bl-2xl pointer-events-none"></div>
+          {/* Message */}
+          <p
+            style={{
+              fontSize: 13.5,
+              lineHeight: '1.6',
+              color: '#334155',
+              margin: '0 0 14px 0',
+            }}
+          >
+            {message}
+          </p>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between">
+            <span style={{ fontSize: 12, color: '#94a3b8' }}>
+              Won&apos;t show again
+            </span>
+            <button
+              onClick={handleDismiss}
+              className="rounded-lg transition-all"
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: '#fff',
+                background: '#0284c7',
+                border: 'none',
+                padding: '6px 16px',
+                cursor: 'pointer',
+                letterSpacing: '0.01em',
+              }}
+              onMouseEnter={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background =
+                  '#0369a1'
+              }}
+              onMouseLeave={(e) => {
+                ;(e.currentTarget as HTMLButtonElement).style.background =
+                  '#0284c7'
+              }}
+            >
+              Got it
+            </button>
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
