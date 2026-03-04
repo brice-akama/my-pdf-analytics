@@ -4,15 +4,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { verifyUserFromRequest } from "@/lib/auth"
 import { ObjectId } from "mongodb"
 import { dbPromise } from "../lib/mongodb"
-import { getTeamMemberIds } from "../lib/teamHelpers"
 
-// ✅ Helper function: extract user from NextRequest (cookies handled inside auth)
 async function getVerifiedUser(req: NextRequest) {
   return await verifyUserFromRequest(req)
 }
 
-//   GET - Fetch all agreements for user
-//   UPDATED GET - Team isolation
+// ✅ FIXED: GET only returns agreements belonging to the logged-in user
 export async function GET(req: NextRequest) {
   try {
     const user = await getVerifiedUser(req)
@@ -21,22 +18,13 @@ export async function GET(req: NextRequest) {
     }
 
     const db = await dbPromise
-    
-    //   GET USER ROLE
-    const profile = await db.collection("profiles").findOne({ user_id: user.id })
-    const userRole = profile?.role || "owner"
-    
-    //   GET VISIBLE USER IDS (owner/admin see all, members see only their own)
-    const visibleUserIds = await getTeamMemberIds(user.id, userRole)
-    
-    console.log(`👥 User ${user.email} (${userRole}) can see agreements from:`, visibleUserIds)
-    
+
     const agreements = await db
       .collection("documents")
       .find({ 
-        userId: { $in: visibleUserIds }, //   TEAM ISOLATION
+        userId: user.id,      // ✅ Strict personal scope — removed getTeamMemberIds
         type: "agreement",
-        status: "uploaded"
+        status: { $ne: "uploaded" }  // ✅ Show configured agreements (pending, signed, etc.)
       })
       .sort({ createdAt: -1 })
       .toArray()
@@ -52,19 +40,16 @@ export async function GET(req: NextRequest) {
         status: agreement.status,
         createdAt: agreement.createdAt,
         expiresAt: agreement.expiresAt || null,
-        uploadedBy: agreement.userId, //   ADD THIS to show who uploaded
+        uploadedBy: agreement.userId,
       })),
     })
   } catch (error) {
     console.error("❌ GET agreements error:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch agreements" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to fetch agreements" }, { status: 500 })
   }
 }
- 
-//   POST - Create/Configure agreement and send for signature
+
+// POST — no changes needed, already scoped to user.id on update
 export async function POST(req: NextRequest) {
   try {
     const user = await getVerifiedUser(req)
@@ -76,19 +61,15 @@ export async function POST(req: NextRequest) {
     const { agreementId, title, type, signers, message, requireSignature } = body
 
     if (!agreementId || !title || !Array.isArray(signers) || signers.length === 0) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
     const db = await dbPromise
 
-    // Update the uploaded agreement with configuration
     const result = await db.collection("documents").updateOne(
       { 
         _id: new ObjectId(agreementId),
-        userId: new ObjectId(user.id) 
+        userId: user.id         // ✅ Ensures user can only configure their own agreement
       },
       {
         $set: {
@@ -99,26 +80,19 @@ export async function POST(req: NextRequest) {
             signed: false,
             signedAt: null,
             ipAddress: null,
-            signatureToken: generateSignatureToken() // Unique token for each signer
+            signatureToken: generateSignatureToken()
           })),
           message: message || "",
           requireSignature: requireSignature !== false,
           status: "pending_signatures",
           sentAt: new Date()
-          
         }
       }
     )
 
     if (result.matchedCount === 0) {
-      return NextResponse.json(
-        { error: "Agreement not found" },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Agreement not found" }, { status: 404 })
     }
-
-    // TODO: Send email notifications to signers with signing links
-    // Each signer gets: /agreements/{agreementId}/sign?token={theirUniqueToken}
 
     return NextResponse.json({
       success: true,
@@ -127,14 +101,10 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     console.error("❌ POST agreement error:", error)
-    return NextResponse.json(
-      { error: "Failed to send agreement" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to send agreement" }, { status: 500 })
   }
 }
 
-// Helper function to generate unique signing tokens
 function generateSignatureToken(): string {
   return Math.random().toString(36).substring(2) + Date.now().toString(36)
 }

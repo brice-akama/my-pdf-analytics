@@ -14,20 +14,11 @@ export async function GET(req: NextRequest) {
     }
 
     const db = await dbPromise;
-    
-    // ✅ GET USER ROLE
-    const profile = await db.collection("profiles").findOne({ user_id: user.id })
-    const userRole = profile?.role || "owner"
-    
-    // ✅ GET VISIBLE USER IDS
-    const visibleUserIds = await getTeamMemberIds(user.id, userRole)
-    
-    console.log(`📄 User ${user.email} (${userRole}) fetching uploaded agreements from:`, visibleUserIds)
-    
+
     const agreements = await db
       .collection("documents")
       .find({ 
-        userId: { $in: visibleUserIds }, //   TEAM ISOLATION
+        userId: user.id,  // ✅ Only this user's uploads — no team scope
         type: "agreement",
         status: "uploaded"
       })
@@ -43,7 +34,7 @@ export async function GET(req: NextRequest) {
         filepath: a.filepath,
         status: a.status,
         createdAt: a.createdAt,
-        uploadedBy: a.userId, //   ADD THIS
+        uploadedBy: a.userId,
       })),
     });
   } catch (error) {

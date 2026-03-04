@@ -11,7 +11,8 @@ import { getTeamMemberIds } from '../lib/teamHelpers'
 
 
 
- export async function GET(request: NextRequest) {
+
+export async function GET(request: NextRequest) {
   try {
     const user = await verifyUserFromRequest(request);
     if (!user) {
@@ -24,203 +25,121 @@ import { getTeamMemberIds } from '../lib/teamHelpers'
     const db = await dbPromise;
     const profile = await db.collection("profiles").findOne({ user_id: user.id });
     const userOrgId = profile?.organization_id;
-    const userRole = profile?.role || "owner";
 
     console.log(`🔍 Fetching spaces for user: ${user.email}`);
     console.log(`   - Organization: ${userOrgId || 'NONE (personal)'}`);
-    console.log(`   - Role: ${userRole}`);
 
-    // ✅ Pagination support
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '0'); // 0 = fetch all
+    const limit = parseInt(searchParams.get('limit') || '0');
     const skip = (page - 1) * limit;
-
-    // ✅ Search support
     const searchQuery = searchParams.get('search') || '';
-    const searchRegex = searchQuery ? new RegExp(searchQuery, 'i') : null; // Case-insensitive search
+    const searchRegex = searchQuery ? new RegExp(searchQuery, 'i') : null;
 
-    let ownedSpaces: any[] = [];
-    let memberSpaces: any[] = [];
+    const searchCondition = searchRegex
+      ? { $or: [{ name: searchRegex }, { description: searchRegex }] }
+      : {};
 
-    const isOrgOwner = !userOrgId && user.id;
-    const effectiveOrgId = userOrgId || user.id;
-    const hasOrganization = await db.collection('organization_members')
-      .countDocuments({ organizationId: effectiveOrgId }) > 0;
-
-    // Base query for search
-    const searchCondition = searchRegex ? {
+    // ─────────────────────────────────────────────────────────────────
+    // THE ONLY RULE THAT MATTERS:
+    // A space is visible to a user if they are:
+    //   (a) the creator (userId === user.id), OR
+    //   (b) explicitly listed in the members array (members.email === user.email)
+    //
+    // Org membership alone does NOT grant visibility.
+    // ─────────────────────────────────────────────────────────────────
+    const visibilityQuery = {
       $or: [
-        { name: searchRegex },
-        { description: searchRegex }
-      ]
-    } : {};
+        { userId: user.id },
+        { 'members.email': user.email },
+      ],
+    };
 
-    if (userOrgId || hasOrganization) {
-      // ========================================
-      // USER HAS A TEAM
-      // ========================================
-      console.log(`👥 Fetching team spaces for org: ${effectiveOrgId}`);
-      console.log(`   User role: ${userRole || 'owner'}`);
+    const finalQuery = searchRegex
+      ? { $and: [visibilityQuery, searchCondition] }
+      : visibilityQuery;
 
-      // Base query for owned spaces
-      const ownedSpacesBaseQuery = {
-        $or: [
-          { organizationId: effectiveOrgId },
-          {
-            userId: user.id,
-            $or: [
-              { organizationId: null },
-              { organizationId: { $exists: false } }
-            ]
-          }
-        ]
-      };
+    const cursor = db.collection('spaces').find(finalQuery).sort({ updatedAt: -1 });
 
-      // Combine with search condition if search query exists
-      const ownedSpacesQuery = searchRegex ? { $and: [ownedSpacesBaseQuery, searchCondition] } : ownedSpacesBaseQuery;
+    const allRawSpaces = limit > 0
+      ? await cursor.skip(skip).limit(limit).toArray()
+      : await cursor.toArray();
 
-      const ownedSpacesCursor = db.collection('spaces')
-        .find(ownedSpacesQuery)
-        .sort({ updatedAt: -1 });
+    console.log(`✅ Found ${allRawSpaces.length} spaces visible to ${user.email}`);
 
-      ownedSpaces = limit > 0
-        ? await ownedSpacesCursor.skip(skip).limit(limit).toArray()
-        : await ownedSpacesCursor.toArray();
+    // ── Format & split into owned vs member ───────────────────────────
+    const ownedSpaces: any[] = [];
+    const memberSpaces: any[] = [];
 
-      console.log(`✅ Found ${ownedSpaces.length} team spaces`);
-    } else {
-      // ========================================
-      // NO TEAM - Personal Spaces Only
-      // ========================================
+    for (const space of allRawSpaces) {
+      const isCreator = space.userId === user.id;
+      const member = space.members?.find((m: any) => m.email === user.email);
 
-      // Base query for personal owned spaces
-      const personalOwnedSpacesBaseQuery = {
-        userId: user.id,
-        $or: [
-          { organizationId: null },
-          { organizationId: { $exists: false } }
-        ]
-      };
-
-      // Combine with search condition if search query exists
-      const personalOwnedSpacesQuery = searchRegex
-        ? { $and: [personalOwnedSpacesBaseQuery, searchCondition] }
-        : personalOwnedSpacesBaseQuery;
-
-      const personalOwnedSpacesCursor = db.collection('spaces')
-        .find(personalOwnedSpacesQuery)
-        .sort({ updatedAt: -1 });
-
-      ownedSpaces = limit > 0
-        ? await personalOwnedSpacesCursor.skip(skip).limit(limit).toArray()
-        : await personalOwnedSpacesCursor.toArray();
-
-      // Base query for shared spaces
-      const sharedSpacesBaseQuery = {
-        'members.email': user.email,
-        userId: { $ne: user.id },
-        $or: [
-          { organizationId: null },
-          { organizationId: { $exists: false } }
-        ]
-      };
-
-      // Combine with search condition if search query exists
-      const sharedSpacesQuery = searchRegex
-        ? { $and: [sharedSpacesBaseQuery, searchCondition] }
-        : sharedSpacesBaseQuery;
-
-      const sharedSpacesCursor = db.collection('spaces')
-        .find(sharedSpacesQuery)
-        .sort({ createdAt: -1 });
-
-      memberSpaces = limit > 0
-        ? await sharedSpacesCursor.skip(skip).limit(limit).toArray()
-        : await sharedSpacesCursor.toArray();
-
-      console.log(`✅ Personal: ${ownedSpaces.length} owned, ${memberSpaces.length} shared`);
+      if (isCreator) {
+        // User created this space — full owner access
+        ownedSpaces.push({
+          _id: space._id.toString(),
+          name: space.name,
+          description: space.description || '',
+          type: space.type || 'custom',
+          status: space.status || 'active',
+          template: space.template,
+          color: space.color || '#8B5CF6',
+          organizationId: space.organizationId || null,
+          createdBy: space.createdBy || space.userId,
+          owner: { name: user.email, email: user.email },
+          documentsCount: space.documentsCount || 0,
+          teamMembers: space.teamMembers || space.members?.length || 1,
+          viewsCount: space.viewsCount || 0,
+          lastActivity: space.lastActivity || space.updatedAt || space.createdAt,
+          createdAt: space.createdAt,
+          permissions: { canView: true, canEdit: true, canShare: true, canDownload: true },
+          isOwner: true,
+          role: 'owner',
+        });
+      } else if (member) {
+        // User was explicitly invited — use their assigned role
+        const role = member.role || 'viewer';
+        memberSpaces.push({
+          _id: space._id.toString(),
+          name: space.name,
+          description: space.description || '',
+          type: space.type || 'custom',
+          status: space.status || 'active',
+          template: space.template,
+          color: space.color || '#8B5CF6',
+          organizationId: space.organizationId || null,
+          createdBy: space.createdBy || space.userId,
+          documentsCount: space.documentsCount || 0,
+          teamMembers: space.teamMembers || space.members?.length || 1,
+          viewsCount: space.viewsCount || 0,
+          lastActivity: space.lastActivity || space.updatedAt || space.createdAt,
+          createdAt: space.createdAt,
+          permissions: {
+            canView: true,
+            canEdit: role === 'editor' || role === 'admin',
+            canShare: role === 'admin',
+            canDownload: space.settings?.allowDownloads !== false,
+          },
+          isOwner: false,
+          role,
+        });
+      }
+      // If neither creator nor member — space is NOT included (the fix)
     }
 
-    // ✅ Format spaces
-    const formattedOwned = ownedSpaces.map(space => ({
-      _id: space._id.toString(),
-      name: space.name,
-      description: space.description || '',
-      type: space.type || 'custom',
-      status: space.status || 'active',
-      template: space.template,
-      color: space.color || '#8B5CF6',
-      organizationId: space.organizationId || null,
-      createdBy: space.createdBy || space.userId,
-      owner: {
-        name: user.email,
-        email: user.email
-      },
-      documentsCount: space.documentsCount || 0,
-      teamMembers: space.teamMembers || space.members?.length || 1,
-      viewsCount: space.viewsCount || 0,
-      lastActivity: space.lastActivity || space.updatedAt || space.createdAt,
-      createdAt: space.createdAt,
-      permissions: {
-        canView: true,
-        canEdit: true,
-        canShare: true,
-        canDownload: true
-      },
-      isOwner: space.userId === user.id || space.createdBy === user.id,
-      role: space.userId === user.id ? 'owner' : 'admin'
-    }));
-
-    const formattedMember = memberSpaces.map(space => {
-      const member = space.members?.find((m: any) => m.email === user.email);
-      const role = member?.role || 'viewer';
-
-      return {
-        _id: space._id.toString(),
-        name: space.name,
-        description: space.description || '',
-        type: space.type || 'custom',
-        status: space.status || 'active',
-        template: space.template,
-        color: space.color || '#8B5CF6',
-        organizationId: space.organizationId || null,
-        createdBy: space.createdBy || space.userId,
-        documentsCount: space.documentsCount || 0,
-        teamMembers: space.teamMembers || space.members?.length || 1,
-        viewsCount: space.viewsCount || 0,
-        lastActivity: space.lastActivity || space.updatedAt || space.createdAt,
-        createdAt: space.createdAt,
-        permissions: {
-          canView: true,
-          canEdit: role === 'editor' || role === 'admin',
-          canShare: role === 'admin',
-          canDownload: space.settings?.allowDownloads !== false
-        },
-        isOwner: false,
-        role: role
-      };
-    });
-
-    const allSpaces = [...formattedOwned, ...formattedMember];
-
-    // ✅ Pagination metadata
-    const totalSpaces = allSpaces.length;
+    const combined = [...ownedSpaces, ...memberSpaces];
+    const totalSpaces = combined.length;
     const totalPages = limit > 0 ? Math.ceil(totalSpaces / limit) : 1;
 
-    console.log(`✅ Returning ${allSpaces.length} total spaces`);
+    console.log(`✅ Returning ${ownedSpaces.length} owned + ${memberSpaces.length} member spaces`);
 
     return NextResponse.json({
       success: true,
-      spaces: allSpaces,
-      pagination: limit > 0 ? {
-        page,
-        limit,
-        totalSpaces,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1
-      } : null
+      spaces: combined,
+      pagination: limit > 0
+        ? { page, limit, totalSpaces, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 }
+        : null,
     });
 
   } catch (error) {
@@ -232,8 +151,9 @@ import { getTeamMemberIds } from '../lib/teamHelpers'
   }
 }
 
-
 // Create new space
+
+ 
 
 export async function POST(request: NextRequest) {
   try {
@@ -267,36 +187,23 @@ export async function POST(request: NextRequest) {
 
     const db = await dbPromise;
 
-    // ✅ CRITICAL FIX: Get user's organization from profile
     const profile = await db.collection('profiles').findOne({ user_id: user.id });
-    const userOrgId = profile?.organization_id; // This is the TEAM organization
-    
+    const userOrgId = profile?.organization_id;
+
     console.log(`📍 User ${user.email} creating space`);
-    console.log(`📍 User's organization_id from profile:`, userOrgId);
-    console.log(`📍 User's role:`, profile?.role);
+    console.log(`📍 Organization: ${userOrgId || 'PERSONAL'}`);
+    console.log(`📍 Role: ${profile?.role}`);
 
-    // ✅ Get all team members if user is part of an organization
-    let allOrgMembers: any[] = [];
-    if (userOrgId) {
-      // This user is part of a TEAM (invited via /api/team)
-      allOrgMembers = await db.collection('organization_members')
-        .find({
-          organizationId: userOrgId,
-          status: 'active'
-        })
-        .toArray();
-      
-      console.log(`👥 Found ${allOrgMembers.length} team members in org ${userOrgId}`);
-    }
-
-    // Create space
+    // ─────────────────────────────────────────────────────────────────
+    // Only the creator is added to members on creation.
+    // Other team members must be explicitly invited via /contacts.
+    // This ensures nobody sees a space they weren't invited to.
+    // ─────────────────────────────────────────────────────────────────
     const space = {
       userId: user.id,
       createdBy: user.id,
-      
-      // ✅ CRITICAL: Use team's organizationId (from profile)
       organizationId: userOrgId || null,
-      
+
       name: name.trim(),
       description: description || '',
       type: type || 'custom',
@@ -305,36 +212,27 @@ export async function POST(request: NextRequest) {
       active: true,
       status: 'active',
 
+      ndaSettings: {
+        enabled: false,
+        ndaDocumentId: null,
+        ndaDocumentName: null,
+        ndaDocumentUrl: null,
+        signingRequired: true,
+        uploadedAt: null,
+        uploadedBy: null,
+      },
 
-      //     ndaSettings with this:
-  ndaSettings: {
-    enabled: false,                    // Owner toggles this on/off
-    ndaDocumentId: null,               // Reference to uploaded NDA PDF
-    ndaDocumentName: null,             // "Company_NDA.pdf"
-    ndaDocumentUrl: null,              // Cloudinary URL to NDA PDF
-    signingRequired: true,             // Always true for clients
-    uploadedAt: null,
-    uploadedBy: null
-  },
+      ndaSignatures: [],
 
-  //   Track who signed (clients only)
-  ndaSignatures: [],
-
-      //  Add creator + all team members
+      // ✅ ONLY the creator — no auto-adding org members
       members: [
-  {
-    email: user.email,
-    role: profile?.role || 'owner',  // ✅ Use their ACTUAL role from profile
-    addedAt: new Date()
-  },
-  ...allOrgMembers
-    .filter(m => m.email !== user.email)
-    .map(m => ({
-      email: m.email,
-      role: m.role,  // ✅ Keep their org role (owner/admin/member)
-      addedAt: new Date()
-    }))
-],
+        {
+          email: user.email,
+          role: profile?.role || 'owner',
+          addedAt: new Date(),
+        },
+      ],
+
       settings: {
         privacy: privacy || 'private',
         autoExpiry: autoExpiry || false,
@@ -342,7 +240,7 @@ export async function POST(request: NextRequest) {
         requireNDA: requireNDA || false,
         enableWatermark: enableWatermark || false,
         allowDownloads: allowDownloads !== false,
-        notifyOnView: notifyOnView !== false
+        notifyOnView: notifyOnView !== false,
       },
 
       publicAccess: {
@@ -353,7 +251,7 @@ export async function POST(request: NextRequest) {
         password: null,
         expiresAt: null,
         viewLimit: null,
-        currentViews: 0
+        currentViews: 0,
       },
 
       branding: {
@@ -361,25 +259,25 @@ export async function POST(request: NextRequest) {
         primaryColor: color || '#8B5CF6',
         companyName: profile?.company_name || null,
         welcomeMessage: 'Welcome to our secure data room',
-        coverImageUrl: null
+        coverImageUrl: null,
       },
 
       documentsCount: 0,
       viewsCount: 0,
-      teamMembers: allOrgMembers.length || 1,
+      teamMembers: 1, // just the creator
 
       visitors: [],
       activityLog: [],
 
       createdAt: new Date(),
       updatedAt: new Date(),
-      lastActivity: new Date()
+      lastActivity: new Date(),
     };
 
     const result = await db.collection('spaces').insertOne(space);
     const spaceId = result.insertedId.toString();
 
-    // Create folders from template (same as before)
+    // Create folders from template
     if (template) {
       const TEMPLATE_FOLDERS: Record<string, string[]> = {
         'sales-proposal': [
@@ -387,21 +285,21 @@ export async function POST(request: NextRequest) {
           'Case Studies & Testimonials',
           'Product Demos & Specs',
           'Contract & Terms',
-          'Company Info & Credentials'
+          'Company Info & Credentials',
         ],
         'client-portal': [
           'Welcome & Getting Started',
           'Active Contracts & SOWs',
           'Project Deliverables',
           'Invoices & Payments',
-          'Support & Resources'
+          'Support & Resources',
         ],
         'partnership-deal': [
           'Partnership Proposal',
           'Legal & Agreements',
           'Integration & Technical Docs',
           'Marketing & Co-Branding',
-          'Pricing & Commission'
+          'Pricing & Commission',
         ],
         'rfp-response': [
           'RFP Requirements',
@@ -409,23 +307,19 @@ export async function POST(request: NextRequest) {
           'Pricing & Budget',
           'Company Qualifications',
           'References & Past Work',
-          'Compliance & Certifications'
+          'Compliance & Certifications',
         ],
-        'quick-nda': [
-          'NDA Document',
-          'Confidential Materials'
-        ],
+        'quick-nda': ['NDA Document', 'Confidential Materials'],
         'employee-onboarding': [
           'Offer Letter & Contract',
           'Company Policies & Handbook',
           'Benefits & Payroll Forms',
           'Training Materials',
-          'Equipment & Access'
-        ]
+          'Equipment & Access',
+        ],
       };
-      
-      const folderNames = TEMPLATE_FOLDERS[template] || ['General Documents'];
 
+      const folderNames = TEMPLATE_FOLDERS[template] || ['General Documents'];
       const folders = folderNames.map((folderName, index) => ({
         spaceId,
         name: folderName,
@@ -433,26 +327,22 @@ export async function POST(request: NextRequest) {
         order: index + 1,
         documentCount: 0,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       }));
 
       await db.collection('space_folders').insertMany(folders);
-      
       console.log(`✅ Created ${folders.length} folders for template "${template}"`);
     }
 
-    console.log(`✅ Space created: "${name}"`);
-    console.log(`   - Creator: ${user.email} (${profile?.role || 'owner'})`);
-    console.log(`   - Organization: ${userOrgId || 'PERSONAL'}`);
-    console.log(`   - Team members added: ${allOrgMembers.length}`);
+    console.log(`✅ Space created: "${name}" by ${user.email}`);
 
     return NextResponse.json({
       success: true,
       spaceId: result.insertedId.toString(),
       space: {
         ...space,
-        _id: result.insertedId.toString()
-      }
+        _id: result.insertedId.toString(),
+      },
     }, { status: 201 });
 
   } catch (error) {

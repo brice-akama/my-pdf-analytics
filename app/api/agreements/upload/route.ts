@@ -1,4 +1,3 @@
-//app/api/agreements/upload/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { verifyUserFromRequest } from "@/lib/auth"
 import { writeFile, mkdir, unlink } from "fs/promises"
@@ -6,32 +5,63 @@ import path from "path"
 import { dbPromise } from "../../lib/mongodb"
 import { v2 as cloudinary } from 'cloudinary'
 
-// ✅ Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_SECRET_KEY,
 });
 
-async function getVerifiedUser(req: NextRequest) {
-  return await verifyUserFromRequest(req)
+// ✅ FIXED: GET only returns agreements belonging to the logged-in user
+export async function GET(req: NextRequest) {
+  try {
+    const user = await verifyUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const db = await dbPromise;
+
+    const agreements = await db
+      .collection("documents")
+      .find({ 
+        userId: user.id,      // ✅ Strict personal scope — no team leak
+        type: "agreement",
+        status: "uploaded"
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return NextResponse.json({
+      success: true,
+      agreements: agreements.map((a: any) => ({
+        _id: a._id.toString(),
+        filename: a.filename,
+        filesize: a.filesize || a.size,
+        filepath: a.filepath,
+        status: a.status,
+        createdAt: a.createdAt,
+        uploadedBy: a.userId,
+      })),
+    });
+  } catch (error) {
+    console.error("❌ GET uploaded agreements error:", error);
+    return NextResponse.json({ error: "Failed to fetch agreements" }, { status: 500 });
+  }
 }
 
+// POST — no changes needed here, already scoped to user.id on insert
 export async function POST(req: NextRequest) {
   let tempFilePath: string | null = null;
 
   try {
-    // 🔐 Authenticate
-    const user = await getVerifiedUser(req)
+    const user = await verifyUserFromRequest(req)
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // ✅ OPTIONAL: Get uploader's name for better UI
-  const db = await dbPromise
-  const profile = await db.collection("profiles").findOne({ user_id: user.id })
+    const db = await dbPromise
+    const profile = await db.collection("profiles").findOne({ user_id: user.id })
 
-    // 📥 Parse multipart form data
     const formData = await req.formData()
     const file = formData.get("file") as File | null
 
@@ -39,17 +69,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // ✅ Only allow PDFs
     if (file.type !== "application/pdf") {
-      return NextResponse.json(
-        { error: "Only PDF files are allowed" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Only PDF files are allowed" }, { status: 400 })
     }
 
     console.log("📄 Uploading agreement:", file.name)
 
-    // 📁 Create temporary file for Cloudinary upload
     const uploadDir = path.join(process.cwd(), "public", "temp")
     await mkdir(uploadDir, { recursive: true })
 
@@ -64,7 +89,6 @@ export async function POST(req: NextRequest) {
 
     console.log("📤 Uploading to Cloudinary...")
 
-    // ☁️ Upload PDF to Cloudinary
     const cloudinaryResult = await cloudinary.uploader.upload(tempFilePath, {
       folder: `agreements/${user.id}`,
       resource_type: "auto",
@@ -78,44 +102,38 @@ export async function POST(req: NextRequest) {
 
     console.log("✅ Cloudinary upload successful:", cloudinaryResult.secure_url)
 
-    // 🗄️ Save metadata to MongoDB
-     
-    
     const agreementDoc = {
-      userId: user.id,
+      userId: user.id,              // ✅ Always tied to the uploader
       filename: file.name,
       originalFilename: file.name,
-      cloudinaryPdfUrl: cloudinaryResult.secure_url,  // ✅ Cloudinary URL
+      cloudinaryPdfUrl: cloudinaryResult.secure_url,
       cloudinaryOriginalUrl: cloudinaryResult.secure_url,
       cloudinaryPublicId: cloudinaryResult.public_id,
       filesize: file.size,
       size: file.size,
-      numPages: 1,  // TODO: Extract actual page count from PDF
+      numPages: 1,
       type: "agreement",
       status: "uploaded",
       originalFormat: "pdf",
       mimeType: "application/pdf",
       createdAt: new Date(),
       updatedAt: new Date(),
-
       uploadedBy: {
-      userId: user.id,
-      name: profile?.full_name || user.email,
-      email: user.email,
-      role: profile?.role || "owner"
-    },
-    
+        userId: user.id,
+        name: profile?.full_name || user.email,
+        email: user.email,
+        role: profile?.role || "owner"
+      },
     }
 
     console.log("💾 Saving agreement to database...")
 
     const result = await db.collection("documents").insertOne(agreementDoc)
-    
+
     console.log("✅ Agreement saved with ID:", result.insertedId.toString())
 
-    // 🧹 Clean up temporary file
     if (tempFilePath) {
-      await unlink(tempFilePath).catch(err => 
+      await unlink(tempFilePath).catch(err =>
         console.warn("⚠️ Failed to delete temp file:", err)
       )
     }
@@ -136,14 +154,13 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     console.error("❌ Upload agreement error:", error)
-    
-    // 🧹 Clean up temp file on error
+
     if (tempFilePath) {
       await unlink(tempFilePath).catch(() => {})
     }
 
     return NextResponse.json(
-      { 
+      {
         error: "Failed to upload agreement",
         details: error instanceof Error ? error.message : "Unknown error"
       },

@@ -1726,7 +1726,7 @@ const AgreementsSection = () => {
 </div>
 
      {agreements.length === 0 && uploadedAgreementsList.length === 0 ? (
-        <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
+        <div className=" shadow-sm p-12 text-center">
           <div className="h-24 w-24 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-6">
             <FileSignature className="h-12 w-12 text-purple-600" />
           </div>
@@ -1742,29 +1742,23 @@ const AgreementsSection = () => {
             >
               Upload Agreement
             </Button>
-            <Button variant="outline">Use Template</Button>
-            <Button variant="outline">Download Template</Button>
+            
           </div>
         </div>
       ) : agreements.length === 0 && uploadedAgreementsList.length > 0 ? (
   // Show uploaded but not sent agreements
   <div className="space-y-4">
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-      <p className="text-sm text-blue-900">
-        <strong>{uploadedAgreementsList.length}</strong> agreement(s) uploaded. 
-        Click on any agreement below to configure and send for signature.
-      </p>
-    </div>
     
-    {uploadedAgreementsList.map((agreement) => (
+    
+    {uploadedAgreementsList.map((agreement, index) => (
       <div 
         key={agreement._id}
-         onClick={() => {
-      //   Redirect to existing signature page
-      router.push(`/documents/${agreement._id}/signature?mode=send&returnTo=/agreements`)
-    }}
-        className="bg-white rounded-lg border shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer"
+        
+         onClick={() => {}}
+        className=" p-6  transition-shadow cursor-pointer"
       >
+         {index > 0 && <hr className="border-t border-slate-200 mx-4 mb-3" />}
+       
         <div className="flex items-start gap-4">
           <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
             <FileSignature className="h-6 w-6 text-purple-600" />
@@ -1784,14 +1778,38 @@ const AgreementsSection = () => {
                 <Clock className="h-4 w-4" />
                 Uploaded {formatTimeAgo(agreement.createdAt)}
               </span>
-              <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-medium">
-                Not sent yet
-              </span>
+              
             </div>
           </div>
-          <Button variant="ghost" size="sm">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+         <Button
+  variant="ghost"
+  size="sm"
+  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+  onClick={async () => {
+    if (!confirm('Delete this agreement?')) return;
+    
+    const loadingToast = toast.loading('Deleting agreement...')
+    
+    try {
+      const res = await fetch(`/api/agreements/${agreement._id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      
+      if (res.ok) {
+        toast.success('Agreement deleted', { id: loadingToast })
+        fetchUploadedAgreements()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Failed to delete', { id: loadingToast })
+      }
+    } catch (error) {
+      toast.error('Network error', { id: loadingToast })
+    }
+  }}
+>
+  <Trash2 className="h-4 w-4" />
+</Button>
         </div>
       </div>
     ))}
@@ -1843,14 +1861,102 @@ const AgreementsSection = () => {
 
 // File Requests Section Component
 const FileRequestsSection = () => {
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [previewRequest, setPreviewRequest] = useState<any>(null)
+  const [previewFile, setPreviewFile] = useState<any>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [drawerLoading, setDrawerLoading] = useState(false)
+
+  const fetchRequestFiles = async (requestId: string) => {
+    try {
+      const res = await fetch(`/api/file-requests/${requestId}`, {
+        credentials: 'include',
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) return data.request
+      }
+    } catch (error) {
+      console.error('Fetch request detail error:', error)
+    }
+    return null
+  }
+
+  const handleViewFile = async (requestId: string, file: any) => {
+    setPreviewFile(file)
+    setPreviewLoading(true)
+    try {
+      const res = await fetch(`/api/file-requests/${requestId}/files/${file._id}`, {
+        credentials: 'include',
+      })
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        setPreviewUrl(url)
+      } else {
+        toast.error('Failed to load preview')
+        setPreviewFile(null)
+      }
+    } catch (error) {
+      toast.error('Failed to load preview')
+      setPreviewFile(null)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  const handleDownloadFile = async (requestId: string, fileId: string, filename: string) => {
+    try {
+      const res = await fetch(`/api/file-requests/${requestId}/files/${fileId}`, {
+        credentials: 'include',
+      })
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+      } else {
+        toast.error('Failed to download file')
+      }
+    } catch (error) {
+      toast.error('Failed to download file')
+    }
+  }
+
+  const handleClosePreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewFile(null)
+    setPreviewUrl(null)
+  }
+
+  const handleCloseDrawer = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewFile(null)
+    setPreviewUrl(null)
+    setPreviewRequest(null)
+  }
+
+  const formatFileSizeLocal = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
+
   return (
     <div>
+      {/* Page Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">File Requests</h1>
           <p className="text-slate-600">Collect files from anyone securely</p>
         </div>
-        <Button 
+        <Button
           onClick={() => setShowCreateFileRequestDialog(true)}
           className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
         >
@@ -1859,15 +1965,15 @@ const FileRequestsSection = () => {
         </Button>
       </div>
 
-      {/*   SHOW TOTAL COUNT */}
       {fileRequests.length > 0 && (
         <div className="mb-6 text-sm text-slate-600">
           Showing {fileRequests.length} file request{fileRequests.length !== 1 ? 's' : ''}
         </div>
       )}
 
+      {/* Empty State */}
       {fileRequests.length === 0 ? (
-        <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
+        <div className=" shadow-sm p-12 text-center">
           <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-6">
             <Inbox className="h-12 w-12 text-blue-600" />
           </div>
@@ -1875,7 +1981,7 @@ const FileRequestsSection = () => {
           <p className="text-slate-600 max-w-2xl mx-auto mb-6">
             Request files from anyone — whether they have a DocMetrics account or not.
           </p>
-          <Button 
+          <Button
             onClick={() => setShowCreateFileRequestDialog(true)}
             className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
           >
@@ -1883,66 +1989,300 @@ const FileRequestsSection = () => {
           </Button>
         </div>
       ) : (
-        <div className="space-y-4">
-          {/*   LOOP THROUGH ALL REQUESTS */}
-          {fileRequests.map((request) => (
-            <div 
-              key={request._id}
-              onClick={() => router.push(`/file-requests/${request._id}`)}
-              className="bg-white rounded-lg border shadow-sm p-6 hover:shadow-md transition-all cursor-pointer hover:border-purple-300"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4 flex-1">
-                  <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                    <Inbox className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-slate-900 mb-1">{request.title}</h3>
-                    <p className="text-sm text-slate-600 mb-3 line-clamp-1">
-                      {request.description || 'No description'}
-                    </p>
-                    
-                     
-                    <div className="flex items-center gap-4 text-sm text-slate-500 mb-2">
-                      <span className="flex items-center gap-1">
-                        <User className="h-4 w-4" />
-                        {request.recipients && request.recipients.length > 0 
-                          ? request.recipients.map((r: any) => r.email).join(', ')
-                          : 'No recipients'
-                        }
-                      </span>
-                    </div>
+        /* File Requests List - wrapped in one container with dividers */
+        <div className="bg-white rounded-xl overflow-hidden">
+          {fileRequests.map((request, index) => (
+            <div key={request._id}>
+              {/* Divider between items */}
+              {index > 0 && <div className="border-t border-slate-100 mx-5" />}
 
-                    <div className="flex items-center gap-4 text-sm text-slate-500">
+              <div className="flex items-center gap-4 px-5 py-4">
+                {/* Icon */}
+                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <Inbox className="h-5 w-5 text-blue-600" />
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-slate-900 truncate">{request.title}</h3>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
+                      request.status === 'active' ? 'bg-green-100 text-green-700' :
+                      request.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                      'bg-slate-100 text-slate-700'
+                    }`}>
+                      {request.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+                    <span className="flex items-center gap-1">
+                      <Upload className="h-3 w-3" />
+                      {request.filesReceived}/{request.totalFiles} files
+                    </span>
+                    {request.recipients?.length > 0 && (
+                      <span className="flex items-center gap-1 truncate max-w-xs">
+                        <User className="h-3 w-3 flex-shrink-0" />
+                        {request.recipients.map((r: any) => r.email).join(', ')}
+                      </span>
+                    )}
+                    {request.dueDate && (
                       <span className="flex items-center gap-1">
-                        <Upload className="h-4 w-4" />
-                        {request.filesReceived}/{request.totalFiles} files
+                        <Clock className="h-3 w-3" />
+                        Due {formatTimeAgo(request.dueDate)}
                       </span>
-                      {request.dueDate && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          Due {formatTimeAgo(request.dueDate)}
-                        </span>
-                      )}
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        request.status === 'active' ? 'bg-green-100 text-green-700' :
-                        request.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                        'bg-slate-100 text-slate-700'
-                      }`}>
-                        {request.status}
-                      </span>
-                    </div>
+                    )}
                   </div>
                 </div>
-                <ChevronRight className="h-5 w-5 text-slate-400 flex-shrink-0 mt-3" />
+
+                {/* Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="flex-shrink-0 h-8 w-8">
+                      <MoreVertical className="h-4 w-4 text-slate-500" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-72 bg-white p-2">
+
+                    {/* Share link */}
+                    <div className="px-2 py-2 mb-1">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Upload Link</p>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={`${window.location.origin}/public/file-request/${request.shareToken}`}
+                          className="flex-1 font-mono text-xs bg-slate-50 h-8"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2 flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigator.clipboard.writeText(`${window.location.origin}/public/file-request/${request.shareToken}`)
+                            setCopiedId(request._id)
+                            toast.success('Link copied!')
+                            setTimeout(() => setCopiedId(null), 2000)
+                          }}
+                        >
+                          {copiedId === request._id
+                            ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                            : <Share2 className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <DropdownMenuSeparator />
+
+                    {/* View files - opens drawer AND loads immediately */}
+                    <DropdownMenuItem
+                      className="gap-2 cursor-pointer"
+                      onClick={async () => {
+                        // Open drawer right away
+                        setPreviewRequest({ ...request, uploadedFiles: [] })
+                        setDrawerLoading(true)
+                        // Fetch files in background
+                        const detail = await fetchRequestFiles(request._id)
+                        if (detail) {
+                          setPreviewRequest({ ...request, uploadedFiles: detail.uploadedFiles })
+                        }
+                        setDrawerLoading(false)
+                      }}
+                    >
+                      <Eye className="h-4 w-4 text-purple-600" />
+                      View Uploaded Files
+                      {request.filesReceived > 0 && (
+                        <span className="ml-auto text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                          {request.filesReceived}
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+
+                    {/* Download all */}
+                    {request.filesReceived > 0 && (
+                      <DropdownMenuItem
+                        className="gap-2 cursor-pointer"
+                        onClick={async () => {
+                          const loadingToast = toast.loading('Preparing download...')
+                          try {
+                            const res = await fetch(`/api/file-requests/${request._id}/files/download-all`, {
+                              credentials: 'include',
+                            })
+                            if (res.ok) {
+                              const blob = await res.blob()
+                              const url = window.URL.createObjectURL(blob)
+                              const a = document.createElement('a')
+                              a.href = url
+                              a.download = `${request.title}.zip`
+                              document.body.appendChild(a)
+                              a.click()
+                              document.body.removeChild(a)
+                              window.URL.revokeObjectURL(url)
+                              toast.success('Downloaded!', { id: loadingToast })
+                            } else {
+                              toast.error('Download failed', { id: loadingToast })
+                            }
+                          } catch {
+                            toast.error('Network error', { id: loadingToast })
+                          }
+                        }}
+                      >
+                        <Download className="h-4 w-4 text-blue-600" />
+                        Download All Files
+                      </DropdownMenuItem>
+                    )}
+
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Files Drawer */}
+      <Sheet open={!!previewRequest} onOpenChange={(open) => { if (!open) handleCloseDrawer() }}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col bg-white">
+
+          {/* Drawer Header */}
+          <SheetHeader className="px-6 py-4 border-b sticky top-0 bg-white z-10">
+            <SheetTitle className="text-lg font-semibold truncate">
+              {previewRequest?.title}
+            </SheetTitle>
+            <p className="text-sm text-slate-500">
+              {drawerLoading ? 'Loading files...' : `${previewRequest?.uploadedFiles?.length || 0} file(s) uploaded`}
+            </p>
+          </SheetHeader>
+
+          {/* Drawer Body */}
+          <div className="flex-1 overflow-y-auto">
+
+            {/* Loading state */}
+            {drawerLoading ? (
+              <div className="flex flex-col items-center justify-center h-full p-12">
+                <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
+                <p className="text-sm text-slate-500">Loading files...</p>
+              </div>
+
+            ) : previewRequest?.uploadedFiles?.length === 0 ? (
+              /* Empty state */
+              <div className="flex flex-col items-center justify-center h-full p-12 text-center">
+                <Inbox className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-600 font-medium">No files uploaded yet</p>
+                <p className="text-sm text-slate-500 mt-1">Files will appear here when recipients upload them</p>
+              </div>
+
+            ) : (
+              /* File list with dividers */
+              <div className="divide-y divide-slate-100">
+                {previewRequest?.uploadedFiles?.map((file: any) => (
+                  <div key={file._id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
+                    <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-slate-900 text-sm truncate">{file.originalName}</p>
+                      <p className="text-xs text-slate-500">
+                        {formatFileSizeLocal(file.size)} • {formatTimeAgo(file.uploadedAt)}
+                        {file.uploadedBy?.name && ` • ${file.uploadedBy.name}`}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        title="Preview"
+                        onClick={() => handleViewFile(previewRequest._id, file)}
+                      >
+                        <Eye className="h-4 w-4 text-purple-600" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        title="Download"
+                        onClick={() => handleDownloadFile(previewRequest._id, file._id, file.originalName)}
+                      >
+                        <Download className="h-4 w-4 text-blue-600" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Inline file preview panel - slides in below file list */}
+            {previewFile && (
+              <div className="border-t bg-slate-50">
+                <div className="flex items-center justify-between px-4 py-2 border-b bg-white">
+                  <p className="text-sm font-medium text-slate-900 truncate flex-1">{previewFile.originalName}</p>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={handleClosePreview}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="p-4">
+                  {previewLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+                    </div>
+                  ) : previewUrl ? (
+                    (() => {
+                      const fileName = previewFile.originalName.toLowerCase()
+                      if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i)) {
+                        return (
+                          <img
+                            src={previewUrl}
+                            alt={previewFile.originalName}
+                            className="w-full h-auto max-h-96 object-contain rounded-lg bg-white"
+                          />
+                        )
+                      }
+                      if (fileName.match(/\.pdf$/i)) {
+  return (
+    <iframe
+      src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+      className="w-full rounded-lg border"
+      style={{ height: '500px' }}
+      title={previewFile.originalName}
+    />
+  )
+}
+                      return (
+                        <div className="text-center py-8">
+                          <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                          <p className="text-sm text-slate-600 mb-4">Preview not available for this file type</p>
+                          <Button
+                            size="sm"
+                            onClick={() => handleDownloadFile(previewRequest._id, previewFile._id, previewFile.originalName)}
+                            className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
+                          >
+                            <Download className="h-4 w-4" />
+                            Download to View
+                          </Button>
+                        </div>
+                      )
+                    })()
+                  ) : null}
+                </div>
+              </div>
+            )}
+
+          </div>
+
+          {/* Drawer Footer */}
+          <div className="px-6 py-4 border-t bg-white">
+            <Button variant="outline" className="w-full" onClick={handleCloseDrawer}>
+              Close
+            </Button>
+          </div>
+
+        </SheetContent>
+      </Sheet>
+
     </div>
   )
 }
+
 // Templates Section Component
 // Templates Section Component with BEAUTIFUL REALISTIC PREVIEWS
 const TemplatesSection = () => {
@@ -5824,146 +6164,129 @@ case 'dashboard':
   </DialogContent>
 </Dialog>
 
-{/* Upload Agreement Dialog */}
-<Dialog open={showUploadAgreementDialog} onOpenChange={setShowUploadAgreementDialog}>
-  <DialogContent className="max-w-2xl bg-white scrollbar-thin max-h-[80vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle>Upload Agreement</DialogTitle>
-      <DialogDescription>
-        Upload your agreement PDF. You'll place signature fields on the next screen.
-      </DialogDescription>
-    </DialogHeader>
-    
-    <Tabs defaultValue="upload" className="w-full">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="upload">Upload</TabsTrigger>
-        <TabsTrigger value="template">Use Template</TabsTrigger>
-        <TabsTrigger value="create">Create New</TabsTrigger>
-      </TabsList>
-      
-      <TabsContent value="upload" className="space-y-4 mt-4">
-        {/* Upload Button */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-slate-700">Your Uploaded Agreements</h3>
-          <Button 
-            size="sm"
-            variant="outline"
-            onClick={() => document.getElementById('agreement-file-input')?.click()}
-            className="gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Upload New
-          </Button>
-        </div>
 
-        <input
-          id="agreement-file-input"
-          type="file"
-          accept="application/pdf"
-          className="hidden"
-          onChange={async (e) => {
-            const file = e.target.files?.[0]
-            if (!file) return
-            
-            const formData = new FormData()
-            formData.append('file', file)
-            formData.append('type', 'agreement')
-            
-            try {
-              const res = await fetch("/api/agreements/upload", {
-                method: 'POST',
-                credentials: 'include',
-                body: formData,
-              })
-              
-              const data = await res.json()
-              
-              if (res.ok) {
-                alert('Agreement uploaded successfully!')
-                fetchUploadedAgreements()
-              } else {
-                alert(data.error || 'Upload failed')
-              }
-            } catch (error) {
-              console.error('Upload error:', error)
-              alert('Failed to upload agreement')
+
+
+<Sheet open={showUploadAgreementDialog} onOpenChange={setShowUploadAgreementDialog}>
+  <SheetContent side="right" className="w-full sm:w-[480px] p-0 flex flex-col bg-white">
+
+    {/* Header */}
+    <SheetHeader className="px-6 py-5 border-b bg-white sticky top-0 z-10">
+      <SheetTitle className="text-xl font-bold text-slate-900">Upload Agreement</SheetTitle>
+      <SheetDescription className="text-sm text-slate-500">
+        Choose how you'd like to upload your agreement
+      </SheetDescription>
+    </SheetHeader>
+
+    {/* Content */}
+    <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+
+      {/* Hidden file input */}
+      <input
+        id="agreement-file-input"
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={async (e) => {
+          const file = e.target.files?.[0]
+          if (!file) return
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('type', 'agreement')
+          try {
+            const res = await fetch("/api/agreements/upload", {
+              method: 'POST',
+              credentials: 'include',
+              body: formData,
+            })
+            const data = await res.json()
+            if (res.ok) {
+              toast.success('Agreement uploaded!')
+              fetchUploadedAgreements()
+              setShowUploadAgreementDialog(false)
+              setActivePage('agreements')
+            } else {
+              toast.error(data.error || 'Upload failed')
             }
-          }}
-        />
+          } catch (error) {
+            toast.error('Failed to upload agreement')
+          }
+        }}
+      />
 
-        {/* List of Uploaded Agreements */}
-        {uploadedAgreementsList.length > 0 ? (
-          <div className="space-y-3 max-h-[400px] overflow-y-auto">
-            {uploadedAgreementsList.map((agreement) => (
-              <div 
-                key={agreement._id}
-                className="border-2 rounded-lg p-4 transition-all cursor-pointer border-slate-200 hover:border-purple-300 hover:bg-purple-50"
-                onClick={() => {
-                  setShowUploadAgreementDialog(false)
-                  router.push(`/documents/${agreement._id}/signature?mode=send&returnTo=/agreements`)
-                }}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <FileText className="h-6 w-6 text-red-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-900 truncate">{agreement.filename}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {formatFileSize(agreement.filesize)} • Uploaded {formatTimeAgo(agreement.createdAt)}
-                      </p>
-                      <p className="text-xs text-purple-600 mt-2 font-medium">
-                        Click to configure and send →
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={async (e) => {
-                      e.stopPropagation()
-                      if (!confirm('Delete this agreement?')) return
-                      
-                      try {
-                        const res = await fetch(`/api/agreements/${agreement._id}`, {
-                          method: 'DELETE',
-                          credentials: 'include',
-                        })
-                        
-                        if (res.ok) {
-                          alert('Agreement deleted')
-                          fetchUploadedAgreements()
-                        }
-                      } catch (error) {
-                        console.error('Delete error:', error)
-                        alert('Failed to delete')
-                      }
-                    }}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+      {/* Upload Options */}
+      <div className="space-y-3">
+
+        {/* From Computer */}
+        <button
+          onClick={() => document.getElementById('agreement-file-input')?.click()}
+          className="w-full flex items-center gap-4 px-5 py-4 rounded-xl border-2 border-slate-200 hover:border-purple-400 hover:bg-purple-50/40 transition-all text-left group"
+        >
+          <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-100">
+            <Upload className="h-5 w-5 text-slate-600 group-hover:text-purple-600" />
           </div>
+          <div className="flex-1">
+            <p className="font-semibold text-slate-900 group-hover:text-purple-700">From Computer</p>
+            <p className="text-xs text-slate-500 mt-0.5">Browse and upload a PDF from your device</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-purple-500 flex-shrink-0" />
+        </button>
+
+        {/* From Google Drive - Connected */}
+        {integrationStatus.google_drive?.connected ? (
+          <button
+            onClick={async () => {
+              setShowUploadAgreementDialog(false)
+              await handleBrowseDriveFiles()
+            }}
+            className="w-full flex items-center gap-4 px-5 py-4 rounded-xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 transition-all text-left group"
+          >
+            <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 text-xl">
+              📁
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-slate-900 group-hover:text-blue-700">From Google Drive</p>
+              <p className="text-xs text-green-600 mt-0.5">Connected · {integrationStatus.google_drive.email}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-blue-500 flex-shrink-0" />
+          </button>
         ) : (
-          <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-lg">
-            <Upload className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-sm text-slate-600">No agreements uploaded yet</p>
-            <p className="text-xs text-slate-500 mt-1">Click "Upload New" to get started</p>
-          </div>
+          /* From Google Drive - Not Connected */
+          <button
+            onClick={() => {
+              setShowUploadAgreementDialog(false)
+              handleConnectGoogleDrive()
+            }}
+            className="w-full flex items-center gap-4 px-5 py-4 rounded-xl border-2 border-dashed border-slate-200 hover:border-blue-300 hover:bg-blue-50/30 transition-all text-left group opacity-70 hover:opacity-100"
+          >
+            <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-xl">
+              📁
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-slate-700">From Google Drive</p>
+              <p className="text-xs text-slate-400 mt-0.5">Connect Google Drive to import</p>
+            </div>
+            <span className="text-xs text-blue-600 font-medium flex-shrink-0">Connect</span>
+          </button>
         )}
+      </div>
 
-        {/*   REMOVE THE ENTIRE CONFIGURATION FORM SECTION */}
-      </TabsContent>
       
-      {/* Keep template and create tabs as-is */}
-    </Tabs>
-  </DialogContent>
-</Dialog>
+    </div>
+
+    {/* Footer */}
+    <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+      <Button
+        variant="outline"
+        onClick={() => setShowUploadAgreementDialog(false)}
+        className="w-full h-11"
+      >
+        Cancel
+      </Button>
+    </div>
+
+  </SheetContent>
+</Sheet> 
 
 {/* Mobile Profile Drawer */}
 <AnimatePresence>
@@ -6168,16 +6491,22 @@ case 'dashboard':
   )}
 </AnimatePresence>
 
-{/* Create File Request Dialog */}
-{/* Create File Request Dialog */}
-<Dialog open={showCreateFileRequestDialog} onOpenChange={setShowCreateFileRequestDialog}>
-  <DialogContent className="max-w-2xl bg-white scrollbar-thin max-h-[80vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle>Create File Request</DialogTitle>
-      <DialogDescription>Request files from clients, partners, or team members</DialogDescription>
-    </DialogHeader>
+
+
+<Sheet open={showCreateFileRequestDialog} onOpenChange={setShowCreateFileRequestDialog}>
+  <SheetContent side="right" className="w-full sm:w-[540px] p-0 flex flex-col bg-white">
     
-    <div className="space-y-4">
+    {/* Header */}
+    <SheetHeader className="px-6 py-5 border-b sticky top-0 z-10 bg-white">
+      <SheetTitle className="text-xl font-bold text-slate-900">Create File Request</SheetTitle>
+      <SheetDescription className="text-sm text-slate-500">
+        Request files from clients, partners, or team members
+      </SheetDescription>
+    </SheetHeader>
+
+    {/* Scrollable Content */}
+    <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+
       <div className="space-y-2">
         <Label>Request Title *</Label>
         <Input 
@@ -6191,20 +6520,18 @@ case 'dashboard':
         <Label>Description</Label>
         <Textarea 
           placeholder="What files do you need? Include any specific requirements..."
-          rows={4}
+          rows={3}
           value={fileRequestDescription}
           onChange={(e) => setFileRequestDescription(e.target.value)}
         />
       </div>
       
-      {/* 🟢 MODE SELECTOR */}
       <Tabs defaultValue="single" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="single">Single Recipient</TabsTrigger>
           <TabsTrigger value="multiple">Multiple Recipients</TabsTrigger>
         </TabsList>
         
-        {/* 🟢 SINGLE RECIPIENT MODE */}
         <TabsContent value="single" className="space-y-4 mt-4">
           <div className="space-y-2">
             <Label>Recipient Email *</Label>
@@ -6214,52 +6541,38 @@ case 'dashboard':
               value={fileRequestRecipient}
               onChange={(e) => setFileRequestRecipient(e.target.value)}
             />
-            <p className="text-xs text-slate-500">
-              One unique link will be created for this recipient
-            </p>
+            <p className="text-xs text-slate-500">One unique link will be created for this recipient</p>
           </div>
         </TabsContent>
         
-        {/* 🟢 MULTIPLE RECIPIENTS MODE */}
         <TabsContent value="multiple" className="space-y-4 mt-4">
           <div className="space-y-2">
             <Label>Recipient Emails *</Label>
             <Textarea 
-              placeholder="client1@company.com, client2@company.com, client3@company.com"
-              rows={4}
+              placeholder="client1@company.com, client2@company.com"
+              rows={3}
               value={fileRequestRecipients}
               onChange={(e) => setFileRequestRecipients(e.target.value)}
             />
-            <p className="text-xs text-slate-500">
-              Enter multiple emails separated by commas. Each person gets their own unique upload link.
-            </p>
+            <p className="text-xs text-slate-500">Comma-separated. Each person gets their own unique link.</p>
           </div>
-          
-          {/* 🟢 PREVIEW */}
           {fileRequestRecipients.trim() && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-sm font-semibold text-blue-900 mb-2">
-                Will create {fileRequestRecipients.split(',').filter(e => e.trim()).length} file requests:
+                {fileRequestRecipients.split(',').filter(e => e.trim()).length} request(s) will be created
               </p>
-              <div className="space-y-1">
-                {fileRequestRecipients.split(',').filter(e => e.trim()).slice(0, 5).map((email, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm text-blue-800">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>{email.trim()}</span>
-                  </div>
-                ))}
-                {fileRequestRecipients.split(',').filter(e => e.trim()).length > 5 && (
-                  <p className="text-sm text-blue-700 mt-2">
-                    + {fileRequestRecipients.split(',').filter(e => e.trim()).length - 5} more...
-                  </p>
-                )}
-              </div>
+              {fileRequestRecipients.split(',').filter(e => e.trim()).slice(0, 5).map((email, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-blue-800">
+                  <CheckCircle2 className="h-3 w-3" />
+                  {email.trim()}
+                </div>
+              ))}
             </div>
           )}
         </TabsContent>
       </Tabs>
       
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Due Date (Optional)</Label>
           <Input 
@@ -6268,45 +6581,48 @@ case 'dashboard':
             onChange={(e) => setFileRequestDueDate(e.target.value)}
           />
         </div>
-        
         <div className="space-y-2">
           <Label>Expected Files</Label>
           <Input 
             type="number" 
-            placeholder="Number of files" 
-            defaultValue={1}
             min={1}
             value={fileRequestExpectedFiles}
             onChange={(e) => setFileRequestExpectedFiles(Number(e.target.value))}
           />
         </div>
       </div>
-      
+
       <div className="bg-slate-50 border rounded-lg p-4">
         <div className="flex items-start gap-3">
           <Inbox className="h-5 w-5 text-slate-600 mt-0.5" />
-          <div className="flex-1">
+          <div>
             <p className="text-sm font-medium text-slate-900 mb-1">How it works</p>
             <ul className="text-xs text-slate-600 space-y-1">
               <li>• Each recipient gets their own unique upload link</li>
-              <li>• They can upload files without creating an account</li>
+              <li>• They upload files without creating an account</li>
               <li>• You'll get notified when files are uploaded</li>
               <li>• All files are encrypted and stored securely</li>
             </ul>
           </div>
         </div>
       </div>
-      
-      <div className="flex gap-2 justify-end pt-4">
-        <Button variant="outline" onClick={() => {
-          setShowCreateFileRequestDialog(false)
-          setFileRequestTitle('')
-          setFileRequestDescription('')
-          setFileRequestRecipient('')
-          setFileRequestRecipients('')
-          setFileRequestDueDate('')
-          setFileRequestExpectedFiles(1)
-        }}>
+    </div>
+
+    {/* Footer */}
+    <div className="px-6 py-4 border-t bg-white sticky bottom-0">
+      <div className="flex gap-3 justify-end">
+        <Button 
+          variant="outline"
+          onClick={() => {
+            setShowCreateFileRequestDialog(false)
+            setFileRequestTitle('')
+            setFileRequestDescription('')
+            setFileRequestRecipient('')
+            setFileRequestRecipients('')
+            setFileRequestDueDate('')
+            setFileRequestExpectedFiles(1)
+          }}
+        >
           Cancel
         </Button>
         <Button 
@@ -6319,8 +6635,14 @@ case 'dashboard':
         </Button>
       </div>
     </div>
-  </DialogContent>
-</Dialog>
+  </SheetContent>
+</Sheet>
+
+
+
+
+
+ 
 
 {/* File Request Link Dialog */}
 <Dialog open={showFileRequestLinkDialog} onOpenChange={setShowFileRequestLinkDialog}>
@@ -7716,10 +8038,11 @@ case 'dashboard':
   )}
 </AnimatePresence>
  
+ 
     </div>
   )
 }
 
  
-// Remove this entire function - it's a duplicate and not needed
+ 
 
