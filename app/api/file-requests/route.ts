@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
         description: r.description,
         filesReceived: r.uploadedFiles?.length || 0,
         totalFiles: r.expectedFiles || 0,
+        shareToken: r.shareToken,
         status: r.status,
         dueDate: r.dueDate,
         createdAt: r.createdAt,

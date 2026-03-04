@@ -60,6 +60,7 @@ const request = await db.collection("fileRequests").findOne(query)
         title: request.title,
         description: request.description,
         recipients: request.recipients,
+        shareToken: r.shareToken,
         dueDate: request.dueDate,
         expectedFiles: request.expectedFiles,
         uploadedFiles: request.uploadedFiles || [],

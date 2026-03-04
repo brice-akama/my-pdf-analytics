@@ -45,6 +45,18 @@ export default function PublicFileRequestPage() {
   }, [token])
 
 
+
+  //  Track: opened
+useEffect(() => {
+  if (!token) return
+  fetch(`/api/public/file-request/${token}/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'opened', recipientEmail: null }),
+  }).catch(() => {})
+}, [token])
+
+
   
   const fetchRequest = async () => {
     try {
@@ -144,6 +156,16 @@ export default function PublicFileRequestPage() {
       const data = await res.json()
 
       if (res.ok && data.success) {
+        fetch(`/api/public/file-request/${token}/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'uploaded',
+      recipientEmail: uploaderEmail.trim(),
+      fileName: selectedFiles[0]?.name || '',
+      fileCount: selectedFiles.length,
+    }),
+  }).catch(() => {})
         setUploadSuccess(true)
         setSelectedFiles([])
         setUploaderName('')

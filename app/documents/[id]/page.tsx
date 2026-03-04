@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from 'sonner'
 import DocSendStyleCharts from '@/components/DocSendStyleCharts';
+import { EmailAutocomplete } from '@/components/ui/EmailAutocomplete';
 
 
 
@@ -2980,7 +2981,7 @@ const handleSendSignatureRequest = async () => {
               ))}
             </div>
 
-            {/* Single email + name */}
+          {/* Single email + name */}
 {recipientInputMethod === 'single' && (
   <div className="space-y-2">
     <div className="grid grid-cols-2 gap-2">
@@ -2991,14 +2992,19 @@ const handleSendSignatureRequest = async () => {
         placeholder="John Doe"
         className="text-sm"
       />
-      <Input
-        type="email"
-        value={recipientInput}
-        onChange={(e) => setRecipientInput(e.target.value)}
-        placeholder="investor@vc.com"
-        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddRecipient(); } }}
-        className="text-sm"
-      />
+     <EmailAutocomplete
+  value={recipientInput}
+  onChange={(val) => setRecipientInput(val)}
+  onSelect={({ email, name }) => {
+    setRecipientInput(email);
+    if (name && !recipientNameInput) {
+      setRecipientNameInput(name);
+    }
+  }}
+  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddRecipient(); } }}
+  placeholder="investor@vc.com"
+  className="text-sm"
+/>
     </div>
     <Button type="button" onClick={handleAddRecipient} variant="outline" size="sm" className="w-full">
       Add Recipient

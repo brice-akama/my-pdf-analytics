@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
 import DashboardOverview from '@/components/DashboardOverview';
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { EmailAutocomplete } from '@/components/ui/EmailAutocomplete';
 import {
   Dialog,
   DialogContent,
@@ -217,6 +218,7 @@ type FileRequestType = {
   dueDate: string
   createdAt: string
   recipients: { email: string }[]
+  shareToken: string   
 }
 
 const getInitials = (email: string) => {
@@ -450,6 +452,26 @@ useEffect(() => {
     window.history.replaceState({}, '', '/dashboard')
   }
 }, [])
+
+
+const handleDeleteFileRequest = async (id: string) => {
+  const loadingToast = toast.loading('Deleting request...')
+  try {
+    const res = await fetch(`/api/file-requests/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+    const data = await res.json()
+    if (res.ok && data.success) {
+      toast.success('File request deleted', { id: loadingToast })
+      setFileRequests((prev) => prev.filter((r) => r._id !== id))
+    } else {
+      toast.error(data.error || 'Failed to delete', { id: loadingToast })
+    }
+  } catch (error) {
+    toast.error('Network error', { id: loadingToast })
+  }
+}
 
 // Add function to connect Google Drive
 const handleConnectGoogleDrive = async () => {
@@ -1990,7 +2012,7 @@ const FileRequestsSection = () => {
         </div>
       ) : (
         /* File Requests List - wrapped in one container with dividers */
-        <div className="bg-white rounded-xl overflow-hidden">
+        <div className=" overflow-hidden">
           {fileRequests.map((request, index) => (
             <div key={request._id}>
               {/* Divider between items */}
@@ -2130,6 +2152,29 @@ const FileRequestsSection = () => {
                         Download All Files
                       </DropdownMenuItem>
                     )}
+
+                    <DropdownMenuSeparator />
+
+<DropdownMenuItem
+  className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+  onClick={() => {
+    toast.warning(`Delete "${request.title}"?`, {
+      description: 'This cannot be undone.',
+      duration: 6000,
+      action: {
+        label: 'Delete',
+        onClick: () => handleDeleteFileRequest(request._id),
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {},
+      },
+    })
+  }}
+>
+  <Trash2 className="h-4 w-4 text-red-600" />
+  Delete Request
+</DropdownMenuItem>
 
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -3354,7 +3399,7 @@ case 'dashboard':
       </div>
 
       {contacts.length === 0 ? (
-        <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
+        <div className=" p-12 text-center">
           <div className="h-24 w-24 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-6">
             <Users className="h-12 w-12 text-purple-600" />
           </div>
@@ -3369,9 +3414,9 @@ case 'dashboard':
           </Button>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+        <div className=" overflow-hidden">
           {/* Table Header */}
-          <div className="bg-slate-50 border-b px-6 py-3 grid grid-cols-12 gap-4 text-sm font-semibold text-slate-700">
+          <div className=" border-b px-6 py-3 grid grid-cols-12 gap-4 text-sm font-semibold text-slate-700">
             <div className="col-span-4">Contact</div>
             <div className="col-span-3">Company</div>
             <div className="col-span-3">Phone</div>
@@ -3768,9 +3813,9 @@ case 'dashboard':
     </div>
   </SheetContent>
 </Sheet>
-      <div className="flex">
+       <div className="flex min-h-[calc(100vh-64px)]"> 
         {/* Sidebar with clickable links */}
-<aside className="hidden lg:flex w-64 flex-col border-r bg-white shadow-sm">
+ <aside className="hidden lg:flex w-64 flex-col border-r bg-white shadow-sm sticky top-16 h-[calc(100vh-64px)]">
   <nav className="flex-1 space-y-1 p-4">
     {sidebarItems.map((item) => (
       <button
@@ -6533,17 +6578,17 @@ case 'dashboard':
         </TabsList>
         
         <TabsContent value="single" className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <Label>Recipient Email *</Label>
-            <Input 
-              type="email"
-              placeholder="client@company.com"
-              value={fileRequestRecipient}
-              onChange={(e) => setFileRequestRecipient(e.target.value)}
-            />
-            <p className="text-xs text-slate-500">One unique link will be created for this recipient</p>
-          </div>
-        </TabsContent>
+  <div className="space-y-2">
+    <Label>Recipient Email *</Label>
+    <EmailAutocomplete
+      value={fileRequestRecipient}
+      onChange={(val) => setFileRequestRecipient(val)}
+      onSelect={({ email }) => setFileRequestRecipient(email)}
+      placeholder="client@company.com"
+    />
+    <p className="text-xs text-slate-500">One unique link will be created for this recipient</p>
+  </div>
+</TabsContent>
         
         <TabsContent value="multiple" className="space-y-4 mt-4">
           <div className="space-y-2">
