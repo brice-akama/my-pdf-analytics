@@ -88,7 +88,7 @@ export default function DocumentsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [templates, setTemplates] = useState<DocumentType[]>([])
 const [archivedDocuments, setArchivedDocuments] = useState<DocumentType[]>([])
-const [activeView, setActiveView] = useState<'documents' | 'templates' | 'archive' | 'team-documents'>('documents')
+const [activeView, setActiveView] = useState<'documents' | 'templates' | 'archive' | 'team-documents' | 'team-templates'>('documents')
 const [previewDrawerOpen, setPreviewDrawerOpen] = useState(false)
 const [previewDocumentId, setPreviewDocumentId] = useState<string | null>(null)
 const [hoveredDocId, setHoveredDocId] = useState<string | null>(null)
@@ -175,6 +175,59 @@ useEffect(() => {
     fetchNdaTemplates();
   }
 }, [shareDrawerOpen]);
+
+
+// Export to Google Drive
+const handleExportToGoogleDrive = async (documentId: string) => {
+  const loadingToast = toast.loading('Exporting to Google Drive...')
+  try {
+    const res = await fetch('/api/integrations/google-drive/export', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId })
+    })
+    const data = await res.json()
+    if (res.ok) {
+      toast.success('Exported to Google Drive!', {
+        id: loadingToast,
+        description: data.driveFileName
+      })
+    } else {
+      toast.error(data.error || 'Export failed', { id: loadingToast })
+    }
+  } catch {
+    toast.error('Network error', { id: loadingToast })
+  }
+}
+
+// Export to OneDrive
+const handleExportToOneDrive = async (documentId: string) => {
+  const loadingToast = toast.loading('Exporting to OneDrive...')
+  try {
+    const res = await fetch('/api/integrations/onedrive/export', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentId })
+    })
+    const data = await res.json()
+    if (res.ok) {
+      toast.success('Exported to OneDrive!', {
+        id: loadingToast,
+        description: data.oneDriveFileName,
+        action: data.webUrl ? {
+          label: 'Open in OneDrive',
+          onClick: () => window.open(data.webUrl, '_blank')
+        } : undefined
+      })
+    } else {
+      toast.error(data.error || 'Export failed', { id: loadingToast })
+    }
+  } catch {
+    toast.error('Network error', { id: loadingToast })
+  }
+}
 
 
 const fetchTeamDocuments = async () => {

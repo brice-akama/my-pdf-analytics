@@ -363,6 +363,14 @@ const [outlookStatus, setOutlookStatus] = useState<{
   connected: boolean
   email?: string
 }>({ connected: false })
+const [oneDriveStatus, setOneDriveStatus] = useState<{
+  connected: boolean
+  email?: string
+}>({ connected: false })
+const [showOneDriveFilesDialog, setShowOneDriveFilesDialog] = useState(false)
+const [oneDriveFiles, setOneDriveFiles] = useState<any[]>([])
+const [loadingOneDriveFiles, setLoadingOneDriveFiles] = useState(false)
+const [oneDriveSearchQuery, setOneDriveSearchQuery] = useState('')
 const [showGmailSendDialog, setShowGmailSendDialog] = useState(false);
 const [gmailRecipients, setGmailRecipients] = useState('');
 const [gmailSubject, setGmailSubject] = useState('');
@@ -484,6 +492,22 @@ useEffect(() => {
   fetchOutlookStatus()
 }, [])
 
+
+useEffect(() => {
+  fetchOneDriveStatus()
+}, [])
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('integration') === 'onedrive' && params.get('status') === 'connected') {
+    toast.success('OneDrive connected!', {
+      description: 'You can now import files from OneDrive',
+      duration: 5000,
+    })
+    window.history.replaceState({}, '', '/dashboard')
+  }
+}, [])
+
 // Success toast after OAuth redirect
 useEffect(() => {
   const params = new URLSearchParams(window.location.search)
@@ -495,6 +519,104 @@ useEffect(() => {
     window.history.replaceState({}, '', '/dashboard')
   }
 }, [])
+
+
+const fetchOneDriveStatus = async () => {
+  try {
+    const res = await fetch('/api/integrations/onedrive/status', {
+      credentials: 'include',
+    })
+    if (res.ok) {
+      const data = await res.json()
+      setOneDriveStatus(data)
+    }
+  } catch (error) {
+    console.error('Failed to fetch OneDrive status:', error)
+  }
+}
+
+const handleConnectOneDrive = () => {
+  window.location.href = '/api/integrations/onedrive/connect'
+}
+
+const handleDisconnectOneDrive = async () => {
+  const confirmed = await new Promise((resolve) => {
+    toast.warning('Disconnect OneDrive?', {
+      description: 'You can reconnect anytime',
+      duration: 10000,
+      action: { label: 'Disconnect', onClick: () => resolve(true) },
+      cancel: { label: 'Cancel', onClick: () => resolve(false) },
+    })
+  })
+  if (!confirmed) return
+
+  const loadingToast = toast.loading('Disconnecting...')
+  try {
+    const res = await fetch('/api/integrations/onedrive/disconnect', {
+      method: 'POST',
+      credentials: 'include',
+    })
+    if (res.ok) {
+      toast.success('OneDrive disconnected', { id: loadingToast })
+      setOneDriveStatus({ connected: false })
+    } else {
+      toast.error('Failed to disconnect', { id: loadingToast })
+    }
+  } catch {
+    toast.error('Network error', { id: loadingToast })
+  }
+}
+
+const handleBrowseOneDriveFiles = async () => {
+  setLoadingOneDriveFiles(true)
+  try {
+    const res = await fetch('/api/integrations/onedrive/files', {
+      credentials: 'include',
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setOneDriveFiles(data.files || [])
+      setShowOneDriveFilesDialog(true)
+    } else {
+      toast.error('Failed to load files', {
+        description: data.error || 'Try reconnecting OneDrive'
+      })
+    }
+  } catch (error) {
+    toast.error('Network error')
+  } finally {
+    setLoadingOneDriveFiles(false)
+  }
+}
+
+const handleImportOneDriveFile = async (fileId: string, fileName: string) => {
+  const loadingToast = toast.loading(`Importing ${fileName}...`)
+  try {
+    const res = await fetch('/api/integrations/onedrive/import', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileId, fileName })
+    })
+    const data = await res.json()
+    if (res.ok) {
+      toast.success('File imported!', {
+        id: loadingToast,
+        description: `${fileName} is now in your library`,
+        action: {
+          label: 'View',
+          onClick: () => router.push(`/documents/${data.documentId}`)
+        }
+      })
+      setShowOneDriveFilesDialog(false)
+      fetchDocuments()
+    } else {
+      toast.error(data.error || 'Import failed', { id: loadingToast })
+    }
+  } catch (error) {
+    toast.error('Network error', { id: loadingToast })
+  }
+}
 
 
 // Fetch Outlook status
@@ -3271,17 +3393,16 @@ case 'dashboard':
     
     {/* OneDrive - PLACEHOLDER for future */}
     <DropdownMenuItem 
-      onClick={() => toast.info('OneDrive integration coming soon!')}
-      disabled
-    >
-      <div className="h-4 w-4 mr-2 flex items-center justify-center opacity-50">
-        ☁️
-      </div>
-      <div>
-        <p className="font-medium text-slate-400">OneDrive</p>
-        <p className="text-xs text-slate-400">Coming soon</p>
-      </div>
-    </DropdownMenuItem>
+  onClick={() => oneDriveStatus.connected ? handleBrowseOneDriveFiles() : handleConnectOneDrive()}
+>
+  <div className="h-4 w-4 mr-2 flex items-center justify-center">
+    ☁️
+  </div>
+  <div>
+    <p className="font-medium">OneDrive</p>
+    <p className="text-xs text-green-600">{oneDriveStatus.connected ? '✓ Connected' : 'Connect to import'}</p>
+  </div>
+</DropdownMenuItem>
     
     {/* Footer - Link to integrations */}
     <DropdownMenuSeparator />
@@ -5200,6 +5321,56 @@ case 'dashboard':
                     </p>
                   )}
                 </div>
+
+                {/* OneDrive Integration Card */}
+<div
+  key="onedrive-integration"
+  className="group bg-white border-2 border-slate-200 rounded-xl p-5 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer"
+>
+  <div className="flex items-start justify-between mb-3">
+    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+      <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M10.923 4.993A6.257 6.257 0 0116.4 2a6.25 6.25 0 015.93 4.247A4.503 4.503 0 0124 10.5a4.5 4.5 0 01-4.5 4.5H5.25A4.75 4.75 0 01.5 10.25a4.75 4.75 0 014.548-4.747 6.253 6.253 0 015.875-.51z"/>
+      </svg>
+    </div>
+
+    {oneDriveStatus.connected ? (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline" className="gap-2">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            Connected
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleBrowseOneDriveFiles}>
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Browse Files
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleDisconnectOneDrive} className="text-red-600">
+            <X className="h-4 w-4 mr-2" />
+            Disconnect
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ) : (
+      <Button size="sm" variant="outline" onClick={handleConnectOneDrive}>
+        Connect
+      </Button>
+    )}
+  </div>
+
+  <h4 className="font-bold text-slate-900 mb-1">OneDrive</h4>
+  <p className="text-sm text-slate-600">Import documents from OneDrive</p>
+
+  {oneDriveStatus.connected && oneDriveStatus.email && (
+    <div className="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
+      <p className="text-xs text-blue-900">
+        ✓ <span className="font-semibold">{oneDriveStatus.email}</span>
+      </p>
+    </div>
+  )}
+</div>
 
                 {/* Outlook Integration Card */}
 <div 

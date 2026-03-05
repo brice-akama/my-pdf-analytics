@@ -58,7 +58,7 @@ export async function GET(
       
       // For members (not owner/admin), only show themselves
       if (userRole === 'member' && !isOwner) {
-        const members = space.members || [];
+        const members = (space.members || []).filter((m: any) => m.role !== 'owner');
         const userMember = members.find((m: any) => m.email === user.email);
         
         if (userMember) {
