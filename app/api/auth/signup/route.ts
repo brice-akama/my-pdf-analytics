@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const sanitizedAvatar = sanitizeInput(avatar || '');
 
     // ✅ Smarter OAuth detection — assume OAuth if there's no password or we have avatar/full_name
-    const isOAuthSignup = !password || !!sanitizedAvatar || !!full_name;
+     const isOAuthSignup = !password && (!!sanitizedAvatar || !!full_name);
 
     const missingFields: string[] = [];
 const invalidFields: { field: string; reason: string }[] = [];

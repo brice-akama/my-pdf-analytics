@@ -242,18 +242,22 @@ useEffect(() => {
   setLoading(true)
 
   try {
-    const payload = {
-      firstName: formData.firstName,
-      lastName: formData.lastName || "",
-      companyName: formData.companyName || "",
-      email: formData.email,
-      ...(formData.password && { password: formData.password }),
-      avatar: formData.avatar || "",
-      full_name: `${formData.firstName} ${formData.lastName || ""}`,
-      industry: selectedIndustry,
-      companySize: selectedCompanySize,
-      useCases: selectedUseCases
-    }
+     const payload = {
+  firstName: formData.firstName,
+  lastName: formData.lastName || "",
+  companyName: formData.companyName || "",
+  email: formData.email,
+  password: formData.password || undefined, // ← don't send empty string
+  avatar: formData.avatar || "",
+  // only send full_name if no password (OAuth flow)
+  ...(formData.password ? {} : { full_name: `${formData.firstName} ${formData.lastName || ""}` }),
+  industry: selectedIndustry,
+  companySize: selectedCompanySize,
+  useCases: selectedUseCases,
+}
+
+
+    
 
     const res = await fetch("/api/auth/signup", {
       method: "POST",

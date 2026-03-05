@@ -1,16 +1,36 @@
-import { NextRequest, NextResponse } from "next/server"
+ import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "../../../lib/mongodb"
 
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: 'lax' as const,
+  secure: process.env.NODE_ENV === 'production',
+  path: '/',
+  maxAge: 60 * 60 * 24 * 7, // 7 days
+}
+
+function redirectWithCookie(url: string, request: NextRequest) {
+  const response = NextResponse.redirect(url)
+  const tokenCookie = request.cookies.get('token')
+  if (tokenCookie) {
+    response.cookies.set('token', tokenCookie.value, COOKIE_OPTIONS)
+  }
+  return response
+}
+
 export async function GET(request: NextRequest) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
   try {
     const searchParams = request.nextUrl.searchParams
     const code = searchParams.get("code")
     const state = searchParams.get("state") // User ID
 
     if (!code || !state) {
-      const url = new URL("/dashboard", request.url)
-      url.searchParams.set("error", "outlook_auth_failed")
-      return NextResponse.redirect(url)
+      return redirectWithCookie(
+        `${baseUrl}/dashboard?error=outlook_auth_failed`,
+        request
+      )
     }
 
     // Exchange code for tokens
@@ -33,9 +53,10 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok || tokenData.error) {
       console.error("Outlook token exchange failed:", tokenData)
-      const url = new URL("/dashboard", request.url)
-      url.searchParams.set("error", "outlook_token_failed")
-      return NextResponse.redirect(url)
+      return redirectWithCookie(
+        `${baseUrl}/dashboard?error=outlook_token_failed`,
+        request
+      )
     }
 
     const { access_token, refresh_token, expires_in } = tokenData
@@ -46,7 +67,7 @@ export async function GET(request: NextRequest) {
     })
     const userInfo = await userInfoResponse.json()
 
-    // Save to integrations collection — same pattern as Gmail
+    // Save to integrations collection
     const db = await dbPromise
     const expiresAt = new Date(Date.now() + expires_in * 1000)
 
@@ -73,16 +94,18 @@ export async function GET(request: NextRequest) {
       { upsert: true }
     )
 
-    console.log("✅ Outlook connected for user:", state, "Email:", userInfo.mail)
+    console.log("✅ Outlook connected for user:", state, "Email:", userInfo.mail || userInfo.userPrincipalName)
 
-    const url = new URL("/dashboard", request.url)
-    url.searchParams.set("integration", "outlook")
-    url.searchParams.set("status", "connected")
-    return NextResponse.redirect(url)
+    return redirectWithCookie(
+      `${baseUrl}/dashboard?integration=outlook&status=connected`,
+      request
+    )
+
   } catch (error) {
     console.error("Outlook callback error:", error)
-    const url = new URL("/dashboard", request.url)
-    url.searchParams.set("error", "outlook_callback_failed")
-    return NextResponse.redirect(url)
+    return redirectWithCookie(
+      `${baseUrl}/dashboard?error=outlook_callback_failed`,
+      request
+    )
   }
 }

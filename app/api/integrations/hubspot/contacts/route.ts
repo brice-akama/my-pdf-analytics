@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyUserFromRequest } from "@/lib/auth";
 import { getValidHubSpotToken } from "@/lib/integrations/hubspot";
 import { dbPromise } from "../../../lib/mongodb";
+import { ObjectId } from "mongodb";
 
 export async function GET(request: NextRequest) {
   try {
@@ -74,9 +75,13 @@ export async function POST(request: NextRequest) {
       if (!props.email) continue; // Skip contacts without email
 
       await db.collection("contacts").updateOne(
-        { email: props.email },
+        { email: props.email,
+          userId: new ObjectId(user.id)
+
+         },
         {
           $set: {
+            userId: new ObjectId(user.id),
             name: `${props.firstname || ""} ${props.lastname || ""}`.trim(),
             email: props.email,
             company: props.company || undefined,

@@ -942,7 +942,7 @@ if (share.userId && duration > 10) {
         userId: share.userId,
         documentName: slackDoc?.originalFilename || 'Your document',
         viewerEmail: email || 'Anonymous viewer',
-        sessionDurationSeconds: totalTimeSeconds,
+        sessionDurationSeconds: duration,
         pagesViewed,
         totalPages: slackDoc?.numPages || 1,
         device,

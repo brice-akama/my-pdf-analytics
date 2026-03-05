@@ -66,7 +66,7 @@ export async function POST(
         { spaceId: space._id, sessionId },
         {
           $set: {
-            spaceId, shareLink, sessionId,
+            spaceId: space._id, shareLink, sessionId,
             documentId:    new ObjectId(documentId),
             documentName:  documentName || null,
             visitorEmail:  email || null,
@@ -160,63 +160,63 @@ if (email && notifyEvents.includes(event)) {
       });
 
       // ── 2. HubSpot sync (only if owner has HubSpot connected) ──────
-const ownerId = owner?._id?.toString() || space.userId;
-console.log('🔍 HubSpot check — ownerId:', ownerId, '| visitorEmail:', email, '| event:', finalEvent);
+      const ownerId = owner?._id?.toString() || space.userId;
+      console.log('🔍 HubSpot check — ownerId:', ownerId, '| visitorEmail:', email, '| event:', finalEvent);
 
-if (!ownerId) {
-  console.log('⚠️ HubSpot skipped — could not resolve ownerId from owner or space.userId');
-} else {
-  const hubspotConnected = await isHubSpotConnected(ownerId);
-  console.log('🔌 HubSpot connected for ownerId', ownerId, ':', hubspotConnected);
+      if (!ownerId) {
+        console.log('⚠️ HubSpot skipped — could not resolve ownerId from owner or space.userId');
+      } else {
+        const hubspotConnected = await isHubSpotConnected(ownerId);
+        console.log('🔌 HubSpot connected for ownerId', ownerId, ':', hubspotConnected);
 
-  if (!hubspotConnected) {
-    console.log('⚠️ HubSpot skipped — owner has no active HubSpot integration');
-  } else {
-    console.log('📤 Sending to HubSpot — contact:', email, '| space:', space.name, '| event:', finalEvent);
-    const result = await syncPortalEventToHubSpot({
-      userId:       ownerId,
-      visitorEmail: email,
-      spaceName:    space.name,
-      event:        finalEvent,
-      documentName: documentName || undefined,
-      isRevisit,
-      visitCount:   isRevisit ? priorVisits + 1 : 1,
-    }).catch(err => {
-      console.error('📊 HubSpot sync threw an error:', err);
-      return { success: false, error: err };
-    });
-    console.log('📊 HubSpot sync result:', JSON.stringify(result));
-  }
-}
+        if (!hubspotConnected) {
+          console.log('⚠️ HubSpot skipped — owner has no active HubSpot integration');
+        } else {
+          console.log('📤 Sending to HubSpot — contact:', email, '| space:', space.name, '| event:', finalEvent);
+          const result = await syncPortalEventToHubSpot({
+            userId:       ownerId,
+            visitorEmail: email,
+            spaceName:    space.name,
+            event:        finalEvent,
+            documentName: documentName || undefined,
+            isRevisit,
+            visitCount:   isRevisit ? priorVisits + 1 : 1,
+          }).catch(err => {
+            console.error('📊 HubSpot sync threw an error:', err);
+            return { success: false, error: err };
+          });
+          console.log('📊 HubSpot sync result:', JSON.stringify(result));
+        }
+      }
+
+      // ── 3. Slack notification (only if owner has Slack connected) ───
+      const slackConnected = await isSlackConnected(ownerId);
+      console.log('💬 Slack connected for ownerId', ownerId, ':', slackConnected);
+
+      if (slackConnected) {
+        console.log('📤 Sending to Slack — visitor:', email, '| event:', finalEvent);
+        await notifyPortalEvent({
+          userId:       ownerId,
+          visitorEmail: email,
+          spaceName:    space.name,
+          spaceId:      space._id.toString(),
+          event:        finalEvent,
+          documentName: documentName || undefined,
+          isRevisit,
+          visitCount:   isRevisit ? priorVisits + 1 : 1,
+        }).catch(err => {
+          console.error('💬 Slack notification failed silently:', err);
+        });
+      } else {
+        console.log('⚠️ Slack skipped — owner has no active Slack integration or no channel set');
+      }
     }
   } catch (emailErr) {
     console.error('📧 Notification failed:', emailErr);
   }
 }
+
     return NextResponse.json({ success: true });
-
-
-    // ── 3. Slack notification (only if owner has Slack connected) ───
-const slackConnected = await isSlackConnected(ownerId);
-console.log('💬 Slack connected for ownerId', ownerId, ':', slackConnected);
-
-if (slackConnected) {
-  console.log('📤 Sending to Slack — visitor:', email, '| event:', finalEvent);
-  await notifyPortalEvent({
-    userId:       ownerId,
-    visitorEmail: email,
-    spaceName:    space.name,
-    spaceId:      space._id.toString(),
-    event:        finalEvent,
-    documentName: documentName || undefined,
-    isRevisit,
-    visitCount:   isRevisit ? priorVisits + 1 : 1,
-  }).catch(err => {
-    console.error('💬 Slack notification failed silently:', err);
-  });
-} else {
-  console.log('⚠️ Slack skipped — owner has no active Slack integration or no channel set');
-}
 
   } catch (error) {
     console.error('❌ Track error:', error);

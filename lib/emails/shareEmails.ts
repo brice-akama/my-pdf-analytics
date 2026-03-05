@@ -2,6 +2,7 @@
 import { Resend } from "resend";
 import { dbPromise } from "@/app/api/lib/mongodb";
 import { getValidGmailToken } from "@/lib/integrations/gmail";
+import { getValidOutlookToken } from "@/lib/integrations/outlook";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -134,6 +135,10 @@ function buildShareEmailHtml({
 
 // ─── Send via Gmail or Resend ─────────────────────────────────────────────────
 
+
+
+ 
+
 export async function sendShareEmailViaGmailOrResend({
   userId,
   recipientEmail,
@@ -143,7 +148,7 @@ export async function sendShareEmailViaGmailOrResend({
   customMessage,
   expiresAt,
   sharedByName,
-  logoUrl, // ✅ ADD THIS
+  logoUrl,
 }: {
   userId: string;
   recipientEmail: string;
@@ -153,47 +158,36 @@ export async function sendShareEmailViaGmailOrResend({
   customMessage?: string | null;
   expiresAt?: Date | null;
   sharedByName?: string | null;
-  logoUrl?: string | null; // ✅ ADD THIS
+  logoUrl?: string | null;
 }) {
   const displayName = sharedByName || senderName;
   const db = await dbPromise;
+  const subject = `${displayName} shared "${documentName}" with you`;
+  const htmlBody = buildShareEmailHtml({
+    recipientEmail,
+    displayName,
+    documentName,
+    shareLink,
+    customMessage,
+    expiresAt,
+    logoUrl,
+  });
 
   console.log('📧 [EMAIL] Starting email send process...');
   console.log('📧 [EMAIL] Recipient:', recipientEmail);
-  console.log('📧 [EMAIL] Display name:', displayName);
-  console.log('📧 [EMAIL] Document:', documentName);
-  console.log('📧 [EMAIL] Share link:', shareLink);
-  console.log('📧 [EMAIL] Logo URL:', logoUrl);
 
-  // ✅ STEP 1: Try Gmail First
+  // ── STEP 1: Try Gmail ──────────────────────────────────────────
   try {
     const gmailToken = await getValidGmailToken(userId);
-    console.log('✅ [EMAIL] Gmail token found, sending via Gmail...');
-    
+
     const gmailIntegration = await db.collection("integrations").findOne({
-      userId: userId,
+      userId,
       provider: "gmail",
       isActive: true,
     });
-    
-    const senderEmail = gmailIntegration?.metadata?.email || "me";
-    const subject = `${displayName} shared "${documentName}" with you`;
-    const htmlBody = buildShareEmailHtml({
-      recipientEmail,
-      displayName,
-      documentName,
-      shareLink,
-      customMessage,
-      expiresAt,
-      logoUrl, // ✅ NOW PASSED
-    });
 
-    const raw = buildGmailRaw({ 
-      from: senderEmail, 
-      to: recipientEmail, 
-      subject, 
-      htmlBody 
-    });
+    const senderEmail = gmailIntegration?.metadata?.email || "me";
+    const raw = buildGmailRaw({ from: senderEmail, to: recipientEmail, subject, htmlBody });
 
     const gmailRes = await fetch(
       "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
@@ -208,41 +202,93 @@ export async function sendShareEmailViaGmailOrResend({
     );
 
     if (!gmailRes.ok) {
-      const gmailError = await gmailRes.json();
-      console.error('❌ [EMAIL] Gmail API error:', gmailError);
-      throw new Error(`Gmail send failed: ${JSON.stringify(gmailError)}`);
+      const err = await gmailRes.json();
+      throw new Error(`Gmail send failed: ${JSON.stringify(err)}`);
     }
-    
-    console.log(`✅ [EMAIL] Share link sent via Gmail to: ${recipientEmail}`);
+
+    console.log(`✅ [EMAIL] Sent via Gmail to: ${recipientEmail}`);
     return { success: true, method: 'gmail' };
 
   } catch (gmailError) {
-    console.log(`⚠️ [EMAIL] Gmail failed, falling back to Resend...`);
-    console.log(`⚠️ [EMAIL] Gmail error:`, gmailError);
-    
-    // ✅ STEP 2: Fall back to Resend
-    try {
-      await sendShareLinkEmail({
-        recipientEmail,
-        senderName,
-        documentName,
-        shareLink,
-        customMessage,
-        expiresAt,
-        sharedByName,
-        logoUrl, // ✅ NOW PASSED
-      });
-      
-      console.log(`✅ [EMAIL] Share link sent via Resend to: ${recipientEmail}`);
-      return { success: true, method: 'resend' };
-      
-    } catch (resendError) {
-      console.error(`❌ [EMAIL] Both Gmail AND Resend FAILED for ${recipientEmail}:`);
-      console.error('❌ [EMAIL] Resend error:', resendError);
-      throw new Error('Failed to send email via both Gmail and Resend');
+    console.log('⚠️ [EMAIL] Gmail failed, trying Outlook...', gmailError);
+  }
+
+  // ── STEP 2: Try Outlook ───────────────────────────────────────
+  try {
+    const outlookToken = await getValidOutlookToken(userId)
+
+    const outlookIntegration = await db.collection("integrations").findOne({
+      userId,
+      provider: "outlook",
+      isActive: true,
+    })
+
+    const recipientList = [{ emailAddress: { address: recipientEmail } }]
+
+    const outlookRes = await fetch(
+      "https://graph.microsoft.com/v1.0/me/sendMail",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${outlookToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: {
+            subject,
+            body: {
+              contentType: "HTML",
+              content: htmlBody,
+            },
+            toRecipients: recipientList,
+            from: {
+              emailAddress: {
+                address: outlookIntegration?.metadata?.email,
+                name: displayName,
+              },
+            },
+          },
+          saveToSentItems: true,
+        }),
+      }
+    )
+
+    // Graph API returns 202 with no body on success
+    if (!outlookRes.ok) {
+      const err = await outlookRes.json()
+      throw new Error(`Outlook send failed: ${JSON.stringify(err)}`)
     }
+
+    console.log(`✅ [EMAIL] Sent via Outlook to: ${recipientEmail}`)
+    return { success: true, method: 'outlook' }
+
+  } catch (outlookError) {
+    console.log('⚠️ [EMAIL] Outlook failed, falling back to Resend...', outlookError)
+  }
+
+  // ── STEP 3: Fall back to Resend ───────────────────────────────
+  try {
+    await sendShareLinkEmail({
+      recipientEmail,
+      senderName,
+      documentName,
+      shareLink,
+      customMessage,
+      expiresAt,
+      sharedByName,
+      logoUrl,
+    })
+
+    console.log(`✅ [EMAIL] Sent via Resend to: ${recipientEmail}`)
+    return { success: true, method: 'resend' }
+
+  } catch (resendError) {
+    console.error(`❌ [EMAIL] All three methods failed for ${recipientEmail}`)
+    throw new Error('Failed to send email via Gmail, Outlook, and Resend')
   }
 }
+
+
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 

@@ -1,22 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../../lib/mongodb";
 
-// If we already have this integration saved, just redirect — don't reprocess
-const existing = await db.collection("integrations").findOne({
-  userId: state,
-  provider: "hubspot",
-  isActive: true,
-});
-if (existing) {
-  const url = new URL("/dashboard", request.url);
-  url.searchParams.set("integration", "hubspot");
-  url.searchParams.set("status", "connected");
-  return NextResponse.redirect(url);
-}
-
-
- 
-
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -60,6 +44,19 @@ export async function GET(request: NextRequest) {
     // Save to database
     const db = await dbPromise;
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
+
+    // If we already have this integration saved, just redirect — don't reprocess
+    const existing = await db.collection("integrations").findOne({
+      userId: state,
+      provider: "hubspot",
+      isActive: true,
+    });
+    if (existing) {
+      const url = new URL("/dashboard", request.url);
+      url.searchParams.set("integration", "hubspot");
+      url.searchParams.set("status", "connected");
+      return NextResponse.redirect(url);
+    }
 
     await db.collection("integrations").updateOne(
       { userId: state, provider: "hubspot" },

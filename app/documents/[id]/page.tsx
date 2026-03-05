@@ -3001,7 +3001,6 @@ const handleSendSignatureRequest = async () => {
       setRecipientNameInput(name);
     }
   }}
-  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddRecipient(); } }}
   placeholder="investor@vc.com"
   className="text-sm"
 />

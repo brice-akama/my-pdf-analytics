@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+     
 
     const db = await dbPromise
 
@@ -21,6 +22,8 @@ export async function GET(req: NextRequest) {
       .find({ userId: new ObjectId(user.id) }) // ✅ strict: only this user's contacts
       .sort({ createdAt: -1 })
       .toArray()
+
+       
 
     return NextResponse.json({
       success: true,
@@ -33,6 +36,8 @@ export async function GET(req: NextRequest) {
         notes: c.notes,
         createdAt: c.createdAt,
         addedBy: c.userId.toString(),
+        hubspotId: c.hubspotId || null,   
+  syncedAt: c.syncedAt || null,   
       })),
     })
   } catch (error) {
