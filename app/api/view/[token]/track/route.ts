@@ -20,6 +20,7 @@ import {
   syncEngagementSummaryToHubSpot,
   isHubSpotConnected,
 } from '@/lib/integrations/hubspotSync';
+import { sendTeamsNotification } from '@/app/api/integrations/teams/notify/route';
 
 // ── Helper: get owner email from userId ──────────────────────────
 async function getOwnerEmail(userId: string, db: any) {
@@ -856,7 +857,22 @@ case 'presence_ping': {
     }).catch(err => console.error('Slack viewed error:', err));
   }
 
-
+if (share.userId) {
+  const teamsDoc = await db.collection('documents').findOne({ _id: share.documentId })
+  
+  sendTeamsNotification({
+    userId: share.userId,
+    event: 'document_viewed',
+    documentName: teamsDoc?.originalFilename || 'Your document',
+    documentId,
+    viewerName: email?.split('@')[0] || 'Anonymous',
+    viewerEmail: email || undefined,
+    viewerLocation: location
+      ? [location.city, location.country].filter(Boolean).join(', ')
+      : undefined,
+    pageCount: teamsDoc?.numPages,
+  }).catch(err => console.error('Teams viewed error:', err))
+}
 
         break;
       }

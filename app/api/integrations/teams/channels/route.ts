@@ -42,20 +42,18 @@ export async function GET(request: NextRequest) {
     })
 
     if (!integration) {
-      return NextResponse.json({ error: "Teams not connected" }, { status: 404 })
+      return NextResponse.json({ teams: [], reason: "not_connected" })
     }
 
     let accessToken = integration.accessToken
 
-    // Refresh if expired
     if (new Date() >= new Date(integration.expiresAt)) {
       accessToken = await refreshTeamsToken(user.id, integration.refreshToken, db)
       if (!accessToken) {
-        return NextResponse.json({ error: "Session expired. Please reconnect Teams." }, { status: 401 })
+        return NextResponse.json({ teams: [], reason: "token_expired" })
       }
     }
 
-    // Get all teams user is member of
     const teamsRes = await fetch(
       "https://graph.microsoft.com/v1.0/me/joinedTeams?$select=id,displayName",
       { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -64,27 +62,39 @@ export async function GET(request: NextRequest) {
     if (!teamsRes.ok) {
       const err = await teamsRes.json()
       console.error("Teams fetch error:", err)
-      return NextResponse.json({ error: "Failed to fetch teams" }, { status: 500 })
+      // Return empty gracefully — never 500
+      return NextResponse.json({
+        teams: [],
+        reason: "no_teams_access",
+        hint: "Personal Microsoft accounts do not support Teams channels. A work or school account is required."
+      })
     }
 
     const teamsData = await teamsRes.json()
     const teams = teamsData.value || []
 
-    // For each team, get its channels
+    if (teams.length === 0) {
+      return NextResponse.json({ teams: [], reason: "no_teams_found" })
+    }
+
     const teamsWithChannels = await Promise.all(
       teams.map(async (team: any) => {
-        const channelsRes = await fetch(
-          `https://graph.microsoft.com/v1.0/teams/${team.id}/channels?$select=id,displayName`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        )
-        const channelsData = await channelsRes.json()
-        return {
-          teamId: team.id,
-          teamName: team.displayName,
-          channels: (channelsData.value || []).map((ch: any) => ({
-            channelId: ch.id,
-            channelName: ch.displayName,
-          })),
+        try {
+          const channelsRes = await fetch(
+            `https://graph.microsoft.com/v1.0/teams/${team.id}/channels?$select=id,displayName`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          )
+          const channelsData = await channelsRes.json()
+          return {
+            teamId: team.id,
+            teamName: team.displayName,
+            channels: (channelsData.value || []).map((ch: any) => ({
+              channelId: ch.id,
+              channelName: ch.displayName,
+            })),
+          }
+        } catch {
+          return { teamId: team.id, teamName: team.displayName, channels: [] }
         }
       })
     )
@@ -93,6 +103,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error("Teams channels error:", error)
-    return NextResponse.json({ error: "Failed to fetch channels" }, { status: 500 })
+    // Never crash — always return something usable
+    return NextResponse.json({ teams: [], reason: "unknown_error" })
   }
 }
