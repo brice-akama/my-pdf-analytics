@@ -14,6 +14,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Tabs,
@@ -421,6 +422,92 @@ const [driveFiles, setDriveFiles] = useState<any[]>([])
 const [loadingDriveFiles, setLoadingDriveFiles] = useState(false)
 const [driveSearchQuery, setDriveSearchQuery] = useState('')
 const [autoOpenRequestId, setAutoOpenRequestId] = useState<string | null>(null)
+// State
+const [teamsStatus, setTeamsStatus] = useState<{
+  connected: boolean
+  email?: string
+  channelName?: string
+  channelPicked?: boolean
+}>({ connected: false })
+const [showTeamsChannelPicker, setShowTeamsChannelPicker] = useState(false)
+const [teamsChannels, setTeamsChannels] = useState<any[]>([])
+const [loadingTeamsChannels, setLoadingTeamsChannels] = useState(false)
+const [selectedTeamId, setSelectedTeamId] = useState('')
+const [selectedChannelId, setSelectedChannelId] = useState('')
+const [selectedTeamName, setSelectedTeamName] = useState('')
+const [selectedChannelName, setSelectedChannelName] = useState('')
+const [savingTeamsChannel, setSavingTeamsChannel] = useState(false)
+
+// useEffects
+useEffect(() => {
+  fetch('/api/integrations/teams/status', { credentials: 'include' })
+    .then(r => r.json()).then(setTeamsStatus).catch(() => {})
+}, [])
+
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('integration') === 'teams' && params.get('status') === 'connected') {
+    toast.success('Teams connected! Now pick a channel.')
+    setShowTeamsChannelPicker(true)
+    window.history.replaceState({}, '', '/dashboard')
+    fetchTeamsChannels()
+  }
+}, [])
+
+// Handlers
+const fetchTeamsChannels = async () => {
+  setLoadingTeamsChannels(true)
+  try {
+    const res = await fetch('/api/integrations/teams/channels', { credentials: 'include' })
+    const data = await res.json()
+    if (res.ok) setTeamsChannels(data.teams || [])
+    else toast.error(data.error || 'Failed to load channels')
+  } catch { toast.error('Network error') }
+  finally { setLoadingTeamsChannels(false) }
+}
+
+const handleConnectTeams = () => {
+  window.location.href = '/api/integrations/teams/connect'
+}
+
+const handleSaveTeamsChannel = async () => {
+  if (!selectedTeamId || !selectedChannelId) return
+  setSavingTeamsChannel(true)
+  const t = toast.loading('Saving channel...')
+  try {
+    const res = await fetch('/api/integrations/teams/select-channel', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        teamId: selectedTeamId,
+        channelId: selectedChannelId,
+        teamName: selectedTeamName,
+        channelName: selectedChannelName,
+      })
+    })
+    if (res.ok) {
+      toast.success('Teams channel saved!', { id: t })
+      setTeamsStatus({
+        connected: true,
+        channelName: `${selectedTeamName} → ${selectedChannelName}`,
+        channelPicked: true
+      })
+      setShowTeamsChannelPicker(false)
+    } else {
+      toast.error('Failed to save channel', { id: t })
+    }
+  } catch { toast.error('Network error', { id: t }) }
+  finally { setSavingTeamsChannel(false) }
+}
+
+const handleDisconnectTeams = async () => {
+  const res = await fetch('/api/integrations/teams/disconnect', { method: 'POST', credentials: 'include' })
+  if (res.ok) {
+    toast.success('Teams disconnected')
+    setTeamsStatus({ connected: false })
+  }
+}
 
 // Computed filtered files
 const filteredDriveFiles = driveFiles.filter(file =>
@@ -5272,6 +5359,53 @@ case 'dashboard':
   )}
 </div>
 
+{/* Teams Card */}
+<div className="border-2 border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-all">
+  <div className="flex items-start justify-between mb-4">
+    <div className="flex items-center gap-3">
+      <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
+        <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20.625 7.5h-8.25A1.125 1.125 0 0011.25 8.625v7.5c0 .621.504 1.125 1.125 1.125h8.25c.621 0 1.125-.504 1.125-1.125v-7.5A1.125 1.125 0 0020.625 7.5zM14.25 6a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5zm-9 1.5a1.875 1.875 0 100-3.75 1.875 1.875 0 000 3.75zm0 1.5C3.004 9 1.5 10.343 1.5 12v3.75c0 .414.336.75.75.75H6v-4.125C6 11.009 7.009 10 8.25 10H9V9.75A2.25 2.25 0 005.25 9z"/>
+        </svg>
+      </div>
+      <div>
+        <h3 className="font-semibold text-slate-900">Microsoft Teams</h3>
+        <p className="text-xs text-slate-500">
+          {teamsStatus.connected && teamsStatus.channelPicked
+            ? `📢 ${teamsStatus.channelName}`
+            : teamsStatus.connected
+            ? '⚠️ No channel selected yet'
+            : 'Get notified in Teams'}
+        </p>
+      </div>
+    </div>
+  </div>
+  <p className="text-sm text-slate-600 mb-4">
+    Get real-time notifications in your Teams channel when documents are viewed, downloaded, or signed.
+  </p>
+  {teamsStatus.connected ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" className="w-full bg-green-50 text-green-700 border border-green-200 hover:bg-green-100">
+          <CheckCircle className="h-4 w-4 mr-2" />
+          {teamsStatus.channelPicked ? 'Connected' : 'Pick a Channel'}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem onClick={() => { fetchTeamsChannels(); setShowTeamsChannelPicker(true) }}>
+          Change Channel
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleDisconnectTeams} className="text-red-600">
+          Disconnect
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : (
+    <Button size="sm" className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white" onClick={handleConnectTeams}>
+      Connect Teams
+    </Button>
+  )}
+</div>
                 {/* Google Drive Integration Card - YOUR CUSTOM CODE */}
                 <div 
                   key="google-drive-integration"
@@ -8366,6 +8500,215 @@ case 'dashboard':
     </>
   )}
 </AnimatePresence>
+
+{/* OneDrive Files Drawer */}
+<Drawer open={showOneDriveFilesDialog} onOpenChange={setShowOneDriveFilesDialog}>
+  <div className="h-full flex flex-col bg-white">
+    {/* Header */}
+    <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-sky-50">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+            <svg className="h-6 w-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M10.923 4.993A6.257 6.257 0 0116.4 2a6.25 6.25 0 015.93 4.247A4.503 4.503 0 0124 10.5a4.5 4.5 0 01-4.5 4.5H5.25A4.75 4.75 0 01.5 10.25a4.75 4.75 0 014.548-4.747 6.253 6.253 0 015.875-.51z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Import from OneDrive</h2>
+            <p className="text-sm text-slate-600">{oneDriveStatus.email}</p>
+          </div>
+        </div>
+        <Button variant="ghost" size="icon" onClick={() => setShowOneDriveFilesDialog(false)}>
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
+    </div>
+
+    {/* Search Bar */}
+    <div className="px-6 py-4 border-b bg-slate-50">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <Input
+          placeholder="Search your OneDrive files..."
+          className="pl-10 bg-white"
+          value={oneDriveSearchQuery}
+          onChange={(e) => setOneDriveSearchQuery(e.target.value)}
+        />
+      </div>
+      <p className="text-xs text-slate-500 mt-2">
+        Found {oneDriveFiles.filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase())).length} PDF file(s) in your OneDrive
+      </p>
+    </div>
+
+    {/* File List */}
+    <div className="flex-1 overflow-y-auto px-6 py-4">
+      {loadingOneDriveFiles ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
+          <p className="text-sm text-slate-600 font-medium">Loading your OneDrive files...</p>
+        </div>
+      ) : oneDriveFiles.filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase())).length > 0 ? (
+        <div className="space-y-3">
+          {oneDriveFiles
+            .filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase()))
+            .map((file) => (
+              <motion.div
+                key={file.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="group relative bg-white border-2 border-slate-200 rounded-xl p-5 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer"
+                onClick={() => handleImportOneDriveFile(file.id, file.name)}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-md">
+                    <FileText className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-slate-900 truncate mb-1 group-hover:text-blue-700 transition-colors">
+                      {file.name}
+                    </h3>
+                    <div className="flex items-center gap-3 text-xs text-slate-500">
+                      {file.size && (
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3 w-3" />
+                          {formatFileSize(parseInt(file.size))}
+                        </span>
+                      )}
+                      {file.modifiedTime && (
+                        <>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Modified {formatTimeAgo(file.modifiedTime)}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleImportOneDriveFile(file.id, file.name)
+                    }}
+                    className="bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Import
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+        </div>
+      ) : (
+        <div className="text-center py-20">
+          <div className="h-24 w-24 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-6">
+            <FileText className="h-12 w-12 text-slate-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-slate-900 mb-2">
+            {oneDriveSearchQuery ? 'No files found' : 'No PDF files in OneDrive'}
+          </h3>
+          <p className="text-sm text-slate-500 max-w-sm mx-auto">
+            {oneDriveSearchQuery
+              ? 'Try adjusting your search query'
+              : 'Upload PDFs to your OneDrive to import them here'}
+          </p>
+        </div>
+      )}
+    </div>
+
+    {/* Footer */}
+    <div className="px-6 py-4 border-t bg-slate-50">
+      <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
+        <span>{oneDriveFiles.length} file(s) available</span>
+        <button
+          onClick={handleDisconnectOneDrive}
+          className="text-red-600 hover:text-red-700 font-medium"
+        >
+          Disconnect OneDrive
+        </button>
+      </div>
+      <Button variant="outline" onClick={() => setShowOneDriveFilesDialog(false)} className="w-full">
+        Close
+      </Button>
+    </div>
+  </div>
+</Drawer>
+
+{/* Channel Picker Dialog */}
+<Dialog open={showTeamsChannelPicker} onOpenChange={setShowTeamsChannelPicker}>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>Pick a Teams Channel</DialogTitle>
+      <DialogDescription>
+        Choose where to receive document notifications
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="py-2">
+      {loadingTeamsChannels ? (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+          <span className="ml-3 text-slate-600">Loading your teams...</span>
+        </div>
+      ) : teamsChannels.length === 0 ? (
+        <div className="text-center py-8 text-slate-500">
+          <p>No teams found.</p>
+          <p className="text-xs mt-1">Make sure you are a member of at least one Team.</p>
+        </div>
+      ) : (
+        <div className="space-y-3 max-h-80 overflow-y-auto">
+          {teamsChannels.map((team) => (
+            <div key={team.teamId}>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 px-1">
+                {team.teamName}
+              </p>
+              {team.channels.map((channel: any) => (
+                <button
+                  key={channel.channelId}
+                  onClick={() => {
+                    setSelectedTeamId(team.teamId)
+                    setSelectedChannelId(channel.channelId)
+                    setSelectedTeamName(team.teamName)
+                    setSelectedChannelName(channel.channelName)
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all mb-1 flex items-center gap-2 ${
+                    selectedChannelId === channel.channelId
+                      ? 'bg-purple-100 text-purple-800 border-2 border-purple-400'
+                      : 'hover:bg-slate-100 text-slate-700 border-2 border-transparent'
+                  }`}
+                >
+                  <span className="text-slate-400">#</span>
+                  {channel.channelName}
+                  {selectedChannelId === channel.channelId && (
+                    <CheckCircle className="h-4 w-4 ml-auto text-purple-600" />
+                  )}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <DialogFooter>
+      <Button variant="outline" onClick={() => setShowTeamsChannelPicker(false)}>
+        Cancel
+      </Button>
+      <Button
+        onClick={handleSaveTeamsChannel}
+        disabled={!selectedChannelId || savingTeamsChannel}
+        className="bg-purple-600 hover:bg-purple-700"
+      >
+        {savingTeamsChannel ? (
+          <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
+        ) : (
+          'Save Channel'
+        )}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
  
  
     </div>

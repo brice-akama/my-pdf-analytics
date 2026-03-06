@@ -129,21 +129,59 @@ export async function POST(request: NextRequest) {
     console.log(`✅ [ONEDRIVE IMPORT] Downloaded ${buffer.length} bytes`)
 
     // Process PDF
-    const [metadata, extractedText] = await Promise.all([
-      extractMetadata(buffer, "pdf"),
-      extractTextFromPdf(buffer)
-    ])
+// Process PDF metadata only (fast)
+const [metadata, extractedText] = await Promise.all([
+  extractMetadata(buffer, "pdf"),
+  extractTextFromPdf(buffer)
+])
 
-    const scannedPdf = !extractedText || extractedText.trim().length < 30
-    const summary = generateSummary(extractedText)
+const scannedPdf = !extractedText || extractedText.trim().length < 30
+const summary = generateSummary(extractedText)
 
-    // Upload to Cloudinary + analyze in parallel
-    const folder = `users/${user.id}/documents`
-    const [analysis, pdfUrl] = await Promise.all([
-      analyzeDocument(extractedText, user.plan || "free"),
-      uploadToCloudinary(buffer, fileName, folder)
-    ])
+// Upload to Cloudinary FIRST - don't wait for analysis
+const folder = `users/${user.id}/documents`
+const pdfUrl = await uploadToCloudinary(buffer, fileName, folder)
 
+// Run analysis in background AFTER responding
+const analysisPromise = analyzeDocument(extractedText, user.plan || "free")
+  .then(async (analysis) => {
+    const db2 = await dbPromise
+    await db2.collection("documents").updateOne(
+      { oneDriveFileId: fileId, userId: user.id },
+      {
+        $set: {
+          analytics: {
+            readabilityScore: analysis.readability,
+            sentimentScore: analysis.sentiment,
+            grammarIssues: analysis.grammar,
+            spellingErrors: analysis.spelling,
+            clarityScore: analysis.clarity,
+            formalityLevel: analysis.formality,
+            keywords: analysis.keywords,
+            entities: analysis.entities,
+            language: analysis.language,
+            errorCounts: {
+              grammar: analysis.grammar.length,
+              spelling: analysis.spelling.length,
+              clarity: analysis.clarity.length,
+            },
+            healthScore: analysis.healthScore,
+          },
+          lastAnalyzedAt: new Date(),
+          updatedAt: new Date(),
+        }
+      }
+    )
+    console.log('✅ [ONEDRIVE IMPORT] Background analysis complete')
+  })
+  .catch(err => console.error('❌ [ONEDRIVE IMPORT] Background analysis failed:', err))
+
+// Use empty analysis placeholder for immediate response
+const analysis = {
+  readability: 0, sentiment: 0, grammar: [], spelling: [],
+  clarity: [], formality: 'neutral', keywords: [], entities: [],
+  language: 'en', healthScore: 0
+}
     console.log(`✅ [ONEDRIVE IMPORT] Uploaded to Cloudinary: ${pdfUrl}`)
 
     // Check for existing document (version logic)
