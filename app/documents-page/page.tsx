@@ -26,7 +26,8 @@ import {
   Link2, 
   Shield,
   Users,
-   FileSignature
+   FileSignature,
+   X
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -100,6 +101,7 @@ const [exportingDocumentId, setExportingDocumentId] = useState<string | null>(nu
 const [selectedDocuments, setSelectedDocuments] = useState<Set<string>>(new Set())
 const [bulkSelectionMode, setBulkSelectionMode] = useState(false)
 const [createMenuOpen, setCreateMenuOpen] = useState(false)
+const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 const [shareDrawerOpen, setShareDrawerOpen] = useState(false)
 const [groupTemplatesCount, setGroupTemplatesCount] = useState(0)
 const [sharingDocumentId, setSharingDocumentId] = useState<string | null>(null)
@@ -694,73 +696,197 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
               position="top"
             />
       {/* Header */}
+     {/* ── MOBILE SIDEBAR OVERLAY ── */}
+      <AnimatePresence>
+        {mobileSidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/40 z-[60] lg:hidden"
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="fixed top-0 left-0 h-full w-[280px] bg-white z-[70] lg:hidden flex flex-col shadow-2xl overflow-y-auto"
+            >
+              {/* Sidebar Header */}
+              <div className="flex items-center justify-between px-4 py-4 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 flex-shrink-0">
+                    
+                  </div>
+                  <span className="text-sm font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                    DocMetrics
+                  </span>
+                </div>
+                <button
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Mobile Sidebar Nav — same content as desktop sidebar */}
+              <nav className="flex-1 p-4 space-y-5">
+
+                {/* Create button */}
+                <DropdownMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm h-9">
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Create New
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-72 bg-white border border-slate-200 shadow-lg rounded-2xl p-1">
+                    <DropdownMenuItem onClick={() => { setCreateMenuOpen(false); setMobileSidebarOpen(false); fileInputRef.current?.click(); }} className="p-3 rounded-xl cursor-pointer hover:bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0"><FileText className="h-4 w-4 text-blue-600" /></div>
+                        <div><p className="text-sm font-semibold text-slate-900">Document</p><p className="text-xs text-slate-500">Upload a file to get it signed</p></div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setCreateMenuOpen(false); setMobileSidebarOpen(false); fileInputRef.current?.click(); }} className="p-3 rounded-xl cursor-pointer hover:bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0"><FolderOpen className="h-4 w-4 text-purple-600" /></div>
+                        <div><p className="text-sm font-semibold text-slate-900">Template</p><p className="text-xs text-slate-500">Reusable signable document</p></div>
+                      </div>
+                    </DropdownMenuItem>
+                    <div className="h-px bg-slate-100 my-1 mx-3" />
+                    <DropdownMenuItem onClick={() => { setCreateMenuOpen(false); setMobileSidebarOpen(false); setBulkSelectionMode(true); }} className="p-3 rounded-xl cursor-pointer hover:bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+                          <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                        </div>
+                        <div><p className="text-sm font-semibold text-slate-900">Select Existing</p><p className="text-xs text-slate-500">Choose from uploaded documents</p></div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setCreateMenuOpen(false); setMobileSidebarOpen(false); router.push('/templates/group/create'); }} className="p-3 rounded-xl cursor-pointer hover:bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0"><Folder className="h-4 w-4 text-purple-600" /></div>
+                        <div><p className="text-sm font-semibold text-slate-900">Group Template</p><p className="text-xs text-slate-500">Multi-doc reusable workflow</p></div>
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* PERSONAL */}
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-3 mb-2">Personal</p>
+                  <div className="space-y-0.5">
+                    {[
+                      { view: 'documents' as const, icon: <FileText className="h-4 w-4 flex-shrink-0" />, label: 'Documents', count: documents.length },
+                      { view: 'templates' as const, icon: <FolderOpen className="h-4 w-4 flex-shrink-0" />, label: 'Templates', count: templates.length },
+                      { view: 'archive' as const, icon: <Trash2 className="h-4 w-4 flex-shrink-0" />, label: 'Archive', count: archivedDocuments.length },
+                    ].map(item => (
+                      <button key={item.view} onClick={() => { setActiveView(item.view); setMobileSidebarOpen(false); }}
+                        className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${activeView === item.view ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        <div className="flex items-center gap-2.5">{item.icon}<span>{item.label}</span></div>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${activeView === item.view ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>{item.count}</span>
+                      </button>
+                    ))}
+                    <button onClick={() => { setMobileSidebarOpen(false); router.push('/templates/group'); }}
+                      className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-2.5"><Folder className="h-4 w-4 flex-shrink-0" /><span>Group Templates</span></div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">{groupTemplatesCount}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* TEAM */}
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-3 mb-2">Team — {teamName}</p>
+                  <div className="space-y-0.5">
+                    <button onClick={() => { setActiveView('team-documents'); fetchTeamDocuments(); setMobileSidebarOpen(false); }}
+                      className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${activeView === 'team-documents' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                      <div className="flex items-center gap-2.5"><Users className="h-4 w-4 flex-shrink-0" /><span>Documents</span></div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${activeView === 'team-documents' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>{teamDocuments.length}</span>
+                    </button>
+                    <button onClick={() => { setActiveView('team-templates'); fetchTeamDocuments(); setMobileSidebarOpen(false); }}
+                      className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${activeView === 'team-templates' ? 'bg-purple-50 text-purple-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                      <div className="flex items-center gap-2.5"><FolderOpen className="h-4 w-4 flex-shrink-0" /><span>Templates</span></div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${activeView === 'team-templates' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>{teamDocuments.filter(d => d.isTemplate).length}</span>
+                    </button>
+                  </div>
+                </div>
+
+              </nav>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white">
-  <div className="grid grid-cols-3 h-16 items-center px-4 md:px-6 gap-4">
+        <div className="flex h-14 sm:h-16 items-center justify-between px-3 sm:px-6 gap-3">
 
-  {/* LEFT — back + logo */}
-  <div className="flex items-center gap-2">
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={() => router.push('/dashboard')}
-      className="flex-shrink-0 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl"
-    >
-      <ArrowLeft className="h-5 w-5" />
-    </Button>
-    <div className="flex items-center gap-2">
-      <div className="h-8 w-8 flex-shrink-0">
-        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
-          <defs>
-            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style={{stopColor:"#8B5CF6", stopOpacity:1}} />
-              <stop offset="100%" style={{stopColor:"#3B82F6", stopOpacity:1}} />
-            </linearGradient>
-          </defs>
-          <path d="M 60 50 L 60 150 L 140 150 L 140 70 L 120 50 Z" fill="url(#logoGrad)"/>
-          <rect x="75" y="100" width="12" height="30" fill="white" opacity="0.9" rx="2"/>
-          <rect x="94" y="85" width="12" height="45" fill="white" opacity="0.9" rx="2"/>
-          <rect x="113" y="70" width="12" height="60" fill="white" opacity="0.9" rx="2"/>
-        </svg>
-      </div>
-      <span className="text-base font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent hidden sm:block">
-        DocMetrics
-      </span>
-    </div>
-  </div>
+          {/* LEFT — hamburger (mobile) + back + logo */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Hamburger — mobile only */}
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="lg:hidden h-8 w-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 flex-shrink-0">
+                
+              </div>
+              <span className="text-sm font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent hidden sm:block">
+                DocMetrics
+              </span>
+            </div>
+          </div>
 
-  {/* CENTER — search */}
-  <div className="flex justify-center">
-    <div className="relative w-full max-w-md">
-      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
-      <Input
-          type="search"
-          placeholder="Search documents..."
-          className="w-full pl-9 h-9 bg-slate-50 border-slate-200 rounded-xl text-sm focus:bg-white transition-colors"
-          value={searchQuery}
-          onChange={(e) => {
-            const value = e.target.value;
-            setSearchQuery(value);
-            handleSearch(value);
-          }}
-        />
-    </div>
-  </div>
+          {/* CENTER — search */}
+          {/* CENTER — search (hidden on mobile, shown on desktop) */}
+          <div className="hidden sm:flex flex-1 max-w-md mx-2 sm:mx-4">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <Input
+                type="search"
+                placeholder="Search..."
+                className="w-full pl-9 h-9 bg-slate-50 border-slate-200 rounded-xl text-sm focus:bg-white transition-colors"
+                value={searchQuery}
+                onChange={(e) => { const value = e.target.value; setSearchQuery(value); handleSearch(value); }}
+              />
+            </div>
+          </div>
 
-  {/* RIGHT — upload */}
-  <div className="flex justify-end">
-    <Button
-      onClick={() => fileInputRef.current?.click()}
-      size="sm"
-      className="gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-4"
-    >
-      <Upload className="h-4 w-4" />
-      <span className="hidden sm:inline">Upload</span>
-    </Button>
-  </div>
+          {/* RIGHT — active view pill (mobile) + upload */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Active view pill — mobile only */}
+            <div className="lg:hidden">
+              <span className="text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1.5 rounded-lg whitespace-nowrap">
+                {activeView === 'documents' ? 'Docs' : activeView === 'templates' ? 'Templates' : activeView === 'archive' ? 'Archive' : activeView === 'team-documents' ? 'Team Docs' : 'Team Tmpl'}
+              </span>
+            </div>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              size="sm"
+              className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-3"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline text-sm">Upload</span>
+            </Button>
+          </div>
 
-</div>
-</header>
-
+        </div>
+      </header>
 
       <div className="flex">
         {/* Sidebar */}
@@ -1005,7 +1131,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
 </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-8">
+         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
             {/* Page Header */}
            <div className="flex items-center justify-between mb-8">
@@ -1174,21 +1300,16 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3 text-sm text-slate-500 mt-1 flex-wrap">
-                <span>{doc.numPages} pages</span>
-                <span>•</span>
-                <span>{formatFileSize(doc.size)}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  Shared by {doc.isOwner ? 'you' : doc.sharedByEmail}
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {formatTimeAgo(doc.sharedAt || doc.createdAt)}
-                </span>
-              </div>
+              <div className="hidden sm:flex items-center gap-3 text-sm text-slate-500 mt-1">
+          <span>{doc.numPages} pages</span>
+          <span>•</span>
+          <span>{formatFileSize(doc.size)}</span>
+          <span>•</span>
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {formatTimeAgo(doc.createdAt)}
+          </span>
+        </div>
             </div>
 
             {/* Action Buttons */}
@@ -1642,7 +1763,7 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
      <>
        
        {/* ⭐ NEW: Checkbox for Bulk Selection */}
-      <div className="flex-shrink-0">
+       <div className="hidden sm:flex flex-shrink-0">
         <input
           type="checkbox"
           checked={selectedDocuments.has(doc._id)}
@@ -1758,118 +1879,62 @@ const handleDeleteDocument = async (docId: string, docName: string) => {
       
 
       {/* Action Buttons */}
+      {/* Action Buttons */}
       <div className="flex items-center gap-2">
-        {/* ⭐ UPDATED: Only show "Continue Editing" if draft exists AND no sent request */}
-{/* ⭐ Show "Continue Editing" if draft exists AND no sent request */}
-{drafts.has(doc._id) && !sentRequests.has(doc._id) && (
-  <Button 
-    size="sm"
-    onClick={(e) => {
-      e.stopPropagation()
-      router.push(`/documents/${doc._id}/signature?mode=draft&returnTo=/documents-page`)
-    }}
-    className="bg-orange-600 hover:bg-orange-700 text-white gap-2"
-    title="Continue editing signature request draft"
-  >
-    <Edit className="h-4 w-4" />
-    Continue Draft
-  </Button>
-)}
 
+        {/* These action buttons hidden on mobile, shown sm+ */}
+        <div className="hidden sm:flex items-center gap-2">
+          {drafts.has(doc._id) && !sentRequests.has(doc._id) && (
+            <Button size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/documents/${doc._id}/signature?mode=draft&returnTo=/documents-page`); }}
+              className="bg-orange-600 hover:bg-orange-700 text-white gap-2">
+              <Edit className="h-4 w-4" />Continue Draft
+            </Button>
+          )}
 
+          {sentRequests.has(doc._id) && !sentRequests.get(doc._id)?.allSigned && (
+            <Button size="sm" onClick={async (e) => {
+              e.stopPropagation()
+              const requestData = sentRequests.get(doc._id);
+              const firstPendingRecipient = requestData.recipients.find((r: any) => r.status !== 'signed');
+              if (firstPendingRecipient) {
+                try {
+                  const res = await fetch(`/api/signature/${firstPendingRecipient.uniqueId}/resend`, { method: 'POST', credentials: 'include' });
+                  if (res.ok) { alert(`✅ Reminder sent to ${firstPendingRecipient.name}`); }
+                  else { alert('❌ Failed to send reminder'); }
+                } catch { alert('❌ Failed to send reminder'); }
+              }
+            }} className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+              <Mail className="h-4 w-4" />Resend
+            </Button>
+          )}
 
-{/* ⭐ FIX 2: Show "Resend" button if sent but not all signed */}
-{sentRequests.has(doc._id) && !sentRequests.get(doc._id)?.allSigned && (
-  <Button 
-    size="sm"
-    onClick={async (e) => {
-      e.stopPropagation()
-      const requestData = sentRequests.get(doc._id);
-      const firstPendingRecipient = requestData.recipients.find((r: any) => r.status !== 'signed');
-      
-      if (firstPendingRecipient) {
-        try {
-          const res = await fetch(`/api/signature/${firstPendingRecipient.uniqueId}/resend`, {
-            method: 'POST',
-            credentials: 'include',
-          });
-          
-          if (res.ok) {
-            alert(`✅ Reminder sent to ${firstPendingRecipient.name}`);
-          } else {
-            alert('❌ Failed to send reminder');
-          }
-        } catch (error) {
-          alert('❌ Failed to send reminder');
-        }
-      }
-    }}
-    className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-    title="Resend signature request"
-  >
-    <Mail className="h-4 w-4" />
-    Resend
-  </Button>
-)}
+          {sentRequests.has(doc._id) && sentRequests.get(doc._id)?.anySigned && !sentRequests.get(doc._id)?.allSigned && (
+            <Button size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/SignatureDashboard?documentId=${doc._id}`); }}
+              className="bg-green-600 hover:bg-green-700 text-white gap-2">
+              <CheckCircle2 className="h-4 w-4" />View Status
+            </Button>
+          )}
 
-{/* ⭐ FIX 3: Show "View Status" if ANY signed BUT NOT all signed */}
-{sentRequests.has(doc._id) && sentRequests.get(doc._id)?.anySigned && !sentRequests.get(doc._id)?.allSigned && (
-  <Button 
-    size="sm"
-    onClick={(e) => {
-      e.stopPropagation()
-      router.push(`/SignatureDashboard?documentId=${doc._id}`)
-    }}
-    className="bg-green-600 hover:bg-green-700 text-white gap-2"
-    title="View signature status"
-  >
-    <CheckCircle2 className="h-4 w-4" />
-    View Status
-  </Button>
-)}
+          {sentRequests.has(doc._id) && sentRequests.get(doc._id)?.allSigned && (
+            <Button size="sm" onClick={(e) => { e.stopPropagation(); setExportingDocumentId(doc._id); setExportDrawerOpen(true); }}
+              className="bg-purple-600 hover:bg-purple-700 text-white gap-2">
+              <Upload className="h-4 w-4" />Export to Cloud
+            </Button>
+          )}
 
-{/* ⭐ NEW: Show "Export to Cloud" if ALL signed */}
-{sentRequests.has(doc._id) && sentRequests.get(doc._id)?.allSigned && (
-  <Button 
-    size="sm"
-    onClick={(e) => {
-  e.stopPropagation()
-  setExportingDocumentId(doc._id)
-  setExportDrawerOpen(true)
-}}
-    className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
-    title="Export signed document to cloud"
-  >
-    <Upload className="h-4 w-4" />
-    Export to Cloud
-  </Button>
-)}
+          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/documents/${doc._id}`); }} title="View analytics">
+            <BarChart3 className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()} title="Share">
+            <Share2 className="h-4 w-4" />
+          </Button>
+        </div>
 
-{/* Share links visible inside document detail page */}
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={(e) => {
-            e.stopPropagation()
-            router.push(`/documents/${doc._id}`)
-          }}
-          title="View analytics"
-        >
-          <BarChart3 className="h-4 w-4" />
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={(e) => e.stopPropagation()}
-          title="Share"
-        >
-          <Share2 className="h-4 w-4" />
-        </Button>
-        
+        {/* 3-dot menu — always visible */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               onClick={(e) => e.stopPropagation()}
             >

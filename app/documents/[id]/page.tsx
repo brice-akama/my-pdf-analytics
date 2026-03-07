@@ -188,6 +188,8 @@ const [editingLink, setEditingLink] = useState<any>(null);
 const [sigAnalytics, setSigAnalytics] = useState<any>(null);
 const [sigAnalyticsLoading, setSigAnalyticsLoading] = useState(false);
 const [editMode, setEditMode] = useState<'create' | 'edit' | 'duplicate'>('create'); // ✅ NEW
+const [spacesCount, setSpacesCount] = useState<number>(0);
+const [spacesLoading, setSpacesLoading] = useState(true);
 const [shareSettings, setShareSettings] = useState({
   requireEmail: true,
   allowDownload: false,
@@ -237,11 +239,13 @@ const [signatureRequest, setSignatureRequest] = useState<SignatureRequestType>({
 const [generatedLinks, setGeneratedLinks] = useState<GeneratedLink[]>([]);
 const [isSendingSignature, setIsSendingSignature] = useState(false);
 const [isFullscreenEditMode, setIsFullscreenEditMode] = useState(false);
+const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
 useEffect(() => {
   fetchDocument();
   fetchAnalytics();
   fetchSignatureAnalytics();
+   fetchSpacesCount();
 }, [params.id]);
 
 const fetchDocument = async () => {
@@ -266,6 +270,29 @@ const fetchDocument = async () => {
     console.error("Failed to fetch document:", error);
   } finally {
     setLoading(false);
+  }
+};
+
+
+const fetchSpacesCount = async () => {
+  try {
+    const res = await fetch('/api/spaces', {
+      credentials: 'include',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        // Count only spaces where this doc is actually added
+        const docSpaces = (data.spaces || []).filter((space: any) =>
+          space.documentsCount > 0
+        );
+        setSpacesCount(data.spaces?.length || 0);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch spaces count:', error);
+  } finally {
+    setSpacesLoading(false);
   }
 };
 
@@ -1192,340 +1219,415 @@ const handleSendSignatureRequest = async () => {
               position="top"
             />
       {/* Header */}
-       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex items-center justify-between py-3 gap-4">
+      {/* ── MOBILE RIGHT SIDEBAR ── */}
+<AnimatePresence>
+  {mobileMenuOpen && (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="fixed inset-0 bg-black/40 z-[60] md:hidden"
+        onClick={() => setMobileMenuOpen(false)}
+      />
 
-            {/* ── LEFT: back + thumbnail + title area ── */}
-            <div className="flex items-center gap-4 min-w-0">
-
-              {/* Back arrow */}
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-
-              {/* Doc thumbnail — small PDF icon box like DocSend */}
-              <div className="h-10 w-8 rounded bg-red-50 border border-red-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                {doc.thumbnail ? (
-                  <img src={doc.thumbnail} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <FileText className="h-4 w-4 text-red-500" />
-                )}
-              </div>
-
-              {/* Title + note + last updated stacked */}
-             <div className="min-w-0">
-
-                {/* Document title row */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-sm font-semibold text-slate-900 truncate max-w-[320px] leading-tight">
-                    {doc.filename}
-                  </h1>
-                  {doc.isTemplate && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200 flex-shrink-0">
-                      <FileSignature className="h-3 w-3 mr-1" />
-                      Template
-                    </span>
-                  )}
-                  {liveViewerCount > 0 && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200 flex-shrink-0">
-                      <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                      {liveViewerCount} live
-                    </span>
-                  )}
-                </div>
-
-                {/* Notes row — pencil + text, expands on click */}
-                {!isEditingNotes ? (
-                  <button
-                    onClick={() => setIsEditingNotes(true)}
-                    className="flex items-center gap-1.5 mt-1 group"
-                  >
-                    <Edit className="h-3 w-3 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />
-                    <span className={`text-xs transition-colors ${
-                      doc.notes
-                        ? 'text-slate-500 group-hover:text-slate-700'
-                        : 'text-slate-300 group-hover:text-slate-500 italic'
-                    }`}>
-                      {doc.notes || 'Add a note to this document'}
-                    </span>
-                  </button>
-                ) : (
-                  // ── Expanded note editor ──
-                  <div className="mt-1.5 flex flex-col gap-1.5 w-full max-w-sm">
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Add a note to this document..."
-                      className="w-full text-xs text-slate-700 border border-slate-200 rounded-lg px-3 py-2 
-                                 resize-none focus:outline-none focus:border-sky-400 focus:ring-2 
-                                 focus:ring-sky-100 transition-all placeholder:text-slate-300
-                                 bg-white shadow-sm leading-relaxed"
-                      rows={2}
-                      autoFocus
-                      maxLength={200}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSaveNotes();
-                        }
-                        if (e.key === 'Escape') {
-                          setIsEditingNotes(false);
-                          setNotes(doc.notes || '');
-                        }
-                      }}
-                    />
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-300">
-                        {notes.length}/200 · Enter to save, Esc to cancel
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => {
-                            setIsEditingNotes(false);
-                            setNotes(doc.notes || '');
-                          }}
-                          className="px-2.5 py-1 text-xs text-slate-400 hover:text-slate-600 
-                                     rounded-md hover:bg-slate-100 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleSaveNotes}
-                          disabled={isSavingNotes}
-                          className="px-2.5 py-1 text-xs font-medium text-white bg-sky-500 
-                                     hover:bg-sky-600 rounded-md transition-colors disabled:opacity-50
-                                     flex items-center gap-1"
-                        >
-                          {isSavingNotes ? (
-                            <>
-                              <div className="h-2.5 w-2.5 border border-white border-t-transparent rounded-full animate-spin" />
-                              Saving
-                            </>
-                          ) : (
-                            'Save'
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Last updated — only show when NOT editing note */}
-{!isEditingNotes && (
-  <p className="text-[11px] text-slate-300 mt-0.5 flex items-center gap-1.5">
-    <Clock className="h-3 w-3" />
-    Last updated {formatTimeAgo(doc.createdAt)}
-    {doc?.ownerEmail && (
-      <>
-        <span className="text-slate-200">·</span>
-        <span>{doc.ownerEmail}</span>
-      </>
-    )}
-  </p>
-)}
-
-              </div>
-              </div>
-
-            {/* ── RIGHT: action buttons ── */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-
-              {/* Preview button — outlined like DocSend */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={handlePreview}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors font-medium"
-                    >
-                      <Eye className="h-4 w-4" />
-                      <span className="hidden sm:inline">Preview</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Preview document</p></TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              {/* Upload new version button — outlined */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => {
-                        // trigger hidden file input for version upload
-                        document.getElementById('upload-new-version-input')?.click();
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors font-medium"
-                    >
-                      <Upload className="h-4 w-4" />
-                      <span className="hidden sm:inline">Upload new version</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Upload a new version</p></TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              {/* Hidden file input for version upload */}
-              <input
-                type="file"
-                id="upload-new-version-input"
-                accept=".pdf"
-                className="hidden"
-                onChange={async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  const renamedFile = new File([file], doc.filename, { type: file.type });
-  const formData = new FormData();
-  formData.append('file', renamedFile);
-  
-  try {
-    const res = await fetch(`/api/upload`, {
-      method: 'POST',
-      credentials: 'include',
-      body: formData,
-    });
-                    if (res.ok) {
-                      toast.success('New version uploaded!');
-                      fetchDocument();
-                    } else {
-                      toast.error('Failed to upload version');
-                    }
-                  } catch {
-                    toast.error('Upload failed');
-                  }
-                  e.target.value = '';
-                }}
-              />
-
-              {/* Create link — solid brand button with split dropdown arrow */}
-              
-              <div className="flex items-center rounded-lg overflow-hidden border border-sky-500 shadow-sm">
-                {/* Main button — always opens "Document link" (public) */}
-                <button
-                  onClick={() => handleOpenLinkDrawer('public')}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors"
-                >
-                  <LinkIcon className="h-3.5 w-3.5" />
-                  Create link
-                </button>
-
-                
-
-                {/* Split arrow — opens link type menu */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="px-2 py-1.5 bg-sky-500 hover:bg-sky-600 text-white border-l border-sky-400 transition-colors">
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52 bg-white shadow-lg border border-slate-200 p-1">
-                    
-                    {/* Document link — public, no email required */}
-                    <DropdownMenuItem
-                      onClick={() => handleOpenLinkDrawer('public')}
-                      className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-slate-50"
-                    >
-                      <LinkIcon className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">Document link</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">Anyone with the link can view</p>
-                      </div>
-                    </DropdownMenuItem>
-
-                    {/* Email-gated link — requires email before viewing */}
-                    <DropdownMenuItem
-                      onClick={() => handleOpenLinkDrawer('email-gated')}
-                      className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-slate-50"
-                    >
-                      <Mail className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">Email-gated link</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">Viewer must enter email to access</p>
-                      </div>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuSeparator />
-
-                    {/* Request signatures — goes to signature flow */}
-                    <DropdownMenuItem
-                      onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)}
-                      className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-slate-50"
-                    >
-                      <FileSignature className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">Request signatures</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">Send for e-signature</p>
-                      </div>
-                    </DropdownMenuItem>
-
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-             
-              {/* ··· more menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors">
-                    <MoreVertical className="h-4 w-4" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-white shadow-lg border border-slate-200">
-                  <DropdownMenuItem onClick={handlePresent}>
-                    <Presentation className="mr-2 h-4 w-4" />
-                    <span>Present</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)}>
-                    <FileSignature className="mr-2 h-4 w-4" />
-                    <span>{doc?.isTemplate ? 'Edit Template' : 'Convert to signable'}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push(`/documents/${doc._id}/versions`)}>
-                    <Clock className="mr-2 h-4 w-4" />
-                    <span>Version History</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push('/compliance')}>
-                    <Shield className="mr-2 h-4 w-4" />
-                    <span>Compliance Report</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleDownload} disabled={isDownloading}>
-                    {isDownloading
-                      ? <div className="mr-2 h-4 w-4 animate-spin border-2 border-sky-500 border-t-transparent rounded-full" />
-                      : <Download className="mr-2 h-4 w-4" />}
-                    <span>Download</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleExportVisits}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    <span>Export visits</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleUpdateThumbnail}>
-                    <ImageIcon className="mr-2 h-4 w-4" />
-                    <span>Update thumbnail</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {doc?.isTemplate && (
-                    <DropdownMenuItem onClick={() => router.push(`/documents/${doc._id}/bulk-send`)}>
-                      <Users className="mr-2 h-4 w-4" />
-                      <span>Bulk Send</span>
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem
-                    onClick={() => setShowDeleteDialog(true)}
-                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    <span>Delete</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+      {/* Sidebar Panel */}
+      <motion.div
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        className="fixed top-0 right-0 h-full w-[300px] bg-white z-[70] md:hidden flex flex-col shadow-2xl"
+      >
+        {/* Sidebar Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-7 rounded bg-red-50 border border-red-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {doc.thumbnail ? (
+                <img src={doc.thumbnail} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <FileText className="h-3.5 w-3.5 text-red-500" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-slate-900 truncate max-w-[180px]">
+                {doc.filename}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {formatTimeAgo(doc.createdAt)}
+              </p>
             </div>
           </div>
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
-      </header>
 
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto">
+
+          {/* ── DOC INFO SECTION ── */}
+          <div className="px-5 py-4 border-b border-slate-100">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+              Document Info
+            </p>
+
+            {/* Badges */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {doc.isTemplate && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200">
+                  <FileSignature className="h-3 w-3 mr-1" />
+                  Template
+                </span>
+              )}
+              {liveViewerCount > 0 && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                  {liveViewerCount} viewing live
+                </span>
+              )}
+            </div>
+
+            {/* Owner */}
+            {doc?.ownerEmail && (
+              <p className="text-xs text-slate-500 mb-3">
+                <span className="text-slate-400">Owner: </span>{doc.ownerEmail}
+              </p>
+            )}
+
+            {/* Notes */}
+            {!isEditingNotes ? (
+              <button
+                onClick={() => setIsEditingNotes(true)}
+                className="w-full flex items-start gap-2 p-3 rounded-xl border border-dashed border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors text-left"
+              >
+                <Edit className="h-3.5 w-3.5 text-slate-300 mt-0.5 flex-shrink-0" />
+                <span className={`text-xs ${doc.notes ? 'text-slate-600' : 'text-slate-300 italic'}`}>
+                  {doc.notes || 'Add a note to this document'}
+                </span>
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add a note..."
+                  className="w-full text-xs text-slate-700 border border-slate-200 rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 transition-all bg-white"
+                  rows={3}
+                  autoFocus
+                  maxLength={200}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setIsEditingNotes(false); setNotes(doc.notes || ''); }}
+                    className="flex-1 py-1.5 text-xs text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => { await handleSaveNotes(); setMobileMenuOpen(false); }}
+                    disabled={isSavingNotes}
+                    className="flex-1 py-1.5 text-xs font-semibold text-white bg-sky-500 hover:bg-sky-600 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {isSavingNotes ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── SHARE SECTION ── */}
+          <div className="px-5 py-4 border-b border-slate-100">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+              Share
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={() => { handleOpenLinkDrawer('public'); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors"
+              >
+                <LinkIcon className="h-4 w-4 flex-shrink-0" />
+                Create document link
+              </button>
+              <button
+                onClick={() => { handleOpenLinkDrawer('email-gated'); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+              >
+                <Mail className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                Email-gated link
+              </button>
+              <button
+                onClick={() => { router.push(`/documents/${doc._id}/signature?mode=send`); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+              >
+                <FileSignature className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                Request signatures
+              </button>
+            </div>
+          </div>
+
+          {/* ── ACTIONS SECTION ── */}
+          <div className="px-5 py-4 border-b border-slate-100">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
+              Actions
+            </p>
+            <div className="space-y-1">
+              {[
+                { icon: Eye, label: 'Preview', onClick: () => { handlePreview(); setMobileMenuOpen(false); } },
+                { icon: Presentation, label: 'Present', onClick: () => { handlePresent(); setMobileMenuOpen(false); } },
+                { icon: Upload, label: 'Upload new version', onClick: () => { document.getElementById('upload-new-version-input')?.click(); setMobileMenuOpen(false); } },
+                { icon: Download, label: isDownloading ? 'Downloading...' : 'Download', onClick: () => { handleDownload(); setMobileMenuOpen(false); }, disabled: isDownloading },
+                { icon: Clock, label: 'Version History', onClick: () => { router.push(`/documents/${doc._id}/versions`); setMobileMenuOpen(false); } },
+                { icon: FileSignature, label: doc?.isTemplate ? 'Edit Template' : 'Convert to signable', onClick: () => { router.push(`/documents/${doc._id}/signature?mode=edit`); setMobileMenuOpen(false); } },
+                { icon: Shield, label: 'Compliance Report', onClick: () => { router.push('/compliance'); setMobileMenuOpen(false); } },
+                { icon: Eye, label: 'Export visits', onClick: () => { handleExportVisits(); setMobileMenuOpen(false); } },
+                { icon: ImageIcon, label: 'Update thumbnail', onClick: () => { handleUpdateThumbnail(); setMobileMenuOpen(false); } },
+                ...(doc?.isTemplate ? [{ icon: Users, label: 'Bulk Send', onClick: () => { router.push(`/documents/${doc._id}/bulk-send`); setMobileMenuOpen(false); } }] : []),
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  onClick={item.onClick}
+                  disabled={item.disabled}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors disabled:opacity-50 text-left"
+                >
+                  <item.icon className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── DANGER ZONE ── */}
+          <div className="px-5 py-4">
+            <p className="text-[10px] font-semibold text-red-400 uppercase tracking-widest mb-3">
+              Danger Zone
+            </p>
+            <button
+              onClick={() => { setShowDeleteDialog(true); setMobileMenuOpen(false); }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-600 text-sm font-medium hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="h-4 w-4 flex-shrink-0" />
+              Delete document
+            </button>
+          </div>
+
+        </div>
+      </motion.div>
+    </>
+  )}
+</AnimatePresence>
+
+{/* ── HEADER ── */}
+<header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6">
+    <div className="flex items-center justify-between py-3 gap-3">
+
+      {/* ── LEFT (Desktop): back + thumbnail + full title ── */}
+      <div className="hidden md:flex items-center gap-4 min-w-0">
+        <button
+          onClick={() => router.push('/dashboard')}
+          className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <div className="h-10 w-8 rounded bg-red-50 border border-red-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+          {doc.thumbnail ? (
+            <img src={doc.thumbnail} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <FileText className="h-4 w-4 text-red-500" />
+          )}
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-sm font-semibold text-slate-900 truncate max-w-[320px] leading-tight">
+              {doc.filename}
+            </h1>
+            {doc.isTemplate && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200 flex-shrink-0">
+                <FileSignature className="h-3 w-3 mr-1" />Template
+              </span>
+            )}
+            {liveViewerCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200 flex-shrink-0">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                {liveViewerCount} live
+              </span>
+            )}
+          </div>
+          {!isEditingNotes ? (
+            <button onClick={() => setIsEditingNotes(true)} className="flex items-center gap-1.5 mt-1 group">
+              <Edit className="h-3 w-3 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
+              <span className={`text-xs transition-colors ${doc.notes ? 'text-slate-500 group-hover:text-slate-700' : 'text-slate-300 group-hover:text-slate-500 italic'}`}>
+                {doc.notes || 'Add a note to this document'}
+              </span>
+            </button>
+          ) : (
+            <div className="mt-1.5 flex flex-col gap-1.5 w-full max-w-sm">
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add a note..."
+                className="w-full text-xs text-slate-700 border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 bg-white shadow-sm"
+                rows={2}
+                autoFocus
+                maxLength={200}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveNotes(); }
+                  if (e.key === 'Escape') { setIsEditingNotes(false); setNotes(doc.notes || ''); }
+                }}
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-slate-300">{notes.length}/200</span>
+                <div className="flex gap-1.5">
+                  <button onClick={() => { setIsEditingNotes(false); setNotes(doc.notes || ''); }} className="px-2.5 py-1 text-xs text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100">Cancel</button>
+                  <button onClick={handleSaveNotes} disabled={isSavingNotes} className="px-2.5 py-1 text-xs font-medium text-white bg-sky-500 hover:bg-sky-600 rounded-md disabled:opacity-50">
+                    {isSavingNotes ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {!isEditingNotes && (
+            <p className="text-[11px] text-slate-300 mt-0.5 flex items-center gap-1.5">
+              <Clock className="h-3 w-3" />
+              {formatTimeAgo(doc.createdAt)}
+              {doc?.ownerEmail && (<><span className="text-slate-200">·</span><span>{doc.ownerEmail}</span></>)}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* ── LEFT (Mobile): back + title only ── */}
+      <div className="flex md:hidden items-center gap-3 min-w-0 flex-1">
+        <button
+          onClick={() => router.push('/dashboard')}
+          className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <div className="min-w-0">
+          <h1 className="text-sm font-semibold text-slate-900 truncate max-w-[200px] leading-tight">
+            {doc.filename}
+          </h1>
+          {liveViewerCount > 0 && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-50 text-green-700 border border-green-200 mt-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+              {liveViewerCount} live
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── RIGHT (Desktop): full action buttons ── */}
+      <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button onClick={handlePreview} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors font-medium">
+                <Eye className="h-4 w-4" /><span>Preview</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent><p>Preview document</p></TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button onClick={() => document.getElementById('upload-new-version-input')?.click()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors font-medium">
+                <Upload className="h-4 w-4" /><span className="hidden lg:inline">Upload new version</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent><p>Upload a new version</p></TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <input type="file" id="upload-new-version-input" accept=".pdf" className="hidden"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const renamedFile = new File([file], doc.filename, { type: file.type });
+            const formData = new FormData();
+            formData.append('file', renamedFile);
+            try {
+              const res = await fetch(`/api/upload`, { method: 'POST', credentials: 'include', body: formData });
+              if (res.ok) { toast.success('New version uploaded!'); fetchDocument(); }
+              else toast.error('Failed to upload version');
+            } catch { toast.error('Upload failed'); }
+            e.target.value = '';
+          }}
+        />
+        <div className="flex items-center rounded-lg overflow-hidden border border-sky-500 shadow-sm">
+          <button onClick={() => handleOpenLinkDrawer('public')} className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white text-sm font-semibold transition-colors">
+            <LinkIcon className="h-3.5 w-3.5" />Create link
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="px-2 py-1.5 bg-sky-500 hover:bg-sky-600 text-white border-l border-sky-400 transition-colors">
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 bg-white shadow-lg border border-slate-200 p-1">
+              <DropdownMenuItem onClick={() => handleOpenLinkDrawer('public')} className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-slate-50">
+                <LinkIcon className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                <div><p className="text-sm font-medium text-slate-800">Document link</p><p className="text-[11px] text-slate-400 mt-0.5">Anyone with the link can view</p></div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenLinkDrawer('email-gated')} className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-slate-50">
+                <Mail className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                <div><p className="text-sm font-medium text-slate-800">Email-gated link</p><p className="text-[11px] text-slate-400 mt-0.5">Viewer must enter email to access</p></div>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push(`/documents/${doc._id}/signature?mode=send`)} className="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer hover:bg-slate-50">
+                <FileSignature className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                <div><p className="text-sm font-medium text-slate-800">Request signatures</p><p className="text-[11px] text-slate-400 mt-0.5">Send for e-signature</p></div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors">
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 bg-white shadow-lg border border-slate-200">
+            <DropdownMenuItem onClick={handlePresent}><Presentation className="mr-2 h-4 w-4" /><span>Present</span></DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)}><FileSignature className="mr-2 h-4 w-4" /><span>{doc?.isTemplate ? 'Edit Template' : 'Convert to signable'}</span></DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(`/documents/${doc._id}/versions`)}><Clock className="mr-2 h-4 w-4" /><span>Version History</span></DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push('/compliance')}><Shield className="mr-2 h-4 w-4" /><span>Compliance Report</span></DropdownMenuItem>
+            <DropdownMenuItem onClick={handleDownload} disabled={isDownloading}>
+              {isDownloading ? <div className="mr-2 h-4 w-4 animate-spin border-2 border-sky-500 border-t-transparent rounded-full" /> : <Download className="mr-2 h-4 w-4" />}
+              <span>Download</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleExportVisits}><Eye className="mr-2 h-4 w-4" /><span>Export visits</span></DropdownMenuItem>
+           
+            <DropdownMenuSeparator />
+            {doc?.isTemplate && (
+              <DropdownMenuItem onClick={() => router.push(`/documents/${doc._id}/bulk-send`)}><Users className="mr-2 h-4 w-4" /><span>Bulk Send</span></DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-red-600 focus:text-red-600 focus:bg-red-50">
+              <Trash2 className="mr-2 h-4 w-4" /><span>Delete</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* ── RIGHT (Mobile): hamburger only ── */}
+      <button
+        onClick={() => setMobileMenuOpen(true)}
+        className="flex md:hidden h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors flex-shrink-0"
+      >
+        <MoreVertical className="h-5 w-5" />
+      </button>
+
+    </div>
+  </div>
+</header>
        
 
       
@@ -1740,85 +1842,74 @@ const handleSendSignatureRequest = async () => {
 
 
       {/* Tabs */}
-      <div className="bg-white border-b border-slate-200 sticky top-[65px] z-40 mt-5">
-        <div className="max-w-7xl mx-auto px-6">
+<div className="bg-white border-b border-slate-200 sticky top-[65px] z-40 mt-5">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6">
 
-
-          <div className="flex gap-0">
-            {(
-              [
-                { id: 'activity', label: 'Activity' },
-                { id: 'performance', label: 'Performance' },
-                { id: 'signatures', label: 'Signatures' },
-                { id: 'utilization', label: 'Utilization' },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`
-                  relative px-6 py-4 text-sm font-medium transition-colors
-                  ${activeTab === tab.id
-                    ? 'text-slate-900'
-                    : 'text-slate-400 hover:text-slate-600'}
-                `}
-              >
-                {tab.label}
-                {/* Active underline — matches DocSend's thin border-b */}
-                {activeTab === tab.id && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900 rounded-t-full" />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
+    {/* ── MOBILE: Dropdown selector ── */}
+    <div className="flex md:hidden py-3">
+      <div className="relative w-full">
+        <select
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value as typeof activeTab)}
+          className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 pr-10 cursor-pointer"
+        >
+          <option value="activity">📋 Activity</option>
+          <option value="performance">📊 Performance</option>
+          <option value="signatures">✍️ Signatures</option>
+          <option value="utilization">📈 Utilization</option>
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
       </div>
+    </div>
+
+    {/* ── DESKTOP: Tab bar ── */}
+    <div className="hidden md:flex gap-0">
+      {(
+        [
+          { id: 'activity', label: 'Activity' },
+          { id: 'performance', label: 'Performance' },
+          { id: 'signatures', label: 'Signatures' },
+          { id: 'utilization', label: 'Utilization' },
+        ] as const
+      ).map((tab) => (
+        <button
+          key={tab.id}
+          onClick={() => setActiveTab(tab.id)}
+          className={`
+            relative px-6 py-4 text-sm font-medium transition-colors
+            ${activeTab === tab.id
+              ? 'text-slate-900'
+              : 'text-slate-400 hover:text-slate-600'}
+          `}
+        >
+          {tab.label}
+          {activeTab === tab.id && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-900 rounded-t-full" />
+          )}
+        </button>
+      ))}
+    </div>
+
+  </div>
+</div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {activeTab === 'activity' && (
+       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+{activeTab === 'activity' && (
   <div className="space-y-6">
 
-    {/* ── LOADING SKELETON — shows while analyticsLoading is true ── */}
+    {/* ── LOADING ── */}
     {analyticsLoading && (
-      <div className="space-y-0">
-        {/* Visits skeleton */}
-        <div className="flex items-center justify-between py-4 border-b border-slate-200">
-          <div className="h-5 w-24 bg-slate-100 rounded animate-pulse" />
-          <div className="h-4 w-12 bg-slate-100 rounded animate-pulse" />
+      <div className="flex items-center justify-center py-32">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-2 border-sky-500 border-t-transparent rounded-full mx-auto mb-3" />
+          <p className="text-sm text-slate-400">Loading activity...</p>
         </div>
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-4 py-4 border-b border-slate-100">
-            <div className="h-9 w-9 rounded-full bg-slate-100 animate-pulse flex-shrink-0" />
-            <div className="flex-1 space-y-2">
-              <div className="h-4 w-48 bg-slate-100 rounded animate-pulse" />
-              <div className="h-3 w-32 bg-slate-100 rounded animate-pulse" />
-            </div>
-            <div className="h-5 w-16 bg-slate-100 rounded animate-pulse" />
-          </div>
-        ))}
-        {/* Links skeleton */}
-        <div className="pt-8" />
-        <div className="flex items-center justify-between py-4 border-b border-slate-200">
-          <div className="h-5 w-20 bg-slate-100 rounded animate-pulse" />
-          <div className="h-7 w-24 bg-slate-100 rounded animate-pulse" />
-        </div>
-        {[1, 2].map((i) => (
-          <div key={i} className="flex items-center gap-4 py-4 border-b border-slate-100">
-            <div className="h-8 w-8 rounded-full bg-slate-100 animate-pulse flex-shrink-0" />
-            <div className="flex-1 space-y-1.5">
-              <div className="h-4 w-36 bg-slate-100 rounded animate-pulse" />
-              <div className="h-3 w-56 bg-slate-100 rounded animate-pulse" />
-            </div>
-            <div className="h-5 w-10 bg-slate-100 rounded-full animate-pulse" />
-            <div className="h-4 w-14 bg-slate-100 rounded animate-pulse" />
-          </div>
-        ))}
       </div>
     )}
 
-    {/* ── Template section (unchanged) ── */}
-    {doc.isTemplate && (
+    {/* ── TEMPLATE SECTION ── */}
+    {!analyticsLoading && doc.isTemplate && (
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border-2 border-purple-200 p-8 text-center">
         <div className="max-w-md mx-auto">
           <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
@@ -1836,7 +1927,12 @@ const handleSendSignatureRequest = async () => {
             <Button onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)} variant="outline" className="gap-2">
               <Edit className="h-4 w-4" />Edit Template
             </Button>
-            <Button onClick={async () => { if (confirm('Remove template configuration?')) { const res = await fetch(`/api/documents/${doc._id}/template`, { method: 'DELETE', credentials: 'include' }); if (res.ok) { fetchDocument(); } } }} variant="outline" className="gap-2 text-red-600 hover:bg-red-50">
+            <Button onClick={async () => {
+              if (confirm('Remove template configuration?')) {
+                const res = await fetch(`/api/documents/${doc._id}/template`, { method: 'DELETE', credentials: 'include' });
+                if (res.ok) { fetchDocument(); }
+              }
+            }} variant="outline" className="gap-2 text-red-600 hover:bg-red-50">
               <Trash2 className="h-4 w-4" />Remove Template
             </Button>
           </div>
@@ -1844,8 +1940,8 @@ const handleSendSignatureRequest = async () => {
       </div>
     )}
 
-    {/* ── NO SHARES YET: Put document to work ── */}
-    {!analyticsLoading && (!analytics?.shares || analytics.shares === 0) && (
+    {/* ── NO SHARES YET ── */}
+    {!analyticsLoading && !doc.isTemplate && (!analytics?.shares || analytics.shares === 0) && (
       <div className="bg-white rounded-2xl border shadow-sm p-12 text-center">
         <div className="max-w-md mx-auto">
           <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-violet-100 to-blue-100 flex items-center justify-center mx-auto mb-6">
@@ -1867,7 +1963,7 @@ const handleSendSignatureRequest = async () => {
       </div>
     )}
 
-    {/* ── HAS SHARES: DocSend-style Activity View ── */}
+    {/* ── HAS SHARES: Activity View ── */}
     {!analyticsLoading && analytics?.shares > 0 && (
       <ActivityTab
         analytics={analytics}
@@ -1875,16 +1971,15 @@ const handleSendSignatureRequest = async () => {
         token={String(params.id)}
         onCreateLink={handleCreateLink}
         onEditLink={(link) => {
-    setEditingLink(link);
-    setShowEditLinkDrawer(true);
-  }}
-
-  onOpenShareDrawer={(link, mode, settings) => {
-    setEditingLink(link);
-    setEditMode(mode);
-    setShareSettings(settings);
-    setShowCreateLinkDialog(true);
-  }}
+          setEditingLink(link);
+          setShowEditLinkDrawer(true);
+        }}
+        onOpenShareDrawer={(link, mode, settings) => {
+          setEditingLink(link);
+          setEditMode(mode);
+          setShareSettings(settings);
+          setShowCreateLinkDialog(true);
+        }}
       />
     )}
 
@@ -2019,37 +2114,36 @@ const handleSendSignatureRequest = async () => {
         <div className="py-5 border-b border-slate-100">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Overview</p>
           {/* 3-column grid — just numbers on bare background */}
-          <div className="grid grid-cols-3 gap-0 divide-x divide-slate-100 mb-5">
+           <div className="grid grid-cols-3 gap-0 divide-x divide-slate-100 mb-5 overflow-hidden">
             {[
               { label: 'Total Views', value: analytics.totalViews, icon: Eye, color: 'text-sky-500' },
               { label: 'Unique Viewers', value: analytics.uniqueViewers, icon: Users, color: 'text-violet-500' },
               { label: 'Completion', value: `${analytics.completionRate}%`, icon: TrendingUp, color: 'text-green-500' },
             ].map((stat) => (
-              <div key={stat.label} className="px-6 first:pl-0 last:pr-0">
-                <stat.icon className={`h-4 w-4 ${stat.color} mb-2`} />
-                <div className="text-3xl font-black text-slate-900 tabular-nums leading-none">{stat.value}</div>
-                <div className="text-[11px] text-slate-400 mt-1.5 font-medium">{stat.label}</div>
-              </div>
+              <div key={stat.label} className="px-2 sm:px-6 first:pl-0 last:pr-0">
+  <stat.icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${stat.color} mb-1.5 sm:mb-2`} />
+  <div className="text-xl sm:text-3xl font-black text-slate-900 tabular-nums leading-none">{stat.value}</div>
+  <div className="text-[10px] sm:text-[11px] text-slate-400 mt-1 sm:mt-1.5 font-medium leading-tight">{stat.label}</div>
+</div>
             ))}
           </div>
 
           {/* Second row: time stats */}
           <div className="grid grid-cols-2 gap-0 divide-x divide-slate-100">
-            <div className="pr-6">
-              <Clock className="h-4 w-4 text-orange-400 mb-2" />
-              <div className="text-2xl font-black text-slate-900 tabular-nums leading-none">{analytics.avgTimePerSession}</div>
-              <div className="text-[11px] text-slate-400 mt-1.5 font-medium">Avg. Time / Visit</div>
-              <div className="text-[11px] text-slate-300">across {analytics.totalViews} sessions</div>
-            </div>
-            <div className="pl-6">
-              <Clock className="h-4 w-4 text-purple-400 mb-2" />
-              <div className="text-2xl font-black text-slate-900 tabular-nums leading-none">{analytics.avgTotalTimePerViewer}</div>
-              <div className="text-[11px] text-slate-400 mt-1.5 font-medium">Total Time / Viewer</div>
-              <div className="text-[11px] text-slate-300">cumulative across all visits</div>
-            </div>
-          </div>
+  <div className="pr-3 sm:pr-6">
+    <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-400 mb-1.5 sm:mb-2" />
+    <div className="text-lg sm:text-2xl font-black text-slate-900 tabular-nums leading-none">{analytics.avgTimePerSession}</div>
+    <div className="text-[10px] sm:text-[11px] text-slate-400 mt-1 sm:mt-1.5 font-medium leading-tight">Avg. Time / Visit</div>
+    <div className="hidden sm:block text-[11px] text-slate-300">across {analytics.totalViews} sessions</div>
+  </div>
+  <div className="pl-3 sm:pl-6">
+    <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-400 mb-1.5 sm:mb-2" />
+    <div className="text-lg sm:text-2xl font-black text-slate-900 tabular-nums leading-none">{analytics.avgTotalTimePerViewer}</div>
+    <div className="text-[10px] sm:text-[11px] text-slate-400 mt-1 sm:mt-1.5 font-medium leading-tight">Total Time / Viewer</div>
+    <div className="hidden sm:block text-[11px] text-slate-300">cumulative across all visits</div>
+  </div>
+</div>
         </div>
-
          {/* ═══════════════════════════════════════════════════
             SECTION 12 — DOCSEND STYLE CHARTS (keep existing)
         ═══════════════════════════════════════════════════ */}
@@ -2304,7 +2398,7 @@ const handleSendSignatureRequest = async () => {
         {analytics.bounceAnalytics && (
           <div className="py-5 border-b border-slate-100">
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Bounce Analytics</p>
-            <div className="grid grid-cols-4 gap-0 divide-x divide-slate-100">
+             <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x divide-slate-100 gap-y-4">
               {[
                 { label: 'Total', value: analytics.bounceAnalytics.totalRecipients, color: 'text-slate-900' },
                 { label: 'Bounced', value: analytics.bounceAnalytics.bounced, color: 'text-red-500' },
@@ -2452,136 +2546,266 @@ const handleSendSignatureRequest = async () => {
   </div>
 )}
 
-{activeTab === 'utilization' && (
-  <div className="space-y-6">
-    
-    {analyticsLoading ? (
+
+ {activeTab === 'utilization' && (
+  <div className="space-y-4 sm:space-y-6">
+
+    {analyticsLoading || spacesLoading ? (
       <div className="flex items-center justify-center py-24">
         <div className="text-center">
-          <div className="animate-spin h-10 w-10 border-4 border-violet-600 border-t-transparent rounded-full mx-auto mb-4" />
+          <div className="animate-spin h-8 w-8 border-4 border-violet-600 border-t-transparent rounded-full mx-auto mb-4" />
           <p className="text-slate-500 text-sm">Loading usage data...</p>
         </div>
       </div>
     ) : (
       <>
-        {/* Recent Usage Table */}
-        <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100">
-            <h3 className="font-bold text-slate-900 text-lg">Recent Usage (last 30 days)</h3>
+
+        {/* ── TOP KPI CARDS ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            {
+              label: 'Share Links',
+              value: analytics?.shares || 0,
+              icon: LinkIcon,
+              color: 'text-violet-600',
+              bg: 'bg-violet-50',
+              border: 'border-violet-100',
+              sub: 'created total',
+            },
+            {
+              label: 'Total Visits',
+              value: analytics?.totalViews || 0,
+              icon: Eye,
+              color: 'text-sky-600',
+              bg: 'bg-sky-50',
+              border: 'border-sky-100',
+              sub: 'across all links',
+            },
+            {
+              label: 'Spaces',
+              value: spacesCount,
+              icon: Package,
+              color: 'text-emerald-600',
+              bg: 'bg-emerald-50',
+              border: 'border-emerald-100',
+              sub: 'you have access to',
+            },
+            {
+              label: 'Avg. Time',
+              value: analytics?.avgTimePerSession || '0m 0s',
+              icon: Clock,
+              color: 'text-orange-600',
+              bg: 'bg-orange-50',
+              border: 'border-orange-100',
+              sub: 'per viewing session',
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className={`rounded-2xl border ${stat.border} ${stat.bg} p-4 sm:p-5`}
+            >
+              <div className={`h-8 w-8 rounded-xl ${stat.bg} border ${stat.border} flex items-center justify-center mb-3`}>
+                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              </div>
+              <div className={`text-2xl sm:text-3xl font-black tabular-nums ${stat.color} leading-none`}>
+                {stat.value}
+              </div>
+              <div className="text-sm font-semibold text-slate-700 mt-1.5">{stat.label}</div>
+              <div className="text-[11px] text-slate-400 mt-0.5">{stat.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── USAGE TABLE ── */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-slate-900">Document Usage</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Activity for this document</p>
+            </div>
+            <span className="text-xs text-slate-400 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-full font-medium">
+              Last 30 days
+            </span>
           </div>
 
-          {/* Table Header */}
-          <div className="grid grid-cols-4 gap-4 px-6 py-3 bg-slate-50 border-b border-slate-100">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Team Member
-            </div>
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide text-center">
-              Links Created ▲
-            </div>
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide text-center">
-              Spaces Added To
-            </div>
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide text-center">
-              Visits
-            </div>
-          </div>
-
-          {/* Table Row - Real Data */}
           {analytics && (analytics.shares > 0 || analytics.totalViews > 0) ? (
-            <div className="grid grid-cols-4 gap-4 px-6 py-4 border-b border-slate-50 hover:bg-slate-50 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white font-bold">
-                  {analytics.documentInfo?.filename?.charAt(0).toUpperCase() || 'U'}
+            <>
+              {/* ── DESKTOP TABLE ── */}
+              <div className="hidden sm:block">
+                <div className="grid grid-cols-4 gap-4 px-6 py-3 bg-slate-50 border-b border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  <span>Owner</span>
+                  <span className="text-center">Links Created</span>
+                  <span className="text-center">Spaces</span>
+                  <span className="text-center">Visits</span>
                 </div>
-                <div>
+                <div className="grid grid-cols-4 gap-4 px-6 py-5 items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white font-bold flex-shrink-0">
+                      {(doc?.ownerEmail || analytics?.ownerEmail || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 truncate">
+                        {doc?.ownerEmail || analytics?.ownerEmail || 'You'}
+                      </p>
+                      <p className="text-xs text-slate-400">Document owner</p>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-2xl font-black text-slate-900 tabular-nums">
+                      {analytics.shares || 0}
+                    </span>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-2xl font-black text-slate-900 tabular-nums">
+                      {spacesCount}
+                    </span>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-2xl font-black text-slate-900 tabular-nums">
+                      {analytics.totalViews || 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-<p className="text-xs text-slate-500">
-  {analytics?.documentInfo?.ownerEmail || 
-   analytics?.ownerEmail || 
-   doc?.ownerEmail || 
-   'Document owner'}
-</p>
+              {/* ── MOBILE TABLE (stacked) ── */}
+              <div className="sm:hidden px-4 py-4 space-y-4">
+                {/* Owner row */}
+                <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white font-bold flex-shrink-0">
+                    {(doc?.ownerEmail || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">
+                      {doc?.ownerEmail || analytics?.ownerEmail || 'You'}
+                    </p>
+                    <p className="text-xs text-slate-400">Document owner</p>
+                  </div>
                 </div>
+                {/* Stats as pill rows */}
+                {[
+                  { label: 'Links Created', value: analytics.shares || 0, icon: LinkIcon, color: 'text-violet-600', bg: 'bg-violet-50' },
+                  { label: 'Spaces', value: spacesCount, icon: Package, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                  { label: 'Total Visits', value: analytics.totalViews || 0, icon: Eye, color: 'text-sky-600', bg: 'bg-sky-50' },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-7 w-7 rounded-lg ${row.bg} flex items-center justify-center`}>
+                        <row.icon className={`h-3.5 w-3.5 ${row.color}`} />
+                      </div>
+                      <span className="text-sm text-slate-600">{row.label}</span>
+                    </div>
+                    <span className={`text-xl font-black tabular-nums ${row.color}`}>
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center justify-center">
-                <span className="text-2xl font-bold text-slate-900">
-                  {analytics.shares}
-                </span>
-              </div>
-              <div className="flex items-center justify-center">
-                <span className="text-2xl font-bold text-slate-900">0</span>
-              </div>
-              <div className="flex items-center justify-center">
-                <span className="text-2xl font-bold text-slate-900">
-                  {analytics.totalViews}
-                </span>
-              </div>
-            </div>
+            </>
           ) : (
             /* Empty State */
-            <div className="px-6 py-12 text-center">
-              <div className="h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                <Activity className="h-8 w-8 text-slate-400" />
+            <div className="px-6 py-16 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <Activity className="h-8 w-8 text-slate-300" />
               </div>
-              <h4 className="text-lg font-semibold text-slate-900 mb-2">No usage data yet</h4>
-              <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6">
-                Create share links to start tracking document usage
+              <h4 className="text-base font-semibold text-slate-900 mb-2">No usage data yet</h4>
+              <p className="text-sm text-slate-400 max-w-xs mx-auto mb-6">
+                Create share links or add this document to a space to start tracking usage
               </p>
-              <Button 
-                onClick={handleCreateLink}
-                className="bg-gradient-to-r from-violet-600 to-blue-600"
-              >
-                <LinkIcon className="h-4 w-4 mr-2" />
-                Create First Link
-              </Button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={handleCreateLink}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 text-white text-sm font-semibold"
+                >
+                  <LinkIcon className="h-4 w-4" />
+                  Create Share Link
+                </button>
+                <button
+                  onClick={() => router.push('/spaces')}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+                >
+                  <Package className="h-4 w-4" />
+                  Browse Spaces
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Quick Stats Cards - Real Data */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-xl border shadow-sm p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-slate-600">Active Links</h4>
-              <LinkIcon className="h-4 w-4 text-violet-500" />
+        {/* ── SPACES LIST ── */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-slate-900">Your Spaces</h3>
+              <p className="text-xs text-slate-400 mt-0.5">{spacesCount} space{spacesCount !== 1 ? 's' : ''} total</p>
             </div>
-            <p className="text-3xl font-bold text-slate-900">
-              {analytics?.shares || 0}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Links created this month
-            </p>
+            <button
+              onClick={() => router.push('/spaces')}
+              className="text-xs font-semibold text-violet-600 hover:text-violet-700 flex items-center gap-1"
+            >
+              View All <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           </div>
 
-          <div className="bg-white rounded-xl border shadow-sm p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-slate-600">Total Visits</h4>
-              <Eye className="h-4 w-4 text-blue-500" />
+          {spacesCount === 0 ? (
+            <div className="px-6 py-10 text-center">
+              <Package className="h-8 w-8 text-slate-200 mx-auto mb-3" />
+              <p className="text-sm text-slate-400 mb-4">You haven't created any spaces yet</p>
+              <button
+                onClick={() => router.push('/spaces')}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+              >
+                <Package className="h-4 w-4" />
+                Create a Space
+              </button>
             </div>
-            <p className="text-3xl font-bold text-slate-900">
-              {analytics?.totalViews || 0}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Across all links
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl border shadow-sm p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-slate-600">Avg. Time</h4>
-              <Clock className="h-4 w-4 text-green-500" />
-            </div>
-            <p className="text-3xl font-bold text-slate-900">
-              {analytics?.avgTimePerSession || '0m 0s'}
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Per viewing session
-            </p>
-          </div>
+          ) : (
+            <SpacesList docId={String(params.id)} />
+          )}
         </div>
+
+        {/* ── QUICK LINK STATS ── */}
+        {analytics?.shares > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-100">
+              <h3 className="font-bold text-slate-900">Link Performance</h3>
+              <p className="text-xs text-slate-400 mt-0.5">How your share links are performing</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 divide-x divide-y sm:divide-y-0 divide-slate-100">
+              {[
+                {
+                  label: 'Completion Rate',
+                  value: `${analytics.completionRate || 0}%`,
+                  sub: 'avg. across all links',
+                  color: 'text-green-600',
+                },
+                {
+                  label: 'Unique Viewers',
+                  value: analytics.uniqueViewers || 0,
+                  sub: 'distinct visitors',
+                  color: 'text-sky-600',
+                },
+                {
+                  label: 'Avg. Time',
+                  value: analytics.avgTimePerSession || '0m 0s',
+                  sub: 'per session',
+                  color: 'text-violet-600',
+                },
+              ].map((s) => (
+                <div key={s.label} className="px-4 sm:px-6 py-4 sm:py-5">
+                  <div className={`text-xl sm:text-2xl font-black tabular-nums ${s.color}`}>
+                    {s.value}
+                  </div>
+                  <div className="text-sm font-semibold text-slate-700 mt-1">{s.label}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">{s.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
       </>
     )}
-
   </div>
 )}
       </div>
@@ -5038,9 +5262,9 @@ const allVisits: any[] = [...shareVisits, ...sigVisits];
               return (
                 <div key={visit.key} className="border-b border-slate-100 last:border-b-0">
                   {/* Visit row — flat, no bg */}
-                  <div className="py-4 flex items-center gap-4">
+                   <div className="py-4 flex items-center gap-2 sm:gap-4">
                     {/* Avatar */}
-                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-xs sm:text-sm font-bold flex-shrink-0">
                       {visit.email !== 'Anonymous' ? visit.email.charAt(0).toUpperCase() : '?'}
                     </div>
 
@@ -5071,7 +5295,7 @@ const allVisits: any[] = [...shareVisits, ...sigVisits];
                     </div>
 
                     {/* Time + status */}
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                     <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
                       {visit.bounced ? (
                         <span className="text-xs font-medium text-red-500">Bounced</span>
                       ) : (
@@ -5285,14 +5509,14 @@ const allVisits: any[] = [...shareVisits, ...sigVisits];
         </div>
 
         {/* Column headers — flat label row */}
-        <div className="grid items-center py-2 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide"
-          style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}>
-          <span>NAME</span>
-          <span>LINK</span>
-          <span className="text-center">ACTIVE</span>
-          <span className="text-right mr-10">ACTIVITY</span>
-          <span />
-        </div>
+        <div className="hidden sm:grid items-center py-2 border-b border-slate-100 text-xs font-semibold text-slate-400 uppercase tracking-wide"
+  style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}>
+  <span>NAME</span>
+  <span>LINK</span>
+  <span className="text-center">ACTIVE</span>
+  <span className="text-right mr-10">ACTIVITY</span>
+  <span />
+</div>
 
         {/* Link rows */}
         {allLinks.length === 0 ? (
@@ -5301,11 +5525,11 @@ const allVisits: any[] = [...shareVisits, ...sigVisits];
           </div>
         ) : (
           allLinks.map((lnk, i) => (
-            <div
-              key={i}
-              className="grid items-center py-4 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors group"
-              style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}
-            >
+             <div
+  key={i}
+  className="hidden sm:grid items-center py-4 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors group"
+  style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}
+>
              {/* NAME */}
 <div className="flex items-center gap-2 pr-4">
   <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
@@ -5486,14 +5710,110 @@ const allVisits: any[] = [...shareVisits, ...sigVisits];
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+              {/* ── MOBILE LINK CARD ── */}
+<div key={`mobile-${i}`} className="sm:hidden py-4 border-b border-slate-100 last:border-b-0">
+  <div className="flex items-start gap-3">
+    {/* Avatar */}
+    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
+      <span className="text-white text-xs font-bold">
+        {(lnk.recipientName || lnk.recipientEmail || 'P').charAt(0).toUpperCase()}
+      </span>
+    </div>
+
+    {/* Info */}
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-900 truncate">{lnk.recipientName || 'Public link'}</p>
+          {lnk.recipientEmail && <p className="text-xs text-slate-400 truncate">{lnk.recipientEmail}</p>}
+        </div>
+        {/* Toggle */}
+        <button
+          onClick={async () => {
+            try {
+              const res = await fetch(`/api/documents/${doc._id}/share`, {
+                method: 'PATCH', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ shareId: lnk.shareId, active: !lnk.enabled }),
+              });
+              if (res.ok) { toast.success(lnk.enabled ? 'Link disabled' : 'Link enabled'); window.location.reload(); }
+              else toast.error('Failed to update link');
+            } catch { toast.error('Network error'); }
+          }}
+          className="w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors flex-shrink-0"
+          style={{ background: lnk.enabled ? '#7c3aed' : '#e2e8f0' }}
+        >
+          <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${lnk.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+        </button>
+      </div>
+
+      {/* Link URL row */}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="h-4 w-4 rounded-full bg-amber-400 flex-shrink-0" />
+        <span className="text-xs text-slate-500 font-mono truncate flex-1">
+          {lnk.link.replace('https://', '').replace('http://', '')}
+        </span>
+        <button
+          onClick={() => { navigator.clipboard.writeText(lnk.link); toast.success('Copied!', { duration: 2000 }); }}
+          className="text-slate-400 hover:text-violet-600 flex-shrink-0"
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Stats row */}
+      <div className="flex items-center gap-3 text-xs text-slate-500">
+        <span className="font-bold text-slate-800">{lnk.visits}</span>
+        <span>{lnk.visits === 1 ? 'visit' : 'visits'}</span>
+        <span className="text-slate-300">·</span>
+        <span>{lnk.totalTime || '0m 0s'}</span>
+        <span className="text-slate-300">·</span>
+        <span>{lnk.createdAgo}</span>
+
+        {/* 3-dot */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="ml-auto text-slate-400 hover:text-slate-700">
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 bg-white">
+            <DropdownMenuItem onClick={() => { onOpenShareDrawer(lnk, 'edit', { requireEmail: lnk.settings.requireEmail, allowDownload: lnk.settings.allowDownload, allowPrint: lnk.settings.allowPrint, allowForwarding: lnk.settings.allowForwarding, notifyOnDownload: lnk.settings.notifyOnDownload, selfDestruct: lnk.settings.selfDestruct, enableWatermark: lnk.settings.enableWatermark, watermarkText: lnk.settings.watermarkText, watermarkPosition: lnk.settings.watermarkPosition, requireNDA: lnk.settings.requireNDA, ndaTemplateId: lnk.settings.ndaTemplateId, customMessage: lnk.settings.customMessage, sharedByName: lnk.settings.sharedByName, logoUrl: lnk.settings.logoUrl, viewLimit: lnk.settings.viewLimit, downloadLimit: lnk.settings.downloadLimit, linkType: lnk.settings.linkType, expiresIn: lnk.settings.expiresIn, password: '', recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [], recipientNames: lnk.recipientName ? [lnk.recipientName] : [], sendEmailNotification: false, allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [], ndaText: '', customNdaText: '', useCustomNda: false, availableFrom: '' }); }}>
+              <Edit className="mr-2 h-4 w-4" /><span>Edit settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={async () => {
+                if (!confirm(`Delete this link?`)) return;
+                try {
+                  const res = await fetch(`/api/documents/${doc._id}/share?shareId=${lnk.shareId}`, { method: 'DELETE', credentials: 'include' });
+                  if (res.ok) { toast.success('Link deleted'); window.location.reload(); }
+                  else toast.error('Failed to delete');
+                } catch { toast.error('Network error'); }
+              }}
+              className="text-red-600 focus:text-red-600 focus:bg-red-50"
+            >
+              <Trash2 className="mr-2 h-4 w-4" /><span>Delete link</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  </div>
+</div>
             </div>
+            
           ))
         )}
+        
       </div>
+
 
     </div>
   );
 }
+
+
 
 function RecipientPageChart({ pageData, docId }: { pageData: any[]; docId: string }) {
   const [hoveredPage, setHoveredPage] = useState<number | null>(null);
@@ -5667,7 +5987,7 @@ function SignaturesTab({
         <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-4">
           Overview
         </p>
-        <div className="grid grid-cols-4 gap-0 divide-x divide-slate-100 mb-5">
+       <div className="grid grid-cols-2 sm:grid-cols-4 gap-0 divide-x divide-slate-100 mb-5">
           {[
             { label: 'Sent', value: summary.total, color: 'text-slate-900' },
             { label: 'Opened', value: summary.viewed, color: 'text-sky-600' },
@@ -5763,7 +6083,7 @@ function SignaturesTab({
           return (
             <div key={r.id} className="border-b border-slate-100 last:border-b-0">
               {/* Row */}
-              <div className="py-4 flex items-center gap-4">
+             <div className="py-4 flex items-center gap-2 sm:gap-4"> 
                 {/* Avatar with role color */}
                 <div
                   className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
@@ -5898,4 +6218,73 @@ function formatAgo(date: Date): string {
   return `${Math.floor(secs / 86400)} days ago`;
 }
 
+function SpacesList({ docId }: { docId: string }) {
+  const [spaces, setSpaces] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
 
+  React.useEffect(() => {
+    fetch('/api/spaces', { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) setSpaces(data.spaces?.slice(0, 5) || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="divide-y divide-slate-100">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="flex items-center gap-3 px-4 sm:px-6 py-4">
+            <div className="h-9 w-9 rounded-xl bg-slate-100 animate-pulse flex-shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
+              <div className="h-3 w-20 bg-slate-100 rounded animate-pulse" />
+            </div>
+            <div className="h-5 w-12 bg-slate-100 rounded animate-pulse" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (spaces.length === 0) return null;
+
+  return (
+    <div className="divide-y divide-slate-100">
+      {spaces.map((space) => (
+        <div key={space._id} className="flex items-center gap-3 px-4 sm:px-6 py-4 hover:bg-slate-50 transition-colors">
+          {/* Color dot */}
+          <div
+            className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-sm font-bold"
+            style={{ backgroundColor: space.color || '#8B5CF6' }}
+          >
+            {space.name.charAt(0).toUpperCase()}
+          </div>
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-slate-900 truncate">{space.name}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[11px] text-slate-400">
+                {space.documentsCount || 0} doc{space.documentsCount !== 1 ? 's' : ''}
+              </span>
+              <span className="text-slate-200">·</span>
+              <span className="text-[11px] text-slate-400">
+                {space.teamMembers || 1} member{space.teamMembers !== 1 ? 's' : ''}
+              </span>
+            </div>
+          </div>
+          {/* Role badge */}
+          <span className={`text-[11px] font-semibold px-2 py-1 rounded-full flex-shrink-0 ${
+            space.isOwner
+              ? 'bg-violet-100 text-violet-700'
+              : 'bg-slate-100 text-slate-500'
+          }`}>
+            {space.isOwner ? 'Owner' : space.role || 'Member'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}

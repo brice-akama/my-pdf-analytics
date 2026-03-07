@@ -71,31 +71,8 @@ export default function PageInfoTooltip({
           {/* Header row */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div
-                className="flex items-center justify-center rounded-md"
-                style={{
-                  width: 28,
-                  height: 28,
-                  background: '#f0f9ff',
-                  border: '1px solid #bae6fd',
-                }}
-              >
-                <Info
-                  style={{ width: 14, height: 14, color: '#0284c7' }}
-                  strokeWidth={2}
-                />
-              </div>
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: '#0369a1',
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Page Guide
-              </span>
+              
+             
             </div>
 
             <button
@@ -139,9 +116,7 @@ export default function PageInfoTooltip({
 
           {/* Footer */}
           <div className="flex items-center justify-between">
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>
-              Won&apos;t show again
-            </span>
+             
             <button
               onClick={handleDismiss}
               className="rounded-lg transition-all"

@@ -7,7 +7,8 @@ import Link from 'next/link';
 import { 
   ArrowLeft, Download, Clock, FileText, ChevronRight, 
   RotateCcw, Trash2, Eye, TrendingUp, Users, 
-  History, Upload, Check, AlertCircle, ChevronLeft, X , Shield, 
+  History, Upload, Check, AlertCircle, ChevronLeft, X, Shield,
+  MoreVertical, Calendar, FileCheck, Info,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -17,6 +18,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Drawer } from "@/components/ui/drawer";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -64,36 +72,35 @@ export default function VersionHistoryPage() {
   const [changeLog, setChangeLog] = useState('');
   const [showEditNoteDialog, setShowEditNoteDialog] = useState(false);
   const [showExpiryDialog, setShowExpiryDialog] = useState(false);
-const [expiryDate, setExpiryDate] = useState('');
-const [expiryReason, setExpiryReason] = useState('');
-const [settingExpiry, setSettingExpiry] = useState(false);
+  const [expiryDate, setExpiryDate] = useState('');
+  const [expiryReason, setExpiryReason] = useState('');
+  const [settingExpiry, setSettingExpiry] = useState(false);
   const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
   const [previewVersion, setPreviewVersion] = useState<Version | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewPage, setPreviewPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
+  // Mobile sidebar state (same pattern as doc/[id]/page.tsx)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     fetchVersions();
   }, [params.id]);
 
-  // ✅ Hide loading when preview drawer opens
-useEffect(() => {
-  if (showPreviewDrawer && previewVersion) {
-    const timer = setTimeout(() => {
-      setPreviewLoading(false);
-    }, 1500);
-    
-    return () => clearTimeout(timer);
-  }
-}, [showPreviewDrawer, previewVersion]);
+  useEffect(() => {
+    if (showPreviewDrawer && previewVersion) {
+      const timer = setTimeout(() => {
+        setPreviewLoading(false);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [showPreviewDrawer, previewVersion]);
 
   const fetchVersions = async () => {
     try {
       const res = await fetch(`/api/documents/${params.id}/versions`, {
         credentials: 'include',
       });
-
       if (res.ok) {
         const data = await res.json();
         setCurrentVersion(data.currentVersion);
@@ -111,117 +118,80 @@ useEffect(() => {
   };
 
   const handleSetExpiry = async () => {
-  if (!selectedVersion) return;
-  
-  setSettingExpiry(true);
-  try {
-    const res = await fetch(`/api/documents/${params.id}/expiry`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        versionId: selectedVersion._id,
-        expiryDate: expiryDate || null,
-        reason: expiryReason || null
-      })
-    });
-
-    if (res.ok) {
-      toast.success(expiryDate ? 'Expiry date set successfully' : 'Expiry date removed');
-      setShowExpiryDialog(false);
-      setExpiryDate('');
-      setExpiryReason('');
-      fetchVersions(); // Refresh
-    } else {
+    if (!selectedVersion) return;
+    setSettingExpiry(true);
+    try {
+      const res = await fetch(`/api/documents/${params.id}/expiry`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          versionId: selectedVersion._id,
+          expiryDate: expiryDate || null,
+          reason: expiryReason || null
+        })
+      });
+      if (res.ok) {
+        toast.success(expiryDate ? 'Expiry date set successfully' : 'Expiry date removed');
+        setShowExpiryDialog(false);
+        setExpiryDate('');
+        setExpiryReason('');
+        fetchVersions();
+      } else {
+        toast.error('Failed to set expiry date');
+      }
+    } catch (error) {
+      console.error('Set expiry error:', error);
       toast.error('Failed to set expiry date');
-    }
-  } catch (error) {
-    console.error('Set expiry error:', error);
-    toast.error('Failed to set expiry date');
-  } finally {
-    setSettingExpiry(false);
-  }
-};
-
-const getExpiryStatus = (version: VersionWithExpiry): ExpiryStatus => {
-  if (!version.expiryDate) return 'active';
-  
-  const now = new Date();
-  const expiry = new Date(version.expiryDate);
-  const diffTime = expiry.getTime() - now.getTime();
-  const daysUntilExpiry = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (daysUntilExpiry < 0) return 'expired';
-  if (daysUntilExpiry <= 30) return 'expiring_soon';
-  return 'active';
-};
-
-const getExpiryBadge = (version: VersionWithExpiry) => {
-  const status = getExpiryStatus(version);
-  
-  if (!version.expiryDate) return null;
-
-  const badges = {
-    expired: {
-      bg: 'bg-red-100 border-red-300 text-red-800',
-      icon: '🔴',
-      text: 'EXPIRED - Do Not Use'
-    },
-    expiring_soon: {
-      bg: 'bg-amber-100 border-amber-300 text-amber-800',
-      icon: '⚠️',
-      text: 'Expiring Soon'
-    },
-    active: {
-      bg: 'bg-green-100 border-green-300 text-green-800',
-      icon: '✅',
-      text: 'Active'
-    },
-    superseded: {
-      bg: 'bg-gray-100 border-gray-300 text-gray-800',
-      icon: '📦',
-      text: 'Superseded'
+    } finally {
+      setSettingExpiry(false);
     }
   };
 
-  const badge = badges[status];
+  const getExpiryStatus = (version: VersionWithExpiry): ExpiryStatus => {
+    if (!version.expiryDate) return 'active';
+    const now = new Date();
+    const expiry = new Date(version.expiryDate);
+    const diffTime = expiry.getTime() - now.getTime();
+    const daysUntilExpiry = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (daysUntilExpiry < 0) return 'expired';
+    if (daysUntilExpiry <= 30) return 'expiring_soon';
+    return 'active';
+  };
 
-  return (
-    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${badge.bg}`}>
-      <span>{badge.icon}</span>
-      <span>{badge.text}</span>
-    </div>
-  );
-};
+  const getExpiryBadge = (version: VersionWithExpiry) => {
+    const status = getExpiryStatus(version);
+    if (!version.expiryDate) return null;
+    const badges = {
+      expired: { bg: 'bg-red-100 border-red-300 text-red-800', icon: '🔴', text: 'Expired' },
+      expiring_soon: { bg: 'bg-amber-100 border-amber-300 text-amber-800', icon: '⚠️', text: 'Expiring Soon' },
+      active: { bg: 'bg-green-100 border-green-300 text-green-800', icon: '✅', text: 'Active' },
+      superseded: { bg: 'bg-gray-100 border-gray-300 text-gray-800', icon: '📦', text: 'Superseded' },
+    };
+    const badge = badges[status];
+    return (
+      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${badge.bg}`}>
+        <span>{badge.icon}</span>
+        <span>{badge.text}</span>
+      </div>
+    );
+  };
 
-const formatExpiryDate = (dateString: string) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffTime = date.getTime() - now.getTime();
-  const daysUntilExpiry = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  const formattedDate = date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
-
-  if (daysUntilExpiry < 0) {
-    return `Expired ${Math.abs(daysUntilExpiry)} days ago`;
-  } else if (daysUntilExpiry === 0) {
-    return 'Expires today';
-  } else if (daysUntilExpiry === 1) {
-    return 'Expires tomorrow';
-  } else if (daysUntilExpiry <= 30) {
-    return `Expires in ${daysUntilExpiry} days (${formattedDate})`;
-  } else {
+  const formatExpiryDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = date.getTime() - now.getTime();
+    const daysUntilExpiry = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (daysUntilExpiry < 0) return `Expired ${Math.abs(daysUntilExpiry)} days ago`;
+    if (daysUntilExpiry === 0) return 'Expires today';
+    if (daysUntilExpiry === 1) return 'Expires tomorrow';
+    if (daysUntilExpiry <= 30) return `Expires in ${daysUntilExpiry} days (${formattedDate})`;
     return `Valid until ${formattedDate}`;
-  }
-};
+  };
 
   const handleRestore = async () => {
     if (!selectedVersion) return;
-    
     setRestoring(true);
     try {
       const res = await fetch(`/api/documents/${params.id}/versions`, {
@@ -233,7 +203,6 @@ const formatExpiryDate = (dateString: string) => {
           changeLog: changeLog || `Restored version ${selectedVersion.version}`
         })
       });
-
       if (res.ok) {
         const data = await res.json();
         toast.success(`Version ${selectedVersion.version} restored successfully!`, {
@@ -254,145 +223,60 @@ const formatExpiryDate = (dateString: string) => {
   };
 
   const handleDownload = async (version: Version) => {
-  const downloadToast = toast.loading(`Downloading version ${version.version}...`);
-  
-  try {
-    console.log('🔽 Starting download for version:', version.version);
-    
-    const res = await fetch(`/api/documents/${params.id}/versions/download?versionId=${version._id}`, {
-      credentials: 'include',
-    });
-    
-    console.log('📡 Download response status:', res.status);
-    
-   if (!res.ok) {
-  const error = await res.json();
-  console.error('❌ Download failed:', error);
-  
-  // ✅ Special handling for expired versions
-  if (res.status === 403 && error.expiryDate) {
-    toast.error('Cannot Download Expired Version', {
-      description: error.message || 'This version has expired and cannot be downloaded',
-      duration: 5000,
-    });
-    
-    // ✅ Show detailed expiry dialog
-    const expiryModal = document.createElement('div');
-    expiryModal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
-    expiryModal.innerHTML = `
-      <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-            <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-            </svg>
-          </div>
-          <div>
-            <h3 class="text-lg font-bold text-red-600">Version Expired</h3>
-            <p class="text-sm text-slate-600">Cannot download</p>
-          </div>
-        </div>
-        
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-          <p class="text-sm text-red-900 mb-2">
-            <strong>⚠️ This version expired ${error.daysExpired} day${error.daysExpired !== 1 ? 's' : ''} ago</strong>
-          </p>
-          ${error.expiryReason ? `
-            <p class="text-xs text-red-800 mt-2">
-              <strong>Reason:</strong> ${error.expiryReason}
-            </p>
-          ` : ''}
-          <p class="text-xs text-red-800 mt-2">
-            🚫 This version is no longer valid and should not be used for legal, compliance, or business purposes.
-          </p>
-        </div>
-
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-          <p class="text-xs text-blue-900">
-            <strong>💡 What to do:</strong><br/>
-            • Use the current active version<br/>
-            • Upload a new version if needed<br/>
-            • Contact the document owner
-          </p>
-        </div>
-        
-        <button 
-          onclick="this.parentElement.parentElement.remove()"
-          class="w-full px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 font-medium"
-        >
-          Close
-        </button>
-      </div>
-    `;
-    document.body.appendChild(expiryModal);
-    expiryModal.onclick = (e) => {
-      if (e.target === expiryModal) expiryModal.remove();
-    };
-    
-    throw new Error('Version expired');
-  }
-  
-  throw new Error(error.error || 'Download failed');
-}
-    
-    const blob = await res.blob();
-    console.log('💾 Blob received:', blob.size, 'bytes');
-    
-    // ✅ FIX: Check if we're in browser before using window/document
-    if (typeof window === 'undefined') {
-      throw new Error('Download must be triggered from browser');
+    const downloadToast = toast.loading(`Downloading version ${version.version}...`);
+    try {
+      const res = await fetch(`/api/documents/${params.id}/versions/download?versionId=${version._id}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        if (res.status === 403 && error.expiryDate) {
+          toast.error('Cannot Download Expired Version', {
+            description: error.message || 'This version has expired and cannot be downloaded',
+            duration: 5000,
+          });
+          throw new Error('Version expired');
+        }
+        throw new Error(error.error || 'Download failed');
+      }
+      const blob = await res.blob();
+      if (typeof window === 'undefined') throw new Error('Download must be triggered from browser');
+      const url = window.URL.createObjectURL(blob);
+      const a = window.document.createElement('a');
+      a.href = url;
+      a.download = `${version.filename.replace(/\.[^/.]+$/, '')}_v${version.version}.pdf`;
+      a.style.display = 'none';
+      window.document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        window.document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      toast.success(`Version ${version.version} downloaded!`, { id: downloadToast });
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to download', { id: downloadToast });
     }
-    
-    const url = window.URL.createObjectURL(blob);
-    const a = window.document.createElement('a'); // ✅ Use window.document
-    a.href = url;
-    a.download = `${version.filename.replace(/\.[^/.]+$/, '')}_v${version.version}.pdf`;
-    a.style.display = 'none';
-    window.document.body.appendChild(a);
-    a.click();
-    
-    // ✅ Cleanup after a short delay
-    setTimeout(() => {
-      window.document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    }, 100);
-    
-    console.log('✅ Download successful');
-    toast.success(`Version ${version.version} downloaded!`, { id: downloadToast });
-    
-  } catch (error) {
-    console.error('❌ Download error:', error);
-    toast.error(error instanceof Error ? error.message : 'Failed to download', { id: downloadToast });
-  }
-};
+  };
 
-   const handleView = (version: Version) => {
-  setPreviewVersion(version);
-  setPreviewPage(1);
-  setTotalPages(version.numPages);
-  setShowPreviewDrawer(true);
-  setPreviewLoading(true);
-  
-  // ✅ Auto-hide loading after 2 seconds (PDF should be loaded by then)
-  setTimeout(() => {
-    setPreviewLoading(false);
-  }, 2000);
-};
+  const handleView = (version: Version) => {
+    setPreviewVersion(version);
+    setPreviewPage(1);
+    setTotalPages(version.numPages);
+    setShowPreviewDrawer(true);
+    setPreviewLoading(true);
+    setTimeout(() => setPreviewLoading(false), 2000);
+  };
 
   const handleUpdateNote = async () => {
     if (!selectedVersion) return;
-    
     try {
       const res = await fetch(`/api/documents/${params.id}/versions/note`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          versionId: selectedVersion._id,
-          changeLog: changeLog
-        })
+        body: JSON.stringify({ versionId: selectedVersion._id, changeLog })
       });
-
       if (res.ok) {
         toast.success('Note updated successfully');
         setShowEditNoteDialog(false);
@@ -402,7 +286,6 @@ const formatExpiryDate = (dateString: string) => {
         toast.error('Failed to update note');
       }
     } catch (error) {
-      console.error('Update note error:', error);
       toast.error('Failed to update note');
     }
   };
@@ -411,19 +294,11 @@ const formatExpiryDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
     if (diffInSeconds < 60) return 'Just now';
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} min ago`;
-    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
-
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const formatSize = (bytes: number) => {
@@ -433,12 +308,7 @@ const formatExpiryDate = (dateString: string) => {
   };
 
   const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
   if (loading) {
@@ -448,9 +318,9 @@ const formatExpiryDate = (dateString: string) => {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="h-12 w-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"
+            className="h-10 w-10 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"
           />
-          <p className="text-slate-600 font-medium">Loading version history...</p>
+          <p className="text-slate-600 font-medium text-sm">Loading version history...</p>
         </div>
       </div>
     );
@@ -459,141 +329,273 @@ const formatExpiryDate = (dateString: string) => {
   const allVersions = currentVersion ? [currentVersion, ...versions] : versions;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
-      {/* Expiry Warning Banner */}
-{(currentVersion as VersionWithExpiry).expiryDate && getExpiryStatus(currentVersion as VersionWithExpiry) !== 'active' && (
-  <motion.div
-    initial={{ opacity: 0, y: -10 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="mb-4 p-4 bg-red-500 text-white rounded-xl border-2 border-red-600"
-  >
-    <div className="flex items-start gap-3">
-      <AlertCircle className="h-6 w-6 flex-shrink-0 mt-0.5" />
-      <div className="flex-1">
-        <p className="font-bold text-lg mb-1">⚠️ WARNING: This Document Has Expired!</p>
-        <p className="text-sm opacity-90 mb-2">
-          {formatExpiryDate((currentVersion as VersionWithExpiry).expiryDate!)}
-        </p>
-        {(currentVersion as VersionWithExpiry).expiryReason && (
-          <p className="text-sm opacity-90">
-            <strong>Reason:</strong> {(currentVersion as VersionWithExpiry).expiryReason}
-          </p>
-        )}
-        <p className="text-xs mt-2 opacity-80">
-          🚫 Do not send, sign, or use this version. Upload a new version or restore a valid one.
-        </p>
-      </div>
-    </div>
-  </motion.div>
-)}
-      {/* Header - Mobile Responsive */}
-      <header className="bg-white/80 backdrop-blur-xl border-b sticky top-0 z-50 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => router.push(`/documents/${params.id}`)}
-                className="hover:bg-purple-50 flex-shrink-0"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                <div className="h-8 w-8 md:h-10 md:w-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg flex-shrink-0">
-                  <History className="h-4 w-4 md:h-5 md:w-5 text-white" />
+    <div className="min-h-screen bg-white">
+
+      {/* ── MOBILE RIGHT SIDEBAR ── */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/40 z-[60] md:hidden"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            {/* Sidebar */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="fixed top-0 right-0 h-full w-[280px] bg-white z-[70] md:hidden flex flex-col shadow-2xl"
+            >
+              {/* Sidebar Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+                    <History className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900 truncate max-w-[160px]">Version History</p>
+                    <p className="text-[11px] text-slate-400">{allVersions.length} versions</p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h1 className="font-bold text-slate-900 text-sm md:text-base truncate">Version History</h1>
-                  <p className="text-xs md:text-sm text-slate-500 truncate">{document?.filename}</p>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Sidebar Content */}
+              <div className="flex-1 overflow-y-auto">
+
+                {/* Doc info */}
+                <div className="px-5 py-4 border-b border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Document</p>
+                  <p className="text-sm font-semibold text-slate-900 truncate">{document?.filename}</p>
+                  {currentVersion && (
+                    <p className="text-xs text-slate-400 mt-1">Current: v{currentVersion.version} · {formatSize(currentVersion.size)}</p>
+                  )}
+                </div>
+
+                {/* Version stats */}
+                <div className="px-5 py-4 border-b border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Stats</p>
+                  <div className="space-y-2">
+                    {[
+                      { label: 'Total Versions', value: allVersions.length, color: 'text-purple-600' },
+                      { label: 'Total Views', value: allVersions.reduce((s, v) => s + v.analytics.views, 0), color: 'text-sky-600' },
+                      { label: 'Total Downloads', value: allVersions.reduce((s, v) => s + v.analytics.downloads, 0), color: 'text-emerald-600' },
+                    ].map(s => (
+                      <div key={s.label} className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500">{s.label}</span>
+                        <span className={`text-sm font-black tabular-nums ${s.color}`}>{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="px-5 py-4 border-b border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Actions</p>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => { router.push(`/documents/${params.id}`); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors"
+                    >
+                      <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                      View Document
+                    </button>
+                    <Link href="/compliance" onClick={() => setMobileMenuOpen(false)}>
+                      <div className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors">
+                        <Shield className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                        View All Expired Docs
+                      </div>
+                    </Link>
+                  </div>
+                </div>
+
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── EXPIRY WARNING BANNER ── */}
+      {currentVersion && (currentVersion as VersionWithExpiry).expiryDate &&
+        getExpiryStatus(currentVersion as VersionWithExpiry) !== 'active' && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-500 text-white px-4 py-3"
+        >
+          <div className="max-w-6xl mx-auto flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm">⚠️ This Document Has Expired</p>
+              <p className="text-xs text-red-100 mt-0.5">
+                {formatExpiryDate((currentVersion as VersionWithExpiry).expiryDate!)}
+                {(currentVersion as VersionWithExpiry).expiryReason && ` · ${(currentVersion as VersionWithExpiry).expiryReason}`}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ── HEADER ── */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-14 sm:h-16 gap-3">
+
+            {/* LEFT */}
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+              <button
+                onClick={() => router.push(`/documents/${params.id}`)}
+                className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+
+              {/* Icon + title */}
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-md flex-shrink-0">
+                  <History className="h-4 w-4 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-sm font-bold text-slate-900 leading-tight">Version History</h1>
+                  <p className="text-[11px] text-slate-400 truncate max-w-[150px] sm:max-w-[300px]">{document?.filename}</p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-
+            {/* RIGHT — Desktop */}
+            <div className="hidden md:flex items-center gap-3 flex-shrink-0">
               <Link href="/compliance">
-          <Button variant="outline" className="gap-2">
-            <Shield className="h-4 w-4" />
-            View All Expired Docs
-          </Button>
-        </Link>
-              <div className="bg-purple-50 border border-purple-200 rounded-lg px-2 md:px-4 py-1.5 md:py-2">
-                <p className="text-xs md:text-sm font-medium text-purple-900 whitespace-nowrap">
+                <Button variant="outline" size="sm" className="gap-2 text-sm">
+                  <Shield className="h-4 w-4" />
+                  View All Expired Docs
+                </Button>
+              </Link>
+              <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-2">
+                <p className="text-sm font-semibold text-purple-900 whitespace-nowrap">
                   {allVersions.length} Version{allVersions.length !== 1 ? 's' : ''}
                 </p>
               </div>
             </div>
+
+            {/* RIGHT — Mobile: version count pill + hamburger */}
+            <div className="flex md:hidden items-center gap-2 flex-shrink-0">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg px-2.5 py-1.5">
+                <p className="text-xs font-semibold text-purple-900 whitespace-nowrap">
+                  {allVersions.length} v{allVersions.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </div>
+
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Current Version Banner - Mobile Responsive */}
+      {/* ── MAIN CONTENT ── */}
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+
+        {/* ── STATS BAR (mobile only quick glance) ── */}
+        <div className="flex md:hidden items-center gap-0 divide-x divide-slate-100 bg-slate-50 border border-slate-200 rounded-xl mb-4 overflow-hidden">
+          {[
+            { label: 'Versions', value: allVersions.length, color: 'text-purple-600' },
+            { label: 'Views', value: allVersions.reduce((s, v) => s + v.analytics.views, 0), color: 'text-sky-600' },
+            { label: 'Downloads', value: allVersions.reduce((s, v) => s + v.analytics.downloads, 0), color: 'text-emerald-600' },
+          ].map(s => (
+            <div key={s.label} className="flex-1 px-3 py-3 text-center">
+              <div className={`text-lg font-black tabular-nums ${s.color}`}>{s.value}</div>
+              <div className="text-[10px] text-slate-400 font-medium">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── CURRENT VERSION BANNER ── */}
         {currentVersion && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-purple-500 via-purple-600 to-blue-600 rounded-xl md:rounded-2xl p-4 md:p-8 mb-6 md:mb-8 text-white shadow-2xl"
+            className="bg-gradient-to-br from-purple-500 via-purple-600 to-blue-600 rounded-xl sm:rounded-2xl p-4 sm:p-8 mb-4 sm:mb-8 text-white shadow-xl"
           >
-            <div className="flex flex-col md:flex-row items-start justify-between gap-4">
-              <div className="flex items-start gap-3 md:gap-6 flex-1 min-w-0">
-                <div className="h-12 w-12 md:h-16 md:w-16 rounded-xl md:rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-                  <FileText className="h-6 w-6 md:h-8 md:w-8 text-white" />
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+              <div className="flex items-start gap-3 sm:gap-5 flex-1 min-w-0">
+                {/* Icon */}
+                <div className="h-10 w-10 sm:h-14 sm:w-14 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-5 w-5 sm:h-7 sm:w-7 text-white" />
                 </div>
+
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-2">
-                    <h2 className="text-lg md:text-2xl font-bold">Current Version</h2>
-                    <span className="px-3 py-1 bg-white/30 backdrop-blur-sm text-white text-sm font-bold rounded-full flex-shrink-0">
+                  {/* Title row */}
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <h2 className="text-base sm:text-xl font-bold">Current Version</h2>
+                    <span className="px-2.5 py-0.5 bg-white/30 text-white text-xs sm:text-sm font-bold rounded-full flex-shrink-0">
                       v{currentVersion.version}
                     </span>
+                    {(currentVersion as VersionWithExpiry).expiryDate && getExpiryBadge(currentVersion as VersionWithExpiry)}
                   </div>
-                  <p className="text-white/90 mb-3 md:mb-4 text-sm md:text-base break-all">{currentVersion.filename}</p>
-                  
-                  <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6 text-white/80 text-xs md:text-sm">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 flex-shrink-0" />
+
+                  <p className="text-white/90 text-xs sm:text-sm mb-3 truncate">{currentVersion.filename}</p>
+
+                  {/* Stats grid — 2 cols on mobile, row on desktop */}
+                  <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-6 text-white/80 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5 flex-shrink-0" />
                       <span>{formatDate(currentVersion.createdAt)}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 flex-shrink-0" />
-                      <span>{formatSize(currentVersion.size)}</span>
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span>{formatSize(currentVersion.size)} · {currentVersion.numPages}p</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4 flex-shrink-0" />
+                    <div className="flex items-center gap-1.5">
+                      <Eye className="h-3.5 w-3.5 flex-shrink-0" />
                       <span>{currentVersion.analytics.views} views</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Download className="h-4 w-4 flex-shrink-0" />
+                    <div className="flex items-center gap-1.5">
+                      <Download className="h-3.5 w-3.5 flex-shrink-0" />
                       <span>{currentVersion.analytics.downloads} downloads</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 md:gap-3 mt-4">
+                  {/* Uploader */}
+                  <div className="flex items-center gap-2 mt-3">
                     {currentVersion.uploaderAvatar ? (
-                      <img 
-                        src={currentVersion.uploaderAvatar} 
+                      <img
+                        src={currentVersion.uploaderAvatar}
                         alt={currentVersion.uploaderName}
-                        className="h-6 w-6 md:h-8 md:w-8 rounded-full border-2 border-white/50 flex-shrink-0"
+                        className="h-6 w-6 rounded-full border-2 border-white/50 flex-shrink-0"
                       />
                     ) : (
-                      <div className="h-6 w-6 md:h-8 md:w-8 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center text-white text-xs md:text-sm font-semibold border-2 border-white/50 flex-shrink-0">
+                      <div className="h-6 w-6 rounded-full bg-white/30 flex items-center justify-center text-white text-[10px] font-semibold border-2 border-white/50 flex-shrink-0">
                         {getInitials(currentVersion.uploaderName)}
                       </div>
                     )}
-                    <div className="text-xs md:text-sm min-w-0">
-                      <p className="font-medium text-white truncate">Uploaded by {currentVersion.uploaderName}</p>
-                      <p className="text-white/70 truncate">{currentVersion.uploaderEmail}</p>
+                    <div className="text-xs min-w-0">
+                      <span className="font-medium text-white truncate">{currentVersion.uploaderName}</span>
+                      <span className="text-white/60 ml-1.5 truncate hidden sm:inline">{currentVersion.uploaderEmail}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
+              {/* View doc button */}
               <Button
                 onClick={() => router.push(`/documents/${params.id}`)}
-                className="bg-white text-purple-600 hover:bg-white/90 font-semibold shadow-lg w-full md:w-auto text-sm md:text-base"
+                className="bg-white text-purple-600 hover:bg-white/90 font-semibold shadow-lg w-full sm:w-auto text-sm flex-shrink-0"
+                size="sm"
               >
                 View Document
               </Button>
@@ -601,193 +603,181 @@ const formatExpiryDate = (dateString: string) => {
           </motion.div>
         )}
 
-        {/* Version Timeline */}
-        <div className="space-y-6">
+        {/* ── VERSION TIMELINE ── */}
+        <div className="space-y-4 sm:space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-900">Version Timeline</h2>
-            <p className="text-sm text-slate-500">
+            <h2 className="text-base sm:text-xl font-bold text-slate-900">Version Timeline</h2>
+            <p className="text-xs sm:text-sm text-slate-400">
               {versions.length} previous version{versions.length !== 1 ? 's' : ''}
             </p>
           </div>
-          
+
           {versions.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-16 text-center"
+              className="bg-white rounded-xl border-2 border-dashed border-slate-200 p-10 sm:p-16 text-center"
             >
-              <div className="h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-6">
-                <History className="h-10 w-10 text-slate-400" />
+              <div className="h-14 w-14 sm:h-20 sm:w-20 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <History className="h-7 w-7 sm:h-10 sm:w-10 text-slate-400" />
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">No Previous Versions</h3>
-              <p className="text-slate-600 max-w-md mx-auto">
-                This is the first version of this document. When you upload a new version, 
-                previous versions will appear here.
+              <h3 className="text-base sm:text-xl font-bold text-slate-900 mb-2">No Previous Versions</h3>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                This is the first version. When you upload a new version, previous versions will appear here.
               </p>
             </motion.div>
           ) : (
             <div className="relative">
-              {/* Timeline Line - Hidden on mobile */}
+              {/* Timeline line — desktop only */}
               <div className="hidden md:block absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-purple-200 via-blue-200 to-transparent" />
 
-              <div className="space-y-6">
+              <div className="space-y-3 sm:space-y-6">
                 {versions.map((version, index) => (
                   <motion.div
                     key={version._id}
-                    initial={{ opacity: 0, x: -20 }}
+                    initial={{ opacity: 0, x: -16 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
                     className="relative"
                   >
-                    {/* Timeline Dot - Hidden on mobile */}
-                    <div className="hidden md:block absolute left-8 top-6 h-4 w-4 rounded-full bg-white border-4 border-purple-500 shadow-lg transform -translate-x-1/2" />
+                    {/* Timeline dot — desktop only */}
+                    <div className="hidden md:block absolute left-8 top-5 h-4 w-4 rounded-full bg-white border-4 border-purple-500 shadow-lg transform -translate-x-1/2" />
 
-                    <div className="md:ml-20 bg-white rounded-lg md:rounded-xl border border-slate-200 hover:border-purple-300 hover:shadow-xl transition-all duration-200 overflow-hidden group">
-                      <div className="p-4 md:p-6">
-                        <div className="flex flex-col md:flex-row items-start justify-between gap-3 md:gap-4">
-                          <div className="flex-1 min-w-0 w-full">
-                            <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-3">
-                              <span className="px-2 md:px-3 py-1 bg-slate-100 text-slate-700 text-xs md:text-sm font-bold rounded-lg flex-shrink-0">
-                                v{version.version}
-                              </span>
-                              {getExpiryBadge(version as VersionWithExpiry)}
-                              <h3 className="font-semibold text-slate-900 text-sm md:text-base break-all">{version.filename}</h3>
-                            </div>
+                    <div className="md:ml-20 bg-white rounded-xl border border-slate-200 hover:border-purple-300 hover:shadow-lg transition-all duration-200 overflow-hidden group">
+                      <div className="p-4 sm:p-6">
 
-                            <div className="grid grid-cols-2 gap-2 md:gap-4 mb-3 md:mb-4 text-xs md:text-sm">
-                              <div className="flex items-center gap-2 text-slate-600">
-                                <Clock className="h-3 w-3 md:h-4 md:w-4 text-slate-400 flex-shrink-0" />
-                                <span className="truncate">{formatDate(version.createdAt)}</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-slate-600">
-                                <FileText className="h-3 w-3 md:h-4 md:w-4 text-slate-400 flex-shrink-0" />
-                                <span>{formatSize(version.size)}</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-slate-600">
-                                <Eye className="h-3 w-3 md:h-4 md:w-4 text-slate-400 flex-shrink-0" />
-                                <span>{version.analytics.views} views</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-slate-600">
-                                <Download className="h-3 w-3 md:h-4 md:w-4 text-slate-400 flex-shrink-0" />
-                                <span>{version.analytics.downloads} downloads</span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 md:gap-3">
-                              {version.uploaderAvatar ? (
-                                <img 
-                                  src={version.uploaderAvatar} 
-                                  alt={version.uploaderName}
-                                  className="h-6 w-6 md:h-8 md:w-8 rounded-full border-2 border-slate-200 flex-shrink-0"
-                                />
-                              ) : (
-                                <div className="h-6 w-6 md:h-8 md:w-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-xs md:text-sm font-semibold border-2 border-purple-200 flex-shrink-0">
-                                  {getInitials(version.uploaderName)}
-                                </div>
-                              )}
-                              <div className="text-xs md:text-sm min-w-0 flex-1">
-                                <p className="font-medium text-slate-900 truncate">{version.uploaderName}</p>
-                                <p className="text-slate-500 truncate">{version.uploaderEmail}</p>
-                              </div>
-                              {(version as VersionWithExpiry).expiryDate && (
-  <div className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg">
-    <p className="text-xs text-slate-700">
-      <strong>📅 Expiry:</strong> {formatExpiryDate((version as VersionWithExpiry).expiryDate!)}
-    </p>
-    {(version as VersionWithExpiry).expiryReason && (
-      <p className="text-xs text-slate-600 mt-1">
-        <strong>Reason:</strong> {(version as VersionWithExpiry).expiryReason}
-      </p>
-    )}
-  </div>
-)}
-                            </div>
-
-                            {version.changeLog && (
-                              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                <div className="flex items-start justify-between gap-2">
-                                  <p className="text-xs md:text-sm text-blue-900 flex-1">
-                                    <strong>📝 Note:</strong> {version.changeLog}
-                                  </p>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedVersion(version);
-                                      setChangeLog(version.changeLog || '');
-                                      setShowEditNoteDialog(true);
-                                    }}
-                                    className="text-blue-600 hover:text-blue-700 text-xs flex-shrink-0"
-                                  >
-                                    Edit
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-
-                            {!version.changeLog && (
-                              <button
-                                onClick={() => {
-                                  setSelectedVersion(version);
-                                  setChangeLog('');
-                                  setShowEditNoteDialog(true);
-                                }}
-                                className="mt-2 text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
-                              >
-                                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Add note
-                              </button>
-                            )}
+                        {/* ── TOP ROW: version badge + filename + expiry + actions menu ── */}
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+                            <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg flex-shrink-0">
+                              v{version.version}
+                            </span>
+                            {getExpiryBadge(version as VersionWithExpiry)}
+                            <h3 className="font-semibold text-slate-900 text-sm truncate min-w-0">{version.filename}</h3>
                           </div>
 
-                          {/* Action Buttons - Mobile Responsive */}
-                          <div className="flex md:flex-col flex-row flex-wrap gap-2 w-full md:w-auto mt-3 md:mt-0">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleView(version)}
-                              className="gap-1 md:gap-2 flex-1 md:flex-none text-xs md:text-sm"
-                            >
-                              <Eye className="h-3 w-3 md:h-4 md:w-4" />
-                              <span>View</span>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDownload(version)}
-                              className="gap-1 md:gap-2 flex-1 md:flex-none text-xs md:text-sm"
-                            >
-                              <Download className="h-3 w-3 md:h-4 md:w-4" />
-                              <span>Download</span>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedVersion(version);
-                                setShowRestoreDialog(true);
-                              }}
-                              className="gap-1 md:gap-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 flex-1 md:flex-none text-xs md:text-sm"
-                            >
-                              <RotateCcw className="h-3 w-3 md:h-4 md:w-4" />
-                              <span>Restore</span>
-                            </Button>
-                            <Button
-  variant="outline"
-  size="sm"
-  onClick={() => {
-    setSelectedVersion(version);
-    setExpiryDate((version as VersionWithExpiry).expiryDate?.split('T')[0] || '');
-    setExpiryReason((version as VersionWithExpiry).expiryReason || '');
-    setShowExpiryDialog(true);
-  }}
-  className="gap-1 md:gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-1 md:flex-none text-xs md:text-sm"
->
-  <Clock className="h-3 w-3 md:h-4 md:w-4" />
-  <span>Expiry</span>
-</Button>
+                          {/* ── 3-DOT MENU (mobile) / action buttons (desktop) ── */}
+                          <div className="flex-shrink-0">
+                            {/* Desktop action buttons */}
+                            <div className="hidden sm:flex flex-col gap-2">
+                              <Button variant="outline" size="sm" onClick={() => handleView(version)} className="gap-2 text-xs w-full justify-start">
+                                <Eye className="h-3.5 w-3.5" />View
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleDownload(version)} className="gap-2 text-xs w-full justify-start">
+                                <Download className="h-3.5 w-3.5" />Download
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => { setSelectedVersion(version); setShowRestoreDialog(true); }} className="gap-2 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 w-full justify-start">
+                                <RotateCcw className="h-3.5 w-3.5" />Restore
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => { setSelectedVersion(version); setExpiryDate((version as VersionWithExpiry).expiryDate?.split('T')[0] || ''); setExpiryReason((version as VersionWithExpiry).expiryReason || ''); setShowExpiryDialog(true); }} className="gap-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 w-full justify-start">
+                                <Clock className="h-3.5 w-3.5" />Expiry
+                              </Button>
+                            </div>
+
+                            {/* Mobile 3-dot dropdown */}
+                            <div className="sm:hidden">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44 bg-white shadow-lg border border-slate-200">
+                                  <DropdownMenuItem onClick={() => handleView(version)}>
+                                    <Eye className="mr-2 h-4 w-4" /><span>View</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleDownload(version)}>
+                                    <Download className="mr-2 h-4 w-4" /><span>Download</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => { setSelectedVersion(version); setShowRestoreDialog(true); }} className="text-purple-600 focus:text-purple-600 focus:bg-purple-50">
+                                    <RotateCcw className="mr-2 h-4 w-4" /><span>Restore</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => { setSelectedVersion(version); setExpiryDate((version as VersionWithExpiry).expiryDate?.split('T')[0] || ''); setExpiryReason((version as VersionWithExpiry).expiryReason || ''); setShowExpiryDialog(true); }} className="text-blue-600 focus:text-blue-600 focus:bg-blue-50">
+                                    <Clock className="mr-2 h-4 w-4" /><span>Set Expiry</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => { setSelectedVersion(version); setChangeLog(version.changeLog || ''); setShowEditNoteDialog(true); }}>
+                                    <FileCheck className="mr-2 h-4 w-4" /><span>{version.changeLog ? 'Edit Note' : 'Add Note'}</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           </div>
                         </div>
+
+                        {/* ── STATS GRID ── */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-3 text-xs text-slate-500">
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                            <span>{formatDate(version.createdAt)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <FileText className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                            <span>{formatSize(version.size)} · {version.numPages}p</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Eye className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                            <span>{version.analytics.views} views</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Download className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                            <span>{version.analytics.downloads} downloads</span>
+                          </div>
+                        </div>
+
+                        {/* ── UPLOADER ROW ── */}
+                        <div className="flex items-center gap-2 mb-3">
+                          {version.uploaderAvatar ? (
+                            <img src={version.uploaderAvatar} alt={version.uploaderName} className="h-6 w-6 rounded-full border-2 border-slate-200 flex-shrink-0" />
+                          ) : (
+                            <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 text-[10px] font-semibold border-2 border-purple-200 flex-shrink-0">
+                              {getInitials(version.uploaderName)}
+                            </div>
+                          )}
+                          <div className="text-xs min-w-0">
+                            <span className="font-medium text-slate-800 truncate">{version.uploaderName}</span>
+                            <span className="text-slate-400 ml-1.5 hidden sm:inline truncate">{version.uploaderEmail}</span>
+                          </div>
+                        </div>
+
+                        {/* ── EXPIRY INFO ── */}
+                        {(version as VersionWithExpiry).expiryDate && (
+                          <div className="mb-3 flex items-start gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                            <Calendar className="h-3.5 w-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div className="text-xs text-amber-800">
+                              <span className="font-semibold">{formatExpiryDate((version as VersionWithExpiry).expiryDate!)}</span>
+                              {(version as VersionWithExpiry).expiryReason && (
+                                <span className="text-amber-700 ml-1.5">· {(version as VersionWithExpiry).expiryReason}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ── CHANGELOG NOTE ── */}
+                        {version.changeLog ? (
+                          <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xs text-blue-900 flex-1">
+                                <strong>📝</strong> {version.changeLog}
+                              </p>
+                              <button
+                                onClick={() => { setSelectedVersion(version); setChangeLog(version.changeLog || ''); setShowEditNoteDialog(true); }}
+                                className="text-blue-600 hover:text-blue-700 text-[11px] font-semibold flex-shrink-0 hidden sm:block"
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setSelectedVersion(version); setChangeLog(''); setShowEditNoteDialog(true); }}
+                            className="hidden sm:flex text-xs text-purple-600 hover:text-purple-700 items-center gap-1"
+                          >
+                            <span className="text-lg leading-none">+</span> Add note
+                          </button>
+                        )}
+
                       </div>
                     </div>
                   </motion.div>
@@ -798,105 +788,63 @@ const formatExpiryDate = (dateString: string) => {
         </div>
       </div>
 
-      {/* Preview Drawer */}
+      {/* ── PREVIEW DRAWER ── */}
       <Drawer open={showPreviewDrawer} onOpenChange={setShowPreviewDrawer}>
         <motion.div className="h-[100vh] flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
           {/* Header */}
-          <div className="sticky top-0 border-b border-slate-700/50 bg-slate-900/80 backdrop-blur-xl px-6 py-4 z-10">
+          <div className="sticky top-0 border-b border-slate-700/50 bg-slate-900/80 backdrop-blur-xl px-4 sm:px-6 py-4 z-10">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <motion.div
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                  className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg"
-                >
-                  <FileText className="h-6 w-6 text-white" />
-                </motion.div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                  <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-xl font-bold text-white">
                     Version {previewVersion?.version}
                   </h2>
-                  <p className="text-sm text-slate-400 mt-1">
+                  <p className="text-xs sm:text-sm text-slate-400 truncate max-w-[180px] sm:max-w-none">
                     {previewVersion?.filename}
                   </p>
                 </div>
               </div>
-
-              <div className="flex items-center gap-3">
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => previewVersion && handleDownload(previewVersion)}
-                    className="text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-xl transition-all"
-                  >
-                    <Download className="h-5 w-5" />
-                  </Button>
-                </motion.div>
-
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowPreviewDrawer(false)}
-                    className="text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-xl transition-all"
-                  >
-                    <X className="h-5 w-5" />
-                  </Button>
-                </motion.div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" onClick={() => previewVersion && handleDownload(previewVersion)} className="text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-xl">
+                  <Download className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setShowPreviewDrawer(false)} className="text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-xl">
+                  <X className="h-5 w-5" />
+                </Button>
               </div>
             </div>
           </div>
 
           {/* PDF Viewer */}
-          <div className="flex-1 overflow-hidden p-8 flex items-center justify-center bg-slate-900">
+          <div className="flex-1 overflow-hidden p-4 sm:p-8 flex items-center justify-center bg-slate-900">
             <AnimatePresence mode="wait">
               {previewLoading ? (
-                <motion.div
-                  key="loading"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="text-center"
-                >
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="h-12 w-12 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"
-                  />
+                <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-12 w-12 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4" />
                   <p className="text-slate-300 font-medium">Loading preview...</p>
                 </motion.div>
               ) : previewVersion ? (
-                <motion.div
-                  key="pdf"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="w-full h-full max-w-6xl bg-white rounded-2xl shadow-2xl overflow-hidden"
-                >
+                <motion.div key="pdf" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full h-full max-w-6xl bg-white rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden">
                   <iframe
-  src={`/api/documents/${params.id}/versions/view?versionId=${previewVersion._id}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
-  className="w-full h-full"
-  style={{ border: 'none' }}
-  title="Version Preview"
-/>
+                    src={`/api/documents/${params.id}/versions/view?versionId=${previewVersion._id}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                    className="w-full h-full"
+                    style={{ border: 'none' }}
+                    title="Version Preview"
+                  />
                 </motion.div>
               ) : null}
             </AnimatePresence>
           </div>
 
-          {/* Page Navigation */}
-          {previewVersion && (
-            <motion.div
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
-            >
-              <div className="flex items-center gap-4 bg-slate-900/95 backdrop-blur-xl rounded-2xl px-8 py-4 shadow-2xl border border-slate-700/50">
-                <span className="text-white font-medium text-sm">
-                  Version {previewVersion.version} • {previewVersion.numPages} pages
+          {/* Footer pill */}
+          {previewVersion && !previewLoading && (
+            <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
+              <div className="flex items-center gap-3 bg-slate-900/95 backdrop-blur-xl rounded-2xl px-6 py-3 shadow-2xl border border-slate-700/50">
+                <span className="text-white font-medium text-sm whitespace-nowrap">
+                  v{previewVersion.version} · {previewVersion.numPages} pages · {formatSize(previewVersion.size)}
                 </span>
               </div>
             </motion.div>
@@ -904,233 +852,111 @@ const formatExpiryDate = (dateString: string) => {
         </motion.div>
       </Drawer>
 
-      {/* Restore Dialog */}
+      {/* ── RESTORE DIALOG ── */}
       <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
-        <DialogContent className="max-w-lg mx-4 bg-white scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 rounded-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg mx-4 bg-white rounded-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Restore Version {selectedVersion?.version}?</DialogTitle>
+            <DialogTitle className="text-lg font-bold">Restore Version {selectedVersion?.version}?</DialogTitle>
             <DialogDescription>
-              This will make version {selectedVersion?.version} the current version. 
-              The current version will be saved to history.
+              This will make v{selectedVersion?.version} the current version. The current version will be saved to history.
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-4">
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div className="text-sm text-amber-900">
                   <p className="font-semibold mb-1">What will happen:</p>
-                  <ul className="space-y-1 ml-4 list-disc">
-                    <li>Version {selectedVersion?.version} becomes the current version</li>
-                    <li>Current version (v{currentVersion?.version}) saved to history</li>
-                    <li>New version number created (v{(currentVersion?.version || 0) + 1})</li>
+                  <ul className="space-y-1 ml-4 list-disc text-xs">
+                    <li>Version {selectedVersion?.version} becomes current</li>
+                    <li>Current v{currentVersion?.version} saved to history</li>
+                    <li>New version number: v{(currentVersion?.version || 0) + 1}</li>
                     <li>All previous versions remain accessible</li>
                   </ul>
                 </div>
               </div>
             </div>
-
             <div>
-              <Label className="text-sm font-medium mb-2 block">
-                Add a note (optional)
-              </Label>
-              <Textarea
-                value={changeLog}
-                onChange={(e) => setChangeLog(e.target.value)}
-                placeholder="e.g., Restored to fix formatting issues"
-                rows={3}
-                className="resize-none"
-              />
+              <Label className="text-sm font-medium mb-2 block">Add a note (optional)</Label>
+              <Textarea value={changeLog} onChange={(e) => setChangeLog(e.target.value)} placeholder="e.g., Restored to fix formatting issues" rows={3} className="resize-none" />
             </div>
           </div>
-
           <div className="flex gap-3 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowRestoreDialog(false);
-                setChangeLog('');
-              }}
-              disabled={restoring}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleRestore}
-              disabled={restoring}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
+            <Button variant="outline" onClick={() => { setShowRestoreDialog(false); setChangeLog(''); }} disabled={restoring}>Cancel</Button>
+            <Button onClick={handleRestore} disabled={restoring} className="bg-purple-600 hover:bg-purple-700">
               {restoring ? (
-                <>
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"
-                  />
-                  Restoring...
-                </>
+                <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />Restoring...</>
               ) : (
-                <>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Restore Version
-                </>
+                <><RotateCcw className="h-4 w-4 mr-2" />Restore Version</>
               )}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Note Dialog */}
+      {/* ── EDIT NOTE DIALOG ── */}
       <Dialog open={showEditNoteDialog} onOpenChange={setShowEditNoteDialog}>
-        <DialogContent className="max-w-md mx-4 bg-white rounded-lg">
+        <DialogContent className="max-w-md mx-4 bg-white rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">Edit Version Note</DialogTitle>
-            <DialogDescription>
-              Add or update notes for version {selectedVersion?.version}
-            </DialogDescription>
+            <DialogDescription>Add or update notes for version {selectedVersion?.version}</DialogDescription>
           </DialogHeader>
-
           <div className="py-4">
-            <Label className="text-sm font-medium mb-2 block">
-              Version Note
-            </Label>
-            <Textarea
-              value={changeLog}
-              onChange={(e) => setChangeLog(e.target.value)}
-              placeholder="e.g., Updated pricing section, Fixed typos, Client feedback incorporated"
-              rows={4}
-              className="resize-none"
-              maxLength={500}
-            />
-            <p className="text-xs text-slate-500 mt-1">
-              {changeLog.length}/500 characters
-            </p>
+            <Label className="text-sm font-medium mb-2 block">Version Note</Label>
+            <Textarea value={changeLog} onChange={(e) => setChangeLog(e.target.value)} placeholder="e.g., Updated pricing section, Fixed typos" rows={4} className="resize-none" maxLength={500} />
+            <p className="text-xs text-slate-400 mt-1 text-right">{changeLog.length}/500</p>
           </div>
-
           <div className="flex gap-3 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowEditNoteDialog(false);
-                setChangeLog('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdateNote}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              Save Note
-            </Button>
+            <Button variant="outline" onClick={() => { setShowEditNoteDialog(false); setChangeLog(''); }}>Cancel</Button>
+            <Button onClick={handleUpdateNote} className="bg-purple-600 hover:bg-purple-700">Save Note</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Set Expiry Dialog */}
-<Dialog open={showExpiryDialog} onOpenChange={setShowExpiryDialog}>
-  <DialogContent className="max-w-md mx-4 bg-white rounded-lg scrollball w-[80vh] y-auto">
-    <DialogHeader>
-      <DialogTitle className="text-lg font-bold">Set Expiry Date</DialogTitle>
-      <DialogDescription>
-        Set when version {selectedVersion?.version} should expire
-      </DialogDescription>
-    </DialogHeader>
-
-    <div className="py-4 space-y-4">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-xs text-blue-900">
-          <strong>💡 Why set expiry dates?</strong><br/>
-          • Prevent use of outdated contracts/NDAs<br/>
-          • Ensure compliance with latest terms<br/>
-          • Get notified before documents expire<br/>
-          • Legal protection (audit trail)
-        </p>
-      </div>
-
-      <div>
-        <Label className="text-sm font-medium mb-2 block">
-          Expiry Date (Optional)
-        </Label>
-        <input
-          type="date"
-          value={expiryDate}
-          onChange={(e) => setExpiryDate(e.target.value)}
-          min={new Date().toISOString().split('T')[0]}
-          className="w-full border rounded-lg px-3 py-2 text-sm"
-        />
-        <p className="text-xs text-slate-500 mt-1">
-          Leave empty to remove expiry date
-        </p>
-      </div>
-
-      <div>
-        <Label className="text-sm font-medium mb-2 block">
-          Reason (Optional)
-        </Label>
-        <Textarea
-          value={expiryReason}
-          onChange={(e) => setExpiryReason(e.target.value)}
-          placeholder="e.g., New pricing takes effect, Legal requirements changed, Contract renewal"
-          rows={3}
-          className="resize-none text-sm"
-          maxLength={200}
-        />
-        <p className="text-xs text-slate-500 mt-1">
-          {expiryReason.length}/200 characters
-        </p>
-      </div>
-
-      {expiryDate && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-          <p className="text-xs text-amber-900">
-            <strong>⏰ You'll be notified:</strong><br/>
-            • 30 days before expiry<br/>
-            • 7 days before expiry<br/>
-            • On expiry date<br/>
-            • When someone tries to use expired version
-          </p>
-        </div>
-      )}
-    </div>
-
-    <div className="flex gap-3 justify-end">
-      <Button
-        variant="outline"
-        onClick={() => {
-          setShowExpiryDialog(false);
-          setExpiryDate('');
-          setExpiryReason('');
-        }}
-        disabled={settingExpiry}
-      >
-        Cancel
-      </Button>
-      <Button
-        onClick={handleSetExpiry}
-        disabled={settingExpiry}
-        className="bg-blue-600 hover:bg-blue-700"
-      >
-        {settingExpiry ? (
-          <>
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"
-            />
-            Setting...
-          </>
-        ) : (
-          <>
-            <Clock className="h-4 w-4 mr-2" />
-            {expiryDate ? 'Set Expiry' : 'Remove Expiry'}
-          </>
-        )}
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
+      {/* ── SET EXPIRY DIALOG ── */}
+      <Dialog open={showExpiryDialog} onOpenChange={setShowExpiryDialog}>
+        <DialogContent className="max-w-md mx-4 bg-white rounded-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Set Expiry Date</DialogTitle>
+            <DialogDescription>Set when version {selectedVersion?.version} should expire</DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-900">
+                <strong>💡 Why set expiry dates?</strong><br />
+                Prevent use of outdated contracts · Ensure compliance · Legal audit trail
+              </p>
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Expiry Date (Optional)</Label>
+              <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" />
+              <p className="text-xs text-slate-400 mt-1">Leave empty to remove expiry date</p>
+            </div>
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Reason (Optional)</Label>
+              <Textarea value={expiryReason} onChange={(e) => setExpiryReason(e.target.value)} placeholder="e.g., New pricing takes effect, Legal requirements changed" rows={3} className="resize-none text-sm" maxLength={200} />
+              <p className="text-xs text-slate-400 mt-1 text-right">{expiryReason.length}/200</p>
+            </div>
+            {expiryDate && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs text-amber-900">
+                  <strong>⏰ You'll be notified</strong> 30 days, 7 days, and on the expiry date.
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={() => { setShowExpiryDialog(false); setExpiryDate(''); setExpiryReason(''); }} disabled={settingExpiry}>Cancel</Button>
+            <Button onClick={handleSetExpiry} disabled={settingExpiry} className="bg-blue-600 hover:bg-blue-700">
+              {settingExpiry ? (
+                <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />Setting...</>
+              ) : (
+                <><Clock className="h-4 w-4 mr-2" />{expiryDate ? 'Set Expiry' : 'Remove Expiry'}</>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

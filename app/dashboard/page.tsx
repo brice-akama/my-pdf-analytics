@@ -8,6 +8,15 @@ import { useRouter } from "next/navigation"
 import DashboardOverview from '@/components/DashboardOverview';
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { EmailAutocomplete } from '@/components/ui/EmailAutocomplete';
+import TopNav from "@/components/dashboard/TopNav"
+import Sidebar from "@/components/dashboard/Sidebar"
+import MobileSidebar from "@/components/dashboard/MobileSidebar"
+import MobileProfileDrawer from "@/components/dashboard/MobileProfileDrawer"
+import NotificationsDrawer from "@/components/dashboard/NotificationsDrawer"
+import SettingsDrawer from "@/components/dashboard/SettingsDrawer"
+import TeamDrawer from "@/components/dashboard/TeamDrawer"
+import FeedbackDrawer from "@/components/dashboard/FeedbackDrawer"
+import ContactDrawer from "@/components/dashboard/ContactDrawer"
 import {
   Dialog,
   DialogContent,
@@ -3812,338 +3821,38 @@ case 'dashboard':
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
       {/* Top Navigation Bar */}
 {/* Top Navigation Bar */}
-<header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-  <div className="flex h-16 items-center gap-4 px-4 md:px-6">
-    {/* Mobile Menu Button */}
-    <Button
-      variant="ghost"
-      size="icon"
-      className="md:hidden"
-      onClick={() => setMobileMenuOpen(true)}
-    >
-      <Menu className="h-6 w-6" />
-    </Button>
+<TopNav
+  user={user}
+  unreadCount={unreadCount}
+  onOpenMobileMenu={() => setMobileMenuOpen(true)}
+  onOpenMobileSearch={() => setMobileSearchOpen(true)}
+  onOpenNotifications={() => setNotificationsOpen(true)}
+  onOpenSettings={() => setShowSettingsDialog(true)}
+  onOpenTeam={() => setShowTeamDrawer(true)}
+  onOpenBilling={() => setShowBillingDialog(true)}
+  onOpenResources={() => setShowResourcesDialog(true)}
+  onOpenHelp={() => setShowHelpDialog(true)}
+  onOpenFeedback={() => setShowFeedbackDialog(true)}
+  onOpenIntegrations={() => setShowIntegrationsDialog(true)}
+  onOpenContact={() => setShowContactDialog(true)}
+  onOpenMobileProfile={() => setShowMobileProfileDrawer(true)}
+  onLogout={handleLogout}
+/>
 
-    {/* Logo */}
-    <div className="flex items-center gap-2">
-      
-      <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent hidden sm:inline">
-        DocMetrics
-      </span>
-    </div>
-
-    {/* Desktop Search Bar - Centered */}
-    <div className="hidden md:flex flex-1 justify-center px-8">
-      <div className="w-full max-w-xl">
-        <GlobalSearch 
-          placeholder="Search documents, contacts, and more..."
-          autoFocus={false}
-        />
-      </div>
-    </div>
-
-    {/* Mobile: Search Icon + Profile (closer together) */}
-    <div className="flex md:hidden items-center gap-2 ml-auto">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setMobileSearchOpen(true)}
-      >
-        <Search className="h-5 w-5" />
-      </Button>
-
-      {/* Mobile Profile - Clickable Drawer Trigger */}
-      <button
-        onClick={() => setShowMobileProfileDrawer(true)}
-        className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-      >
-{user?.profile_image ? (
-    <>
-      {/* Initials as fallback/loading state */}
-      <span className="absolute inset-0 flex items-center justify-center">
-        {getInitials(user?.email || "")}
-      </span>
-      {/* Image loads on top */}
-      <Image
-        src={user.profile_image}
-        alt="Profile"
-        width={40}
-        height={40}
-        className="rounded-full object-cover w-full h-full relative z-10"
-        key={user.profile_image}
-        onError={(e) => {
-          // Hide image if it fails, show initials
-          e.currentTarget.style.display = 'none';
-        }}
-      />
-    </>
-  ) : (
-    getInitials(user?.email || "")
-  )}
-      </button>
-    </div>
-
-    {/* Desktop Right Side Actions */}
-    <div className="hidden md:flex items-center gap-3 ml-auto">
-      <Button
-        onClick={() => router.push('/plan')}
-        className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold px-4"
-      >
-        ⬆ Upgrade
-      </Button>
-
-      {/* Bell Icon Button */}
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="relative"
-        onClick={() => setNotificationsOpen(true)}
-      >
-        <Bell className="h-5 w-5 text-slate-600" />
-        {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
-      </Button>
-
-      {/* Desktop User Profile Dropdown */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-3 hover:bg-slate-50 rounded-lg p-2 transition-colors">
-            <div className="text-right hidden lg:block">
-              <div className="text-sm font-semibold text-slate-900">{user?.company_name}</div>
-              <div className="text-xs text-slate-600">{user?.email}</div>
-            </div>
-<div
-  className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden relative`}
->
-  {user?.profile_image ? (
-    <>
-      {/* Initials as fallback/loading state */}
-      <span className="absolute inset-0 flex items-center justify-center">
-        {getInitials(user?.email || "")}
-      </span>
-      {/* Image loads on top */}
-      <Image
-        src={user.profile_image}
-        alt="Profile"
-        width={40}
-        height={40}
-        className="rounded-full object-cover w-full h-full relative z-10"
-        key={user.profile_image}
-        onError={(e) => {
-          // Hide image if it fails, show initials
-          e.currentTarget.style.display = 'none';
-        }}
-      />
-    </>
-  ) : (
-    getInitials(user?.email || "")
-  )}
-</div>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-72 z-90 bg-white rounded-lg border shadow-md p-1">
-          {/* Keep existing dropdown content */}
-          <div className="px-4 py-3 bg-slate-50">
-            <div className="font-semibold text-slate-900 text-base">
-              {user?.company_name || "My Company"}
-            </div>
-            <div className="text-sm text-slate-600 mt-0.5">
-              Advanced Data Rooms
-            </div>
-          </div>
-          <DropdownMenuSeparator className="my-0" />
-          <div className="px-4 py-3 bg-white">
-            <div className="font-medium text-slate-900">
-              {user?.first_name} {user?.last_name}
-            </div>
-            <div className="text-sm text-slate-600">{user?.email}</div>
-          </div>
-          <DropdownMenuSeparator />
-          
-          <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Settings</span>
-          </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-            <LogOut className="mr-2 h-4 w-4" />
-            <span>Log out</span>
-          </DropdownMenuItem>
-          
-          <DropdownMenuSeparator />
-          
-          <DropdownMenuItem onClick={() => setShowTeamDrawer(true)}>
-            <UsersIcon className="mr-2 h-4 w-4" />
-            <span>Team</span>
-          </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={() => setShowBillingDialog(true)}>
-            <CreditCard className="mr-2 h-4 w-4" />
-            <span>Billing</span>
-          </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={() => setShowResourcesDialog(true)}>
-            <Book className="mr-2 h-4 w-4" />
-            <span>Resources</span>
-          </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={() => setShowHelpDialog(true)}>
-            <HelpCircle className="mr-2 h-4 w-4" />
-            <span>Help</span>
-          </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={() => setShowFeedbackDialog(true)}>
-            <Mail className="mr-2 h-4 w-4" />
-            <span>Feedback</span>
-          </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={() => setShowIntegrationsDialog(true)}>
-            <Puzzle className="mr-2 h-4 w-4" />
-            <span>Integrations</span>
-          </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={() => setShowContactDialog(true)}>
-            <Mail className="mr-2 h-4 w-4" />
-            <span>Contact Us</span>
-          </DropdownMenuItem>
-          
-          <DropdownMenuSeparator />
-          <div className="px-2 py-2">
-            <Button
-              onClick={() => {
-                router.push('/plan')
-              }}
-              className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-slate-900 font-semibold"
-            >
-              ⚡ Upgrade
-            </Button>
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  </div>
-</header>
-
-      {/* Mobile Menu Sidebar */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-80 p-0 bg-white">
-          <SheetHeader className="border-b p-6">
-            <SheetTitle className="flex items-center gap-3">
-              <div className="h-10 w-10">
-                
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                DocMetrics
-              </span>
-            </SheetTitle>
-          </SheetHeader>
-
-          {/* Search in Mobile Menu */}
-          {/* Search in Mobile Menu */}
-<div className="p-4 border-b">
-  <GlobalSearch 
-    placeholder="Search everything..."
-    autoFocus={false}
-  />
-</div>
-
-          {/* Navigation Items */}
-          <nav className="flex-1 space-y-1 p-4">
-            {sidebarItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleSidebarItemClick(item.id)}
-                className={`w-full flex items-center justify-between gap-3 px-3 py-3 rounded-lg font-medium transition-colors ${
-                  activePage === item.id
-                    ? 'bg-purple-50 text-purple-700'
-                    : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span className="text-xs text-slate-500">{item.badge}</span>
-                )}
-              </button>
-            ))}
-          </nav>
-
-          {/* User Info in Mobile Menu */}
-          <div className="border-t p-4">
-  <div className="flex items-center gap-3 mb-4">
-    <div
-      className={`h-12 w-12 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-semibold text-xl`}
-    >
-      {getInitials(user?.email || "")}
-    </div>
-    <div>
-      <div className="font-semibold text-slate-900">
-        {user?.first_name} {user?.last_name}
-      </div>
-      <div className="text-sm text-slate-600">{user?.email}</div>
-    </div>
-  </div>
-
-
-            <Button variant="outline" className="w-full mb-2">
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </Button>
-            <Button variant="outline" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50">
-              <LogOut className="mr-2 h-4 w-4" />
-              Log out
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Mobile Search Sidebar */}
-<Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
-  <SheetContent side="left" className="w-80 p-0 bg-white">
-    <SheetHeader className="border-b p-6">
-      <SheetTitle>Search</SheetTitle>
-    </SheetHeader>
-    <div className="p-4">
-      <GlobalSearch 
-        placeholder="Search everything..."
-        autoFocus={true}
-        onClose={() => setMobileSearchOpen(false)}
-      />
-    </div>
-  </SheetContent>
-</Sheet>
+     <MobileSidebar
+  menuOpen={mobileMenuOpen}
+  onMenuClose={() => setMobileMenuOpen(false)}
+  searchOpen={mobileSearchOpen}
+  onSearchClose={() => setMobileSearchOpen(false)}
+  user={user}
+  activePage={activePage}
+  onNavigate={(page) => { setActivePage(page); setMobileMenuOpen(false) }}
+  onOpenSettings={() => setShowSettingsDialog(true)}
+  onLogout={handleLogout}
+/>
        <div className="flex min-h-[calc(100vh-64px)]"> 
         {/* Sidebar with clickable links */}
- <aside className="hidden lg:flex w-64 flex-col border-r bg-white shadow-sm sticky top-16 h-[calc(100vh-64px)]">
-  <nav className="flex-1 space-y-1 p-4">
-    {sidebarItems.map((item) => (
-      <button
-        key={item.id}
-        onClick={() => handleSidebarItemClick(item.id)}
-        className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg font-semibold text-sm transition-all ${
-           activePage === item.id
-            ? 'bg-purple-50 text-purple-700'
-            : 'text-slate-700 hover:bg-purple-50 hover:text-purple-700'
-        }`}
-      >
-                <div className="flex items-center gap-3">
-  <item.icon className="h-5 w-5 flex-shrink-0" />
-  <span className="truncate">{item.label}</span>
-</div>
-{item.badge && (
-  <span className="text-xs text-slate-500 font-normal truncate">{item.badge}</span>
-)}
-              </button>
-            ))}
-          </nav>
-
-          
-        </aside>
+  <Sidebar activePage={activePage} onNavigate={setActivePage} />
 
         {/* Main Content */}
         <main className="flex-1 p-8">
@@ -4153,621 +3862,54 @@ case 'dashboard':
         </main>
       </div>
       {/* Settings Dialog */}
-{/* Settings Drawer - Modern Cart-Style */}
-<AnimatePresence>
-  {showSettingsDialog && (
-    <>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={() => setShowSettingsDialog(false)}
-        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
-      />
-
-      {/* Drawer */}
-      <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[800px] bg-white shadow-2xl z-50 flex flex-col"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
-            <p className="text-sm text-slate-600 mt-1">Manage your account settings and preferences</p>
-          </div>
-          <button
-            onClick={() => setShowSettingsDialog(false)}
-            className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
-          >
-            <X className="h-5 w-5 text-slate-600" />
-          </button>
-          <input
-  id="settings-avatar-upload"
-  type="file"
-  accept="image/jpeg,image/png,image/gif,image/webp"
-  className="hidden"
-  onChange={(e) => {
-    const file = e.target.files?.[0];
-    if (file) handleAvatarUpload(file);
+<SettingsDrawer
+  open={showSettingsDialog}
+  onClose={() => setShowSettingsDialog(false)}
+  user={user}
+  uploadingAvatar={uploadingAvatar}
+  notificationPreferences={notificationPreferences}
+  showCurrentPassword={showCurrentPassword}
+  showNewPassword={showNewPassword}
+  showConfirmPassword={showConfirmPassword}
+  onToggleCurrentPw={() => setShowCurrentPassword(p => !p)}
+  onToggleNewPw={() => setShowNewPassword(p => !p)}
+  onToggleConfirmPw={() => setShowConfirmPassword(p => !p)}
+  onAvatarUpload={handleAvatarUpload}
+  onRemoveAvatar={async () => {
+    const res = await fetch("/api/user/avatar", { method: "DELETE", credentials: "include" })
+    if (res.ok) setUser(prev => prev ? { ...prev, profile_image: null } : null)
   }}
+  onSaveProfile={handleSaveProfileChanges}
+  onPasswordChange={handlePasswordChange}
+  onUpdatePreferences={updatePreferences}
+  onSetPreferences={setNotificationPreferences}
 />
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          <Tabs defaultValue="profile" className="w-full">
-            <div className="sticky top-0 bg-white border-b px-6 pt-4 z-10">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="profile">Profile</TabsTrigger>
-                <TabsTrigger value="notifications">Notifications</TabsTrigger>
-                <TabsTrigger value="security">Security</TabsTrigger>
-              </TabsList>
-            </div>
-
-            <div className="px-6 py-6">
-              <TabsContent value="profile" className="space-y-6 mt-0">
-                {/* ✅ AVATAR SECTION */}
-                <div className="space-y-4 pb-6 border-b">
-                  <Label className="text-base font-semibold">Profile Picture</Label>
-                  <div className="flex items-center gap-6">
-                    {/* Large Avatar Preview */}
-                    <div className="relative">
-                      <div className={`h-28 w-28 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-bold text-4xl shadow-lg overflow-hidden ring-4 ring-white`}>
-                        {user?.profile_image ? (
-                          <Image
-                            src={user.profile_image}
-                            alt="Profile"
-                            width={112}
-                            height={112}
-                            className="rounded-full object-cover w-full h-full"
-                          />
-                        ) : (
-                          getInitials(user?.email || "")
-                        )}
-                      </div>
-                      {/* Status indicator */}
-                      <div className="absolute bottom-2 right-2 h-7 w-7 bg-green-500 rounded-full border-4 border-white"></div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-col gap-3 flex-1">
-                      <div>
-                        <p className="text-base font-semibold text-slate-900 mb-1">
-                          {user?.first_name} {user?.last_name}
-                        </p>
-                        <p className="text-sm text-slate-500 mb-3">{user?.email}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => document.getElementById('settings-avatar-upload')?.click()}
-  disabled={uploadingAvatar}
-                          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                        >
-                          <Upload className="h-4 w-4" />
-                          Upload Photo
-                        </Button>
-                        {user?.profile_image && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={async () => {
-                              if (!confirm('Remove your profile picture? Your initials will be shown instead.')) return;
-                              
-                              try {
-                                const res = await fetch("/api/user/avatar", {
-                                  method: 'DELETE',
-                                  credentials: 'include',
-                                });
-
-                                if (res.ok) {
-  setUser(prev => prev ? { ...prev, profile_image: null } : null);
-  toast.success('Profile picture removed', {
-    description: 'Your initials will be shown instead'
-  });
-}
-                              } catch (error) {
-                                console.error('Remove avatar error:', error);
-                                alert('Failed to remove picture');
-                              }
-                            }}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Remove
-                          </Button>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500">
-                        Recommended: Square image, at least 400x400px
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Profile Fields */}
-                <div className="space-y-4">
-                  <div className="space-y-2">
-  <Label>Full Name *</Label>
-  <Input 
-    id="profile-full-name"
-    defaultValue={user?.first_name && user?.last_name 
-      ? `${user.first_name} ${user.last_name}`.trim() 
-      : ''}
-    className="h-11" 
-    placeholder="John Doe"
-  />
-</div>
-                  <div className="space-y-2">
-                    <Label>Email</Label>
-                    <Input defaultValue={user?.email} type="email" className="h-11" />
-                  </div>
-                   <div className="space-y-2">
-  <Label>Company Name</Label>
-  <Input 
-    id="profile-company-name"
-    defaultValue={user?.company_name || ''} 
-    className="h-11" 
-    placeholder="Acme Inc."
-  />
-</div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="notifications" className="space-y-4 mt-0">
-  {notificationPreferences && (
-    <>
-      <div className="flex items-center justify-between py-4 border-b">
-        <div>
-          <p className="font-medium text-slate-900">Email Notifications</p>
-          <p className="text-sm text-slate-500 mt-1">Receive email when someone views your document</p>
-        </div>
-        <Switch 
-          checked={notificationPreferences.emailNotifications}
-          onCheckedChange={(checked) => {
-            setNotificationPreferences({
-              ...notificationPreferences,
-              emailNotifications: checked
-            });
-            updatePreferences({ ...notificationPreferences, emailNotifications: checked });
-          }}
-        />
-      </div>
-      
-      <div className="flex items-center justify-between py-4 border-b">
-        <div>
-          <p className="font-medium text-slate-900">Document Reminders</p>
-          <p className="text-sm text-slate-500 mt-1">Get reminders about pending signatures</p>
-        </div>
-        <Switch 
-          checked={notificationPreferences.documentReminders}
-          onCheckedChange={(checked) => {
-            setNotificationPreferences({
-              ...notificationPreferences,
-              documentReminders: checked
-            });
-            updatePreferences({ ...notificationPreferences, documentReminders: checked });
-          }}
-        />
-      </div>
-      
-      <div className="flex items-center justify-between py-4">
-        <div>
-          <p className="font-medium text-slate-900">Marketing Emails</p>
-          <p className="text-sm text-slate-500 mt-1">Receive updates about new features</p>
-        </div>
-        <Switch 
-          checked={notificationPreferences.marketingEmails}
-          onCheckedChange={(checked) => {
-            setNotificationPreferences({
-              ...notificationPreferences,
-              marketingEmails: checked
-            });
-            updatePreferences({ ...notificationPreferences, marketingEmails: checked });
-          }}
-        />
-      </div>
-    </>
-  )}
-</TabsContent>
-
-              <TabsContent value="security" className="space-y-4 mt-0">
-  <div className="space-y-2">
-    <Label>Current Password</Label>
-    <div className="relative">
-      <Input 
-        id="current-password"
-        type={showCurrentPassword ? "text" : "password"}
-        placeholder="Enter current password" 
-        className="h-11 pr-10" 
-      />
-      <button
-        type="button"
-        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-      >
-        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
-    </div>
-  </div>
-  
-  <div className="space-y-2">
-    <Label>New Password</Label>
-    <div className="relative">
-      <Input 
-        id="new-password"
-        type={showNewPassword ? "text" : "password"}
-        placeholder="Enter new password" 
-        className="h-11 pr-10" 
-      />
-      <button
-        type="button"
-        onClick={() => setShowNewPassword(!showNewPassword)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-      >
-        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
-    </div>
-  </div>
-  
-  <div className="space-y-2">
-    <Label>Confirm New Password</Label>
-    <div className="relative">
-      <Input 
-        id="confirm-password"
-        type={showConfirmPassword ? "text" : "password"}
-        placeholder="Confirm new password" 
-        className="h-11 pr-10" 
-      />
-      <button
-        type="button"
-        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-      >
-        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
-    </div>
-  </div>
-  
-  <Button
-    onClick={handlePasswordChange}
-    className="w-full bg-gradient-to-r from-purple-600 to-blue-600"
-  >
-    Update Password
-  </Button>
-</TabsContent>
-            </div>
-          </Tabs>
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t bg-white sticky bottom-0">
-          <div className="flex gap-3 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setShowSettingsDialog(false)}
-              className="h-11"
-            >
-              Cancel
-            </Button>
-            <Button
-  onClick={handleSaveProfileChanges}
-  className="h-11 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
->
-  Save Changes
-</Button>
-          </div>
-        </div>
-      </motion.div>
-    </>
-  )}
-</AnimatePresence>
-
  
 
 
-{/* Team Drawer */}
-{/* Team Drawer - IMPROVED WIDTH & STYLING */}
-<Sheet open={showTeamDrawer} onOpenChange={setShowTeamDrawer}>
-  <SheetContent 
-    side="right" 
-    className="w-full sm:max-w-2xl lg:max-w-4xl p-0 flex flex-col bg-white overflow-hidden"
-  >
-    {/* Header */}
-    <SheetHeader className="px-8 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
-      <SheetTitle className="text-2xl font-bold text-slate-900">Team Members</SheetTitle>
-      <SheetDescription className="text-sm text-slate-600 mt-1">
-        Invite colleagues and manage team permissions
-      </SheetDescription>
-    </SheetHeader>
-
-    {/* Content */}
-    <div className="flex-1 overflow-y-auto">
-      <div className="px-8 py-6 space-y-6">
-        {/* Invite Section - UPDATED COLORS */}
-        <div className="bg-gradient-to-br from-brand-primary-50 to-brand-secondary-50 border-2 border-brand-primary-200 rounded-xl p-6 space-y-4">
-          <div className="flex items-start gap-3 mb-3">
-            <div className="h-10 w-10 rounded-lg bg-brand-primary-600 flex items-center justify-center flex-shrink-0">
-              <Mail className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <Label className="text-lg font-bold text-slate-900 block mb-1">
-                Invite Team Member
-              </Label>
-              <p className="text-sm text-slate-600">
-                Enter their email address and select a role to send an invitation
-              </p>
-            </div>
-          </div>
-          
-          {/* Input Row */}
-          <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
-                  Email Address <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  type="email"
-                  placeholder="colleague@company.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="h-12 text-base bg-white border-slate-300 focus:border-purple-500 focus:ring-purple-500"
-                />
-              </div>
-              
-              <div className="w-full sm:w-48 space-y-2">
-                <Label className="text-sm font-medium text-slate-700">
-                  Role <span className="text-red-500">*</span>
-                </Label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  className="w-full h-12 px-4 border border-slate-300 rounded-lg text-base bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                >
-                  <option value="member">Member</option>
-                  <option value="admin">Admin</option>
-                  <option value="viewer">Viewer</option>
-                </select>
-              </div>
-            </div>
-            
-            {/* Send Button - Full Width on Mobile */}
-            <Button
-              onClick={handleInviteMember}
-              disabled={!inviteEmail.trim()}
-              className="w-full h-12 text-base font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg"
-            >
-              <Send className="h-5 w-5 mr-2" />
-              Send Invitation
-            </Button>
-          </div>
-          
-          {/* Role Descriptions - UPDATED COLORS */}
-          <div className="bg-white/80 backdrop-blur border border-brand-primary-200 rounded-lg p-4 space-y-2">
-            <p className="text-xs font-semibold text-slate-900 mb-2">Role Permissions:</p>
-            <div className="grid sm:grid-cols-3 gap-3 text-xs text-slate-700">
-              <div className="flex items-start gap-2">
-                <div className="h-5 w-5 rounded bg-brand-secondary-100 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="h-3 w-3 text-brand-secondary-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-brand-secondary-900">Admin</p>
-                  <p className="text-slate-600">Full access + team management</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="h-5 w-5 rounded bg-brand-primary-100 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="h-3 w-3 text-brand-primary-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-brand-primary-900">Member</p>
-                  <p className="text-slate-600">Create, edit, share documents</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="h-5 w-5 rounded bg-slate-100 flex items-center justify-center flex-shrink-0">
-                  <Eye className="h-3 w-3 text-slate-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-slate-900">Viewer</p>
-                  <p className="text-slate-600">View documents only</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Team Members List */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label className="text-lg font-bold text-slate-900">
-              Team Members ({teamMembers.length})
-            </Label>
-            {teamMembers.some(m => m.status === 'invited') && (
-              <span className="text-xs text-orange-600 font-medium bg-orange-50 px-3 py-1 rounded-full">
-                {teamMembers.filter(m => m.status === 'invited').length} pending
-              </span>
-            )}
-          </div>
-          
-          {loadingTeam ? (
-            <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
-              <Loader2 className="h-10 w-10 animate-spin text-purple-600 mx-auto mb-3" />
-              <p className="text-sm text-slate-600">Loading team members...</p>
-            </div>
-          ) : teamMembers.length > 0 ? (
-            <div className="border-2 border-slate-200 rounded-xl divide-y divide-slate-200 overflow-hidden">
-              {teamMembers.map((member) => (
-                <div key={member.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    {/* Avatar */}
-                    <div className={`h-12 w-12 rounded-full bg-gradient-to-br ${getAvatarColor(member.email)} flex items-center justify-center text-white font-bold text-lg flex-shrink-0 shadow-md`}>
-                      {member.avatarUrl ? (
-                        <Image
-                          src={member.avatarUrl}
-                          alt={member.name}
-                          width={48}
-                          height={48}
-                          className="rounded-full object-cover"
-                        />
-                      ) : (
-                        member.name.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-900 truncate text-base">
-                        {member.name}
-                      </p>
-                      <p className="text-sm text-slate-500 truncate">
-                        {member.email}
-                      </p>
-                      {member.status === 'invited' && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <Clock className="h-3 w-3 text-orange-500" />
-                          <p className="text-xs text-orange-600 font-medium">
-                            Invitation pending • Sent {formatTimeAgo(member.invitedAt)}
-                          </p>
-                        </div>
-                      )}
-                      {member.lastActiveAt && member.status === 'active' && (
-                        <p className="text-xs text-slate-400 mt-1">
-                          Last active {formatTimeAgo(member.lastActiveAt)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Actions */}
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    {member.role === 'owner' ? (
-                      <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md">
-                        Owner
-                      </span>
-                    ) : (
-                      <>
-                        <select
-                          value={member.role}
-                          onChange={(e) => handleUpdateRole(member.id, e.target.value)}
-                          className="px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-medium bg-white hover:border-purple-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none transition-colors"
-                          disabled={member.status === 'invited'}
-                        >
-                          <option value="admin">Admin</option>
-                          <option value="member">Member</option>
-                          <option value="viewer">Viewer</option>
-                        </select>
-                        
-                        {member.status === 'invited' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={async () => {
-                              const loadingToast = toast.loading('Resending invitation...')
-                              
-                              const res = await fetch("/api/team/resend-invite", {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ memberId: member.id }),
-                              })
-                              
-                              if (res.ok) {
-                                const data = await res.json()
-                                toast.success('Invitation resent!', {
-                                  id: loadingToast,
-                                  description: 'Check your clipboard for the link'
-                                })
-                                setGeneratedInviteLink(data.inviteLink)
-                                setShowInviteLinkDialog(true)
-                              } else {
-                                toast.error('Failed to resend', {
-                                  id: loadingToast
-                                })
-                              }
-                            }}
-                            className="gap-2"
-                          >
-                            <Mail className="h-4 w-4" />
-                            Resend
-                          </Button>
-                        )}
-                        
-                        <Button
-  variant="ghost"
-  size="sm"
-  onClick={() => handleRemoveMember(member.id, member.name)}
-  className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
->
-  <Trash2 className="h-4 w-4" />
-  Remove
-</Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
-              <UsersIcon className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-              <p className="text-base font-medium text-slate-900 mb-1">No team members yet</p>
-              <p className="text-sm text-slate-500">Invite your first team member above</p>
-            </div>
-          )}
-        </div>
-
-        {/* Upgrade Prompt */}
-        {teamMembers.length >= 3 && user?.plan === 'free' && (
-          <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl p-6 shadow-lg">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-xl bg-yellow-500 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-lg font-bold text-yellow-900 mb-1">
-                  🎯 Reached Free Plan Limit
-                </p>
-                <p className="text-sm text-yellow-800 mb-4">
-                  Upgrade to Pro for unlimited team members, advanced analytics, and priority support
-                </p>
-                <Button
-                  size="lg"
-                  onClick={() => {
-                    setShowTeamDrawer(false)
-                    router.push('/plan')
-                  }}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold shadow-md"
-                >
-                  ⚡ Upgrade Now
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-
-    {/* Footer */}
-    <div className="px-8 py-4 border-t bg-slate-50 sticky bottom-0 shadow-lg">
-      <Button
-        variant="outline"
-        onClick={() => setShowTeamDrawer(false)}
-        className="w-full h-12 text-base font-semibold"
-      >
-        Close
-      </Button>
-    </div>
-  </SheetContent>
-</Sheet>
+<TeamDrawer
+  open={showTeamDrawer}
+  onClose={() => setShowTeamDrawer(false)}
+  user={user}
+  teamMembers={teamMembers}
+  loadingTeam={loadingTeam}
+  inviteEmail={inviteEmail}
+  inviteRole={inviteRole}
+  generatedInviteLink={generatedInviteLink}
+  showInviteLinkDialog={showInviteLinkDialog}
+  showDeleteMemberDialog={showDeleteMemberDialog}
+  memberToDelete={memberToDelete}
+  onSetInviteEmail={setInviteEmail}
+  onSetInviteRole={setInviteRole}
+  onInviteMember={handleInviteMember}
+  onRemoveMember={handleRemoveMember}
+  onConfirmRemoveMember={confirmRemoveMember}
+  onUpdateRole={handleUpdateRole}
+  onSetShowInviteLinkDialog={setShowInviteLinkDialog}
+  onSetShowDeleteMemberDialog={setShowDeleteMemberDialog}
+  onSetMemberToDelete={setMemberToDelete}
+  onSetGeneratedInviteLink={setGeneratedInviteLink}
+/>
 
 {/* Invite Link Dialog */}
 <Dialog open={showInviteLinkDialog} onOpenChange={setShowInviteLinkDialog}>
@@ -6223,314 +5365,24 @@ case 'dashboard':
   )}
 </AnimatePresence>
 
-{/* Feedback Drawer */}
-{/* UPDATED: Send Feedback Drawer */}
-<AnimatePresence>
-  {showFeedbackDialog && (
-    <>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={() => setShowFeedbackDialog(false)}
-        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
-      />
+<FeedbackDrawer
+  open={showFeedbackDialog}
+  onClose={() => setShowFeedbackDialog(false)}
+  feedbackText={feedbackText}
+  onSetFeedback={setFeedbackText}
+  onSubmit={handleFeedbackSubmit}
+  userEmail={user?.email}
+/>
 
-      {/* Drawer */}
-      <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[800px] bg-white shadow-2xl z-50 flex flex-col"
-      >
-        {/* Header - UPDATED */}
-        <div className="flex items-center justify-between px-8 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">Send Feedback</h2>
-            <p className="text-sm text-slate-600 mt-1">Help us improve DocMetrics</p>
-          </div>
-          <button
-            onClick={() => setShowFeedbackDialog(false)}
-            className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
-          >
-            <X className="h-5 w-5 text-slate-600" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8">
-          <div className="space-y-6 max-w-3xl">
-            {/* Feedback Type Selection - UPDATED COLORS */}
-            <div className="grid grid-cols-3 gap-4">
-              <button className="p-5 border-2 border-slate-200 rounded-xl hover:border-red-400 hover:bg-red-50/30 transition-all text-center group">
-                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">🐛</div>
-                <p className="text-sm font-semibold text-slate-900">Bug Report</p>
-              </button>
-              <button className="p-5 border-2 border-slate-200 rounded-xl hover:border-brand-primary-400 hover:bg-brand-primary-50/30 transition-all text-center group">
-                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">💡</div>
-                <p className="text-sm font-semibold text-slate-900">Feature Request</p>
-              </button>
-              <button className="p-5 border-2 border-slate-200 rounded-xl hover:border-brand-secondary-400 hover:bg-brand-secondary-50/30 transition-all text-center group">
-                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">💬</div>
-                <p className="text-sm font-semibold text-slate-900">General Feedback</p>
-              </button>
-            </div>
-
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <Label className="text-base font-semibold text-slate-900">Your Feedback</Label>
-                <Textarea 
-                  placeholder="Tell us what you think, report bugs, or suggest new features..."
-                  rows={8}
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  className="resize-none border-2 border-slate-200 focus:border-brand-primary-400 focus:ring-brand-primary-400"
-                />
-                <p className="text-xs text-slate-500">
-                  Be as detailed as possible. Screenshots can be sent to support@docmetrics.com
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-base font-semibold text-slate-900">Email (optional)</Label>
-                <Input 
-                  type="email"
-                  placeholder="your@email.com"
-                  defaultValue={user?.email}
-                  disabled
-                  className="bg-slate-50 h-12 border-2"
-                />
-                <p className="text-xs text-slate-500">
-                  We'll use this to follow up if needed
-                </p>
-              </div>
-            </div>
-
-            {/* Info Box - UPDATED */}
-            <div className="bg-gradient-to-br from-brand-primary-50 to-brand-secondary-50 border-2 border-brand-primary-200 rounded-xl p-6">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-lg bg-brand-primary-600 flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-brand-primary-900 mb-2">We value your feedback!</h4>
-                  <p className="text-sm text-brand-primary-800 leading-relaxed">
-                    Your suggestions help us build a better product. We read every piece of feedback 
-                    and many of our best features came from user suggestions like yours.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer - UPDATED */}
-        <div className="px-8 py-4 border-t bg-white sticky bottom-0 shadow-lg">
-          <div className="flex gap-3 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowFeedbackDialog(false)
-                setFeedbackText('')
-              }}
-              className="h-12 px-6"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleFeedbackSubmit}
-              disabled={!feedbackText.trim()}
-              className="h-12 px-6 bg-gradient-to-r from-brand-primary-600 to-brand-secondary-600 hover:from-brand-primary-700 hover:to-brand-secondary-700"
-            >
-              <Send className="mr-2 h-4 w-4" />
-              Submit Feedback
-            </Button>
-          </div>
-        </div>
-      </motion.div>
-    </>
-  )}
-</AnimatePresence>
-
-{/* Contact Us Dialog - UPDATED WITH EMAIL */}
-<AnimatePresence>
-  {showContactDialog && (
-    <>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={() => setShowContactDialog(false)}
-        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
-      />
-
-      {/* Drawer */}
-      <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[800px] bg-white shadow-2xl z-50 flex flex-col"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-8 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">Contact Support</h2>
-            <p className="text-sm text-slate-600 mt-1">Send us a message and we'll respond within 24 hours</p>
-          </div>
-          <button
-            onClick={() => setShowContactDialog(false)}
-            className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
-          >
-            <X className="h-5 w-5 text-slate-600" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8">
-          <div className="space-y-5 max-w-3xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Your Name</Label>
-                <Input 
-                  value={`${user?.first_name} ${user?.last_name}`.trim()}
-                  disabled
-                  className="bg-slate-50"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Email Address</Label>
-                <Input 
-                  value={user?.email}
-                  disabled
-                  className="bg-slate-50"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Subject *</Label>
-              <Input 
-                placeholder="How can we help?" 
-                value={supportSubject}
-                onChange={(e) => setSupportSubject(e.target.value)}
-                className="h-12"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Message *</Label>
-              <Textarea 
-                placeholder="Tell us more about your inquiry..." 
-                rows={8}
-                value={supportMessage}
-                onChange={(e) => setSupportMessage(e.target.value)}
-                className="resize-none"
-              />
-            </div>
-
-            {/* Quick Contact Options */}
-            <div className="bg-gradient-to-br from-brand-primary-50 to-brand-secondary-50 border-2 border-brand-primary-200 rounded-xl p-6">
-              <h4 className="font-bold text-brand-primary-900 mb-4 flex items-center gap-2 text-lg">
-                <Sparkles className="h-5 w-5" />
-                Other Ways to Reach Us
-              </h4>
-              <div className="space-y-3">
-                <a 
-                  href="mailto:support@docmetrics.io"
-                  className="flex items-center gap-3 p-4 bg-white/80 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-brand-primary-200"
-                >
-                  <div className="h-10 w-10 rounded-lg bg-brand-primary-500 flex items-center justify-center flex-shrink-0">
-                    <Mail className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Direct Email</p>
-                    <p className="text-sm text-slate-600">support@docmetrics.io</p>
-                  </div>
-                </a>
-
-                <div className="flex items-center gap-3 p-4 bg-white/80 rounded-lg">
-                  <div className="h-10 w-10 rounded-lg bg-success-DEFAULT flex items-center justify-center flex-shrink-0">
-                    <Clock className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Response Time</p>
-                    <p className="text-sm text-slate-600">Usually within 24 hours</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="px-8 py-4 border-t bg-white sticky bottom-0 shadow-lg">
-          <div className="flex gap-3">
-            <Button 
-              variant="outline" 
-              className="flex-1 h-12"
-              onClick={() => {
-                setShowContactDialog(false)
-                setSupportSubject('')
-                setSupportMessage('')
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              disabled={!supportSubject.trim() || !supportMessage.trim()}
-              className="flex-1 h-12 bg-gradient-to-r from-brand-primary-500 to-brand-secondary-500 hover:from-brand-primary-600 hover:to-brand-secondary-600 shadow-lg"
-              onClick={async () => {
-                const loadingToast = toast.loading('Sending message...')
-                
-                try {
-                  const res = await fetch('/api/support', {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      subject: supportSubject.trim(),
-                      message: supportMessage.trim(),
-                    }),
-                  })
-
-                  const data = await res.json()
-
-                  if (res.ok) {
-                    toast.success('Message sent!', {
-                      id: loadingToast,
-                      description: "We'll get back to you within 24 hours"
-                    })
-                    setShowContactDialog(false)
-                    setSupportSubject('')
-                    setSupportMessage('')
-                  } else {
-                    toast.error(data.error || 'Failed to send message', {
-                      id: loadingToast
-                    })
-                  }
-                } catch (error) {
-                  console.error('Support error:', error)
-                  toast.error('Network error', {
-                    id: loadingToast
-                  })
-                }
-              }}
-            >
-              <Mail className="mr-2 h-4 w-4" />
-              Send Message
-            </Button>
-          </div>
-        </div>
-      </motion.div>
-    </>
-  )}
-</AnimatePresence>
-
+<ContactDrawer
+  open={showContactDialog}
+  onClose={() => setShowContactDialog(false)}
+  user={user}
+  supportSubject={supportSubject}
+  supportMessage={supportMessage}
+  onSetSubject={setSupportSubject}
+  onSetMessage={setSupportMessage}
+/>
 
 {/* Earn Credit Dialog */}
 <Dialog open={showEarnCreditDialog} onOpenChange={setShowEarnCreditDialog}>
@@ -6791,209 +5643,23 @@ case 'dashboard':
 </Sheet> 
 
 {/* Mobile Profile Drawer */}
-<AnimatePresence>
-  {showMobileProfileDrawer && (
-    <>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={() => setShowMobileProfileDrawer(false)}
-        className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50 md:hidden"
-      />
-
-      {/* Drawer */}
-      <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="fixed right-0 top-0 bottom-0 w-full sm:w-[400px] bg-white shadow-2xl z-50 flex flex-col md:hidden"
-      >
-        {/* Header */}
-        <div className="px-6 py-5 border-b bg-gradient-to-r from-purple-50 to-blue-50">
-          <div className="flex items-center gap-4 mb-4">
-            <div
-              className={`h-16 w-16 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email || "")} flex items-center justify-center text-white font-bold text-2xl shadow-lg overflow-hidden`}
-            >
-              {user?.profile_image ? (
-                <Image
-                  src={user.profile_image}
-                  alt="Profile"
-                  width={64}
-                  height={64}
-                  className="rounded-full object-cover w-full h-full"
-                  key={user.profile_image}
-                  unoptimized
-                />
-              ) : (
-                getInitials(user?.email || "")
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-bold text-slate-900 text-lg truncate">
-                {user?.first_name} {user?.last_name}
-              </div>
-              <div className="text-sm text-slate-600 truncate">{user?.email}</div>
-              <div className="text-xs text-slate-500 mt-1">{user?.company_name || "My Company"}</div>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowMobileProfileDrawer(false)}
-            className="absolute top-4 right-4 h-8 w-8 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
-          >
-            <X className="h-5 w-5 text-slate-600" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto bg-white">
-          <div className="p-4 space-y-2">
-            {/* Upgrade Button */}
-            <Button
-              onClick={() => {
-                setShowMobileProfileDrawer(false)
-                router.push('/plan')
-              }}
-              className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-slate-900 font-semibold h-12 mb-3"
-            >
-              ⚡ Upgrade to Pro
-            </Button>
-
-            {/* Notifications */}
-            <button
-              onClick={() => {
-                setShowMobileProfileDrawer(false)
-                setNotificationsOpen(true)
-              }}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Bell className="h-5 w-5 text-slate-600" />
-                <span className="font-medium text-slate-900">Notifications</span>
-              </div>
-              {unreadCount > 0 && (
-                <span className="h-6 w-6 bg-red-500 rounded-full text-xs text-white flex items-center justify-center font-semibold">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
-
-            {/* Divider */}
-            <div className="border-t my-2"></div>
-
-            {/* Menu Items */}
-            <button
-              onClick={() => {
-                setShowMobileProfileDrawer(false)
-                setShowSettingsDialog(true)
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <Settings className="h-5 w-5 text-slate-600" />
-              <span className="font-medium text-slate-900">Settings</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowMobileProfileDrawer(false)
-                setShowTeamDrawer(true)
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <UsersIcon className="h-5 w-5 text-slate-600" />
-              <span className="font-medium text-slate-900">Team</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowMobileProfileDrawer(false)
-                setShowBillingDialog(true)
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <CreditCard className="h-5 w-5 text-slate-600" />
-              <span className="font-medium text-slate-900">Billing</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowMobileProfileDrawer(false)
-                setShowResourcesDialog(true)
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <Book className="h-5 w-5 text-slate-600" />
-              <span className="font-medium text-slate-900">Resources</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowMobileProfileDrawer(false)
-                setShowHelpDialog(true)
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <HelpCircle className="h-5 w-5 text-slate-600" />
-              <span className="font-medium text-slate-900">Help</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowMobileProfileDrawer(false)
-                setShowFeedbackDialog(true)
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <Mail className="h-5 w-5 text-slate-600" />
-              <span className="font-medium text-slate-900">Feedback</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowMobileProfileDrawer(false)
-                setShowIntegrationsDialog(true)
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <Puzzle className="h-5 w-5 text-slate-600" />
-              <span className="font-medium text-slate-900">Integrations</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowMobileProfileDrawer(false)
-                setShowContactDialog(true)
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              <Mail className="h-5 w-5 text-slate-600" />
-              <span className="font-medium text-slate-900">Contact Us</span>
-            </button>
-
-            {/* Divider */}
-            <div className="border-t my-2"></div>
-
-            {/* Logout */}
-            <button
-              onClick={() => {
-                setShowMobileProfileDrawer(false)
-                handleLogout()
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-red-50 transition-colors text-red-600"
-            >
-              <LogOut className="h-5 w-5" />
-              <span className="font-medium">Log out</span>
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </>
-  )}
-</AnimatePresence>
-
-
+<MobileProfileDrawer
+  open={showMobileProfileDrawer}
+  onClose={() => setShowMobileProfileDrawer(false)}
+  user={user}
+  unreadCount={unreadCount}
+  onOpenNotifications={() => setNotificationsOpen(true)}
+  onOpenSettings={() => setShowSettingsDialog(true)}
+  onOpenTeam={() => setShowTeamDrawer(true)}
+  onOpenBilling={() => setShowBillingDialog(true)}
+  onOpenResources={() => setShowResourcesDialog(true)}
+  onOpenHelp={() => setShowHelpDialog(true)}
+  onOpenFeedback={() => setShowFeedbackDialog(true)}
+  onOpenIntegrations={() => setShowIntegrationsDialog(true)}
+  onOpenContact={() => setShowContactDialog(true)}
+  onLogout={handleLogout}
+  onUpgrade={() => router.push("/plan")}
+/>
 
 <Sheet open={showCreateFileRequestDialog} onOpenChange={setShowCreateFileRequestDialog}>
   <SheetContent side="right" className="w-full sm:w-[540px] p-0 flex flex-col bg-white">
@@ -7719,183 +6385,15 @@ case 'dashboard':
   </SheetContent>
 </Sheet>
 
-{/* Notifications Drawer - Modern Slide-in */}
-<AnimatePresence>
-  {notificationsOpen && (
-    <>
-    {/* Backdrop */}
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      onClick={() => setNotificationsOpen(false)}
-      className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
-    />
-
-      {/* Drawer */}
-      <motion.div
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="fixed right-0 top-0 bottom-0 w-full sm:w-[480px] bg-white shadow-2xl z-50 flex flex-col"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b bg-gradient-to-r from-brand-primary-50 to-brand-secondary-50 sticky top-0 z-10">
-          <div>
-  <h2 className="text-2xl font-bold text-slate-900">Notifications</h2>
-  <p className="text-sm text-slate-600 mt-1">
-    {unreadCount > 0 ? `${unreadCount} unread` : 'All caught up!'}
-  </p>
-</div>
-          <div className="flex items-center gap-2">
-             {unreadCount > 0 && (
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => markAsRead()}
-        className="text-xs font-semibold text-blue-600 hover:text-brand-primary-700 hover:bg-brand-primary-50"
-      >
-        Mark all read
-      </Button>
-    )}
-            <button
-              onClick={() => setNotificationsOpen(false)}
-              className="h-8 w-8 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
-            >
-              <X className="h-5 w-5 text-slate-600" />
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          {notifications.length > 0 ? (
-            <div className="divide-y divide-slate-100">
-              {notifications.map((notification) => (
-                <motion.div
-  key={notification._id}
-  initial={{ opacity: 0, x: 20 }}
-  animate={{ opacity: 1, x: 0 }}
-  className={`p-5 hover:bg-slate-50 cursor-pointer transition-all group relative ${
-    !notification.read ? 'bg-brand-secondary-50/30 border-l-4 border-l-brand-secondary-500' : ''
-  }`}
-               onClick={() => {
-  markAsRead(notification._id)
-  setNotificationsOpen(false)
-  
-  let targetUrl;
-  
-  //   Use redirectUrl if provided
-  if (notification.redirectUrl) {
-    targetUrl = notification.redirectUrl;
-  } 
-  //   PRIORITY 2: Use uniqueId from metadata for signature notifications
-  else if (notification.type === 'signature' && notification.metadata?.uniqueId) {
-    targetUrl = `/signed/${notification.metadata.uniqueId}`;
-  } 
-  //   PRIORITY 3: Fallback to document analytics
-  else if (notification.documentId) {
-    targetUrl = `/documents/${notification.documentId}`;
-  }
-  
-  if (targetUrl) {
-     window.location.href = targetUrl;
-  }
-}}   >
-                  {/* Delete Button */}
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation()
-                      
-                      try {
-                        const res = await fetch(`/api/notifications?id=${notification._id}`, {
-                          method: 'DELETE',
-                          credentials: 'include'
-                        })
-                        
-                        if (res.ok) {
-                          toast.success('Notification deleted')
-                          fetchNotifications()
-                        } else {
-                          toast.error('Failed to delete')
-                        }
-                      } catch (error) {
-                        console.error('Delete error:', error)
-                        toast.error('Failed to delete')
-                      }
-                    }}
-                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-100 rounded-full z-10"
-                    aria-label="Delete notification"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </button>
-
-                  <div className="flex gap-4">
-                    {/* Icon */}
-<div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
-  notification.type === 'view' ? 'bg-brand-secondary-100' :
-  notification.type === 'download' ? 'bg-success-light' :
-  notification.type === 'signature' ? 'bg-brand-primary-100' :
-  notification.type === 'share' ? 'bg-warning-light' :
-  'bg-slate-100'
-}`}>
-  {getNotificationIcon(notification.type)}
-</div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className={`text-sm font-semibold ${
-                          !notification.read ? 'text-slate-900' : 'text-slate-700'
-                        }`}>
-                          {notification.title}
-                        </p>
-                        {!notification.read && (
-  <div className="h-2 w-2 bg-brand-secondary-500 rounded-full flex-shrink-0 mt-1"></div>
-)}
-                      </div>
-                      <p className="text-sm text-slate-600 mb-2 line-clamp-2">
-                        {notification.message}
-                      </p>
-                      <div className="flex items-center gap-3 text-xs text-slate-500">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {formatTimeAgo(notification.createdAt)}
-                        </span>
-                        {notification.actorName && (
-                          <>
-                            <span>•</span>
-                            <span>{notification.actorName}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full p-12 text-center">
-              <div className="h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                <Bell className="h-10 w-10 text-slate-300" />
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                No notifications yet
-              </h3>
-              <p className="text-sm text-slate-500 max-w-sm">
-                When someone views, downloads, or signs your documents, you'll see notifications here.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        
-      </motion.div>
-    </>
-  )}
-</AnimatePresence>
+<NotificationsDrawer
+  open={notificationsOpen}
+  onClose={() => setNotificationsOpen(false)}
+  notifications={notifications}
+  unreadCount={unreadCount}
+  onMarkAllRead={() => markAsRead()}
+  onMarkRead={(id) => markAsRead(id)}
+  onRefresh={fetchNotifications}
+/>
 
 {/* Demo Booking Dialog */}
 <Dialog open={showDemoDialog} onOpenChange={setShowDemoDialog}>
@@ -8833,7 +7331,7 @@ case 'dashboard':
 
 {/* Zapier Setup Dialog */}
 <Dialog open={showZapierSetupDialog} onOpenChange={setShowZapierSetupDialog}>
-  <DialogContent className="max-w-2xl bg-white">
+  <DialogContent className="max-w-2xl bg-white scrollbar-thin scrollbar-thumb-slate-300 overflow-y-auto max-h-[80vh]">
     <DialogHeader>
       <DialogTitle className="flex items-center gap-2 text-xl">
         <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center">
