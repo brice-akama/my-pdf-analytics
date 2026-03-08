@@ -1,4 +1,4 @@
-'use client';
+ 'use client';
 
 // components/ui/EmailAutocomplete.tsx
 //
@@ -13,6 +13,7 @@
 //   className      - extra classes for the input
 //   disabled       - disable the input
 //   id / name      - forwarded to <input>
+//   searchBy       - 'email' (default) or 'name'
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ interface EmailAutocompleteProps {
   disabled?: boolean;
   id?: string;
   name?: string;
+  searchBy?: 'email' | 'name'; // ← NEW
 }
 
 // Module-level cache — shared across all mounted instances, loaded once per session
@@ -45,13 +47,18 @@ async function loadSuggestions(): Promise<void> {
   if (cachedSuggestions !== null) return;
   if (loadPromise) return loadPromise;
 
-  loadPromise = fetch('/api/contacts/suggestions')
-    .then((r) => r.json())
+  loadPromise = fetch('/api/contacts/suggestions', { credentials: 'include' })
+    .then((r) => {
+      console.log('📡 [autocomplete] Response status:', r.status, r.url);
+      return r.json();
+    })
     .then((data) => {
+      console.log('📡 [autocomplete] Data received:', data);
       cachedSuggestions = data.suggestions || [];
     })
-    .catch(() => {
-      cachedSuggestions = []; // fail silently — autocomplete is enhancement only
+    .catch((err) => {
+      console.error('📡 [autocomplete] Fetch failed:', err);
+      cachedSuggestions = [];
     });
 
   return loadPromise;
@@ -66,6 +73,7 @@ export function EmailAutocomplete({
   disabled,
   id,
   name,
+  searchBy = 'email', // default stays email
 }: EmailAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([]);
   const [filtered, setFiltered] = useState<ContactSuggestion[]>([]);
@@ -91,17 +99,26 @@ export function EmailAutocomplete({
     }
 
     const results = suggestions
-      .filter(
-        (s) =>
+      .filter((s) => {
+        if (searchBy === 'name') {
+          // Search by name primarily, fall back to email
+          return (
+            (s.name && s.name.toLowerCase().includes(q)) ||
+            s.email.toLowerCase().includes(q)
+          );
+        }
+        // Default: search by email primarily, fall back to name
+        return (
           s.email.toLowerCase().includes(q) ||
           (s.name && s.name.toLowerCase().includes(q))
-      )
+        );
+      })
       .slice(0, 8); // max 8 visible
 
     setFiltered(results);
     setOpen(results.length > 0);
     setActiveIndex(-1);
-  }, [value, suggestions]);
+  }, [value, suggestions, searchBy]);
 
   // Close on outside click
   useEffect(() => {
@@ -116,13 +133,14 @@ export function EmailAutocomplete({
 
   const handleSelect = useCallback(
     (s: ContactSuggestion) => {
-      onChange(s.email);
+      // Fill the correct field based on searchBy
+      onChange(searchBy === 'name' ? (s.name || s.email) : s.email);
       onSelect?.({ email: s.email, name: s.name });
       setOpen(false);
       setActiveIndex(-1);
       inputRef.current?.focus();
     },
-    [onChange, onSelect]
+    [onChange, onSelect, searchBy]
   );
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -167,7 +185,7 @@ export function EmailAutocomplete({
         ref={inputRef}
         id={id}
         name={name}
-        type="email"
+        type={searchBy === 'name' ? 'text' : 'email'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -181,7 +199,7 @@ export function EmailAutocomplete({
       />
 
       {open && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-[200] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
           {filtered.map((s, i) => (
             <button
               key={s.email}

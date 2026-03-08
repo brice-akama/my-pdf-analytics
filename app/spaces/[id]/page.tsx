@@ -1428,7 +1428,7 @@ function SidebarContent({
             <Settings className="h-4 w-4" />
             <span>Space Settings</span>
           </button>
-          <SendDigestButton spaceId={params.id as string} />
+          
         </div>
       )}
 

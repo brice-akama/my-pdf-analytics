@@ -190,6 +190,13 @@ const [sigAnalyticsLoading, setSigAnalyticsLoading] = useState(false);
 const [editMode, setEditMode] = useState<'create' | 'edit' | 'duplicate'>('create'); // ✅ NEW
 const [spacesCount, setSpacesCount] = useState<number>(0);
 const [spacesLoading, setSpacesLoading] = useState(true);
+const [confirmDialog, setConfirmDialog] = useState<{
+  open: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  danger?: boolean;
+}>({ open: false, title: '', message: '', onConfirm: () => {} });
 const [shareSettings, setShareSettings] = useState({
   requireEmail: true,
   allowDownload: false,
@@ -793,7 +800,7 @@ const handleExportVisits = async () => {
     });
     
     if (!res.ok) {
-      alert('Failed to fetch analytics data');
+       toast.error('Failed to fetch analytics data');
       return;
     }
     
@@ -840,7 +847,7 @@ const handleExportVisits = async () => {
     
   } catch (error) {
     console.error('Export error:', error);
-    alert('Failed to export analytics');
+     toast.error('Failed to export analytics');
   }
 };
 
@@ -932,11 +939,11 @@ const handleThumbnailFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 
 const handleUploadThumbnail = async () => {
   if (!thumbnailFile) {
-    alert('Please select an image');
+    toast.error('Please select an image');
     return;
   }
   if (!doc) {
-    alert('Document not loaded');
+    toast.error('Document not loaded');
     return;
   }
   
@@ -954,14 +961,14 @@ const handleUploadThumbnail = async () => {
     
     if (res.ok) {
       const data = await res.json();
-      alert('✅ Thumbnail updated successfully!');
+       toast.success('Thumbnail updated successfully!');
       setShowThumbnailDialog(false);
       setThumbnailFile(null);
       setThumbnailPreview(null);
       await fetchDocument(); // Refresh document data
     } else {
       const error = await res.json();
-      alert(error.message || 'Failed to update thumbnail');
+       toast.error(error.message || 'Failed to update thumbnail');
     }
   } catch (error) {
     console.error('Thumbnail upload error:', error);
@@ -1927,12 +1934,16 @@ const handleSendSignatureRequest = async () => {
             <Button onClick={() => router.push(`/documents/${doc._id}/signature?mode=edit`)} variant="outline" className="gap-2">
               <Edit className="h-4 w-4" />Edit Template
             </Button>
-            <Button onClick={async () => {
-              if (confirm('Remove template configuration?')) {
-                const res = await fetch(`/api/documents/${doc._id}/template`, { method: 'DELETE', credentials: 'include' });
-                if (res.ok) { fetchDocument(); }
-              }
-            }} variant="outline" className="gap-2 text-red-600 hover:bg-red-50">
+            <Button  onClick={() => setConfirmDialog({
+  open: true,
+  title: 'Remove Template',
+  message: 'Are you sure you want to remove the template configuration? This cannot be undone.',
+  danger: true,
+  onConfirm: async () => {
+    const res = await fetch(`/api/documents/${doc._id}/template`, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) { fetchDocument(); }
+  },
+})} variant="outline" className="gap-2 text-red-600 hover:bg-red-50">
               <Trash2 className="h-4 w-4" />Remove Template
             </Button>
           </div>
@@ -1980,6 +1991,7 @@ const handleSendSignatureRequest = async () => {
           setShareSettings(settings);
           setShowCreateLinkDialog(true);
         }}
+         onConfirm={(opts) => setConfirmDialog({ open: true, ...opts })}
       />
     )}
 
@@ -2975,7 +2987,8 @@ const handleSendSignatureRequest = async () => {
   <div className="h-full flex flex-col bg-[#fafafa]">
 
     {/* ── Header ── */}
-    <div className="bg-white border-b px-6 py-5">
+    
+<div className="bg-white border-b px-6 py-5 sticky top-0 z-[90]">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-600 to-blue-600 flex items-center justify-center shadow-md">
@@ -3209,13 +3222,17 @@ const handleSendSignatureRequest = async () => {
 {recipientInputMethod === 'single' && (
   <div className="space-y-2">
     <div className="grid grid-cols-2 gap-2">
-      <Input
-        type="text"
-        value={recipientNameInput}
-        onChange={(e) => setRecipientNameInput(e.target.value)}
-        placeholder="John Doe"
-        className="text-sm"
-      />
+       <EmailAutocomplete
+  value={recipientNameInput}
+  onChange={(val) => setRecipientNameInput(val)}
+  onSelect={({ email, name }) => {
+    if (name) setRecipientNameInput(name);
+    if (email && !recipientInput) setRecipientInput(email);
+  }}
+  placeholder="John Doe"
+  className="text-sm"
+  searchBy="name"
+/>
      <EmailAutocomplete
   value={recipientInput}
   onChange={(val) => setRecipientInput(val)}
@@ -3298,7 +3315,13 @@ const handleSendSignatureRequest = async () => {
                   <div className="flex items-center gap-1">
                     <button onClick={() => setShowAllRecipients(!showAllRecipients)} className="text-xs text-violet-600 hover:underline">{showAllRecipients ? 'Collapse' : 'View all'}</button>
                     <span className="text-violet-300">·</span>
-                    <button onClick={() => { if (confirm('Remove all?')) setShareSettings({ ...shareSettings, recipientEmails: [] }); }} className="text-xs text-red-500 hover:underline">Clear</button>
+                     <button onClick={() => setConfirmDialog({
+  open: true,
+  title: 'Remove All Recipients',
+  message: 'Are you sure you want to remove all recipients?',
+  danger: true,
+  onConfirm: () => setShareSettings({ ...shareSettings, recipientEmails: [] }),
+})} className="text-xs text-red-500 hover:underline">Clear</button>
                   </div>
                 </div>
                 {showAllRecipients && (
@@ -3540,20 +3563,11 @@ const handleSendSignatureRequest = async () => {
               </label>
               {shareSettings.requireNDA && (
                 <div className="space-y-3 pt-1">
-                  <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-0.5 gap-0.5">
-                    <button onClick={() => setShareSettings({ ...shareSettings, useCustomNda: false })} className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${!shareSettings.useCustomNda ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>Use Template</button>
-                    <button onClick={() => setShareSettings({ ...shareSettings, useCustomNda: true })} className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${shareSettings.useCustomNda ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>Custom Text</button>
-                  </div>
-                  {!shareSettings.useCustomNda ? (
-                    loadingTemplates ? <div className="flex justify-center p-3"><Loader2 className="h-5 w-5 animate-spin text-violet-500" /></div> : (
-                      <select value={shareSettings.ndaTemplateId} onChange={(e) => setShareSettings({ ...shareSettings, ndaTemplateId: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm bg-white">
-                        <option value="">Select a template...</option>
-                        {ndaTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.isDefault ? ' (Default)' : ''}</option>)}
-                      </select>
-                    )
-                  ) : (
-                    <Textarea value={shareSettings.customNdaText} onChange={(e) => setShareSettings({ ...shareSettings, customNdaText: e.target.value })} placeholder="Enter NDA text..." rows={6} className="text-xs font-mono" maxLength={2000} />
-                  )}
+                  
+                  <NdaSelector
+  shareSettings={shareSettings}
+  setShareSettings={setShareSettings}
+/>
                   <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                     <p className="text-xs text-green-800">✅ Acceptance is timestamped and logged for legal records.</p>
                   </div>
@@ -4401,7 +4415,7 @@ const handleSendSignatureRequest = async () => {
                     size="sm"
                     onClick={() => {
                       navigator.clipboard.writeText(item.link ?? "");
-                      alert('Link copied to clipboard!');
+                       toast.success('Link copied to clipboard!');
                     }}
                     className="flex-shrink-0"
                   >
@@ -4470,7 +4484,7 @@ const handleSendSignatureRequest = async () => {
             .map((item) => `${item.recipient} (${item.email}): ${item.link}`)
             .join('\n\n');
           navigator.clipboard.writeText(allLinks);
-          alert('All links copied to clipboard!');
+          toast.success('All links copied to clipboard!');
         }}
       >
         <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4498,16 +4512,7 @@ const handleSendSignatureRequest = async () => {
         >
           Close
         </Button>
-        <Button
-          onClick={() => {
-            setShowSuccessDialog(false);
-            // In a real app, this would navigate to the tracking dashboard
-            alert('Opening document tracking dashboard...');
-          }}
-          className="bg-purple-600 hover:bg-purple-700"
-        >
-          Track Status
-        </Button>
+        
       </div>
     </div>
   </DialogContent>
@@ -5053,23 +5058,29 @@ if (res.ok) {
             <Button
               variant="outline"
               onClick={async () => {
-                if (!confirm(`Delete link for ${editingLink?.recipientEmail || 'this recipient'}?`)) return;
-                try {
-                  const res = await fetch(
-                    `/api/documents/${params.id}/share?shareId=${editingLink?.shareId}`,
-                    { method: 'DELETE', credentials: 'include' }
-                  );
-                  
-                  if (res.ok) {
-                    toast.success('Link deleted');
-                    setShowEditLinkDrawer(false);
-                    window.location.reload();
-                  } else {
-                    toast.error('Failed to delete link');
-                  }
-                } catch (error) {
-                  toast.error('Network error');
-                }
+                setConfirmDialog({
+  open: true,
+  title: 'Delete Link',
+  message: `Are you sure you want to permanently delete the link for ${editingLink?.recipientEmail || 'this recipient'}?`,
+  danger: true,
+  onConfirm: async () => {
+    try {
+      const res = await fetch(
+        `/api/documents/${params.id}/share?shareId=${editingLink?.shareId}`,
+        { method: 'DELETE', credentials: 'include' }
+      );
+      if (res.ok) {
+        toast.success('Link deleted');
+        setShowEditLinkDrawer(false);
+        window.location.reload();
+      } else {
+        toast.error('Failed to delete link');
+      }
+    } catch {
+      toast.error('Network error');
+    }
+  },
+});
               }}
               className="w-full justify-start gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
             >
@@ -5083,13 +5094,38 @@ if (res.ok) {
     </div>
   </div>
 </Drawer>
-
+{/* ── CONFIRM DIALOG ── */}
+<Dialog open={confirmDialog.open} onOpenChange={(o) => setConfirmDialog(c => ({ ...c, open: o }))}>
+  <DialogContent className="max-w-sm bg-white">
+    <DialogHeader>
+      <DialogTitle>{confirmDialog.title}</DialogTitle>
+    </DialogHeader>
+    <p className="text-sm text-slate-600 py-2">{confirmDialog.message}</p>
+    <div className="flex gap-3 justify-end pt-2">
+      <Button
+        variant="outline"
+        onClick={() => setConfirmDialog(c => ({ ...c, open: false }))}
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={() => {
+          confirmDialog.onConfirm();
+          setConfirmDialog(c => ({ ...c, open: false }));
+        }}
+        className={confirmDialog.danger ? 'bg-red-600 hover:bg-red-700 text-white' : ''}
+      >
+        Confirm
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   );
 }
 
 // ══════════════════════════════════════════════════════════════
-// ActivityTab — DocSend-style flat layout, no cards, dividers only
+// ActiityTab — DocSend-style flat layout, no cards, dividers only
 // ══════════════════════════════════════════════════════════════
 function ActivityTab({
   analytics,
@@ -5098,6 +5134,7 @@ function ActivityTab({
   onCreateLink,
   onEditLink,
   onOpenShareDrawer,
+  onConfirm,
 }: {
   analytics: any;
   doc: any;
@@ -5105,6 +5142,7 @@ function ActivityTab({
   onCreateLink: () => void;
   onEditLink: (link: any) => void;
   onOpenShareDrawer: (link: any, mode: 'edit' | 'duplicate', settings: any) => void;
+  onConfirm: (opts: { title: string; message: string; danger?: boolean; onConfirm: () => void }) => void;
 }) {
   const [expandedVisit, setExpandedVisit] = useState<string | null>(null);
   const [hoveredPage, setHoveredPage] = useState<{ visitKey: string; page: number } | null>(null);
@@ -5237,6 +5275,14 @@ const allVisits: any[] = [...shareVisits, ...sigVisits];
 
   const getMaxTime = (pageData: any[]) =>
     Math.max(...pageData.map((p: any) => p.timeSpent || 0), 1);
+
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    danger?: boolean;
+  }>({ open: false, title: '', message: '', onConfirm: () => {} });
 
   return (
     <div className="space-y-0">
@@ -5494,7 +5540,7 @@ const allVisits: any[] = [...shareVisits, ...sigVisits];
       {/* ══ SPACER ══ */}
       <div className="pt-8" />
 
-      {/* ══ ALL LINKS SECTION ══ */}
+     {/* ══ ALL LINKS SECTION ══ */}
       <div>
         {/* Section header */}
         <div className="flex items-center justify-between py-4 border-b border-slate-200">
@@ -5525,289 +5571,304 @@ const allVisits: any[] = [...shareVisits, ...sigVisits];
           </div>
         ) : (
           allLinks.map((lnk, i) => (
-             <div
-  key={i}
-  className="hidden sm:grid items-center py-4 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors group"
-  style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}
->
-             {/* NAME */}
-<div className="flex items-center gap-2 pr-4">
-  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
-    <span className="text-white text-xs font-bold">
-      {(lnk.recipientName || lnk.recipientEmail || 'P').charAt(0).toUpperCase()}
-    </span>
-  </div>
-  <div className="min-w-0">
-    <p className="text-sm font-semibold text-slate-900 truncate">
-      {lnk.recipientName}
-    </p>
-    {lnk.recipientEmail && (
-      <p className="text-xs text-slate-400 truncate">{lnk.recipientEmail}</p>
-    )}
-    {!lnk.recipientEmail && (
-      <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
-    )}
-  </div>
-</div>
-              {/* LINK */}
-              <div className="flex items-center gap-2 pr-4 min-w-0">
-                {/* Yellow/orange circle like DocSend */}
-                <div className="h-5 w-5 rounded-full bg-amber-400 flex-shrink-0" />
-                <span className="text-xs text-slate-600 font-mono truncate flex-1">
-                  {lnk.link.replace('https://', '').replace('http://', '')}
-                </span>
-                <button
-                  onClick={() => { navigator.clipboard.writeText(lnk.link); toast.success('Copied!', { duration: 2000 }); }}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-slate-400 hover:text-violet-600"
-                  title="Copy link"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-              </div>
+            <div key={i}>
 
-              {/* TOGGLE */}
-              <div className="flex justify-center">
-                <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch(`/api/documents/${doc._id}/share`, {
-                        method: 'PATCH',
-                        credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ shareId: lnk.shareId, active: !lnk.enabled }),
-                      });
-                      if (res.ok) {
-                        toast.success(lnk.enabled ? 'Link disabled' : 'Link enabled');
-                        window.location.reload();
-                      } else {
-                        toast.error('Failed to update link');
-                      }
-                    } catch { toast.error('Network error'); }
-                  }}
-                  className="w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors"
-                  style={{ background: lnk.enabled ? '#7c3aed' : '#e2e8f0' }}
-                >
-                  <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${lnk.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                </button>
-              </div>
+              {/* ── DESKTOP ROW ── */}
+              <div
+                className="hidden sm:grid items-center py-4 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors group"
+                style={{ gridTemplateColumns: '1fr 2fr auto auto auto' }}
+              >
+                {/* NAME */}
+                <div className="flex items-center gap-2 pr-4">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs font-bold">
+                      {(lnk.recipientName || lnk.recipientEmail || 'P').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">
+                      {lnk.recipientName}
+                    </p>
+                    {lnk.recipientEmail && (
+                      <p className="text-xs text-slate-400 truncate">{lnk.recipientEmail}</p>
+                    )}
+                    {!lnk.recipientEmail && (
+                      <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
+                    )}
+                  </div>
+                </div>
 
-              {/* ACTIVITY */}
-              <div className="flex items-center justify-end mr-4">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-1.5 hover:text-violet-600 transition-colors">
-                      <span className="text-sm font-bold text-slate-900">{lnk.visits}</span>
-                      <span className="text-xs text-slate-400">{lnk.visits === 1 ? 'visit' : 'visits'}</span>
-                      <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-white p-3 space-y-2">
-                    {[
-                      ['Total visits', lnk.visits],
-                      ['Time spent', lnk.totalTime || '0m 0s'],
-                      ['Last viewed', lnk.lastViewed || 'Never'],
-                      ['Completion', lnk.completion || '0%'],
-                    ].map(([label, val]) => (
-                      <div key={label as string} className="flex items-center justify-between">
-                        <span className="text-xs text-slate-500">{label}</span>
-                        <span className="text-sm font-bold text-slate-900">{val}</span>
-                      </div>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                {/* LINK */}
+                <div className="flex items-center gap-2 pr-4 min-w-0">
+                  <div className="h-5 w-5 rounded-full bg-amber-400 flex-shrink-0" />
+                  <span className="text-xs text-slate-600 font-mono truncate flex-1">
+                    {lnk.link.replace('https://', '').replace('http://', '')}
+                  </span>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(lnk.link); toast.success('Copied!', { duration: 2000 }); }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-slate-400 hover:text-violet-600"
+                    title="Copy link"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </div>
 
-              {/* 3-DOT MENU */}
-              <div className="flex justify-end">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center text-slate-400 hover:text-slate-700">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48 bg-white">
-                    <DropdownMenuItem onClick={() => {
-                      onOpenShareDrawer(lnk, 'edit', {
-                        requireEmail: lnk.settings.requireEmail,
-                        allowDownload: lnk.settings.allowDownload,
-                        allowPrint: lnk.settings.allowPrint,
-                        allowForwarding: lnk.settings.allowForwarding,
-                        notifyOnDownload: lnk.settings.notifyOnDownload,
-                        selfDestruct: lnk.settings.selfDestruct,
-                        enableWatermark: lnk.settings.enableWatermark,
-                        watermarkText: lnk.settings.watermarkText,
-                        watermarkPosition: lnk.settings.watermarkPosition,
-                        requireNDA: lnk.settings.requireNDA,
-                        ndaTemplateId: lnk.settings.ndaTemplateId,
-                        customMessage: lnk.settings.customMessage,
-                        sharedByName: lnk.settings.sharedByName,
-                        logoUrl: lnk.settings.logoUrl,
-                        viewLimit: lnk.settings.viewLimit,
-                        downloadLimit: lnk.settings.downloadLimit,
-                        linkType: lnk.settings.linkType,
-                        expiresIn: lnk.settings.expiresIn,
-                        password: '',
-                        recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
-                        recipientNames: lnk.recipientName ? [lnk.recipientName] : [],
-                        sendEmailNotification: false,
-                        allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
-                        ndaText: '', customNdaText: '', useCustomNda: false, availableFrom: '',
-                      });
-                    }}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      <span>Edit link settings</span>
-                    </DropdownMenuItem>
+                {/* TOGGLE */}
+                <div className="flex justify-center">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`/api/documents/${doc._id}/share`, {
+                          method: 'PATCH',
+                          credentials: 'include',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ shareId: lnk.shareId, active: !lnk.enabled }),
+                        });
+                        if (res.ok) {
+                          toast.success(lnk.enabled ? 'Link disabled' : 'Link enabled');
+                          window.location.reload();
+                        } else {
+                          toast.error('Failed to update link');
+                        }
+                      } catch { toast.error('Network error'); }
+                    }}
+                    className="w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors"
+                    style={{ background: lnk.enabled ? '#7c3aed' : '#e2e8f0' }}
+                  >
+                    <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${lnk.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </div>
 
-                    <DropdownMenuItem onClick={() => {
-                      onOpenShareDrawer(lnk, 'duplicate', {
-                        requireEmail: lnk.settings.requireEmail,
-                        allowDownload: lnk.settings.allowDownload,
-                        allowPrint: lnk.settings.allowPrint,
-                        allowForwarding: lnk.settings.allowForwarding,
-                        notifyOnDownload: lnk.settings.notifyOnDownload,
-                        selfDestruct: lnk.settings.selfDestruct,
-                        enableWatermark: lnk.settings.enableWatermark,
-                        watermarkText: lnk.settings.watermarkText,
-                        watermarkPosition: lnk.settings.watermarkPosition,
-                        requireNDA: lnk.settings.requireNDA,
-                        ndaTemplateId: lnk.settings.ndaTemplateId,
-                        customMessage: lnk.settings.customMessage,
-                        sharedByName: lnk.settings.sharedByName,
-                        logoUrl: lnk.settings.logoUrl,
-                        viewLimit: lnk.settings.viewLimit,
-                        downloadLimit: lnk.settings.downloadLimit,
-                        linkType: lnk.settings.linkType,
-                        expiresIn: lnk.settings.expiresIn,
-                        password: '',
-                        recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
-                        recipientNames: lnk.recipientName ? [lnk.recipientName + ' (Copy)'] : [],
-                        sendEmailNotification: false,
-                        allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
-                        ndaText: '', customNdaText: '', useCustomNda: false, availableFrom: '',
-                      });
-                    }}>
-                      <Copy className="mr-2 h-4 w-4" />
-                      <span>Duplicate link</span>
-                    </DropdownMenuItem>
+                {/* ACTIVITY */}
+                <div className="flex items-center justify-end mr-4">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-1.5 hover:text-violet-600 transition-colors">
+                        <span className="text-sm font-bold text-slate-900">{lnk.visits}</span>
+                        <span className="text-xs text-slate-400">{lnk.visits === 1 ? 'visit' : 'visits'}</span>
+                        <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56 bg-white p-3 space-y-2">
+                      {[
+                        ['Total visits', lnk.visits],
+                        ['Time spent', lnk.totalTime || '0m 0s'],
+                        ['Last viewed', lnk.lastViewed || 'Never'],
+                        ['Completion', lnk.completion || '0%'],
+                      ].map(([label, val]) => (
+                        <div key={label as string} className="flex items-center justify-between">
+                          <span className="text-xs text-slate-500">{label}</span>
+                          <span className="text-sm font-bold text-slate-900">{val}</span>
+                        </div>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={async () => {
-                        if (!confirm(`Delete link for ${lnk.recipientName || lnk.recipientEmail || 'this recipient'}?`)) return;
-                        try {
-                          const res = await fetch(`/api/documents/${doc._id}/share?shareId=${lnk.shareId}`, {
-                            method: 'DELETE', credentials: 'include',
+                {/* 3-DOT MENU */}
+                <div className="flex justify-end">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 flex items-center justify-center text-slate-400 hover:text-slate-700">
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 bg-white">
+                      <DropdownMenuItem onClick={() => {
+                        onOpenShareDrawer(lnk, 'edit', {
+                          requireEmail: lnk.settings.requireEmail,
+                          allowDownload: lnk.settings.allowDownload,
+                          allowPrint: lnk.settings.allowPrint,
+                          allowForwarding: lnk.settings.allowForwarding,
+                          notifyOnDownload: lnk.settings.notifyOnDownload,
+                          selfDestruct: lnk.settings.selfDestruct,
+                          enableWatermark: lnk.settings.enableWatermark,
+                          watermarkText: lnk.settings.watermarkText,
+                          watermarkPosition: lnk.settings.watermarkPosition,
+                          requireNDA: lnk.settings.requireNDA,
+                          ndaTemplateId: lnk.settings.ndaTemplateId,
+                          customMessage: lnk.settings.customMessage,
+                          sharedByName: lnk.settings.sharedByName,
+                          logoUrl: lnk.settings.logoUrl,
+                          viewLimit: lnk.settings.viewLimit,
+                          downloadLimit: lnk.settings.downloadLimit,
+                          linkType: lnk.settings.linkType,
+                          expiresIn: lnk.settings.expiresIn,
+                          password: '',
+                          recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+                          recipientNames: lnk.recipientName ? [lnk.recipientName] : [],
+                          sendEmailNotification: false,
+                          allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+                          ndaText: '', customNdaText: '', useCustomNda: false, availableFrom: '',
+                        });
+                      }}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        <span>Edit link settings</span>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem onClick={() => {
+                        onOpenShareDrawer(lnk, 'duplicate', {
+                          requireEmail: lnk.settings.requireEmail,
+                          allowDownload: lnk.settings.allowDownload,
+                          allowPrint: lnk.settings.allowPrint,
+                          allowForwarding: lnk.settings.allowForwarding,
+                          notifyOnDownload: lnk.settings.notifyOnDownload,
+                          selfDestruct: lnk.settings.selfDestruct,
+                          enableWatermark: lnk.settings.enableWatermark,
+                          watermarkText: lnk.settings.watermarkText,
+                          watermarkPosition: lnk.settings.watermarkPosition,
+                          requireNDA: lnk.settings.requireNDA,
+                          ndaTemplateId: lnk.settings.ndaTemplateId,
+                          customMessage: lnk.settings.customMessage,
+                          sharedByName: lnk.settings.sharedByName,
+                          logoUrl: lnk.settings.logoUrl,
+                          viewLimit: lnk.settings.viewLimit,
+                          downloadLimit: lnk.settings.downloadLimit,
+                          linkType: lnk.settings.linkType,
+                          expiresIn: lnk.settings.expiresIn,
+                          password: '',
+                          recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+                          recipientNames: lnk.recipientName ? [lnk.recipientName + ' (Copy)'] : [],
+                          sendEmailNotification: false,
+                          allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+                          ndaText: '', customNdaText: '', useCustomNda: false, availableFrom: '',
+                        });
+                      }}>
+                        <Copy className="mr-2 h-4 w-4" />
+                        <span>Duplicate link</span>
+                      </DropdownMenuItem>
+
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => {
+                          onConfirm({
+                            title: 'Delete Link',
+                            message: `Are you sure you want to permanently delete the link for ${lnk.recipientName || lnk.recipientEmail || 'this recipient'}?`,
+                            danger: true,
+                            onConfirm: async () => {
+                              try {
+                                const res = await fetch(`/api/documents/${doc._id}/share?shareId=${lnk.shareId}`, {
+                                  method: 'DELETE', credentials: 'include',
+                                });
+                                if (res.ok) { toast.success('Link deleted'); window.location.reload(); }
+                                else toast.error('Failed to delete link');
+                              } catch { toast.error('Network error'); }
+                            },
                           });
-                          if (res.ok) { toast.success('Link deleted'); window.location.reload(); }
-                          else toast.error('Failed to delete link');
-                        } catch { toast.error('Network error'); }
-                      }}
-                      className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      <span>Delete this link</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                        }}
+                        className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        <span>Delete this link</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>{/* ← desktop grid ends here */}
+
               {/* ── MOBILE LINK CARD ── */}
-<div key={`mobile-${i}`} className="sm:hidden py-4 border-b border-slate-100 last:border-b-0">
-  <div className="flex items-start gap-3">
-    {/* Avatar */}
-    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
-      <span className="text-white text-xs font-bold">
-        {(lnk.recipientName || lnk.recipientEmail || 'P').charAt(0).toUpperCase()}
-      </span>
-    </div>
+              <div className="sm:hidden py-4 border-b border-slate-100 last:border-b-0">
+                <div className="flex items-start gap-3">
+                  {/* Avatar */}
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-xs font-bold">
+                      {(lnk.recipientName || lnk.recipientEmail || 'P').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
 
-    {/* Info */}
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900 truncate">{lnk.recipientName || 'Public link'}</p>
-          {lnk.recipientEmail && <p className="text-xs text-slate-400 truncate">{lnk.recipientEmail}</p>}
-        </div>
-        {/* Toggle */}
-        <button
-          onClick={async () => {
-            try {
-              const res = await fetch(`/api/documents/${doc._id}/share`, {
-                method: 'PATCH', credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ shareId: lnk.shareId, active: !lnk.enabled }),
-              });
-              if (res.ok) { toast.success(lnk.enabled ? 'Link disabled' : 'Link enabled'); window.location.reload(); }
-              else toast.error('Failed to update link');
-            } catch { toast.error('Network error'); }
-          }}
-          className="w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors flex-shrink-0"
-          style={{ background: lnk.enabled ? '#7c3aed' : '#e2e8f0' }}
-        >
-          <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${lnk.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-        </button>
-      </div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{lnk.recipientName || 'Public link'}</p>
+                        {lnk.recipientEmail && <p className="text-xs text-slate-400 truncate">{lnk.recipientEmail}</p>}
+                      </div>
+                      {/* Toggle */}
+                      <button
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/documents/${doc._id}/share`, {
+                              method: 'PATCH', credentials: 'include',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ shareId: lnk.shareId, active: !lnk.enabled }),
+                            });
+                            if (res.ok) { toast.success(lnk.enabled ? 'Link disabled' : 'Link enabled'); window.location.reload(); }
+                            else toast.error('Failed to update link');
+                          } catch { toast.error('Network error'); }
+                        }}
+                        className="w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors flex-shrink-0"
+                        style={{ background: lnk.enabled ? '#7c3aed' : '#e2e8f0' }}
+                      >
+                        <div className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${lnk.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
 
-      {/* Link URL row */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className="h-4 w-4 rounded-full bg-amber-400 flex-shrink-0" />
-        <span className="text-xs text-slate-500 font-mono truncate flex-1">
-          {lnk.link.replace('https://', '').replace('http://', '')}
-        </span>
-        <button
-          onClick={() => { navigator.clipboard.writeText(lnk.link); toast.success('Copied!', { duration: 2000 }); }}
-          className="text-slate-400 hover:text-violet-600 flex-shrink-0"
-        >
-          <Copy className="h-3.5 w-3.5" />
-        </button>
-      </div>
+                    {/* Link URL row */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-4 rounded-full bg-amber-400 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 font-mono truncate flex-1">
+                        {lnk.link.replace('https://', '').replace('http://', '')}
+                      </span>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(lnk.link); toast.success('Copied!', { duration: 2000 }); }}
+                        className="text-slate-400 hover:text-violet-600 flex-shrink-0"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
 
-      {/* Stats row */}
-      <div className="flex items-center gap-3 text-xs text-slate-500">
-        <span className="font-bold text-slate-800">{lnk.visits}</span>
-        <span>{lnk.visits === 1 ? 'visit' : 'visits'}</span>
-        <span className="text-slate-300">·</span>
-        <span>{lnk.totalTime || '0m 0s'}</span>
-        <span className="text-slate-300">·</span>
-        <span>{lnk.createdAgo}</span>
+                    {/* Stats row */}
+                    <div className="flex items-center gap-3 text-xs text-slate-500">
+                      <span className="font-bold text-slate-800">{lnk.visits}</span>
+                      <span>{lnk.visits === 1 ? 'visit' : 'visits'}</span>
+                      <span className="text-slate-300">·</span>
+                      <span>{lnk.totalTime || '0m 0s'}</span>
+                      <span className="text-slate-300">·</span>
+                      <span>{lnk.createdAgo}</span>
 
-        {/* 3-dot */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="ml-auto text-slate-400 hover:text-slate-700">
-              <MoreVertical className="h-4 w-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 bg-white">
-            <DropdownMenuItem onClick={() => { onOpenShareDrawer(lnk, 'edit', { requireEmail: lnk.settings.requireEmail, allowDownload: lnk.settings.allowDownload, allowPrint: lnk.settings.allowPrint, allowForwarding: lnk.settings.allowForwarding, notifyOnDownload: lnk.settings.notifyOnDownload, selfDestruct: lnk.settings.selfDestruct, enableWatermark: lnk.settings.enableWatermark, watermarkText: lnk.settings.watermarkText, watermarkPosition: lnk.settings.watermarkPosition, requireNDA: lnk.settings.requireNDA, ndaTemplateId: lnk.settings.ndaTemplateId, customMessage: lnk.settings.customMessage, sharedByName: lnk.settings.sharedByName, logoUrl: lnk.settings.logoUrl, viewLimit: lnk.settings.viewLimit, downloadLimit: lnk.settings.downloadLimit, linkType: lnk.settings.linkType, expiresIn: lnk.settings.expiresIn, password: '', recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [], recipientNames: lnk.recipientName ? [lnk.recipientName] : [], sendEmailNotification: false, allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [], ndaText: '', customNdaText: '', useCustomNda: false, availableFrom: '' }); }}>
-              <Edit className="mr-2 h-4 w-4" /><span>Edit settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={async () => {
-                if (!confirm(`Delete this link?`)) return;
-                try {
-                  const res = await fetch(`/api/documents/${doc._id}/share?shareId=${lnk.shareId}`, { method: 'DELETE', credentials: 'include' });
-                  if (res.ok) { toast.success('Link deleted'); window.location.reload(); }
-                  else toast.error('Failed to delete');
-                } catch { toast.error('Network error'); }
-              }}
-              className="text-red-600 focus:text-red-600 focus:bg-red-50"
-            >
-              <Trash2 className="mr-2 h-4 w-4" /><span>Delete link</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
-  </div>
-</div>
+                      {/* 3-dot */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="ml-auto text-slate-400 hover:text-slate-700">
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 bg-white">
+                          <DropdownMenuItem onClick={() => { onOpenShareDrawer(lnk, 'edit', { requireEmail: lnk.settings.requireEmail, allowDownload: lnk.settings.allowDownload, allowPrint: lnk.settings.allowPrint, allowForwarding: lnk.settings.allowForwarding, notifyOnDownload: lnk.settings.notifyOnDownload, selfDestruct: lnk.settings.selfDestruct, enableWatermark: lnk.settings.enableWatermark, watermarkText: lnk.settings.watermarkText, watermarkPosition: lnk.settings.watermarkPosition, requireNDA: lnk.settings.requireNDA, ndaTemplateId: lnk.settings.ndaTemplateId, customMessage: lnk.settings.customMessage, sharedByName: lnk.settings.sharedByName, logoUrl: lnk.settings.logoUrl, viewLimit: lnk.settings.viewLimit, downloadLimit: lnk.settings.downloadLimit, linkType: lnk.settings.linkType, expiresIn: lnk.settings.expiresIn, password: '', recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [], recipientNames: lnk.recipientName ? [lnk.recipientName] : [], sendEmailNotification: false, allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [], ndaText: '', customNdaText: '', useCustomNda: false, availableFrom: '' }); }}>
+                            <Edit className="mr-2 h-4 w-4" /><span>Edit settings</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => {
+                              onConfirm({
+                                title: 'Delete Link',
+                                message: `Are you sure you want to permanently delete the link for ${lnk.recipientName || lnk.recipientEmail || 'this recipient'}?`,
+                                danger: true,
+                                onConfirm: async () => {
+                                  try {
+                                    const res = await fetch(`/api/documents/${doc._id}/share?shareId=${lnk.shareId}`, { method: 'DELETE', credentials: 'include' });
+                                    if (res.ok) { toast.success('Link deleted'); window.location.reload(); }
+                                    else toast.error('Failed to delete');
+                                  } catch { toast.error('Network error'); }
+                                },
+                              });
+                            }}
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /><span>Delete link</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              </div>{/* ← mobile card ends here */}
+
             </div>
-            
           ))
         )}
         
       </div>
-
 
     </div>
   );
@@ -5910,6 +5971,7 @@ function RecipientPageChart({ pageData, docId }: { pageData: any[]; docId: strin
           ))}
         </div>
       </div>
+      
     </div>
   );
 }
@@ -6205,6 +6267,181 @@ function SignaturesTab({
         })}
       </div>
 
+    </div>
+  );
+}
+
+
+function NdaSelector({
+  shareSettings,
+  setShareSettings,
+}: {
+  shareSettings: any;
+  setShareSettings: (s: any) => void;
+}) {
+  const [uploadedAgreements, setUploadedAgreements] = React.useState<any[]>([]);
+  const [loadingAgreements, setLoadingAgreements] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [ndaMode, setNdaMode] = React.useState<'select' | 'custom'>('select');
+
+  // Fetch uploaded agreements on mount
+  React.useEffect(() => {
+    setLoadingAgreements(true);
+     fetch('/api/agreements/uploaded', { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) setUploadedAgreements(data.agreements || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoadingAgreements(false));
+  }, []);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      toast.error('Only PDF files are supported for NDA upload');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File must be under 10MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+       const res = await fetch('/api/agreements/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        const newAgreement = {
+          _id: data.agreementId,
+          filename: file.name,
+        };
+        setUploadedAgreements(prev => [newAgreement, ...prev]);
+        setShareSettings({ ...shareSettings, ndaTemplateId: data.agreementId, useCustomNda: false });
+        toast.success('NDA uploaded and selected!');
+      } else {
+        toast.error(data.error || 'Upload failed');
+      }
+    } catch {
+      toast.error('Upload failed');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  return (
+    <div className="space-y-3 pt-1">
+      {/* Mode tabs */}
+      <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-slate-50 p-0.5 gap-0.5">
+        <button
+          onClick={() => { setNdaMode('select'); setShareSettings({ ...shareSettings, useCustomNda: false }); }}
+          className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${ndaMode === 'select' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+        >
+          Select / Upload
+        </button>
+        <button
+          onClick={() => { setNdaMode('custom'); setShareSettings({ ...shareSettings, useCustomNda: true }); }}
+          className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${ndaMode === 'custom' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+        >
+          Custom Text
+        </button>
+      </div>
+
+      {ndaMode === 'select' && (
+        <div className="space-y-2">
+          {/* Dropdown of uploaded agreements */}
+          {loadingAgreements ? (
+            <div className="flex justify-center p-3">
+              <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
+            </div>
+          ) : (
+            <select
+              value={shareSettings.ndaTemplateId || ''}
+              onChange={(e) => setShareSettings({ ...shareSettings, ndaTemplateId: e.target.value, useCustomNda: false })}
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none"
+            >
+              <option value="">
+                {uploadedAgreements.length === 0 ? 'No agreements uploaded yet' : 'Select an uploaded NDA...'}
+              </option>
+              {uploadedAgreements.map((a) => (
+                <option key={a._id} value={a._id}>
+                  {a.filename || a.title || `Agreement ${a._id.slice(-6)}`}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Upload new NDA */}
+          <div>
+            <input
+              type="file"
+              accept=".pdf"
+              id="nda-upload-input"
+              className="hidden"
+              onChange={handleUpload}
+            />
+            <label
+              htmlFor="nda-upload-input"
+              className={`flex items-center justify-center gap-2 w-full border-2 border-dashed rounded-lg px-3 py-3 cursor-pointer transition-colors text-sm font-medium ${
+                isUploading
+                  ? 'border-slate-200 text-slate-400 pointer-events-none'
+                  : 'border-slate-300 text-slate-600 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-700'
+              }`}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Uploading…
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4" />
+                  Upload new NDA (PDF)
+                </>
+              )}
+            </label>
+          </div>
+
+          {shareSettings.ndaTemplateId && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-violet-50 border border-violet-200 rounded-lg">
+              <FileText className="h-4 w-4 text-violet-500 flex-shrink-0" />
+              <span className="text-xs font-semibold text-violet-800 truncate">
+                {uploadedAgreements.find(a => a._id === shareSettings.ndaTemplateId)?.filename || 'Agreement selected'}
+              </span>
+              <button
+                onClick={() => setShareSettings({ ...shareSettings, ndaTemplateId: '' })}
+                className="ml-auto text-violet-400 hover:text-violet-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {ndaMode === 'custom' && (
+        <Textarea
+          value={shareSettings.customNdaText}
+          onChange={(e) => setShareSettings({ ...shareSettings, customNdaText: e.target.value })}
+          placeholder="Enter your NDA terms here..."
+          rows={6}
+          className="text-xs font-mono"
+          maxLength={2000}
+        />
+      )}
+
+      
     </div>
   );
 }
