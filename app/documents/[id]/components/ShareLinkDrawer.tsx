@@ -7,11 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Drawer } from '@/components/ui/drawer';
 import { EmailAutocomplete } from '@/components/ui/EmailAutocomplete';
-import NdaSelector from './NdaSelector';
+import NdaAgreementSelector from './NdaAgreementSelector'; // ✅ replaces NdaSelector
 import { toast } from 'sonner';
 import {
   Share2, Users, Shield, Mail, ImageIcon, FileSignature,
-  X, Check, Upload, Loader2, Eye, Link as LinkIcon,
+  X, Check, Upload, Loader2, Eye,
 } from 'lucide-react';
 
 type ShareSettings = {
@@ -32,6 +32,9 @@ type ShareSettings = {
   ndaTemplateId: string;
   customNdaText: string;
   useCustomNda: boolean;
+  // ✅ NEW NDA fields
+  ndaAgreementId: string;
+  ndaUrl: string;
   allowPrint: boolean;
   allowForwarding: boolean;
   notifyOnDownload: boolean;
@@ -98,11 +101,19 @@ export default function ShareLinkDrawer({
 
   const handleSubmit = async () => {
     if (!docId) return;
+
+    // Auto-add typed email if valid
     if (recipientInput && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientInput)) {
       if (!shareSettings.recipientEmails.includes(recipientInput)) {
         shareSettings.recipientEmails.push(recipientInput);
         setRecipientInput('');
       }
+    }
+
+    // Validate NDA — must select an agreement if requireNDA is on
+    if (shareSettings.requireNDA && !shareSettings.ndaAgreementId) {
+      toast.error('Please select or upload an NDA agreement PDF');
+      return;
     }
 
     try {
@@ -123,8 +134,8 @@ export default function ShareLinkDrawer({
             watermarkText: shareSettings.watermarkText || null,
             watermarkPosition: shareSettings.watermarkPosition,
             requireNDA: shareSettings.requireNDA,
-            ndaTemplateId: shareSettings.useCustomNda ? null : shareSettings.ndaTemplateId,
-            customNdaText: shareSettings.useCustomNda ? shareSettings.customNdaText : null,
+            ndaAgreementId: shareSettings.ndaAgreementId || null,  // ✅
+            ndaUrl: shareSettings.ndaUrl || null,                   // ✅
             allowForwarding: shareSettings.allowForwarding,
             notifyOnDownload: shareSettings.notifyOnDownload,
             downloadLimit: shareSettings.downloadLimit || null,
@@ -136,6 +147,7 @@ export default function ShareLinkDrawer({
             linkType: shareSettings.linkType,
           }),
         });
+
         if (res.ok) {
           toast.success('Link updated successfully!');
           onClose();
@@ -168,8 +180,8 @@ export default function ShareLinkDrawer({
           watermarkText: shareSettings.watermarkText || null,
           watermarkPosition: shareSettings.watermarkPosition,
           requireNDA: shareSettings.requireNDA,
-          ndaTemplateId: shareSettings.useCustomNda ? null : shareSettings.ndaTemplateId,
-          customNdaText: shareSettings.useCustomNda ? shareSettings.customNdaText : null,
+          ndaAgreementId: shareSettings.ndaAgreementId || null,  // ✅
+          ndaUrl: shareSettings.ndaUrl || null,                   // ✅
           allowForwarding: shareSettings.allowForwarding,
           notifyOnDownload: shareSettings.notifyOnDownload,
           downloadLimit: shareSettings.downloadLimit || null,
@@ -183,47 +195,99 @@ export default function ShareLinkDrawer({
       });
 
       if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          let shareLink = '';
-          let recipientCount = 0;
-          let emailsWereSent = false;
+  const data = await res.json();
+  if (data.success) {
+    let shareLink = '';
+    let recipientCount = 0;
 
-          if (data.shareLink) {
-            shareLink = data.shareLink;
-          } else if (data.shareLinks?.length > 0) {
-            shareLink = data.shareLinks[0].shareLink;
-            recipientCount = data.shareLinks.length;
-            emailsWereSent = recipientCount > 0 && shareSettings.sendEmailNotification;
-          }
+    if (data.shareLink) {
+      shareLink = data.shareLink;
+    } else if (data.shareLinks?.length > 0) {
+      shareLink = data.shareLinks[0].shareLink;
+      recipientCount = data.shareLinks.length;
+    }
 
-          onClose();
-          navigator.clipboard.writeText(shareLink).catch(() => {});
+    onClose();
+    navigator.clipboard.writeText(shareLink).catch(() => {});
 
-          toast.success(
-            emailsWereSent
-              ? `Link created & sent to ${recipientCount} recipient${recipientCount > 1 ? 's' : ''}!`
-              : editMode === 'duplicate' ? 'Link duplicated!' : 'Share link created!',
-            {
-              description: (
-                <div className="space-y-2 mt-1">
-                  <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
-                    <code className="text-xs text-slate-600 truncate flex-1 max-w-[200px]">{shareLink}</code>
-                    <button onClick={() => { navigator.clipboard.writeText(shareLink); toast.success('Copied!', { duration: 1500 }); }} className="text-xs font-semibold text-purple-600 hover:text-purple-700">Copy</button>
-                  </div>
-                  <button onClick={() => window.open(shareLink, '_blank')} className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Open Link</button>
-                </div>
-              ),
-              duration: 8000,
-              icon: '🔗',
-            }
-          );
-          onSuccess();
-        }
-      } else {
-        const data = await res.json();
-        toast.error(data.error || 'Failed to create share link');
+    // ✅ Check if any emails failed (non-fatal — link was still created)
+    const emailResults: { email: string; sent: boolean; error?: string }[] =
+      data.emailResults || [];
+    const failedEmails = emailResults.filter((r) => !r.sent);
+    const sentEmails = emailResults.filter((r) => r.sent);
+
+    // ── Always show the success toast with the link ───────────────────────
+    toast.success(
+      sentEmails.length > 0
+        ? `Link created & sent to ${sentEmails.length} recipient${sentEmails.length > 1 ? 's' : ''}!`
+        : editMode === 'duplicate'
+        ? 'Link duplicated!'
+        : 'Share link created!',
+      {
+        description: (
+          <div className="space-y-2 mt-1">
+            <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+              <code className="text-xs text-slate-600 truncate flex-1 max-w-[200px]">
+                {shareLink}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(shareLink);
+                  toast.success('Copied!', { duration: 1500 });
+                }}
+                className="text-xs font-semibold text-purple-600 hover:text-purple-700"
+              >
+                Copy
+              </button>
+            </div>
+            <button
+              onClick={() => window.open(shareLink, '_blank')}
+              className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Open Link
+            </button>
+          </div>
+        ),
+        duration: 8000,
+        icon: '🔗',
       }
+    );
+
+    // ── If some emails failed, show a separate warning toast ─────────────
+    if (failedEmails.length > 0) {
+      toast.warning(
+        `${failedEmails.length} email${failedEmails.length > 1 ? 's' : ''} couldn't be sent`,
+        {
+          description: (
+            <div className="space-y-1 mt-1">
+              <p className="text-xs text-slate-600">
+                Your link was created. These recipients didn't receive an email:
+              </p>
+              <div className="max-h-24 overflow-y-auto space-y-0.5">
+                {failedEmails.map((f) => (
+                  <p key={f.email} className="text-xs text-slate-500 truncate">
+                    · {f.email}
+                  </p>
+                ))}
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Share the link manually to reach them.
+              </p>
+            </div>
+          ),
+          duration: 12000,
+          icon: '⚠️',
+        }
+      );
+    }
+
+    onSuccess();
+  }
+} else {
+  const data = await res.json();
+  toast.error(data.error || 'Failed to create share link');
+}
+
     } catch {
       toast.error('Failed. Please try again.');
     }
@@ -297,7 +361,11 @@ export default function ShareLinkDrawer({
                     <button
                       key={method}
                       onClick={() => setRecipientInputMethod(method)}
-                      className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${recipientInputMethod === method ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+                        recipientInputMethod === method
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
                     >
                       {method === 'single' ? 'Add One' : method === 'bulk' ? 'Paste List' : 'CSV'}
                     </button>
@@ -348,7 +416,9 @@ export default function ShareLinkDrawer({
                     />
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-slate-400">
-                        {bulkRecipientInput ? `${bulkRecipientInput.split(/[\n,]+/).filter(e => e.trim()).length} detected` : 'Paste emails above'}
+                        {bulkRecipientInput
+                          ? `${bulkRecipientInput.split(/[\n,]+/).filter((e) => e.trim()).length} detected`
+                          : 'Paste emails above'}
                       </span>
                       <Button onClick={handleBulkAddRecipients} disabled={!bulkRecipientInput.trim()} size="sm" className="gap-1.5">
                         <Users className="h-3.5 w-3.5" /> Add All
@@ -361,11 +431,19 @@ export default function ShareLinkDrawer({
                 {recipientInputMethod === 'csv' && (
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-2">
-                      <button onClick={handleAttachFromDrive} className="h-20 flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-slate-200 rounded-xl hover:border-violet-400 hover:bg-violet-50 transition-colors text-sm font-medium text-slate-600">
-                        <svg className="h-5 w-5 text-slate-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12.01 1.485L3.982 15h4.035l8.028-13.515h-4.035zm6.982 13.515l-4.018-6.77-4.017 6.77h8.035zM1.946 17l4.018 6.515L9.982 17H1.946z"/></svg>
+                      <button
+                        onClick={handleAttachFromDrive}
+                        className="h-20 flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-slate-200 rounded-xl hover:border-violet-400 hover:bg-violet-50 transition-colors text-sm font-medium text-slate-600"
+                      >
+                        <svg className="h-5 w-5 text-slate-400" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12.01 1.485L3.982 15h4.035l8.028-13.515h-4.035zm6.982 13.515l-4.018-6.77-4.017 6.77h8.035zM1.946 17l4.018 6.515L9.982 17H1.946z" />
+                        </svg>
                         <span className="text-xs">Google Drive</span>
                       </button>
-                      <button onClick={() => document.getElementById('csv-local-upload')?.click()} className="h-20 flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm font-medium text-slate-600">
+                      <button
+                        onClick={() => document.getElementById('csv-local-upload')?.click()}
+                        className="h-20 flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-slate-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors text-sm font-medium text-slate-600"
+                      >
                         <Upload className="h-5 w-5 text-slate-400" />
                         <span className="text-xs">Local CSV</span>
                       </button>
@@ -375,7 +453,9 @@ export default function ShareLinkDrawer({
                       <div className="border rounded-xl p-3 bg-slate-50 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-semibold text-slate-700">{csvPreview.length} contacts found</span>
-                          <Button size="sm" onClick={handleConfirmCSV} className="h-7 text-xs gap-1"><Check className="h-3 w-3" /> Import</Button>
+                          <Button size="sm" onClick={handleConfirmCSV} className="h-7 text-xs gap-1">
+                            <Check className="h-3 w-3" /> Import
+                          </Button>
                         </div>
                         <div className="max-h-32 overflow-y-auto space-y-1">
                           {csvPreview.slice(0, 8).map((c, i) => (
@@ -384,7 +464,9 @@ export default function ShareLinkDrawer({
                               {c.name && <span className="text-slate-400 ml-1.5">· {c.name}</span>}
                             </div>
                           ))}
-                          {csvPreview.length > 8 && <p className="text-xs text-slate-400 text-center">+{csvPreview.length - 8} more</p>}
+                          {csvPreview.length > 8 && (
+                            <p className="text-xs text-slate-400 text-center">+{csvPreview.length - 8} more</p>
+                          )}
                         </div>
                       </div>
                     )}
@@ -395,16 +477,30 @@ export default function ShareLinkDrawer({
                 {shareSettings.recipientEmails.length > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between p-2.5 bg-violet-50 border border-violet-200 rounded-xl">
-                      <span className="text-xs font-semibold text-violet-800">{shareSettings.recipientEmails.length} recipient{shareSettings.recipientEmails.length !== 1 ? 's' : ''}</span>
+                      <span className="text-xs font-semibold text-violet-800">
+                        {shareSettings.recipientEmails.length} recipient{shareSettings.recipientEmails.length !== 1 ? 's' : ''}
+                      </span>
                       <div className="flex items-center gap-1">
-                        <button onClick={() => setShowAllRecipients(!showAllRecipients)} className="text-xs text-violet-600 hover:underline">{showAllRecipients ? 'Collapse' : 'View all'}</button>
+                        <button onClick={() => setShowAllRecipients(!showAllRecipients)} className="text-xs text-violet-600 hover:underline">
+                          {showAllRecipients ? 'Collapse' : 'View all'}
+                        </button>
                         <span className="text-violet-300">·</span>
-                        <button onClick={() => onConfirm({ title: 'Remove All Recipients', message: 'Are you sure you want to remove all recipients?', danger: true, onConfirm: () => setShareSettings({ ...shareSettings, recipientEmails: [] }) })} className="text-xs text-red-500 hover:underline">Clear</button>
+                        <button
+                          onClick={() => onConfirm({
+                            title: 'Remove All Recipients',
+                            message: 'Are you sure you want to remove all recipients?',
+                            danger: true,
+                            onConfirm: () => setShareSettings({ ...shareSettings, recipientEmails: [] }),
+                          })}
+                          className="text-xs text-red-500 hover:underline"
+                        >
+                          Clear
+                        </button>
                       </div>
                     </div>
                     {showAllRecipients && (
                       <div className="max-h-48 overflow-y-auto space-y-1 border rounded-xl p-2 bg-slate-50">
-                        {shareSettings.recipientEmails.map((email, idx) => (
+                        {shareSettings.recipientEmails.map((email: string, idx: number) => (
                           <div key={idx} className="flex items-center justify-between px-2 py-1.5 bg-white rounded-lg border group hover:border-violet-300 transition-colors">
                             <div className="flex items-center gap-2 min-w-0">
                               <div className="h-6 w-6 rounded-full bg-gradient-to-br from-violet-400 to-blue-500 flex items-center justify-center flex-shrink-0">
@@ -412,7 +508,10 @@ export default function ShareLinkDrawer({
                               </div>
                               <span className="text-xs text-slate-700 truncate">{email}</span>
                             </div>
-                            <button onClick={() => setShareSettings({ ...shareSettings, recipientEmails: shareSettings.recipientEmails.filter((_, i) => i !== idx) })} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ml-1">
+                            <button
+                              onClick={() => setShareSettings({ ...shareSettings, recipientEmails: shareSettings.recipientEmails.filter((_: string, i: number) => i !== idx) })}
+                              className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ml-1"
+                            >
                               <X className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -427,7 +526,10 @@ export default function ShareLinkDrawer({
                           <div className="text-xs text-slate-400">Email recipients with the access link</div>
                         </div>
                       </div>
-                      <Switch checked={shareSettings.sendEmailNotification} onCheckedChange={(c) => setShareSettings({ ...shareSettings, sendEmailNotification: c })} />
+                      <Switch
+                        checked={shareSettings.sendEmailNotification}
+                        onCheckedChange={(c) => setShareSettings({ ...shareSettings, sendEmailNotification: c })}
+                      />
                     </label>
                   </div>
                 )}
@@ -442,11 +544,20 @@ export default function ShareLinkDrawer({
               </div>
               <div className="divide-y divide-slate-100">
                 <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
-                  <div><div className="text-sm font-medium text-slate-800">Require email to view</div><div className="text-xs text-slate-400 mt-0.5">Viewer must enter email before accessing</div></div>
-                  <Switch checked={shareSettings.requireEmail} onCheckedChange={(c) => setShareSettings({ ...shareSettings, requireEmail: c })} />
+                  <div>
+                    <div className="text-sm font-medium text-slate-800">Require email to view</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Viewer must enter email before accessing</div>
+                  </div>
+                  <Switch
+                    checked={shareSettings.requireEmail}
+                    onCheckedChange={(c) => setShareSettings({ ...shareSettings, requireEmail: c })}
+                  />
                 </label>
                 <div className="flex items-center justify-between px-5 py-3.5">
-                  <div><div className="text-sm font-medium text-slate-800">Link expires</div><div className="text-xs text-slate-400 mt-0.5">Auto-disable after selected time</div></div>
+                  <div>
+                    <div className="text-sm font-medium text-slate-800">Link expires</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Auto-disable after selected time</div>
+                  </div>
                   <select
                     value={shareSettings.expiresIn}
                     onChange={(e) => setShareSettings({ ...shareSettings, expiresIn: parseInt(e.target.value) })}
@@ -459,12 +570,24 @@ export default function ShareLinkDrawer({
                   </select>
                 </div>
                 <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
-                  <div><div className="text-sm font-medium text-slate-800">Allow download</div><div className="text-xs text-slate-400 mt-0.5">Viewer can save a copy of the PDF</div></div>
-                  <Switch checked={shareSettings.allowDownload} onCheckedChange={(c) => setShareSettings({ ...shareSettings, allowDownload: c })} />
+                  <div>
+                    <div className="text-sm font-medium text-slate-800">Allow download</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Viewer can save a copy of the PDF</div>
+                  </div>
+                  <Switch
+                    checked={shareSettings.allowDownload}
+                    onCheckedChange={(c) => setShareSettings({ ...shareSettings, allowDownload: c })}
+                  />
                 </label>
                 <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
-                  <div><div className="text-sm font-medium text-slate-800">Allow printing</div><div className="text-xs text-slate-400 mt-0.5">Viewer can print the document</div></div>
-                  <Switch checked={shareSettings.allowPrint} onCheckedChange={(c) => setShareSettings({ ...shareSettings, allowPrint: c })} />
+                  <div>
+                    <div className="text-sm font-medium text-slate-800">Allow printing</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Viewer can print the document</div>
+                  </div>
+                  <Switch
+                    checked={shareSettings.allowPrint}
+                    onCheckedChange={(c) => setShareSettings({ ...shareSettings, allowPrint: c })}
+                  />
                 </label>
               </div>
             </div>
@@ -473,7 +596,9 @@ export default function ShareLinkDrawer({
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
                 <Mail className="h-4 w-4 text-violet-600" />
-                <h3 className="font-semibold text-slate-900 text-sm">Personal Message <span className="text-slate-400 font-normal">(optional)</span></h3>
+                <h3 className="font-semibold text-slate-900 text-sm">
+                  Personal Message <span className="text-slate-400 font-normal">(optional)</span>
+                </h3>
               </div>
               <div className="p-5">
                 <Textarea
@@ -492,12 +617,19 @@ export default function ShareLinkDrawer({
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
                 <ImageIcon className="h-4 w-4 text-violet-600" />
-                <h3 className="font-semibold text-slate-900 text-sm">Branding <span className="text-slate-400 font-normal">(optional)</span></h3>
+                <h3 className="font-semibold text-slate-900 text-sm">
+                  Branding <span className="text-slate-400 font-normal">(optional)</span>
+                </h3>
               </div>
               <div className="p-5 space-y-4">
                 <div>
                   <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide block mb-1.5">Your name or company</label>
-                  <Input value={shareSettings.sharedByName || ''} onChange={(e) => setShareSettings({ ...shareSettings, sharedByName: e.target.value })} placeholder="Acme Corp" className="text-sm" />
+                  <Input
+                    value={shareSettings.sharedByName || ''}
+                    onChange={(e) => setShareSettings({ ...shareSettings, sharedByName: e.target.value })}
+                    placeholder="Acme Corp"
+                    className="text-sm"
+                  />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide block mb-1.5">Company logo</label>
@@ -516,11 +648,23 @@ export default function ShareLinkDrawer({
                       </div>
                     </div>
                   ) : (
-                    <button type="button" onClick={() => document.getElementById('logo-upload-input')?.click()} disabled={isUploadingLogo} className="w-full border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-violet-400 hover:bg-violet-50 transition-colors disabled:opacity-50">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('logo-upload-input')?.click()}
+                      disabled={isUploadingLogo}
+                      className="w-full border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-violet-400 hover:bg-violet-50 transition-colors disabled:opacity-50"
+                    >
                       {isUploadingLogo ? (
-                        <div className="flex flex-col items-center gap-2"><Loader2 className="h-6 w-6 text-violet-500 animate-spin" /><span className="text-xs text-slate-500">Uploading...</span></div>
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="h-6 w-6 text-violet-500 animate-spin" />
+                          <span className="text-xs text-slate-500">Uploading...</span>
+                        </div>
                       ) : (
-                        <div className="flex flex-col items-center gap-1.5"><ImageIcon className="h-6 w-6 text-slate-300" /><span className="text-xs font-medium text-slate-500">Click to upload logo</span><span className="text-xs text-slate-400">PNG, JPG, SVG · Max 2MB</span></div>
+                        <div className="flex flex-col items-center gap-1.5">
+                          <ImageIcon className="h-6 w-6 text-slate-300" />
+                          <span className="text-xs font-medium text-slate-500">Click to upload logo</span>
+                          <span className="text-xs text-slate-400">PNG, JPG, SVG · Max 2MB</span>
+                        </div>
                       )}
                     </button>
                   )}
@@ -539,26 +683,56 @@ export default function ShareLinkDrawer({
               <div className="divide-y divide-slate-100">
                 <div className="px-5 py-3.5">
                   <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide block mb-1.5">Password protect</label>
-                  <Input type="password" value={shareSettings.password} onChange={(e) => setShareSettings({ ...shareSettings, password: e.target.value })} placeholder="Leave empty for no password" className="text-sm" />
+                  <Input
+                    type="password"
+                    value={shareSettings.password}
+                    onChange={(e) => setShareSettings({ ...shareSettings, password: e.target.value })}
+                    placeholder="Leave empty for no password"
+                    className="text-sm"
+                  />
                 </div>
                 <div className="px-5 py-3.5">
                   <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide block mb-1.5">View limit</label>
                   <div className="flex items-center gap-3">
-                    <Input type="number" min="0" placeholder="Unlimited" value={shareSettings.viewLimit || ''} onChange={(e) => setShareSettings({ ...shareSettings, viewLimit: e.target.value ? parseInt(e.target.value) : undefined })} className="w-32 text-sm" />
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="Unlimited"
+                      value={shareSettings.viewLimit || ''}
+                      onChange={(e) => setShareSettings({ ...shareSettings, viewLimit: e.target.value ? parseInt(e.target.value) : undefined })}
+                      className="w-32 text-sm"
+                    />
                     <span className="text-xs text-slate-400">Set 1 for one-time access</span>
                   </div>
                 </div>
                 <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
-                  <div><div className="text-sm font-medium text-slate-800">Self-destruct after first view</div><div className="text-xs text-slate-400 mt-0.5">Link deactivates after opening once</div></div>
-                  <Switch checked={shareSettings.selfDestruct} onCheckedChange={(c) => setShareSettings({ ...shareSettings, selfDestruct: c })} />
+                  <div>
+                    <div className="text-sm font-medium text-slate-800">Self-destruct after first view</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Link deactivates after opening once</div>
+                  </div>
+                  <Switch
+                    checked={shareSettings.selfDestruct}
+                    onCheckedChange={(c) => setShareSettings({ ...shareSettings, selfDestruct: c })}
+                  />
                 </label>
                 <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
-                  <div><div className="text-sm font-medium text-slate-800">Allow forwarding</div><div className="text-xs text-slate-400 mt-0.5">Recipients can share link with others</div></div>
-                  <Switch checked={shareSettings.allowForwarding} onCheckedChange={(c) => setShareSettings({ ...shareSettings, allowForwarding: c })} />
+                  <div>
+                    <div className="text-sm font-medium text-slate-800">Allow forwarding</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Recipients can share link with others</div>
+                  </div>
+                  <Switch
+                    checked={shareSettings.allowForwarding}
+                    onCheckedChange={(c) => setShareSettings({ ...shareSettings, allowForwarding: c })}
+                  />
                 </label>
                 <div className="px-5 py-3.5">
                   <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide block mb-1.5">Available from (schedule)</label>
-                  <Input type="datetime-local" value={shareSettings.availableFrom || ''} onChange={(e) => setShareSettings({ ...shareSettings, availableFrom: e.target.value })} className="text-sm" />
+                  <Input
+                    type="datetime-local"
+                    value={shareSettings.availableFrom || ''}
+                    onChange={(e) => setShareSettings({ ...shareSettings, availableFrom: e.target.value })}
+                    className="text-sm"
+                  />
                   <p className="text-xs text-slate-400 mt-1">Link inactive until this date/time</p>
                 </div>
               </div>
@@ -574,29 +748,54 @@ export default function ShareLinkDrawer({
                 <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">Premium</span>
               </div>
               <div className="divide-y divide-slate-100">
+
+                {/* ✅ NDA — now uses PDF upload + dropdown selector */}
                 <div className="px-5 py-4 space-y-3">
                   <label className="flex items-center justify-between cursor-pointer">
-                    <div><div className="text-sm font-medium text-slate-800">Require NDA acceptance</div><div className="text-xs text-slate-400 mt-0.5">Viewer must sign terms before viewing</div></div>
-                    <Switch checked={shareSettings.requireNDA} onCheckedChange={(c) => setShareSettings({ ...shareSettings, requireNDA: c })} />
+                    <div>
+                      <div className="text-sm font-medium text-slate-800">Require NDA acceptance</div>
+                      <div className="text-xs text-slate-400 mt-0.5">Viewer must accept agreement before viewing</div>
+                    </div>
+                    <Switch
+                      checked={shareSettings.requireNDA}
+                      onCheckedChange={(c) => setShareSettings({ ...shareSettings, requireNDA: c })}
+                    />
                   </label>
                   {shareSettings.requireNDA && (
-                    <div className="space-y-3 pt-1">
-                      <NdaSelector shareSettings={shareSettings} setShareSettings={setShareSettings} />
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-xs text-green-800">✅ Acceptance is timestamped and logged for legal records.</p>
-                      </div>
+                    <div className="pt-1">
+                      <NdaAgreementSelector
+                        shareSettings={shareSettings}
+                        setShareSettings={setShareSettings}
+                      />
                     </div>
                   )}
                 </div>
+
+                {/* Watermark */}
                 <div className="px-5 py-4 space-y-3">
                   <label className="flex items-center justify-between cursor-pointer">
-                    <div><div className="text-sm font-medium text-slate-800">Watermark pages</div><div className="text-xs text-slate-400 mt-0.5">Stamp viewer's email on each page</div></div>
-                    <Switch checked={shareSettings.enableWatermark} onCheckedChange={(c) => setShareSettings({ ...shareSettings, enableWatermark: c })} />
+                    <div>
+                      <div className="text-sm font-medium text-slate-800">Watermark pages</div>
+                      <div className="text-xs text-slate-400 mt-0.5">Stamp viewer's email on each page</div>
+                    </div>
+                    <Switch
+                      checked={shareSettings.enableWatermark}
+                      onCheckedChange={(c) => setShareSettings({ ...shareSettings, enableWatermark: c })}
+                    />
                   </label>
                   {shareSettings.enableWatermark && (
                     <div className="space-y-2 pt-1">
-                      <Input value={shareSettings.watermarkText} onChange={(e) => setShareSettings({ ...shareSettings, watermarkText: e.target.value })} placeholder="Leave empty to use viewer's email" className="text-sm" />
-                      <select value={shareSettings.watermarkPosition} onChange={(e) => setShareSettings({ ...shareSettings, watermarkPosition: e.target.value as any })} className="w-full border rounded-lg px-3 py-2 text-sm bg-white">
+                      <Input
+                        value={shareSettings.watermarkText}
+                        onChange={(e) => setShareSettings({ ...shareSettings, watermarkText: e.target.value })}
+                        placeholder="Leave empty to use viewer's email"
+                        className="text-sm"
+                      />
+                      <select
+                        value={shareSettings.watermarkPosition}
+                        onChange={(e) => setShareSettings({ ...shareSettings, watermarkPosition: e.target.value as any })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm bg-white"
+                      >
                         <option value="bottom">Bottom</option>
                         <option value="top">Top</option>
                         <option value="center">Center</option>
@@ -611,7 +810,9 @@ export default function ShareLinkDrawer({
             {/* Tracking notice */}
             <div className="flex items-start gap-2.5 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
               <Eye className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-blue-700">Views, time spent, and page engagement are automatically tracked and available in your analytics dashboard.</p>
+              <p className="text-xs text-blue-700">
+                Views, time spent, and page engagement are automatically tracked and available in your analytics dashboard.
+              </p>
             </div>
             <div className="h-4" />
           </div>

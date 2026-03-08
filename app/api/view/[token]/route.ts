@@ -5,17 +5,15 @@ import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import { sendNdaAcceptanceNotification } from '@/lib/email-nda-notification';
 
-// ✅ POST - View shared document (with optional authentication)
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ token: string }> }
 ) {
   console.log('\n🔵 ===== VIEW API CALLED =====');
-   
+
   try {
     const { token } = await context.params;
     console.log('🔑 Share token received:', token ? token.slice(0, 8) + '...' : '❌ MISSING');
-    
 
     if (!token) {
       console.warn('❌ No token provided');
@@ -25,10 +23,19 @@ export async function POST(
     const db = await dbPromise;
 
     // ✅ Find share record by token
-    const share = await db.collection('shares').findOne({
-      
-      shareToken: token,
-    });
+    const share = await db.collection('shares').findOne({ shareToken: token });
+
+    if (!share) {
+      console.warn('❌ Share not found');
+      return NextResponse.json({
+        error: 'Share link not found or has been revoked',
+        notFound: true,
+      }, { status: 404 });
+    }
+
+    // ✅ Fetch owner profile RIGHT AFTER share is confirmed — needed for senderEmail in all responses
+    const ownerProfile = await db.collection('profiles').findOne({ user_id: share.userId });
+    console.log('👤 Owner profile:', { found: !!ownerProfile, email: ownerProfile?.email });
 
     console.log('📦 Share lookup:', {
       found: !!share,
@@ -40,69 +47,59 @@ export async function POST(
       views: share?.tracking?.views,
     });
 
-    if (!share) {
-      console.warn('❌ Share not found');
-      return NextResponse.json({ 
-        error: 'Share link not found or has been revoked',
-        notFound: true
-      }, { status: 404 });
-    }
-
     // ✅ Check if share is active
     if (!share.active) {
       console.warn('⛔ Share deactivated');
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'This share link has been deactivated',
-        deactivated: true
+        deactivated: true,
       }, { status: 403 });
     }
 
     // ✅ Check expiration
     if (share.expiresAt && new Date(share.expiresAt) < new Date()) {
-       console.warn('⏰ Share expired');
-      return NextResponse.json({ 
+      console.warn('⏰ Share expired');
+      return NextResponse.json({
         error: 'This share link has expired',
-        expired: true
+        expired: true,
       }, { status: 410 });
     }
 
     // ✅ Check max views
     if (share.settings.maxViews && share.tracking.views >= share.settings.maxViews) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'This share link has reached its maximum number of views',
-        maxViewsReached: true
+        maxViewsReached: true,
       }, { status: 403 });
     }
 
-    // ✅ Parse authentication data from request
+    // ✅ Parse request body
     const body = await request.json().catch(() => ({}));
-     console.log('📨 Request body:', body);
+    console.log('📨 Request body:', body);
 
     const { email, password } = body;
-      console.log('👤 Auth data received:', {
+    console.log('👤 Auth data received:', {
       email: email ? email : '❌ none',
       password: password ? '✅ provided' : '❌ none',
     });
 
     console.log('🎨 [VIEW API] Branding data in share settings:', {
-  sharedByName: share.settings.sharedByName,
-  logoUrl: share.settings.logoUrl,
-});
+      sharedByName: share.settings.sharedByName,
+      logoUrl: share.settings.logoUrl,
+    });
 
     // ✅ Check if email is required
     if (share.settings.requireEmail && !email) {
-      console.log('🎨 Branding check:', { sharedByName: share.settings.sharedByName, logoUrl: share.settings.logoUrl });
       return NextResponse.json({
         requiresAuth: true,
         requiresEmail: true,
         requiresPassword: share.settings.hasPassword,
         settings: {
           customMessage: share.settings.customMessage,
-          sharedByName: share.settings.sharedByName || null,   
-      logoUrl: share.settings.logoUrl || null,  
-      senderEmail: share.settings || null, 
+          sharedByName: share.settings.sharedByName || null,
+          logoUrl: share.settings.logoUrl || null,
+          senderEmail: ownerProfile?.email || null,   // ✅ FIXED
         },
-        
       }, { status: 401 });
     }
 
@@ -114,8 +111,9 @@ export async function POST(
         requiresPassword: true,
         settings: {
           customMessage: share.settings.customMessage,
-          sharedByName: share.settings.sharedByName || null,    
-      logoUrl: share.settings.logoUrl || null, 
+          sharedByName: share.settings.sharedByName || null,
+          logoUrl: share.settings.logoUrl || null,
+          senderEmail: ownerProfile?.email || null,   // ✅ FIXED
         },
       }, { status: 401 });
     }
@@ -124,12 +122,10 @@ export async function POST(
     if (share.settings.hasPassword && password) {
       const passwordValid = await bcrypt.compare(password, share.password);
       if (!passwordValid) {
-        // Track failed attempt
         await db.collection('shares').updateOne(
           { _id: share._id },
           { $inc: { 'tracking.blockedAttempts': 1 } }
         );
-
         return NextResponse.json({
           error: 'Incorrect password',
           requiresAuth: true,
@@ -139,50 +135,46 @@ export async function POST(
     }
 
     // ✅ Verify email whitelist if set
-if (share.settings.allowedEmails && share.settings.allowedEmails.length > 0) {
-  // If no email provided, ask for it
-  if (!email) {
-    return NextResponse.json({
-      requiresAuth: true,
-      requiresEmail: true,
-      requiresPassword: share.settings.hasPassword,
-      settings: {
-        customMessage: share.settings.customMessage,
-        sharedByName: share.settings.sharedByName || null,    
-      logoUrl: share.settings.logoUrl || null,  
-      },
-      error: 'Email verification required to access this document',
-    }, { status: 401 });
-  }
+    if (share.settings.allowedEmails && share.settings.allowedEmails.length > 0) {
+      if (!email) {
+        return NextResponse.json({
+          requiresAuth: true,
+          requiresEmail: true,
+          requiresPassword: share.settings.hasPassword,
+          settings: {
+            customMessage: share.settings.customMessage,
+            sharedByName: share.settings.sharedByName || null,
+            logoUrl: share.settings.logoUrl || null,
+            senderEmail: ownerProfile?.email || null,   // ✅ FIXED
+          },
+          error: 'Email verification required to access this document',
+        }, { status: 401 });
+      }
 
-  // Check if email is in whitelist (case-insensitive)
-  const emailAllowed = share.settings.allowedEmails.some(
-    (allowedEmail: string) => allowedEmail.toLowerCase() === email.toLowerCase()
-  );
+      const emailAllowed = share.settings.allowedEmails.some(
+        (allowedEmail: string) => allowedEmail.toLowerCase() === email.toLowerCase()
+      );
 
-  if (!emailAllowed) {
-    // Track blocked attempt
-    await db.collection('shares').updateOne(
-      { _id: share._id },
-      { $inc: { 'tracking.blockedAttempts': 1 } }
-    );
-
-    return NextResponse.json({
-      error: `Access denied. Your email (${email}) is not authorized to view this document.`,
-      unauthorized: true,
-      emailNotAllowed: true,
-      requiresAuth: true,
-      settings: {
-        customMessage: share.settings.customMessage,
-      },
-    }, { status: 403 });
-  }
-}
+      if (!emailAllowed) {
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          { $inc: { 'tracking.blockedAttempts': 1 } }
+        );
+        return NextResponse.json({
+          error: `Access denied. Your email (${email}) is not authorized to view this document.`,
+          unauthorized: true,
+          emailNotAllowed: true,
+          requiresAuth: true,
+          settings: {
+            customMessage: share.settings.customMessage,
+            senderEmail: ownerProfile?.email || null,   // ✅ FIXED
+          },
+        }, { status: 403 });
+      }
+    }
 
     // ✅ Get document details
-    const document = await db.collection('documents').findOne({
-      _id: share.documentId,
-    });
+    const document = await db.collection('documents').findOne({ _id: share.documentId });
 
     console.log('📄 Document lookup:', {
       found: !!document,
@@ -192,134 +184,134 @@ if (share.settings.allowedEmails && share.settings.allowedEmails.length > 0) {
     });
 
     if (!document) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Document not found',
-        documentDeleted: true
+        documentDeleted: true,
       }, { status: 404 });
     }
 
-
     // 📜 NDA FLOW
-    console.log('📜 NDA check:', {
-      required: share.settings.requireNDA,
-       
-    });
+    console.log('📜 NDA check:', { required: share.settings.requireNDA });
 
     let certificateId: string | null = null;
 
-// ✅ Check if NDA acceptance is required
-// ✅ Check if NDA acceptance is required
-if (share.settings.requireNDA) {
-  const { ndaAccepted, viewerName, viewerCompany } = body;
-  
-  if (!ndaAccepted) {
-    // Get owner info for NDA processing
-    const owner = await db.collection('users').findOne({ 
-      id: share.userId 
-    });
+    if (share.settings.requireNDA) {
+      const { ndaAccepted, viewerName, viewerCompany } = body;
 
-     // ⭐ Get template (custom or default)
-    const templateText = share.settings.ndaTemplate || getDefaultNDA();
-    
-     // ⭐ ALWAYS process with variables (whether custom or default)
-    const processedNDA = processNdaTemplate(templateText, {
-      viewerName: viewerName || '',
-      viewerEmail: email || '',
-      viewerCompany: viewerCompany || '',
-      documentTitle: document.originalFilename,
-      ownerName: owner?.name || share.createdBy?.name || share.createdBy?.email || 'Document Owner',
-      ownerCompany: owner?.company || share.createdBy?.company || '',
-      viewDate: new Date(),
-    });
-    
-    console.log('📜 Processed NDA preview:', processedNDA.substring(0, 200) + '...');
-    
-    
-    
-    return NextResponse.json({
-      requiresAuth: true,
-      requiresNDA: true,
-      ndaText: processedNDA,
-      requiresEmail: share.settings.requireEmail,
-      requiresPassword: share.settings.hasPassword,
-      settings: {
-        customMessage: share.settings.customMessage,
-        sharedByName: share.settings.sharedByName || null,    
-    logoUrl: share.settings.logoUrl || null,    
-      },
-    }, { status: 401 });
-  }
-  
-  // ✅ Generate certificate ID
-  certificateId = `NDA-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      if (!ndaAccepted) {
+        // ✅ FIXED: If a PDF agreement was uploaded, send its URL — don't process text
+        if (share.settings.ndaAgreementId && share.settings.ndaUrl) {
+          console.log('📜 Using uploaded PDF agreement:', share.settings.ndaAgreementId);
+          return NextResponse.json({
+            requiresAuth: true,
+            requiresNDA: true,
+            ndaUrl: share.settings.ndaUrl,
+            ndaAgreementId: share.settings.ndaAgreementId,
+            ndaText: null,
+            requiresEmail: share.settings.requireEmail,
+            requiresPassword: share.settings.hasPassword,
+            settings: {
+              customMessage: share.settings.customMessage,
+              sharedByName: share.settings.sharedByName || null,
+              logoUrl: share.settings.logoUrl || null,
+              senderEmail: ownerProfile?.email || null,   // ✅ FIXED
+            },
+          }, { status: 401 });
+        }
 
-  // ✅ Track NDA acceptance with FULL details
-  const ndaAcceptanceRecord = {
-    viewerName: viewerName || 'Unknown',
-    viewerEmail: email || 'anonymous',
-    viewerCompany: viewerCompany || null,
-    timestamp: new Date(),
-    ip: request.headers.get('x-forwarded-for') || 'unknown',
-    userAgent: request.headers.get('user-agent') || 'unknown',
-    ndaVersion: share.settings.ndaTemplateId || 'custom',
-    ndaTextSnapshot: share.settings.ndaTemplate,
-    documentTitle: document.originalFilename,
-    geolocation: null,
-    certificateId,
-  };
+        // Fallback: old text-based NDA
+        const owner = await db.collection('users').findOne({ id: share.userId });
+        const templateText = share.settings.ndaTemplate || getDefaultNDA();
+        const processedNDA = processNdaTemplate(templateText, {
+          viewerName: viewerName || '',
+          viewerEmail: email || '',
+          viewerCompany: viewerCompany || '',
+          documentTitle: document.originalFilename,
+          ownerName: owner?.name || share.createdBy?.name || share.createdBy?.email || 'Document Owner',
+          ownerCompany: owner?.company || share.createdBy?.company || '',
+          viewDate: new Date(),
+        });
 
-  // ✅ Get owner info
-  const owner = await db.collection('users').findOne({ id: share.userId });
-  
-  await db.collection('shares').updateOne(
-    { _id: share._id },
-    {
-      $push: {
-        'tracking.ndaAcceptances': ndaAcceptanceRecord
-      } as any,
-    }
-  );
+        console.log('📜 Processed NDA text preview:', processedNDA.substring(0, 200) + '...');
 
-  // ✅ Log NDA acceptance for legal records
-  await db.collection('nda_acceptances').insertOne({
-    shareId: share._id.toString(),
-    documentId: document._id.toString(),
-    ownerId: share.userId,
-    ...ndaAcceptanceRecord,
-    ownerName: owner?.name || share.createdBy?.name || share.createdBy?.email || 'Document Owner',
-    ownerCompany: owner?.company || share.createdBy?.company || '',
-  });
-  
-  // ⭐ Send email notification to owner
-  if (share.settings.notifyOnView && owner?.email) {
-    sendNdaAcceptanceNotification({
-      ownerEmail: owner.email,
-      ownerName: owner.name || owner.email,
-      viewerName: viewerName || 'Unknown',
-      viewerEmail: email || 'anonymous',
-      viewerCompany: viewerCompany || undefined,
-      documentTitle: document.originalFilename,
-      acceptedAt: new Date(),
-      certificateId,
-      certificateData: {
-        certificateId,
+        return NextResponse.json({
+          requiresAuth: true,
+          requiresNDA: true,
+          ndaText: processedNDA,
+          ndaUrl: null,
+          requiresEmail: share.settings.requireEmail,
+          requiresPassword: share.settings.hasPassword,
+          settings: {
+            customMessage: share.settings.customMessage,
+            sharedByName: share.settings.sharedByName || null,
+            logoUrl: share.settings.logoUrl || null,
+            senderEmail: ownerProfile?.email || null,   // ✅ FIXED
+          },
+        }, { status: 401 });
+      }
+
+      // ✅ NDA accepted — generate certificate
+      certificateId = `NDA-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+      const ndaAcceptanceRecord = {
         viewerName: viewerName || 'Unknown',
         viewerEmail: email || 'anonymous',
-        viewerCompany: viewerCompany || undefined,
-        documentTitle: document.originalFilename,
-        ownerName: owner?.name || share.createdBy?.email,
-        ownerCompany: owner?.company || '',
-        acceptedAt: new Date(),
-        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-        ndaTextSnapshot: share.settings.ndaTemplate,
+        viewerCompany: viewerCompany || null,
+        timestamp: new Date(),
+        ip: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || 'unknown',
         ndaVersion: share.settings.ndaTemplateId || 'custom',
-      },
-      documentUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/documents/${document._id.toString()}`,
-    }).catch(err => console.error('Failed to send NDA notification:', err));
-  }
+        ndaTextSnapshot: share.settings.ndaTemplate,
+        documentTitle: document.originalFilename,
+        geolocation: null,
+        certificateId,
+      };
 
-  console.log('✅ NDA accepted by:', email, '| Certificate:', certificateId);
-}
+      const owner = await db.collection('users').findOne({ id: share.userId });
+
+      await db.collection('shares').updateOne(
+        { _id: share._id },
+        { $push: { 'tracking.ndaAcceptances': ndaAcceptanceRecord } as any }
+      );
+
+      await db.collection('nda_acceptances').insertOne({
+        shareId: share._id.toString(),
+        documentId: document._id.toString(),
+        ownerId: share.userId,
+        ...ndaAcceptanceRecord,
+        ownerName: owner?.name || share.createdBy?.name || share.createdBy?.email || 'Document Owner',
+        ownerCompany: owner?.company || share.createdBy?.company || '',
+      });
+
+      if (share.settings.notifyOnView && owner?.email) {
+        sendNdaAcceptanceNotification({
+          ownerEmail: owner.email,
+          ownerName: owner.name || owner.email,
+          viewerName: viewerName || 'Unknown',
+          viewerEmail: email || 'anonymous',
+          viewerCompany: viewerCompany || undefined,
+          documentTitle: document.originalFilename,
+          acceptedAt: new Date(),
+          certificateId,
+          certificateData: {
+            certificateId,
+            viewerName: viewerName || 'Unknown',
+            viewerEmail: email || 'anonymous',
+            viewerCompany: viewerCompany || undefined,
+            documentTitle: document.originalFilename,
+            ownerName: owner?.name || share.createdBy?.email,
+            ownerCompany: owner?.company || '',
+            acceptedAt: new Date(),
+            ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+            ndaTextSnapshot: share.settings.ndaTemplate,
+            ndaVersion: share.settings.ndaTemplateId || 'custom',
+          },
+          documentUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/documents/${document._id.toString()}`,
+        }).catch(err => console.error('Failed to send NDA notification:', err));
+      }
+
+      console.log('✅ NDA accepted by:', email, '| Certificate:', certificateId);
+    }
 
     // ✅ Check if document has Cloudinary PDF URL
     if (!document.cloudinaryPdfUrl) {
@@ -328,26 +320,24 @@ if (share.settings.requireNDA) {
         hasCloudinaryOriginalUrl: !!document.cloudinaryOriginalUrl,
         filename: document.originalFilename,
       });
-      
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Document file not available',
-        details: 'PDF file URL is missing from document record'
+        details: 'PDF file URL is missing from document record',
       }, { status: 404 });
     }
 
-    // ✅ Generate viewer ID (IP + User Agent hash)
-    const ip = request.headers.get('x-forwarded-for') || 
-                request.headers.get('x-real-ip') || 
-                'unknown';
+    // ✅ Generate viewer ID
+    const ip = request.headers.get('x-forwarded-for') ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
     const viewerId = Buffer.from(`${ip}-${userAgent}`).toString('base64').substring(0, 32);
 
-    // ✅ Check if this is a unique viewer
     const isUniqueViewer = !share.tracking.uniqueViewers.includes(viewerId);
 
     // ✅ Update tracking
     const now = new Date();
-    const dateKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const dateKey = now.toISOString().split('T')[0];
 
     const trackingUpdate: any = {
       $inc: {
@@ -361,9 +351,7 @@ if (share.settings.requireNDA) {
     };
 
     if (isUniqueViewer) {
-      trackingUpdate.$addToSet = {
-        'tracking.uniqueViewers': viewerId,
-      };
+      trackingUpdate.$addToSet = { 'tracking.uniqueViewers': viewerId };
     }
 
     if (!share.tracking.firstViewedAt) {
@@ -377,12 +365,8 @@ if (share.settings.requireNDA) {
       };
     }
 
-    await db.collection('shares').updateOne(
-      { _id: share._id },
-      trackingUpdate
-    );
+    await db.collection('shares').updateOne({ _id: share._id }, trackingUpdate);
 
-    // ✅ Log view event
     await db.collection('analytics_logs').insertOne({
       documentId: document._id.toString(),
       shareId: share._id.toString(),
@@ -395,24 +379,13 @@ if (share.settings.requireNDA) {
       isUniqueView: isUniqueViewer,
     }).catch(err => console.error('Failed to log view:', err));
 
-    // ✅ Send notification if enabled
     if (share.settings.notifyOnView && isUniqueViewer) {
-      // TODO: Send email notification to document owner
       console.log(`📧 Notify ${share.createdBy.email}: Document viewed by ${email || 'anonymous'}`);
     }
 
-    // ✅ Generate the proxied PDF URL through your API
-    // This handles Cloudinary authentication and access control
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const pdfUrl = `${baseUrl}/api/view/${token}/file`;
 
-   
-// Fetch owner profile for sender email
-    const ownerProfile = await db.collection('profiles').findOne({ 
-      user_id: document.userId 
-    });
-
-    
     // ✅ Return document data
     return NextResponse.json({
       success: true,
@@ -421,24 +394,19 @@ if (share.settings.requireNDA) {
         filename: document.originalFilename,
         format: document.originalFormat,
         numPages: document.numPages,
-
-        
-        // Use proxied URL that handles Cloudinary authentication
         pdfUrl,
         previewUrls: [],
       },
-
-      
       settings: {
         allowDownload: share.settings.allowDownload,
         allowPrint: share.settings.allowPrint,
         customMessage: share.settings.customMessage,
-        sharedByName: share.settings.sharedByName || null,    
-  logoUrl: share.settings.logoUrl || null, 
-  senderEmail: ownerProfile?.email || null,
+        sharedByName: share.settings.sharedByName || null,
+        logoUrl: share.settings.logoUrl || null,
+        senderEmail: ownerProfile?.email || null,   // ✅ already correct here
       },
       tracking: {
-        views: share.tracking.views + 1, // Include this view
+        views: share.tracking.views + 1,
         uniqueViewers: share.tracking.uniqueViewers.length + (isUniqueViewer ? 1 : 0),
       },
       certificateId: certificateId || null,
@@ -448,19 +416,18 @@ if (share.settings.requireNDA) {
     console.error('❌ View shared document error:', error);
     return NextResponse.json({
       error: 'Failed to load document',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
   }
 }
 
-// ✅ GET - Quick check if share link exists (without tracking view)
+// ✅ GET - Quick check if share link exists
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ token: string }> }
 ) {
   try {
     const { token } = await context.params;
-
     const db = await dbPromise;
     const share = await db.collection('shares').findOne(
       { shareToken: token },
@@ -473,11 +440,7 @@ export async function GET(
 
     const expired = share.expiresAt && new Date(share.expiresAt) < new Date();
 
-    return NextResponse.json({
-      exists: true,
-      active: share.active,
-      expired,
-    });
+    return NextResponse.json({ exists: true, active: share.active, expired });
 
   } catch (error) {
     console.error('❌ Check share link error:', error);
@@ -485,8 +448,7 @@ export async function GET(
   }
 }
 
-
-// ⭐ UPDATED: Default NDA Template with Variables
+// ─── Default NDA Template ─────────────────────────────────────────────────────
 function getDefaultNDA(): string {
   return `NON-DISCLOSURE AGREEMENT
 
@@ -527,7 +489,7 @@ Company: {{viewer_company}}
 Date: {{view_date}}`;
 }
 
-// ⭐ Process NDA template variables
+// ─── Process NDA Template Variables ──────────────────────────────────────────
 function processNdaTemplate(
   template: string,
   data: {
@@ -541,7 +503,7 @@ function processNdaTemplate(
   }
 ): string {
   let processed = template;
-  
+
   const replacements: Record<string, string> = {
     '{{viewer_name}}': data.viewerName || 'Viewer',
     '{{viewer_email}}': data.viewerEmail || '',
@@ -560,10 +522,10 @@ function processNdaTemplate(
       timeZoneName: 'short',
     }),
   };
-  
+
   for (const [variable, value] of Object.entries(replacements)) {
     processed = processed.replace(new RegExp(variable, 'g'), value);
   }
-  
+
   return processed;
 }

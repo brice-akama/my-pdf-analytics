@@ -87,6 +87,8 @@ export async function POST(
       notifyOnView = true,
       password = null,
       expiresIn = 'never',
+      ndaAgreementId = null,   
+  ndaUrl = null,  
       maxViews = null,
       allowedEmails = [],
       customMessage = null,
@@ -252,6 +254,8 @@ export async function POST(
             trackDetailedAnalytics,
             enableWatermark,
             watermarkText,
+            ndaAgreementId: ndaAgreementId || null,   
+  ndaUrl: ndaUrl || null, 
             watermarkPosition,
             requireNDA,
             ndaText,
@@ -443,50 +447,65 @@ export async function POST(
 
     console.log(`✅ Created ${shareRecords.length} share link(s)`);
 
-    // ✅ Send notifications + emails
-    const profile = await db.collection('profiles').findOne({ user_id: user.id });
-    const senderName = profile?.full_name || user.email.split('@')[0];
+    // ✅ Send notifications + emails (email failures NEVER crash the response)
+const profile = await db.collection('profiles').findOne({ user_id: user.id });
+const senderName = profile?.full_name || user.email.split('@')[0];
 
-    for (let i = 0; i < shareRecords.length; i++) {
-      const share = shareRecords[i];
-      const link = shareLinks[i];
-      
-      // Notification
-      await createNotification({
-        userId: user.id,
-        type: 'share',
-        title: 'Share Link Created',
-        message: share.recipientEmail 
-          ? `Share link created for ${share.recipientEmail}`
-          : `Public share link created for "${document.originalFilename}"`,
-        documentId: documentId.toString(),
-        metadata: { 
-          shareToken: share.shareToken,
+const emailResults: { email: string; sent: boolean; error?: string }[] = [];
+
+for (let i = 0; i < shareRecords.length; i++) {
+  const share = shareRecords[i];
+  const link = shareLinks[i];
+
+  // ── Notification (fire-and-forget, never throws) ──────────────────────────
+  createNotification({
+    userId: user.id,
+    type: 'share',
+    title: 'Share Link Created',
+    message: share.recipientEmail
+      ? `Share link created for ${share.recipientEmail}`
+      : `Public share link created for "${document.originalFilename}"`,
+    documentId: documentId.toString(),
+    metadata: {
+      shareToken: share.shareToken,
+      recipientEmail: share.recipientEmail,
+    },
+  }).catch((err: unknown) =>
+    console.error('⚠️ Notification error (non-fatal):', err)
+  );
+
+  // ── Email (fully isolated — a Resend failure never touches the response) ──
+  if (sendEmailNotification && share.recipientEmail) {
+    try {
+      await Promise.race([
+        sendShareEmailViaGmailOrResend({
+          userId: user.id,
           recipientEmail: share.recipientEmail,
-        }
-      }).catch(err => console.error('Notification error:', err));
-      
-      // Email (if recipient-specific AND email notifications enabled)
-      if (sendEmailNotification && share.recipientEmail) {
-        try {
-          await sendShareEmailViaGmailOrResend({
-            userId: user.id,
-            recipientEmail: share.recipientEmail,
-            senderName,
-            documentName: document.originalFilename,
-            shareLink: link.shareLink,
-            customMessage,
-            expiresAt: share.expiresAt,
-            sharedByName,
-            logoUrl,
-          });
-          
-          console.log(`✅ Email sent to: ${share.recipientEmail}`);
-        } catch (error) {
-          console.error(`❌ Failed to send email to ${share.recipientEmail}:`, error);
-        }
-      }
+          senderName,
+          documentName: document.originalFilename,
+          shareLink: link.shareLink,
+          customMessage,
+          expiresAt: share.expiresAt,
+          sharedByName,
+          logoUrl,
+        }),
+        // ⏱ Hard timeout — if Resend hangs, we move on after 8s
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Email timeout after 8s')), 8000)
+        ),
+      ]);
+
+      console.log(`✅ Email sent to: ${share.recipientEmail}`);
+      emailResults.push({ email: share.recipientEmail, sent: true });
+
+    } catch (emailError: unknown) {
+      //  Log it, track it, but NEVER rethrow — share link still returns
+      const msg = emailError instanceof Error ? emailError.message : 'Unknown error';
+      console.error(`⚠️ Email failed for ${share.recipientEmail} (non-fatal): ${msg}`);
+      emailResults.push({ email: share.recipientEmail, sent: false, error: msg });
     }
+  }
+}
 
     // Update document share count
     await db.collection('documents').updateOne(
@@ -554,6 +573,7 @@ export async function POST(
           id: insertedIds[i],
         })),
         totalLinks: shareLinks.length,
+        emailResults,
         message: `${shareLinks.length} share link${shareLinks.length > 1 ? 's' : ''} created successfully`,
       }, { status: 201 });
     }
