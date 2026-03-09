@@ -145,6 +145,7 @@ export default function ShareLinkDrawer({
             sharedByName: shareSettings.sharedByName || null,
             logoUrl: shareSettings.logoUrl || null,
             linkType: shareSettings.linkType,
+            allowedDomain: shareSettings.linkType === 'domain-restricted' ? (shareSettings as any).allowedDomain : null,
           }),
         });
 
@@ -190,6 +191,7 @@ export default function ShareLinkDrawer({
           availableFrom: shareSettings.availableFrom || null,
           linkType: shareSettings.linkType,
           sharedByName: shareSettings.sharedByName || null,
+          allowedDomain: shareSettings.linkType === 'domain-restricted' ? (shareSettings as any).allowedDomain : null,
           logoUrl: shareSettings.logoUrl || null,
         }),
       });
@@ -579,75 +581,6 @@ export default function ShareLinkDrawer({
                     onCheckedChange={(c) => setShareSettings({ ...shareSettings, allowDownload: c })}
                   />
                 </label>
-
-                <div className="px-5 py-3.5 space-y-2">
-  <label className="flex items-center justify-between cursor-pointer">
-    <div>
-      <div className="text-sm font-medium text-slate-800">Restrict to specific emails</div>
-      <div className="text-xs text-slate-400 mt-0.5">Only listed emails can open this link</div>
-    </div>
-    <Switch
-      checked={shareSettings.allowedEmails.length > 0}
-      onCheckedChange={(c) => {
-        if (!c) setShareSettings({ ...shareSettings, allowedEmails: [] });
-      }}
-    />
-  </label>
- 
-  {shareSettings.allowedEmails.length > 0 && (
-    <div className="space-y-2 pt-1">
-      <div className="flex gap-2">
-        <input
-          type="email"
-          placeholder="allowed@company.com"
-          className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-violet-400"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              const val = (e.target as HTMLInputElement).value.trim().toLowerCase();
-              if (val && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) && !shareSettings.allowedEmails.includes(val)) {
-                setShareSettings({ ...shareSettings, allowedEmails: [...shareSettings.allowedEmails, val] });
-                (e.target as HTMLInputElement).value = '';
-              }
-            }
-          }}
-        />
-        <button
-          type="button"
-          onClick={(e) => {
-            const input = (e.currentTarget.previousSibling as HTMLInputElement);
-            const val = input.value.trim().toLowerCase();
-            if (val && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val) && !shareSettings.allowedEmails.includes(val)) {
-              setShareSettings({ ...shareSettings, allowedEmails: [...shareSettings.allowedEmails, val] });
-              input.value = '';
-            }
-          }}
-          className="px-3 py-2 text-xs font-semibold text-white rounded-lg"
-          style={{ background: 'linear-gradient(135deg, #6d28d9, #2563eb)' }}
-        >
-          Add
-        </button>
-      </div>
-      {shareSettings.allowedEmails.length > 0 && (
-        <div className="space-y-1 max-h-32 overflow-y-auto">
-          {shareSettings.allowedEmails.map((e: string, i: number) => (
-            <div key={i} className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-              <span className="text-xs text-slate-700">{e}</span>
-              <button
-                onClick={() => setShareSettings({ ...shareSettings, allowedEmails: shareSettings.allowedEmails.filter((_: string, idx: number) => idx !== i) })}
-                className="text-slate-300 hover:text-red-500 ml-2"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      <p className="text-xs text-slate-400">Press Enter or click Add. Recipients section above is for sending emails — this is for access control.</p>
-    </div>
-  )}
-</div>
-
- 
                 
                 <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
                   <div>
@@ -747,10 +680,45 @@ export default function ShareLinkDrawer({
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
                 <Shield className="h-4 w-4 text-slate-400" />
-                <h3 className="font-semibold text-slate-700 text-sm">Advanced Settings</h3>
-                <span className="ml-auto text-xs text-slate-400">optional</span>
+                 
               </div>
               <div className="divide-y divide-slate-100">
+                
+                <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
+  <div>
+    <div className="text-sm font-medium text-slate-800">Restrict to company domain</div>
+    <div className="text-xs text-slate-400 mt-0.5">Only emails from a specific domain can open this link</div>
+  </div>
+  <Switch
+    checked={shareSettings.linkType === 'domain-restricted'}
+    onCheckedChange={(c) => setShareSettings({
+      ...shareSettings,
+      linkType: c ? 'domain-restricted' : 'public',
+      requireEmail: c ? true : shareSettings.requireEmail,
+    })}
+  />
+</label>
+{shareSettings.linkType === 'domain-restricted' && (
+  <div className="px-5 pb-3.5 space-y-2">
+    <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+      <span className="text-sm font-semibold text-slate-500">@</span>
+      <input
+        type="text"
+        placeholder="docmetrics.io"
+        value={(shareSettings as any).allowedDomain || ''}
+        onChange={(e) => setShareSettings({
+          ...shareSettings,
+          allowedDomain: e.target.value.toLowerCase().replace('@', ''),
+        } as any)}
+        className="flex-1 bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
+      />
+    </div>
+    <p className="text-xs text-slate-400">
+      Only <strong>@{(shareSettings as any).allowedDomain || 'yourdomain.com'}</strong> emails can open this link. Personal emails (Gmail, Outlook, etc.) are blocked.
+    </p>
+  </div>
+)}
+
                 <div className="px-5 py-3.5">
                   <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide block mb-1.5">Password protect</label>
                   <Input

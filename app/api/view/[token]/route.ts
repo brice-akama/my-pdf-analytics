@@ -308,6 +308,51 @@ export async function POST(
       }
     }
 
+    // ✅ Domain restriction check
+    if (share.settings.linkType === 'domain-restricted' && share.settings.allowedDomain) {
+      if (!email) {
+        return NextResponse.json({
+          requiresAuth: true,
+          requiresEmail: true,
+          settings: {
+            customMessage: share.settings.customMessage,
+            sharedByName: share.settings.sharedByName || null,
+            logoUrl: share.settings.logoUrl || null,
+            senderEmail: ownerProfile?.email || null,
+          },
+          error: 'Email required to verify your domain',
+        }, { status: 401 });
+      }
+
+      const viewerDomain = email.split('@')[1]?.toLowerCase();
+
+      const blockedDomains = ['gmail.com','yahoo.com','outlook.com','hotmail.com','icloud.com','aol.com','protonmail.com','mail.com','zoho.com','yandex.com','gmx.com','live.com','msn.com'];
+      if (blockedDomains.includes(viewerDomain)) {
+        return NextResponse.json({
+          error: 'Domain restriction requires a company email address. Personal email providers are not accepted.',
+          unauthorized: true,
+          requiresAuth: true,
+          settings: {
+            customMessage: share.settings.customMessage,
+            senderEmail: ownerProfile?.email || null,
+          },
+        }, { status: 403 });
+      }
+
+      if (viewerDomain !== share.settings.allowedDomain.toLowerCase()) {
+        return NextResponse.json({
+          error: `Access restricted to @${share.settings.allowedDomain} email addresses only.`,
+          unauthorized: true,
+          requiresAuth: true,
+          settings: {
+            customMessage: share.settings.customMessage,
+            senderEmail: ownerProfile?.email || null,
+          },
+        }, { status: 403 });
+      }
+    }
+
+
     // ✅ Get document details
     const document = await db.collection('documents').findOne({ _id: share.documentId });
 

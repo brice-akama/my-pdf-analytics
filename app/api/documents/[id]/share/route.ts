@@ -109,6 +109,7 @@ export async function POST(
       availableFrom = null,
       linkType = 'public',
       sharedByName = null,
+      allowedDomain = null,
       sendEmailNotification = false,
       logoUrl = null,
     } = body;
@@ -269,6 +270,7 @@ export async function POST(
             availableFrom: availableFrom ? new Date(availableFrom) : null,
             linkType: 'email-gated', // Force email-gated for recipient links
             sharedByName,
+            allowedDomain: allowedDomain || null,
             logoUrl,
             sendEmailNotification,
           },
@@ -382,6 +384,7 @@ export async function POST(
           availableFrom: availableFrom ? new Date(availableFrom) : null,
           linkType,
           sharedByName,
+          allowedDomain: allowedDomain || null,
           logoUrl,
           sendEmailNotification: false,
         },
@@ -675,6 +678,7 @@ export async function GET(
   viewLimit: share.settings.viewLimit ?? undefined,
   downloadLimit: share.settings.downloadLimit ?? undefined,
   linkType: share.settings.linkType || 'public',
+  allowedDomain: share.settings.allowedDomain || null,
   expiresIn: share.expiresAt
     ? Math.ceil((new Date(share.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : 0,
