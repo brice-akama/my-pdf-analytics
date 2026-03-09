@@ -656,21 +656,18 @@ export default function ActivityTab({
                         .toUpperCase()}
                     </span>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">
-                      {lnk.recipientName}
-                    </p>
-                    {lnk.recipientEmail && (
-                      <p className="text-xs text-slate-400 truncate">
-                        {lnk.recipientEmail}
-                      </p>
-                    )}
-                    {!lnk.recipientEmail && (
-                      <p className="text-xs text-slate-400">
-                        {lnk.createdAgo}
-                      </p>
-                    )}
-                  </div>
+                 <div className="min-w-0">
+  <p className="text-sm font-semibold text-slate-900 truncate">
+    {lnk.recipientName || (lnk.settings?.linkType === 'domain-restricted' ? `@${lnk.settings?.allowedDomain || 'domain'}` : 'Public link')}
+  </p>
+  {lnk.recipientEmail ? (
+    <p className="text-xs text-slate-400 truncate">{lnk.recipientEmail}</p>
+  ) : lnk.settings?.linkType === 'domain-restricted' ? (
+    <p className="text-xs text-violet-500 truncate font-medium">Domain restricted</p>
+  ) : (
+    <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
+  )}
+</div>
                 </div>
 
                 <div className="flex items-center gap-2 pr-4 min-w-0">

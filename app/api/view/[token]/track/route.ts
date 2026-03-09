@@ -455,6 +455,32 @@ export async function POST(
           }).catch(err => console.error('Slack completed error:', err));
         }
 
+        // ── Teams: Document Completed ──────────────────────────
+        if (isLastPage && share.userId) {
+          const teamsViewerLogs = await db.collection('analytics_logs').find({
+            documentId,
+            action: 'page_view',
+            ...(email ? { email } : { viewerId }),
+          }).toArray();
+          const teamsTotalTime = teamsViewerLogs.reduce((sum: number, l: any) => sum + (l.viewTime || 0), 0);
+          const teamsIntentLevel = teamsTotalTime > 300 ? 'high' : teamsTotalTime > 120 ? 'medium' : 'low';
+          const teamsDoc2 = await db.collection('documents').findOne({ _id: share.documentId });
+
+          sendTeamsNotification({
+            userId: share.userId,
+            event: 'document_completed',
+            documentName: teamsDoc2?.originalFilename || 'Your document',
+            documentId,
+            viewerName: email?.split('@')[0] || 'Anonymous',
+            viewerEmail: email || undefined,
+            pageCount: teamsDoc2?.numPages,
+            pagesViewed: teamsDoc2?.numPages,
+            totalTimeSeconds: teamsTotalTime,
+            intentLevel: teamsIntentLevel,
+            completionPercent: 100,
+          }).catch(err => console.error('Teams completed error:', err));
+        }
+
         break;
       }
 
@@ -874,6 +900,36 @@ if (share.userId) {
   }).catch(err => console.error('Teams viewed error:', err))
 }
 
+// ── Teams: Revisit ─────────────────────────────────────
+        if (isRevisit && share.userId) {
+          const teamsRevisitDoc = await db.collection('documents').findOne({ _id: share.documentId });
+          const teamsVisitCount = await db.collection('analytics_sessions').countDocuments({
+            documentId,
+            viewerId,
+          });
+          const teamsPrevSession = await db.collection('analytics_sessions').findOne(
+            { documentId, viewerId, sessionId: { $ne: currentSessionId } },
+            { sort: { startedAt: -1 } }
+          );
+          const teamsLastVisitAgo = teamsPrevSession?.startedAt
+            ? formatTimeAgo(new Date(teamsPrevSession.startedAt))
+            : undefined;
+
+          sendTeamsNotification({
+            userId: share.userId,
+            event: 'document_revisited',
+            documentName: teamsRevisitDoc?.originalFilename || 'Your document',
+            documentId,
+            viewerName: email?.split('@')[0] || 'Anonymous',
+            viewerEmail: email || undefined,
+            pageCount: teamsRevisitDoc?.numPages,
+            visitCount: teamsVisitCount,
+            lastVisitAgo: teamsLastVisitAgo,
+            viewerLocation: location
+              ? [location.city, location.country].filter(Boolean).join(', ')
+              : undefined,
+          }).catch(err => console.error('Teams revisit error:', err));
+        }
         break;
       }
 
@@ -933,7 +989,10 @@ if (share.userId) {
       }
     }
   }
+
   // ── Slack: Session Summary ─────────────────────────────────
+let alreadyCompleted = false;
+
 if (share.userId && duration > 10) {
     const slackDoc = await db.collection('documents').findOne({ _id: share.documentId });
 
@@ -951,7 +1010,7 @@ if (share.userId && duration > 10) {
 
     // Only fire session summary if NOT already sent a "completed" notification
     // (avoids duplicate Slack messages when viewer reads entire doc)
-    const alreadyCompleted = slackDoc && pagesViewed.length === slackDoc.numPages;
+    alreadyCompleted = !!(slackDoc && pagesViewed.length === slackDoc.numPages);
 
     if (!alreadyCompleted) {
       notifySessionSummary({
@@ -967,6 +1026,36 @@ if (share.userId && duration > 10) {
       }).catch(err => console.error('Slack session summary error:', err));
     }
   }
+
+  // ── Teams: Session Summary ─────────────────────────────
+        if (share.userId && duration > 10 && !alreadyCompleted) {
+          const teamsSessionDoc = await db.collection('documents').findOne({ _id: share.documentId });
+          const teamsSessionLogs = await db.collection('analytics_logs').find({
+            documentId,
+            sessionId: currentSessionId,
+            action: 'page_view',
+          }).toArray();
+          const teamsUniquePages = [...new Set(teamsSessionLogs.map((l: any) => l.pageNumber))].length;
+          const teamsCompletion = teamsSessionDoc
+            ? Math.round((teamsUniquePages / teamsSessionDoc.numPages) * 100)
+            : 0;
+
+          sendTeamsNotification({
+            userId: share.userId,
+            event: 'session_summary',
+            documentName: teamsSessionDoc?.originalFilename || 'Your document',
+            documentId,
+            viewerName: email?.split('@')[0] || 'Anonymous',
+            viewerEmail: email || undefined,
+            pageCount: teamsSessionDoc?.numPages,
+            pagesViewed: teamsUniquePages,
+            totalTimeSeconds: duration,
+            completionPercent: teamsCompletion,
+            viewerLocation: location
+              ? [location.city, location.country].filter(Boolean).join(', ')
+              : undefined,
+          }).catch(err => console.error('Teams session summary error:', err));
+        }
 
         break;
       }

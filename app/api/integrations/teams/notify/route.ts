@@ -3,7 +3,7 @@ import { dbPromise } from "@/app/api/lib/mongodb"
 
 export type TeamsNotifyPayload = {
   userId: string
-  event: 'document_viewed' | 'document_downloaded' | 'signature_completed' | 'file_request_received'
+   event: 'document_viewed' | 'document_downloaded' | 'signature_completed' | 'file_request_received' | 'document_completed' | 'document_revisited' | 'session_summary'
   documentName: string
   documentId: string
   viewerName?: string
@@ -12,6 +12,12 @@ export type TeamsNotifyPayload = {
   documentThumbnail?: string // cloudinary thumbnail URL
   pageCount?: number
   extraInfo?: string
+  totalTimeSeconds?: number
+  pagesViewed?: number
+  intentLevel?: 'high' | 'medium' | 'low'
+  visitCount?: number
+  lastVisitAgo?: string
+  completionPercent?: number
 }
 
 const EVENT_CONFIG = {
@@ -47,6 +53,30 @@ const EVENT_CONFIG = {
     badge: 'FILE REQUEST',
     badgeColor: 'warning',
   },
+  document_completed: {
+    emoji: '✅',
+    title: 'Document Fully Read',
+    color: 'accent',
+    accentColor: '#107C10',
+    badge: 'COMPLETED',
+    badgeColor: 'good',
+  },
+  document_revisited: {
+    emoji: '🔄',
+    title: 'Document Revisited',
+    color: 'accent',
+    accentColor: '#6366F1',
+    badge: 'REVISIT',
+    badgeColor: 'accent',
+  },
+  session_summary: {
+    emoji: '📊',
+    title: 'Session Summary',
+    color: 'accent',
+    accentColor: '#0078D4',
+    badge: 'SUMMARY',
+    badgeColor: 'default',
+  },
 }
 
 function buildAdaptiveCard(payload: TeamsNotifyPayload, config: typeof EVENT_CONFIG[keyof typeof EVENT_CONFIG]) {
@@ -58,14 +88,28 @@ function buildAdaptiveCard(payload: TeamsNotifyPayload, config: typeof EVENT_CON
   })
 
   // Facts array — only show fields that exist
+ const formatTime = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+    return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  };
+
+  const intentEmoji = payload.intentLevel === 'high' ? '🔥 High' : payload.intentLevel === 'medium' ? '⚡ Medium' : '💤 Low';
+
   const facts = [
     payload.viewerName && { title: '👤 Viewer', value: payload.viewerName },
     payload.viewerEmail && { title: '📧 Email', value: payload.viewerEmail },
     payload.viewerLocation && { title: '📍 Location', value: payload.viewerLocation },
-    payload.pageCount && { title: '📄 Pages', value: payload.pageCount.toString() },
+    payload.pageCount && { title: '📄 Total Pages', value: payload.pageCount.toString() },
+    payload.pagesViewed !== undefined && { title: '👀 Pages Viewed', value: `${payload.pagesViewed} of ${payload.pageCount || '?'}` },
+    payload.completionPercent !== undefined && { title: '📈 Completion', value: `${payload.completionPercent}%` },
+    payload.totalTimeSeconds !== undefined && { title: '⏱️ Time Spent', value: formatTime(payload.totalTimeSeconds) },
+    payload.intentLevel && { title: '🎯 Intent Level', value: intentEmoji },
+    payload.visitCount !== undefined && { title: '🔁 Visit Count', value: `${payload.visitCount} visit${payload.visitCount !== 1 ? 's' : ''}` },
+    payload.lastVisitAgo && { title: '⏰ Last Visit', value: payload.lastVisitAgo },
     payload.extraInfo && { title: 'ℹ️ Details', value: payload.extraInfo },
     { title: '🕐 Time', value: time },
-  ].filter(Boolean)
+  ].filter(Boolean) as { title: string; value: string }[]
 
   return {
     type: "message",
