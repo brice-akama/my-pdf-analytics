@@ -69,6 +69,8 @@ const [contactSenderSent, setContactSenderSent] = useState(false);
   const [lastActivityTime, setLastActivityTime] = useState(Date.now());
   const [requiresNDA, setRequiresNDA] = useState(false);
   const [ndaText, setNdaText] = useState('');
+  const [ndaUrl, setNdaUrl] = useState<string | null>(null);
+const [ndaError, setNdaError] = useState<string | null>(null);
   const [ndaAccepted, setNdaAccepted] = useState(false);
   const [certificateId, setCertificateId] = useState<string | null>(null);
   const [certificateDrawerOpen, setCertificateDrawerOpen] = useState(false);
@@ -266,7 +268,16 @@ const [contactSenderSent, setContactSenderSent] = useState(false);
           setRequiresEmail(data.requiresEmail || false);
           setRequiresPassword(data.requiresPassword || false);
           setRequiresNDA(data.requiresNDA || false);
-          setNdaText(data.ndaText || '');
+           setNdaText(data.ndaText || '');
+setNdaUrl(data.ndaUrl || null);
+setNdaError(data.ndaError || null);
+console.log('📜 NDA data from API:', {
+  requiresNDA: data.requiresNDA,
+  ndaUrl: data.ndaUrl,
+  ndaText: data.ndaText,
+  ndaError: data.ndaError,
+  ndaAgreementId: data.ndaAgreementId,
+});
           setShareData(data);
           setIsVerified(true);
           if (data.settings) {
@@ -303,8 +314,8 @@ const [contactSenderSent, setContactSenderSent] = useState(false);
     if (requiresNDA && !ndaAccepted) { alert('You must accept the NDA to view this document'); return; }
     setIsAuthenticating(true);
     await loadSharedDocument({
-      email: requiresEmail ? email : undefined,
-      password: requiresPassword ? password : undefined,
+       email: email || undefined,           //  always send if we have it
+  password: password || undefined,
       ndaAccepted: requiresNDA ? ndaAccepted : undefined,
       viewerName: requiresNDA ? name : undefined,
       viewerCompany: requiresNDA ? company : undefined,
@@ -498,14 +509,52 @@ const [contactSenderSent, setContactSenderSent] = useState(false);
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">Non-Disclosure Agreement</label>
-                    <div className="relative rounded-xl overflow-hidden" style={{ border: '1px solid #e2e8f0' }}>
-                      <div className="max-h-48 overflow-y-auto p-4" style={{ background: '#fafafa' }}>
-                        <pre className="text-xs text-slate-600 whitespace-pre-wrap font-sans leading-relaxed">{ndaText}</pre>
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none" style={{ background: 'linear-gradient(transparent, #fafafa)' }} />
-                    </div>
-                  </div>
+  <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">
+    Non-Disclosure Agreement
+  </label>
+
+  {ndaUrl ? (
+    // ✅ PDF agreement uploaded — show iframe
+    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #e2e8f0' }}>
+      <div className="bg-slate-50 px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: '1px solid #e2e8f0' }}>
+        <div className="flex items-center gap-2">
+          <svg className="h-4 w-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span className="text-xs font-medium text-slate-700">Agreement Document</span>
+        </div>
+        <a
+          href={ndaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs font-medium hover:underline"
+          style={{ color: '#7c3aed' }}
+        >
+          Open full PDF ↗
+        </a>
+      </div>
+      <iframe
+        src={`${ndaUrl}#toolbar=0&navpanes=0&scrollbar=1`}
+        className="w-full border-0"
+        style={{ height: '260px' }}
+        title="NDA Agreement"
+      />
+    </div>
+  ) : ndaError ? (
+    // ✅ NDA required but no agreement configured — show error
+    <div className="rounded-xl p-4 flex items-start gap-3" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+      <svg className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p className="text-xs text-red-700 leading-relaxed">{ndaError}</p>
+    </div>
+  ) : (
+    // ✅ Loading / fallback
+    <div className="rounded-xl p-4 text-center" style={{ border: '1px dashed #e2e8f0' }}>
+      <p className="text-xs text-slate-400">Loading agreement...</p>
+    </div>
+  )}
+</div>
                   <label className="flex items-start gap-3 cursor-pointer">
                     <div className="relative mt-0.5 flex-shrink-0" onClick={() => setNdaAccepted(v => !v)}>
                       <div className="h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all"
@@ -1272,9 +1321,13 @@ function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, conta
   useEffect(() => {
     if (!divRef.current) return;
     const obs = new IntersectionObserver(
-      entries => { entries.forEach(e => { if (e.isIntersecting) { setIsVisible(true); onVisible(pageNum); } }); },
-      { root: scrollContainer.current, threshold: 0.2 }
-    );
+  entries => { entries.forEach(e => { if (e.isIntersecting) { setIsVisible(true); onVisible(pageNum); } }); },
+  { 
+    root: scrollContainer.current, 
+    threshold: 0,
+    rootMargin: '400px 0px 400px 0px'  //  start loading 400px before visible
+  }
+);
     obs.observe(divRef.current);
     return () => obs.disconnect();
   }, [scrollContainer.current]);
@@ -1296,12 +1349,12 @@ function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, conta
       {isVisible ? (
         <>
           {!loaded && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-700">
-              <div className="text-center">
-                <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2" />
-                <p className="text-white text-xs">Page {pageNum}</p>
-              </div>
-            </div>
+           <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+  <div className="text-center">
+    <div className="animate-spin h-6 w-6 border-2 border-indigo-400/60 border-t-transparent rounded-full mx-auto mb-2" />
+    <p className="text-slate-500 text-xs">Page {pageNum}</p>
+  </div>
+</div>
           )}
           <iframe
             src={`/api/view/${token}/page?page=${pageNum}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}

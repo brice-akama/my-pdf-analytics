@@ -201,11 +201,16 @@ export async function POST(
       if (!ndaAccepted) {
         // ✅ FIXED: If a PDF agreement was uploaded, send its URL — don't process text
         if (share.settings.ndaAgreementId && share.settings.ndaUrl) {
-          console.log('📜 Using uploaded PDF agreement:', share.settings.ndaAgreementId);
+  console.log('📜 NDA PDF check:', {
+    ndaAgreementId: share.settings.ndaAgreementId,
+    ndaUrl: share.settings.ndaUrl,
+    hasAgreementId: !!share.settings.ndaAgreementId,
+    hasUrl: !!share.settings.ndaUrl,
+  });
           return NextResponse.json({
             requiresAuth: true,
             requiresNDA: true,
-            ndaUrl: share.settings.ndaUrl,
+             ndaUrl: `/api/view/${token}/agreement`,
             ndaAgreementId: share.settings.ndaAgreementId,
             ndaText: null,
             requiresEmail: share.settings.requireEmail,
@@ -220,24 +225,14 @@ export async function POST(
         }
 
         // Fallback: old text-based NDA
-        const owner = await db.collection('users').findOne({ id: share.userId });
-        const templateText = share.settings.ndaTemplate || getDefaultNDA();
-        const processedNDA = processNdaTemplate(templateText, {
-          viewerName: viewerName || '',
-          viewerEmail: email || '',
-          viewerCompany: viewerCompany || '',
-          documentTitle: document.originalFilename,
-          ownerName: owner?.name || share.createdBy?.name || share.createdBy?.email || 'Document Owner',
-          ownerCompany: owner?.company || share.createdBy?.company || '',
-          viewDate: new Date(),
-        });
+        
 
-        console.log('📜 Processed NDA text preview:', processedNDA.substring(0, 200) + '...');
+         console.warn('📜 NDA required but no agreement PDF uploaded');
 
         return NextResponse.json({
           requiresAuth: true,
           requiresNDA: true,
-          ndaText: processedNDA,
+           ndaError: 'No agreement document has been configured for this share link. Please contact the sender for access.',
           ndaUrl: null,
           requiresEmail: share.settings.requireEmail,
           requiresPassword: share.settings.hasPassword,
@@ -448,84 +443,7 @@ export async function GET(
   }
 }
 
-// ─── Default NDA Template ─────────────────────────────────────────────────────
-function getDefaultNDA(): string {
-  return `NON-DISCLOSURE AGREEMENT
 
-This Non-Disclosure Agreement ("Agreement") is entered into as of {{view_date}} between:
 
-DISCLOSING PARTY: {{owner_name}}{{owner_company}} ("Owner")
-RECEIVING PARTY: {{viewer_name}} ({{viewer_email}}){{viewer_company}} ("Recipient")
 
-SUBJECT MATTER: "{{document_title}}"
-
-1. CONFIDENTIAL INFORMATION
-The Recipient acknowledges that the document titled "{{document_title}}" contains confidential and proprietary information belonging to the Owner.
-
-2. OBLIGATIONS
-The Recipient agrees to:
-   a) Maintain the confidentiality of all information contained in the document
-   b) Not disclose, copy, or distribute any part of the document to third parties without prior written consent
-   c) Use the information solely for the purpose for which it was shared and not for any other purpose
-   d) Not use the information for competitive purposes
-
-3. NO COPYING OR DISTRIBUTION
-You will not copy, reproduce, distribute, or share this document or any part of its contents with any third party without explicit authorization.
-
-4. RETURN OR DESTRUCTION
-Upon request or completion of the intended purpose, you agree to return or destroy all copies of this document in your possession.
-
-5. TERM
-This Agreement shall remain in effect for a period of two (2) years from {{view_date}}.
-
-6. LEGAL CONSEQUENCES
-Unauthorized disclosure or use of this confidential information may result in legal action, including claims for damages and injunctive relief.
-
-ACCEPTANCE:
-By clicking "I Accept," {{viewer_name}} acknowledges having read and agreed to these terms on {{view_date}} at {{view_time}}.
-
-Recipient: {{viewer_name}}
-Company: {{viewer_company}}
-Date: {{view_date}}`;
-}
-
-// ─── Process NDA Template Variables ──────────────────────────────────────────
-function processNdaTemplate(
-  template: string,
-  data: {
-    viewerName?: string;
-    viewerEmail?: string;
-    viewerCompany?: string;
-    documentTitle: string;
-    ownerName?: string;
-    ownerCompany?: string;
-    viewDate: Date;
-  }
-): string {
-  let processed = template;
-
-  const replacements: Record<string, string> = {
-    '{{viewer_name}}': data.viewerName || 'Viewer',
-    '{{viewer_email}}': data.viewerEmail || '',
-    '{{viewer_company}}': data.viewerCompany || '',
-    '{{document_title}}': data.documentTitle,
-    '{{owner_name}}': data.ownerName || 'Document Owner',
-    '{{owner_company}}': data.ownerCompany || '',
-    '{{view_date}}': data.viewDate.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }),
-    '{{view_time}}': data.viewDate.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZoneName: 'short',
-    }),
-  };
-
-  for (const [variable, value] of Object.entries(replacements)) {
-    processed = processed.replace(new RegExp(variable, 'g'), value);
-  }
-
-  return processed;
-}
+  

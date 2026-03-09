@@ -1,5 +1,6 @@
  // This file handles uploading NDA/agreement PDFs to Cloudinary and saving metadata in MongoDB.
 // It also provides a GET endpoint to list all uploaded agreements for the logged-in user.
+//app/api/agreements/upload/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserFromRequest } from "@/lib/auth";
 import { dbPromise } from "@/app/api/lib/mongodb";
@@ -106,9 +107,7 @@ export async function POST(req: NextRequest) {
       resource_type: "auto",
       format: "pdf",
       // ✅ encodeURIComponent prevents 500 on filenames with spaces
-      public_id: `agreement_${Date.now()}_${encodeURIComponent(
-        file.name.replace(/\.[^/.]+$/, "")
-      )}`,
+     public_id: `agreement_${Date.now()}_${file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_")}`,
     });
 
     console.log("✅ Cloudinary upload:", cloudinaryResult.secure_url);

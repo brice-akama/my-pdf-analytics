@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
+ 
 import {
   convertToPdf,
   extractTextFromPdf,
@@ -10,6 +11,7 @@ import {
 } from '@/lib/document-processor';
 import cloudinary from 'cloudinary';
 import streamifier from 'streamifier';
+import { preExtractAllPages } from '@/lib/preExtractPages';
 
 export const maxDuration = 60;
 
@@ -227,7 +229,10 @@ export async function POST(request: NextRequest) {
 
       // ✅ Fire background analysis — does NOT block response
       runBackgroundAnalysis(existingDoc._id.toString(), extractedText, user.plan, db).catch(console.error);
-
+      // ✅ Pre-extract all pages for new version
+      preExtractAllPages(pdfUrl, existingDoc._id.toString()).catch(err =>
+        console.error('Pre-extraction error:', err)
+      );
       return NextResponse.json({
         success: true,
         message: 'New version created',
@@ -298,7 +303,11 @@ export async function POST(request: NextRequest) {
 
     // ✅ Fire background analysis — does NOT block response
     runBackgroundAnalysis(result.insertedId.toString(), extractedText, user.plan, db).catch(console.error);
-
+  
+    // ✅ Pre-extract all pages so first viewer never waits
+    preExtractAllPages(pdfUrl, result.insertedId.toString()).catch(err =>
+      console.error('Pre-extraction error:', err)
+    );
     return NextResponse.json({
       success: true,
       documentId: result.insertedId.toString(),
