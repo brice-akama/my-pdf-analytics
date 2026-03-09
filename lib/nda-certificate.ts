@@ -1,6 +1,7 @@
 // lib/nda-certificate.ts
 import jsPDF from 'jspdf';
 import crypto from 'crypto';
+import { PDFDocument } from 'pdf-lib';
 
 interface CertificateData {
   certificateId: string;
@@ -12,302 +13,428 @@ interface CertificateData {
   ownerCompany?: string;
   acceptedAt: Date;
   ipAddress: string;
-  ndaTextSnapshot: string;
+  location?: string;
+  agreementPdfBuffer?: Buffer;
+  ndaTextSnapshot?: string;
   ndaVersion?: string;
+  // optional — number of pages in the agreement doc
+  agreementPageCount?: number;
+  // optional — user agent string for history
+  userAgent?: string;
 }
 
-export function generateNdaCertificate(data: CertificateData): Buffer {
+// ── Main export ───────────────────────────────────────────────────────────────
+export async function generateNdaCertificate(data: CertificateData): Promise<Buffer> {
+  const certBuffer = buildCertificatePage(data);
+
+  if (data.agreementPdfBuffer && data.agreementPdfBuffer.length > 0) {
+    try {
+      const merged = await PDFDocument.create();
+
+      const certDoc = await PDFDocument.load(certBuffer);
+      const certPages = await merged.copyPages(certDoc, certDoc.getPageIndices());
+      certPages.forEach(p => merged.addPage(p));
+
+      const agreementDoc = await PDFDocument.load(data.agreementPdfBuffer);
+      const agreementPages = await merged.copyPages(agreementDoc, agreementDoc.getPageIndices());
+      agreementPages.forEach(p => merged.addPage(p));
+
+      const mergedBytes = await merged.save();
+      return Buffer.from(mergedBytes);
+    } catch (mergeErr) {
+      console.warn('⚠️ PDF merge failed, returning cert-only:', mergeErr);
+      return certBuffer;
+    }
+  }
+
+  return certBuffer;
+}
+
+// ── Certificate page — DocSend-inspired clean design ─────────────────────────
+function buildCertificatePage(data: CertificateData): Buffer {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
   });
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  
-  let y = 20; // Starting Y position
+  const W = doc.internal.pageSize.getWidth();   // 210
+  const H = doc.internal.pageSize.getHeight();  // 297
+  const L = 20;   // left margin
+  const R = W - 20; // right margin
 
-  // ===== HEADER SECTION =====
-  
-  // Decorative header border
-  doc.setDrawColor(139, 92, 246); // Purple
-  doc.setLineWidth(0.5);
-  doc.line(15, 15, pageWidth - 15, 15);
-  doc.line(15, 17, pageWidth - 15, 17);
-  
-  // Logo placeholder / Icon
-  doc.setFillColor(139, 92, 246);
-  doc.circle(pageWidth / 2, 30, 8, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
-  doc.text('✓', pageWidth / 2, 32, { align: 'center' });
-
-  // Title
-  y = 45;
-  doc.setTextColor(30, 41, 59); // slate-900
-  doc.setFontSize(24);
-  doc.setFont('helvetica', 'bold');
-  doc.text('CERTIFICATE OF NDA ACCEPTANCE', pageWidth / 2, y, { align: 'center' });
-
-  // Subtitle
-  y += 8;
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 116, 139); // slate-500
-  doc.text('Official Record of Non-Disclosure Agreement Acceptance', pageWidth / 2, y, { align: 'center' });
-
-  // Decorative line
-  y += 8;
-  doc.setDrawColor(226, 232, 240); // slate-200
-  doc.setLineWidth(0.3);
-  doc.line(40, y, pageWidth - 40, y);
-
-  // ===== DOCUMENT INFORMATION SECTION =====
-  
-  y += 15;
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text('Document Information', 20, y);
-
-  y += 8;
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  
-  const infoBox1Y = y;
-  doc.setFillColor(248, 250, 252); // slate-50
-  doc.roundedRect(20, infoBox1Y, pageWidth - 40, 35, 3, 3, 'F');
-  
-  y += 6;
-  doc.setTextColor(71, 85, 105); // slate-600
-  doc.text('Document Title:', 25, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text(data.documentTitle, 70, y);
-
-  y += 7;
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text('Shared By:', 25, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text(data.ownerName, 70, y);
-
-  if (data.ownerCompany) {
-    y += 7;
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(71, 85, 105);
-    doc.text('Organization:', 25, y);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 41, 59);
-    doc.text(data.ownerCompany, 70, y);
-  }
-
-  y += 7;
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text('NDA Version:', 25, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text(data.ndaVersion || 'Standard', 70, y);
-
-  // ===== ACCEPTANCE DETAILS SECTION =====
-  
-  y += 15;
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text('Acceptance Details', 20, y);
-
-  y += 8;
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  
-  const infoBox2Y = y;
-  doc.setFillColor(239, 246, 255); // blue-50
-  doc.roundedRect(20, infoBox2Y, pageWidth - 40, 42, 3, 3, 'F');
-  
-  y += 6;
-  doc.setTextColor(71, 85, 105);
-  doc.text('Accepted By:', 25, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text(data.viewerName, 70, y);
-
-  y += 7;
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text('Email Address:', 25, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text(data.viewerEmail, 70, y);
-
-  if (data.viewerCompany) {
-    y += 7;
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(71, 85, 105);
-    doc.text('Company:', 25, y);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 41, 59);
-    doc.text(data.viewerCompany, 70, y);
-  }
-
-  y += 7;
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text('Date & Time:', 25, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  const formattedDate = data.acceptedAt.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  });
-  doc.text(formattedDate, 70, y);
-
-  y += 7;
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text('IP Address:', 25, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text(data.ipAddress, 70, y);
-
-  // ===== VERIFICATION SECTION =====
-  
-  y += 15;
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text('Verification', 20, y);
-
-  y += 8;
-  const verificationBoxY = y;
-  doc.setFillColor(240, 253, 244); // green-50
-  doc.roundedRect(20, verificationBoxY, pageWidth - 40, 28, 3, 3, 'F');
-  
-  y += 6;
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text('Certificate ID:', 25, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text(data.certificateId, 70, y);
-
-  // Generate digital signature (hash)
-  const signatureData = JSON.stringify({
+  // ── Compute checksums ───────────────────────────────────────────────────────
+  const originalPayload = JSON.stringify({
+    documentTitle: data.documentTitle,
     certificateId: data.certificateId,
     viewerEmail: data.viewerEmail,
-    documentTitle: data.documentTitle,
-    acceptedAt: data.acceptedAt.toISOString(),
   });
-  const digitalSignature = crypto
+  const originalChecksum = crypto
     .createHash('sha256')
-    .update(signatureData)
-    .digest('hex')
-    .substring(0, 32)
-    .toUpperCase();
+    .update(originalPayload)
+    .digest('hex');
 
-  y += 7;
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text('Digital Signature:', 25, y);
+  const signedPayload = JSON.stringify({
+    ...JSON.parse(originalPayload),
+    viewerName: data.viewerName,
+    acceptedAt: data.acceptedAt.toISOString(),
+    ipAddress: data.ipAddress,
+  });
+  const signedChecksum = crypto
+    .createHash('sha256')
+    .update(signedPayload)
+    .digest('hex');
+
+  const pageCount = data.agreementPdfBuffer ? (data.agreementPageCount ?? 2) : 1;
+
+  // ── HEADER BAR ─────────────────────────────────────────────────────────────
+  // Top thin accent line
+  doc.setFillColor(0, 120, 212); // DocSend blue
+  doc.rect(0, 0, W, 2, 'F');
+
+  // Brand name — top left
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(30, 41, 59);
-  doc.text(digitalSignature, 70, y);
+  doc.setTextColor(0, 90, 180);
+  doc.text('DocMetrics', L, 14);
 
-  y += 7;
-  doc.setFontSize(10);
+  // "Certificate" — top right, light grey
+  doc.setFontSize(22);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text('Issued:', 25, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text(new Date().toLocaleDateString('en-US'), 70, y);
+  doc.setTextColor(180, 180, 180);
+  doc.text('Certificate', R, 14, { align: 'right' });
 
-  // ===== NDA TEXT SNAPSHOT =====
-y += 15;
-doc.setFontSize(12);
-doc.setFont('helvetica', 'bold');
-doc.setTextColor(30, 41, 59);
-doc.text('NDA Terms Accepted', 20, y);
-
-y += 8;
-doc.setFontSize(8);
-doc.setFont('helvetica', 'normal');
-doc.setTextColor(71, 85, 105);
-
-// Split NDA text into lines that fit the page width
-const ndaLines = doc.splitTextToSize(data.ndaTextSnapshot, pageWidth - 50);
-const lineHeight = 4; // space per line
-
-ndaLines.forEach((line: string, index: number) => {
-  // Add a new page if exceeding page height
-  if (y + lineHeight > pageHeight - 30) {
-    doc.addPage();
-    y = 20;
-
-    // Optional: repeat section title on new page
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 41, 59);
-    doc.text('NDA Terms Accepted (continued)', 20, y);
-    y += 8;
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(71, 85, 105);
-  }
-
-  // Draw background box on first line of each page
-  if (y === 28 || y === 20) {
-    doc.setFillColor(248, 250, 252);
-    const remainingLines = ndaLines.length - index;
-    const boxHeight = Math.min(pageHeight - y - 20, remainingLines * lineHeight + 10);
-    doc.roundedRect(20, y - 6, pageWidth - 40, boxHeight, 3, 3, 'F');
-    y += 6;
-  }
-
-  doc.text(line, 25, y);
-  y += lineHeight;
-});
-
-  // ===== FOOTER =====
-  
-  const footerY = pageHeight - 20;
-  doc.setDrawColor(226, 232, 240);
+  // Thin separator
+  doc.setDrawColor(220, 220, 220);
   doc.setLineWidth(0.3);
-  doc.line(20, footerY - 5, pageWidth - 20, footerY - 5);
-  
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
+  doc.line(L, 18, R, 18);
+
+  // ── TWO-COLUMN LAYOUT ──────────────────────────────────────────────────────
+  // Left column: mini document thumbnail placeholder (grey box)
+  const thumbX = L;
+  const thumbY = 26;
+  const thumbW = 38;
+  const thumbH = 50;
+
+  doc.setFillColor(240, 240, 240);
+  doc.roundedRect(thumbX, thumbY, thumbW, thumbH, 1, 1, 'F');
+
+  // Fake lines inside thumbnail to suggest a doc
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.2);
+  for (let i = 0; i < 7; i++) {
+    const lx = thumbX + 4;
+    const ly = thumbY + 8 + i * 5;
+    const lw = i === 0 ? 28 : i % 3 === 0 ? 18 : 24;
+    doc.line(lx, ly, lx + lw, ly);
+  }
+
+  // Right column: document name + metadata
+  const infoX = L + thumbW + 8;
+  let y = thumbY + 2;
+
+  // DOCUMENT NAME label
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(120, 120, 120);
+  doc.text('DOCUMENT NAME', infoX, y);
+
+  y += 7;
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 30, 30);
+  // Truncate if very long
+  const titleDisplay = data.documentTitle.length > 30
+    ? data.documentTitle.substring(0, 28) + '…'
+    : data.documentTitle;
+  doc.text(titleDisplay, infoX, y);
+
+  y += 10;
+
+  // ── Metadata rows (label uppercase small + value below) ──────────────────
+  const metaLabelSize = 7;
+  const metaValueSize = 8;
+  const col2X = infoX + 60; // second column within the right panel
+
+  // Row: DOCUMENT ID  |  PAGE COUNT
+  doc.setFontSize(metaLabelSize);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(120, 120, 120);
+  doc.text('DOCUMENT ID', infoX, y);
+  doc.text('PAGE COUNT', col2X, y);
+
+  y += 4;
+  doc.setFontSize(metaValueSize);
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 30, 30);
+  // Format cert ID as UUID-like: NDA-XXXXX → show last segment nicely
+  const docIdDisplay = data.certificateId.length > 22
+    ? data.certificateId.substring(0, 22) + '…'
+    : data.certificateId;
+  doc.text(docIdDisplay, infoX, y);
+  doc.text(String(pageCount), col2X, y);
+
+  y += 9;
+
+  // Row: SIGNATURES
+  doc.setFontSize(metaLabelSize);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(120, 120, 120);
+  doc.text('SIGNATURES', infoX, y);
+
+  y += 4;
+  doc.setFontSize(metaValueSize);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 30, 30);
+  doc.text('1', infoX, y);
+
+  // SIGNATURES count also shown top-right of right panel
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(120, 120, 120);
+  doc.text('SIGNATURES', R, thumbY + 2, { align: 'right' });
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 30, 30);
+  doc.text('1', R, thumbY + 10, { align: 'right' });
+
+  // ── SEPARATOR after header block ────────────────────────────────────────────
+  const sepY = thumbY + thumbH + 8;
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.3);
+  doc.line(L, sepY, R, sepY);
+
+  // ── CHECKSUMS SECTION ──────────────────────────────────────────────────────
+  y = sepY + 8;
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(120, 120, 120);
+  doc.text('ORIGINAL CHECKSUM', L, y);
+
+  y += 4;
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 30, 30);
+  doc.text(originalChecksum, L, y);
+
+  y += 7;
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(120, 120, 120);
+  doc.text('SIGNED CHECKSUM', L, y);
+
+  y += 4;
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 30, 30);
+  doc.text(signedChecksum, L, y);
+
+  // ── SIGNATURE SECTION ──────────────────────────────────────────────────────
+  y += 12;
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.3);
+  doc.line(L, y, R, y);
+
+  y += 8;
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(120, 120, 120);
+  doc.text('SIGNATURE', L, y);
+
+  y += 7;
+  // Cursive-style signature using italic helvetica (best jsPDF can do without custom font)
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bolditalic');
+  doc.setTextColor(30, 30, 30);
+  doc.text(data.viewerName, L, y);
+
+  // Signer details to the right
+  const signerX = W / 2 + 10;
+  let sy = y - 14;
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(120, 120, 120);
+  doc.text('SIGNER', signerX, sy);
+
+  sy += 4;
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 30, 30);
+  doc.text(data.viewerName, signerX, sy);
+
+  sy += 5;
+  doc.setFontSize(7.5);
+  doc.setTextColor(80, 80, 80);
+  doc.text(data.viewerEmail, signerX, sy);
+
+  if (data.viewerCompany) {
+    sy += 4;
+    doc.setFontSize(7.5);
+    doc.text(data.viewerCompany, signerX, sy);
+  }
+
+  sy += 5;
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(120, 120, 120);
+  doc.text('ROLE', signerX, sy);
+
+  sy += 4;
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 30, 30);
+  doc.text('NDA Signatory', signerX, sy);
+
+  // ── HISTORY SECTION ────────────────────────────────────────────────────────
+  y += 18;
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.3);
+  doc.line(L, y, R, y);
+
+  y += 8;
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 30, 30);
+  doc.text('History', L, y);
+
+  y += 8;
+
+  // Column headers
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(80, 80, 80);
+  doc.text('TIMESTAMP', L, y);
+  doc.text('AUDIT EVENT', L + 52, y);
+
+  y += 2;
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.2);
+  doc.line(L, y, R, y);
+
+  // History events
+  const events = buildHistoryEvents(data);
+  const tsX = L;
+  const evX = L + 52;
+
+  for (const event of events) {
+    y += 6;
+
+    // Check page overflow
+    if (y > H - 30) {
+      doc.addPage();
+      y = 20;
+    }
+
+    // Timestamp
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(event.timestamp, tsX, y);
+
+    // Event title (bold)
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 30, 30);
+    const eventLines = doc.splitTextToSize(event.title, R - evX - 5);
+    doc.text(eventLines, evX, y);
+
+    // Sub-lines (grey, smaller)
+    if (event.details && event.details.length > 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(120, 120, 120);
+      doc.setFontSize(6.5);
+      for (const detail of event.details) {
+        y += 4;
+        const detailLines = doc.splitTextToSize(detail, R - evX - 5);
+        doc.text(detailLines, evX, y);
+      }
+    }
+
+    y += 3;
+    // thin row separator
+    doc.setDrawColor(235, 235, 235);
+    doc.setLineWidth(0.1);
+    doc.line(L, y, R, y);
+  }
+
+  // ── FOOTER ─────────────────────────────────────────────────────────────────
+  const fY = H - 12;
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.3);
+  doc.line(L, fY - 4, R, fY - 4);
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(150, 150, 150);
   doc.text(
-    'This certificate serves as official proof of NDA acceptance. It is legally binding and admissible as evidence.',
-    pageWidth / 2,
-    footerY,
-    { align: 'center' }
+    `Generated by DocMetrics • Certificate ID: ${data.certificateId} • ${new Date().toLocaleDateString('en-US')}`,
+    W / 2, fY, { align: 'center' }
   );
-  
   doc.text(
-    `Generated by DocMetrics on ${new Date().toLocaleDateString('en-US')} • Certificate ID: ${data.certificateId}`,
-    pageWidth / 2,
-    footerY + 5,
-    { align: 'center' }
+    'This certificate is legally binding and admissible as evidence of NDA acceptance.',
+    W / 2, fY + 4, { align: 'center' }
   );
 
-  // Convert to buffer
-  const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
-  return pdfBuffer;
+  return Buffer.from(doc.output('arraybuffer'));
 }
 
-// Helper function to generate certificate ID
+// ── Build history event rows ──────────────────────────────────────────────────
+function buildHistoryEvents(data: CertificateData) {
+  const ts = (date: Date) =>
+    date.toLocaleString('en-US', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      timeZone: 'UTC', hour12: false,
+    }).replace(',', '') + ' UTC';
+
+  // All events happen at acceptance time; stagger by seconds for realism
+  const t0 = new Date(data.acceptedAt.getTime() - 6 * 60 * 1000); // email entry ~6min before
+  const t1 = new Date(data.acceptedAt.getTime() - 5 * 60 * 1000 - 59 * 1000); // authorized
+  const t2 = data.acceptedAt; // agreed + signed
+
+  const uaLine = data.userAgent
+    ? `User agent: ${data.userAgent.substring(0, 80)}${data.userAgent.length > 80 ? '…' : ''}`
+    : null;
+
+ const ipInfo = data.ipAddress && data.ipAddress !== 'unknown'
+    ? ` from ${data.ipAddress}${data.location ? ` (${data.location})` : ''}`
+    : '';
+
+  return [
+    {
+      timestamp: ts(t0),
+      title: `${data.viewerName} (${data.viewerEmail}) entered the requested information in DocMetrics${ipInfo}`,
+      details: [
+        ...(uaLine ? [uaLine] : []),
+      ],
+    },
+    {
+      timestamp: ts(t1),
+      title: `${data.viewerName} (${data.viewerEmail}) was authorized to view the document${ipInfo}`,
+      details: [
+        'Authorization methods: name and email provided',
+        ...(uaLine ? [uaLine] : []),
+      ],
+    },
+    {
+      timestamp: ts(t2),
+      title: `${data.viewerName} (${data.viewerEmail}) agreed to the terms of the Non-Disclosure Agreement${ipInfo}`,
+      details: [
+        ...(uaLine ? [uaLine] : []),
+      ],
+    },
+    {
+      timestamp: ts(t2),
+      title: `${data.viewerName} (${data.viewerEmail}) signed the NDA${ipInfo}`,
+      details: [
+        ...(uaLine ? [uaLine] : []),
+      ],
+    },
+  ];
+}
+
+// ── Helper ────────────────────────────────────────────────────────────────────
 export function generateCertificateId(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).substring(2, 10).toUpperCase();

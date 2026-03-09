@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     const db = await dbPromise
 
     const agreements = await db
-      .collection("documents")
+      .collection("agreements")
       .find({ 
         userId: user.id,      // ✅ Strict personal scope — removed getTeamMemberIds
         type: "agreement",
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     const db = await dbPromise
 
-    const result = await db.collection("documents").updateOne(
+    const result = await db.collection("agreements").updateOne(
       { 
         _id: new ObjectId(agreementId),
         userId: user.id         // ✅ Ensures user can only configure their own agreement

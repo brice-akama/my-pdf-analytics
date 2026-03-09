@@ -4,6 +4,141 @@ import { dbPromise } from '@/app/api/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import { sendNdaAcceptanceNotification } from '@/lib/email-nda-notification';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Send NDA certificate to the recipient (viewer) after they sign
+// Uses Resend directly — viewer has no Gmail/Outlook integration
+// ─────────────────────────────────────────────────────────────────────────────
+async function sendRecipientNdaEmail({
+  viewerEmail,
+  viewerName,
+  documentTitle,
+  certificateId,
+  senderName,
+  senderEmail,
+  token,
+  baseUrl,
+}: {
+  viewerEmail: string;
+  viewerName: string;
+  documentTitle: string;
+  certificateId: string;
+  senderName: string;
+  senderEmail: string | null;
+  token: string;
+  baseUrl: string;
+}) {
+  const certificateUrl = `${baseUrl}/api/nda-certificates/${certificateId}`;
+  // ✅ Link directly to the agreement PDF proxy — no auth wall
+  const agreementUrl = `${baseUrl}/api/view/${token}/agreement`;
+
+  await resend.emails.send({
+    // ✅ From the actual sender's name, not "via DocMetrics"
+    from: senderEmail
+      ? `${senderName} <support@docmetrics.io>`
+      : `${senderName} <support@docmetrics.io>`,
+    replyTo: senderEmail || undefined,
+    to: [viewerEmail],
+    subject: `Your signed NDA — ${documentTitle}`,
+    html: buildRecipientNdaHtml({
+      viewerName,
+      documentTitle,
+      senderName,
+      certificateId,
+      certificateUrl,
+      agreementUrl,
+    }),
+  });
+}
+
+function buildRecipientNdaHtml({
+  viewerName,
+  documentTitle,
+  senderName,
+  certificateId,
+  certificateUrl,
+  agreementUrl,
+}: {
+  viewerName: string;
+  documentTitle: string;
+  senderName: string;
+  certificateId: string;
+  certificateUrl: string;
+  agreementUrl: string;
+}) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Your signed NDA</title>
+</head>
+<body style="margin:0; padding:0; background:#ffffff; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;">
+    <tr>
+      <td align="center" style="padding:48px 24px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;">
+
+          <tr>
+            <td>
+              <p style="font-size:15px; color:#374151; margin:0 0 16px; line-height:1.6;">
+                Hi ${viewerName || 'there'},
+              </p>
+              <p style="font-size:15px; color:#374151; margin:0 0 20px; line-height:1.6;">
+                You've successfully signed the NDA for <strong>${documentTitle}</strong>,
+                shared by <strong>${senderName}</strong>.
+              </p>
+
+              <!-- Certificate card -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                style="border:1px solid #e5e7eb; border-radius:8px; margin-bottom:24px;">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="margin:0; font-size:13px; color:#9ca3af; text-transform:uppercase; letter-spacing:0.05em; font-weight:500;">Certificate ID</p>
+                    <p style="margin:6px 0 0; font-size:15px; color:#111827; font-weight:600; font-family:monospace;">${certificateId}</p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Download certificate CTA -->
+              <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">
+                <tr>
+                  <td style="border-radius:6px; background:#111827;">
+                    <a href="${certificateUrl}"
+                      style="display:inline-block; padding:12px 28px; font-size:15px; font-weight:500; color:#ffffff; text-decoration:none; border-radius:6px;">
+                      Download Your Certificate
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- View agreement — goes directly to the PDF, no auth wall -->
+              <p style="font-size:14px; color:#6b7280; margin:0 0 32px;">
+                You can also
+                <a href="${agreementUrl}" style="color:#4f46e5; text-decoration:none;">view the signed agreement here</a>.
+              </p>
+
+              <hr style="border:none; border-top:1px solid #f3f4f6; margin:0 0 24px;" />
+
+              <p style="font-size:12px; color:#9ca3af; margin:0; line-height:1.6;">
+                This is a record of your NDA acceptance. Keep this email for your records.
+                Powered by <a href="https://docmetrics.io" style="color:#9ca3af; text-decoration:none;">DocMetrics</a>.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(
   request: NextRequest,
@@ -98,7 +233,7 @@ export async function POST(
           customMessage: share.settings.customMessage,
           sharedByName: share.settings.sharedByName || null,
           logoUrl: share.settings.logoUrl || null,
-          senderEmail: ownerProfile?.email || null,   // ✅ FIXED
+          senderEmail: ownerProfile?.email || null,
         },
       }, { status: 401 });
     }
@@ -113,7 +248,7 @@ export async function POST(
           customMessage: share.settings.customMessage,
           sharedByName: share.settings.sharedByName || null,
           logoUrl: share.settings.logoUrl || null,
-          senderEmail: ownerProfile?.email || null,   // ✅ FIXED
+          senderEmail: ownerProfile?.email || null,
         },
       }, { status: 401 });
     }
@@ -145,7 +280,7 @@ export async function POST(
             customMessage: share.settings.customMessage,
             sharedByName: share.settings.sharedByName || null,
             logoUrl: share.settings.logoUrl || null,
-            senderEmail: ownerProfile?.email || null,   // ✅ FIXED
+            senderEmail: ownerProfile?.email || null,
           },
           error: 'Email verification required to access this document',
         }, { status: 401 });
@@ -167,7 +302,7 @@ export async function POST(
           requiresAuth: true,
           settings: {
             customMessage: share.settings.customMessage,
-            senderEmail: ownerProfile?.email || null,   // ✅ FIXED
+            senderEmail: ownerProfile?.email || null,
           },
         }, { status: 403 });
       }
@@ -195,23 +330,61 @@ export async function POST(
 
     let certificateId: string | null = null;
 
-    if (share.settings.requireNDA) {
-      const { ndaAccepted, viewerName, viewerCompany } = body;
+    let { ndaAccepted, viewerName, viewerCompany } = body;
 
+    // ✅ Check if this viewer already signed — skip NDA gate entirely
+    if (share.settings.requireNDA && !ndaAccepted && email) {
+      const alreadySigned = await db.collection('nda_acceptances').findOne({
+        shareId: share._id.toString(),
+        viewerEmail: email.toLowerCase(),
+      });
+      if (alreadySigned) {
+        console.log('✅ NDA already signed by:', email, '— skipping gate');
+        ndaAccepted = true;
+        viewerName = viewerName || alreadySigned.viewerName;
+        viewerCompany = viewerCompany || alreadySigned.viewerCompany;
+      }
+    }
+
+    if (share.settings.requireNDA) {
       if (!ndaAccepted) {
-        // ✅ FIXED: If a PDF agreement was uploaded, send its URL — don't process text
-        if (share.settings.ndaAgreementId && share.settings.ndaUrl) {
-  console.log('📜 NDA PDF check:', {
-    ndaAgreementId: share.settings.ndaAgreementId,
-    ndaUrl: share.settings.ndaUrl,
-    hasAgreementId: !!share.settings.ndaAgreementId,
-    hasUrl: !!share.settings.ndaUrl,
-  });
+        // ── Resolve agreement URL ────────────────────────────────────────────
+        // Priority 1: ndaAgreementId on share settings → look up agreements collection
+        // Priority 2: ndaUrl already stored directly on share settings
+        // Priority 3: ndaAgreementUrl alternate field name
+        let resolvedNdaAgreementId: string | null = share.settings.ndaAgreementId || null;
+        let resolvedNdaUrl: string | null =
+          share.settings.ndaUrl ||
+          share.settings.ndaAgreementUrl ||
+          null;
+
+        // If we have an agreement ID but no URL, fetch the URL from the agreements collection
+        if (resolvedNdaAgreementId && !resolvedNdaUrl) {
+          try {
+            const { ObjectId } = await import('mongodb');
+            const agreementDoc = await db.collection('agreements').findOne({
+              _id: new ObjectId(resolvedNdaAgreementId),
+            });
+            if (agreementDoc?.cloudinaryPdfUrl) {
+              resolvedNdaUrl = agreementDoc.cloudinaryPdfUrl;
+              console.log('📜 Resolved NDA URL from agreements collection:', resolvedNdaUrl);
+            }
+          } catch (lookupErr) {
+            console.warn('⚠️ Could not look up agreement by ID:', lookupErr);
+          }
+        }
+
+        if (resolvedNdaAgreementId || resolvedNdaUrl) {
+          console.log('📜 NDA PDF resolved:', {
+            ndaAgreementId: resolvedNdaAgreementId,
+            hasUrl: !!resolvedNdaUrl,
+          });
           return NextResponse.json({
             requiresAuth: true,
             requiresNDA: true,
-             ndaUrl: `/api/view/${token}/agreement`,
-            ndaAgreementId: share.settings.ndaAgreementId,
+            // Always proxy through our agreement route — keeps Cloudinary URL private
+            ndaUrl: `/api/view/${token}/agreement`,
+            ndaAgreementId: resolvedNdaAgreementId,
             ndaText: null,
             requiresEmail: share.settings.requireEmail,
             requiresPassword: share.settings.hasPassword,
@@ -219,20 +392,16 @@ export async function POST(
               customMessage: share.settings.customMessage,
               sharedByName: share.settings.sharedByName || null,
               logoUrl: share.settings.logoUrl || null,
-              senderEmail: ownerProfile?.email || null,   // ✅ FIXED
+              senderEmail: ownerProfile?.email || null,
             },
           }, { status: 401 });
         }
 
-        // Fallback: old text-based NDA
-        
-
-         console.warn('📜 NDA required but no agreement PDF uploaded');
-
+        console.warn('📜 NDA required but no agreement PDF found anywhere');
         return NextResponse.json({
           requiresAuth: true,
           requiresNDA: true,
-           ndaError: 'No agreement document has been configured for this share link. Please contact the sender for access.',
+          ndaError: 'No agreement document has been configured for this share link. Please contact the sender for access.',
           ndaUrl: null,
           requiresEmail: share.settings.requireEmail,
           requiresPassword: share.settings.hasPassword,
@@ -240,35 +409,67 @@ export async function POST(
             customMessage: share.settings.customMessage,
             sharedByName: share.settings.sharedByName || null,
             logoUrl: share.settings.logoUrl || null,
-            senderEmail: ownerProfile?.email || null,   // ✅ FIXED
+            senderEmail: ownerProfile?.email || null,
           },
         }, { status: 401 });
       }
 
-      // ✅ NDA accepted — generate certificate
-      certificateId = `NDA-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+// ✅ NDA accepted — generate certificate ID
+certificateId = `NDA-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-      const ndaAcceptanceRecord = {
-        viewerName: viewerName || 'Unknown',
-        viewerEmail: email || 'anonymous',
-        viewerCompany: viewerCompany || null,
-        timestamp: new Date(),
-        ip: request.headers.get('x-forwarded-for') || 'unknown',
+// Get viewer IP for geolocation
+const ip = request.headers.get('x-forwarded-for') ||
+  request.headers.get('x-real-ip') ||
+  'unknown';
+
+// Reverse geocode the viewer's IP to get state + country
+let viewerLocation: string | undefined;
+try {
+  const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=city,regionName,countryCode`);
+  if (geoRes.ok) {
+    const geo = await geoRes.json();
+    if (geo.city || geo.regionName) {
+      viewerLocation = [geo.city || geo.regionName, geo.countryCode].filter(Boolean).join(', ');
+    }
+  }
+} catch { /* non-fatal */ }
+
+const ndaAcceptanceRecord = {
+  viewerName: viewerName || 'Unknown',
+  viewerEmail: email || 'anonymous',
+  viewerCompany: viewerCompany || null,
+  timestamp: new Date(),
+  ip: ip,
         userAgent: request.headers.get('user-agent') || 'unknown',
         ndaVersion: share.settings.ndaTemplateId || 'custom',
         ndaTextSnapshot: share.settings.ndaTemplate,
         documentTitle: document.originalFilename,
-        geolocation: null,
+         geolocation: viewerLocation || null,
         certificateId,
       };
 
       const owner = await db.collection('users').findOne({ id: share.userId });
 
+      // ✅ Push to share tracking (unchanged)
       await db.collection('shares').updateOne(
         { _id: share._id },
         { $push: { 'tracking.ndaAcceptances': ndaAcceptanceRecord } as any }
       );
 
+      // ✅ Store in `agreements` collection (NOT `documents`)
+      await db.collection('agreements').insertOne({
+        shareId: share._id.toString(),
+        shareToken: token,
+        documentId: document._id.toString(),
+        ownerId: share.userId,
+        ...ndaAcceptanceRecord,
+        ownerName: owner?.name || share.createdBy?.name || share.createdBy?.email || 'Document Owner',
+        ownerCompany: owner?.company || share.createdBy?.company || '',
+        // Keep nda_acceptances mirror for backward compat with certificate route
+        _mirroredToNdaAcceptances: true,
+      });
+
+      // ✅ Also insert into nda_acceptances for certificate route compatibility
       await db.collection('nda_acceptances').insertOne({
         shareId: share._id.toString(),
         documentId: document._id.toString(),
@@ -278,6 +479,14 @@ export async function POST(
         ownerCompany: owner?.company || share.createdBy?.company || '',
       });
 
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      const senderDisplayName = share.settings.sharedByName 
+  || ownerProfile?.full_name 
+  || (ownerProfile?.first_name ? `${ownerProfile.first_name}${ownerProfile.last_name ? ' ' + ownerProfile.last_name : ''}`.trim() : null)
+  || ownerProfile?.email 
+  || 'DocMetrics';
+
+      // ✅ Notify doc owner of NDA acceptance
       if (share.settings.notifyOnView && owner?.email) {
         sendNdaAcceptanceNotification({
           ownerEmail: owner.email,
@@ -301,8 +510,22 @@ export async function POST(
             ndaTextSnapshot: share.settings.ndaTemplate,
             ndaVersion: share.settings.ndaTemplateId || 'custom',
           },
-          documentUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/documents/${document._id.toString()}`,
+          documentUrl: `${baseUrl}/documents/${document._id.toString()}`,
         }).catch(err => console.error('Failed to send NDA notification:', err));
+      }
+
+      // ✅ Send certificate copy to the viewer (recipient) via Resend
+      if (email && email !== 'anonymous') {
+        sendRecipientNdaEmail({
+          viewerEmail: email,
+          viewerName: viewerName || 'there',
+          documentTitle: document.originalFilename,
+          certificateId,
+          senderName: senderDisplayName,
+          senderEmail: ownerProfile?.email || null,
+          token,
+          baseUrl,
+        }).catch(err => console.error('Failed to send recipient NDA email:', err));
       }
 
       console.log('✅ NDA accepted by:', email, '| Certificate:', certificateId);
@@ -322,10 +545,10 @@ export async function POST(
     }
 
     // ✅ Generate viewer ID
+    const userAgent = request.headers.get('user-agent') || 'unknown';
     const ip = request.headers.get('x-forwarded-for') ||
       request.headers.get('x-real-ip') ||
       'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
     const viewerId = Buffer.from(`${ip}-${userAgent}`).toString('base64').substring(0, 32);
 
     const isUniqueViewer = !share.tracking.uniqueViewers.includes(viewerId);
@@ -398,7 +621,10 @@ export async function POST(
         customMessage: share.settings.customMessage,
         sharedByName: share.settings.sharedByName || null,
         logoUrl: share.settings.logoUrl || null,
-        senderEmail: ownerProfile?.email || null,   // ✅ already correct here
+        senderEmail: ownerProfile?.email || null,
+        enableWatermark: share.settings.enableWatermark || false,
+        watermarkText: share.settings.watermarkText || null,
+        watermarkPosition: share.settings.watermarkPosition || 'bottom',
       },
       tracking: {
         views: share.tracking.views + 1,
@@ -442,8 +668,3 @@ export async function GET(
     return NextResponse.json({ exists: false }, { status: 500 });
   }
 }
-
-
-
-
-  

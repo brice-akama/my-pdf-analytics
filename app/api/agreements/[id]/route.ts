@@ -26,7 +26,7 @@ export async function DELETE(
 
     const db = await dbPromise
 
-    const agreement = await db.collection("documents").findOne({
+    const agreement = await db.collection("agreements").findOne({
       _id: agreementObjectId,
       userId: user.id,  // ← string, not ObjectId — matches how it was stored
     })
@@ -48,7 +48,7 @@ export async function DELETE(
       }).catch(err => console.warn("Cloudinary delete failed:", err))
     }
 
-    await db.collection("documents").deleteOne({ _id: agreementObjectId })
+    await db.collection("agreements").deleteOne({ _id: agreementObjectId })
 
     return NextResponse.json({ success: true, message: "Agreement deleted" })
 

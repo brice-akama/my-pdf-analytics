@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const db = await dbPromise;
 
     const agreements = await db
-      .collection("documents")
+      .collection("agreements")
       .find({
         userId: user.id,
         type: "agreement",
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    const result = await db.collection("documents").insertOne(agreementDoc);
+    const result = await db.collection("agreements").insertOne(agreementDoc);
 
     console.log("✅ Agreement saved:", result.insertedId.toString());
 

@@ -167,7 +167,7 @@ export default function NdaRecordsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
           <p className="text-sm text-slate-500">Loading records…</p>
@@ -177,10 +177,10 @@ export default function NdaRecordsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
 
       {/* ── Header ── */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+      <header className=" sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
 
@@ -307,11 +307,11 @@ export default function NdaRecordsPage() {
         ) : (
           <>
             {/* ── Desktop Table (md+) ── */}
-            <div className="hidden md:block bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="hidden md:block bg-white  overflow-hidden mt-8">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-slate-100">
+                    <tr className="">
                       <th className="px-5 py-3 text-left">
                         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Viewer</span>
                       </th>

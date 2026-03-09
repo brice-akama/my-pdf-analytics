@@ -39,11 +39,35 @@ export async function GET(
     }
 
     // Must have NDA configured
-    if (!share.settings?.requireNDA || !share.settings?.ndaUrl) {
+    if (!share.settings?.requireNDA) {
       return new NextResponse('No agreement configured', { status: 404 });
     }
 
-    const ndaUrl = share.settings.ndaUrl;
+    // Resolve agreement URL — same 3-step logic as view route
+    let ndaUrl: string | null =
+      share.settings.ndaUrl ||
+      share.settings.ndaAgreementUrl ||
+      null;
+
+    // Fallback: look up cloudinaryPdfUrl from agreements collection by ID
+    if (!ndaUrl && share.settings.ndaAgreementId) {
+      try {
+        const { ObjectId } = await import('mongodb');
+        const agreementDoc = await db.collection('agreements').findOne({
+          _id: new ObjectId(share.settings.ndaAgreementId),
+        });
+        if (agreementDoc?.cloudinaryPdfUrl) {
+          ndaUrl = agreementDoc.cloudinaryPdfUrl;
+          console.log('📜 Resolved NDA URL from agreements collection:', ndaUrl);
+        }
+      } catch (e) {
+        console.warn('⚠️ Could not look up agreement by ID:', e);
+      }
+    }
+
+    if (!ndaUrl) {
+      return new NextResponse('No agreement document found', { status: 404 });
+    }
     console.log('📜 Proxying agreement PDF from:', ndaUrl);
 
     // Extract public_id from Cloudinary URL — same pattern as documents/[id]/file/route.ts

@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const db = await dbPromise;
 
     const agreements = await db
-      .collection("documents")
+      .collection("agreements")
       .find({ 
         userId: user.id,  // ✅ Only this user's uploads — no team scope
         type: "agreement",

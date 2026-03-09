@@ -372,6 +372,8 @@ export async function POST(
           ndaText,
           ndaTemplate,
           ndaTemplateId,
+          ndaAgreementId: ndaAgreementId || null,
+          ndaUrl: ndaUrl || null,
           allowForwarding,
           notifyOnDownload,
           downloadLimit,

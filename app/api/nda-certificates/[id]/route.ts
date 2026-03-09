@@ -1,46 +1,38 @@
-// app/api/nda-certificates/[id]/route.ts
+/// app/api/nda-certificates/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { generateNdaCertificate } from '@/lib/nda-certificate';
 
-// ✅ GET - Download NDA Acceptance Certificate
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await context.params;
-
     const db = await dbPromise;
 
-    // Find NDA acceptance record
+    // 1. Find the NDA acceptance record
     const acceptance = await db.collection('nda_acceptances').findOne({
       certificateId: id,
     });
 
     if (!acceptance) {
-      return NextResponse.json({
-        error: 'Certificate not found',
-      }, { status: 404 });
+      return NextResponse.json({ error: 'Certificate not found' }, { status: 404 });
     }
 
-    // Verify ownership (only owner can download certificate)
+    // 2. Verify ownership (owner always ok; viewer can access via ?shareId= param)
     const user = await verifyUserFromRequest(request);
     if (user && user.id !== acceptance.ownerId) {
-      // Allow public access if accessing via shareId query param
       const { searchParams } = new URL(request.url);
       const shareId = searchParams.get('shareId');
-      
       if (!shareId || shareId !== acceptance.shareId) {
-        return NextResponse.json({
-          error: 'Unauthorized',
-        }, { status: 401 });
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
 
-    // Generate PDF certificate
-    const pdfBuffer = generateNdaCertificate({
+    // 3. Generate standalone certificate
+    const pdfBuffer = await generateNdaCertificate({
       certificateId: acceptance.certificateId,
       viewerName: acceptance.viewerName,
       viewerEmail: acceptance.viewerEmail,
@@ -50,11 +42,11 @@ export async function GET(
       ownerCompany: acceptance.ownerCompany || '',
       acceptedAt: new Date(acceptance.timestamp),
       ipAddress: acceptance.ip,
-      ndaTextSnapshot: acceptance.ndaTextSnapshot,
+      location: acceptance.geolocation || undefined,
+      userAgent: acceptance.userAgent,
       ndaVersion: acceptance.ndaVersion,
     });
 
-    // Return PDF
     return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',

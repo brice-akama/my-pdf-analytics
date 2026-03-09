@@ -26,6 +26,9 @@ interface ShareData {
     sharedByName?: string | null;
     logoUrl?: string | null;
     senderEmail?: string | null;
+    enableWatermark?: boolean;
+    watermarkText?: string | null;
+    watermarkPosition?: 'top' | 'bottom' | 'center' | 'diagonal';
   };
   expired?: boolean;
   maxViewsReached?: boolean;
@@ -1180,6 +1183,11 @@ console.log('📜 NDA data from API:', {
         sessionId={sessionId}
         email={email}
         onScrolled={p => trackEvent('scroll', { page: p, scrollDepth: 100 })}
+        watermark={shareData?.settings?.enableWatermark ? {
+          enabled: true,
+          text: shareData.settings.watermarkText || email || 'CONFIDENTIAL',
+          position: shareData.settings.watermarkPosition || 'diagonal',
+        } : undefined}
       />
     ))}
   </div>
@@ -1292,7 +1300,7 @@ function ContactPopover({ brandingInfo, displayName, email, token, sessionId, on
 }
 
 // ─── LazyPage ─────────────────────────────────────────────────────────────────
-function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, containerWidth, sessionId, email, onScrolled }: {
+function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, watermark, containerWidth, sessionId, email, onScrolled }: {
   pageNum: number;
   token: string;
   scrollContainer: React.RefObject<HTMLDivElement | null>;
@@ -1302,6 +1310,7 @@ function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, conta
   sessionId: string;
   email: string;
   onScrolled: (page: number) => void;
+  watermark?: { enabled: boolean; text: string; position: string };
 }) {
   // Base page dimensions (standard A4 at 96dpi)
   const BASE_WIDTH = 850;
@@ -1374,6 +1383,36 @@ function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, conta
               } catch (_) {}
             }}
           />
+          {/* Watermark overlay */}
+{watermark?.enabled && (
+  <div
+    className="absolute inset-0 pointer-events-none select-none flex items-center justify-center"
+    style={{
+      zIndex: 10,
+      ...(watermark.position === 'diagonal' ? {
+        transform: 'rotate(-35deg)',
+      } : watermark.position === 'top' ? {
+        alignItems: 'flex-start', paddingTop: '24px',
+      } : watermark.position === 'center' ? {
+        alignItems: 'center',
+      } : {
+        alignItems: 'flex-end', paddingBottom: '24px',
+      }),
+    }}
+  >
+    <span style={{
+      fontSize: `${Math.max(12, pageWidth * 0.022)}px`,
+      fontWeight: 600,
+      color: 'rgba(100, 100, 100, 0.18)',
+      letterSpacing: '0.05em',
+      whiteSpace: 'nowrap',
+      userSelect: 'none',
+      fontFamily: 'system-ui, sans-serif',
+    }}>
+      {watermark.text}
+    </span>
+  </div>
+)}
           <div ref={bottomRef} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px', pointerEvents: 'none' }} />
         </>
       ) : (
