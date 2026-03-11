@@ -80,10 +80,15 @@ export default function ActivityTab({
       fetch(`/api/documents/${doc._id}/signature-requests`, {
         credentials: "include",
       }).then((r) => r.json()),
+      fetch(`/api/documents/${doc._id}/cc-recipients`, {
+      credentials: "include",
+       }).then((r) => r.json()).catch(() => ({ success: false, recipients: [] })),
     ])
-      .then(([shareData, sigData]) => {
+    
+      .then(([shareData, sigData ,  ccData]) => {
         const links: any[] = [];
 
+        
         if (shareData.success && shareData.shares) {
           shareData.shares.forEach((s: any) => {
             links.push({
@@ -157,7 +162,32 @@ export default function ActivityTab({
               settings: {},
             });
           });
+
         }
+
+        // ── CC Recipients ──────────────────────────────────────────────────
+      if (ccData.success && ccData.recipients) {
+        ccData.recipients.forEach((cc: any) => {
+          const ccViewLink = `${window.location.origin}/cc/${cc.uniqueId}?email=${cc.email}`;
+          links.push({
+            shareId: cc.uniqueId,
+            recipientEmail: cc.email,
+            recipientName: cc.name,
+            createdAgo: cc.createdAt ? formatAgo(new Date(cc.createdAt)) : "—",
+            link: ccViewLink,
+            visits: cc.viewCount || 0,
+            totalTime: formatTime(cc.totalTimeSpentSeconds || 0),
+            lastViewed: cc.viewedAt ? formatAgo(new Date(cc.viewedAt)) : null,
+            completion: cc.viewedAt ? "Viewed" : "—",
+            enabled: cc.status === "active",
+            linkType: "cc",
+            isCC: true,
+            notifyWhen: cc.notifyWhen,
+            pageData: cc.pageData || [],
+            settings: {},
+          });
+        });
+      }
 
         setShareLinks(links);
       })
@@ -186,24 +216,31 @@ export default function ActivityTab({
     })
   );
 
-  const sigVisits: any[] = shareLinks
-    .filter((lnk) => lnk.linkType === "signature" && lnk.visits > 0)
-    .map((lnk) => ({
-      key: `sig-${lnk.shareId}`,
-      email: lnk.recipientEmail || "Unknown",
-      senderName: doc.filename,
-      timeAgo: lnk.lastViewed || lnk.createdAgo,
-      totalTime: lnk.totalTime || "0m 0s",
-      totalTimeSeconds: 0,
-      location: "Unknown",
-      city: "",
-      country: "Unknown",
-      pageData: lnk.pageData || [],
-      bounced: false,
-      firstOpened: null,
-      visitType: "signature",
-      signatureStatus: lnk.signatureStatus,
-    }));
+ // REPLACE the existing sigVisits definition
+
+const sigVisits: any[] = shareLinks
+  .filter(
+    (lnk) =>
+      (lnk.linkType === "signature" || lnk.linkType === "cc") &&
+      lnk.visits > 0
+  )
+  .map((lnk) => ({
+    key: `sig-${lnk.shareId}`,
+    email: lnk.recipientEmail || "Unknown",
+    senderName: doc.filename,
+    timeAgo: lnk.lastViewed || lnk.createdAgo,
+    totalTime: lnk.totalTime || "0m 0s",
+    totalTimeSeconds: 0,
+    location: "Unknown",
+    city: "",
+    country: "Unknown",
+    pageData: lnk.pageData || [],
+    bounced: false,
+    firstOpened: null,
+    visitType: lnk.isCC ? "cc" : "signature",
+    signatureStatus: lnk.signatureStatus,
+    isCC: lnk.isCC || false,
+  }));
 
   const allVisits: any[] = [...shareVisits, ...sigVisits];
 
@@ -339,18 +376,22 @@ export default function ActivityTab({
                     <div className="pb-6">
                       <div className="flex items-center gap-4 px-1 pb-4 mb-4 border-b border-slate-100 flex-wrap">
                         <div className="flex items-center gap-1.5">
-                          <div
-                            className={`h-2 w-2 rounded-full ${
-                              visit.visitType === "signature"
-                                ? "bg-purple-500"
-                                : "bg-sky-500"
-                            }`}
-                          />
+                         <div
+  className={`h-2 w-2 rounded-full ${
+    visit.visitType === "signature"
+      ? "bg-purple-500"
+      : visit.visitType === "cc"
+      ? "bg-blue-500"
+      : "bg-sky-500"
+  }`}
+/>
                           <span className="text-xs font-semibold text-slate-500">
-                            {visit.visitType === "signature"
-                              ? "✍️ Signature request"
-                              : "🔗 Share link view"}
-                          </span>
+  {visit.visitType === "signature"
+    ? "✍️ Signature request"
+    : visit.visitType === "cc"
+    ? "📋 CC recipient view"
+    : "🔗 Share link view"}
+</span>
                         </div>
                         <span className="text-xs text-slate-400">
                           {visit.city && visit.city !== "Unknown"
@@ -667,6 +708,11 @@ export default function ActivityTab({
   ) : (
     <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
   )}
+  {lnk.isCC && (
+  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
+    <Mail className="h-2.5 w-2.5" /> CC
+  </span>
+)}
 </div>
                 </div>
 

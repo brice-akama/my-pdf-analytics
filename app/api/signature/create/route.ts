@@ -1,14 +1,73 @@
 // app/api/signature/create/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../lib/mongodb";
-import { ObjectId } from "mongodb";
+import { ObjectId, Db } from "mongodb";
 import { sendCCNotificationEmail, sendSignatureRequestEmail } from "@/lib/emailService";
 import { verifyUserFromRequest } from '@/lib/auth';
 import { hashAccessCode } from "@/lib/accessCodeConfig";
 
+// ─── Helper: save recipients to contacts collection ───────────────────────────
+//
+// Called after a successful signature send.
+// Uses upsert so existing contacts are updated (name refreshed) but not duplicated.
+//
+async function saveRecipientsAsContacts(
+  db: Db,
+  userId: string,
+  recipients: Array<{ name: string; email: string; role?: string }>,
+  ccRecipients?: Array<{ name: string; email: string }>,
+) {
+  const now = new Date();
+  const allPeople = [
+    ...recipients.map((r) => ({ name: r.name, email: r.email })),
+    ...(ccRecipients || []).map((c) => ({ name: c.name, email: c.email })),
+  ];
+
+  const ops = allPeople
+    .filter((p) => p.email && p.email.trim())
+    .map((p) => ({
+      updateOne: {
+        filter: {
+          userId,
+          email: p.email.toLowerCase().trim(),
+        },
+        update: {
+          $set: {
+            email:          p.email.toLowerCase().trim(),
+            userId,
+            updatedAt:      now,
+            // Only overwrite name if we actually have one
+            ...(p.name?.trim() ? { name: p.name.trim() } : {}),
+          },
+          $setOnInsert: {
+            createdAt:  now,
+            source:     'signature_request',
+          },
+          // Increment times sent to — useful for sorting suggestions later
+          $inc: { signatureCount: 1 },
+        },
+        upsert: true,
+      },
+    }));
+
+  if (ops.length === 0) return;
+
+  try {
+    const result = await db.collection('contacts').bulkWrite(ops, { ordered: false });
+    console.log(
+      `📇 [contacts] Saved ${ops.length} recipient(s) — ` +
+      `${result.upsertedCount} new, ${result.modifiedCount} updated`
+    );
+  } catch (err) {
+    // Never let contact saving break the signature flow
+    console.warn('⚠️ [contacts] bulkWrite failed (non-fatal):', err);
+  }
+}
+
+// ─── POST ─────────────────────────────────────────────────────────────────────
+
 export async function POST(request: NextRequest) {
   try {
-    // ✅ Use JWT authentication
     const user = await verifyUserFromRequest(request);
     if (!user) {
       return NextResponse.json(
@@ -17,30 +76,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { documentId, recipients, signatureFields, message, dueDate, viewMode , signingOrder, expirationDays, ccRecipients, accessCodeRequired,
-  accessCodeType,
-  accessCodeHint, scheduledSendDate,
-  accessCode, spaceId, intentVideoRequired  } = await request.json();
+    const {
+      documentId, recipients, signatureFields, message, dueDate,
+      viewMode, signingOrder, expirationDays, ccRecipients,
+      accessCodeRequired, accessCodeType, accessCodeHint,
+      scheduledSendDate, accessCode, spaceId, intentVideoRequired,
+    } = await request.json();
 
     const db = await dbPromise;
 
-    // ✅ Get current user details
-    const ownerId = user.id;
+    const ownerId   = user.id;
     const ownerEmail = user.email;
 
     const userDoc = await db.collection('users').findOne({
-      _id: new ObjectId(ownerId)
+      _id: new ObjectId(ownerId),
     });
     const ownerName = userDoc?.profile?.fullName || userDoc?.email || user.email;
 
-    // ✅ Hash the access code if provided
-let accessCodeHash = null;
-if (accessCodeRequired && accessCode) {
-  accessCodeHash = await hashAccessCode(accessCode);
-  console.log(`🔒 Access code hashed for document ${documentId}`);
-}
+    // Hash access code if provided
+    let accessCodeHash = null;
+    if (accessCodeRequired && accessCode) {
+      accessCodeHash = await hashAccessCode(accessCode);
+      console.log(`🔒 Access code hashed for document ${documentId}`);
+    }
 
-    // ✅ Verify document exists and belongs to user
+    // Verify document belongs to user
     const document = await db.collection("documents").findOne({
       _id: new ObjectId(documentId),
       userId: ownerId,
@@ -57,186 +117,167 @@ if (accessCodeRequired && accessCode) {
     console.log('👤 Owner:', ownerName, '(', ownerEmail, ')');
 
     const signatureRequests = [];
-    const emailPromises = [];
-    const ccRecipientLinks = []; // NEW: Track CC links
+    const emailPromises    = [];
+    const ccRecipientLinks = [];
 
     for (let i = 0; i < recipients.length; i++) {
       const recipient = recipients[i];
-      const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`;
+      const uniqueId  = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`;
 
-      // Determine if this should be sent immediately or scheduled
-const now = new Date();
-const scheduledDate = scheduledSendDate ? new Date(scheduledSendDate) : null;
-const shouldSendNow = !scheduledDate || scheduledDate <= now;
+      const now           = new Date();
+      const scheduledDate = scheduledSendDate ? new Date(scheduledSendDate) : null;
+      const shouldSendNow = !scheduledDate || scheduledDate <= now;
 
-
-
-      //   Calculate expiration date
       let expiresAt = null;
       if (expirationDays && expirationDays !== 'never') {
         const days = parseInt(expirationDays);
-        expiresAt = new Date();
+        expiresAt  = new Date();
         expiresAt.setDate(expiresAt.getDate() + days);
       }
 
-      console.log('📅 Signature request will expire:', expiresAt || 'Never');
+      const initialStatus = signingOrder === 'sequential'
+        ? (i === 0 ? 'pending' : 'awaiting_turn')
+        : 'pending';
 
-      //   Determine initial status based on signing order
-      const initialStatus = signingOrder === 'sequential' 
-        ? (i === 0 ? 'pending' : 'awaiting_turn')  // First person is 'pending', rest wait
-        : 'pending';  // Everyone is 'pending' for 'any' order
-
-      //   ADD .map() to enrich fields with recipient details
       const enrichedSignatureFields = viewMode === 'shared'
         ? signatureFields.map((f: any) => ({
             ...f,
-            recipientName: recipients[f.recipientIndex]?.name || `Recipient ${f.recipientIndex + 1}`,
+            recipientName:  recipients[f.recipientIndex]?.name  || `Recipient ${f.recipientIndex + 1}`,
             recipientEmail: recipients[f.recipientIndex]?.email || '',
           }))
         : signatureFields
             .filter((f: any) => f.recipientIndex === i)
             .map((f: any) => ({
               ...f,
-              recipientName: recipients[f.recipientIndex]?.name || `Recipient ${f.recipientIndex + 1}`,
+              recipientName:  recipients[f.recipientIndex]?.name  || `Recipient ${f.recipientIndex + 1}`,
               recipientEmail: recipients[f.recipientIndex]?.email || '',
             }));
 
       const signatureRequest = {
         uniqueId,
-        documentId: documentId,
-        spaceId: spaceId || null,
-        ownerId: ownerId,
-        ownerEmail: ownerEmail,
+        documentId,
+        spaceId:      spaceId || null,
+        ownerId,
+        ownerEmail,
         recipient: {
-          name: recipient.name,
+          name:  recipient.name,
           email: recipient.email,
-          role: recipient.role || '',
+          role:  recipient.role || '',
         },
-        recipientIndex: i,
-        signingOrder: signingOrder || 'any',
-        expirationDays: expirationDays || '30',
-        signatureFields: enrichedSignatureFields,
-        viewMode: viewMode || 'isolated',
-        message: message || '',
-        dueDate: dueDate || null,
-        expiresAt: expiresAt,
-        status: initialStatus,
-        createdAt: new Date(),
-        viewedAt: null,
-        signedAt: null,
-        completedAt: null,
-        signedFields: null,
-        ipAddress: null,
-        // ⭐ Add access code settings
-  accessCodeRequired: accessCodeRequired || false,
-  accessCodeHash: accessCodeHash,
-  accessCodeType: accessCodeType,
-  accessCodeHint: accessCodeHint,
-  accessCodeFailedAttempts: 0,
-  accessCodeLockoutUntil: null,
-  selfieVerificationRequired: accessCodeRequired || false,
-        scheduledSendDate: scheduledSendDate ? new Date(scheduledSendDate) : null,
-      sendStatus: shouldSendNow ? 'sent' : 'scheduled',
-      sendAt: shouldSendNow ? new Date() : null,
-      notifiedAt: shouldSendNow ? new Date() : null,
-      intentVideoRequired: intentVideoRequired || false, //   ADD THIS
-  intentVideoUrl: null, //   ADD THIS (will be filled when signer records)
-  intentVideoRecordedAt: null, //   ADD THIS
-
+        recipientIndex:   i,
+        signingOrder:     signingOrder || 'any',
+        expirationDays:   expirationDays || '30',
+        signatureFields:  enrichedSignatureFields,
+        viewMode:         viewMode || 'isolated',
+        message:          message || '',
+        dueDate:          dueDate || null,
+        expiresAt,
+        status:           initialStatus,
+        createdAt:        new Date(),
+        viewedAt:         null,
+        signedAt:         null,
+        completedAt:      null,
+        signedFields:     null,
+        ipAddress:        null,
+        accessCodeRequired:      accessCodeRequired || false,
+        accessCodeHash,
+        accessCodeType,
+        accessCodeHint,
+        accessCodeFailedAttempts: 0,
+        accessCodeLockoutUntil:   null,
+        selfieVerificationRequired: accessCodeRequired || false,
+        scheduledSendDate: scheduledDate,
+        sendStatus:        shouldSendNow ? 'sent'      : 'scheduled',
+        sendAt:            shouldSendNow ? new Date()  : null,
+        notifiedAt:        shouldSendNow ? new Date()  : null,
+        intentVideoRequired:  intentVideoRequired || false,
+        intentVideoUrl:       null,
+        intentVideoRecordedAt: null,
       };
 
       const result = await db.collection("signature_requests").insertOne(signatureRequest);
-
       const signingLink = `${request.nextUrl.origin}/sign/${uniqueId}`;
 
       signatureRequests.push({
-        id: result.insertedId,
+        id:        result.insertedId,
         uniqueId,
         recipient: recipient.name,
-        email: recipient.email,
-        link: signingLink,
-        status: initialStatus,
+        email:     recipient.email,
+        link:      signingLink,
+        status:    initialStatus,
       });
 
-      // Only send email if it should be sent now
-if (!shouldSendNow) {
-  console.log(`📅 Email scheduled for ${recipient.email} at ${scheduledDate}`);
-  continue; // Skip sending email
-}
+      if (!shouldSendNow) {
+        console.log(`📅 Email scheduled for ${recipient.email} at ${scheduledDate}`);
+        continue;
+      }
 
-      //   Only send email to first person if sequential order
       if (signingOrder === 'sequential' && i > 0) {
         console.log(`⏳ Skipping email for ${recipient.email} - awaiting turn`);
-        continue; // Skip sending email
+        continue;
       }
 
       emailPromises.push(
         sendSignatureRequestEmail({
-          recipientName: recipient.name,
-          recipientEmail: recipient.email,
+          recipientName:    recipient.name,
+          recipientEmail:   recipient.email,
           originalFilename: document.originalFilename,
-          signingLink: signingLink,
-          senderName: ownerName,
-          message: message,
-          dueDate: dueDate,
-        }).catch(err => {
+          signingLink,
+          senderName:       ownerName,
+          message,
+          dueDate,
+        }).catch((err) => {
           console.error(`❌ Failed to send email to ${recipient.email}:`, err);
           return null;
         })
       );
     }
 
-    // ⭐ NEW: Handle CC Recipients (AFTER the recipient loop)
+    // ── CC recipients ──────────────────────────────────────────────────────
     if (ccRecipients && ccRecipients.length > 0) {
       console.log('📧 Processing', ccRecipients.length, 'CC recipients');
-      
+
       for (let j = 0; j < ccRecipients.length; j++) {
-        const cc = ccRecipients[j];
+        const cc         = ccRecipients[j];
         const ccUniqueId = `cc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${j}`;
-        
-        // Create CC recipient record in database
+
         const ccRecord = {
-          uniqueId: ccUniqueId,
-          documentId: documentId,
-          ownerId: ownerId,
-          ownerEmail: ownerEmail,
-          name: cc.name,
-          email: cc.email,
+          uniqueId:   ccUniqueId,
+          documentId,
+          ownerId,
+          ownerEmail,
+          name:       cc.name,
+          email:      cc.email,
           notifyWhen: cc.notifyWhen,
-          type: 'cc_recipient',
-          status: 'active',
-          createdAt: new Date(),
+          type:       'cc_recipient',
+          status:     'active',
+          createdAt:  new Date(),
           notifiedAt: cc.notifyWhen === 'immediately' ? new Date() : null,
         };
-        
+
         await db.collection("cc_recipients").insertOne(ccRecord);
-        
+
         const ccViewLink = `${request.nextUrl.origin}/cc/${ccUniqueId}?email=${cc.email}`;
-        
+
         ccRecipientLinks.push({
-          name: cc.name,
-          email: cc.email,
-          uniqueId: ccUniqueId,
-          link: ccViewLink,
+          name:       cc.name,
+          email:      cc.email,
+          uniqueId:   ccUniqueId,
+          link:       ccViewLink,
           notifyWhen: cc.notifyWhen,
         });
-        
-        // Send immediate email if requested
+
         if (cc.notifyWhen === 'immediately') {
-          console.log(`📤 Sending immediate CC to ${cc.email}`);
-          
           await sendCCNotificationEmail({
-            ccName: cc.name,
-            ccEmail: cc.email,
+            ccName:       cc.name,
+            ccEmail:      cc.email,
             documentName: document.filename,
-            senderName: ownerName,
-            viewLink: ccViewLink,
-          }).catch(err => {
-            console.error(`Failed to send CC to ${cc.email}:`, err);
-          });
+            senderName:   ownerName,
+            viewLink:     ccViewLink,
+          }).catch((err) => console.error(`Failed to send CC to ${cc.email}:`, err));
         }
       }
-      
+
       console.log('✅ CC recipients processed:', ccRecipientLinks.length);
     }
 
@@ -244,42 +285,46 @@ if (!shouldSendNow) {
     await Promise.all(emailPromises);
     console.log('✅ All emails sent');
 
+    // ── Update document status ─────────────────────────────────────────────
     await db.collection("documents").updateOne(
       { _id: new ObjectId(documentId) },
       {
         $set: {
-          status: 'pending_signature',
-          sentForSignature: true,
-          sentAt: new Date(),
-          totalRecipients: recipients.length,
-          signedCount: 0,
-          scheduledSendDate: scheduledSendDate ? new Date(scheduledSendDate) : null,
-          signatureRequestId: signatureRequests[0].id.toString(), //  ADD THIS
-      signatureStatus: 'pending', //  ADD THIS
-          
+          status:               'pending_signature',
+          sentForSignature:     true,
+          sentAt:               new Date(),
+          totalRecipients:      recipients.length,
+          signedCount:          0,
+          scheduledSendDate:    scheduledSendDate ? new Date(scheduledSendDate) : null,
+          signatureRequestId:   signatureRequests[0].id.toString(),
+          signatureStatus:      'pending',
         },
       }
     );
 
-    // ⭐ ADD THIS: Delete draft after successful send
-try {
-  await db.collection('signature_request_drafts').deleteOne({
-    documentId: new ObjectId(documentId),
-    userId: ownerId,
-  });
-  console.log(`🗑️ Draft deleted for document ${documentId} after sending`);
-} catch (err) {
-  console.warn('⚠️ Failed to delete draft after send:', err);
-  // Don't fail the request if draft deletion fails
-}
+    // ── Delete draft ───────────────────────────────────────────────────────
+    try {
+      await db.collection('signature_request_drafts').deleteOne({
+        documentId: new ObjectId(documentId),
+        userId:     ownerId,
+      });
+      console.log(`🗑️ Draft deleted for document ${documentId} after sending`);
+    } catch (err) {
+      console.warn('⚠️ Failed to delete draft after send:', err);
+    }
 
-
+    // ── ⭐ Save recipients & CC to contacts collection ─────────────────────
+    //
+    // Runs AFTER everything else so it never blocks or breaks the send flow.
+    // Fire-and-forget — we await it but errors are swallowed inside the helper.
+    //
+    await saveRecipientsAsContacts(db, ownerId, recipients, ccRecipients);
 
     return NextResponse.json({
-      success: true,
+      success:        true,
       signatureRequests,
-      ccRecipients: ccRecipientLinks, // ⭐ NEW: Return CC links
-      message: `Signature requests created and sent to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
+      ccRecipients:   ccRecipientLinks,
+      message:        `Signature requests created and sent to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
     });
   } catch (error) {
     console.error("❌ Error creating signature requests:", error);

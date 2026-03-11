@@ -1,12 +1,12 @@
 // components/SignatureStyleModal.tsx
 "use client";
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Pen, Type, Upload, Check, Trash2, Star } from 'lucide-react';
-import { 
-  SIGNATURE_FONTS, 
-  SIGNATURE_COLORS, 
-  validateSignatureFile, 
-  convertFileToBase64 
+import {
+  SIGNATURE_FONTS,
+  SIGNATURE_COLORS,
+  validateSignatureFile,
+  convertFileToBase64
 } from '@/lib/signatureConfig';
 
 interface SavedSignature {
@@ -38,11 +38,6 @@ export const SignatureStyleModal: React.FC<SignatureStyleModalProps> = ({
   onSave,
   recipientName = 'Your Name'
 }) => {
-  // ⭐ Debug logging
-  useEffect(() => {
-    console.log('🎨 SignatureStyleModal render:', { isOpen, recipientName });
-  }, [isOpen, recipientName]);
-
   const [activeTab, setActiveTab] = useState<'draw' | 'type' | 'upload' | 'saved'>('saved');
   const [isDrawing, setIsDrawing] = useState(false);
   const [signatureData, setSignatureData] = useState('');
@@ -53,15 +48,30 @@ export const SignatureStyleModal: React.FC<SignatureStyleModalProps> = ({
   const [savedSignatures, setSavedSignatures] = useState<SavedSignature[]>([]);
   const [loading, setLoading] = useState(false);
   const [saveForFuture, setSaveForFuture] = useState(true);
-  
+  const [visible, setVisible] = useState(false);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastTouchRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Fetch saved signatures on mount
+  // Animate in/out
   useEffect(() => {
     if (isOpen) {
+      requestAnimationFrame(() => setVisible(true));
       fetchSavedSignatures();
+    } else {
+      setVisible(false);
     }
+  }, [isOpen]);
+
+  // Lock body scroll when open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
   const fetchSavedSignatures = async () => {
@@ -70,21 +80,38 @@ export const SignatureStyleModal: React.FC<SignatureStyleModalProps> = ({
       const data = await res.json();
       if (data.success) {
         setSavedSignatures(data.signatures);
+        setActiveTab(data.signatures.length > 0 ? 'saved' : 'draw');
       }
     } catch (err) {
       console.error('Failed to fetch signatures:', err);
     }
   };
 
-  // Drawing handlers
+  // ─── Canvas helpers ───────────────────────────────────────────
+  const getCanvasPoint = (canvas: HTMLCanvasElement, clientX: number, clientY: number) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
+  const applyStrokeStyle = (ctx: CanvasRenderingContext2D) => {
+    ctx.strokeStyle = selectedColor.hex;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  };
+
+  // ─── Mouse drawing ────────────────────────────────────────────
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = getCanvasPoint(canvas, e.clientX, e.clientY);
     ctx.beginPath();
     ctx.moveTo(x, y);
     setIsDrawing(true);
@@ -94,16 +121,11 @@ export const SignatureStyleModal: React.FC<SignatureStyleModalProps> = ({
     if (!isDrawing) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const { x, y } = getCanvasPoint(canvas, e.clientX, e.clientY);
+    applyStrokeStyle(ctx);
     ctx.lineTo(x, y);
-    ctx.strokeStyle = selectedColor.hex;
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
     ctx.stroke();
   };
 
@@ -112,6 +134,46 @@ export const SignatureStyleModal: React.FC<SignatureStyleModalProps> = ({
       setSignatureData(canvasRef.current.toDataURL());
     }
     setIsDrawing(false);
+    lastTouchRef.current = null;
+  };
+
+  // ─── Touch drawing ────────────────────────────────────────────
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const touch = e.touches[0];
+    const { x, y } = getCanvasPoint(canvas, touch.clientX, touch.clientY);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    lastTouchRef.current = { x, y };
+    setIsDrawing(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const touch = e.touches[0];
+    const { x, y } = getCanvasPoint(canvas, touch.clientX, touch.clientY);
+    applyStrokeStyle(ctx);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    lastTouchRef.current = { x, y };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (isDrawing && canvasRef.current) {
+      setSignatureData(canvasRef.current.toDataURL());
+    }
+    setIsDrawing(false);
+    lastTouchRef.current = null;
   };
 
   const clearCanvas = () => {
@@ -125,70 +187,54 @@ export const SignatureStyleModal: React.FC<SignatureStyleModalProps> = ({
     }
   };
 
-  // File upload handler
+  // ─── File upload ──────────────────────────────────────────────
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const validation = validateSignatureFile(file);
-    if (!validation.valid) {
-      alert(validation.error);
-      return;
-    }
-
+    if (!validation.valid) { alert(validation.error); return; }
     try {
       const base64 = await convertFileToBase64(file);
       setUploadedImage(base64);
-    } catch (err) {
+    } catch {
       alert('Failed to upload image. Please try again.');
     }
   };
 
-  // Save signature
+  // ─── Save ─────────────────────────────────────────────────────
   const handleSave = async () => {
     let finalData = '';
     let finalType: 'draw' | 'type' | 'upload' = 'draw';
-    let finalFont = undefined;
-    let finalColor = selectedColor.hex;
+    let finalFont: string | undefined;
+    const finalColor = selectedColor.hex;
 
     if (activeTab === 'draw') {
-      if (!signatureData) {
-        alert('Please draw your signature first');
-        return;
-      }
+      if (!signatureData) { alert('Please draw your signature first'); return; }
       finalData = signatureData;
       finalType = 'draw';
     } else if (activeTab === 'type') {
-      if (!typedText.trim()) {
-        alert('Please enter your name');
-        return;
-      }
-      // Generate typed signature as image
+      if (!typedText.trim()) { alert('Please enter your name'); return; }
       const canvas = document.createElement('canvas');
       canvas.width = 600;
       canvas.height = 150;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = selectedColor.hex;
-  ctx.font = `60px ${selectedFont.fontFamily}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(typedText, canvas.width / 2, canvas.height / 2);
-  finalData = canvas.toDataURL('image/png');
-  finalType = 'type';
-  finalFont = selectedFont.id;
-}
-    } else if (activeTab === 'upload') {
-      if (!uploadedImage) {
-        alert('Please upload an image');
-        return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = selectedColor.hex;
+        ctx.font = `60px ${selectedFont.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(typedText, canvas.width / 2, canvas.height / 2);
+        finalData = canvas.toDataURL('image/png');
+        finalType = 'type';
+        finalFont = selectedFont.id;
       }
+    } else if (activeTab === 'upload') {
+      if (!uploadedImage) { alert('Please upload an image'); return; }
       finalData = uploadedImage;
       finalType = 'upload';
     }
 
-    // Save to database if checkbox is checked
     if (saveForFuture) {
       setLoading(true);
       try {
@@ -210,175 +256,213 @@ export const SignatureStyleModal: React.FC<SignatureStyleModalProps> = ({
       }
     }
 
-    onSave({
-      type: finalType,
-      data: finalData,
-      font: finalFont,
-      color: finalColor,
-    });
+    onSave({ type: finalType, data: finalData, font: finalFont, color: finalColor });
   };
 
-  // Use saved signature
   const useSavedSignature = async (signature: SavedSignature) => {
-    // Update usage count
     await fetch('/api/signature-styles', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        signatureId: signature._id,
-        action: 'updateUsage',
-      }),
+      body: JSON.stringify({ signatureId: signature._id, action: 'updateUsage' }),
     });
-
-    onSave({
-      type: signature.type,
-      data: signature.data,
-      font: signature.font,
-      color: signature.color,
-    });
+    onSave({ type: signature.type, data: signature.data, font: signature.font, color: signature.color });
   };
 
-  // Delete saved signature
   const deleteSavedSignature = async (signatureId: string) => {
     if (!confirm('Are you sure you want to delete this signature?')) return;
-
     try {
-      const res = await fetch(`/api/signature-styles?id=${signatureId}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        fetchSavedSignatures();
-      }
+      const res = await fetch(`/api/signature-styles?id=${signatureId}`, { method: 'DELETE' });
+      if (res.ok) fetchSavedSignatures();
     } catch (err) {
       console.error('Failed to delete signature:', err);
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !visible) return null;
+
+  const tabs = [
+    ...(savedSignatures.length > 0
+      ? [{ id: 'saved' as const, label: `Saved (${savedSignatures.length})`, icon: <Star className="h-3.5 w-3.5" /> }]
+      : []),
+    { id: 'draw' as const, label: 'Draw', icon: <Pen className="h-3.5 w-3.5" /> },
+    { id: 'type' as const, label: 'Type', icon: <Type className="h-3.5 w-3.5" /> },
+    { id: 'upload' as const, label: 'Upload', icon: <Upload className="h-3.5 w-3.5" /> },
+  ];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-white z-10">
+    <>
+      {/* Google Fonts */}
+      <link
+        href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Great+Vibes&family=Pacifico&family=Allura&display=swap"
+        rel="stylesheet"
+      />
+
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 9998,
+          opacity: visible ? 1 : 0,
+          transition: 'opacity 0.3s ease',
+          pointerEvents: visible ? 'auto' : 'none',
+        }}
+      />
+
+      {/* Bottom Drawer */}
+      <div
+        style={{
+          position: 'fixed',
+          left: 0, right: 0, bottom: 0,
+          zIndex: 9999,
+          background: '#fff',
+          borderRadius: '20px 20px 0 0',
+          boxShadow: '0 -8px 40px rgba(0,0,0,0.18)',
+          maxHeight: '92dvh',
+          display: 'flex',
+          flexDirection: 'column',
+          transform: visible ? 'translateY(0)' : 'translateY(100%)',
+          transition: 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
+      >
+        {/* Drag handle */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px', flexShrink: 0 }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: '#e2e8f0' }} />
+        </div>
+
+        {/* Header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '4px 20px 12px', borderBottom: '1px solid #f1f5f9', flexShrink: 0,
+        }}>
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">Add Your Signature</h3>
-            <p className="text-sm text-slate-500 mt-1">Choose how you'd like to sign</p>
+            <h3 style={{ fontSize: 17, fontWeight: 700, color: '#0f172a', margin: 0 }}>Add Your Signature</h3>
+            <p style={{ fontSize: 13, color: '#94a3b8', margin: '2px 0 0' }}>Choose how you'd like to sign</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <X className="h-5 w-5" />
+          <button
+            onClick={onClose}
+            style={{
+              width: 32, height: 32, borderRadius: '50%', border: 'none',
+              background: '#f1f5f9', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <X style={{ width: 16, height: 16, color: '#64748b' }} />
           </button>
         </div>
 
-        <div className="p-6">
-          {/* Tabs */}
-          <div className="flex gap-2 mb-6 overflow-x-auto">
-            {savedSignatures.length > 0 && (
-              <button
-                onClick={() => setActiveTab('saved')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
-                  activeTab === 'saved'
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <Star className="h-4 w-4" />
-                Saved ({savedSignatures.length})
-              </button>
-            )}
+        {/* Tabs */}
+        <div style={{
+          display: 'flex', gap: 6, padding: '10px 16px',
+          overflowX: 'auto', flexShrink: 0,
+          // hide scrollbar
+          msOverflowStyle: 'none' as any,
+          scrollbarWidth: 'none' as any,
+        }}>
+          {tabs.map(tab => (
             <button
-              onClick={() => setActiveTab('draw')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'draw'
-                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '7px 14px', borderRadius: 20, border: 'none',
+                fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                whiteSpace: 'nowrap', flexShrink: 0,
+                transition: 'all 0.2s',
+                background: activeTab === tab.id
+                  ? 'linear-gradient(135deg, #7c3aed, #3b82f6)'
+                  : '#f1f5f9',
+                color: activeTab === tab.id ? '#fff' : '#475569',
+              }}
             >
-              <Pen className="h-4 w-4" />
-              Draw
+              {tab.icon}
+              {tab.label}
             </button>
-            <button
-              onClick={() => setActiveTab('type')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'type'
-                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              <Type className="h-4 w-4" />
-              Type
-            </button>
-            <button
-              onClick={() => setActiveTab('upload')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all whitespace-nowrap ${
-                activeTab === 'upload'
-                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              <Upload className="h-4 w-4" />
-              Upload
-            </button>
-          </div>
+          ))}
+        </div>
 
-          {/* Saved Signatures Tab */}
+        {/* Scrollable body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 0' }}>
+
+          {/* ── SAVED ── */}
           {activeTab === 'saved' && (
-            <div className="space-y-4">
-              <p className="text-sm text-slate-600 mb-4">Select a saved signature to use</p>
+            <div style={{ paddingBottom: 24 }}>
+              <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>Tap a signature to use it</p>
               {savedSignatures.map((sig) => (
                 <div
                   key={sig._id}
-                  className="border-2 border-slate-200 rounded-lg p-4 hover:border-purple-400 transition-all cursor-pointer relative group"
+                  onClick={() => useSavedSignature(sig)}
+                  style={{
+                    border: '2px solid #e2e8f0', borderRadius: 12,
+                    padding: 12, marginBottom: 10,
+                    position: 'relative', cursor: 'pointer',
+                  }}
                 >
-                  <div onClick={() => useSavedSignature(sig)}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-slate-700">{sig.name}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{sig.name}</span>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       {sig.isDefault && (
-                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-                          Default
-                        </span>
+                        <span style={{
+                          fontSize: 11, background: '#fef9c3', color: '#854d0e',
+                          padding: '2px 8px', borderRadius: 20, fontWeight: 600,
+                        }}>Default</span>
                       )}
-                    </div>
-                    <div className="bg-slate-50 rounded p-4 flex items-center justify-center h-24">
-                      <img src={sig.data} alt={sig.name} className="max-h-full max-w-full object-contain" />
-                    </div>
-                    <div className="text-xs text-slate-500 mt-2">
-                      Used {sig.usageCount} times
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteSavedSignature(sig._id); }}
+                        style={{
+                          width: 30, height: 30, borderRadius: 8, border: 'none',
+                          background: '#fee2e2', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        <Trash2 style={{ width: 14, height: 14, color: '#dc2626' }} />
+                      </button>
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteSavedSignature(sig._id);
-                    }}
-                    className="absolute top-2 right-2 p-2 bg-red-100 text-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-200"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div style={{
+                    background: '#f8fafc', borderRadius: 8,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', height: 72,
+                  }}>
+                    <img src={sig.data} alt={sig.name} style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
+                  </div>
+                  <p style={{ fontSize: 11, color: '#94a3b8', margin: '6px 0 0' }}>Used {sig.usageCount} times</p>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Draw Tab */}
+          {/* ── DRAW ── */}
           {activeTab === 'draw' && (
-            <div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Signature Color</label>
-                <div className="flex gap-2">
+            <div style={{ paddingBottom: 8 }}>
+              <div style={{ marginBottom: 12 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Ink Color</p>
+                <div style={{ display: 'flex', gap: 8 }}>
                   {SIGNATURE_COLORS.map((color) => (
                     <button
                       key={color.id}
                       onClick={() => setSelectedColor(color)}
-                      className={`w-10 h-10 rounded-full border-2 ${
-                        selectedColor.id === color.id ? 'border-purple-600 ring-2 ring-purple-200' : 'border-slate-300'
-                      }`}
-                      style={{ backgroundColor: color.hex }}
                       title={color.name}
+                      style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        background: color.hex, border: 'none', cursor: 'pointer',
+                        boxShadow: selectedColor.id === color.id
+                          ? `0 0 0 2px #fff, 0 0 0 4px ${color.hex}`
+                          : '0 1px 4px rgba(0,0,0,0.15)',
+                        transition: 'box-shadow 0.15s',
+                      }}
                     />
                   ))}
                 </div>
               </div>
-              <div className="border-2 border-dashed border-slate-300 rounded-lg bg-white mb-4 overflow-hidden">
+
+              <div style={{
+                border: '2px dashed #cbd5e1', borderRadius: 12,
+                background: '#fff', overflow: 'hidden', marginBottom: 10,
+              }}>
+                <p style={{ fontSize: 11, color: '#94a3b8', textAlign: 'center', padding: '6px 0 2px', margin: 0 }}>
+                  Sign in the box below
+                </p>
                 <canvas
                   ref={canvasRef}
                   width={600}
@@ -387,45 +471,62 @@ export const SignatureStyleModal: React.FC<SignatureStyleModalProps> = ({
                   onMouseMove={draw}
                   onMouseUp={stopDrawing}
                   onMouseLeave={stopDrawing}
-                  className="w-full cursor-crosshair"
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  style={{ width: '100%', display: 'block', cursor: 'crosshair', touchAction: 'none' }}
                 />
               </div>
+
               <button
                 onClick={clearCanvas}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 font-medium mb-4"
+                style={{
+                  width: '100%', padding: '10px', border: '1px solid #e2e8f0',
+                  borderRadius: 10, background: '#fff', cursor: 'pointer',
+                  fontSize: 14, fontWeight: 500, color: '#64748b',
+                }}
               >
-                Clear
+                Clear & Redraw
               </button>
             </div>
           )}
 
-          {/* Type Tab */}
+          {/* ── TYPE ── */}
           {activeTab === 'type' && (
-            <div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Your Name</label>
+            <div style={{ paddingBottom: 8 }}>
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Your Name</p>
                 <input
                   type="text"
                   value={typedText}
                   onChange={(e) => setTypedText(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:border-purple-500 focus:outline-none"
                   placeholder="Enter your full name"
+                  style={{
+                    width: '100%', padding: '11px 14px', borderRadius: 10,
+                    border: '2px solid #e2e8f0', fontSize: 15, outline: 'none',
+                    boxSizing: 'border-box', fontFamily: 'inherit',
+                  }}
+                  onFocus={e => (e.target.style.borderColor = '#7c3aed')}
+                  onBlur={e => (e.target.style.borderColor = '#e2e8f0')}
                 />
               </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Font Style</label>
-                <div className="grid grid-cols-2 gap-3">
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Font Style</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {SIGNATURE_FONTS.map((font) => (
                     <button
                       key={font.id}
                       onClick={() => setSelectedFont(font)}
-                      className={`p-4 border-2 rounded-lg hover:border-purple-400 transition-all ${
-                        selectedFont.id === font.id ? 'border-purple-600 bg-purple-50' : 'border-slate-200'
-                      }`}
+                      style={{
+                        padding: '10px 8px', borderRadius: 10,
+                        border: `2px solid ${selectedFont.id === font.id ? '#7c3aed' : '#e2e8f0'}`,
+                        background: selectedFont.id === font.id ? '#f5f3ff' : '#fff',
+                        cursor: 'pointer', textAlign: 'center',
+                      }}
                     >
-                      <p className="text-xs text-slate-600 mb-1">{font.name}</p>
-                      <p style={{ fontFamily: font.fontFamily, color: selectedColor.hex }} className="text-2xl">
+                      <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 4px' }}>{font.name}</p>
+                      <p style={{ fontFamily: font.fontFamily, color: selectedColor.hex, fontSize: 22, margin: 0 }}>
                         {typedText || font.preview}
                       </p>
                     </button>
@@ -433,68 +534,84 @@ export const SignatureStyleModal: React.FC<SignatureStyleModalProps> = ({
                 </div>
               </div>
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Color</label>
-                <div className="flex gap-2">
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Color</p>
+                <div style={{ display: 'flex', gap: 8 }}>
                   {SIGNATURE_COLORS.map((color) => (
                     <button
                       key={color.id}
                       onClick={() => setSelectedColor(color)}
-                      className={`w-10 h-10 rounded-full border-2 ${
-                        selectedColor.id === color.id ? 'border-purple-600 ring-2 ring-purple-200' : 'border-slate-300'
-                      }`}
-                      style={{ backgroundColor: color.hex }}
-                      title={color.name}
+                      style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        background: color.hex, border: 'none', cursor: 'pointer',
+                        boxShadow: selectedColor.id === color.id
+                          ? `0 0 0 2px #fff, 0 0 0 4px ${color.hex}`
+                          : '0 1px 4px rgba(0,0,0,0.15)',
+                        transition: 'box-shadow 0.15s',
+                      }}
                     />
                   ))}
                 </div>
               </div>
 
-              <div className="border-2 border-slate-200 rounded-lg p-6 bg-slate-50 flex items-center justify-center h-32">
-                <p
-                  style={{ 
-                    fontFamily: selectedFont.fontFamily,
-                    color: selectedColor.hex,
-                    fontSize: '48px'
-                  }}
-                >
+              <div style={{
+                border: '1px solid #e2e8f0', borderRadius: 10,
+                background: '#f8fafc', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', height: 80,
+              }}>
+                <p style={{ fontFamily: selectedFont.fontFamily, color: selectedColor.hex, fontSize: 42, margin: 0 }}>
                   {typedText || 'Preview'}
                 </p>
               </div>
             </div>
           )}
 
-          {/* Upload Tab */}
+          {/* ── UPLOAD ── */}
           {activeTab === 'upload' && (
-            <div>
+            <div style={{ paddingBottom: 8 }}>
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/png,image/jpeg,image/jpg"
                 onChange={handleFileUpload}
-                className="hidden"
+                style={{ display: 'none' }}
               />
-              
               {!uploadedImage ? (
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full border-2 border-dashed border-slate-300 rounded-lg p-12 hover:border-purple-400 transition-all text-center"
+                  style={{
+                    width: '100%', border: '2px dashed #cbd5e1', borderRadius: 12,
+                    padding: '40px 20px', background: '#fff', cursor: 'pointer',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                  }}
                 >
-                  <Upload className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-700 font-medium mb-2">Click to upload signature</p>
-                  <p className="text-sm text-slate-500">PNG or JPG (max 5MB)</p>
+                  <div style={{
+                    width: 56, height: 56, borderRadius: 14,
+                    background: 'linear-gradient(135deg, #ede9fe, #dbeafe)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Upload style={{ width: 24, height: 24, color: '#7c3aed' }} />
+                  </div>
+                  <p style={{ fontSize: 15, fontWeight: 600, color: '#1e293b', margin: 0 }}>Tap to upload signature</p>
+                  <p style={{ fontSize: 13, color: '#94a3b8', margin: 0 }}>PNG or JPG, max 5MB</p>
                 </button>
               ) : (
                 <div>
-                  <div className="border-2 border-slate-200 rounded-lg p-6 bg-slate-50 flex items-center justify-center mb-4">
-                    <img src={uploadedImage} alt="Uploaded signature" className="max-h-32 max-w-full object-contain" />
+                  <div style={{
+                    border: '1px solid #e2e8f0', borderRadius: 12, padding: 16,
+                    background: '#f8fafc', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    marginBottom: 10, height: 100,
+                  }}>
+                    <img src={uploadedImage} alt="Uploaded" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
                   </div>
                   <button
-                    onClick={() => {
-                      setUploadedImage(null);
-                      if (fileInputRef.current) fileInputRef.current.value = '';
+                    onClick={() => { setUploadedImage(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                    style={{
+                      width: '100%', padding: '10px', border: '1px solid #e2e8f0',
+                      borderRadius: 10, background: '#fff', cursor: 'pointer',
+                      fontSize: 14, fontWeight: 500, color: '#64748b',
                     }}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 font-medium"
                   >
                     Remove & Upload Different
                   </button>
@@ -502,53 +619,60 @@ export const SignatureStyleModal: React.FC<SignatureStyleModalProps> = ({
               )}
             </div>
           )}
+        </div>
 
-          {/* Save for future checkbox */}
-          {activeTab !== 'saved' && (
-            <div className="mt-4 flex items-center gap-2">
+        {/* ── STICKY FOOTER (shown on all non-saved tabs) ── */}
+        {activeTab !== 'saved' && (
+          <div style={{
+            flexShrink: 0,
+            borderTop: '1px solid #f1f5f9',
+            background: '#fff',
+            padding: '12px 16px',
+            paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, cursor: 'pointer' }}>
               <input
                 type="checkbox"
-                id="saveForFuture"
                 checked={saveForFuture}
                 onChange={(e) => setSaveForFuture(e.target.checked)}
-                className="h-4 w-4 text-purple-600 rounded"
+                style={{ width: 16, height: 16, accentColor: '#7c3aed', cursor: 'pointer' }}
               />
-              <label htmlFor="saveForFuture" className="text-sm text-slate-700">
-                Save this signature for future use
-              </label>
-            </div>
-          )}
+              <span style={{ fontSize: 13, color: '#475569' }}>Save this signature for future use</span>
+            </label>
 
-          {/* Action Buttons */}
-          {activeTab !== 'saved' && (
-            <div className="flex gap-3 mt-6">
+            <div style={{ display: 'flex', gap: 10 }}>
               <button
                 onClick={onClose}
-                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 font-medium"
+                style={{
+                  flex: 1, padding: '13px', borderRadius: 12,
+                  border: '1px solid #e2e8f0', background: '#fff',
+                  cursor: 'pointer', fontSize: 15, fontWeight: 600, color: '#475569',
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={loading}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+                style={{
+                  flex: 2, padding: '13px', borderRadius: 12, border: 'none',
+                  background: loading ? '#c4b5fd' : 'linear-gradient(135deg, #7c3aed, #3b82f6)',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontSize: 15, fontWeight: 700, color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}
               >
-                {loading ? (
-                  'Saving...'
-                ) : (
+                {loading ? 'Saving...' : (
                   <>
-                    <Check className="h-4 w-4" />
+                    <Check style={{ width: 18, height: 18 }} />
                     Apply Signature
                   </>
                 )}
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-
-      {/* Google Fonts Link */}
-      <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Great+Vibes&family=Pacifico&family=Allura&display=swap" rel="stylesheet" />
-    </div>
+    </>
   );
 };
