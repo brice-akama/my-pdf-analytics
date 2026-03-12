@@ -7,6 +7,7 @@ import {
   sendDocumentSignedNotification, 
   sendAllSignaturesCompleteEmail,
   sendSignatureRequestEmail, // ⭐ Add this import
+  sendSignerConfirmationEmail,
   sendCCCompletionEmail,
   sendCCSignatureUpdateEmail
 } from "@/lib/emailService";
@@ -183,7 +184,7 @@ if (signatureRequest.selfieVerificationRequired &&
           await sendSignatureRequestEmail({
             recipientName: nextRecipient.recipient.name,
             recipientEmail: nextRecipient.recipient.email,
-             originalFilename: document.filename,
+              originalFilename: document.originalFilename || document.filename,
             signingLink: nextSigningLink,
             senderName: signatureRequest.recipient.name,
             message: `${signatureRequest.recipient.name} has signed. It's now your turn to sign.`,
@@ -223,18 +224,6 @@ if (signatureRequest.selfieVerificationRequired &&
       console.log('✅ All recipients updated with new signature');
     }
 
-    // Notify owner that someone signed
-    if (signatureRequest.ownerEmail) {
-      await sendDocumentSignedNotification({
-        ownerEmail: signatureRequest.ownerEmail,
-        ownerName: 'Document Owner',
-        signerName: signatureRequest.recipient.name,
-        signerEmail: signatureRequest.recipient.email,
-        originalFilename: document.filename,
-        statusLink: `${request.nextUrl.origin}/dashboard`,
-      }).catch(err => console.error('Failed to send owner notification:', err));
-    }
-
     // Check if ALL recipients have signed — must be declared BEFORE CC block
     const allRequests = await db.collection("signature_requests")
       .find({ documentId: signatureRequest.documentId })
@@ -242,6 +231,27 @@ if (signatureRequest.selfieVerificationRequired &&
 
     const totalRecipients = allRequests.length;
     const signedCount = allRequests.filter(r => r.status === 'signed').length;
+
+    // Notify owner that someone signed
+    if (signatureRequest.ownerEmail) {
+      await sendDocumentSignedNotification({
+  ownerEmail: signatureRequest.ownerEmail,
+  ownerName: 'Document Owner',
+  signerName: signatureRequest.recipient.name,
+  signerEmail: signatureRequest.recipient.email,
+  originalFilename: document.originalFilename || document.filename,
+  signedCount,
+  totalRecipients,
+}).catch(err => console.error('Failed to send owner notification:', err));
+
+    }
+
+    // Send confirmation to the signer themselves (PDF will be sent later if all signed)
+await sendSignerConfirmationEmail({
+  signerEmail: signatureRequest.recipient.email,
+  signerName: signatureRequest.recipient.name,
+  originalFilename: document.originalFilename || document.filename,
+}).catch(err => console.error('Failed to send signer confirmation:', err));
 
     console.log(`📊 Progress: ${signedCount}/${totalRecipients} signatures collected`);
 
@@ -350,7 +360,7 @@ if (signatureRequest.selfieVerificationRequired &&
           sendAllSignaturesCompleteEmail({
             recipientEmail: req.recipient.email,
             recipientName: req.recipient.name,
-            originalFilename: document.filename,
+             originalFilename: document.originalFilename || document.filename,
             downloadLink: downloadLink,
             allSigners: allSigners,
           }).catch(err => console.error('Failed to send completion email:', err))
@@ -363,7 +373,7 @@ if (signatureRequest.selfieVerificationRequired &&
             sendAllSignaturesCompleteEmail({
               recipientEmail: signatureRequest.ownerEmail,
               recipientName: 'Document Owner',
-              originalFilename: document.filename,
+            originalFilename: document.originalFilename || document.filename,
               downloadLink: downloadLink,
               allSigners: allSigners,
             }).catch(err => console.error('Failed to send owner completion email:', err))
@@ -390,7 +400,7 @@ if (signatureRequest.selfieVerificationRequired &&
               sendCCCompletionEmail({
                 ccName: cc.name,
                 ccEmail: cc.email,
-                originalFilename: document.filename,
+                originalFilename: document.originalFilename || document.filename,
                 downloadLink: `${request.nextUrl.origin}/api/signature/${signatureId}/download`,
                 allSigners: allSigners,
               }).catch(err => {

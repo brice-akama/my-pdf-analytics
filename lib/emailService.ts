@@ -234,126 +234,102 @@ export async function sendDocumentSignedNotification({
   signerName,
   signerEmail,
   originalFilename,
-  statusLink,
+  signedCount,
+  totalRecipients,
 }: {
   ownerEmail: string;
   ownerName: string;
   signerName: string;
   signerEmail: string;
   originalFilename: string;
-  statusLink: string;
+  signedCount: number;
+  totalRecipients: number;
 }) {
   try {
+    const isComplete = signedCount === totalRecipients;
+    const signedDate = new Date().toLocaleString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long',
+      day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+
     const { data, error } = await resend.emails.send({
-    from: 'DocMetrics <noreply@docmetrics.io>',
+      from: FROM,
       to: [ownerEmail],
-      subject: `✅ ${signerName} signed "${originalFilename}"`,
+      subject: `${signerName} signed "${originalFilename}"`,
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              background-color: #f5f5f5;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 600px;
-              margin: 40px auto;
-              background: white;
-              border-radius: 12px;
-              overflow: hidden;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .header {
-              background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-              padding: 40px 30px;
-              text-align: center;
-              color: white;
-            }
-            .checkmark {
-              font-size: 60px;
-              margin-bottom: 10px;
-            }
-            .content {
-              padding: 40px 30px;
-            }
-            .signature-info {
-              background: #f0fdf4;
-              border-left: 4px solid #10b981;
-              padding: 20px;
-              border-radius: 8px;
-              margin: 20px 0;
-            }
-            .cta-button {
-              display: inline-block;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-              padding: 14px 32px;
-              text-decoration: none;
-              border-radius: 8px;
-              font-weight: 600;
-              margin: 20px 0;
-            }
-            .footer {
-              background: #f8f9fa;
-              padding: 30px;
-              text-align: center;
-              font-size: 14px;
-              color: #6c757d;
-              border-top: 1px solid #e9ecef;
-            }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f7; color: #333; }
+            .wrap { max-width: 560px; margin: 40px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+            .top-bar { height: 4px; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+            .header { background: #1a1a2e; padding: 28px 36px; }
+            .brand { color: #fff; font-size: 16px; font-weight: 700; }
+            .brand-sub { color: rgba(255,255,255,0.4); font-size: 12px; margin-top: 3px; }
+            .header-title { color: #fff; font-size: 21px; font-weight: 700; margin-top: 18px; line-height: 1.3; }
+            .header-sub { color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 5px; }
+            .body { padding: 30px 36px; }
+            .badge { display: inline-block; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; margin-bottom: 20px; }
+            .body p { font-size: 14px; color: #444; line-height: 1.7; margin-bottom: 14px; }
+            .info-card { background: #fafafa; border: 1px solid #ebebeb; border-radius: 8px; padding: 16px 20px; margin: 18px 0; }
+            .info-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+            .info-row:last-child { border-bottom: none; }
+            .info-label { color: #888; }
+            .info-value { font-weight: 600; color: #111; }
+            .progress-bar-wrap { background: #f0f0f0; border-radius: 20px; height: 8px; margin: 16px 0 6px; overflow: hidden; }
+            .progress-bar-fill { height: 8px; border-radius: 20px; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+            .progress-label { font-size: 12px; color: #888; }
+            .footer { padding: 22px 36px; border-top: 1px solid #f0f0f0; }
+            .footer p { font-size: 11px; color: #aaa; line-height: 1.6; }
           </style>
         </head>
         <body>
-          <div class="container">
+          <div class="wrap">
+            <div class="top-bar"></div>
             <div class="header">
-              <div class="checkmark">✅</div>
-              <h1 style="margin: 0; font-size: 28px;">Document Signed!</h1>
+              <p class="brand">DocMetrics</p>
+              <p class="brand-sub">Secure Electronic Signatures</p>
+              <p class="header-title">${signerName} has signed your document</p>
+              <p class="header-sub">${signedCount} of ${totalRecipients} signature${totalRecipients !== 1 ? 's' : ''} collected</p>
             </div>
-            
-            <div class="content">
+            <div class="body">
+              <span class="badge">&#10003; Signature Received</span>
               <p>Hi ${ownerName},</p>
-              
-              <p>Good news! <strong>${signerName}</strong> has just signed your document.</p>
-              
-              <div class="signature-info">
-                <div style="margin-bottom: 15px;">
-                  <strong>📄 Document:</strong> ${originalFilename}
+              <p><strong>${signerName}</strong> has signed <strong>"${originalFilename}"</strong>.</p>
+
+              <div class="info-card">
+                <div class="info-row">
+                  <span class="info-label">Document</span>
+                  <span class="info-value">${originalFilename}</span>
                 </div>
-                <div style="margin-bottom: 15px;">
-                  <strong>✍️ Signed by:</strong> ${signerName} (${signerEmail})
+                <div class="info-row">
+                  <span class="info-label">Signed by</span>
+                  <span class="info-value">${signerName}</span>
                 </div>
-                <div>
-                  <strong>⏰ Signed at:</strong> ${new Date().toLocaleString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                <div class="info-row">
+                  <span class="info-label">Email</span>
+                  <span class="info-value">${signerEmail}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Signed at</span>
+                  <span class="info-value">${signedDate}</span>
                 </div>
               </div>
-              
-              <center>
-                <a href="${statusLink}" class="cta-button">
-                  View Signature Status
-                </a>
-              </center>
-              
-              <p style="margin-top: 30px; font-size: 14px; color: #6c757d;">
-                You'll receive another notification once all recipients have signed.
-              </p>
+
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width: ${Math.round((signedCount / totalRecipients) * 100)}%"></div>
+              </div>
+              <p class="progress-label">${signedCount} of ${totalRecipients} signature${totalRecipients !== 1 ? 's' : ''} collected</p>
+
+              ${!isComplete ? `<p style="margin-top: 16px;">You will receive another email once all parties have signed.</p>` : ''}
             </div>
-            
             <div class="footer">
-              <p>© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
+              <p>Sent via DocMetrics. Do not reply to this email.</p>
+              <p style="margin-top: 5px;">© ${new Date().getFullYear()} DocMetrics. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -361,15 +337,136 @@ export async function sendDocumentSignedNotification({
       `,
     });
 
-    if (error) {
-      console.error('❌ Failed to send signed notification:', error);
-      throw error;
-    }
-
-    console.log('✅ Signed notification sent to:', ownerEmail);
+    if (error) throw error;
+    console.log('Owner signed notification sent to:', ownerEmail);
     return { success: true, data };
   } catch (error) {
-    console.error('❌ Email service error:', error);
+    console.error('Owner notification error:', error);
+    throw error;
+  }
+}
+
+// ===================================
+
+
+// SIGNER CONFIRMATION EMAIL
+
+export async function sendSignerConfirmationEmail({
+  signerEmail,
+  signerName,
+  originalFilename,
+  signedPdfUrl,
+}: {
+  signerEmail: string;
+  signerName: string;
+  originalFilename: string;
+  signedPdfUrl?: string;
+}) {
+  try {
+    let attachments: any[] = [];
+    if (signedPdfUrl) {
+      try {
+        const res = await fetch(signedPdfUrl);
+        const buffer = await res.arrayBuffer();
+        attachments = [{
+          filename: originalFilename.replace(/\.pdf$/i, '') + '_signed.pdf',
+          content: Buffer.from(buffer),
+          contentType: 'application/pdf',
+        }];
+      } catch (err) {
+        console.error('Failed to attach PDF for signer:', err);
+      }
+    }
+
+    const signedDate = new Date().toLocaleString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long',
+      day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: [signerEmail],
+      subject: `Your signed copy of "${originalFilename}"`,
+      attachments,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f7; color: #333; }
+            .wrap { max-width: 560px; margin: 40px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+            .top-bar { height: 4px; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+            .header { background: #1a1a2e; padding: 28px 36px; }
+            .brand { color: #fff; font-size: 16px; font-weight: 700; }
+            .brand-sub { color: rgba(255,255,255,0.4); font-size: 12px; margin-top: 3px; }
+            .header-title { color: #fff; font-size: 21px; font-weight: 700; margin-top: 18px; line-height: 1.3; }
+            .header-sub { color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 5px; }
+            .body { padding: 30px 36px; }
+            .badge { display: inline-block; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; margin-bottom: 20px; }
+            .body p { font-size: 14px; color: #444; line-height: 1.7; margin-bottom: 14px; }
+            .info-card { background: #fafafa; border: 1px solid #ebebeb; border-radius: 8px; padding: 16px 20px; margin: 18px 0; }
+            .info-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+            .info-row:last-child { border-bottom: none; }
+            .info-label { color: #888; }
+            .info-value { font-weight: 600; color: #111; }
+            .attachment-note { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px; margin: 18px 0; font-size: 13px; color: #166534; line-height: 1.6; }
+            .footer { padding: 22px 36px; border-top: 1px solid #f0f0f0; }
+            .footer p { font-size: 11px; color: #aaa; line-height: 1.6; }
+          </style>
+        </head>
+        <body>
+          <div class="wrap">
+            <div class="top-bar"></div>
+            <div class="header">
+              <p class="brand">DocMetrics</p>
+              <p class="brand-sub">Secure Electronic Signatures</p>
+              <p class="header-title">You have successfully signed</p>
+              <p class="header-sub">"${originalFilename}"</p>
+            </div>
+            <div class="body">
+              <span class="badge">&#10003; Signature Complete</span>
+              <p>Hi ${signerName},</p>
+              <p>Your signature has been recorded. ${signedPdfUrl ? 'Your signed copy is attached to this email.' : 'You will receive your signed copy once all parties have signed.'}</p>
+
+              <div class="info-card">
+                <div class="info-row">
+                  <span class="info-label">Document</span>
+                  <span class="info-value">${originalFilename}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Signed by</span>
+                  <span class="info-value">${signerName}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Signed at</span>
+                  <span class="info-value">${signedDate}</span>
+                </div>
+              </div>
+
+              ${signedPdfUrl ? `
+              <div class="attachment-note">
+                Your signed copy with a certificate of completion and full audit trail is attached to this email. Save it for your records.
+              </div>` : `
+              <p>Once all parties have signed, you will automatically receive the fully executed copy.</p>`}
+            </div>
+            <div class="footer">
+              <p>This signature is legally binding per the ESIGN Act and UETA. Do not reply to this email.</p>
+              <p style="margin-top: 5px;">© ${new Date().getFullYear()} DocMetrics. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) throw error;
+    console.log('Signer confirmation sent to:', signerEmail);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Signer confirmation error:', error);
     throw error;
   }
 }

@@ -1,5 +1,4 @@
 // lib/pdfGenerator.ts
-// lib/pdfGenerator.ts
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from 'pdf-lib';
 import cloudinary from 'cloudinary';
 import { dbPromise } from '@/app/api/lib/mongodb';
@@ -198,292 +197,275 @@ async function addCertificatePage(
   signatureRequests: any[],
   documentHash: string
 ): Promise<void> {
+  // ─────────────────────────────────────────────────────────────────────────
+  // PAGE 1 — Certificate (DocSend-style: header + two-column layout)
+  // Left col: document thumbnail placeholder + signature image(s)
+  // Right col: document metadata fields
+  // Bottom: History table
+  // ─────────────────────────────────────────────────────────────────────────
   const PAGE_W = 612;
   const PAGE_H = 792;
 
-  // ── Colors ──────────────────────────────────────────────────────────────────
-  const PURPLE      = rgb(0.49, 0.23, 0.93);
-  const PURPLE_LIGHT = rgb(0.93, 0.88, 0.99);
-  const DARK        = rgb(0.08, 0.08, 0.12);
-  const MEDIUM      = rgb(0.35, 0.35, 0.42);
-  const LIGHT       = rgb(0.62, 0.62, 0.68);
-  const WHITE       = rgb(1, 1, 1);
-  const GREEN       = rgb(0.13, 0.69, 0.30);
-  const BORDER      = rgb(0.88, 0.88, 0.92);
-  const BG_LIGHT    = rgb(0.97, 0.97, 0.99);
+  // ── Colors (all WinAnsi-safe — no emoji, no em-dash, no Unicode) ──────────
+  const PURPLE  = rgb(0.17, 0.24, 0.69);   // DocSend-like dark blue-purple
+  const DARK    = rgb(0.08, 0.08, 0.10);
+  const MEDIUM  = rgb(0.38, 0.38, 0.45);
+  const LIGHT   = rgb(0.58, 0.58, 0.64);
+  const WHITE   = rgb(1, 1, 1);
+  const BORDER  = rgb(0.88, 0.88, 0.92);
+  const BG      = rgb(0.97, 0.97, 0.98);
+  const GREEN   = rgb(0.10, 0.62, 0.30);
 
   const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-  let y = PAGE_H;
-
-  // ── Helper: add new page when running low ──────────────────────────────────
-  const ensureSpace = (needed: number) => {
-    if (y - needed < 40) {
-      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-      y = PAGE_H - 30;
-    }
+  // ─── Reusable label+value drawer ─────────────────────────────────────────
+  const drawField = (
+    pg: PDFPage,
+    label: string,
+    value: string,
+    x: number,
+    y: number,
+    labelSz = 7,
+    valueSz = 9.5
+  ) => {
+    pg.drawText(label.toUpperCase(), { x, y: y + labelSz + 2, size: labelSz, font, color: LIGHT });
+    pg.drawText(value || 'N/A', { x, y, size: valueSz, font: boldFont, color: DARK });
   };
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // HEADER BAND
-  // ══════════════════════════════════════════════════════════════════════════
-  page.drawRectangle({ x: 0, y: PAGE_H - 72, width: PAGE_W, height: 72, color: DARK });
+  // ─── PAGE 1 ───────────────────────────────────────────────────────────────
+  const page1 = pdfDoc.addPage([PAGE_W, PAGE_H]);
 
-  // DocMetrics logo area
-  page.drawRectangle({ x: 30, y: PAGE_H - 54, width: 32, height: 32,
-    color: PURPLE, });
-  page.drawText('DM', { x: 38, y: PAGE_H - 44, size: 13, font: boldFont, color: WHITE });
+  // ── Header bar ────────────────────────────────────────────────────────────
+  page1.drawRectangle({ x: 0, y: PAGE_H - 56, width: PAGE_W, height: 56, color: WHITE });
+  page1.drawRectangle({ x: 0, y: PAGE_H - 57, width: PAGE_W, height: 1, color: BORDER });
 
-  page.drawText('DocMetrics', { x: 70, y: PAGE_H - 38, size: 14, font: boldFont, color: WHITE });
-  page.drawText('e-Signature Platform', { x: 70, y: PAGE_H - 52, size: 8, font, color: rgb(0.7, 0.7, 0.8) });
+  // DocMetrics wordmark (left)
+  page1.drawRectangle({ x: 30, y: PAGE_H - 42, width: 22, height: 22, color: PURPLE });
+  page1.drawText('DM', { x: 34, y: PAGE_H - 34, size: 10, font: boldFont, color: WHITE });
+  page1.drawText('DocMetrics', { x: 58, y: PAGE_H - 31, size: 12, font: boldFont, color: DARK });
 
-  // "Certificate" top-right
-  page.drawText('Certificate of Completion', {
-    x: PAGE_W - 175, y: PAGE_H - 42, size: 13, font: boldFont, color: WHITE,
-  });
-  page.drawText('Legally Binding Electronic Signature Record', {
-    x: PAGE_W - 175, y: PAGE_H - 56, size: 7, font, color: rgb(0.7, 0.7, 0.8),
-  });
+  // "Certificate" label (right)
+  page1.drawText('Certificate', { x: PAGE_W - 90, y: PAGE_H - 31, size: 14, font: boldFont, color: DARK });
 
-  y = PAGE_H - 72;
+  // ── Thin colored top border ────────────────────────────────────────────────
+  page1.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PURPLE });
 
-  // ── Green "Completed" banner ────────────────────────────────────────────────
-  page.drawRectangle({ x: 0, y: y - 28, width: PAGE_W, height: 28, color: rgb(0.06, 0.60, 0.25) });
-  page.drawText(' ALL SIGNATURES COLLECTED — DOCUMENT FULLY EXECUTED', {
-    x: 30, y: y - 19, size: 8, font: boldFont, color: WHITE,
-  });
-  page.drawText(`Completed: ${new Date().toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'long' })}`, {
-    x: PAGE_W - 240, y: y - 19, size: 7, font, color: WHITE,
-  });
-  y -= 28;
+  // ─────────────────────────────────────────────────────────────────────────
+  // TWO-COLUMN BODY
+  // Left col x: 30–210 (width 180)   Right col x: 230–582 (width 352)
+  // ─────────────────────────────────────────────────────────────────────────
+  const LEFT_X  = 30;
+  const LEFT_W  = 165;
+  const RIGHT_X = 215;
+  const BODY_TOP = PAGE_H - 75;
 
-  // ── Section: Document Details ───────────────────────────────────────────────
-  y -= 18;
-  page.drawText('DOCUMENT DETAILS', { x: 30, y, size: 7.5, font: boldFont, color: PURPLE });
-  y -= 4;
-  page.drawLine({ start: { x: 30, y }, end: { x: PAGE_W - 30, y }, thickness: 0.5, color: BORDER });
-  y -= 14;
+  let ry = BODY_TOP; // right-col cursor
 
-  // Two-column grid
-  const col1x = 30;
-  const col2x = 320;
-  const labelSize = 7;
-  const valueSize = 9;
-  const rowH = 22;
+  // ── RIGHT: Document Name ───────────────────────────────────────────────────
+  page1.drawText('DOCUMENT NAME', { x: RIGHT_X, y: ry, size: 7, font, color: LIGHT });
+  ry -= 16;
+  page1.drawText(documentName, { x: RIGHT_X, y: ry, size: 16, font: boldFont, color: DARK });
+  ry -= 26;
 
-  const drawRow = (label: string, value: string, cx: number, cy: number) => {
-    page.drawText(label.toUpperCase(), { x: cx, y: cy + 9, size: labelSize, font, color: LIGHT });
-    page.drawText(value || '—', { x: cx, y: cy, size: valueSize, font: boldFont, color: DARK });
-  };
+  // ── RIGHT: fields grid ────────────────────────────────────────────────────
+  const signedCount = signatureRequests.filter(r => r.status === 'signed').length;
+  const completedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  drawRow('Document Name', documentName, col1x, y);
-  drawRow('Document ID', documentId, col2x, y);
-  y -= rowH;
+  drawField(page1, 'Document ID', documentId, RIGHT_X, ry); ry -= 28;
+  drawField(page1, 'Original Checksum', documentHash.substring(0, 40), RIGHT_X, ry); ry -= 28;
+  // Signed checksum — hash of signed content (slightly different)
+  const crypto = require('crypto');
+  const signedHash = crypto.createHash('sha256')
+    .update(documentId + JSON.stringify(signatureRequests.map(r => r.signedAt)))
+    .digest('hex');
+  drawField(page1, 'Signed Checksum', signedHash.substring(0, 40), RIGHT_X, ry); ry -= 28;
+  drawField(page1, 'Page Count', `${originalPageCount}`, RIGHT_X, ry);
+  // Signatures count — right of page count on same row
+  drawField(page1, 'Signatures', `${signedCount}`, RIGHT_X + 120, ry);
+  ry -= 28;
+  drawField(page1, 'Completed', completedDate, RIGHT_X, ry); ry -= 36;
 
-  drawRow('Total Pages', `${originalPageCount} page${originalPageCount !== 1 ? 's' : ''}`, col1x, y);
-  drawRow('Completed On', new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), col2x, y);
-  y -= rowH;
-
-  drawRow('Signatures Required', `${signatureRequests.length}`, col1x, y);
-  drawRow('Signatures Collected', `${signatureRequests.filter(r => r.status === 'signed').length}`, col2x, y);
-  y -= rowH + 6;
-
-  // ── Document hash fingerprint ───────────────────────────────────────────────
-  page.drawRectangle({ x: 30, y: y - 22, width: PAGE_W - 60, height: 22, color: BG_LIGHT, });
-  page.drawText('SHA-256 DOCUMENT FINGERPRINT', { x: 36, y: y - 9, size: 6.5, font: boldFont, color: LIGHT });
-  page.drawText(documentHash, { x: 36, y: y - 18, size: 6.5, font, color: MEDIUM });
-  y -= 36;
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SIGNER RECORDS (one card per signer)
-  // ══════════════════════════════════════════════════════════════════════════
-  y -= 6;
-  page.drawText('SIGNER RECORDS', { x: 30, y, size: 7.5, font: boldFont, color: PURPLE });
-  y -= 4;
-  page.drawLine({ start: { x: 30, y }, end: { x: PAGE_W - 30, y }, thickness: 0.5, color: BORDER });
-  y -= 10;
-
-  for (let ri = 0; ri < signatureRequests.length; ri++) {
-    const req = signatureRequests[ri];
+  // ── RIGHT: Signature image(s) ──────────────────────────────────────────────
+  for (const req of signatureRequests) {
     if (req.status !== 'signed') continue;
+    const sigField = (req.signedFields ?? []).find((sf: any) => sf.type === 'signature' && sf.signatureData);
+    if (!sigField?.signatureData) continue;
+    try {
+      const b64 = sigField.signatureData.replace(/^data:image\/\w+;base64,/, '');
+      const imgBytes = Buffer.from(b64, 'base64');
+      const img = sigField.signatureData.includes('image/png')
+        ? await pdfDoc.embedPng(imgBytes)
+        : await pdfDoc.embedJpg(imgBytes);
 
-    const cardH = 170; // estimated height for one signer card
-    ensureSpace(cardH);
-
-    // Card background
-    page.drawRectangle({
-      x: 30, y: y - cardH + 10, width: PAGE_W - 60, height: cardH,
-      color: WHITE,
-      borderColor: BORDER, borderWidth: 0.75,
-    });
-
-    // Card header strip
-    page.drawRectangle({
-      x: 30, y: y - 22 + 10, width: PAGE_W - 60, height: 22,
-      color: PURPLE_LIGHT, 
-    });
-
-    // Signer number circle
-    page.drawCircle({ x: 48, y: y - 10 + 10, size: 10, color: PURPLE });
-    page.drawText(`${ri + 1}`, { x: ri < 9 ? 45 : 43, y: y - 15 + 10, size: 9, font: boldFont, color: WHITE });
-
-    page.drawText(req.recipient?.name || 'Unknown', {
-      x: 62, y: y - 8 + 10, size: 10, font: boldFont, color: DARK,
-    });
-    page.drawText(req.recipient?.email || '', {
-      x: 62, y: y - 18 + 10, size: 7.5, font, color: MEDIUM,
-    });
-
-    // "SIGNED" badge
-    page.drawRectangle({ x: PAGE_W - 95, y: y - 20 + 10, width: 55, height: 16, color: GREEN, });
-    page.drawText(' SIGNED', { x: PAGE_W - 87, y: y - 13 + 10, size: 7.5, font: boldFont, color: WHITE });
-
-    y -= 22;
-
-    // ── Two-column signer details ───────────────────────────────────────────
-    const sc1 = 38;
-    const sc2 = 320;
-    const sr  = 20;
-
-    const drawSignerRow = (label: string, value: string, cx: number, cy: number) => {
-      page.drawText(label.toUpperCase(), { x: cx, y: cy + 8, size: 6.5, font, color: LIGHT });
-      page.drawText(value || '—', { x: cx, y: cy, size: 8.5, font: boldFont, color: DARK });
-    };
-
-    // Signed at
-    const signedAt = req.signedAt
-      ? new Date(req.signedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'long' })
-      : '—';
-    drawSignerRow('Signed', signedAt, sc1, y);
-
-    // Viewed at
-    const viewedAt = req.viewedAt
-      ? new Date(req.viewedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-      : '—';
-    drawSignerRow('Document Viewed', viewedAt, sc2, y);
-    y -= sr;
-
-    // IP + location
-    const ipText = req.recipient?.ipAddress || req.ipAddress || '—';
-    let locationText = '—';
-    const loc = req.recipient?.location || req.location;
-    if (loc) {
-      const parts = [loc.city, loc.region, loc.country].filter(Boolean);
-      if (parts.length) locationText = parts.join(', ');
-    }
-    drawSignerRow('IP Address', ipText, sc1, y);
-    drawSignerRow('Location', locationText, sc2, y);
-    y -= sr;
-
-    // Device / browser
-    const browserParts = [
-      req.recipient?.browser,
-      req.recipient?.os,
-      req.recipient?.deviceType,
-    ].filter(Boolean);
-    drawSignerRow('Device / Browser', browserParts.length ? browserParts.join(' · ') : '—', sc1, y);
-
-    // Time spent
-    if (req.timeSpentSeconds) {
-      const mins = Math.floor(req.timeSpentSeconds / 60);
-      const secs = req.timeSpentSeconds % 60;
-      drawSignerRow('Time on Document', `${mins}m ${secs}s`, sc2, y);
-    }
-    y -= sr;
-
-    // Agreement to terms
-    page.drawRectangle({ x: sc1, y: y - 12, width: PAGE_W - 76, height: 14, color: rgb(0.94, 0.99, 0.95),  });
-    page.drawText(
-      `[AGREED] ${req.recipient?.name || 'Signer'} agreed to DocMetrics Terms & Conditions and Electronic Signature Disclosure before signing`,
-      { x: sc1 + 4, y: y - 7, size: 6.5, font, color: rgb(0.1, 0.5, 0.2) }
-    );
-    y -= 18;
-
-    // Which pages were signed
-    const sigPages = [...new Set(
-      (req.signatureFields ?? [])
-        .filter((f: any) => req.signedFields?.find((sf: any) => sf.id === f.id))
-        .map((f: any) => f.page)
-    )].sort();
-    if (sigPages.length) {
-      page.drawText(`Signature fields on page${sigPages.length > 1 ? 's' : ''}: ${sigPages.join(', ')}`, {
-        x: sc1, y, size: 7, font, color: MEDIUM,
-      });
-      y -= 14;
-    }
-
-    // ── Access code verification ────────────────────────────────────────────
-    if (req.accessCodeRequired) {
-      const verifiedText = req.accessCodeVerifiedAt
-        ? `Verified ${new Date(req.accessCodeVerifiedAt).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}`
-        : 'Not verified';
-      const codeType = req.accessCodeType === 'custom'
-        ? 'Custom code'
-        : (req.accessCodeType ?? '').replace(/_/g, ' ');
-      page.drawText(` Access Code Auth: ${verifiedText}  |  Type: ${codeType}${req.accessCodeFailedAttempts > 0 ? `  |  Failed attempts: ${req.accessCodeFailedAttempts}` : ''}`,
-        { x: sc1, y, size: 7, font, color: MEDIUM });
-      y -= 12;
-    }
-
-    // ── Selfie / identity verification ─────────────────────────────────────
-    if (req.selfieVerification) {
-      const capAt = req.selfieVerification.capturedAt
-        ? new Date(req.selfieVerification.capturedAt).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })
-        : '';
-      page.drawText(` Identity Verified: Selfie captured ${capAt}  |  Device: ${req.selfieVerification.deviceInfo?.platform || 'Unknown'}`,
-        { x: sc1, y, size: 7, font, color: MEDIUM });
-      y -= 12;
-    }
-
-    // ── Inline signature image ──────────────────────────────────────────────
-    const sigField = req.signedFields?.find((sf: any) => sf.type === 'signature' && sf.signatureData);
-    if (sigField?.signatureData) {
-      try {
-        const base64 = sigField.signatureData.replace(/^data:image\/\w+;base64,/, '');
-        const imgBytes = Buffer.from(base64, 'base64');
-        const image = sigField.signatureData.includes('image/png')
-          ? await pdfDoc.embedPng(imgBytes)
-          : await pdfDoc.embedJpg(imgBytes);
-
-        const sigW = 160;
-        const sigH = 50;
-        page.drawText('SIGNATURE', { x: sc1, y, size: 6.5, font: boldFont, color: LIGHT });
-        y -= 4;
-        page.drawRectangle({ x: sc1, y: y - sigH, width: sigW, height: sigH,
-          borderColor: BORDER, borderWidth: 0.5, color: WHITE });
-        page.drawImage(image, { x: sc1 + 4, y: y - sigH + 4, width: sigW - 8, height: sigH - 8 });
-        y -= sigH + 6;
-      } catch (e) {
-        // skip if image fails
-      }
-    }
-
-    y -= 12; // gap between signer cards
+      const sigLabel = req.recipient?.name || 'Signer';
+      page1.drawText('SIGNATURE', { x: RIGHT_X, y: ry, size: 7, font, color: LIGHT });
+      ry -= 4;
+      const sigW = 200, sigH = 55;
+      page1.drawRectangle({ x: RIGHT_X, y: ry - sigH, width: sigW, height: sigH, color: BG, borderColor: BORDER, borderWidth: 0.5 });
+      page1.drawImage(img, { x: RIGHT_X + 4, y: ry - sigH + 4, width: sigW - 8, height: sigH - 8 });
+      ry -= sigH + 6;
+      page1.drawText(sigLabel, { x: RIGHT_X, y: ry, size: 8, font: boldFont, color: DARK });
+      ry -= 20;
+    } catch { /* skip bad images */ }
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // FOOTER — legal statement + hash
-  // ══════════════════════════════════════════════════════════════════════════
-  ensureSpace(50);
-  y -= 8;
-  page.drawLine({ start: { x: 30, y }, end: { x: PAGE_W - 30, y }, thickness: 0.5, color: BORDER });
-  y -= 12;
+  // ── LEFT: document thumbnail placeholder ──────────────────────────────────
+  const thumbH = 220;
+  page1.drawRectangle({ x: LEFT_X, y: BODY_TOP - thumbH, width: LEFT_W, height: thumbH, color: BG, borderColor: BORDER, borderWidth: 0.75 });
+  // Lined-paper effect inside thumbnail
+  for (let li = 0; li < 10; li++) {
+    const lineY = BODY_TOP - 30 - li * 16;
+    const lineW = li === 0 ? LEFT_W * 0.5 : li === 1 ? LEFT_W * 0.7 : LEFT_W * 0.85;
+    page1.drawRectangle({ x: LEFT_X + 10, y: lineY, width: lineW - 20, height: 5, color: BORDER });
+  }
+  // Small doc icon
+  page1.drawRectangle({ x: LEFT_X + LEFT_W / 2 - 14, y: BODY_TOP - thumbH + 18, width: 28, height: 34, color: WHITE, borderColor: MEDIUM, borderWidth: 0.5 });
+  page1.drawRectangle({ x: LEFT_X + LEFT_W / 2 + 0, y: BODY_TOP - thumbH + 40, width: 14, height: 12, color: BG });
 
-  page.drawText(
-    'This certificate constitutes a legally binding electronic signature record in accordance with the Electronic Signatures in',
-    { x: 30, y, size: 6.5, font, color: LIGHT }
+  // Document name below thumbnail
+  page1.drawText(documentName.length > 22 ? documentName.substring(0, 22) + '...' : documentName, {
+    x: LEFT_X + 4, y: BODY_TOP - thumbH - 14, size: 7.5, font: boldFont, color: DARK,
+  });
+  page1.drawText(`${originalPageCount} page${originalPageCount !== 1 ? 's' : ''}`, {
+    x: LEFT_X + 4, y: BODY_TOP - thumbH - 25, size: 7, font, color: LIGHT,
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // HISTORY TABLE (below both columns)
+  // ─────────────────────────────────────────────────────────────────────────
+  const historyTop = Math.min(BODY_TOP - thumbH - 45, ry - 20);
+  let hy = historyTop;
+
+  page1.drawText('History', { x: LEFT_X, y: hy, size: 16, font: boldFont, color: DARK });
+  hy -= 20;
+
+  // Table header
+  page1.drawRectangle({ x: LEFT_X, y: hy - 4, width: PAGE_W - 60, height: 14, color: BG });
+  page1.drawText('TIMESTAMP', { x: LEFT_X + 4, y: hy, size: 7, font: boldFont, color: LIGHT });
+  page1.drawText('AUDIT EVENT', { x: LEFT_X + 145, y: hy, size: 7, font: boldFont, color: LIGHT });
+  hy -= 18;
+
+  // ── Build audit events from signatureRequests ──────────────────────────────
+  interface AuditEvent { ts: Date | null; text: string; sub: string; }
+  const events: AuditEvent[] = [];
+
+  for (const req of signatureRequests) {
+    const name  = req.recipient?.name  || req.signerName  || 'Unknown';
+    const email = req.recipient?.email || req.signerEmail || '';
+    const ip    = req.recipient?.ipAddress || req.ipAddress || '';
+    const locParts = [];
+    const loc = req.recipient?.location || req.location;
+    if (loc?.city)    locParts.push(loc.city);
+    if (loc?.country) locParts.push(loc.country);
+    const locStr   = locParts.join(', ') || 'Unknown';
+    const browser  = req.recipient?.browser || 'Chrome';
+    const ua       = req.recipient?.userAgent || '';
+
+    // Viewed event
+    if (req.viewedAt) {
+      events.push({
+        ts: new Date(req.viewedAt),
+        text: `${name} (${email}) was authorized to view the document on ${browser} from ${ip} (${locStr})`,
+        sub: `Authorization methods: name and email provided`,
+      });
+    }
+
+    // Agreed to terms
+    if (req.agreedAt || req.viewedAt) {
+      events.push({
+        ts: req.agreedAt ? new Date(req.agreedAt) : req.viewedAt ? new Date(req.viewedAt) : null,
+        text: `${name} (${email}) agreed to use electronic records and signatures, to DocMetrics Terms of Service, and to the terms of this document on ${browser} from ${ip} (${locStr})`,
+        sub: ua ? `User agent: ${ua.substring(0, 80)}` : '',
+      });
+    }
+
+    // Signed event
+    if (req.signedAt) {
+      events.push({
+        ts: new Date(req.signedAt),
+        text: `${name} (${email}) signed the document on ${browser} from ${ip} (${locStr})`,
+        sub: ua ? `User agent: ${ua.substring(0, 80)}` : '',
+      });
+    }
+
+    // Access code event
+    if (req.accessCodeRequired && req.accessCodeVerifiedAt) {
+      events.push({
+        ts: new Date(req.accessCodeVerifiedAt),
+        text: `${name} (${email}) verified access code`,
+        sub: `Type: ${(req.accessCodeType || 'custom').replace(/_/g, ' ')}`,
+      });
+    }
+  }
+
+  // Sort by timestamp
+  events.sort((a, b) => (a.ts?.getTime() ?? 0) - (b.ts?.getTime() ?? 0));
+
+  // ── Check if we need page 2 ────────────────────────────────────────────────
+  let certPage = page1;
+  const ensureHistorySpace = (needed: number) => {
+    if (hy - needed < 40) {
+      certPage = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      hy = PAGE_H - 50;
+      certPage.drawRectangle({ x: 0, y: PAGE_H - 4, width: PAGE_W, height: 4, color: PURPLE });
+    }
+  };
+
+  for (const ev of events) {
+    ensureHistorySpace(36);
+
+    const tsStr = ev.ts
+      ? ev.ts.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC')
+      : 'N/A';
+
+    // Timestamp col
+    certPage.drawText(tsStr, { x: LEFT_X + 4, y: hy, size: 7.5, font: boldFont, color: DARK });
+
+    // Event text — wrap long lines
+    const maxW = PAGE_W - LEFT_X - 145 - 30;
+    const words = ev.text.split(' ');
+    let line = '';
+    let lineY = hy;
+    const lineH = 11;
+    for (const word of words) {
+      const test = line ? `${line} ${word}` : word;
+      const w = font.widthOfTextAtSize(test, 7.5);
+      if (w > maxW && line) {
+        certPage.drawText(line, { x: LEFT_X + 145, y: lineY, size: 7.5, font, color: DARK });
+        line = word;
+        lineY -= lineH;
+      } else {
+        line = test;
+      }
+    }
+    if (line) certPage.drawText(line, { x: LEFT_X + 145, y: lineY, size: 7.5, font, color: DARK });
+
+    // Sub text
+    if (ev.sub) {
+      lineY -= lineH;
+      certPage.drawText(ev.sub.substring(0, 90), { x: LEFT_X + 145, y: lineY, size: 6.5, font, color: LIGHT });
+    }
+
+    // Row divider
+    const rowBottom = lineY - 8;
+    certPage.drawLine({ start: { x: LEFT_X, y: rowBottom }, end: { x: PAGE_W - 30, y: rowBottom }, thickness: 0.3, color: BORDER });
+    hy = rowBottom - 8;
+  }
+
+  // ── Footer ─────────────────────────────────────────────────────────────────
+  ensureHistorySpace(32);
+  hy -= 8;
+  certPage.drawLine({ start: { x: LEFT_X, y: hy }, end: { x: PAGE_W - 30, y: hy }, thickness: 0.5, color: BORDER });
+  hy -= 11;
+  certPage.drawText(
+    'This certificate is a legally binding record per ESIGN Act, UETA, and eIDAS (EU) No 910/2014.',
+    { x: LEFT_X, y: hy, size: 6.5, font, color: LIGHT }
   );
-  y -= 10;
-  page.drawText(
-    'Global and National Commerce Act (ESIGN), the Uniform Electronic Transactions Act (UETA), and eIDAS (EU) No 910/2014.',
-    { x: 30, y, size: 6.5, font, color: LIGHT }
-  );
-  y -= 10;
-  page.drawText(
-    `Document fingerprint: ${documentHash}  |  Issued by DocMetrics e-Signature Platform  |  ${new Date().toISOString()}`,
-    { x: 30, y, size: 5.5, font, color: rgb(0.75, 0.75, 0.78) }
+  hy -= 10;
+  certPage.drawText(
+    `Document fingerprint: ${documentHash}  |  Issued by DocMetrics  |  ${new Date().toISOString()}`,
+    { x: LEFT_X, y: hy, size: 5.5, font, color: rgb(0.72, 0.72, 0.75) }
   );
 }
 
@@ -495,7 +477,7 @@ export async function generateSignedPDF(
   signatureRequests: any[]
 ): Promise<string> {
   try {
-    console.log(' Generating signed PDF for document:', documentId);
+    console.log('🎨 Generating signed PDF for document:', documentId);
 
     const db = await dbPromise;
     const { ObjectId } = await import('mongodb');
@@ -530,7 +512,7 @@ export async function generateSignedPDF(
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const originalPageCount = pages.length;
 
-    console.log(' PDF Pages:', originalPageCount);
+    console.log('📄 PDF Pages:', originalPageCount);
 
     // ── Draw all signature fields ────────────────────────────────────────────
     for (const request of signatureRequests) {
@@ -564,11 +546,11 @@ export async function generateSignedPDF(
       documentHash
     );
 
-    console.log(' Certificate page added');
+    console.log('🏆 Certificate page added');
 
     // ── Save signed PDF ──────────────────────────────────────────────────────
     const signedPdfBytes = await pdfDoc.save();
-    console.log(' Signed PDF generated, size:', signedPdfBytes.byteLength);
+    console.log('💾 Signed PDF generated, size:', signedPdfBytes.byteLength);
 
     // ── Merge attachments ────────────────────────────────────────────────────
     const attachments = await db.collection('signature_attachments')
@@ -660,11 +642,11 @@ export async function generateSignedPDF(
     });
 
     const signedUrl = uploadResult.secure_url.replace(/\s+/g, '');
-    console.log(' Signed PDF URL:', signedUrl);
+    console.log('🔗 Signed PDF URL:', signedUrl);
     return signedUrl;
 
   } catch (error) {
-    console.error(' Error generating signed PDF:', error);
+    console.error('❌ Error generating signed PDF:', error);
     throw error;
   }
 }
@@ -678,7 +660,7 @@ export async function generateEnvelopeSignedPDF(
   recipient: any
 ): Promise<string> {
   try {
-    console.log(' Generating envelope signed PDF package for:', envelopeId);
+    console.log('📦 Generating envelope signed PDF package for:', envelopeId);
 
     const db = await dbPromise;
     const { ObjectId } = await import('mongodb');
@@ -695,7 +677,7 @@ export async function generateEnvelopeSignedPDF(
     let yPos = 792;
 
     coverPage.drawRectangle({ x: 0, y: yPos - 80, width: 612, height: 80, color: rgb(0.08, 0.08, 0.12) });
-    coverPage.drawRectangle({ x: 30, y: yPos - 62, width: 36, height: 36, color: rgb(0.49, 0.23, 0.93), });
+    coverPage.drawRectangle({ x: 30, y: yPos - 62, width: 36, height: 36, color: rgb(0.49, 0.23, 0.93),  });
     coverPage.drawText('DM', { x: 39, y: yPos - 48, size: 14, font: boldFont, color: rgb(1,1,1) });
     coverPage.drawText('DocMetrics', { x: 74, y: yPos - 45, size: 15, font: boldFont, color: rgb(1,1,1) });
     coverPage.drawText('Signed Document Package', { x: 74, y: yPos - 59, size: 9, font, color: rgb(0.7,0.7,0.8) });
@@ -703,7 +685,7 @@ export async function generateEnvelopeSignedPDF(
     yPos -= 80;
 
     coverPage.drawRectangle({ x: 0, y: yPos - 24, width: 612, height: 24, color: rgb(0.13, 0.69, 0.30) });
-    coverPage.drawText(' ALL DOCUMENTS SIGNED AND EXECUTED', { x: 30, y: yPos - 16, size: 9, font: boldFont, color: rgb(1,1,1) });
+    coverPage.drawText('ALL DOCUMENTS SIGNED AND EXECUTED', { x: 30, y: yPos - 16, size: 9, font: boldFont, color: rgb(1,1,1) });
     yPos -= 24;
 
     yPos -= 24;
@@ -796,7 +778,7 @@ export async function generateEnvelopeSignedPDF(
     await addCertificatePage(
       packagePdf,
       envelopeId,
-      `Envelope — ${envelope.documents.length} documents`,
+      `Envelope - ${envelope.documents.length} documents`,
       signedDocuments.reduce((sum: number, sd: any) => sum + (sd.numPages || 1), 0),
       syntheticRequests,
       packageHash
@@ -819,11 +801,11 @@ export async function generateEnvelopeSignedPDF(
     });
 
     const signedUrl = uploadResult.secure_url.replace(/\s+/g, '');
-    console.log(' Signed envelope PDF URL:', signedUrl);
+    console.log('🔗 Signed envelope PDF URL:', signedUrl);
     return signedUrl;
 
   } catch (error) {
-    console.error(' Error generating envelope signed PDF:', error);
+    console.error('❌ Error generating envelope signed PDF:', error);
     throw error;
   }
 }

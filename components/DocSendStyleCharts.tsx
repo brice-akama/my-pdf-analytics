@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, MapPin } from 'lucide-react';
 
@@ -62,14 +62,68 @@ function formatTime(seconds: number): string {
   return `${mins}m ${secs}s`;
 }
 
+// ── Detect touch device ──────────────────────────────────────────
+function useIsTouchDevice() {
+  const [isTouch, setIsTouch] = useState(false);
+  useEffect(() => {
+    setIsTouch(window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+  }, []);
+  return isTouch;
+}
+
 export default function DocSendStyleCharts({
   documentId,
   pageEngagement,
   totalPages,
   locations = [],
 }: DocSendStyleChartsProps) {
-  const [hoveredPage, setHoveredPage] = useState<number | null>(null);
-  const [hoveredChart, setHoveredChart] = useState<'time' | 'dropoff' | null>(null);
+  const isTouch = useIsTouchDevice();
+
+  // ⭐ Single state for both hover (desktop) and tap (mobile)
+  const [activePage, setActivePage] = useState<number | null>(null);
+  const [activeChart, setActiveChart] = useState<'time' | 'dropoff' | null>(null);
+
+  const timeChartRef = useRef<HTMLDivElement>(null);
+  const dropChartRef = useRef<HTMLDivElement>(null);
+
+  // Mobile: close when tapping outside both charts
+  useEffect(() => {
+    if (!isTouch || activePage === null) return;
+    function handler(e: TouchEvent) {
+      const target = e.target as Node;
+      const insideTime = timeChartRef.current?.contains(target);
+      const insideDrop = dropChartRef.current?.contains(target);
+      if (!insideTime && !insideDrop) {
+        setActivePage(null);
+        setActiveChart(null);
+      }
+    }
+    document.addEventListener('touchstart', handler);
+    return () => document.removeEventListener('touchstart', handler);
+  }, [isTouch, activePage]);
+
+  const handleDotEnter = (page: number, chart: 'time' | 'dropoff') => {
+    if (isTouch) return; // mobile uses onClick
+    setActivePage(page);
+    setActiveChart(chart);
+  };
+
+  const handleDotLeave = () => {
+    if (isTouch) return;
+    setActivePage(null);
+    setActiveChart(null);
+  };
+
+  const handleDotTap = (page: number, chart: 'time' | 'dropoff') => {
+    if (!isTouch) return; // desktop uses onMouseEnter/Leave
+    if (activePage === page && activeChart === chart) {
+      setActivePage(null);
+      setActiveChart(null);
+    } else {
+      setActivePage(page);
+      setActiveChart(chart);
+    }
+  };
 
   if (!pageEngagement || pageEngagement.length === 0) {
     return (
@@ -83,7 +137,6 @@ export default function DocSendStyleCharts({
   const n = pageEngagement.length;
   const maxTime = Math.max(...pageEngagement.map(p => p.avgTime), 1);
 
-  // Dropoff = % of all viewers who reached that page (relative to page 1)
   const firstPageViews = pageEngagement[0]?.totalViews || 1;
   const dropoffData = pageEngagement.map((page) => ({
     page: page.page,
@@ -101,7 +154,6 @@ export default function DocSendStyleCharts({
     .map((d, i) => `${getX(i, n)},${getY(d.percentage, 100)}`)
     .join(' ');
 
-  // Y-axis ticks — 5 evenly spaced
   const timeYTicks = [0, 25, 50, 75, 100].map(pct => ({
     label: Math.round((pct / 100) * maxTime),
     y: PLOT_H - (pct / 100) * PLOT_H,
@@ -115,7 +167,7 @@ export default function DocSendStyleCharts({
   return (
     <div className="space-y-0">
 
-      {/* ── LOCATIONS — flat strip, no card ── */}
+      {/* ── LOCATIONS ── */}
       {locations.length > 0 && (
         <div className="py-5 border-b border-slate-100">
           <div className="flex items-center gap-1.5 mb-4">
@@ -151,19 +203,25 @@ export default function DocSendStyleCharts({
         </div>
       )}
 
-      {/* ── TWO CHARTS — side by side, no cards, just dividers ── */}
+      {/* ── TWO CHARTS ── */}
       <div className="py-5 border-b border-slate-100">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 lg:divide-x lg:divide-slate-100">
 
           {/* ─── LEFT: TIME PER PAGE ─── */}
           <div className="lg:pr-8 pb-8 lg:pb-0">
-            {/* Chart label — DocSend style: plain text, no icon box */}
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-1">
               Time Per Page
             </p>
             <p className="text-[11px] text-slate-300 mb-5">avg. time spent per visit</p>
 
-            <div className="relative">
+            {/* Mobile tap hint */}
+            {isTouch && (
+              <p className="text-[10px] text-slate-300 mb-3 flex items-center gap-1">
+                <span>👆</span> Tap a dot to see details
+              </p>
+            )}
+
+            <div className="relative" ref={timeChartRef}>
               <svg
                 viewBox={`0 0 ${CHART_W} ${CHART_H}`}
                 className="w-full"
@@ -180,7 +238,6 @@ export default function DocSendStyleCharts({
                   </linearGradient>
                 </defs>
 
-                {/* Horizontal grid lines only — DocSend style */}
                 {timeYTicks.map((t, i) => (
                   <g key={i}>
                     <line
@@ -201,10 +258,8 @@ export default function DocSendStyleCharts({
                   </g>
                 ))}
 
-                {/* Y-axis left edge */}
                 <line x1={PAD_LEFT} y1={0} x2={PAD_LEFT} y2={PLOT_H} stroke="#e2e8f0" strokeWidth="1" />
 
-                {/* Area fill */}
                 <polygon
                   points={[
                     ...pageEngagement.map((p, i) => `${getX(i, n)},${getY(p.avgTime, maxTime)}`),
@@ -214,7 +269,6 @@ export default function DocSendStyleCharts({
                   fill="url(#grad-time-fill)"
                 />
 
-                {/* The line */}
                 <polyline
                   points={timePoints}
                   fill="none"
@@ -224,34 +278,39 @@ export default function DocSendStyleCharts({
                   strokeLinejoin="round"
                 />
 
-                {/* Dots + x page labels */}
                 {pageEngagement.map((p, i) => {
                   const cx = getX(i, n);
                   const cy = getY(p.avgTime, maxTime);
-                  const isHov = hoveredPage === p.page && hoveredChart === 'time';
+                  const isActive = activePage === p.page && activeChart === 'time';
                   return (
                     <g key={p.page}>
-                      {/* Hover glow ring */}
-                      {isHov && (
+                      {isActive && (
                         <circle cx={cx} cy={cy} r={12} fill="#0ea5e9" fillOpacity="0.10" />
                       )}
+                      {/* ⭐ Larger invisible hit area for easy tapping on mobile */}
                       <circle
                         cx={cx} cy={cy}
-                        r={isHov ? 6 : 4}
-                        fill={isHov ? '#0ea5e9' : '#ffffff'}
-                        stroke={isHov ? '#0ea5e9' : '#a855f7'}
-                        strokeWidth="2"
-                        style={{ cursor: 'pointer', transition: 'r 0.1s' }}
-                        onMouseEnter={() => { setHoveredPage(p.page); setHoveredChart('time'); }}
-                        onMouseLeave={() => { setHoveredPage(null); setHoveredChart(null); }}
+                        r={isTouch ? 18 : 12}
+                        fill="transparent"
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={() => handleDotEnter(p.page, 'time')}
+                        onMouseLeave={handleDotLeave}
+                        onClick={() => handleDotTap(p.page, 'time')}
                       />
-                      {/* X-axis page label */}
+                      <circle
+                        cx={cx} cy={cy}
+                        r={isActive ? 6 : 4}
+                        fill={isActive ? '#0ea5e9' : '#ffffff'}
+                        stroke={isActive ? '#0ea5e9' : '#a855f7'}
+                        strokeWidth="2"
+                        style={{ pointerEvents: 'none', transition: 'r 0.1s' }}
+                      />
                       <text
                         x={cx} y={CHART_H - 6}
                         textAnchor="middle"
                         fontSize="10"
-                        fill={isHov ? '#0ea5e9' : '#94a3b8'}
-                        fontWeight={isHov ? '700' : '400'}
+                        fill={isActive ? '#0ea5e9' : '#94a3b8'}
+                        fontWeight={isActive ? '700' : '400'}
                       >
                         {p.page}
                       </text>
@@ -260,10 +319,10 @@ export default function DocSendStyleCharts({
                 })}
               </svg>
 
-              {/* Tooltip */}
+              {/* Tooltip — same design, works for both hover and tap */}
               <AnimatePresence>
-                {hoveredPage !== null && hoveredChart === 'time' && (() => {
-                  const idx = hoveredPage - 1;
+                {activePage !== null && activeChart === 'time' && (() => {
+                  const idx = activePage - 1;
                   const p = pageEngagement[idx];
                   if (!p) return null;
                   const ratio = idx / Math.max(n - 1, 1);
@@ -280,39 +339,35 @@ export default function DocSendStyleCharts({
                         : { right: `${(1 - ratio) * 65 + 8}%` }}
                     >
                       <div className="bg-slate-900 rounded-xl shadow-2xl overflow-hidden w-48">
-                        {/* PDF page preview */}
                         <div style={{ height: '140px', overflow: 'hidden', background: '#fff' }}>
                           <iframe
-                            src={`/api/documents/${documentId}/page?page=${hoveredPage}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                            src={`/api/documents/${documentId}/page?page=${activePage}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
                             className="pointer-events-none w-full"
                             style={{ border: 'none', height: '160px', marginTop: '-10px' }}
                             scrolling="no"
                           />
                         </div>
-                        {/* Stats strip */}
-<div className="px-3 py-2.5">
-  <div className="flex items-center justify-between mb-1.5">
-    <div>
-      <p className="text-[10px] text-slate-400 uppercase tracking-wide">Page {hoveredPage}</p>
-      <p className="text-sm font-black text-white tabular-nums">{formatTime(p.avgTime)}</p>
-      <p className="text-[9px] text-slate-500">avg per viewer</p>
-    </div>
-    <div className="text-right">
-      <p className="text-[10px] text-slate-400 uppercase tracking-wide">Visits</p>
-      <p className="text-sm font-black text-white tabular-nums">{p.totalViews}</p>
-    </div>
-  </div>
-  {/* Total combined time — new */}
-  {p.totalTime > 0 && (
-    <div className="pt-1.5 border-t border-slate-700/50">
-      <p className="text-[9px] text-slate-400">
-        Combined: <span className="text-slate-200 font-bold">{formatTime(p.totalTime ?? 0)}</span>
-        <span className="text-slate-500"> across {p.totalViews} viewer{p.totalViews !== 1 ? 's' : ''}</span>
-      </p>
-    </div>
-  )}
-</div>
-                        {/* Sky accent bar at bottom */}
+                        <div className="px-3 py-2.5">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div>
+                              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Page {activePage}</p>
+                              <p className="text-sm font-black text-white tabular-nums">{formatTime(p.avgTime)}</p>
+                              <p className="text-[9px] text-slate-500">avg per viewer</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Visits</p>
+                              <p className="text-sm font-black text-white tabular-nums">{p.totalViews}</p>
+                            </div>
+                          </div>
+                          {p.totalTime > 0 && (
+                            <div className="pt-1.5 border-t border-slate-700/50">
+                              <p className="text-[9px] text-slate-400">
+                                Combined: <span className="text-slate-200 font-bold">{formatTime(p.totalTime ?? 0)}</span>
+                                <span className="text-slate-500"> across {p.totalViews} viewer{p.totalViews !== 1 ? 's' : ''}</span>
+                              </p>
+                            </div>
+                          )}
+                        </div>
                         <div className="h-0.5 bg-slate-700">
                           <div
                             className="h-full bg-sky-400"
@@ -320,7 +375,6 @@ export default function DocSendStyleCharts({
                           />
                         </div>
                       </div>
-                      {/* Arrow */}
                       <div className="flex justify-center">
                         <div className="w-2 h-2 bg-slate-900 rotate-45 -mt-1" />
                       </div>
@@ -338,7 +392,13 @@ export default function DocSendStyleCharts({
             </p>
             <p className="text-[11px] text-slate-300 mb-5">% of viewers who reached each page</p>
 
-            <div className="relative">
+            {isTouch && (
+              <p className="text-[10px] text-slate-300 mb-3 flex items-center gap-1">
+                <span>👆</span> Tap a dot to see details
+              </p>
+            )}
+
+            <div className="relative" ref={dropChartRef}>
               <svg
                 viewBox={`0 0 ${CHART_W} ${CHART_H}`}
                 className="w-full"
@@ -355,7 +415,6 @@ export default function DocSendStyleCharts({
                   </linearGradient>
                 </defs>
 
-                {/* Horizontal grid lines */}
                 {dropYTicks.map((t, i) => (
                   <g key={i}>
                     <line
@@ -378,7 +437,6 @@ export default function DocSendStyleCharts({
 
                 <line x1={PAD_LEFT} y1={0} x2={PAD_LEFT} y2={PLOT_H} stroke="#e2e8f0" strokeWidth="1" />
 
-                {/* Area fill */}
                 <polygon
                   points={[
                     ...dropoffData.map((d, i) => `${getX(i, n)},${getY(d.percentage, 100)}`),
@@ -388,7 +446,6 @@ export default function DocSendStyleCharts({
                   fill="url(#grad-drop-fill)"
                 />
 
-                {/* The line */}
                 <polyline
                   points={dropPoints}
                   fill="none"
@@ -398,32 +455,39 @@ export default function DocSendStyleCharts({
                   strokeLinejoin="round"
                 />
 
-                {/* Dots + x page labels */}
                 {dropoffData.map((d, i) => {
                   const cx = getX(i, n);
                   const cy = getY(d.percentage, 100);
-                  const isHov = hoveredPage === d.page && hoveredChart === 'dropoff';
+                  const isActive = activePage === d.page && activeChart === 'dropoff';
                   return (
                     <g key={d.page}>
-                      {isHov && (
+                      {isActive && (
                         <circle cx={cx} cy={cy} r={12} fill="#a855f7" fillOpacity="0.10" />
                       )}
+                      {/* ⭐ Larger invisible hit area for easy tapping on mobile */}
                       <circle
                         cx={cx} cy={cy}
-                        r={isHov ? 6 : 4}
-                        fill={isHov ? '#a855f7' : '#ffffff'}
-                        stroke={isHov ? '#a855f7' : '#0ea5e9'}
+                        r={isTouch ? 18 : 12}
+                        fill="transparent"
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={() => handleDotEnter(d.page, 'dropoff')}
+                        onMouseLeave={handleDotLeave}
+                        onClick={() => handleDotTap(d.page, 'dropoff')}
+                      />
+                      <circle
+                        cx={cx} cy={cy}
+                        r={isActive ? 6 : 4}
+                        fill={isActive ? '#a855f7' : '#ffffff'}
+                        stroke={isActive ? '#a855f7' : '#0ea5e9'}
                         strokeWidth="2"
-                        style={{ cursor: 'pointer', transition: 'r 0.1s' }}
-                        onMouseEnter={() => { setHoveredPage(d.page); setHoveredChart('dropoff'); }}
-                        onMouseLeave={() => { setHoveredPage(null); setHoveredChart(null); }}
+                        style={{ pointerEvents: 'none', transition: 'r 0.1s' }}
                       />
                       <text
                         x={cx} y={CHART_H - 6}
                         textAnchor="middle"
                         fontSize="10"
-                        fill={isHov ? '#a855f7' : '#94a3b8'}
-                        fontWeight={isHov ? '700' : '400'}
+                        fill={isActive ? '#a855f7' : '#94a3b8'}
+                        fontWeight={isActive ? '700' : '400'}
                       >
                         {d.page}
                       </text>
@@ -434,8 +498,8 @@ export default function DocSendStyleCharts({
 
               {/* Tooltip */}
               <AnimatePresence>
-                {hoveredPage !== null && hoveredChart === 'dropoff' && (() => {
-                  const idx = hoveredPage - 1;
+                {activePage !== null && activeChart === 'dropoff' && (() => {
+                  const idx = activePage - 1;
                   const d = dropoffData[idx];
                   if (!d) return null;
                   const ratio = idx / Math.max(n - 1, 1);
@@ -452,19 +516,17 @@ export default function DocSendStyleCharts({
                         : { right: `${(1 - ratio) * 65 + 8}%` }}
                     >
                       <div className="bg-slate-900 rounded-xl shadow-2xl overflow-hidden w-48">
-                        {/* PDF page preview */}
                         <div style={{ height: '140px', overflow: 'hidden', background: '#fff' }}>
                           <iframe
-                            src={`/api/documents/${documentId}/page?page=${hoveredPage}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                            src={`/api/documents/${documentId}/page?page=${activePage}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
                             className="pointer-events-none w-full"
                             style={{ border: 'none', height: '160px', marginTop: '-10px' }}
                             scrolling="no"
                           />
                         </div>
-                        {/* Stats strip */}
                         <div className="px-3 py-2.5 flex items-center justify-between">
                           <div>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-wide">Page {hoveredPage}</p>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-wide">Page {activePage}</p>
                             <p className="text-sm font-black text-white tabular-nums">{d.percentage}%</p>
                           </div>
                           <div className="text-right">
@@ -472,7 +534,6 @@ export default function DocSendStyleCharts({
                             <p className="text-sm font-black text-white tabular-nums">{d.views}</p>
                           </div>
                         </div>
-                        {/* Drop indicator */}
                         {idx > 0 && d.percentage < 100 && (
                           <div className="px-3 pb-2">
                             <p className="text-[10px] text-red-400 tabular-nums">
@@ -480,7 +541,6 @@ export default function DocSendStyleCharts({
                             </p>
                           </div>
                         )}
-                        {/* Progress bar */}
                         <div className="h-0.5 bg-slate-700">
                           <div
                             className="h-full bg-violet-400"

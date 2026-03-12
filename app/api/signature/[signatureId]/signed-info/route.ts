@@ -1,7 +1,7 @@
 // app/api/signature/[signatureId]/signed-info/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { dbPromise } from "../../../lib/mongodb";
 import { ObjectId } from "mongodb";
+import { dbPromise } from "@/app/api/lib/mongodb";
 
 export async function GET(
   request: NextRequest,

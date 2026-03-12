@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -15,6 +15,7 @@ import {
   BarChart2,
   Check,
   FileSignature,
+  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -38,6 +39,323 @@ function formatTime(seconds: number): string {
   const secs = seconds % 60;
   return `${mins}m ${secs}s`;
 }
+
+// ─── Detect touch device ──────────────────────────────────────────────────────
+
+function useIsTouchDevice() {
+  const [isTouch, setIsTouch] = useState(false);
+  useEffect(() => {
+    setIsTouch(
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches
+    );
+  }, []);
+  return isTouch;
+}
+
+// ─── Page Bar Chart ───────────────────────────────────────────────────────────
+
+function PageBarChart({ visit, docId }: { visit: any; docId: string }) {
+  const isTouch = useIsTouchDevice();
+
+  // ⭐ Single state — works for BOTH hover (desktop) and tap (mobile)
+  const [activePage, setActivePage] = useState<number | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  const maxT = Math.max(
+    ...visit.pageData.map((p: any) => p.timeSpent || 0),
+    1
+  );
+  const fmt = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  // Mobile: close when tapping outside
+  useEffect(() => {
+    if (!isTouch || activePage === null) return;
+    function handler(e: TouchEvent) {
+      if (chartRef.current && !chartRef.current.contains(e.target as Node)) {
+        setActivePage(null);
+      }
+    }
+    document.addEventListener("touchstart", handler);
+    return () => document.removeEventListener("touchstart", handler);
+  }, [isTouch, activePage]);
+
+  const getBarColor = (isActive: boolean, visitType: string) => {
+    if (visitType === "signature") return isActive ? "#7c3aed" : "#a78bfa";
+    if (visitType === "cc") return isActive ? "#0369a1" : "#38bdf8";
+    return isActive ? "#0284c7" : "#38bdf8";
+  };
+
+  return (
+    <div
+      ref={chartRef}
+      className="relative"
+      style={{ paddingLeft: "52px", paddingBottom: "28px" }}
+    >
+      {/* Y-axis labels */}
+      {[maxT, Math.round(maxT * 0.5), 0].map((val, i) => (
+        <div
+          key={i}
+          className="absolute text-right text-[10px] text-slate-400 font-mono leading-none"
+          style={{
+            left: 0,
+            top: `${(i / 2) * 100}%`,
+            width: "44px",
+            transform: "translateY(-50%)",
+          }}
+        >
+          {fmt(val)}
+        </div>
+      ))}
+
+      {/* Grid lines */}
+      {[0, 0.5, 1].map((frac, i) => (
+        <div
+          key={i}
+          className="absolute right-0 border-t border-slate-100"
+          style={{ left: "52px", top: `${frac * 100}%` }}
+        />
+      ))}
+
+      {/* Mobile hint */}
+      {isTouch && activePage === null && (
+        <div className="absolute top-0 right-0 flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded-full border border-slate-200">
+          <svg
+            className="h-3 w-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"
+            />
+          </svg>
+          Tap a bar
+        </div>
+      )}
+
+      {/* Bars */}
+      <div
+        className="relative flex items-end gap-1.5"
+        style={{ height: "140px" }}
+      >
+        {visit.pageData.map((page: any) => {
+          const heightPct = (page.timeSpent / maxT) * 100;
+          const isActive = activePage === page.page;
+          const barColor = getBarColor(isActive, visit.visitType);
+
+          return (
+            <div
+              key={page.page}
+              className="flex-1 flex flex-col items-center justify-end h-full relative group/bar"
+              // ⭐ DESKTOP: mouse enter sets active, mouse leave clears it
+              onMouseEnter={!isTouch ? () => setActivePage(page.page) : undefined}
+              onMouseLeave={!isTouch ? () => setActivePage(null) : undefined}
+              // ⭐ MOBILE: tap toggles
+              onTouchEnd={
+                isTouch
+                  ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setActivePage((prev) =>
+                        prev === page.page ? null : page.page
+                      );
+                    }
+                  : undefined
+              }
+            >
+              {/* ── Desktop popup (above bar) ── */}
+              {!isTouch && isActive && (
+                <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                  <div className="bg-slate-900 rounded-xl shadow-2xl overflow-hidden w-48">
+                    <div
+                      className="relative bg-slate-100"
+                      style={{ height: "120px" }}
+                    >
+                      <iframe
+                        src={`/api/documents/${docId}/page?page=${page.page}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                        className="w-full h-full border-0 pointer-events-none"
+                        title={`Page ${page.page}`}
+                      />
+                      <div className="absolute top-2 left-2 bg-slate-900/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                        P{page.page}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2.5">
+                      <div>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider">
+                          Page
+                        </p>
+                        <p className="text-sm font-bold text-white">
+                          {page.page}{" "}
+                          <span className="text-slate-500 font-normal text-xs">
+                            / {visit.pageData.length}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider">
+                          Time
+                        </p>
+                        <p className="text-sm font-bold text-white">
+                          {String(Math.floor(page.timeSpent / 60)).padStart(
+                            2,
+                            "0"
+                          )}
+                          :
+                          {String(page.timeSpent % 60).padStart(2, "0")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="h-1 bg-slate-800 mx-3 mb-3 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(
+                            (page.timeSpent / maxT) * 100,
+                            100
+                          )}%`,
+                          background:
+                            visit.visitType === "signature"
+                              ? "#a78bfa"
+                              : "#38bdf8",
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {/* Arrow */}
+                  <div className="flex justify-center -mt-1">
+                    <div className="w-2.5 h-2.5 bg-slate-900 rotate-45" />
+                  </div>
+                </div>
+              )}
+
+              {/* Bar itself */}
+              <div
+                className="w-full rounded-t-lg transition-all duration-150 cursor-pointer select-none"
+                style={{
+                  height: `${Math.max(
+                    heightPct,
+                    page.timeSpent > 0 ? 3 : 0
+                  )}%`,
+                  backgroundColor: page.skipped ? "#e2e8f0" : barColor,
+                  minHeight: page.timeSpent > 0 ? "4px" : "2px",
+                  opacity: page.skipped ? 0.5 : 1,
+                }}
+              />
+
+              {/* Revisit dot */}
+              {page.visits > 1 && (
+                <div
+                  className="absolute -top-1 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 border-2 border-white shadow-sm"
+                  title={`Revisited ${page.visits} times`}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* X-axis page numbers */}
+      <div className="flex gap-1.5 pt-2.5">
+        {visit.pageData.map((page: any) => (
+          <div
+            key={page.page}
+            className="flex-1 text-center text-[10px] text-slate-400 tabular-nums"
+          >
+            {page.page}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Mobile detail card (below chart) ── */}
+      {isTouch &&
+        activePage !== null &&
+        (() => {
+          const page = visit.pageData.find(
+            (p: any) => p.page === activePage
+          );
+          if (!page) return null;
+          return (
+            <div className="mt-4 bg-slate-900 rounded-2xl overflow-hidden shadow-xl">
+              <div
+                className="relative bg-slate-100"
+                style={{ height: "140px" }}
+              >
+                <iframe
+                  src={`/api/documents/${docId}/page?page=${page.page}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                  className="w-full h-full border-0 pointer-events-none"
+                  title={`Page ${page.page}`}
+                />
+                <div className="absolute top-2 left-2 bg-slate-900/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                  P{page.page}
+                </div>
+                <button
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    setActivePage(null);
+                  }}
+                  className="absolute top-2 right-2 h-6 w-6 rounded-full bg-slate-900/70 flex items-center justify-center text-white"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="text-[9px] text-slate-400 uppercase tracking-wider">
+                    Page
+                  </p>
+                  <p className="text-sm font-bold text-white">
+                    {page.page}{" "}
+                    <span className="text-slate-500 font-normal text-xs">
+                      / {visit.pageData.length}
+                    </span>
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] text-slate-400 uppercase tracking-wider">
+                    Time spent
+                  </p>
+                  <p className="text-sm font-bold text-white">
+                    {String(Math.floor(page.timeSpent / 60)).padStart(2, "0")}:
+                    {String(page.timeSpent % 60).padStart(2, "0")}
+                  </p>
+                </div>
+                {page.visits > 1 && (
+                  <div className="text-right">
+                    <p className="text-[9px] text-slate-400 uppercase tracking-wider">
+                      Revisits
+                    </p>
+                    <p className="text-sm font-bold text-amber-400">
+                      {page.visits}×
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="h-1 bg-slate-800 mx-4 mb-4 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.min(
+                      (page.timeSpent / maxT) * 100,
+                      100
+                    )}%`,
+                    background:
+                      visit.visitType === "signature" ? "#a78bfa" : "#38bdf8",
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })()}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ActivityTab({
   analytics,
@@ -66,10 +384,6 @@ export default function ActivityTab({
   }) => void;
 }) {
   const [expandedVisit, setExpandedVisit] = useState<string | null>(null);
-  const [hoveredPage, setHoveredPage] = useState<{
-    visitKey: string;
-    page: number;
-  } | null>(null);
   const [shareLinks, setShareLinks] = useState<any[]>([]);
 
   React.useEffect(() => {
@@ -81,14 +395,14 @@ export default function ActivityTab({
         credentials: "include",
       }).then((r) => r.json()),
       fetch(`/api/documents/${doc._id}/cc-recipients`, {
-      credentials: "include",
-       }).then((r) => r.json()).catch(() => ({ success: false, recipients: [] })),
+        credentials: "include",
+      })
+        .then((r) => r.json())
+        .catch(() => ({ success: false, recipients: [] })),
     ])
-    
-      .then(([shareData, sigData ,  ccData]) => {
+      .then(([shareData, sigData, ccData]) => {
         const links: any[] = [];
 
-        
         if (shareData.success && shareData.shares) {
           shareData.shares.forEach((s: any) => {
             links.push({
@@ -162,32 +476,34 @@ export default function ActivityTab({
               settings: {},
             });
           });
-
         }
 
-        // ── CC Recipients ──────────────────────────────────────────────────
-      if (ccData.success && ccData.recipients) {
-        ccData.recipients.forEach((cc: any) => {
-          const ccViewLink = `${window.location.origin}/cc/${cc.uniqueId}?email=${cc.email}`;
-          links.push({
-            shareId: cc.uniqueId,
-            recipientEmail: cc.email,
-            recipientName: cc.name,
-            createdAgo: cc.createdAt ? formatAgo(new Date(cc.createdAt)) : "—",
-            link: ccViewLink,
-            visits: cc.viewCount || 0,
-            totalTime: formatTime(cc.totalTimeSpentSeconds || 0),
-            lastViewed: cc.viewedAt ? formatAgo(new Date(cc.viewedAt)) : null,
-            completion: cc.viewedAt ? "Viewed" : "—",
-            enabled: cc.status === "active",
-            linkType: "cc",
-            isCC: true,
-            notifyWhen: cc.notifyWhen,
-            pageData: cc.pageData || [],
-            settings: {},
+        if (ccData.success && ccData.recipients) {
+          ccData.recipients.forEach((cc: any) => {
+            const ccViewLink = `${window.location.origin}/cc/${cc.uniqueId}?email=${cc.email}`;
+            links.push({
+              shareId: cc.uniqueId,
+              recipientEmail: cc.email,
+              recipientName: cc.name,
+              createdAgo: cc.createdAt
+                ? formatAgo(new Date(cc.createdAt))
+                : "—",
+              link: ccViewLink,
+              visits: cc.viewCount || 0,
+              totalTime: formatTime(cc.totalTimeSpentSeconds || 0),
+              lastViewed: cc.viewedAt
+                ? formatAgo(new Date(cc.viewedAt))
+                : null,
+              completion: cc.viewedAt ? "Viewed" : "—",
+              enabled: cc.status === "active",
+              linkType: "cc",
+              isCC: true,
+              notifyWhen: cc.notifyWhen,
+              pageData: cc.pageData || [],
+              settings: {},
+            });
           });
-        });
-      }
+        }
 
         setShareLinks(links);
       })
@@ -216,36 +532,31 @@ export default function ActivityTab({
     })
   );
 
- // REPLACE the existing sigVisits definition
-
-const sigVisits: any[] = shareLinks
-  .filter(
-    (lnk) =>
-      (lnk.linkType === "signature" || lnk.linkType === "cc") &&
-      lnk.visits > 0
-  )
-  .map((lnk) => ({
-    key: `sig-${lnk.shareId}`,
-    email: lnk.recipientEmail || "Unknown",
-    senderName: doc.filename,
-    timeAgo: lnk.lastViewed || lnk.createdAgo,
-    totalTime: lnk.totalTime || "0m 0s",
-    totalTimeSeconds: 0,
-    location: "Unknown",
-    city: "",
-    country: "Unknown",
-    pageData: lnk.pageData || [],
-    bounced: false,
-    firstOpened: null,
-    visitType: lnk.isCC ? "cc" : "signature",
-    signatureStatus: lnk.signatureStatus,
-    isCC: lnk.isCC || false,
-  }));
+  const sigVisits: any[] = shareLinks
+    .filter(
+      (lnk) =>
+        (lnk.linkType === "signature" || lnk.linkType === "cc") &&
+        lnk.visits > 0
+    )
+    .map((lnk) => ({
+      key: `sig-${lnk.shareId}`,
+      email: lnk.recipientEmail || "Unknown",
+      senderName: doc.filename,
+      timeAgo: lnk.lastViewed || lnk.createdAgo,
+      totalTime: lnk.totalTime || "0m 0s",
+      totalTimeSeconds: 0,
+      location: "Unknown",
+      city: "",
+      country: "Unknown",
+      pageData: lnk.pageData || [],
+      bounced: false,
+      firstOpened: null,
+      visitType: lnk.isCC ? "cc" : "signature",
+      signatureStatus: lnk.signatureStatus,
+      isCC: lnk.isCC || false,
+    }));
 
   const allVisits: any[] = [...shareVisits, ...sigVisits];
-
-  const getMaxTime = (pageData: any[]) =>
-    Math.max(...pageData.map((p: any) => p.timeSpent || 0), 1);
 
   return (
     <div className="space-y-0">
@@ -268,7 +579,6 @@ const sigVisits: any[] = shareLinks
           <div>
             {allVisits.map((visit) => {
               const isExpanded = expandedVisit === visit.key;
-              const maxTime = getMaxTime(visit.pageData);
 
               return (
                 <div
@@ -376,22 +686,22 @@ const sigVisits: any[] = shareLinks
                     <div className="pb-6">
                       <div className="flex items-center gap-4 px-1 pb-4 mb-4 border-b border-slate-100 flex-wrap">
                         <div className="flex items-center gap-1.5">
-                         <div
-  className={`h-2 w-2 rounded-full ${
-    visit.visitType === "signature"
-      ? "bg-purple-500"
-      : visit.visitType === "cc"
-      ? "bg-blue-500"
-      : "bg-sky-500"
-  }`}
-/>
+                          <div
+                            className={`h-2 w-2 rounded-full ${
+                              visit.visitType === "signature"
+                                ? "bg-purple-500"
+                                : visit.visitType === "cc"
+                                ? "bg-blue-500"
+                                : "bg-sky-500"
+                            }`}
+                          />
                           <span className="text-xs font-semibold text-slate-500">
-  {visit.visitType === "signature"
-    ? "✍️ Signature request"
-    : visit.visitType === "cc"
-    ? "📋 CC recipient view"
-    : "🔗 Share link view"}
-</span>
+                            {visit.visitType === "signature"
+                              ? "✍️ Signature request"
+                              : visit.visitType === "cc"
+                              ? "📋 CC recipient view"
+                              : "🔗 Share link view"}
+                          </span>
                         </div>
                         <span className="text-xs text-slate-400">
                           {visit.city && visit.city !== "Unknown"
@@ -425,202 +735,9 @@ const sigVisits: any[] = shareLinks
                         </span>
                       </div>
 
+                      {/* ⭐ PageBarChart handles both hover and tap internally */}
                       {visit.pageData && visit.pageData.length > 0 ? (
-                        <div
-                          className="relative"
-                          style={{
-                            paddingLeft: "52px",
-                            paddingBottom: "28px",
-                          }}
-                        >
-                          {(() => {
-                            const maxT = Math.max(
-                              ...visit.pageData.map(
-                                (p: any) => p.timeSpent || 0
-                              ),
-                              1
-                            );
-                            const fmt = (s: number) =>
-                              `${String(Math.floor(s / 60)).padStart(
-                                2,
-                                "0"
-                              )}:${String(s % 60).padStart(2, "0")}`;
-                            return [maxT, Math.round(maxT * 0.5), 0].map(
-                              (val, i) => (
-                                <div
-                                  key={i}
-                                  className="absolute text-right text-[10px] text-slate-400 font-mono leading-none"
-                                  style={{
-                                    left: 0,
-                                    top: `${(i / 2) * 100}%`,
-                                    width: "44px",
-                                    transform: "translateY(-50%)",
-                                  }}
-                                >
-                                  {fmt(val)}
-                                </div>
-                              )
-                            );
-                          })()}
-
-                          {[0, 0.5, 1].map((frac, i) => (
-                            <div
-                              key={i}
-                              className="absolute left-0 right-0 border-t border-slate-100"
-                              style={{ left: "52px", top: `${frac * 100}%` }}
-                            />
-                          ))}
-
-                          {(() => {
-                            const maxT = Math.max(
-                              ...visit.pageData.map(
-                                (p: any) => p.timeSpent || 0
-                              ),
-                              1
-                            );
-                            return (
-                              <div
-                                className="relative flex items-end gap-1.5"
-                                style={{ height: "140px" }}
-                              >
-                                {visit.pageData.map((page: any) => {
-                                  const heightPct =
-                                    (page.timeSpent / maxT) * 100;
-                                  const isHov =
-                                    hoveredPage?.visitKey === visit.key &&
-                                    hoveredPage?.page === page.page;
-                                  const barColor =
-                                    visit.visitType === "signature"
-                                      ? isHov
-                                        ? "#7c3aed"
-                                        : "#a78bfa"
-                                      : isHov
-                                      ? "#0284c7"
-                                      : "#38bdf8";
-
-                                  return (
-                                    <div
-                                      key={page.page}
-                                      className="flex-1 flex flex-col items-center justify-end h-full relative group/bar"
-                                      onMouseEnter={() =>
-                                        setHoveredPage({
-                                          visitKey: visit.key,
-                                          page: page.page,
-                                        })
-                                      }
-                                      onMouseLeave={() =>
-                                        setHoveredPage(null)
-                                      }
-                                    >
-                                      {isHov && (
-                                        <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-                                          <div className="bg-slate-900 rounded-xl shadow-2xl overflow-hidden w-48">
-                                            <div
-                                              className="relative bg-slate-100"
-                                              style={{ height: "120px" }}
-                                            >
-                                              <iframe
-                                                src={`/api/documents/${doc._id}/page?page=${page.page}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
-                                                className="w-full h-full border-0 pointer-events-none"
-                                                title={`Page ${page.page}`}
-                                              />
-                                              <div className="absolute top-2 left-2 bg-slate-900/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                                                P{page.page}
-                                              </div>
-                                            </div>
-                                            <div className="flex items-center justify-between px-3 py-2.5">
-                                              <div>
-                                                <p className="text-[9px] text-slate-400 uppercase tracking-wider">
-                                                  Page
-                                                </p>
-                                                <p className="text-sm font-bold text-white">
-                                                  {page.page}{" "}
-                                                  <span className="text-slate-500 font-normal text-xs">
-                                                    / {visit.pageData.length}
-                                                  </span>
-                                                </p>
-                                              </div>
-                                              <div className="text-right">
-                                                <p className="text-[9px] text-slate-400 uppercase tracking-wider">
-                                                  Time
-                                                </p>
-                                                <p className="text-sm font-bold text-white">
-                                                  {String(
-                                                    Math.floor(
-                                                      page.timeSpent / 60
-                                                    )
-                                                  ).padStart(2, "0")}
-                                                  :
-                                                  {String(
-                                                    page.timeSpent % 60
-                                                  ).padStart(2, "0")}
-                                                </p>
-                                              </div>
-                                            </div>
-                                            <div className="h-1 bg-slate-800 mx-3 mb-3 rounded-full overflow-hidden">
-                                              <div
-                                                className="h-full rounded-full transition-all"
-                                                style={{
-                                                  width: `${Math.min(
-                                                    (page.timeSpent / maxT) *
-                                                      100,
-                                                    100
-                                                  )}%`,
-                                                  background:
-                                                    visit.visitType ===
-                                                    "signature"
-                                                      ? "#a78bfa"
-                                                      : "#38bdf8",
-                                                }}
-                                              />
-                                            </div>
-                                          </div>
-                                          <div className="flex justify-center -mt-1">
-                                            <div className="w-2.5 h-2.5 bg-slate-900 rotate-45" />
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      <div
-                                        className="w-full rounded-t-lg transition-all duration-150 cursor-pointer"
-                                        style={{
-                                          height: `${Math.max(
-                                            heightPct,
-                                            page.timeSpent > 0 ? 3 : 0
-                                          )}%`,
-                                          backgroundColor: page.skipped
-                                            ? "#e2e8f0"
-                                            : barColor,
-                                          minHeight:
-                                            page.timeSpent > 0 ? "4px" : "2px",
-                                          opacity: page.skipped ? 0.5 : 1,
-                                        }}
-                                      />
-
-                                      {page.visits > 1 && (
-                                        <div
-                                          className="absolute -top-1 -right-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 border-2 border-white shadow-sm"
-                                          title={`Revisited ${page.visits} times`}
-                                        />
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          })()}
-
-                          <div className="flex gap-1.5 pt-2.5">
-                            {visit.pageData.map((page: any) => (
-                              <div
-                                key={page.page}
-                                className="flex-1 text-center text-[10px] text-slate-400 tabular-nums"
-                              >
-                                {page.page}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                        <PageBarChart visit={visit} docId={doc._id} />
                       ) : (
                         <div className="flex items-center justify-center py-6 text-center">
                           <div>
@@ -688,40 +805,41 @@ const sigVisits: any[] = shareLinks
                 <div className="flex items-center gap-2 pr-4">
                   <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
                     <span className="text-white text-xs font-bold">
-                      {(
-                        lnk.recipientName ||
-                        lnk.recipientEmail ||
-                        "P"
-                      )
+                      {(lnk.recipientName || lnk.recipientEmail || "P")
                         .charAt(0)
                         .toUpperCase()}
                     </span>
                   </div>
-                 <div className="min-w-0">
-  <p className="text-sm font-semibold text-slate-900 truncate">
-    {lnk.recipientName || (lnk.settings?.linkType === 'domain-restricted' ? `@${lnk.settings?.allowedDomain || 'domain'}` : 'Public link')}
-  </p>
-  {lnk.recipientEmail ? (
-    <p className="text-xs text-slate-400 truncate">{lnk.recipientEmail}</p>
-  ) : lnk.settings?.linkType === 'domain-restricted' ? (
-    <p className="text-xs text-violet-500 truncate font-medium">Domain restricted</p>
-  ) : (
-    <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
-  )}
-  {lnk.isCC && (
-  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
-    <Mail className="h-2.5 w-2.5" /> CC
-  </span>
-)}
-</div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">
+                      {lnk.recipientName ||
+                        (lnk.settings?.linkType === "domain-restricted"
+                          ? `@${lnk.settings?.allowedDomain || "domain"}`
+                          : "Public link")}
+                    </p>
+                    {lnk.recipientEmail ? (
+                      <p className="text-xs text-slate-400 truncate">
+                        {lnk.recipientEmail}
+                      </p>
+                    ) : lnk.settings?.linkType === "domain-restricted" ? (
+                      <p className="text-xs text-violet-500 truncate font-medium">
+                        Domain restricted
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-400">{lnk.createdAgo}</p>
+                    )}
+                    {lnk.isCC && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
+                        <Mail className="h-2.5 w-2.5" /> CC
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 pr-4 min-w-0">
                   <div className="h-5 w-5 rounded-full bg-amber-400 flex-shrink-0" />
                   <span className="text-xs text-slate-600 font-mono truncate flex-1">
-                    {lnk.link
-                      .replace("https://", "")
-                      .replace("http://", "")}
+                    {lnk.link.replace("https://", "").replace("http://", "")}
                   </span>
                   <button
                     onClick={() => {
@@ -803,9 +921,7 @@ const sigVisits: any[] = shareLinks
                           key={label as string}
                           className="flex items-center justify-between"
                         >
-                          <span className="text-xs text-slate-500">
-                            {label}
-                          </span>
+                          <span className="text-xs text-slate-500">{label}</span>
                           <span className="text-sm font-bold text-slate-900">
                             {val}
                           </span>
@@ -845,16 +961,10 @@ const sigVisits: any[] = shareLinks
                             linkType: lnk.settings.linkType,
                             expiresIn: lnk.settings.expiresIn,
                             password: "",
-                            recipientEmails: lnk.recipientEmail
-                              ? [lnk.recipientEmail]
-                              : [],
-                            recipientNames: lnk.recipientName
-                              ? [lnk.recipientName]
-                              : [],
+                            recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+                            recipientNames: lnk.recipientName ? [lnk.recipientName] : [],
                             sendEmailNotification: false,
-                            allowedEmails: lnk.recipientEmail
-                              ? [lnk.recipientEmail]
-                              : [],
+                            allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
                             ndaText: "",
                             customNdaText: "",
                             useCustomNda: false,
@@ -865,7 +975,6 @@ const sigVisits: any[] = shareLinks
                         <Edit className="mr-2 h-4 w-4" />
                         <span>Edit link settings</span>
                       </DropdownMenuItem>
-
                       <DropdownMenuItem
                         onClick={() => {
                           onOpenShareDrawer(lnk, "duplicate", {
@@ -888,16 +997,10 @@ const sigVisits: any[] = shareLinks
                             linkType: lnk.settings.linkType,
                             expiresIn: lnk.settings.expiresIn,
                             password: "",
-                            recipientEmails: lnk.recipientEmail
-                              ? [lnk.recipientEmail]
-                              : [],
-                            recipientNames: lnk.recipientName
-                              ? [lnk.recipientName + " (Copy)"]
-                              : [],
+                            recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+                            recipientNames: lnk.recipientName ? [lnk.recipientName + " (Copy)"] : [],
                             sendEmailNotification: false,
-                            allowedEmails: lnk.recipientEmail
-                              ? [lnk.recipientEmail]
-                              : [],
+                            allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
                             ndaText: "",
                             customNdaText: "",
                             useCustomNda: false,
@@ -908,16 +1011,13 @@ const sigVisits: any[] = shareLinks
                         <Copy className="mr-2 h-4 w-4" />
                         <span>Duplicate link</span>
                       </DropdownMenuItem>
-
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => {
                           onConfirm({
                             title: "Delete Link",
                             message: `Are you sure you want to permanently delete the link for ${
-                              lnk.recipientName ||
-                              lnk.recipientEmail ||
-                              "this recipient"
+                              lnk.recipientName || lnk.recipientEmail || "this recipient"
                             }?`,
                             danger: true,
                             onConfirm: async () => {
@@ -951,11 +1051,7 @@ const sigVisits: any[] = shareLinks
                 <div className="flex items-start gap-3">
                   <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
                     <span className="text-white text-xs font-bold">
-                      {(
-                        lnk.recipientName ||
-                        lnk.recipientEmail ||
-                        "P"
-                      )
+                      {(lnk.recipientName || lnk.recipientEmail || "P")
                         .charAt(0)
                         .toUpperCase()}
                     </span>
@@ -972,6 +1068,11 @@ const sigVisits: any[] = shareLinks
                             {lnk.recipientEmail}
                           </p>
                         )}
+                        {lnk.isCC && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full mt-0.5">
+                            <Mail className="h-2.5 w-2.5" /> CC
+                          </span>
+                        )}
                       </div>
                       <button
                         onClick={async () => {
@@ -981,9 +1082,7 @@ const sigVisits: any[] = shareLinks
                               {
                                 method: "PATCH",
                                 credentials: "include",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                },
+                                headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
                                   shareId: lnk.shareId,
                                   active: !lnk.enabled,
@@ -1016,9 +1115,7 @@ const sigVisits: any[] = shareLinks
                     <div className="flex items-center gap-2 mb-2">
                       <div className="h-4 w-4 rounded-full bg-amber-400 flex-shrink-0" />
                       <span className="text-xs text-slate-500 font-mono truncate flex-1">
-                        {lnk.link
-                          .replace("https://", "")
-                          .replace("http://", "")}
+                        {lnk.link.replace("https://", "").replace("http://", "")}
                       </span>
                       <button
                         onClick={() => {
@@ -1032,12 +1129,8 @@ const sigVisits: any[] = shareLinks
                     </div>
 
                     <div className="flex items-center gap-3 text-xs text-slate-500">
-                      <span className="font-bold text-slate-800">
-                        {lnk.visits}
-                      </span>
-                      <span>
-                        {lnk.visits === 1 ? "visit" : "visits"}
-                      </span>
+                      <span className="font-bold text-slate-800">{lnk.visits}</span>
+                      <span>{lnk.visits === 1 ? "visit" : "visits"}</span>
                       <span className="text-slate-300">·</span>
                       <span>{lnk.totalTime || "0m 0s"}</span>
                       <span className="text-slate-300">·</span>
@@ -1049,10 +1142,7 @@ const sigVisits: any[] = shareLinks
                             <MoreVertical className="h-4 w-4" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-48 bg-white"
-                        >
+                        <DropdownMenuContent align="end" className="w-48 bg-white">
                           <DropdownMenuItem
                             onClick={() => {
                               onOpenShareDrawer(lnk, "edit", {
@@ -1060,13 +1150,11 @@ const sigVisits: any[] = shareLinks
                                 allowDownload: lnk.settings.allowDownload,
                                 allowPrint: lnk.settings.allowPrint,
                                 allowForwarding: lnk.settings.allowForwarding,
-                                notifyOnDownload:
-                                  lnk.settings.notifyOnDownload,
+                                notifyOnDownload: lnk.settings.notifyOnDownload,
                                 selfDestruct: lnk.settings.selfDestruct,
                                 enableWatermark: lnk.settings.enableWatermark,
                                 watermarkText: lnk.settings.watermarkText,
-                                watermarkPosition:
-                                  lnk.settings.watermarkPosition,
+                                watermarkPosition: lnk.settings.watermarkPosition,
                                 requireNDA: lnk.settings.requireNDA,
                                 ndaTemplateId: lnk.settings.ndaTemplateId,
                                 customMessage: lnk.settings.customMessage,
@@ -1077,16 +1165,10 @@ const sigVisits: any[] = shareLinks
                                 linkType: lnk.settings.linkType,
                                 expiresIn: lnk.settings.expiresIn,
                                 password: "",
-                                recipientEmails: lnk.recipientEmail
-                                  ? [lnk.recipientEmail]
-                                  : [],
-                                recipientNames: lnk.recipientName
-                                  ? [lnk.recipientName]
-                                  : [],
+                                recipientEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
+                                recipientNames: lnk.recipientName ? [lnk.recipientName] : [],
                                 sendEmailNotification: false,
-                                allowedEmails: lnk.recipientEmail
-                                  ? [lnk.recipientEmail]
-                                  : [],
+                                allowedEmails: lnk.recipientEmail ? [lnk.recipientEmail] : [],
                                 ndaText: "",
                                 customNdaText: "",
                                 useCustomNda: false,
@@ -1103,19 +1185,14 @@ const sigVisits: any[] = shareLinks
                               onConfirm({
                                 title: "Delete Link",
                                 message: `Are you sure you want to permanently delete the link for ${
-                                  lnk.recipientName ||
-                                  lnk.recipientEmail ||
-                                  "this recipient"
+                                  lnk.recipientName || lnk.recipientEmail || "this recipient"
                                 }?`,
                                 danger: true,
                                 onConfirm: async () => {
                                   try {
                                     const res = await fetch(
                                       `/api/documents/${doc._id}/share?shareId=${lnk.shareId}`,
-                                      {
-                                        method: "DELETE",
-                                        credentials: "include",
-                                      }
+                                      { method: "DELETE", credentials: "include" }
                                     );
                                     if (res.ok) {
                                       toast.success("Link deleted");

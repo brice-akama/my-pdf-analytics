@@ -84,7 +84,7 @@ export default function SignaturesTab({
             All recipients have signed! Document is complete.
           </p>
           <a
-            href={`/signed/${recipients[0]?.id}`}
+             href={`/signed/${recipients[0]?.uniqueId || recipients[0]?.id}`}
             className="ml-auto text-xs font-semibold text-green-700 underline"
           >
             Download signed PDF
