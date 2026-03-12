@@ -226,7 +226,10 @@ if (signatureRequest.selfieVerificationRequired &&
 
     // Check if ALL recipients have signed — must be declared BEFORE CC block
     const allRequests = await db.collection("signature_requests")
-      .find({ documentId: signatureRequest.documentId })
+     .find({ 
+    documentId: signatureRequest.documentId,
+    batchId: signatureRequest.batchId,
+  })
       .toArray();
 
     const totalRecipients = allRequests.length;

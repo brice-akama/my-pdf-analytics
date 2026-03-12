@@ -117,8 +117,9 @@ export async function POST(request: NextRequest) {
     console.log('👤 Owner:', ownerName, '(', ownerEmail, ')');
 
     const signatureRequests = [];
-    const emailPromises    = [];
-    const ccRecipientLinks = [];
+const emailPromises    = [];
+const ccRecipientLinks = [];
+const batchId = `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     for (let i = 0; i < recipients.length; i++) {
       const recipient = recipients[i];
@@ -157,6 +158,7 @@ export async function POST(request: NextRequest) {
         uniqueId,
         documentId,
         spaceId:      spaceId || null,
+        batchId,
         ownerId,
         ownerEmail,
         recipient: {
@@ -245,6 +247,7 @@ export async function POST(request: NextRequest) {
           uniqueId:   ccUniqueId,
           documentId,
           ownerId,
+          batchId,   
           ownerEmail,
           name:       cc.name,
           email:      cc.email,

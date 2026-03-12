@@ -39,16 +39,20 @@ export async function GET(
       );
     }
 
-    // Get ALL signature requests for this document
-    const signatureRequests = await db
-      .collection("signature_requests")
-      .find({ documentId: ccRecord.documentId })
-      .toArray();
+    // Get ONLY signature requests from the same batch as this CC record
+const signatureRequests = await db
+  .collection("signature_requests")
+  .find({ 
+    documentId: ccRecord.documentId,
+    ...(ccRecord.batchId ? { batchId: ccRecord.batchId } : {}),
+  })
+  .toArray();
 
     console.log('📋 Found', signatureRequests.length, 'signature requests');
 
-    const allSigned = signatureRequests.every((req) => req.status === "signed" || req.status === "completed");
-    const status = allSigned ? "Completed" : "Pending Signatures";
+    const signedCount = signatureRequests.filter(r => r.status === 'signed' || r.status === 'completed').length;
+const allSigned = signedCount === signatureRequests.length && signatureRequests.length > 0;
+const status = allSigned ? "Completed" : `${signedCount}/${signatureRequests.length} Signed`;
 
     // Get signature fields from first request (they're all the same in shared mode)
     const signatureFields = signatureRequests.length > 0 
@@ -155,7 +159,7 @@ export async function GET(
       recipients: signatureRequests.map(req => ({
         name: req.recipient?.name,
         email: req.recipient?.email,
-        status: req.status,
+         status: req.status === 'signed' || req.status === 'completed' ? 'completed' : req.status,
       })),
     });
   } catch (error) {

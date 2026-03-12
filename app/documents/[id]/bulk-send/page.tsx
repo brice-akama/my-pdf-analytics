@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect,  useCallback  } from "react";
+import { useState, useEffect,  useCallback ,  useRef  } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -75,6 +75,9 @@ type DocumentType = {
   };
 };
 
+const PDF_NATURAL_W = 794;
+const PAGE_H_PX     = 297 * 3.78; // 1122px — must match editor + sign page
+
 function RecipientSearch({
   recipients,
   selectedIndex,
@@ -132,8 +135,11 @@ function RecipientSearch({
 export default function BulkSendPage() {
   const params = useParams();
   const router = useRouter();
-
-  // State
+const pdfCanvasRef  = useRef<HTMLCanvasElement>(null);
+  const pdfWrapperRef = useRef<HTMLDivElement>(null);
+  const [pdfScale,   setPdfScale]   = useState(1);
+  const [pdfPages,   setPdfPages]   = useState(1);
+  const [pdfReady,   setPdfReady]   = useState(false);
   const [doc, setDoc] = useState<DocumentType | null>(null);
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState(1);
@@ -155,6 +161,8 @@ const [templateConfig, setTemplateConfig] = useState<any>(null);
 const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 const [lastSaved, setLastSaved] = useState<Date | null>(null);
 const [previewRecipientIndex, setPreviewRecipientIndex] = useState(0)
+const [showDraftModal, setShowDraftModal] = useState(false);
+const [pendingDraft, setPendingDraft] = useState<any>(null);
 const [generatedLinks, setGeneratedLinks] = useState<Array<{
   recipient: string;
   email: string;
@@ -212,60 +220,36 @@ const saveDraft = useCallback(() => {
 // ⭐ STEP 2: Load draft from localStorage
 const loadDraft = useCallback(() => {
   const draftKey = `bulk_send_draft_${params.id}`;
-  
   try {
     const savedDraft = localStorage.getItem(draftKey);
-    if (!savedDraft) {
-      console.log('ℹ️ [BULK SEND] No saved draft found');
-      return;
-    }
-
+    if (!savedDraft) return;
     const draft = JSON.parse(savedDraft);
-    
-    // Calculate how long ago
-    const savedAt = new Date(draft.savedAt);
-    const minutesAgo = Math.floor((Date.now() - savedAt.getTime()) / 60000);
-
-    // Ask user if they want to restore
-    const shouldRestore = window.confirm(
-      `📋 Found a saved draft from ${minutesAgo} minute${minutesAgo !== 1 ? 's' : ''} ago on this device.\n\n` +
-      `Recipients: ${draft.recipients.length}\n` +
-      `Step: ${draft.step} of 2\n\n` +
-      `Note: Drafts are saved on this device only.\n\n` +
-      `Continue where you left off?`
-    );
-
-    if (!shouldRestore) {
-      localStorage.removeItem(draftKey);
-      return;
-    }
-
-    // ✅ Restore state
-    console.log('✅ [BULK SEND] Restoring draft...');
-    setCsvText(draft.csvText || "");
-    setRecipients(draft.recipients || []);
-    setMessage(draft.message || "");
-    setExpirationDays(draft.expirationDays || "30");
-    setStep(draft.step || 1);
-    setLastSaved(savedAt);
-    
-    // Re-validate if recipients exist
-    if (draft.recipients.length > 0) {
-      const allErrors = draft.recipients.flatMap((r: BulkRecipient) => r.validationErrors || []);
-      const duplicateEmails = findDuplicateEmails(draft.recipients);
-      
-      setValidation({
-        valid: allErrors.length === 0 && duplicateEmails.length === 0,
-        errors: [...allErrors, ...duplicateEmails],
-        warnings: [],
-      });
-    }
-    
-    console.log('✅ [BULK SEND] Draft restored');
+    setPendingDraft(draft);
+    setShowDraftModal(true);
   } catch (error) {
-    console.error('❌ [BULK SEND] Failed to load draft:', error);
+    console.error('Failed to load draft:', error);
   }
 }, [params.id]);
+
+const restoreDraft = (draft: any) => {
+  setCsvText(draft.csvText || "");
+  setRecipients(draft.recipients || []);
+  setMessage(draft.message || "");
+  setExpirationDays(draft.expirationDays || "30");
+  setLastSaved(new Date(draft.savedAt));
+  if (draft.recipients?.length > 0) {
+    const allErrors = draft.recipients.flatMap((r: BulkRecipient) => r.validationErrors || []);
+    const duplicateEmails = findDuplicateEmails(draft.recipients);
+    setValidation({ valid: allErrors.length === 0 && duplicateEmails.length === 0, errors: [...allErrors, ...duplicateEmails], warnings: [] });
+  }
+  if (draft.step === 2) {
+    setTimeout(() => setStep(2), 300);
+  } else {
+    setStep(draft.step || 1);
+  }
+  setShowDraftModal(false);
+  setPendingDraft(null);
+};
 
 // ⭐ STEP 3: Clear draft
 const clearDraft = useCallback(() => {
@@ -305,6 +289,74 @@ const clearDraft = useCallback(() => {
     }
   };
 
+
+  // ── Render PDF into canvas when we reach step 2 ──────────────────────────
+  useEffect(() => {
+    if (step !== 2 || !doc) return;
+
+    setPdfReady(false);
+
+    const render = async () => {
+      // Give the DOM 150ms to fully paint step 2 layout
+      await new Promise(r => setTimeout(r, 150));
+
+      // Canvas ref might be null if component unmounted — bail
+      if (!pdfCanvasRef.current) return;
+
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+     // ✅ This returns actual PDF bytes
+const pdf = await pdfjsLib.getDocument(`/api/documents/${doc._id}/file?serve=blob`).promise;
+      const pages = pdf.numPages;
+      setPdfPages(pages);
+
+      const dpr    = window.devicePixelRatio || 1;
+      const canvas = pdfCanvasRef.current!;
+      canvas.width        = PDF_NATURAL_W * dpr;
+      canvas.height       = PAGE_H_PX * pages * dpr;
+      canvas.style.width  = `${PDF_NATURAL_W}px`;
+      canvas.style.height = `${PAGE_H_PX * pages}px`;
+
+      const ctx = canvas.getContext('2d', { alpha: false })!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      for (let p = 1; p <= pages; p++) {
+        const page    = await pdf.getPage(p);
+        const natural = page.getViewport({ scale: 1 });
+        const scale   = (PDF_NATURAL_W / natural.width) * dpr;
+        ctx.save();
+        ctx.translate(0, (p - 1) * PAGE_H_PX * dpr);
+        await page.render({ canvasContext: ctx, viewport: page.getViewport({ scale }), intent: 'display' }).promise;
+        ctx.restore();
+      }
+
+      // Calculate scale AFTER render, while wrapper still has real dimensions
+      if (pdfWrapperRef.current) {
+        const avail = pdfWrapperRef.current.clientWidth - 32;
+        if (avail > 0) setPdfScale(Math.min(avail / PDF_NATURAL_W, 1));
+      }
+
+      setPdfReady(true);
+    };
+
+    render().catch(console.error);
+  }, [step, doc]);
+
+  // ── Keep scale updated on resize ──────────────────────────────────────────
+  useEffect(() => {
+    const recalc = () => {
+      if (!pdfWrapperRef.current) return;
+      const avail = pdfWrapperRef.current.clientWidth - 32;
+      if (avail > 0) setPdfScale(Math.min(avail / PDF_NATURAL_W, 1));
+    };
+    const ob = new ResizeObserver(recalc);
+    if (pdfWrapperRef.current) ob.observe(pdfWrapperRef.current);
+    recalc();
+    return () => ob.disconnect();
+  }, []); // no deps — always active
 
   // ⭐ Load draft on mount
 useEffect(() => {
@@ -1148,110 +1200,164 @@ Bob Wilson,bob@company.com,Designer`
     </div>
 
     {/* RIGHT — PDF preview with field overlays */}
+    {/* RIGHT — PDF preview with field overlays */}
     <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
 
-      {/* PDF header */}
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
         <div>
           <h3 className="text-sm font-semibold text-slate-900">Document Preview</h3>
           <p className="text-xs text-slate-400 mt-0.5">
             {templateConfig?.signatureFields?.length || 0} signature field{(templateConfig?.signatureFields?.length || 0) !== 1 ? 's' : ''} placed
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">
-            Template
-          </span>
-        </div>
+        <span className="text-xs px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-medium">
+          Template
+        </span>
       </div>
 
-      {/* PDF with overlays */}
-      <div className="flex-1 overflow-y-auto bg-slate-100 p-6">
-        <div className="max-w-3xl mx-auto">
+      {/* PDF viewer */}
+      <div
+        ref={pdfWrapperRef}
+        className="flex-1 overflow-y-auto p-4"
+        style={{ background: '#131320' }}
+      >
+        {/* Info tip */}
+        <div className="mb-3 flex items-start gap-2 px-3 py-2.5 rounded-xl"
+          style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}>
+          <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: '#a5b4fc' }} />
+          <p className="text-xs" style={{ color: 'rgba(165,180,252,0.8)' }}>
+            Colored boxes show where signatures will be placed. Use{' '}
+            <strong style={{ color: '#a5b4fc' }}>Browse</strong> in the sidebar to switch
+            recipients and see each person's document.
+          </p>
+        </div>
 
-          {/* Info tip */}
-          <div className="mb-4 flex items-start gap-2.5 px-4 py-3 bg-white border border-slate-200 rounded-xl">
-            <Info className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-slate-500">
-              The colored boxes show where signatures will be placed. Click <strong className="text-slate-600">Browse</strong> in the sidebar to switch between recipients and see how each person's document will look.
-            </p>
+        {/* PDF canvas + overlays */}
+        {/* Spinner — shown while loading */}
+        {!pdfReady && (
+          <div className="flex items-center justify-center" style={{ height: '60vh' }}>
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3" style={{ color: '#6366f1' }} />
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>Loading document…</p>
+            </div>
           </div>
+        )}
 
-          {/* PDF container */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden relative">
-            <div
-              className="relative"
-              style={{ minHeight: `${297 * ((doc?.numPages || 1) * 3.78)}px` }}
-            >
-              <embed
-                src={`/api/documents/${params.id}/file?serve=blob#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
-                type="application/pdf"
-                className="w-full border-0"
-                style={{
-                  height: `${297 * ((doc?.numPages || 1) * 3.78)}px`,
-                  display: 'block',
-                  pointerEvents: 'none',
-                }}
-              />
+        {/*
+          KEY FIX: canvas wrapper is ALWAYS in the DOM (display:none when not ready).
+          PDF.js needs pdfCanvasRef.current to exist BEFORE render() runs.
+          The old ternary removed the canvas from the DOM while pdfReady=false,
+          making the ref null → endless loading.
+        */}
+        <div
+          className="relative mx-auto"
+          style={{
+            width:        pdfReady ? PDF_NATURAL_W * pdfScale : 0,
+            height:       pdfReady ? PAGE_H_PX * pdfPages * pdfScale : 0,
+            background:   '#fff',
+            boxShadow:    pdfReady ? '0 8px 48px rgba(0,0,0,0.55)' : 'none',
+            borderRadius: 3,
+            overflow:     'hidden',
+            
+             visibility:   pdfReady ? 'visible' : 'hidden',  // ✅ hidden but still mounted
+    minWidth:     PDF_NATURAL_W * pdfScale,
+    minHeight:    pdfReady ? undefined : 1,  
+          }}
+        >
+          {/* Natural-size inner container — CSS scaled */}
+          <div style={{
+            width:           PDF_NATURAL_W,
+            height:          PAGE_H_PX * pdfPages,
+            transform:       `scale(${pdfScale})`,
+            transformOrigin: 'top left',
+            position:        'absolute',
+            top: 0, left: 0,
+          }}>
+            {/* PDF canvas — ALWAYS rendered, hidden via parent display:none */}
+            <canvas
+              ref={pdfCanvasRef}
+              style={{ display: 'block', width: `${PDF_NATURAL_W}px` }}
+            />
 
-              {/* Field overlays */}
-              <div className="absolute inset-0 pointer-events-none">
-                {templateConfig?.signatureFields?.map((field: any, idx: number) => {
-                  const pageHeight = 297 * 3.78
-                  const topPosition = (field.page - 1) * pageHeight + (field.y / 100) * pageHeight
-                 // Use real CSV recipient name if available, fall back to template config
-                  const templateRecipient = templateConfig.recipients?.[field.recipientIndex]
-                 const csvRecipient = recipients[previewRecipientIndex]
-                  const displayName = csvRecipient?.name || templateRecipient?.name || `Recipient ${field.recipientIndex + 1}`
-                  const displayColor = templateRecipient?.color || '#9333ea'
+            {/* Page dividers */}
+            {Array.from({ length: pdfPages - 1 }, (_, i) => (
+              <div key={i} style={{
+                position:   'absolute',
+                top:        PAGE_H_PX * (i + 1),
+                left: 0, right: 0,
+                height:     2,
+                background: 'rgba(99,102,241,0.2)',
+                zIndex:     5,
+              }} />
+            ))}
 
-                  return (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: idx * 0.04 }}
-                      className="absolute rounded-lg border-2 bg-white/90 shadow-sm"
+            {/* Field overlays */}
+            <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
+              {templateConfig?.signatureFields?.map((field: any, idx: number) => {
+                const topPx = ((field.page - 1) * PAGE_H_PX) + (field.y / 100 * PAGE_H_PX);
+                const W = field.width  ?? (field.type === 'signature' ? 150 : field.type === 'checkbox' ? 24 : 120);
+                const H = field.height ?? (field.type === 'signature' ? 45  : field.type === 'checkbox' ? 24 : 32);
+                const templateRecipient = templateConfig.recipients?.[field.recipientIndex];
+                const csvRecipient      = recipients[previewRecipientIndex];
+                const displayName       = csvRecipient?.name || templateRecipient?.name || `Recipient ${(field.recipientIndex ?? 0) + 1}`;
+                const displayColor      = templateRecipient?.color || '#9333ea';
+                const fieldLabel =
+                  field.type === 'signature'  ? 'Signature' :
+                  field.type === 'date'       ? 'Date' :
+                  field.type === 'text'       ? 'Text' :
+                  field.type === 'checkbox'   ? 'Checkbox' :
+                  field.type === 'attachment' ? 'Attachment' :
+                  field.type === 'dropdown'   ? 'Dropdown' :
+                  field.type === 'radio'      ? 'Radio' :
+                  field.type;
+
+                return (
+                  <div
+                    key={idx}
+                    className="absolute"
+                    style={{
+                      left:      `${field.x}%`,
+                      top:       `${topPx}px`,
+                      width:     `${W}px`,
+                      height:    `${H}px`,
+                      transform: 'translate(-50%, 0)',
+                      zIndex:    10,
+                    }}
+                  >
+                    <div
+                      className="absolute whitespace-nowrap px-1.5 py-0.5 rounded-t text-white"
                       style={{
-                        left: `${field.x}%`,
-                        top: `${topPosition}px`,
-                        width: field.type === 'signature' ? '140px' : '120px',
-                        height: field.type === 'signature' ? '50px' : '36px',
-                        transform: 'translate(-50%, 0%)',
-                        borderColor: displayColor,
+                        top: -20, left: 0,
+                        fontSize: 10, fontWeight: 700, lineHeight: '18px',
+                        backgroundColor: displayColor, maxWidth: 140,
+                        overflow: 'hidden', textOverflow: 'ellipsis',
                       }}
                     >
-                      {/* Recipient label */}
-                      <div
-                        className="absolute -top-5 left-0 text-xs font-semibold px-1.5 py-0.5 rounded-t whitespace-nowrap"
-                        style={{
-                          backgroundColor: displayColor,
-                          color: 'white',
-                        }}
-                      >
-                        {displayName}
-                      </div>
-                      <div className="h-full flex items-center justify-center px-2">
-                        <span className="text-xs font-semibold text-slate-600 truncate">
-                          {field.type === 'signature' ? '✍️ Signature'
-                            : field.type === 'date' ? '📅 Date'
-                            : field.type === 'text' ? '📝 Text'
-                            : field.type === 'checkbox' ? '☑️ Checkbox'
-                            : field.type === 'attachment' ? '📎 Attachment'
-                            : field.type}
-                        </span>
-                      </div>
-                    </motion.div>
-                  )
+                      {displayName}
+                    </div>
+                    <div
+                      className="w-full h-full flex items-center justify-center rounded"
+                      style={{
+                        border: `2px solid ${displayColor}`,
+                        background: 'rgba(255,255,255,0.92)',
+                        backdropFilter: 'blur(2px)',
+                      }}
+                    >
+                      <span className="text-xs font-semibold truncate px-1" style={{ color: displayColor }}>
+                        {fieldLabel}
+                      </span>
+                    </div>
+                  </div>
+               
+                  );
                 })}
               </div>
             </div>
           </div>
-
-        </div>
+        
       </div>
     </div>
-
   </div>
 )}
         {/* Step 3: Sending Progress */}
@@ -1552,7 +1658,7 @@ Bob Wilson,bob@company.com,Designer`
                         </Button>
                       </div>
                       <p className="text-xs text-slate-500 mt-2">
-                        💡 This unique link has been emailed to {item.recipient}. You can also share it manually.
+                         This unique link has been emailed to {item.recipient}. You can also share it manually.
                       </p>
                     </div>
                   </div>
@@ -1611,15 +1717,7 @@ Bob Wilson,bob@company.com,Designer`
               >
                 Close
               </Button>
-              <Button
-                onClick={() => {
-                  setShowSuccessDialog(false);
-                  router.push("/SignatureDashboard");
-                }}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                Track Status
-              </Button>
+              
             </div>
           </div>
         </DialogContent>
@@ -2148,6 +2246,90 @@ Bob Wilson,bob@company.com,Designer`
       </motion.div>
     </>
   )}
+</AnimatePresence>
+
+<AnimatePresence>
+  {showDraftModal && pendingDraft && (() => {
+    const savedAt = new Date(pendingDraft.savedAt);
+    const minutesAgo = Math.floor((Date.now() - savedAt.getTime()) / 60000);
+    return (
+      <>
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0  z-[60]"
+        />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 8 }}
+          transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+          className="fixed inset-0 z-[61] flex items-center justify-center p-4"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200">
+
+            {/* Body */}
+            <div className="p-5">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Resume your draft?</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    You have unsaved work from {minutesAgo} minute{minutesAgo !== 1 ? 's' : ''} ago on this device.
+                  </p>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-3 mb-4">
+                <div className="text-center flex-1">
+                  <p className="text-lg font-semibold text-slate-900">{pendingDraft.recipients?.length || 0}</p>
+                  <p className="text-xs text-slate-400">recipients</p>
+                </div>
+                <div className="w-px h-8 bg-slate-200" />
+                <div className="text-center flex-1">
+                  <p className="text-lg font-semibold text-slate-900">Step {pendingDraft.step || 1}</p>
+                  <p className="text-xs text-slate-400">of 2</p>
+                </div>
+                <div className="w-px h-8 bg-slate-200" />
+                <div className="text-center flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-900 truncate">{doc?.filename}</p>
+                  <p className="text-xs text-slate-400">document</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                <Info className="h-3 w-3 flex-shrink-0" />
+                Drafts are saved on this device only and not synced.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 pb-5 flex gap-2">
+              <button
+                onClick={() => {
+                  clearDraft();
+                  setShowDraftModal(false);
+                  setPendingDraft(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors font-medium"
+              >
+                Start fresh
+              </button>
+              <button
+                onClick={() => restoreDraft(pendingDraft)}
+                className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-sm text-white font-medium transition-colors"
+              >
+                Resume draft
+              </button>
+            </div>
+
+          </div>
+        </motion.div>
+      </>
+    );
+  })()}
 </AnimatePresence>
 
     </div>

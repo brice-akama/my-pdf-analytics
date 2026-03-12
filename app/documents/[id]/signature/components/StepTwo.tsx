@@ -1,9 +1,14 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CheckSquare, Clock, Edit, FileSignature, Monitor, Paperclip, Settings, X } from "lucide-react";
+import { CheckSquare, Clock, Edit, FileSignature, Loader2, Monitor, Paperclip, Settings, X } from "lucide-react";
 import type { DocumentType, SignatureField, SignatureRequest, Recipient } from "./types";
 import EditDrawer from "./EditDrawer";
+
+// ── Coordinate constants (must match sign page + pdfGenerator) ────────────────
+const PDF_NATURAL_W = 794;
+const PAGE_H_PX     = 297 * 3.78; // 1122px
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -42,14 +47,14 @@ const FIELD_TYPES: { type: SignatureField["type"]; label: string; icon: React.Re
   },
 ];
 
-function getFieldDimensions(type: string) {
+function getFieldDimensions(type: string): { width: string; height: string } {
   switch (type) {
-    case "signature":   return { width: "140px", height: "50px" };
-    case "dropdown":    return { width: "180px", height: "36px" };
-    case "radio":       return { width: "160px", height: "auto" };
-    case "text":        return { width: "120px", height: "36px" };
-    case "attachment":  return { width: "150px", height: "36px" };
-    default:            return { width: "120px", height: "32px" };
+    case "signature":  return { width: "140px", height: "50px" };
+    case "dropdown":   return { width: "180px", height: "36px" };
+    case "radio":      return { width: "160px", height: "auto" };
+    case "text":       return { width: "120px", height: "36px" };
+    case "attachment": return { width: "150px", height: "36px" };
+    default:           return { width: "120px", height: "32px" };
   }
 }
 
@@ -77,7 +82,17 @@ function FieldSidebar({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-5 h-full overflow-y-auto">
+    // KEY: position sticky so sidebar stays visible while PDF column scrolls
+    <div
+      className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-5 overflow-y-auto"
+      style={{
+        position:       'sticky',
+        top:            0,
+        maxHeight:      'calc(100vh - 200px)',
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'rgba(0,0,0,0.1) transparent',
+      }}
+    >
       <h3 className="font-semibold text-slate-900 text-base">Fields</h3>
 
       {/* Undo / Redo */}
@@ -146,48 +161,60 @@ function FieldSidebar({
 // ─── Field Overlay ────────────────────────────────────────────────────────────
 
 function FieldOverlay({
-  field, recipients, signatureRequest, setSignatureRequest, setEditingFieldLogic, setEditingLabelField,
+  field, pdfScale, recipients, signatureRequest, setSignatureRequest, setEditingFieldLogic, setEditingLabelField,
 }: {
   field: SignatureField;
+  pdfScale: number;
   recipients: Recipient[];
   signatureRequest: SignatureRequest;
   setSignatureRequest: React.Dispatch<React.SetStateAction<SignatureRequest>>;
   setEditingFieldLogic: (f: SignatureField | null) => void;
   setEditingLabelField: (f: SignatureField | null) => void;
 }) {
-  const PAGE_HEIGHT = 297 * 3.78;
-  const topPosition = (field.page - 1) * PAGE_HEIGHT + (field.y / 100) * PAGE_HEIGHT;
-  const recipient = recipients[field.recipientIndex];
-  const dims = getFieldDimensions(field.type);
+  // Positioned inside the NATURAL 794px space — CSS transform handles scaling
+  const topPosition = (field.page - 1) * PAGE_H_PX + (field.y / 100) * PAGE_H_PX;
+  const recipient   = recipients[field.recipientIndex];
+  const dims        = getFieldDimensions(field.type);
 
-  const updateFields = (updated: SignatureField[]) => {
+  const updateFields = (updated: SignatureField[]) =>
     setSignatureRequest((prev) => ({ ...prev, signatureFields: updated }));
-  };
 
-  const removeField = () => {
+  const removeField = () =>
     updateFields(signatureRequest.signatureFields.filter((f) => f.id !== field.id));
-  };
 
+  // Convert scaled screen coords → natural PDF coords
   const handleDragEnd = (e: React.DragEvent) => {
-    const container = document.getElementById("pdf-container");
+    const container = document.getElementById("pdf-natural-container");
     if (!container) return;
     const rect = container.getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const pageNumber = Math.floor(y / PAGE_HEIGHT) + 1;
-    const yPercent = ((y % PAGE_HEIGHT) / PAGE_HEIGHT) * 100;
-    const newX = ((e.clientX - rect.left) / rect.width) * 100;
+
+    const naturalX = (e.clientX - rect.left) / pdfScale;
+    const naturalY = (e.clientY - rect.top)  / pdfScale;
+
+    const pageNumber = Math.max(1, Math.floor(naturalY / PAGE_H_PX) + 1);
+    const yPercent   = ((naturalY % PAGE_H_PX) / PAGE_H_PX) * 100;
+    const xPercent   = (naturalX / PDF_NATURAL_W) * 100;
+
     updateFields(signatureRequest.signatureFields.map((f) =>
-      f.id === field.id ? { ...f, x: newX, y: yPercent, page: pageNumber } : f
+      f.id === field.id ? { ...f, x: xPercent, y: yPercent, page: pageNumber } : f
     ));
   };
 
-  const hasSettings = ["attachment", "dropdown", "radio", "checkbox", "text"].includes(field.type);
+  const hasSettings  = ["attachment", "dropdown", "radio", "checkbox", "text"].includes(field.type);
   const hasLabelEdit = field.type === "text" || field.type === "checkbox";
 
   return (
     <div
       className="absolute border-2 rounded cursor-move bg-white/95 shadow-xl group hover:shadow-2xl transition-all hover:z-50"
-      style={{ left: `${field.x}%`, top: `${topPosition}px`, borderColor: recipient?.color || "#9333ea", width: dims.width, height: dims.height, transform: "translate(-50%, 0%)" }}
+      style={{
+        left:        `${field.x}%`,
+        top:         `${topPosition}px`,
+        borderColor: recipient?.color || "#9333ea",
+        width:       dims.width,
+        height:      dims.height,
+        transform:   "translate(-50%, 0%)",
+        zIndex:      20,
+      }}
       draggable onDragEnd={handleDragEnd}
     >
       <div className="h-full flex flex-col items-center justify-center px-2 relative">
@@ -214,13 +241,13 @@ function FieldOverlay({
         {/* Field body */}
         <div className="text-center mt-4">
           <div className="flex items-center justify-center gap-1 mb-0.5">
-            {field.type === "signature"   && <FileSignature className="h-4 w-4" />}
-            {field.type === "date"        && <Clock className="h-4 w-4" />}
-            {field.type === "text"        && <Edit className="h-4 w-4" />}
-            {field.type === "checkbox"    && <CheckSquare className="h-4 w-4" />}
-            {field.type === "attachment"  && <Paperclip className="h-4 w-4" />}
-            {field.type === "dropdown"    && <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>}
-            {field.type === "radio"       && <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" strokeWidth={2} /></svg>}
+            {field.type === "signature"  && <FileSignature className="h-4 w-4" />}
+            {field.type === "date"       && <Clock className="h-4 w-4" />}
+            {field.type === "text"       && <Edit className="h-4 w-4" />}
+            {field.type === "checkbox"   && <CheckSquare className="h-4 w-4" />}
+            {field.type === "attachment" && <Paperclip className="h-4 w-4" />}
+            {field.type === "dropdown"   && <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>}
+            {field.type === "radio"      && <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" strokeWidth={2} /></svg>}
 
             {field.type !== "checkbox" && field.type !== "attachment" && (
               <span className="text-xs font-semibold">
@@ -267,26 +294,95 @@ function FieldOverlay({
   );
 }
 
-// ─── PDF Canvas ───────────────────────────────────────────────────────────────
+// ─── PDF Canvas (PDF.js + CSS transform scale + drop zone) ───────────────────
 
 function PDFCanvas({
   doc, pdfUrl, signatureRequest, setSignatureRequest, setEditingFieldLogic, setEditingLabelField,
 }: Pick<StepTwoProps, "doc" | "pdfUrl" | "signatureRequest" | "setSignatureRequest" | "setEditingFieldLogic" | "setEditingLabelField">) {
-  const PAGE_HEIGHT = 297 * 3.78;
+  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [pdfScale,   setPdfScale]   = useState(1);
+  const [totalPages, setTotalPages] = useState(doc.numPages || 1);
+  const [pdfReady,   setPdfReady]   = useState(false);
 
+  // ── Render PDF into canvas ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!pdfUrl || !canvasRef.current) return;
+    let cancelled = false;
+
+    const render = async () => {
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+      const pdf   = await pdfjsLib.getDocument(pdfUrl).promise;
+      const pages = pdf.numPages;
+      if (cancelled) return;
+      setTotalPages(pages);
+
+      const dpr    = window.devicePixelRatio || 1;
+      const canvas = canvasRef.current!;
+      canvas.width        = PDF_NATURAL_W * dpr;
+      canvas.height       = PAGE_H_PX * pages * dpr;
+      canvas.style.width  = `${PDF_NATURAL_W}px`;
+      canvas.style.height = `${PAGE_H_PX * pages}px`;
+
+      const ctx = canvas.getContext('2d', { alpha: false })!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      for (let p = 1; p <= pages; p++) {
+        if (cancelled) return;
+        const page    = await pdf.getPage(p);
+        const natural = page.getViewport({ scale: 1 });
+        const scale   = (PDF_NATURAL_W / natural.width) * dpr;
+        const vp      = page.getViewport({ scale });
+        ctx.save();
+        ctx.translate(0, (p - 1) * PAGE_H_PX * dpr);
+        await page.render({ canvasContext: ctx, viewport: vp, intent: 'display' }).promise;
+        ctx.restore();
+      }
+
+      if (!cancelled) setPdfReady(true);
+    };
+
+    setPdfReady(false);
+    render().catch(console.error);
+    return () => { cancelled = true; };
+  }, [pdfUrl]);
+
+  // ── Scale canvas to fit wrapper width ──────────────────────────────────────
+  useEffect(() => {
+    const recalc = () => {
+      if (!wrapperRef.current) return;
+      const avail = wrapperRef.current.clientWidth - 32;
+      setPdfScale(Math.min(avail / PDF_NATURAL_W, 1));
+    };
+    const ob = new ResizeObserver(recalc);
+    if (wrapperRef.current) ob.observe(wrapperRef.current);
+    recalc();
+    return () => ob.disconnect();
+  }, []);
+
+  // ── Drop: screen coords → natural PDF coords ────────────────────────────────
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const fieldType = e.dataTransfer.getData("fieldType") as SignatureField["type"];
-    const container = document.getElementById("pdf-container");
+    if (!fieldType) return;
+
+    const container = document.getElementById("pdf-natural-container");
     if (!container) return;
     const rect = container.getBoundingClientRect();
-    const y = e.clientY - rect.top;
-    const pageNumber = Math.floor(y / PAGE_HEIGHT) + 1;
-    const yPercent = ((y % PAGE_HEIGHT) / PAGE_HEIGHT) * 100;
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
+
+    const naturalX = (e.clientX - rect.left) / pdfScale;
+    const naturalY = (e.clientY - rect.top)  / pdfScale;
+
+    const pageNumber = Math.max(1, Math.floor(naturalY / PAGE_H_PX) + 1);
+    const yPercent   = ((naturalY % PAGE_H_PX) / PAGE_H_PX) * 100;
+    const xPercent   = (naturalX / PDF_NATURAL_W) * 100;
 
     const newField: SignatureField = {
-      id: Date.now(), type: fieldType, x, y: yPercent, page: pageNumber, recipientIndex: 0,
+      id: Date.now(), type: fieldType, x: xPercent, y: yPercent, page: pageNumber, recipientIndex: 0,
       label: fieldType === "checkbox" ? "Check this box" : fieldType === "dropdown" ? "Select an option" : fieldType === "radio" ? "Choose one option" : "",
       defaultChecked: false,
       attachmentLabel: fieldType === "attachment" ? "Upload Required Document" : undefined,
@@ -299,29 +395,71 @@ function PDFCanvas({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 overflow-y-auto h-full">
+    // wrapperRef measures width for scaling — this div does NOT scroll
+    <div ref={wrapperRef} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+
+      {/* Loading spinner */}
+      {!pdfReady && (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <Loader2 className="h-10 w-10 animate-spin text-purple-600 mx-auto mb-3" />
+            <p className="text-sm text-slate-500 font-medium">Loading document…</p>
+          </div>
+        </div>
+      )}
+
+      {/* Outer clipping box — exact scaled size */}
       <div
-        id="pdf-container"
-        className="relative bg-slate-100 rounded-lg mx-auto"
-        style={{ width: "210mm", minHeight: `${297 * (doc.numPages || 1)}mm`, maxWidth: "100%" }}
+        className="relative mx-auto"
+        style={{
+          width:        PDF_NATURAL_W * pdfScale,
+          height:       PAGE_H_PX * totalPages * pdfScale,
+          overflow:     'hidden',
+          display:      pdfReady ? 'block' : 'none',
+          borderRadius: 4,
+          boxShadow:    '0 2px 16px rgba(0,0,0,0.10)',
+        }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
       >
-        {pdfUrl ? (
-          <>
-            <embed src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0`} type="application/pdf" className="w-full" style={{ border: "none", pointerEvents: "none", height: `${297 * (doc.numPages || 1)}mm`, display: "block" }} />
-            {signatureRequest.signatureFields.map((field) => (
-              <FieldOverlay key={field.id} field={field} recipients={signatureRequest.recipients} signatureRequest={signatureRequest} setSignatureRequest={setSignatureRequest} setEditingFieldLogic={setEditingFieldLogic} setEditingLabelField={setEditingLabelField} />
-            ))}
-          </>
-        ) : (
-          <div className="flex items-center justify-center" style={{ minHeight: "297mm" }}>
-            <div className="text-center">
-              <div className="animate-spin h-12 w-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4" />
-              <p className="text-slate-600 font-medium">Loading document...</p>
-            </div>
-          </div>
-        )}
+        {/* Inner natural-size container — CSS scaled */}
+        <div
+          id="pdf-natural-container"
+          style={{
+            width:           PDF_NATURAL_W,
+            height:          PAGE_H_PX * totalPages,
+            transform:       `scale(${pdfScale})`,
+            transformOrigin: 'top left',
+            position:        'absolute',
+            top: 0, left: 0,
+          }}
+        >
+          {/* PDF canvas */}
+          <canvas ref={canvasRef} style={{ display: 'block', width: `${PDF_NATURAL_W}px` }} />
+
+          {/* Page dividers */}
+          {Array.from({ length: totalPages - 1 }, (_, i) => (
+            <div key={i} style={{
+              position: 'absolute', top: PAGE_H_PX * (i + 1),
+              left: 0, right: 0, height: 2,
+              background: 'rgba(147,51,234,0.15)', zIndex: 5,
+            }} />
+          ))}
+
+          {/* Field overlays — positioned in natural 794px space */}
+          {signatureRequest.signatureFields.map((field) => (
+            <FieldOverlay
+              key={field.id}
+              field={field}
+              pdfScale={pdfScale}
+              recipients={signatureRequest.recipients}
+              signatureRequest={signatureRequest}
+              setSignatureRequest={setSignatureRequest}
+              setEditingFieldLogic={setEditingFieldLogic}
+              setEditingLabelField={setEditingLabelField}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -342,20 +480,13 @@ export default function StepTwo({
         <div className="h-20 w-20 rounded-3xl bg-purple-100 flex items-center justify-center mx-auto mb-5">
           <Monitor className="h-10 w-10 text-purple-600" />
         </div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">
-          Use a Desktop to Place Fields
-        </h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Use a Desktop to Place Fields</h2>
         <p className="text-sm text-slate-500 max-w-xs leading-relaxed mb-6">
           Dragging signature fields onto a document requires a larger screen.
           Open this page on a laptop or desktop to continue placing fields.
         </p>
-        {/* Still let them edit recipients on mobile */}
-        <Button
-          onClick={() => setShowEditDrawer(true)}
-          className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-6 h-11"
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit Recipients &amp; Settings
+        <Button onClick={() => setShowEditDrawer(true)} className="bg-purple-600 hover:bg-purple-700 text-white rounded-xl px-6 h-11">
+          <Edit className="h-4 w-4 mr-2" />Edit Recipients &amp; Settings
         </Button>
         <p className="text-xs text-slate-400 mt-4">
           {signatureRequest.signatureFields.length > 0
@@ -365,8 +496,19 @@ export default function StepTwo({
       </div>
 
       {/* ── Desktop: full editor ── */}
-      <div className="hidden lg:grid lg:grid-cols-12 gap-4 h-[calc(100vh-200px)]">
-        <div className="lg:col-span-3">
+      {/*
+        LAYOUT:
+        - Outer: flex row, items-start (so children don't stretch to equal heights)
+        - LEFT (260px): position:sticky top:0 — stays pinned as user scrolls PDF
+        - RIGHT (flex-1): overflow-y-auto — this column scrolls, PDF grows naturally inside
+        The parent page must NOT be overflow-hidden or have a fixed height that
+        prevents this column from scrolling. Remove any h-[calc(100vh-200px)] on
+        the container that wraps StepTwo in your page file.
+      */}
+      <div className="hidden lg:flex gap-4 items-start">
+
+        {/* LEFT — sticky sidebar */}
+        <div style={{ width: 260, flexShrink: 0 }}>
           <FieldSidebar
             mode={mode}
             signatureRequest={signatureRequest}
@@ -377,7 +519,16 @@ export default function StepTwo({
             setShowEditDrawer={setShowEditDrawer}
           />
         </div>
-        <div className="lg:col-span-9">
+
+        {/* RIGHT — scrollable PDF column */}
+        <div
+          className="flex-1 min-w-0 overflow-y-auto pb-12"
+          style={{
+            maxHeight:      'calc(100vh - 200px)',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(147,51,234,0.2) transparent',
+          }}
+        >
           <PDFCanvas
             doc={doc}
             pdfUrl={pdfUrl}
@@ -389,7 +540,7 @@ export default function StepTwo({
         </div>
       </div>
 
-      {/* ── Edit Drawer (works on both mobile and desktop) ── */}
+      {/* ── Edit Drawer ── */}
       <EditDrawer
         open={showEditDrawer}
         onClose={() => setShowEditDrawer(false)}

@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import ConditionalFieldBuilder from "@/components/ConditionalFieldBuilder";
 import { toast } from "sonner";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 import {
   FileSignature,
   Clock,
@@ -1306,6 +1307,9 @@ export default function ESignaturePage() {
       {/* ── Template Saved Modal ── */}
       <Dialog open={showTemplateSavedModal} onOpenChange={setShowTemplateSavedModal}>
         <DialogContent className="bg-white sm:max-w-md p-0 overflow-hidden rounded-2xl">
+          <VisuallyHidden.Root>
+    <DialogTitle>Template Saved</DialogTitle>
+  </VisuallyHidden.Root>
           <div className="p-8 text-center">
             <div className="h-16 w-16 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-5">
               <FileSignature className="h-8 w-8 text-purple-600" />
