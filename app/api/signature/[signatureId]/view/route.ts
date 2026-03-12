@@ -11,137 +11,23 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_SECRET_KEY,
 });
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ signatureId: string }> }
-) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: extract Cloudinary public_id from a secure_url and fetch the bytes
+// ─────────────────────────────────────────────────────────────────────────────
+async function fetchCloudinaryPdf(signedUrl: string): Promise<ArrayBuffer | null> {
   try {
-    const { signatureId } = await params;
-    
-    console.log('👁️ View request for signature:', signatureId);
-    
-    const db = await dbPromise;
-
-    // ⭐ Check if this is a CC recipient request
-    const isCCRequest = signatureId.startsWith('cc-');
-    let signatureRequest;
-    let document;
-
-    if (isCCRequest) {
-      console.log('📧 CC Recipient view request');
-      
-      // Get CC recipient record
-      const ccRecord = await db.collection("cc_recipients").findOne({
-        uniqueId: signatureId,
-      });
-
-      if (!ccRecord) {
-        return NextResponse.json(
-          { success: false, message: "CC record not found" },
-          { status: 404 }
-        );
-      }
-
-      // Get document
-      document = await db.collection("documents").findOne({
-        _id: new ObjectId(ccRecord.documentId),
-      });
-
-      if (!document) {
-        return NextResponse.json(
-          { success: false, message: "Document not found" },
-          { status: 404 }
-        );
-      }
-
-      // Get any signature request for this document
-      signatureRequest = await db.collection("signature_requests").findOne({
-        documentId: ccRecord.documentId,
-      });
-
-      if (!signatureRequest) {
-        return NextResponse.json(
-          { success: false, message: "No signature requests found for this document" },
-          { status: 404 }
-        );
-      }
-
-      console.log('✅ CC recipient verified, document found');
-    } else {
-      // Regular signature request
-      signatureRequest = await db.collection("signature_requests").findOne({
-        uniqueId: signatureId,
-      });
-
-      if (!signatureRequest) {
-        return NextResponse.json(
-          { success: false, message: "Signature request not found" },
-          { status: 404 }
-        );
-      }
-
-      document = await db.collection("documents").findOne({
-        _id: new ObjectId(signatureRequest.documentId),
-      });
-
-      if (!document) {
-        return NextResponse.json(
-          { success: false, message: "Document not found" },
-          { status: 404 }
-        );
-      }
-    }
-
-    // ✅ DETERMINE WHICH SIGNATURES TO INCLUDE
-    let signaturesToInclude;
-
-    if (isCCRequest) {
-      // CC RECIPIENT: Include ALL signed signatures
-      signaturesToInclude = await db.collection("signature_requests")
-        .find({ 
-          documentId: signatureRequest.documentId,
-          status: "signed"
-        })
-        .toArray();
-      console.log(`📧 CC mode - PDF with all ${signaturesToInclude.length} signers`);
-    } else if (signatureRequest.isBulkSend === true) {
-      // BULK SEND: Only this person's signature
-      signaturesToInclude = [signatureRequest];
-      console.log('📧 Bulk send mode - PDF with only this signer');
-    } else {
-      // SHARED/ISOLATED: All signatures
-      signaturesToInclude = await db.collection("signature_requests")
-        .find({ 
-          documentId: signatureRequest.documentId,
-          status: "signed"
-        })
-        .toArray();
-      console.log(`🤝 Shared/Isolated mode - PDF with all ${signaturesToInclude.length} signers`);
-    }
-
-    // ✅ GENERATE PDF WITH APPROPRIATE SIGNATURES
-    console.log('🎨 Generating signed PDF...');
-    const signedPdfUrl = await generateSignedPDF(
-      signatureRequest.documentId,
-      signaturesToInclude
-    );
-
-    console.log('✅ PDF generated:', signedPdfUrl);
-
-    // Extract public_id from the generated URL
-    const urlMatch = signedPdfUrl.match(/\/signed_documents\/(.+?)\.pdf/);
+    // URL pattern:  .../image/upload/v.../signed_documents/XXX.pdf
+    const urlMatch = signedUrl.match(/\/(?:image|raw)\/upload\/(?:v\d+\/)?(.+?)(?:\.pdf)?$/);
     if (!urlMatch) {
-      console.error('❌ Could not extract public_id from generated URL');
-      return NextResponse.json(
-        { success: false, message: "Invalid generated PDF URL" },
-        { status: 500 }
-      );
+      console.error('❌ Cannot parse public_id from URL:', signedUrl);
+      return null;
     }
 
-    const publicId = `signed_documents/${urlMatch[1]}`;
-    console.log('🔑 Generated PDF Public ID:', publicId);
+    let publicId = urlMatch[1];
+    // Strip any trailing .pdf that slipped through
+    publicId = publicId.replace(/\.pdf$/, '');
+    console.log('🔑 Public ID for fetch:', publicId);
 
-    // Generate authenticated download URL
     const authenticatedUrl = cloudinary.v2.utils.private_download_url(
       publicId,
       'pdf',
@@ -152,34 +38,144 @@ export async function GET(
       }
     );
 
-    console.log('✅ Fetching with authenticated URL');
-
-    // Fetch the PDF
-    const pdfResponse = await fetch(authenticatedUrl);
-
-    if (!pdfResponse.ok) {
-      console.error('❌ Failed:', pdfResponse.status, pdfResponse.statusText);
-      return NextResponse.json(
-        { success: false, message: "Failed to retrieve signed document" },
-        { status: 500 }
-      );
+    const res = await fetch(authenticatedUrl);
+    if (!res.ok) {
+      console.error('❌ Cloudinary fetch failed:', res.status, res.statusText);
+      return null;
     }
 
-    const pdfBuffer = await pdfResponse.arrayBuffer();
-    console.log('✅ Downloaded:', pdfBuffer.byteLength, 'bytes');
+    return res.arrayBuffer();
+  } catch (err) {
+    console.error('❌ fetchCloudinaryPdf error:', err);
+    return null;
+  }
+}
 
-    // ✅✅✅ ADD VIEW NOTIFICATION (NOT DOWNLOAD)
-    const viewerName = isCCRequest 
-      ? (signatureRequest.recipient?.name || 'CC Recipient')
-      : (signatureRequest.recipient?.name || signatureRequest.signerName || 'Unknown User');
-    const viewerEmail = isCCRequest 
-      ? (signatureRequest.recipient?.email || signatureRequest.signerEmail)
-      : (signatureRequest.recipient?.email || signatureRequest.signerEmail);
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/signature/[signatureId]/view
+// ─────────────────────────────────────────────────────────────────────────────
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ signatureId: string }> }
+) {
+  try {
+    const { signatureId } = await params;
+    console.log('👁️ View request for signature:', signatureId);
 
-    console.log('📊 View Info:', { viewerName, viewerEmail, uniqueId: signatureRequest.uniqueId });
+    const db = await dbPromise;
+
+    const isCCRequest = signatureId.startsWith('cc-');
+    let signatureRequest: any;
+    let document: any;
+
+    // ── Resolve signature request + document ──────────────────────────────────
+    if (isCCRequest) {
+      console.log('📧 CC Recipient view request');
+
+      const ccRecord = await db.collection('cc_recipients').findOne({ uniqueId: signatureId });
+      if (!ccRecord) return NextResponse.json({ success: false, message: 'CC record not found' }, { status: 404 });
+
+      document = await db.collection('documents').findOne({ _id: new ObjectId(ccRecord.documentId) });
+      if (!document) return NextResponse.json({ success: false, message: 'Document not found' }, { status: 404 });
+
+      signatureRequest = await db.collection('signature_requests').findOne({ documentId: ccRecord.documentId });
+      if (!signatureRequest) return NextResponse.json({ success: false, message: 'No signature requests found' }, { status: 404 });
+
+      console.log('✅ CC recipient verified');
+    } else {
+      signatureRequest = await db.collection('signature_requests').findOne({ uniqueId: signatureId });
+      if (!signatureRequest) return NextResponse.json({ success: false, message: 'Signature request not found' }, { status: 404 });
+
+      document = await db.collection('documents').findOne({ _id: new ObjectId(signatureRequest.documentId) });
+      if (!document) return NextResponse.json({ success: false, message: 'Document not found' }, { status: 404 });
+    }
+
+    // ── Determine signers to include ──────────────────────────────────────────
+    let signaturesToInclude: any[];
+
+    if (isCCRequest || !signatureRequest.isBulkSend) {
+      // All signed requests for this document
+      signaturesToInclude = await db.collection('signature_requests')
+        .find({ documentId: signatureRequest.documentId, status: 'signed' })
+        .toArray();
+      console.log(`🤝 Including all ${signaturesToInclude.length} signed signers`);
+    } else {
+      // Bulk send — only this signer
+      signaturesToInclude = [signatureRequest];
+      console.log('📧 Bulk send mode - only this signer');
+    }
+
+    // ── Cache key: sorted signer IDs so we reuse the same PDF for the same set ─
+    const signerIds = signaturesToInclude
+      .map((r: any) => r._id?.toString())
+      .sort()
+      .join(',');
+
+    // ── Check if we already have a cached signed PDF for this exact signer set ─
+    const cachedDoc = await db.collection('signed_pdf_cache').findOne({
+      documentId: signatureRequest.documentId,
+      signerIds:  signerIds,
+    });
+
+    let signedPdfUrl: string;
+
+    if (cachedDoc?.signedPdfUrl) {
+      console.log('⚡ Using cached signed PDF');
+      signedPdfUrl = cachedDoc.signedPdfUrl;
+    } else {
+      // Generate fresh PDF
+      console.log('🎨 Generating signed PDF...');
+      signedPdfUrl = await generateSignedPDF(
+        signatureRequest.documentId,
+        signaturesToInclude
+      );
+      console.log('✅ PDF generated:', signedPdfUrl);
+
+      // Cache for future requests (TTL 24h — MongoDB TTL index on expiresAt)
+      await db.collection('signed_pdf_cache').updateOne(
+        { documentId: signatureRequest.documentId, signerIds },
+        {
+          $set: {
+            documentId:  signatureRequest.documentId,
+            signerIds,
+            signedPdfUrl,
+            generatedAt: new Date(),
+            expiresAt:   new Date(Date.now() + 24 * 60 * 60 * 1000),
+          },
+        },
+        { upsert: true }
+      );
+      console.log('💾 Cached signed PDF URL');
+    }
+
+    // ── Fetch PDF bytes from Cloudinary ───────────────────────────────────────
+    const pdfBuffer = await fetchCloudinaryPdf(signedPdfUrl);
+
+    if (!pdfBuffer) {
+      // Cache might be stale — regenerate once
+      console.warn('⚠️ Cached URL failed, regenerating...');
+      const freshUrl = await generateSignedPDF(signatureRequest.documentId, signaturesToInclude);
+
+      await db.collection('signed_pdf_cache').updateOne(
+        { documentId: signatureRequest.documentId, signerIds },
+        { $set: { signedPdfUrl: freshUrl, generatedAt: new Date(), expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } },
+        { upsert: true }
+      );
+
+      const retryBuffer = await fetchCloudinaryPdf(freshUrl);
+      if (!retryBuffer) {
+        return NextResponse.json({ success: false, message: 'Failed to retrieve signed document' }, { status: 500 });
+      }
+
+      return buildPdfResponse(retryBuffer, document);
+    }
+
+    // ── Notifications + tracking (fire-and-forget, don't block response) ──────
+    const viewerName  = signatureRequest.recipient?.name  || signatureRequest.signerName  || 'Unknown User';
+    const viewerEmail = signatureRequest.recipient?.email || signatureRequest.signerEmail || '';
 
     if (document.userId) {
-      await notifyDocumentView(
+      notifyDocumentView(
         document.userId,
         document.originalFilename || document.filename || 'document.pdf',
         signatureRequest.documentId,
@@ -187,32 +183,37 @@ export async function GET(
         viewerEmail,
         signatureRequest.uniqueId,
         true
-      );
-      console.log('✅ View notification sent to document owner');
+      ).catch(() => {});
     }
 
-    // ✅ Track view in document (separate from downloads)
-    await db.collection('documents').updateOne(
+    db.collection('documents').updateOne(
       { _id: new ObjectId(signatureRequest.documentId) },
       {
         $inc: { 'tracking.views': 1 },
-        $set: { 'tracking.lastViewed': new Date() }
+        $set: { 'tracking.lastViewed': new Date() },
       }
-    );
+    ).catch(() => {});
 
-    // Return PDF for viewing (inline, not attachment)
-    return new NextResponse(pdfBuffer, {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="signed_${document.originalFilename || document.filename || 'document.pdf'}"`, // ⭐ inline instead of attachment
-        'Content-Length': pdfBuffer.byteLength.toString(),
-      },
-    });
+    console.log('✅ Returning PDF,', pdfBuffer.byteLength, 'bytes');
+    return buildPdfResponse(pdfBuffer, document);
+
   } catch (error) {
     console.error('❌ View error:', error);
-    return NextResponse.json(
-      { success: false, message: "Server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: 'Server error' }, { status: 500 });
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: build the PDF inline response
+// ─────────────────────────────────────────────────────────────────────────────
+function buildPdfResponse(buffer: ArrayBuffer, document: any): NextResponse {
+  const filename = `signed_${document.originalFilename || document.filename || 'document.pdf'}`;
+  return new NextResponse(buffer, {
+    headers: {
+      'Content-Type':        'application/pdf',
+      'Content-Disposition': `inline; filename="${filename}"`,
+      'Content-Length':      buffer.byteLength.toString(),
+      'Cache-Control':       'private, max-age=3600',
+    },
+  });
 }

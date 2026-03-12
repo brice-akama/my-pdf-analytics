@@ -144,47 +144,42 @@ useEffect(() => {
 
   const renderPDF = async () => {
     const pdfjsLib = await import('pdfjs-dist');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 
+      `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
     const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
     const totalPages = pdf.numPages;
 
-    // ⭐ KEY FIX: Force minimum 3x render quality regardless of device
-    const devicePixelRatio = Math.max(window.devicePixelRatio || 1, 3);
-    const pageWidth = PDF_NATURAL_W;
-    const pageHeightPx = 297 * 3.78;
+    const dpr = window.devicePixelRatio || 1;
+    // Always render at NATURAL 794px — never scaled
+    // High DPR = crisp on retina, CSS scale handles visual size
+    const RENDER_SCALE = (PDF_NATURAL_W / 794) * dpr;
 
     const canvas = pdfCanvasRef.current!;
-    // Canvas backing store = full resolution * DPR
-    canvas.width = pageWidth * devicePixelRatio;
-    canvas.height = pageHeightPx * totalPages * devicePixelRatio;
-    // CSS display size stays at natural dimensions
-    canvas.style.width = `${pageWidth}px`;
-    canvas.style.height = `${pageHeightPx * totalPages}px`;
+    const PAGE_H = 297 * 3.78;
 
-    const ctx = canvas.getContext('2d', { alpha: false })!; // alpha:false = faster + no transparency issues
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    // Canvas pixel buffer = full resolution (crisp)
+    canvas.width  = PDF_NATURAL_W * dpr;
+    canvas.height = PAGE_H * totalPages * dpr;
+
+    // CSS display = natural size (CSS transform will scale it down)
+    canvas.style.width  = `${PDF_NATURAL_W}px`;
+    canvas.style.height = `${PAGE_H * totalPages}px`;
+
+    const ctx = canvas.getContext('2d', { alpha: false })!;
+    ctx.imageSmoothingEnabled  = true;
+    ctx.imageSmoothingQuality  = 'high';
 
     for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-
-      // ⭐ KEY FIX: Viewport scale = (desired CSS width / natural PDF width) * DPR
-      const naturalViewport = page.getViewport({ scale: 1 });
-      const scale = (pageWidth / naturalViewport.width) * devicePixelRatio;
-      const viewport = page.getViewport({ scale });
-
-      const offsetY = (pageNum - 1) * pageHeightPx * devicePixelRatio;
+      const page    = await pdf.getPage(pageNum);
+      const natural = page.getViewport({ scale: 1 });
+      const scale   = (PDF_NATURAL_W / natural.width) * dpr;
+      const vp      = page.getViewport({ scale });
+      const offsetY = (pageNum - 1) * PAGE_H * dpr;
 
       ctx.save();
       ctx.translate(0, offsetY);
-
-      await page.render({
-        canvasContext: ctx,
-        viewport,
-        intent: 'display',
-      }).promise;
-
+      await page.render({ canvasContext: ctx, viewport: vp, intent: 'display' }).promise;
       ctx.restore();
     }
   };
@@ -195,10 +190,10 @@ useEffect(() => {
 useEffect(() => {
   const recalc = () => {
     if (!pdfWrapperRef.current) return;
-    const avail = pdfWrapperRef.current.clientWidth - 32; // 32 = p-4 padding on both sides
+    const avail = pdfWrapperRef.current.clientWidth - 16;
+    // Scale DOWN on small screens, never scale UP beyond 1
     setPdfScale(Math.min(avail / PDF_NATURAL_W, 1));
   };
-
   const observer = new ResizeObserver(recalc);
   if (pdfWrapperRef.current) observer.observe(pdfWrapperRef.current);
   recalc();
@@ -1888,185 +1883,170 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
           </div>
         </div>
 
-      {/* PDF Column - full width on mobile, flex-1 on desktop */}
+      {/* PDF Column */}
 <div
+  ref={pdfWrapperRef}
   className="flex-1 overflow-y-auto w-full"
   id="pdf-scroll-container"
-  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' as any, position: 'relative', zIndex: 1 }}
+  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' as any }}
 >
-  <style>{`
-    #pdf-scroll-container::-webkit-scrollbar { display: none; }
-  `}</style>
+  <style>{`#pdf-scroll-container::-webkit-scrollbar { display: none; }`}</style>
 
-  <div className="p-3 sm:p-4">
-    <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-      <div className="bg-slate-50 relative">
-        {pdfUrl ? (
+  <div className="p-2">
+    {/* 
+      Outer box: sized to SCALED dimensions — prevents overflow 
+      pdfScale < 1 on mobile, = 1 on desktop
+    */}
+    <div
+      className="relative mx-auto bg-white rounded-lg shadow-2xl overflow-hidden"
+      style={{
+        width:  PDF_NATURAL_W * pdfScale,
+        height: 297 * 3.78 * (document?.numPages ?? 1) * pdfScale,
+      }}
+    >
+      {pdfUrl ? (
+        <>
+          {/* 
+            Inner box at NATURAL 794px width.
+            CSS transform scales it to fit screen.
+            Both canvas + field overlays share this transform
+            so fields stay pixel-perfect on every screen size.
+          */}
           <div
-            id="pdf-signing-container"
-            className="relative mx-auto"
             style={{
-              width: '100%',
-              maxWidth: '210mm',
-              minHeight: `${297 * document.numPages}mm`,
+              width:           PDF_NATURAL_W,
+              height:          297 * 3.78 * (document?.numPages ?? 1),
+              transform:       `scale(${pdfScale})`,
+              transformOrigin: 'top left',
+              position:        'absolute',
+              top:             0,
+              left:            0,
             }}
           >
-            <embed
-              src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-              type="application/pdf"
-              className="w-full"
-              style={{
-                border: 'none',
-                pointerEvents: 'none',
-                height: `${297 * document.numPages}mm`,
-                display: 'block',
-              }}
+            {/* PDF canvas — rendered at full DPR resolution */}
+            <canvas
+              ref={pdfCanvasRef}
+              style={{ display: 'block', width: `${PDF_NATURAL_W}px` }}
             />
 
-            {/* Signature field overlays */}
-            <div className="absolute inset-0 pointer-events-none">
+            {/* Field overlays — same coordinate space as canvas */}
+            <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
               {signatureFields
-                .filter((field) => {
-                  const isMyField = field.recipientIndex === recipient?.index;
-                  const isVisible = isFieldVisible(field);
+                .filter(field => {
+                  const isMyField  = field.recipientIndex === recipient?.index;
+                  const isVisible  = isFieldVisible(field);
                   return isMyField || isVisible;
                 })
-                .map((field) => {
-                 const isFilled = field.type === 'attachment'
+                .map(field => {
+                  const isFilled  = field.type === 'attachment'
                     ? (attachments[field.id]?.length > 0)
-                    : signatures[field.id];
+                    : !!signatures[field.id];
                   const isMyField = field.recipientIndex === recipient?.index;
                   const isVisible = isFieldVisible(field);
-                  const pageHeightPx = 297 * 3.78;
-                  const topPercent = (((field.page - 1) * pageHeightPx) + (field.y / 100 * pageHeightPx)) / (pageHeightPx * (document?.numPages ?? 1)) * 100;
+
+                  // Same constants as editor & generator
+                  const PAGE_H    = 297 * 3.78; // 1122px
+                  const topPx     = ((field.page - 1) * PAGE_H) + (field.y / 100 * PAGE_H);
+
+                  // Field box sizes — same defaults as generator
+                  const W = field.width  ?? (
+                    field.type === 'signature'  ? 150 :
+                    field.type === 'checkbox'   ? 24  :
+                    field.type === 'attachment' ? 150 :
+                    field.type === 'dropdown'   ? 180 :
+                    field.type === 'radio'      ? 150 : 120
+                  );
+                  const H = field.height ?? (
+                    field.type === 'signature'  ? 45 :
+                    field.type === 'checkbox'   ? 24 :
+                    field.type === 'attachment' ? 40 :
+                    field.type === 'dropdown'   ? 35 :
+                    field.type === 'radio'      ? 'auto' as any : 32
+                  );
 
                   return (
                     <div
                       key={field.id}
                       data-field-id={field.id}
                       className={`absolute rounded transition-all ${
-                        isFilled ? "bg-transparent border-0"
-                          : !isVisible ? "hidden"
-                          : "bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80"
+                        isFilled    ? 'bg-transparent border-0'
+                        : !isVisible ? 'hidden'
+                        : 'bg-yellow-50/80 border-2 border-yellow-400 animate-pulse hover:bg-yellow-100/80'
                       }`}
-                     style={{
-                        left: `${field.x}%`,
-                        top: `${topPercent}%`,
-                        width: field.width ? `${field.width}px` :
-                          field.type === "signature" ? "150px" :
-                          field.type === "checkbox" ? "24px" :
-                          field.type === "attachment" ? "150px" :
-                          field.type === "dropdown" ? "180px" :
-                          field.type === "radio" ? "150px" : "120px",
-                        height: field.height ? `${field.height}px` :
-                          field.type === "signature" ? "45px" :
-                          field.type === "checkbox" ? "24px" :
-                          field.type === "attachment" ? "40px" :
-                          field.type === "dropdown" ? "35px" :
-                          field.type === "radio" ? "auto" : "32px",
-                        transform: "translate(-50%, 0%)",
-                        cursor: (field.type === "signature" || field.type === "attachment") && !isFilled ? "pointer" : "default",
-                        pointerEvents: !isVisible ? "none" : field.type === "checkbox" ? "auto" : isFilled ? "none" : "auto",
-                        zIndex: 10,
+                      style={{
+                        left:          `${field.x}%`,
+                        top:           `${topPx}px`,
+                        width:         typeof W === 'number' ? `${W}px` : W,
+                        height:        typeof H === 'number' ? `${H}px` : H,
+                        transform:     'translate(-50%, 0%)',
+                        pointerEvents: !isVisible ? 'none' : field.type === 'checkbox' ? 'auto' : isFilled ? 'none' : 'auto',
+                        cursor:        !isFilled && isMyField && isVisible ? 'pointer' : 'default',
+                        zIndex:        10,
                       }}
                       onClick={() => {
                         if (!isFilled && isMyField && isVisible) {
-                          if (field.type === "signature") setActiveField(field);
-                          else if (field.type === "text") { setActiveTextField(field); setTextFieldInput(""); }
-                          else if (field.type === "checkbox") handleCheckboxToggle(field.id);
-                          else if (field.type === "attachment") { setActiveAttachmentField(field); setShowAttachmentModal(true); }
-                          else if (field.type === "dropdown") { setActiveDropdownField(field); setShowDropdownModal(true); }
-                          else if (field.type === "radio") { setActiveRadioField(field); setShowRadioModal(true); }
+                          if      (field.type === 'signature')   setActiveField(field);
+                          else if (field.type === 'text')        { setActiveTextField(field); setTextFieldInput(''); }
+                          else if (field.type === 'checkbox')    handleCheckboxToggle(field.id);
+                          else if (field.type === 'attachment')  { setActiveAttachmentField(field); setShowAttachmentModal(true); }
+                          else if (field.type === 'dropdown')    { setActiveDropdownField(field); setShowDropdownModal(true); }
+                          else if (field.type === 'radio')       { setActiveRadioField(field); setShowRadioModal(true); }
                         }
                       }}
                     >
-                      <div className="h-full flex flex-col items-center justify-center p-2">
+                      <div className="h-full flex flex-col items-center justify-center p-1">
                         {isFilled ? (
                           <>
-                            {field.type === "signature" && (
-                              <img
-                                src={signatures[field.id].data}
-                                alt="Signature"
+                            {field.type === 'signature' && (
+                              <img src={signatures[field.id].data} alt="Signature"
                                 className="max-h-full max-w-full object-contain"
-                                style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.1))" }}
-                              />
+                                style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))' }} />
                             )}
-                            {field.type === "date" && (
-                              <div className="text-center w-full">
-                                <p className="text-sm font-medium text-slate-900 leading-tight">
-                                  {signatures[field.id].data}
-                                </p>
-                              </div>
-                            )}
-                            {field.type === "text" && (
-                              <p className="text-sm font-medium text-slate-900 text-center px-2 leading-tight">
+                            {field.type === 'date' && (
+                              <p className="text-xs font-medium text-slate-900 leading-tight text-center">
                                 {signatures[field.id].data}
                               </p>
                             )}
-                            {field.type === "checkbox" && (
-                              <div
-                                className="flex items-center gap-2 w-full h-full px-2 cursor-pointer"
-                                onClick={(e) => { e.stopPropagation(); handleCheckboxToggle(field.id); }}
-                              >
+                            {field.type === 'text' && (
+                              <p className="text-xs font-medium text-slate-900 text-center px-1 leading-tight">
+                                {signatures[field.id].data}
+                              </p>
+                            )}
+                            {field.type === 'checkbox' && (
+                              <div className="flex items-center gap-1 w-full h-full px-1 cursor-pointer"
+                                onClick={e => { e.stopPropagation(); handleCheckboxToggle(field.id); }}>
                                 {fieldValues[field.id]
-                                  ? <CheckSquare className="h-5 w-5 text-purple-600 flex-shrink-0" />
-                                  : <Square className="h-5 w-5 text-slate-400 flex-shrink-0" />}
-                                {field.label && (
-                                  <p className="text-xs font-medium text-slate-900 mt-1 text-center whitespace-nowrap text-ellipsis">
-                                    {field.label}
-                                  </p>
-                                )}
+                                  ? <CheckSquare className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                                  : <Square      className="h-4 w-4 text-slate-400   flex-shrink-0" />}
                               </div>
                             )}
-                            {field.type === "attachment" && attachments[field.id] && (
+                            {field.type === 'attachment' && attachments[field.id] && (
                               <div className="text-center w-full">
-                                <Paperclip className="h-5 w-5 text-green-600 mx-auto mb-1" />
-                                <p className="text-xs font-medium text-green-800">
-                                  {attachments[field.id].length} file(s) uploaded
-                                </p>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveAttachmentField(field);
-                                    setShowAttachmentModal(true);
-                                  }}
-                                  className="text-xs text-blue-600 hover:underline mt-1"
-                                >
-                                  View Files
-                                </button>
+                                <Paperclip className="h-3 w-3 text-green-600 mx-auto" />
+                                <p className="text-xs text-green-800">{attachments[field.id].length} file(s)</p>
+                                <button onClick={e => { e.stopPropagation(); setActiveAttachmentField(field); setShowAttachmentModal(true); }}
+                                  className="text-xs text-blue-600 underline">View</button>
                               </div>
                             )}
-                            {field.type === "dropdown" && (
-                              <div className="w-full h-full flex items-center justify-center px-2">
-                                <p className="text-sm font-medium text-slate-900 text-center truncate">
-                                  {fieldValues[field.id] || signatures[field.id]?.data || ""}
-                                </p>
-                              </div>
+                            {field.type === 'dropdown' && (
+                              <p className="text-xs font-medium text-slate-900 text-center truncate px-1">
+                                {fieldValues[field.id] || signatures[field.id]?.data || ''}
+                              </p>
                             )}
-                            {field.type === "radio" && (
-                              <div className="w-full px-2 space-y-1">
-                                {field.label && (
-                                  <p className="text-xs font-semibold text-slate-700 mb-2">{field.label}</p>
-                                )}
-                                {field.options?.map((option, idx) => (
-                                  <label key={idx} className="flex items-center gap-2 cursor-pointer hover:bg-purple-50 p-1 rounded">
-                                    <input
-                                      type="radio"
-                                      name={`radio-${field.id}`}
-                                      value={option}
-                                      checked={fieldValues[field.id] === option}
-                                      onChange={(e) => {
-                                        const value = e.target.value;
-                                        setFieldValues(prev => ({ ...prev, [field.id]: value }));
-                                        setSignatures(prev => ({
-                                          ...prev,
-                                          [field.id]: { type: "radio", data: value, timestamp: new Date().toISOString() }
-                                        }));
+                            {field.type === 'radio' && (
+                              <div className="w-full px-1 space-y-0.5">
+                                {field.options?.map((opt, i) => (
+                                  <label key={i} className="flex items-center gap-1 cursor-pointer">
+                                    <input type="radio" name={`radio-${field.id}`} value={opt}
+                                      checked={fieldValues[field.id] === opt}
+                                      onChange={e => {
+                                        const v = e.target.value;
+                                        setFieldValues(p => ({ ...p, [field.id]: v }));
+                                        setSignatures(p => ({ ...p, [field.id]: { type: 'radio', data: v, timestamp: new Date().toISOString() } }));
                                       }}
                                       disabled={!isMyField}
-                                      className="h-4 w-4 text-purple-600 focus:ring-purple-500"
-                                    />
-                                    <span className="text-xs font-medium text-slate-900">{option}</span>
+                                      className="h-3 w-3 text-purple-600" />
+                                    <span className="text-xs text-slate-900">{opt}</span>
                                   </label>
                                 ))}
                               </div>
@@ -2074,44 +2054,23 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
                           </>
                         ) : (
                           <div className="text-center">
-                            {field.type === "attachment" ? (
+                            {field.type === 'checkbox' ? (
+                              <Square className="h-4 w-4 text-yellow-700 mx-auto" />
+                            ) : field.type === 'attachment' ? (
                               <>
-                                <Paperclip className="h-5 w-5 text-yellow-700 mx-auto mb-1" />
-                                <p className="text-xs font-medium text-yellow-700">
-                                  📎 {field.attachmentLabel || "Upload Required"}
+                                <Paperclip className="h-3 w-3 text-yellow-700 mx-auto" />
+                                <p className="text-xs text-yellow-700 leading-tight">
+                                  {field.attachmentLabel || 'Upload'}
                                 </p>
-                                {field.isRequired && (
-                                  <p className="text-xs text-red-600 font-semibold mt-1">* Required</p>
-                                )}
-                                <p className="text-xs text-slate-600 mt-1">Click to upload</p>
                               </>
-                            ) : field.type === "checkbox" ? (
-                              <div className="flex items-center gap-2 w-full h-full px-2">
-                                <Square className="h-5 w-5 text-yellow-700 flex-shrink-0" />
-                                {field.label && (
-                                  <p className="text-xs text-yellow-700 font-medium truncate">{field.label}</p>
-                                )}
-                              </div>
                             ) : (
-                              <>
-                                <p className="text-xs font-medium text-yellow-700">
-                                  {field.type === "signature"
-                                    ? (isMyField ? "✍️ Click to Sign" : "⏳ Awaiting Signature")
-                                    : field.type === "date"
-                                    ? (isMyField ? "📅 Auto-filled" : "📅 Date pending")
-                                    : field.type === "dropdown"
-                                    ? (isMyField ? "📋 Select Option" : "⏳ Awaiting Selection")
-                                    : field.type === "radio"
-                                    ? (isMyField ? "⭕ Choose Option" : "⏳ Awaiting Choice")
-                                    : isMyField ? "📝 Click to Fill" : "⏳ Awaiting Input"}
-                                </p>
-                                <p className="text-xs text-slate-600 mt-1 font-semibold">
-                                  {isMyField
-                                    ? recipient.name
-                                    : (field as any).recipientName || `Recipient ${field.recipientIndex + 1}`}
-                                  {isMyField && " (You)"}
-                                </p>
-                              </>
+                              <p className="text-xs font-medium text-yellow-700 leading-tight">
+                                {field.type === 'signature'  ? (isMyField ? '✍️ Sign'   : '⏳')
+                                : field.type === 'date'       ? (isMyField ? '📅'        : '⏳')
+                                : field.type === 'dropdown'   ? (isMyField ? '📋 Select' : '⏳')
+                                : field.type === 'radio'      ? (isMyField ? '⭕ Choose' : '⏳')
+                                :                               (isMyField ? '📝 Fill'   : '⏳')}
+                              </p>
                             )}
                           </div>
                         )}
@@ -2121,12 +2080,12 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
                 })}
             </div>
           </div>
-        ) : (
-          <div className="h-[700px] flex items-center justify-center bg-slate-50">
-            <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-          </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="flex items-center justify-center" style={{ height: `${297 * 3.78 * pdfScale}px` }}>
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        </div>
+      )}
     </div>
   </div>
 </div>
