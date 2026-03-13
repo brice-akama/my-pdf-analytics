@@ -74,11 +74,120 @@ const [signatureTab, setSignatureTab] = useState<'draw' | 'type'>('draw');
 const [typedSignature, setTypedSignature] = useState('');
 
   // Terms
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
+   const [agreedToTerms, setAgreedToTerms] = useState(false);
+   const [alreadySigned, setAlreadySigned] = useState(false);
+   const [showSidebar, setShowSidebar] = useState(true);
+
+  const PDF_NATURAL_W  = 794;
+  const PAGE_H_PX      = 297 * 3.78;
+  const pdfCanvasRef   = useRef<HTMLCanvasElement>(null);
+  const pdfWrapperRef  = useRef<HTMLDivElement>(null);
+  const renderTaskRef  = useRef<any>(null);
+  const [pdfScale,     setPdfScale]     = useState(1);
+  const [pdfReady,     setPdfReady]     = useState(false);
+  const [totalPages,   setTotalPages]   = useState(1);
+   const currentDocument = documents[currentDocIndex];
 
   useEffect(() => {
     fetchEnvelope();
   }, [uniqueId]);
+
+  // ── PDF.js render ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const docId = currentDocument?.documentId;
+    if (!docId || !pdfUrls[docId]) return;
+
+    let cancelled = false;
+
+    const render = async () => {
+      if (renderTaskRef.current) {
+        try { renderTaskRef.current.cancel(); } catch (_) {}
+        renderTaskRef.current = null;
+        await new Promise(r => setTimeout(r, 50));
+      }
+      if (cancelled || !pdfCanvasRef.current) return;
+      setPdfReady(false);
+
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+      const pdf   = await pdfjsLib.getDocument(pdfUrls[docId]).promise;
+      if (cancelled) return;
+
+      const pages = pdf.numPages;
+      setTotalPages(pages);
+
+      const dpr    = window.devicePixelRatio || 1;
+      const canvas = pdfCanvasRef.current!;
+      canvas.width        = 1;
+      canvas.height       = 1;
+      canvas.width        = PDF_NATURAL_W * dpr;
+      canvas.height       = PAGE_H_PX * pages * dpr;
+      canvas.style.width  = `${PDF_NATURAL_W}px`;
+      canvas.style.height = `${PAGE_H_PX * pages}px`;
+
+      const ctx = canvas.getContext('2d', { alpha: false })!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      for (let p = 1; p <= pages; p++) {
+        if (cancelled) return;
+        const page    = await pdf.getPage(p);
+        const natural = page.getViewport({ scale: 1 });
+        const scale   = (PDF_NATURAL_W / natural.width) * dpr;
+        ctx.save();
+        ctx.translate(0, (p - 1) * PAGE_H_PX * dpr);
+        const task = page.render({
+          canvasContext: ctx,
+          viewport: page.getViewport({ scale }),
+          intent: 'display',
+        });
+        renderTaskRef.current = task;
+        try {
+          await task.promise;
+        } catch (err: any) {
+          ctx.restore();
+          if (err?.name === 'RenderingCancelledException') return;
+          throw err;
+        }
+        ctx.restore();
+      }
+
+      if (cancelled) return;
+      if (pdfWrapperRef.current) {
+        const avail = pdfWrapperRef.current.clientWidth - 48;
+        if (avail > 0) setPdfScale(Math.min(avail / PDF_NATURAL_W, 1));
+      }
+      renderTaskRef.current = null;
+      setPdfReady(true);
+    };
+
+    render().catch(err => {
+      if (err?.name !== 'RenderingCancelledException') console.error(err);
+    });
+
+    return () => {
+      cancelled = true;
+      if (renderTaskRef.current) {
+        try { renderTaskRef.current.cancel(); } catch (_) {}
+        renderTaskRef.current = null;
+      }
+    };
+  }, [currentDocument?.documentId, pdfUrls]);
+
+  // ── Scale on resize ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const recalc = () => {
+      if (!pdfWrapperRef.current) return;
+      const avail = pdfWrapperRef.current.clientWidth - 48;
+      if (avail > 0) setPdfScale(Math.min(avail / PDF_NATURAL_W, 1));
+    };
+    const ob = new ResizeObserver(recalc);
+    if (pdfWrapperRef.current) ob.observe(pdfWrapperRef.current);
+    recalc();
+    return () => ob.disconnect();
+  }, [pdfReady]);
 
   const fetchEnvelope = async () => {
     try {
@@ -115,7 +224,7 @@ if (ownerRes.ok) {
     }
   };
 
-  const currentDocument = documents[currentDocIndex];
+ 
   const currentDocFields = allSignatureFields.filter(
     f => f.documentId === currentDocument?.documentId
   );
@@ -187,18 +296,27 @@ if (ownerRes.ok) {
         ...signedDocuments,
         {
           documentId: currentDocument.documentId,
-          filename: currentDocument.filename,
+          filename:   currentDocument.filename,
           signedFields: lastDocFields,
-          signedAt: new Date().toISOString(),
+          signedAt:   new Date().toISOString(),
         }
       ];
-      const res = await fetch(`/api/envelope/${uniqueId}/sign`, {
-        method: 'POST',
+
+      const res  = await fetch(`/api/envelope/${uniqueId}/sign`, {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signedDocuments: allSignedDocs }),
+        body:    JSON.stringify({ signedDocuments: allSignedDocs }),
       });
       const data = await res.json();
+
+      // ── Already signed — show dedicated screen ──
+      if (res.status === 409 && data.alreadySigned) {
+        setAlreadySigned(true);
+        return;
+      }
+
       if (!res.ok || !data.success) throw new Error(data.message || 'Failed to submit');
+
       setCompleted(true);
     } catch (err: any) {
       toast.error(err.message || 'Failed to submit envelope');
@@ -235,6 +353,31 @@ if (ownerRes.ok) {
           </div>
           <h2 className="text-xl font-bold text-white mb-2">Invalid Envelope</h2>
           <p className="text-slate-400 text-sm">{error || 'Envelope not found'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── ALREADY SIGNED ──
+  if (alreadySigned) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0f1117' }}>
+        <div className="rounded-2xl p-8 max-w-md w-full text-center" style={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'rgba(99,102,241,0.15)' }}>
+            <CheckCircle className="h-8 w-8 text-indigo-400" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2">Already Signed</h2>
+          <p className="text-slate-400 text-sm mb-6">
+            You have already signed this envelope. Each signing link can only be used once.
+          </p>
+          <button
+            onClick={() => router.push('/')}
+            className="w-full py-3 rounded-xl text-sm font-medium text-white transition-colors"
+            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
+          >
+            Go Home
+          </button>
         </div>
       </div>
     );
@@ -529,11 +672,31 @@ if (ownerRes.ok) {
         </div>
       </div>
 
-      {/* ── BODY ── */}
-      <div className="flex" style={{ height: 'calc(100vh - 57px)' }}>
+{/* ── BODY ── */}
+      <div className="flex" style={{ height: 'calc(100vh - 57px)', overflow: 'hidden' }}>
 
         {/* ── SIDEBAR ── */}
-        <div className="w-80 flex-shrink-0 flex flex-col overflow-hidden border-r border-white/5" style={{ background: '#13181f' }}>
+    {/* Backdrop — clicking outside closes sidebar on mobile */}
+        {showSidebar && (
+          <div
+            className="fixed inset-0 z-20 lg:hidden"
+            style={{ background: 'rgba(0,0,0,0.5)' }}
+            onClick={() => setShowSidebar(false)}
+          />
+        )}
+
+        <div
+          className="flex-shrink-0 flex flex-col border-r border-white/5 transition-all duration-300"
+          style={{
+            background:  '#13181f',
+            height:      '100%',
+            overflow:    'hidden',
+            width:       showSidebar ? 320 : 0,
+            minWidth:    showSidebar ? 320 : 0,
+            opacity:     showSidebar ? 1 : 0,
+            borderRight: showSidebar ? '1px solid rgba(255,255,255,0.05)' : 'none',
+          }}
+        >
 
           {/* Signing as */}
           <div className="px-5 py-4 border-b border-white/5">
@@ -702,15 +865,39 @@ if (ownerRes.ok) {
         </div>
 
         {/* ── PDF CANVAS ── */}
-        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' as any }}>
-          <style>{`
-            .pdf-scroll::-webkit-scrollbar { display: none; }
-          `}</style>
-
+        <div
+          ref={pdfWrapperRef}
+          className="flex-1"
+          style={{
+            height: '100%',
+            overflowY: 'auto',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255,255,255,0.1) transparent',
+          }}
+        >
           {/* Doc header strip */}
-          <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-3"
-            style={{ background: 'rgba(15,17,23,0.95)', borderBottom: '1px solid rgba(255,255,255,0.05)', backdropFilter: 'blur(8px)' }}>
+          <div
+            className="sticky top-0 flex items-center justify-between px-6 py-3"
+            style={{
+              background: 'rgba(15,17,23,0.98)',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              zIndex: 50,
+            }}
+          >
             <div className="flex items-center gap-3">
+              {/* Sidebar toggle */}
+              <button
+                onClick={() => setShowSidebar(v => !v)}
+                className="h-7 w-7 rounded-lg flex items-center justify-center transition-colors"
+                style={{ background: showSidebar ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.06)' }}
+                title={showSidebar ? 'Hide sidebar' : 'Show sidebar'}
+              >
+                <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
               <button
                 onClick={() => currentDocIndex > 0 && setCurrentDocIndex(i => i - 1)}
                 disabled={currentDocIndex === 0}
@@ -726,136 +913,164 @@ if (ownerRes.ok) {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs px-2.5 py-1 rounded-full font-medium"
-                style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc' }}>
-                {Object.keys(signatures).filter(id => currentDocFields.some(f => f.id === id)).length}/{currentDocFields.length} done
-              </span>
-            </div>
+            <span className="text-xs px-2.5 py-1 rounded-full font-medium"
+              style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.25)', color: '#a5b4fc' }}>
+              {Object.keys(signatures).filter(id => currentDocFields.some(f => f.id === id)).length}/{currentDocFields.length} done
+            </span>
           </div>
 
-          <div className="p-6 pdf-scroll">
+          {/* PDF rendering area */}
+          <div className="p-6">
             <div className="max-w-4xl mx-auto">
-              <div className="rounded-xl shadow-2xl overflow-hidden relative" style={{ background: '#fff' }}>
+
+              {/* Loading spinner */}
+              {!pdfReady && pdfUrls[currentDocument?.documentId] && (
+                <div className="flex items-center justify-center" style={{ height: '60vh' }}>
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-indigo-400 mx-auto mb-3" />
+                    <p className="text-sm text-slate-400">Loading document...</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Outer scaled clip box */}
+              {pdfUrls[currentDocument?.documentId] && (
                 <div
-                  className="relative"
-                  style={{ minHeight: `${297 * (currentDocument?.numPages || 1) * 3.78}px` }}
+                  className="relative mx-auto"
+                  style={{
+                    width:        pdfReady ? PDF_NATURAL_W * pdfScale : 0,
+                    height:       pdfReady ? PAGE_H_PX * totalPages * pdfScale : 0,
+                    background:   '#fff',
+                    boxShadow:    pdfReady ? '0 8px 48px rgba(0,0,0,0.55)' : 'none',
+                    borderRadius: 4,
+                    overflow:     'hidden',
+                    display:      pdfReady ? 'block' : 'none',
+                  }}
                 >
-                  {pdfUrls[currentDocument?.documentId] ? (
-                    <>
-                      <embed
-                        src={`${pdfUrls[currentDocument.documentId]}#toolbar=0&navpanes=0&scrollbar=0`}
-                        type="application/pdf"
-                        className="w-full border-0"
-                        style={{
-                          height: `${297 * (currentDocument?.numPages || 1) * 3.78}px`,
-                          display: 'block',
-                          pointerEvents: 'none',
-                        }}
-                      />
+                  {/* Inner natural-size container */}
+                  <div
+                    style={{
+                      width:           PDF_NATURAL_W,
+                      height:          PAGE_H_PX * totalPages,
+                      transform:       `scale(${pdfScale})`,
+                      transformOrigin: 'top left',
+                      position:        'absolute',
+                      top: 0, left: 0,
+                      zIndex: 1,
+                    }}
+                  >
+                    {/* PDF.js canvas */}
+                    <canvas
+                      ref={pdfCanvasRef}
+                      style={{ display: 'block', width: `${PDF_NATURAL_W}px` }}
+                    />
 
-                      {/* Field overlays */}
-                      <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
-                        {currentDocFields.map(field => {
-                          const isFilled = !!signatures[field.id];
-                          const pageHeight = 297 * 3.78;
-                          const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
+                    {/* Page dividers */}
+                    {Array.from({ length: totalPages - 1 }, (_, i) => (
+                      <div key={i} style={{
+                        position: 'absolute',
+                        top:      PAGE_H_PX * (i + 1),
+                        left: 0, right: 0, height: 2,
+                        background: 'rgba(99,102,241,0.2)',
+                        zIndex: 5,
+                      }} />
+                    ))}
 
-                          return (
-                            <div
-                              key={field.id}
-                              className={`absolute rounded-lg transition-all ${
-                                isFilled
-                                  ? 'bg-transparent border-0'
-                                  : 'border-2 border-amber-400 hover:border-indigo-500'
-                              }`}
-                              style={{
-                                left: `${field.x}%`,
-                                top: `${topPosition}px`,
-                                width: field.width ? `${field.width}px` :
-                                  field.type === 'signature' ? '200px' :
-                                  field.type === 'checkbox' ? '30px' : '150px',
-                                height: field.height ? `${field.height}px` :
-                                  field.type === 'signature' ? '60px' :
-                                  field.type === 'checkbox' ? '30px' : '40px',
-                                transform: 'translate(-50%, 0%)',
-                                background: isFilled ? 'transparent' : 'rgba(251,191,36,0.08)',
-                                zIndex: 10,
-                                pointerEvents: 'auto',
-                                cursor: !isFilled ? 'pointer' : 'default',
-                                animation: !isFilled ? 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite' : 'none',
-                              }}
-                              onClick={() => {
-                                if (isFilled) return;
-                                if (field.type === 'signature') {
-                                  setActiveField(field);
-                                } else if (field.type === 'text') {
-                                  setActiveTextField(field);
-                                  setTextFieldInput('');
-                                } else if (field.type === 'checkbox') {
-                                  const current = signatures[field.id];
-                                  setSignatures(prev => ({
-                                    ...prev,
-                                    [field.id]: { type: 'checkbox', data: current ? 'false' : 'true', timestamp: new Date().toISOString() }
-                                  }));
-                                } else if (field.type === 'date') {
-                                  const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                                  setSignatures(prev => ({
-                                    ...prev,
-                                    [field.id]: { type: 'date', data: currentDate, timestamp: new Date().toISOString() }
-                                  }));
-                                }
-                              }}
-                            >
-                              {isFilled ? (
-                                <div className="h-full flex items-center justify-center">
-                                  {field.type === 'signature' && (
-                                    <img src={signatures[field.id].data} alt="Signature"
-                                      className="max-h-full max-w-full object-contain" />
-                                  )}
-                                  {field.type === 'date' && (
-                                    <span className="text-sm font-medium text-slate-800 px-2">{signatures[field.id].data}</span>
-                                  )}
-                                  {field.type === 'text' && (
-                                    <span className="text-sm text-slate-800 px-2">{signatures[field.id].data}</span>
-                                  )}
-                                  {field.type === 'checkbox' && (
-                                    <Check className="h-5 w-5 text-indigo-600" />
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="h-full flex flex-col items-center justify-center select-none">
-                                  <p className="text-xs font-semibold text-amber-700">
-                                    {field.type === 'signature' ? '✍️ Click to Sign'
-                                      : field.type === 'date' ? '📅 Click to Fill'
-                                      : field.type === 'checkbox' ? '☑️ Check'
-                                      : '📝 Click to Fill'}
-                                  </p>
-                                  <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                                    {envelope?.recipient?.name}
-                                  </p>
-                                </div>
+                    {/* Field overlays */}
+                    {currentDocFields.map(field => {
+                      const isFilled  = !!signatures[field.id];
+                      const topPx     = ((field.page - 1) * PAGE_H_PX) + (field.y / 100 * PAGE_H_PX);
+                      const W = field.width  ?? (field.type === 'signature' ? 140 : field.type === 'checkbox' ? 24 : 120);
+                      const H = field.height ?? (field.type === 'signature' ? 50  : field.type === 'checkbox' ? 24 : 32);
+
+                      return (
+                        <div
+                          key={field.id}
+                          className="absolute rounded transition-all"
+                          style={{
+                            left:      `${field.x}%`,
+                            top:       `${topPx}px`,
+                            width:     `${W}px`,
+                            height:    `${H}px`,
+                            transform: 'translate(-50%, 0)',
+                            zIndex:    10,
+                            cursor:    isFilled ? 'default' : 'pointer',
+                            border:    isFilled ? 'none' : '2px solid #f59e0b',
+                            background: isFilled ? 'transparent' : 'rgba(251,191,36,0.08)',
+                            animation:  isFilled ? 'none' : 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite',
+                          }}
+                          onClick={() => {
+                            if (isFilled) return;
+                            if (field.type === 'signature') {
+                              setActiveField(field);
+                            } else if (field.type === 'text') {
+                              setActiveTextField(field);
+                              setTextFieldInput('');
+                            } else if (field.type === 'checkbox') {
+                              const current = signatures[field.id];
+                              setSignatures(prev => ({
+                                ...prev,
+                                [field.id]: { type: 'checkbox', data: current ? 'false' : 'true', timestamp: new Date().toISOString() },
+                              }));
+                            } else if (field.type === 'date') {
+                              const currentDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                              setSignatures(prev => ({
+                                ...prev,
+                                [field.id]: { type: 'date', data: currentDate, timestamp: new Date().toISOString() },
+                              }));
+                            }
+                          }}
+                        >
+                          {isFilled ? (
+                            <div className="h-full flex items-center justify-center">
+                              {field.type === 'signature' && (
+                                <img src={signatures[field.id].data} alt="Signature"
+                                  className="max-h-full max-w-full object-contain" />
+                              )}
+                              {field.type === 'date' && (
+                                <span className="text-sm font-medium text-slate-800 px-2">{signatures[field.id].data}</span>
+                              )}
+                              {field.type === 'text' && (
+                                <span className="text-sm text-slate-800 px-2">{signatures[field.id].data}</span>
+                              )}
+                              {field.type === 'checkbox' && (
+                                <Check className="h-5 w-5 text-indigo-600" />
                               )}
                             </div>
-                          );
-                        })}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center justify-center" style={{ minHeight: '400px' }}>
-                      <div className="text-center">
-                        <Loader2 className="h-8 w-8 animate-spin text-indigo-400 mx-auto mb-3" />
-                        <p className="text-sm text-slate-500">Loading document...</p>
-                      </div>
-                    </div>
-                  )}
+                          ) : (
+                            <div className="h-full flex flex-col items-center justify-center select-none">
+                              <p className="text-xs font-semibold text-amber-700">
+                                {field.type === 'signature' ? '✍️ Click to Sign'
+                                  : field.type === 'date'     ? '📅 Click to Fill'
+                                  : field.type === 'checkbox' ? '☑️ Check'
+                                  : '📝 Click to Fill'}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                                {envelope?.recipient?.name}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* No PDF yet */}
+              {!pdfUrls[currentDocument?.documentId] && (
+                <div className="flex items-center justify-center" style={{ height: '60vh' }}>
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-indigo-400 mx-auto mb-3" />
+                    <p className="text-sm text-slate-500">Loading document...</p>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
-      </div>
-
+        </div>
       {/* ── INLINE SIGNATURE MODAL ── */}
       {activeField !== null && (
         <div

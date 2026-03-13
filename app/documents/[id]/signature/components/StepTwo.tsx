@@ -61,9 +61,19 @@ function getFieldDimensions(type: string): { width: string; height: string } {
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 function FieldSidebar({
-  mode, signatureRequest, setSignatureRequest,
-  historyIndex, fieldHistory, setHistoryIndex, setShowEditDrawer,
-}: Pick<StepTwoProps, "mode" | "signatureRequest" | "setSignatureRequest" | "historyIndex" | "fieldHistory" | "setHistoryIndex" | "setShowEditDrawer">) {
+  mode,
+  signatureRequest,
+  setSignatureRequest,
+  historyIndex,
+  fieldHistory,
+  setHistoryIndex,
+  setShowEditDrawer,
+  activeRecipientIndex,
+  setActiveRecipientIndex,
+}: Pick<StepTwoProps, "mode" | "signatureRequest" | "setSignatureRequest" | "historyIndex" | "fieldHistory" | "setHistoryIndex" | "setShowEditDrawer"> & {
+  activeRecipientIndex: number;
+  setActiveRecipientIndex: (i: number) => void;
+}) {
 
   const handleUndo = () => {
     if (historyIndex > 0) {
@@ -116,22 +126,39 @@ function FieldSidebar({
           </Button>
         </div>
         {signatureRequest.recipients.map((recipient, index) => {
-          const fieldCount = signatureRequest.signatureFields.filter((f) => f.recipientIndex === index).length;
-          return (
-            <div key={index} className="flex items-center gap-2.5 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-              <div className="h-7 w-7 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: recipient.color }}>
-                <span className="text-white text-xs font-bold">{recipient.name?.charAt(0) || index + 1}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-900 truncate">{recipient.name || `Recipient ${index + 1}`}</p>
-                <p className="text-xs text-slate-400 truncate">{recipient.email || "No email"}</p>
-              </div>
-              {fieldCount > 0 && (
-                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">{fieldCount}</span>
-              )}
-            </div>
-          );
-        })}
+  const fieldCount = signatureRequest.signatureFields.filter((f) => f.recipientIndex === index).length;
+  const isActive = activeRecipientIndex === index;
+  return (
+    <button
+      key={index}
+      onClick={() => setActiveRecipientIndex(index)}
+      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl border transition-all text-left"
+      style={{
+        backgroundColor: isActive ? `${recipient.color}18` : '#f8fafc',
+        borderColor: isActive ? recipient.color : '#e2e8f0',
+        boxShadow: isActive ? `0 0 0 2px ${recipient.color}40` : 'none',
+      }}
+    >
+      <div className="h-7 w-7 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: recipient.color }}>
+        <span className="text-white text-xs font-bold">{recipient.name?.charAt(0) || index + 1}</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-slate-900 truncate">{recipient.name || `Recipient ${index + 1}`}</p>
+        <p className="text-xs text-slate-400 truncate">{recipient.email || "No email"}</p>
+      </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {fieldCount > 0 && (
+          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold">{fieldCount}</span>
+        )}
+        {isActive && (
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: recipient.color }}>
+            Active
+          </span>
+        )}
+      </div>
+    </button>
+  );
+})}
         {mode === "edit" && (
           <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
             <p className="text-xs text-blue-800">💡 <strong>Tip:</strong> Create roles like "Client", "Manager". Assign real people when using this template later!</p>
@@ -161,7 +188,7 @@ function FieldSidebar({
 // ─── Field Overlay ────────────────────────────────────────────────────────────
 
 function FieldOverlay({
-  field, pdfScale, recipients, signatureRequest, setSignatureRequest, setEditingFieldLogic, setEditingLabelField,
+  field, pdfScale, recipients, signatureRequest, setSignatureRequest, setEditingFieldLogic, setEditingLabelField, activeRecipientIndex,
 }: {
   field: SignatureField;
   pdfScale: number;
@@ -170,11 +197,13 @@ function FieldOverlay({
   setSignatureRequest: React.Dispatch<React.SetStateAction<SignatureRequest>>;
   setEditingFieldLogic: (f: SignatureField | null) => void;
   setEditingLabelField: (f: SignatureField | null) => void;
+  activeRecipientIndex: number;
 }) {
   // Positioned inside the NATURAL 794px space — CSS transform handles scaling
   const topPosition = (field.page - 1) * PAGE_H_PX + (field.y / 100) * PAGE_H_PX;
   const recipient   = recipients[field.recipientIndex];
   const dims        = getFieldDimensions(field.type);
+  const isActiveRecipient = field.recipientIndex === activeRecipientIndex;
 
   const updateFields = (updated: SignatureField[]) =>
     setSignatureRequest((prev) => ({ ...prev, signatureFields: updated }));
@@ -204,20 +233,41 @@ function FieldOverlay({
   const hasLabelEdit = field.type === "text" || field.type === "checkbox";
 
   return (
-    <div
-      className="absolute border-2 rounded cursor-move bg-white/95 shadow-xl group hover:shadow-2xl transition-all hover:z-50"
-      style={{
-        left:        `${field.x}%`,
-        top:         `${topPosition}px`,
-        borderColor: recipient?.color || "#9333ea",
-        width:       dims.width,
-        height:      dims.height,
-        transform:   "translate(-50%, 0%)",
-        zIndex:      20,
-      }}
-      draggable onDragEnd={handleDragEnd}
-    >
+   <div
+  className="absolute border-2 rounded cursor-move bg-white/95 shadow-xl group hover:shadow-2xl transition-all hover:z-50"
+  style={{
+    left:        `${field.x}%`,
+    top:         `${topPosition}px`,
+    borderColor: recipient?.color || "#9333ea",
+    width:       dims.width,
+    height:      dims.height,
+    transform:   "translate(-50%, 0%)",
+    zIndex:      isActiveRecipient ? 30 : 20,
+    opacity:     isActiveRecipient ? 1 : 0.45,
+    boxShadow:   isActiveRecipient
+      ? `0 0 0 3px ${recipient?.color || "#9333ea"}60, 0 8px 24px rgba(0,0,0,0.15)`
+      : '0 2px 8px rgba(0,0,0,0.08)',
+  }}
+  draggable onDragEnd={handleDragEnd}
+>
       <div className="h-full flex flex-col items-center justify-center px-2 relative">
+  {/* Recipient name badge — always visible above field */}
+  <div
+    className="absolute whitespace-nowrap px-1.5 py-0.5 rounded-t text-white text-xs font-bold"
+    style={{
+      top: -20,
+      left: 0,
+      fontSize: 10,
+      lineHeight: '18px',
+      backgroundColor: recipient?.color || '#9333ea',
+      maxWidth: 140,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    }}
+  >
+    {recipient?.name || `Recipient ${field.recipientIndex + 1}`}
+    {isActiveRecipient && ' ✓'}
+  </div>
 
         {/* Recipient selector */}
         <select
@@ -297,8 +347,10 @@ function FieldOverlay({
 // ─── PDF Canvas (PDF.js + CSS transform scale + drop zone) ───────────────────
 
 function PDFCanvas({
-  doc, pdfUrl, signatureRequest, setSignatureRequest, setEditingFieldLogic, setEditingLabelField,
-}: Pick<StepTwoProps, "doc" | "pdfUrl" | "signatureRequest" | "setSignatureRequest" | "setEditingFieldLogic" | "setEditingLabelField">) {
+  doc, pdfUrl, signatureRequest, setSignatureRequest, setEditingFieldLogic, setEditingLabelField, activeRecipientIndex,
+}: Pick<StepTwoProps, "doc" | "pdfUrl" | "signatureRequest" | "setSignatureRequest" | "setEditingFieldLogic" | "setEditingLabelField"> & {
+  activeRecipientIndex: number;
+}) {
   const canvasRef  = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [pdfScale,   setPdfScale]   = useState(1);
@@ -382,7 +434,7 @@ function PDFCanvas({
     const xPercent   = (naturalX / PDF_NATURAL_W) * 100;
 
     const newField: SignatureField = {
-      id: Date.now(), type: fieldType, x: xPercent, y: yPercent, page: pageNumber, recipientIndex: 0,
+  id: Date.now(), type: fieldType, x: xPercent, y: yPercent, page: pageNumber, recipientIndex: activeRecipientIndex,
       label: fieldType === "checkbox" ? "Check this box" : fieldType === "dropdown" ? "Select an option" : fieldType === "radio" ? "Choose one option" : "",
       defaultChecked: false,
       attachmentLabel: fieldType === "attachment" ? "Upload Required Document" : undefined,
@@ -457,6 +509,7 @@ function PDFCanvas({
               setSignatureRequest={setSignatureRequest}
               setEditingFieldLogic={setEditingFieldLogic}
               setEditingLabelField={setEditingLabelField}
+              activeRecipientIndex={activeRecipientIndex}
             />
           ))}
         </div>
@@ -473,6 +526,7 @@ export default function StepTwo({
   editingFieldLogic, setEditingFieldLogic, editingLabelField, setEditingLabelField,
   showEditDrawer, setShowEditDrawer,
 }: StepTwoProps) {
+  const [activeRecipientIndex, setActiveRecipientIndex] = useState(0);
   return (
     <>
       {/* ── Mobile: tell user to switch to desktop ── */}
@@ -517,6 +571,8 @@ export default function StepTwo({
             fieldHistory={fieldHistory}
             setHistoryIndex={setHistoryIndex}
             setShowEditDrawer={setShowEditDrawer}
+            activeRecipientIndex={activeRecipientIndex}
+  setActiveRecipientIndex={setActiveRecipientIndex}
           />
         </div>
 
@@ -536,6 +592,7 @@ export default function StepTwo({
             setSignatureRequest={setSignatureRequest}
             setEditingFieldLogic={setEditingFieldLogic}
             setEditingLabelField={setEditingLabelField}
+            activeRecipientIndex={activeRecipientIndex}
           />
         </div>
       </div>

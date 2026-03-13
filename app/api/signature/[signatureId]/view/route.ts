@@ -105,71 +105,38 @@ export async function GET(
       console.log('📧 Bulk send mode - only this signer');
     }
 
-    // ── Cache key: sorted signer IDs so we reuse the same PDF for the same set ─
-    const signerIds = signaturesToInclude
-      .map((r: any) => r._id?.toString())
-      .sort()
-      .join(',');
-
-    // ── Check if we already have a cached signed PDF for this exact signer set ─
-    const cachedDoc = await db.collection('signed_pdf_cache').findOne({
-      documentId: signatureRequest.documentId,
-      signerIds:  signerIds,
-    });
-
-    let signedPdfUrl: string;
-
-    if (cachedDoc?.signedPdfUrl) {
-      console.log('⚡ Using cached signed PDF');
-      signedPdfUrl = cachedDoc.signedPdfUrl;
-    } else {
-      // Generate fresh PDF
-      console.log('🎨 Generating signed PDF...');
-      signedPdfUrl = await generateSignedPDF(
-        signatureRequest.documentId,
-        signaturesToInclude
-      );
-      console.log('✅ PDF generated:', signedPdfUrl);
-
-      // Cache for future requests (TTL 24h — MongoDB TTL index on expiresAt)
-      await db.collection('signed_pdf_cache').updateOne(
-        { documentId: signatureRequest.documentId, signerIds },
-        {
-          $set: {
-            documentId:  signatureRequest.documentId,
-            signerIds,
-            signedPdfUrl,
-            generatedAt: new Date(),
-            expiresAt:   new Date(Date.now() + 24 * 60 * 60 * 1000),
-          },
-        },
-        { upsert: true }
-      );
-      console.log('💾 Cached signed PDF URL');
+    // ── Serve the ORIGINAL unsigned PDF (same as CC route) ───────────────────
+    // The signed page draws overlays on top using signature data from signed-info
+    // This guarantees overlay positions match exactly — same approach as CC page
+    if (!document.cloudinaryPdfUrl) {
+      return NextResponse.json({ success: false, message: 'PDF not found' }, { status: 404 });
     }
 
-    // ── Fetch PDF bytes from Cloudinary ───────────────────────────────────────
-    const pdfBuffer = await fetchCloudinaryPdf(signedPdfUrl);
+    const fileUrl    = document.cloudinaryPdfUrl;
+    const urlParts   = fileUrl.split('/upload/');
+    const afterUpload = urlParts[1];
+    const pathParts  = afterUpload.split('/');
+    pathParts.shift(); // remove version
+    let publicId     = pathParts.join('/').replace('.pdf', '');
+    publicId         = decodeURIComponent(publicId);
 
-    if (!pdfBuffer) {
-      // Cache might be stale — regenerate once
-      console.warn('⚠️ Cached URL failed, regenerating...');
-      const freshUrl = await generateSignedPDF(signatureRequest.documentId, signaturesToInclude);
-
-      await db.collection('signed_pdf_cache').updateOne(
-        { documentId: signatureRequest.documentId, signerIds },
-        { $set: { signedPdfUrl: freshUrl, generatedAt: new Date(), expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) } },
-        { upsert: true }
-      );
-
-      const retryBuffer = await fetchCloudinaryPdf(freshUrl);
-      if (!retryBuffer) {
-        return NextResponse.json({ success: false, message: 'Failed to retrieve signed document' }, { status: 500 });
+    const downloadUrl = cloudinary.v2.utils.private_download_url(
+      publicId, 'pdf',
+      {
+        resource_type: 'image',
+        type:          'upload',
+        attachment:    false,
+        expires_at:    Math.floor(Date.now() / 1000) + 3600,
       }
+    );
 
-      return buildPdfResponse(retryBuffer, document);
+    const cloudinaryResponse = await fetch(downloadUrl);
+    if (!cloudinaryResponse.ok) {
+      return NextResponse.json({ success: false, message: 'Failed to fetch PDF' }, { status: 500 });
     }
 
+    const pdfBuffer = await cloudinaryResponse.arrayBuffer();
+    
     // ── Notifications + tracking (fire-and-forget, don't block response) ──────
     const viewerName  = signatureRequest.recipient?.name  || signatureRequest.signerName  || 'Unknown User';
     const viewerEmail = signatureRequest.recipient?.email || signatureRequest.signerEmail || '';

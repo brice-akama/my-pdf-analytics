@@ -809,3 +809,35 @@ export async function generateEnvelopeSignedPDF(
     throw error;
   }
 }
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STANDALONE CERTIFICATE: generate certificate-only PDF for a single signer
+// Returns the PDF as a Buffer (for email attachment — not uploaded to Cloudinary)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function generateCertificatePDFBuffer(
+  signatureRequest: any,
+  document: any
+): Promise<Buffer> {
+  const { PDFDocument: PDFDoc } = await import('pdf-lib');
+  const certPdf = await PDFDoc.create();
+
+  const crypto = require('crypto');
+  const documentHash = crypto
+    .createHash('sha256')
+    .update(signatureRequest._id?.toString() || signatureRequest.uniqueId)
+    .digest('hex');
+
+  await addCertificatePage(
+    certPdf,
+    signatureRequest.documentId,
+    document.originalFilename || document.filename || 'Document',
+    document.numPages || 1,
+    [signatureRequest],
+    documentHash
+  );
+
+  const bytes = await certPdf.save();
+  return Buffer.from(bytes);
+}

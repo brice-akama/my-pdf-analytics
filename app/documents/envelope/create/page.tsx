@@ -13,6 +13,10 @@ import {
   Edit, X, Settings, CheckSquare, Paperclip, Send, Eye, ChevronDown,
   Info, AlertCircle,
 } from "lucide-react";
+import { EmailAutocomplete } from "@/components/ui/EmailAutocomplete";
+
+const PDF_NATURAL_W = 794;
+const PAGE_H_PX     = 297 * 3.78; // 1122px — must match editor + sign page
 
 interface Document {
   _id: string;
@@ -82,9 +86,129 @@ export default function CreateEnvelopePage() {
   const [generatedLinks, setGeneratedLinks] = useState<any[]>([]);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [uploadMessage, setUploadMessage] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
+   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pdfCanvasRef  = useRef<HTMLCanvasElement>(null);
+  const pdfWrapperRef = useRef<HTMLDivElement>(null);
+  const [pdfScale,    setPdfScale]    = useState(1);
+  const [pdfReady,    setPdfReady]    = useState(false);
+  const [totalPages,  setTotalPages]  = useState(1);
+  const [activeRecipientIndex, setActiveRecipientIndex] = useState(0);
+  const renderTaskRef = useRef<any>(null);
+  const currentDocument = selectedDocs[currentDocIndex] || null;
 
-  useEffect(() => { fetchDocuments(); }, []);
+
+  
+useEffect(() => { fetchDocuments(); }, []);
+
+ // ── PDF.js render ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const docId = currentDocument?._id;
+    if (!docId || !pdfUrls[docId]) return;
+
+    let cancelled = false;
+
+    const render = async () => {
+      // Cancel any in-progress render task first
+      if (renderTaskRef.current) {
+        try { renderTaskRef.current.cancel(); } catch (_) {}
+        renderTaskRef.current = null;
+        // Wait a tick so the canvas is fully released
+        await new Promise(r => setTimeout(r, 50));
+      }
+
+      if (cancelled || !pdfCanvasRef.current) return;
+      setPdfReady(false);
+
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+      const pdf   = await pdfjsLib.getDocument(pdfUrls[docId]).promise;
+      if (cancelled) return;
+
+      const pages = pdf.numPages;
+      setTotalPages(pages);
+
+      const dpr    = window.devicePixelRatio || 1;
+      const canvas = pdfCanvasRef.current!;
+
+      // Fully reset canvas dimensions to force a clean context
+      canvas.width        = 1;
+      canvas.height       = 1;
+      canvas.width        = PDF_NATURAL_W * dpr;
+      canvas.height       = PAGE_H_PX * pages * dpr;
+      canvas.style.width  = `${PDF_NATURAL_W}px`;
+      canvas.style.height = `${PAGE_H_PX * pages}px`;
+
+      const ctx = canvas.getContext('2d', { alpha: false })!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      for (let p = 1; p <= pages; p++) {
+        if (cancelled) return;
+
+        const page    = await pdf.getPage(p);
+        const natural = page.getViewport({ scale: 1 });
+        const scale   = (PDF_NATURAL_W / natural.width) * dpr;
+
+        ctx.save();
+        ctx.translate(0, (p - 1) * PAGE_H_PX * dpr);
+
+        const task = page.render({
+          canvasContext: ctx,
+          viewport: page.getViewport({ scale }),
+          intent: 'display',
+        });
+        renderTaskRef.current = task;
+
+        try {
+          await task.promise;
+        } catch (err: any) {
+          ctx.restore();
+          if (err?.name === 'RenderingCancelledException') return;
+          throw err;
+        }
+
+        ctx.restore();
+      }
+
+      if (cancelled) return;
+
+      if (pdfWrapperRef.current) {
+        const avail = pdfWrapperRef.current.clientWidth - 32;
+        if (avail > 0) setPdfScale(Math.min(avail / PDF_NATURAL_W, 1));
+      }
+
+      renderTaskRef.current = null;
+      setPdfReady(true);
+    };
+
+    render().catch(err => {
+      if (err?.name !== 'RenderingCancelledException') console.error(err);
+    });
+
+    return () => {
+      cancelled = true;
+      if (renderTaskRef.current) {
+        try { renderTaskRef.current.cancel(); } catch (_) {}
+        renderTaskRef.current = null;
+      }
+    };
+  }, [currentDocument?._id, pdfUrls]);
+
+  // ── Scale on resize ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const recalc = () => {
+      if (!pdfWrapperRef.current) return;
+      const avail = pdfWrapperRef.current.clientWidth - 32;
+      if (avail > 0) setPdfScale(Math.min(avail / PDF_NATURAL_W, 1));
+    };
+    const ob = new ResizeObserver(recalc);
+    if (pdfWrapperRef.current) ob.observe(pdfWrapperRef.current);
+    recalc();
+    return () => ob.disconnect();
+  }, [pdfReady]);
+   
 
   const fetchPdfForPreview = async (docId: string) => {
     try {
@@ -258,49 +382,58 @@ export default function CreateEnvelopePage() {
 
   const handleDropField = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const fieldType = e.dataTransfer.getData("fieldType") as SignatureField["type"];
-    const container = document.getElementById("pdf-container");
+    const fieldType  = e.dataTransfer.getData("fieldType") as SignatureField["type"];
+    const container  = document.getElementById("pdf-natural-container-envelope");
     if (!container || !currentDocument) return;
-    const rect = container.getBoundingClientRect();
-    const containerHeightMm = (currentDocument?.numPages || 1) * 297;
-    const clickYMm = ((e.clientY - rect.top) / rect.height) * containerHeightMm;
-    const pageHeightMm = 297;
-    const pageNumber = Math.floor(clickYMm / pageHeightMm) + 1;
-    const yPercent = ((clickYMm % pageHeightMm) / pageHeightMm) * 100;
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
+
+    const rect     = container.getBoundingClientRect();
+    const naturalX = (e.clientX - rect.left) / pdfScale;
+    const naturalY = (e.clientY - rect.top)  / pdfScale;
+
+    const pageNumber = Math.max(1, Math.floor(naturalY / PAGE_H_PX) + 1);
+    const yPercent   = ((naturalY % PAGE_H_PX) / PAGE_H_PX) * 100;
+    const xPercent   = (naturalX / PDF_NATURAL_W) * 100;
+
     const newField: SignatureField = {
-      id: Date.now(), documentId: currentDocument._id, type: fieldType,
-      x, y: yPercent, page: pageNumber, recipientIndex: 0,
-      width: fieldType === "signature" ? 200 : 150,
-      height: fieldType === "signature" ? 60 : 40,
-      label: fieldType === "checkbox" ? "Check this box" : fieldType === "dropdown" ? "Select an option" : fieldType === "radio" ? "Choose one option" : "",
-      defaultChecked: false,
+      id:              Date.now(),
+      documentId:      currentDocument._id,
+      type:            fieldType,
+      x:               xPercent,
+      y:               yPercent,
+      page:            pageNumber,
+      recipientIndex:  activeRecipientIndex,
+      label:           fieldType === "checkbox" ? "Check this box" : fieldType === "dropdown" ? "Select an option" : fieldType === "radio" ? "Choose one option" : "",
+      defaultChecked:  false,
       attachmentLabel: fieldType === "attachment" ? "Upload Required Document" : undefined,
-      attachmentType: fieldType === "attachment" ? "supporting_document" : undefined,
-      isRequired: fieldType === "attachment",
-      options: (fieldType === "dropdown" || fieldType === "radio") ? ["Option 1", "Option 2", "Option 3"] : undefined,
+      attachmentType:  fieldType === "attachment" ? "supporting_document" : undefined,
+      isRequired:      fieldType === "attachment" ? true : false,
+      options:         (fieldType === "dropdown" || fieldType === "radio") ? ["Option 1", "Option 2", "Option 3"] : undefined,
     };
+
     const updated = [...signatureFields, newField];
     setSignatureFields(updated);
     saveToHistory(updated);
   };
 
   const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField) => {
-    const container = document.getElementById("pdf-container");
+    const container = document.getElementById("pdf-natural-container-envelope");
     if (!container || !currentDocument) return;
-    const rect = container.getBoundingClientRect();
-    const containerHeightMm = (currentDocument?.numPages || 1) * 297;
-    const clickYMm = ((e.clientY - rect.top) / rect.height) * containerHeightMm;
-    const pageHeightMm = 297;
-    const pageNumber = Math.floor(clickYMm / pageHeightMm) + 1;
-    const yPercent = ((clickYMm % pageHeightMm) / pageHeightMm) * 100;
-    const newX = ((e.clientX - rect.left) / rect.width) * 100;
-    const updated = signatureFields.map(f => f.id === field.id ? { ...f, x: newX, y: yPercent, page: pageNumber } : f);
+
+    const rect     = container.getBoundingClientRect();
+    const naturalX = (e.clientX - rect.left) / pdfScale;
+    const naturalY = (e.clientY - rect.top)  / pdfScale;
+
+    const pageNumber = Math.max(1, Math.floor(naturalY / PAGE_H_PX) + 1);
+    const yPercent   = ((naturalY % PAGE_H_PX) / PAGE_H_PX) * 100;
+    const xPercent   = (naturalX / PDF_NATURAL_W) * 100;
+
+    const updated = signatureFields.map(f =>
+      f.id === field.id ? { ...f, x: xPercent, y: yPercent, page: pageNumber } : f
+    );
     setSignatureFields(updated);
     saveToHistory(updated);
   };
 
-  const currentDocument = selectedDocs[currentDocIndex] || null;
   const validRecipients = recipients.filter(r => r.name && r.email);
   const totalFields = signatureFields.length;
   const missingFieldDocs = selectedDocs.filter(doc => !signatureFields.some(f => f.documentId === doc._id));
@@ -433,11 +566,17 @@ export default function CreateEnvelopePage() {
                         <label className="block text-xs font-medium text-slate-600 mb-1.5">
                           Full Name <span className="text-red-400">*</span>
                         </label>
-                        <input
-                          type="text"
+                       <EmailAutocomplete
                           value={recipient.name}
-                          onChange={e => { const u = [...recipients]; u[index].name = e.target.value; setRecipients(u); }}
+                          onChange={val => { const u = [...recipients]; u[index].name = val; setRecipients(u); }}
+                          onSelect={s => {
+                            const u = [...recipients];
+                            u[index].name  = s.name || s.email;
+                            u[index].email = s.email;
+                            setRecipients(u);
+                          }}
                           placeholder="John Doe"
+                          searchBy="name"
                           className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
                       </div>
@@ -445,11 +584,17 @@ export default function CreateEnvelopePage() {
                         <label className="block text-xs font-medium text-slate-600 mb-1.5">
                           Email Address <span className="text-red-400">*</span>
                         </label>
-                        <input
-                          type="email"
+                        <EmailAutocomplete
                           value={recipient.email}
-                          onChange={e => { const u = [...recipients]; u[index].email = e.target.value; setRecipients(u); }}
+                          onChange={val => { const u = [...recipients]; u[index].email = val; setRecipients(u); }}
+                          onSelect={s => {
+                            const u = [...recipients];
+                            u[index].email = s.email;
+                            if (s.name && !u[index].name) u[index].name = s.name;
+                            setRecipients(u);
+                          }}
                           placeholder="john@company.com"
+                          searchBy="email"
                           className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
                       </div>
@@ -580,19 +725,43 @@ export default function CreateEnvelopePage() {
                     </button>
                   </div>
                   <div className="space-y-1.5">
-                    {validRecipients.map((r, i) => (
-                      <button key={i} onClick={() => openEditRecipientDrawer(i)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-left transition-colors group">
-                        <div className="h-6 w-6 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-bold text-purple-700">{i + 1}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-slate-800 truncate">{r.name}</p>
-                          <p className="text-xs text-slate-400 truncate">{r.email}</p>
-                        </div>
-                        <Edit className="h-3 w-3 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
-                      </button>
-                    ))}
+                    {validRecipients.map((r, i) => {
+                      const isActive = activeRecipientIndex === i;
+                      const color    = r.color || '#7c3aed';
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => setActiveRecipientIndex(i)}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all"
+                          style={{
+                            backgroundColor: isActive ? `${color}18` : '#f8fafc',
+                            border:          `1px solid ${isActive ? color : '#e2e8f0'}`,
+                            boxShadow:       isActive ? `0 0 0 2px ${color}30` : 'none',
+                          }}
+                        >
+                          <div
+                            className="h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: isActive ? color : '#ede9fe' }}
+                          >
+                            <span className="text-xs font-bold" style={{ color: isActive ? '#fff' : '#7c3aed' }}>
+                              {i + 1}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-slate-800 truncate">{r.name}</p>
+                            <p className="text-xs text-slate-400 truncate">{r.email}</p>
+                          </div>
+                          {isActive && (
+                            <span
+                              className="text-white font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: color, fontSize: 9 }}
+                            >
+                              Active
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -661,105 +830,164 @@ export default function CreateEnvelopePage() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto bg-slate-100 p-6">
+             <div
+                ref={pdfWrapperRef}
+                className="flex-1 overflow-y-auto p-4"
+                style={{ background: '#131320' }}
+              >
                 {!currentDocument ? (
                   <div className="flex items-center justify-center h-full">
                     <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                   </div>
                 ) : (
-                  <div className="max-w-3xl mx-auto">
+                  <>
+                    {/* Loading spinner */}
+                    {!pdfReady && (
+                      <div className="flex items-center justify-center" style={{ height: '60vh' }}>
+                        <div className="text-center">
+                          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-purple-400" />
+                          <p className="text-xs text-white/40">Loading document…</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Outer scaled clip box */}
                     <div
-                      id="pdf-container"
-                      className="relative bg-white rounded-xl shadow-sm overflow-hidden"
-                      style={{ minHeight: `${(currentDocument?.numPages || 1) * 297}mm` }}
+                      className="relative mx-auto"
+                      style={{
+                        width:        pdfReady ? PDF_NATURAL_W * pdfScale : 0,
+                        height:       pdfReady ? PAGE_H_PX * totalPages * pdfScale : 0,
+                        background:   '#fff',
+                        boxShadow:    pdfReady ? '0 8px 48px rgba(0,0,0,0.55)' : 'none',
+                        borderRadius: 3,
+                        overflow:     'hidden',
+                        display:      pdfReady ? 'block' : 'none',
+                      }}
                       onDragOver={e => e.preventDefault()}
                       onDrop={handleDropField}
                     >
-                      {pdfUrls[currentDocument._id] ? (
-                        <>
-                          <embed
-                            src={`${pdfUrls[currentDocument._id]}#toolbar=0&navpanes=0&scrollbar=0`}
-                            type="application/pdf"
-                            className="w-full border-0"
-                            style={{
-                              height: `${297 * (currentDocument?.numPages || 1)}mm`,
-                              display: "block",
-                              pointerEvents: "none",
-                            }}
-                          />
-                          {/* Field overlays */}
-                          {signatureFields.filter(f => f.documentId === currentDocument._id).map(field => {
-                            const pageHeightMm = 297;
-                            const topPositionMm = (field.page - 1) * pageHeightMm + (field.y / 100) * pageHeightMm;
-                            const recipient = recipients[field.recipientIndex];
+                      {/* Inner natural-size container — CSS scaled */}
+                      <div
+                        id="pdf-natural-container-envelope"
+                        style={{
+                          width:           PDF_NATURAL_W,
+                          height:          PAGE_H_PX * totalPages,
+                          transform:       `scale(${pdfScale})`,
+                          transformOrigin: 'top left',
+                          position:        'absolute',
+                          top: 0, left: 0,
+                        }}
+                      >
+                        {/* PDF.js canvas */}
+                        <canvas
+                          ref={pdfCanvasRef}
+                          style={{ display: 'block', width: `${PDF_NATURAL_W}px` }}
+                        />
+
+                        {/* Page dividers */}
+                        {Array.from({ length: totalPages - 1 }, (_, i) => (
+                          <div key={i} style={{
+                            position: 'absolute',
+                            top:      PAGE_H_PX * (i + 1),
+                            left: 0, right: 0, height: 2,
+                            background: 'rgba(99,102,241,0.2)',
+                            zIndex: 5,
+                          }} />
+                        ))}
+
+                        {/* Field overlays */}
+                        {signatureFields
+                          .filter(f => f.documentId === currentDocument._id)
+                          .map(field => {
+                            const topPx     = ((field.page - 1) * PAGE_H_PX) + (field.y / 100 * PAGE_H_PX);
+                            const recipient = validRecipients[field.recipientIndex];
+                            const color     = recipient?.color || '#7c3aed';
+                            const isActive  = field.recipientIndex === activeRecipientIndex;
+                            const W = field.width  ?? (field.type === 'signature' ? 140 : field.type === 'checkbox' ? 24 : field.type === 'dropdown' ? 180 : 120);
+                            const H = field.height ?? (field.type === 'signature' ? 50  : field.type === 'checkbox' ? 24 : field.type === 'dropdown' ? 36  : 32);
                             return (
                               <div
                                 key={field.id}
-                                className="absolute border-2 rounded-lg cursor-move bg-white/95 shadow-xl group hover:shadow-2xl transition-all hover:z-50 pointer-events-auto"
+                                className="absolute border-2 rounded cursor-move bg-white/95 group transition-all"
                                 style={{
-                                  left: `${field.x}%`,
-                                  top: `${topPositionMm}mm`,
-                                  borderColor: recipient?.color || "#7c3aed",
-                                  width: `${field.width || 180}px`,
-                                  height: `${field.height || 45}px`,
-                                  transform: "translate(-50%, 0%)",
+                                  left:        `${field.x}%`,
+                                  top:         `${topPx}px`,
+                                  width:       `${W}px`,
+                                  height:      `${H}px`,
+                                  transform:   'translate(-50%, 0)',
+                                  borderColor: color,
+                                  zIndex:      isActive ? 30 : 20,
+                                  opacity:     isActive ? 1 : 0.45,
+                                  boxShadow:   isActive ? `0 0 0 3px ${color}60` : 'none',
                                 }}
                                 draggable
                                 onDragEnd={e => handleDragEnd(e, field)}
                               >
-                                {/* Recipient label */}
-                                <div className="absolute -top-5 left-0 text-xs font-semibold px-1.5 py-0.5 rounded-t whitespace-nowrap"
-                                  style={{ backgroundColor: recipient?.color || "#7c3aed", color: "white" }}>
+                                {/* Recipient name badge */}
+                                <div
+                                  className="absolute whitespace-nowrap px-1.5 py-0.5 rounded-t text-white font-bold"
+                                  style={{
+                                    top: -20, left: 0,
+                                    fontSize: 10, lineHeight: '18px',
+                                    backgroundColor: color,
+                                    maxWidth: 140,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
                                   {recipient?.name || `Recipient ${field.recipientIndex + 1}`}
+                                  {isActive && ' ✓'}
                                 </div>
-                                <div className="h-full flex flex-col items-center justify-center px-2 relative">
-                                  <select
-                                    value={field.recipientIndex}
-                                    onChange={e => {
-                                      const updated = signatureFields.map(f =>
-                                        f.id === field.id ? { ...f, recipientIndex: parseInt(e.target.value) } : f
-                                      );
-                                      setSignatureFields(updated);
-                                    }}
-                                    onClick={e => e.stopPropagation()}
-                                    className="absolute top-0.5 left-1 right-1 text-xs border rounded px-1 py-0.5 bg-white/90 z-10 cursor-pointer"
-                                    style={{ fontSize: "9px" }}
-                                  >
-                                    {recipients.map((r, idx) => (
-                                      <option key={idx} value={idx}>{r.name || `Recipient ${idx + 1}`}</option>
-                                    ))}
-                                  </select>
-                                  <div className="flex items-center gap-1 mt-3">
-                                    {field.type === "signature" && <FileSignature className="h-3.5 w-3.5 text-slate-500" />}
-                                    {field.type === "date" && <Clock className="h-3.5 w-3.5 text-slate-500" />}
-                                    {field.type === "text" && <Edit className="h-3.5 w-3.5 text-slate-500" />}
-                                    {field.type === "checkbox" && <CheckSquare className="h-3.5 w-3.5 text-slate-500" />}
-                                    {field.type === "attachment" && <Paperclip className="h-3.5 w-3.5 text-slate-500" />}
-                                    <span className="text-xs font-semibold text-slate-600">
-                                      {field.type === "signature" ? "Sign Here" : field.type === "date" ? "Date" : field.type === "text" ? "Text" : field.type === "checkbox" ? "Checkbox" : field.type === "attachment" ? "Upload" : field.type}
-                                    </span>
-                                  </div>
+
+                                {/* Recipient selector */}
+                                <select
+                                  value={field.recipientIndex}
+                                  onChange={e => {
+                                    const updated = signatureFields.map(f =>
+                                      f.id === field.id ? { ...f, recipientIndex: parseInt(e.target.value) } : f
+                                    );
+                                    setSignatureFields(updated);
+                                  }}
+                                  onClick={e => e.stopPropagation()}
+                                  className="absolute top-0.5 left-1 right-1 border rounded px-1 py-0.5 bg-white/90 z-10 cursor-pointer"
+                                  style={{ fontSize: 9 }}
+                                >
+                                  {validRecipients.map((r, idx) => (
+                                    <option key={idx} value={idx}>{r.name || `Recipient ${idx + 1}`}</option>
+                                  ))}
+                                </select>
+
+                                {/* Field label */}
+                                <div className="h-full flex items-center justify-center mt-3">
+                                  <span className="text-xs font-semibold text-slate-600">
+                                    {field.type === 'signature' ? 'Sign Here'
+                                      : field.type === 'date'       ? 'Date'
+                                      : field.type === 'text'       ? 'Text'
+                                      : field.type === 'checkbox'   ? 'Checkbox'
+                                      : field.type === 'attachment' ? 'Upload'
+                                      : field.type === 'dropdown'   ? 'Dropdown'
+                                      : field.type}
+                                  </span>
                                 </div>
+
+                                {/* Delete button */}
                                 <button
                                   className="absolute -top-3 -right-3 h-6 w-6 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10 flex items-center justify-center"
-                                  onClick={e => { e.stopPropagation(); setSignatureFields(signatureFields.filter(f => f.id !== field.id)); }}
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    const updated = signatureFields.filter(f => f.id !== field.id);
+                                    setSignatureFields(updated);
+                                    saveToHistory(updated);
+                                  }}
                                 >
                                   <X className="h-3 w-3" />
                                 </button>
                               </div>
                             );
                           })}
-                        </>
-                      ) : (
-                        <div className="flex items-center justify-center" style={{ minHeight: "297mm" }}>
-                          <div className="text-center">
-                            <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-3" />
-                            <p className="text-sm text-slate-500">Loading document...</p>
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -1033,13 +1261,7 @@ export default function CreateEnvelopePage() {
           </div>
 
           <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => { setShowSuccessDialog(false); router.push(spaceId ? `/spaces/${spaceId}` : "/SignatureDashboard"); }}
-              className="flex-1 rounded-xl border-slate-200"
-            >
-              {spaceId ? 'Back to Space' : 'View Dashboard'}
-            </Button>
+            
             <Button
               onClick={() => {
                 setShowSuccessDialog(false);

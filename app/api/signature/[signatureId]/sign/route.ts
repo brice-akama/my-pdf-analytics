@@ -9,9 +9,10 @@ import {
   sendSignatureRequestEmail, // ⭐ Add this import
   sendSignerConfirmationEmail,
   sendCCCompletionEmail,
-  sendCCSignatureUpdateEmail
+  sendCCSignatureUpdateEmail,
+  sendCertificateEmail,
 } from "@/lib/emailService";
-import { generateSignedPDF } from "@/lib/pdfGenerator";
+import { generateSignedPDF, generateCertificatePDFBuffer } from "@/lib/pdfGenerator";
 import { getLocationFromIP } from '@/lib/geoip';
 import { createNotification } from "@/lib/notifications";
 
@@ -135,6 +136,39 @@ if (signatureRequest.selfieVerificationRequired &&
     );
 
     console.log('✅ Signature saved for:', signatureRequest.recipient.name);
+
+    // ── Generate + email certificate to signer and owner (fire-and-forget) ──
+    generateCertificatePDFBuffer(
+      { ...signatureRequest, signedFields, signedAt: now, status: 'signed' },
+      document
+    ).then(async (certBuffer) => {
+      const emailArgs = {
+        signerName:    signatureRequest.recipient.name,
+        signerEmail:   signatureRequest.recipient.email,
+        originalFilename: document.originalFilename || document.filename,
+        signedAt:      now,
+        certificatePdfBuffer: certBuffer,
+      };
+
+      // Send to signer
+      await sendCertificateEmail({
+        ...emailArgs,
+        recipientEmail: signatureRequest.recipient.email,
+        recipientName:  signatureRequest.recipient.name,
+      }).catch(err => console.error('Certificate email to signer failed:', err));
+
+      // Send to document owner
+      if (signatureRequest.ownerEmail &&
+          signatureRequest.ownerEmail !== signatureRequest.recipient.email) {
+        await sendCertificateEmail({
+          ...emailArgs,
+          recipientEmail: signatureRequest.ownerEmail,
+          recipientName:  'Document Owner',
+        }).catch(err => console.error('Certificate email to owner failed:', err));
+      }
+
+      console.log('✅ Certificate emails sent for:', signatureRequest.recipient.name);
+    }).catch(err => console.error('❌ Certificate generation failed:', err));
 
     await createNotification({
   userId: document.userId,

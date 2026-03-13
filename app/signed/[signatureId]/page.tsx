@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut, X, Paperclip, Lock,
 } from 'lucide-react';
 
-// ── Constants (must match editor + sign page) ──────────────────────────────
+// ── Constants (must match editor + sign page + pdfGenerator) ──────────────
 const PDF_NATURAL_W = 794;
 const PAGE_H_PX     = 297 * 3.78; // 1122px
 
@@ -26,14 +26,17 @@ export default function SignedDocumentPage() {
   // ── PDF render state ───────────────────────────────────────────────────────
   const pdfCanvasRef  = useRef<HTMLCanvasElement>(null);
   const pdfWrapperRef = useRef<HTMLDivElement>(null);
+  const renderTaskRef = useRef<any>(null);
   const [pdfScale,    setPdfScale]    = useState(1);
   const [manualZoom,  setManualZoom]  = useState(1);
   const [totalPages,  setTotalPages]  = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pagesWithFields, setPagesWithFields] = useState<Set<number>>(new Set());
+  const [pdfReady,    setPdfReady]    = useState(false);
+  const [signatureFields, setSignatureFields] = useState<any[]>([]);
+  const [signatures,      setSignatures]      = useState<Record<string, any>>({});
 
-  // ── Sidebar thumbnails — one JPEG data URL per page ────────────────────────
-  const [thumbs, setThumbs] = useState<string[]>([]);
+  // ── Sidebar thumbnails ─────────────────────────────────────────────────────
+  const [thumbs,      setThumbs]      = useState<string[]>([]);
 
   // ── Mobile sidebar ─────────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -53,13 +56,12 @@ export default function SignedDocumentPage() {
           return;
         }
         setDocumentData(info);
+        setSignatureFields(info.signatureFields || []);
+        setSignatures(info.signatures || {});
 
         const att = await attRes.json();
         if (att.success) setAttachments(att.attachments || []);
 
-        const fields: any[] = info.signatureFields || [];
-        setPagesWithFields(new Set(fields.map((f: any) => f.page)));
-        setTotalPages(info.document?.numPages || 1);
         setLoading(false);
       } catch {
         setError('Failed to load document');
@@ -69,7 +71,10 @@ export default function SignedDocumentPage() {
     run();
   }, [signatureId]);
 
-  // ── Fetch PDF blob ─────────────────────────────────────────────────────────
+  // ── Fetch the SIGNED PDF blob (already baked — from Cloudinary) ───────────
+  // This is the key difference from the old version:
+  // We fetch the SIGNED pdf via /view which returns the already-generated
+  // signed PDF from Cloudinary. No overlays needed — signatures are baked in.
   useEffect(() => {
     if (!documentData) return;
     fetch(`/api/signature/${signatureId}/view`)
@@ -78,62 +83,98 @@ export default function SignedDocumentPage() {
       .catch(console.error);
   }, [documentData, signatureId]);
 
-  // ── PDF.js: main canvas + sidebar thumbnails ───────────────────────────────
+  // ── PDF.js: render signed PDF + generate thumbnails ────────────────────────
   useEffect(() => {
     if (!pdfUrl || !pdfCanvasRef.current) return;
 
+    let cancelled = false;
+
     const render = async () => {
-      console.log('[THUMB] render() started, pdfUrl:', pdfUrl?.substring(0, 40));
-      console.log('[THUMB] pdfCanvasRef.current:', pdfCanvasRef.current);
+      // Cancel any previous render
+      if (renderTaskRef.current) {
+        try { renderTaskRef.current.cancel(); } catch (_) {}
+        renderTaskRef.current = null;
+        await new Promise(r => setTimeout(r, 50));
+      }
+
+      if (cancelled || !pdfCanvasRef.current) return;
+      setPdfReady(false);
+      setThumbs([]);
 
       const pdfjsLib = await import('pdfjs-dist');
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
-      console.log('[THUMB] pdfjsLib version:', pdfjsLib.version);
-
       const pdf   = await pdfjsLib.getDocument(pdfUrl).promise;
+      if (cancelled) return;
+
       const pages = pdf.numPages;
-      console.log('[THUMB] PDF loaded, pages:', pages);
       setTotalPages(pages);
 
-      // ── Main high-res canvas ─────────────────────────────────────────────
+      // ── Main high-res canvas ───────────────────────────────────────────
       const dpr    = window.devicePixelRatio || 1;
-      console.log('[THUMB] dpr:', dpr);
       const canvas = pdfCanvasRef.current!;
+
+      // Reset canvas to force clean context
+      canvas.width        = 1;
+      canvas.height       = 1;
       canvas.width        = PDF_NATURAL_W * dpr;
       canvas.height       = PAGE_H_PX * pages * dpr;
       canvas.style.width  = `${PDF_NATURAL_W}px`;
       canvas.style.height = `${PAGE_H_PX * pages}px`;
-      console.log('[THUMB] main canvas size:', canvas.width, 'x', canvas.height);
 
       const ctx = canvas.getContext('2d', { alpha: false })!;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
-      // ── Step 1: render ALL pages into main canvas ────────────────────────
+      // ── Render all pages into the main canvas ──────────────────────────
       for (let p = 1; p <= pages; p++) {
-        console.log(`[THUMB] rendering main page ${p}/${pages}`);
+        if (cancelled) return;
+
         const page    = await pdf.getPage(p);
         const natural = page.getViewport({ scale: 1 });
-        console.log(`[THUMB] page ${p} natural size:`, natural.width, 'x', natural.height);
-        const mainScale = (PDF_NATURAL_W / natural.width) * dpr;
-        const mainVp    = page.getViewport({ scale: mainScale });
+        const scale   = (PDF_NATURAL_W / natural.width) * dpr;
+
         ctx.save();
         ctx.translate(0, (p - 1) * PAGE_H_PX * dpr);
-        await page.render({ canvasContext: ctx, viewport: mainVp, intent: 'display' }).promise;
+
+        const task = page.render({
+          canvasContext: ctx,
+          viewport:      page.getViewport({ scale }),
+          intent:        'display',
+        });
+        renderTaskRef.current = task;
+
+        try {
+          await task.promise;
+        } catch (err: any) {
+          ctx.restore();
+          if (err?.name === 'RenderingCancelledException') return;
+          throw err;
+        }
+
         ctx.restore();
-        console.log(`[THUMB] main page ${p} rendered OK`);
       }
 
-      // ── Step 2: crop thumbnails from already-rendered main canvas ─────────
+      if (cancelled) return;
+
+      // ── Scale to fit wrapper ───────────────────────────────────────────
+      if (pdfWrapperRef.current) {
+        const avail = pdfWrapperRef.current.clientWidth - 16;
+        if (avail > 0) setPdfScale(Math.min((avail / PDF_NATURAL_W) * manualZoom, manualZoom));
+      }
+
+      renderTaskRef.current = null;
+      setPdfReady(true);
+
+      // ── Generate thumbnails from already-rendered main canvas ──────────
       const THUMB_W  = 148;
       const srcPageH = Math.round(PAGE_H_PX * dpr);
       const srcPageW = Math.round(PDF_NATURAL_W * dpr);
       const thumbH   = Math.round(THUMB_W * (srcPageH / srcPageW));
-      console.log('[THUMB] thumb dimensions:', THUMB_W, 'x', thumbH, '| srcPage:', srcPageW, 'x', srcPageH);
 
       for (let p = 1; p <= pages; p++) {
+        if (cancelled) return;
         const tCanvas    = document.createElement('canvas');
         tCanvas.width    = THUMB_W;
         tCanvas.height   = thumbH;
@@ -141,43 +182,46 @@ export default function SignedDocumentPage() {
         tCtx.imageSmoothingEnabled = true;
         tCtx.imageSmoothingQuality = 'high';
         const srcY = (p - 1) * srcPageH;
-        console.log(`[THUMB] cropping page ${p} from srcY=${srcY}`);
-        tCtx.drawImage(
-          canvas,
-          0, srcY, srcPageW, srcPageH,
-          0, 0,    THUMB_W,  thumbH,
-        );
+        tCtx.drawImage(canvas, 0, srcY, srcPageW, srcPageH, 0, 0, THUMB_W, thumbH);
         const dataUrl = tCanvas.toDataURL('image/jpeg', 0.85);
-        console.log(`[THUMB] page ${p} dataUrl length:`, dataUrl.length, '| starts with:', dataUrl.substring(0, 30));
         setThumbs(prev => {
           const next = [...prev];
           next[p - 1] = dataUrl;
           return next;
         });
       }
-      console.log('[THUMB] All thumbnails generated!');
     };
 
-    render().catch(e => console.error('[THUMB] render() ERROR:', e));
+    render().catch(err => {
+      if (err?.name !== 'RenderingCancelledException') console.error(err);
+    });
+
+    return () => {
+      cancelled = true;
+      if (renderTaskRef.current) {
+        try { renderTaskRef.current.cancel(); } catch (_) {}
+        renderTaskRef.current = null;
+      }
+    };
   }, [pdfUrl]);
 
-  // ── Scale to fit wrapper ───────────────────────────────────────────────────
+  // ── Scale on resize or zoom change ────────────────────────────────────────
   useEffect(() => {
     const recalc = () => {
       if (!pdfWrapperRef.current) return;
       const avail = pdfWrapperRef.current.clientWidth - 16;
-      setPdfScale(Math.min(avail / PDF_NATURAL_W, 1) * manualZoom);
+      if (avail > 0) setPdfScale(Math.min((avail / PDF_NATURAL_W) * manualZoom, manualZoom));
     };
     const ob = new ResizeObserver(recalc);
     if (pdfWrapperRef.current) ob.observe(pdfWrapperRef.current);
     recalc();
     return () => ob.disconnect();
-  }, [pdfUrl, manualZoom]);
+  }, [pdfReady, manualZoom]);
 
   // ── Scroll tracking ────────────────────────────────────────────────────────
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const st    = (e.target as HTMLDivElement).scrollTop;
-    const page  = Math.floor(st / (PAGE_H_PX * pdfScale)) + 1;
+    const st   = (e.target as HTMLDivElement).scrollTop;
+    const page = Math.floor(st / (PAGE_H_PX * pdfScale)) + 1;
     setCurrentPage(Math.min(Math.max(page, 1), totalPages));
   };
 
@@ -231,9 +275,6 @@ export default function SignedDocumentPage() {
       </div>
     </div>
   );
-
-  const signatureFields: any[] = documentData.signatureFields || [];
-  const signatures: Record<string, any> = documentData.signatures || {};
 
   return (
     <div className="flex flex-col" style={{ height: '100vh', background: '#0f0f1a' }}>
@@ -301,11 +342,11 @@ export default function SignedDocumentPage() {
           </button>
         </div>
 
-        {/* View-only */}
+        {/* View-only badge */}
         <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full"
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}>
           <Lock className="h-3 w-3" style={{ color: 'rgba(255,255,255,0.38)' }} />
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>View only</span>
+          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>Signed</span>
         </div>
 
         {/* Download */}
@@ -318,7 +359,7 @@ export default function SignedDocumentPage() {
       </header>
 
       {/* ══ BODY ════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0" style={{ height: 'calc(100vh - 52px)', overflow: 'hidden' }}>
 
         {/* Mobile backdrop */}
         {sidebarOpen && (
@@ -334,13 +375,13 @@ export default function SignedDocumentPage() {
             'transition-transform duration-300 ease-in-out',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
           ].join(' ')}
-          style={{ width: 172, background: '#1a1a2e', borderRight: '1px solid rgba(255,255,255,0.07)' }}
+          style={{ width: 172, background: '#1a1a2e', borderRight: '1px solid rgba(255,255,255,0.07)', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
         >
-          {/* Sidebar header row */}
+          {/* Sidebar header */}
           <div className="flex items-center justify-between px-3 py-2 flex-shrink-0"
             style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', height: 40 }}>
             <span className="text-[10px] font-bold uppercase tracking-widest"
-              style={{ color: 'rgba(255,255,255,0.32)' }}>Document</span>
+              style={{ color: 'rgba(255,255,255,0.32)' }}>Pages</span>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] tabular-nums px-1.5 py-0.5 rounded"
                 style={{ background: 'rgba(99,102,241,0.18)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.25)' }}>
@@ -353,14 +394,12 @@ export default function SignedDocumentPage() {
             </div>
           </div>
 
-          {/* Page thumbnail scroll list */}
+          {/* Page thumbnail list */}
           <div className="flex-1 overflow-y-auto py-2 px-2 space-y-1.5"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.07) transparent' }}>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => {
               const isActive = currentPage === pageNum;
-              const hasField = pagesWithFields.has(pageNum);
-              const thumb    = thumbs[pageNum - 1]; // undefined while rendering
-
+              const thumb    = thumbs[pageNum - 1];
               return (
                 <button
                   key={pageNum}
@@ -369,28 +408,16 @@ export default function SignedDocumentPage() {
                   className="w-full rounded-lg overflow-hidden transition-all block text-left"
                   style={{
                     padding:    3,
-                    border:     isActive
-                      ? '2px solid #6366f1'
-                      : '2px solid rgba(255,255,255,0.07)',
-                    background: isActive
-                      ? 'rgba(99,102,241,0.1)'
-                      : 'rgba(255,255,255,0.02)',
+                    border:     isActive ? '2px solid #6366f1' : '2px solid rgba(255,255,255,0.07)',
+                    background: isActive ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.02)',
                   }}
                 >
-                  {/* ── Thumbnail area ─────────────────────────────────── */}
                   <div className="w-full overflow-hidden rounded relative"
                     style={{ background: '#fff', aspectRatio: '8.5 / 11' }}>
-
                     {thumb ? (
-                      /* Real rendered page thumbnail */
-                      <img
-                        src={thumb}
-                        alt={`Page ${pageNum}`}
-                        draggable={false}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }}
-                      />
+                      <img src={thumb} alt={`Page ${pageNum}`} draggable={false}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
                     ) : (
-                      /* Animated skeleton while PDF.js renders this page */
                       <div className="w-full h-full flex flex-col justify-start p-2 gap-1"
                         style={{ background: '#fafafa' }}>
                         {[88, 72, 96, 60, 80, 55, 92, 68, 76, 50].map((w, li) => (
@@ -399,40 +426,23 @@ export default function SignedDocumentPage() {
                         ))}
                       </div>
                     )}
-
-                    {/* Active page glow */}
                     {isActive && (
                       <div className="absolute inset-0 pointer-events-none"
                         style={{ boxShadow: 'inset 0 0 0 2px rgba(99,102,241,0.55)' }} />
                     )}
                   </div>
-
-                  {/* ── Page number + signed badge ─────────────────────── */}
                   <div className="flex items-center justify-between px-0.5 pt-1.5 pb-0.5">
                     <span className="text-[11px] font-semibold tabular-nums"
                       style={{ color: isActive ? '#a5b4fc' : 'rgba(255,255,255,0.38)' }}>
                       {pageNum}
                     </span>
-                    {hasField && (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full"
-                        style={{
-                          fontSize: 9,
-                          fontWeight: 700,
-                          background: 'rgba(99,102,241,0.22)',
-                          color: '#818cf8',
-                          border: '1px solid rgba(99,102,241,0.38)',
-                        }}>
-                        <Check style={{ width: 8, height: 8 }} />
-                        Signed
-                      </span>
-                    )}
                   </div>
                 </button>
               );
             })}
           </div>
 
-          {/* Signers list at bottom */}
+          {/* Signers at bottom */}
           {documentData.signers?.length > 0 && (
             <div className="flex-shrink-0 px-3 py-2.5"
               style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
@@ -464,21 +474,57 @@ export default function SignedDocumentPage() {
           id="pdf-view-scroll"
           className="flex-1 min-w-0 overflow-y-auto"
           onScroll={handleScroll}
-          style={{ background: '#131320', scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}
+          style={{
+            height:          '100%',
+            background:      '#131320',
+            scrollbarWidth:  'thin',
+            scrollbarColor:  'rgba(255,255,255,0.08) transparent',
+          }}
         >
           <div className="p-3 sm:p-5">
-            {pdfUrl ? (
+
+            {/* Loading spinner — shown while PDF.js is rendering */}
+            {!pdfReady && pdfUrl && (
+              <div className="flex items-center justify-center" style={{ height: '60vh' }}>
+                <div className="text-center">
+                  <Loader2 className="h-10 w-10 animate-spin text-purple-400 mx-auto mb-3" />
+                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>Rendering signed document...</p>
+                </div>
+              </div>
+            )}
+
+            {/* No PDF yet */}
+            {!pdfUrl && (
+              <div className="flex items-center justify-center" style={{ height: '70vh' }}>
+                <div className="text-center">
+                  <Loader2 className="h-10 w-10 animate-spin text-purple-400 mx-auto mb-3" />
+                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>Loading document...</p>
+                </div>
+              </div>
+            )}
+
+            {/*
+              ── SIGNED PDF CANVAS ────────────────────────────────────────────
+              The PDF fetched from /api/signature/${signatureId}/view is the
+              ALREADY GENERATED signed PDF stored in Cloudinary.
+              Signatures are BAKED INTO the PDF pixels — no overlays needed.
+              This is identical to how the CC page works, which is why the
+              CC page always shows correct positions.
+            */}
+            {pdfUrl && (
               <div
                 className="relative mx-auto"
                 style={{
-                  width:        PDF_NATURAL_W * pdfScale,
-                  height:       PAGE_H_PX * totalPages * pdfScale,
+                  width:        pdfReady ? PDF_NATURAL_W * pdfScale : 0,
+                  height:       pdfReady ? PAGE_H_PX * totalPages * pdfScale : 0,
                   background:   '#fff',
-                  boxShadow:    '0 8px 48px rgba(0,0,0,0.6)',
+                  boxShadow:    pdfReady ? '0 8px 48px rgba(0,0,0,0.6)' : 'none',
                   borderRadius: 3,
                   overflow:     'hidden',
+                  display:      pdfReady ? 'block' : 'none',
                 }}
               >
+                {/* Inner natural-size container — CSS scaled */}
                 <div style={{
                   width:           PDF_NATURAL_W,
                   height:          PAGE_H_PX * totalPages,
@@ -487,7 +533,11 @@ export default function SignedDocumentPage() {
                   position:        'absolute',
                   top: 0, left: 0,
                 }}>
-                  <canvas ref={pdfCanvasRef} style={{ display: 'block', width: `${PDF_NATURAL_W}px` }} />
+                  {/* PDF.js renders the signed PDF directly — signatures already baked in */}
+                  <canvas
+                    ref={pdfCanvasRef}
+                    style={{ display: 'block', width: `${PDF_NATURAL_W}px` }}
+                  />
 
                   {/* Page dividers */}
                   {Array.from({ length: totalPages - 1 }, (_, i) => (
@@ -496,36 +546,36 @@ export default function SignedDocumentPage() {
                       top:        PAGE_H_PX * (i + 1),
                       left: 0, right: 0,
                       height:     2,
-                      background: 'rgba(99,102,241,0.2)',
+                      background: 'rgba(99,102,241,0.15)',
                       zIndex:     5,
                     }} />
                   ))}
 
-                  {/* Signature overlays */}
+                  {/* Signature overlays — same logic as CC page */}
                   <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
                     {signatureFields.map((field: any) => {
-                      const sig = signatures[field.id];
+                      const sig = signatures[String(field.id)];
                       if (!sig) return null;
                       const topPx = ((field.page - 1) * PAGE_H_PX) + (field.y / 100 * PAGE_H_PX);
                       const W = field.width  ?? (field.type === 'signature' ? 150 : field.type === 'checkbox' ? 24 : 120);
                       const H = field.height ?? (field.type === 'signature' ? 45  : field.type === 'checkbox' ? 24 : 32);
                       return (
                         <div key={field.id} className="absolute" style={{
-                          left: `${field.x}%`, top: `${topPx}px`,
-                          width: `${W}px`, height: `${H}px`,
-                          transform: 'translate(-50%, 0)', zIndex: 10,
+                          left:      `${field.x}%`,
+                          top:       `${topPx}px`,
+                          width:     `${W}px`,
+                          height:    `${H}px`,
+                          transform: 'translate(-50%, 0)',
+                          zIndex:    10,
                         }}>
-                          <div className="h-full w-full flex items-center justify-center p-0.5">
+                          <div className="h-full flex items-center justify-center p-1">
                             {field.type === 'signature' && sig.data && (
                               <img src={sig.data} alt="Signature"
                                 className="max-h-full max-w-full object-contain"
                                 style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.12))' }} />
                             )}
-                            {field.type === 'date' && (
+                            {(field.type === 'date' || field.type === 'text') && (
                               <p className="text-xs font-medium text-slate-900 text-center leading-tight">{sig.data}</p>
-                            )}
-                            {field.type === 'text' && (
-                              <p className="text-xs font-medium text-slate-900 text-center px-1 leading-tight">{sig.data}</p>
                             )}
                             {field.type === 'checkbox' && (
                               <div className="flex items-center justify-center w-full h-full">
@@ -544,17 +594,10 @@ export default function SignedDocumentPage() {
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="flex items-center justify-center" style={{ height: '70vh' }}>
-                <div className="text-center">
-                  <Loader2 className="h-10 w-10 animate-spin text-purple-400 mx-auto mb-3" />
-                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.35)' }}>Rendering document...</p>
-                </div>
-              </div>
             )}
 
             {/* Attachments */}
-            {attachments.length > 0 && (
+            {attachments.length > 0 && pdfReady && (
               <div className="mt-4 mx-auto rounded-xl overflow-hidden"
                 style={{ maxWidth: PDF_NATURAL_W * pdfScale, background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <div className="px-5 py-3 flex items-center gap-2"
@@ -595,15 +638,17 @@ export default function SignedDocumentPage() {
             )}
 
             {/* Legal notice */}
-            <div className="mt-4 mx-auto px-4 py-3 rounded-lg text-xs text-center"
-              style={{
-                maxWidth:   PDF_NATURAL_W * pdfScale,
-                background: 'rgba(99,102,241,0.07)',
-                border:     '1px solid rgba(99,102,241,0.17)',
-                color:      'rgba(165,180,252,0.55)',
-              }}>
-              This document is legally binding. All signatures are timestamped, verified, and encrypted by DocMetrics.
-            </div>
+            {pdfReady && (
+              <div className="mt-4 mx-auto px-4 py-3 rounded-lg text-xs text-center"
+                style={{
+                  maxWidth:   PDF_NATURAL_W * pdfScale,
+                  background: 'rgba(99,102,241,0.07)',
+                  border:     '1px solid rgba(99,102,241,0.17)',
+                  color:      'rgba(165,180,252,0.55)',
+                }}>
+                This document is legally binding. All signatures are timestamped, verified, and encrypted by DocMetrics.
+              </div>
+            )}
           </div>
         </div>
       </div>

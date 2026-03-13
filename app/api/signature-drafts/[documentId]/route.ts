@@ -35,7 +35,7 @@ export async function GET(
     const draft = await db.collection('signature_request_drafts').findOne({
       documentId: new ObjectId(documentId),
       userId: user.id,
-      organizationId: organizationId,
+      
     });
 
     if (!draft) {
@@ -175,7 +175,7 @@ export async function POST(
       {
         documentId: new ObjectId(documentId),
         userId: user.id,
-        organizationId: organizationId,
+         
       },
       {
         $set: draftDocument,
@@ -228,7 +228,7 @@ export async function DELETE(
     const result = await db.collection('signature_request_drafts').deleteOne({
       documentId: new ObjectId(documentId),
       userId: user.id,
-      organizationId: organizationId,
+       
     });
 
     if (result.deletedCount === 0) {

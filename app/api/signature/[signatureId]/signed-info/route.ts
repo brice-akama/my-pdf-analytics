@@ -62,6 +62,18 @@ export async function GET(
       location: req.location || null,
     }));
 
+    // Build signatures map: { fieldId: { data, type } } — same shape as CC page
+    const signatures: Record<string, { data: string; type: string }> = {};
+    for (const req of allRequests) {
+      if (req.status !== 'signed' || !req.signedFields) continue;
+      for (const sf of req.signedFields) {
+        const data = sf.signatureData || sf.dateValue || sf.textValue || '';
+        if (data) {
+          signatures[String(sf.id)] = { type: sf.type, data };
+        }
+      }
+    }
+
     // ✅ Determine what to show based on signing status
     const response: any = {
       success: true,
@@ -83,6 +95,9 @@ export async function GET(
         status: signatureRequest.status,
         signedAt: signatureRequest.signedAt,
       },
+      // Same fields the CC page uses for overlays
+      signatureFields: signatureRequest.signatureFields || [],
+      signatures,
     };
 
     // ✅ If ALL signed, include the final PDF

@@ -3741,3 +3741,122 @@ export async function sendSpaceInviteEmail({
   console.log('✅ Space invite email sent to:', recipientEmail)
   return data
 }
+
+
+// ===================================
+// CERTIFICATE OF COMPLETION EMAIL
+// ===================================
+export async function sendCertificateEmail({
+  recipientEmail,
+  recipientName,
+  signerName,
+  signerEmail,
+  originalFilename,
+  signedAt,
+  certificatePdfBuffer,
+}: {
+  recipientEmail: string;
+  recipientName: string;
+  signerName: string;
+  signerEmail: string;
+  originalFilename: string;
+  signedAt: Date;
+  certificatePdfBuffer: Buffer;
+}) {
+  try {
+    const signedDateFormatted = new Date(signedAt).toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+
+    const { data, error } = await resend.emails.send({
+      from: FROM,
+      to: [recipientEmail],
+      subject: `Certificate of Completion — "${originalFilename}"`,
+      attachments: [
+        {
+          filename: `Certificate_${originalFilename.replace('.pdf', '')}_${signerName.replace(/\s+/g, '_')}.pdf`,
+          content: certificatePdfBuffer,
+        },
+      ],
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f5f5f5;margin:0;padding:0;">
+          <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+            
+            <!-- Header -->
+            <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px 40px;">
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                <div style="background:rgba(255,255,255,0.2);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;">
+                  <span style="color:#fff;font-weight:bold;font-size:14px;">DM</span>
+                </div>
+                <span style="color:#fff;font-weight:700;font-size:18px;">DocMetrics</span>
+              </div>
+              <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700;">Certificate of Completion</h1>
+              <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:14px;">Signing complete — certificate attached</p>
+            </div>
+
+            <!-- Body -->
+            <div style="padding:32px 40px;">
+              <p style="color:#374151;font-size:15px;margin:0 0 20px;">Hi ${recipientName},</p>
+              <p style="color:#374151;font-size:15px;margin:0 0 24px;">
+                <strong>${signerName}</strong> (${signerEmail}) has signed <strong>"${originalFilename}"</strong> on ${signedDateFormatted}.
+                The certificate of completion is attached to this email as a PDF.
+              </p>
+
+              <!-- Certificate info box -->
+              <div style="background:#f8f7ff;border:1px solid #e0e7ff;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
+                <p style="color:#4f46e5;font-weight:700;font-size:13px;margin:0 0 12px;text-transform:uppercase;letter-spacing:0.05em;">Certificate Details</p>
+                <table style="width:100%;border-collapse:collapse;">
+                  <tr>
+                    <td style="color:#6b7280;font-size:13px;padding:4px 0;width:40%;">Document</td>
+                    <td style="color:#111827;font-size:13px;font-weight:600;padding:4px 0;">${originalFilename}</td>
+                  </tr>
+                  <tr>
+                    <td style="color:#6b7280;font-size:13px;padding:4px 0;">Signed by</td>
+                    <td style="color:#111827;font-size:13px;font-weight:600;padding:4px 0;">${signerName}</td>
+                  </tr>
+                  <tr>
+                    <td style="color:#6b7280;font-size:13px;padding:4px 0;">Email</td>
+                    <td style="color:#111827;font-size:13px;font-weight:600;padding:4px 0;">${signerEmail}</td>
+                  </tr>
+                  <tr>
+                    <td style="color:#6b7280;font-size:13px;padding:4px 0;">Date signed</td>
+                    <td style="color:#111827;font-size:13px;font-weight:600;padding:4px 0;">${signedDateFormatted}</td>
+                  </tr>
+                </table>
+              </div>
+
+              <p style="color:#6b7280;font-size:13px;margin:0;">
+                The attached certificate serves as legal proof of signing and includes the full audit trail, IP address, timestamps, and document fingerprint.
+              </p>
+            </div>
+
+            <!-- Footer -->
+            <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center;">
+              <p style="color:#9ca3af;font-size:12px;margin:0;">
+                This certificate was generated by <strong>DocMetrics</strong> and is legally binding under ESIGN Act, UETA, and eIDAS.
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error('❌ Certificate email error:', error);
+      return { success: false, error };
+    }
+
+    console.log('✅ Certificate email sent to:', recipientEmail);
+    return { success: true, data };
+  } catch (err) {
+    console.error('❌ Certificate email exception:', err);
+    return { success: false, error: err };
+  }
+}
