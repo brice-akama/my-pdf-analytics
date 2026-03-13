@@ -92,7 +92,7 @@ if (signatureRequest.scheduledSendDate) {
 
     // Get document details
     const document = await db.collection("documents").findOne({
-      _id: new ObjectId(signatureRequest.documentId),
+       _id: new ObjectId(signatureRequest.documentId.toString()),
     });
 
     if (!document) {

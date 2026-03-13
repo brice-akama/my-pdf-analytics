@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import ReassignSignerDrawer from "@/components/ReassignSignerDrawer";
 import {
   LinkIcon,
   Mail,
@@ -15,6 +16,7 @@ import {
   BarChart2,
   Check,
   FileSignature,
+  UserPlus,
   X,
 } from "lucide-react";
 import {
@@ -385,6 +387,7 @@ export default function ActivityTab({
 }) {
   const [expandedVisit, setExpandedVisit] = useState<string | null>(null);
   const [shareLinks, setShareLinks] = useState<any[]>([]);
+  const [reassignLink, setReassignLink] = useState<any | null>(null);
 
   React.useEffect(() => {
     Promise.all([
@@ -1011,6 +1014,16 @@ export default function ActivityTab({
                         <Copy className="mr-2 h-4 w-4" />
                         <span>Duplicate link</span>
                       </DropdownMenuItem>
+                      {lnk.linkType === "signature" &&
+ !["signed","completed","cancelled","declined"].includes(lnk.signatureStatus) && (
+  <>
+    <DropdownMenuItem onClick={() => setReassignLink(lnk)}>
+      <UserPlus className="mr-2 h-4 w-4" />
+      <span>Change Signer</span>
+    </DropdownMenuItem>
+    <DropdownMenuSeparator />
+  </>
+)}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => {
@@ -1219,6 +1232,12 @@ export default function ActivityTab({
           ))
         )}
       </div>
+      <ReassignSignerDrawer
+  isOpen={!!reassignLink}
+  onClose={() => setReassignLink(null)}
+  link={reassignLink ?? { shareId: "", recipientName: "", recipientEmail: "" }}
+  onReassigned={() => { setReassignLink(null); window.location.reload(); }}
+/>
     </div>
   );
 }
