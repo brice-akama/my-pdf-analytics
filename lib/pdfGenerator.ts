@@ -29,22 +29,26 @@ async function drawFieldOnPage(
 ) {
   const { width, height } = page.getSize();
 
-  // Scale from editor pixel space → PDF point space
-  const scaleX = width  / EDITOR_W_PX;
-  const scaleY = height / EDITOR_H_PX;
+// Scale from editor pixel space → PDF point space
+const scaleX = width / EDITOR_W_PX;
+const scaleY = scaleX; //  FIX: use same scale for both axes
 
-  const fieldWidthPt  = (field.width  ?? (field.type === 'signature' ? 150 : field.type === 'checkbox' ? 24 : 120)) * scaleX;
-  const fieldHeightPt = (field.height ?? (field.type === 'signature' ? 45  : field.type === 'checkbox' ? 24 : 32))  * scaleY;
+// ✅ FIX: Use scaleX for BOTH width and height of field boxes.
+// The sign page renders fields at raw pixel sizes (150px wide, 45px tall)
+// with no Y-axis scaling. Using scaleY (= 841.89/1122 = 0.75) was making
+// field boxes shorter than the overlay, shifting content upward.
+const fieldWidthPt  = (field.width  ?? (field.type === 'signature' ? 150 : field.type === 'checkbox' ? 24 : 120)) * scaleX;
+const fieldHeightPt = (field.height ?? (field.type === 'signature' ? 45  : field.type === 'checkbox' ? 24 : 32))  * scaleX;
 
-  // field.x is % of editor width → convert to PDF points from left
-  const xInPoints = (field.x / 100) * width;
-  // field.y is % of editor page height → convert to PDF points from top
-  const yFromTopPt = (field.y / 100) * height;
+// field.x is % of editor width → PDF points from left
+const xInPoints  = (field.x / 100) * width;
+// field.y is % of editor page height → PDF points from top
+const yFromTopPt = (field.y / 100) * height;
 
-  // Center the field horizontally on the anchor point
-  const x = xInPoints - (fieldWidthPt / 2);
-  // PDF coordinate system is bottom-up, so flip Y
-  const y = height - yFromTopPt - fieldHeightPt;
+// Center horizontally — matches sign page transform: translate(-50%, 0%)
+const x = xInPoints - (fieldWidthPt / 2);
+// PDF is bottom-up — flip Y
+const y = height - yFromTopPt - fieldHeightPt;
 
   // ── SIGNATURE IMAGE ────────────────────────────────────────────────────────
   if (field.type === 'signature' && signedField.signatureData) {

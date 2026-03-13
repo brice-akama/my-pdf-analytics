@@ -10,9 +10,9 @@ export async function GET(
   try {
     const { uniqueId } = await params;
     const email = request.nextUrl.searchParams.get("email");
-    
+
     console.log('🔍 Fetching CC data for:', uniqueId, email);
-    
+
     const db = await dbPromise;
 
     const ccRecord = await db.collection("cc_recipients").findOne({
@@ -27,7 +27,6 @@ export async function GET(
       );
     }
 
-    // Get document info
     const document = await db.collection("documents").findOne({
       _id: new ObjectId(ccRecord.documentId),
     });
@@ -39,45 +38,34 @@ export async function GET(
       );
     }
 
-    // Get ONLY signature requests from the same batch as this CC record
-const signatureRequests = await db
-  .collection("signature_requests")
-  .find({ 
-    documentId: ccRecord.documentId,
-    ...(ccRecord.batchId ? { batchId: ccRecord.batchId } : {}),
-  })
-  .toArray();
+    const signatureRequests = await db
+      .collection("signature_requests")
+      .find({
+        documentId: ccRecord.documentId,
+        ...(ccRecord.batchId ? { batchId: ccRecord.batchId } : {}),
+      })
+      .toArray();
 
     console.log('📋 Found', signatureRequests.length, 'signature requests');
 
-    const signedCount = signatureRequests.filter(r => r.status === 'signed' || r.status === 'completed').length;
-const allSigned = signedCount === signatureRequests.length && signatureRequests.length > 0;
-const status = allSigned ? "Completed" : `${signedCount}/${signatureRequests.length} Signed`;
+    const signedCount = signatureRequests.filter(
+      r => r.status === 'signed' || r.status === 'completed'
+    ).length;
+    const allSigned = signedCount === signatureRequests.length && signatureRequests.length > 0;
+    const status = allSigned ? "Completed" : `${signedCount}/${signatureRequests.length} Signed`;
 
-    // Get signature fields from first request (they're all the same in shared mode)
-    const signatureFields = signatureRequests.length > 0 
-      ? signatureRequests[0].signatureFields 
-      : [];
+    // ── Build per-recipient signature maps ──────────────────────────────────
+    // Each recipient gets their own signatures map so the frontend can
+    // switch the PDF overlay when the user clicks a different signer.
+    const recipients = signatureRequests.map((req, index) => {
+      const isSigned = req.status === 'signed' || req.status === 'completed';
+      const signaturesForRecipient: Record<string, any> = {};
 
-    console.log('📋 Signature fields:', signatureFields.length);
-
-    // ⭐ FIXED: Collect all signatures from all signers
-    const allSignatures: Record<string, any> = {};
-    
-    signatureRequests.forEach((req, index) => {
-      console.log(`\n👤 Checking recipient ${index + 1}:`, req.recipient?.name);
-      console.log('   Status:', req.status);
-      console.log('   Has signedFields:', !!req.signedFields);
-      
-      if (req.signedFields && (req.status === 'signed' || req.status === 'completed')) {
-        console.log('   ✅ Processing', req.signedFields.length, 'signed fields');
-        
+      // Isolated mode: each request only has its own signedFields
+      if (req.signedFields && isSigned) {
         req.signedFields.forEach((field: any) => {
-          console.log('   📝 Field:', field.id, 'Type:', field.type);
-          
-          // ⭐ CRITICAL FIX: Handle different possible property names
-          let signatureData = null;
-          
+          let signatureData: string | null = null;
+
           if (field.type === 'signature') {
             signatureData = field.signatureData || field.data || field.value;
           } else if (field.type === 'date') {
@@ -85,34 +73,30 @@ const status = allSigned ? "Completed" : `${signedCount}/${signatureRequests.len
           } else if (field.type === 'text') {
             signatureData = field.textValue || field.data || field.value;
           } else if (field.type === 'checkbox') {
-            signatureData = field.checkboxValue !== undefined 
-              ? String(field.checkboxValue) 
+            signatureData = field.checkboxValue !== undefined
+              ? String(field.checkboxValue)
               : (field.data || field.value);
           }
-          
-          console.log('   💾 Data:', signatureData ? '✓ Found' : '✗ Missing');
-          
+
           if (signatureData) {
-            allSignatures[field.id] = {
+            signaturesForRecipient[field.id] = {
               type: field.type,
               data: signatureData,
               timestamp: field.timestamp || req.signedAt,
               recipientName: req.recipient?.name,
               recipientEmail: req.recipient?.email,
             };
-            console.log('   ✅ Signature saved to allSignatures');
           }
         });
       }
-      
-      // ⭐ ALSO check sharedSignatures (for shared mode)
+
+      // Shared mode: sharedSignatures keyed by recipientIndex
       if (req.sharedSignatures) {
-        console.log('   🔄 Found shared signatures');
-        Object.entries(req.sharedSignatures).forEach(([recipientIndex, sharedSig]: [string, any]) => {
+        Object.entries(req.sharedSignatures).forEach(([, sharedSig]: [string, any]) => {
           if (sharedSig.signedFields) {
             sharedSig.signedFields.forEach((field: any) => {
-              let signatureData = null;
-              
+              let signatureData: string | null = null;
+
               if (field.type === 'signature') {
                 signatureData = field.signatureData || field.data || field.value;
               } else if (field.type === 'date') {
@@ -120,13 +104,13 @@ const status = allSigned ? "Completed" : `${signedCount}/${signatureRequests.len
               } else if (field.type === 'text') {
                 signatureData = field.textValue || field.data || field.value;
               } else if (field.type === 'checkbox') {
-                signatureData = field.checkboxValue !== undefined 
-                  ? String(field.checkboxValue) 
+                signatureData = field.checkboxValue !== undefined
+                  ? String(field.checkboxValue)
                   : (field.data || field.value);
               }
-              
-              if (signatureData && !allSignatures[field.id]) {
-                allSignatures[field.id] = {
+
+              if (signatureData && !signaturesForRecipient[field.id]) {
+                signaturesForRecipient[field.id] = {
                   type: field.type,
                   data: signatureData,
                   timestamp: field.timestamp || sharedSig.signedAt,
@@ -138,10 +122,27 @@ const status = allSigned ? "Completed" : `${signedCount}/${signatureRequests.len
           }
         });
       }
+
+      return {
+        index,
+        name: req.recipient?.name,
+        email: req.recipient?.email,
+        status: isSigned ? 'completed' : req.status,
+        signatureFields: req.signatureFields || [],   // fields assigned to THIS recipient
+        signatures: signaturesForRecipient,           // ← per-recipient map
+      };
     });
 
-    console.log('\n📊 Final signature count:', Object.keys(allSignatures).length);
-    console.log('🔑 Signature IDs:', Object.keys(allSignatures));
+    // ── Also build a merged "all signatures" view for backward compat ───────
+    const allSignatures: Record<string, any> = {};
+    recipients.forEach(r => {
+      Object.assign(allSignatures, r.signatures);
+    });
+
+    // Use the first request's signatureFields as the shared field layout
+    const signatureFields = signatureRequests.length > 0
+      ? signatureRequests[0].signatureFields
+      : [];
 
     return NextResponse.json({
       success: true,
@@ -153,15 +154,12 @@ const status = allSigned ? "Completed" : `${signedCount}/${signatureRequests.len
       ccEmail: ccRecord.email,
       notifyWhen: ccRecord.notifyWhen,
       createdAt: ccRecord.createdAt,
-      status: status,
-      signatureFields: signatureFields,
-      signatures: allSignatures,
-      recipients: signatureRequests.map(req => ({
-        name: req.recipient?.name,
-        email: req.recipient?.email,
-         status: req.status === 'signed' || req.status === 'completed' ? 'completed' : req.status,
-      })),
+      status,
+      signatureFields,          // shared layout (all fields across all recipients)
+      signatures: allSignatures, // merged — used as default view (all signers)
+      recipients,               // ← now includes per-recipient signatures + fields
     });
+
   } catch (error) {
     console.error("❌ Error fetching CC data:", error);
     return NextResponse.json(

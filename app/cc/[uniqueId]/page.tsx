@@ -37,10 +37,13 @@ export default function CCViewPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // PDF.js rendering
+  
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
   const pdfWrapperRef = useRef<HTMLDivElement>(null);
   const [pdfScale, setPdfScale] = useState(1);
+  const [selectedRecipientIndex, setSelectedRecipientIndex] = useState<number | null>(null);
+
+
 
   // ── Fetch data ────────────────────────────────────────────────────────────
   useEffect(() => { fetchCCData(); }, []);
@@ -189,6 +192,13 @@ export default function CCViewPage() {
   const recipients   = ccData?.recipients  || [];
   const completedCount = recipients.filter((r: any) => r.status === "completed").length;
   const totalPages   = ccData?.numPages ?? 1;
+  const activeSignatures = selectedRecipientIndex !== null
+  ? (recipients[selectedRecipientIndex]?.signatures ?? {})
+  : (ccData?.signatures ?? {});
+
+const activeFields = selectedRecipientIndex !== null
+  ? (recipients[selectedRecipientIndex]?.signatureFields ?? signatureFields)
+  : signatureFields;
 
   // ── Sidebar info panel (reused in desktop + mobile drawer) ───────────────
   const InfoPanel = () => (
@@ -251,13 +261,26 @@ export default function CCViewPage() {
             />
           </div>
 
-          <div className="space-y-2">
-            {recipients.map((r: any, i: number) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 p-2.5 rounded-lg"
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)" }}
-              >
+         <p className="text-xs mb-2" style={{ color: "rgba(255,255,255,0.35)" }}>
+  {selectedRecipientIndex !== null
+    ? "Showing selected signer — click again to see all"
+    : "Click a signer to view their fields"}
+</p>
+<div className="space-y-2">
+  {recipients.map((r: any, i: number) => (
+    <div
+      key={i}
+      onClick={() => setSelectedRecipientIndex(selectedRecipientIndex === i ? null : i)}
+      className="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-all"
+      style={{
+        background: selectedRecipientIndex === i
+          ? "rgba(99,102,241,0.2)"
+          : "rgba(255,255,255,0.05)",
+        border: selectedRecipientIndex === i
+          ? "1px solid rgba(99,102,241,0.4)"
+          : "1px solid rgba(255,255,255,0.07)",
+      }}
+    >
                 <div
                   className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
                   style={{ background: "rgba(99,102,241,0.25)", color: "#a5b4fc" }}
@@ -451,8 +474,8 @@ export default function CCViewPage() {
 
                       {/* Signature overlays — same coordinate space as canvas */}
                       <div className="absolute inset-0" style={{ pointerEvents: "none" }}>
-                        {signatureFields.map((field) => {
-                          const signature = signatures[field.id];
+                         {activeFields.map((field: SignatureField) => {
+  const signature = activeSignatures[field.id];
                           if (!signature) return null;
 
                           // Same coordinate math as sign page & pdfGenerator
