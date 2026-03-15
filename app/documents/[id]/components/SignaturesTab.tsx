@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import { Check, ChevronDown, ChevronUp, FileSignature } from "lucide-react";
-import DocSendStyleCharts from "@/components/DocSendStyleCharts";
 import RecipientPageChart from "./RecipientPageChart";
  
 
@@ -195,23 +194,7 @@ export default function SignaturesTab({
         </div>
       </div>
 
-      {/* ── PAGE ENGAGEMENT ── */}
-      {analytics.pageEngagement && analytics.pageEngagement.length > 0 && (
-        <div className="py-5 border-b border-slate-100">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-5">
-            Page Engagement — Signers
-          </p>
-          <DocSendStyleCharts
-            documentId={docId}
-            pageEngagement={analytics.pageEngagement}
-            totalPages={
-              analytics.totalDocPages || analytics.pageEngagement.length
-            }
-            locations={[]}
-          />
-        </div>
-      )}
-
+      
       {/* ── PER-RECIPIENT ROWS ── */}
       <div>
         <div className="flex items-center justify-between py-4 border-b border-slate-200">

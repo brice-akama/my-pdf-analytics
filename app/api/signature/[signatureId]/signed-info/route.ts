@@ -10,10 +10,9 @@ export async function GET(
   try {
     const { signatureId } = await params;
     console.log('🔍 Looking for signatureId:', signatureId);
-    
+
     const db = await dbPromise;
 
-    // Get signature request
     const signatureRequest = await db.collection("signature_requests").findOne({
       uniqueId: signatureId,
     });
@@ -27,7 +26,6 @@ export async function GET(
       );
     }
 
-    // Get document
     const document = await db.collection("documents").findOne({
       _id: new ObjectId(signatureRequest.documentId),
     });
@@ -39,42 +37,43 @@ export async function GET(
       );
     }
 
-    // ✅ Get all signature requests for this document
+    // ── All requests for this document (for progress + certificate) ──────────
     const allRequests = await db.collection("signature_requests")
       .find({ documentId: signatureRequest.documentId })
       .sort({ recipientIndex: 1 })
       .toArray();
 
     const totalRecipients = allRequests.length;
-    const signedCount = allRequests.filter(r => r.status === 'signed').length;
-    const allSigned = signedCount === totalRecipients;
+    const signedCount     = allRequests.filter(r => r.status === 'signed').length;
+    const allSigned       = signedCount === totalRecipients;
 
-    // ✅ Build detailed signer information
-    const signers = allRequests.map(req => ({
-      name: req.recipient.name,
-      email: req.recipient.email,
-      status: req.status, // 'pending', 'signed', 'viewed', etc.
-      signedAt: req.signedAt || null,
-      signedFields: req.signedFields || null, // ✅ Include their signature data
-      ipAddress: req.ipAddress || null,
-      device: req.device || null,
-      browser: req.browser || null,
-      location: req.location || null,
-    }));
-
-    // Build signatures map: { fieldId: { data, type } } — same shape as CC page
+    // ── Build signatures map: { fieldId: { data, type } } ────────────────────
+    // Same shape as CC page — used by the signed-page overlay renderer
     const signatures: Record<string, { data: string; type: string }> = {};
     for (const req of allRequests) {
       if (req.status !== 'signed' || !req.signedFields) continue;
       for (const sf of req.signedFields) {
         const data = sf.signatureData || sf.dateValue || sf.textValue || '';
-        if (data) {
-          signatures[String(sf.id)] = { type: sf.type, data };
-        }
+        if (data) signatures[String(sf.id)] = { type: sf.type, data };
       }
     }
 
-    // ✅ Determine what to show based on signing status
+    // ── Build detailed signer information ────────────────────────────────────
+    // FIX: include audit fields (ipAddress, device, browser, location)
+    // so the certificate React page matches the PDF certificate exactly
+    const signers = allRequests.map(req => ({
+      name:        req.recipient.name,
+      email:       req.recipient.email,
+      status:      req.status,
+      signedAt:    req.signedAt    || null,
+      signedFields: req.signedFields || null,
+      // ── Audit trail fields ────────────────────────────────────────────────
+      ipAddress:   req.ipAddress   || null,
+      device:      req.device      || null,
+      browser:     req.browser     || null,
+      location:    req.location    || null,
+    }));
+
     const response: any = {
       success: true,
       document: {
@@ -82,28 +81,27 @@ export async function GET(
         numPages: document.numPages,
       },
       progress: {
-        signed: signedCount,
-        total: totalRecipients,
+        signed:     signedCount,
+        total:      totalRecipients,
         percentage: Math.round((signedCount / totalRecipients) * 100),
         allSigned,
       },
       signers,
-      // ✅ Show the current signer's info
       currentSigner: {
-        name: signatureRequest.recipient.name,
-        email: signatureRequest.recipient.email,
-        status: signatureRequest.status,
+        name:    signatureRequest.recipient.name,
+        email:   signatureRequest.recipient.email,
+        status:  signatureRequest.status,
         signedAt: signatureRequest.signedAt,
       },
-      // Same fields the CC page uses for overlays
+      // ── Overlay fields (used by signed-page viewer) ───────────────────────
       signatureFields: signatureRequest.signatureFields || [],
       signatures,
     };
 
-    // ✅ If ALL signed, include the final PDF
-    if (allSigned && document.signedPdfUrl) {
-      response.signedPdfUrl = document.signedPdfUrl;
-      response.completedAt = document.completedAt;
+    // ── If ALL signed, include completion info ───────────────────────────────
+    if (allSigned) {
+      response.completedAt = document.completedAt || null;
+      if (document.signedPdfUrl) response.signedPdfUrl = document.signedPdfUrl;
     }
 
     return NextResponse.json(response);

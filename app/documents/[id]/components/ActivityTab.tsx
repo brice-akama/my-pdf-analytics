@@ -402,8 +402,14 @@ export default function ActivityTab({
       })
         .then((r) => r.json())
         .catch(() => ({ success: false, recipients: [] })),
+      
+      fetch(`/api/documents/${doc._id}/envelopes`, {
+        credentials: "include",
+      })
+        .then((r) => r.json())
+        .catch(() => ({ success: false, envelopes: [] })),
     ])
-      .then(([shareData, sigData, ccData]) => {
+      .then(([shareData, sigData, ccData, envData]) => {
         const links: any[] = [];
 
         if (shareData.success && shareData.shares) {
@@ -508,6 +514,38 @@ export default function ActivityTab({
           });
         }
 
+        // ── Envelopes ─────────────────────────────────────────────────────
+        // Each envelope recipient gets their own row — same pattern as
+        // signature requests. Shows in both All Links and All Visits.
+        if (envData.success && envData.envelopes) {
+          envData.envelopes.forEach((env: any) => {
+            (env.recipients || []).forEach((r: any) => {
+              const signingLink = `${window.location.origin}/envelope/${r.uniqueId}`;
+              links.push({
+                shareId:        r.uniqueId,
+                recipientEmail: r.email,
+                recipientName:  r.name,
+                createdAgo:     env.createdAt ? formatAgo(new Date(env.createdAt)) : "—",
+                link:           signingLink,
+                visits:         r.viewCount || 0,
+                totalTime:      formatTime(r.totalTimeSpentSeconds || 0),
+                lastViewed:     r.viewedAt ? formatAgo(new Date(r.viewedAt)) : null,
+                completion:     r.status === "completed" ? "100%" : r.viewedAt ? "In progress" : "—",
+                enabled:        !["cancelled", "declined", "expired"].includes(r.status),
+                linkType:       "envelope",
+                isEnvelope:     true,
+                envelopeId:     env.envelopeId,
+                envelopeTitle:  env.title || null,
+                documentCount:  env.documents?.length || 1,
+                signatureStatus: r.status === "completed" ? "signed" : r.status,
+                pageData:       r.pageData || [],
+                settings:       {},
+              });
+            });
+          });
+        }
+
+
         setShareLinks(links);
       })
       .catch((err) => console.error("Failed to fetch links:", err));
@@ -538,7 +576,7 @@ export default function ActivityTab({
   const sigVisits: any[] = shareLinks
     .filter(
       (lnk) =>
-        (lnk.linkType === "signature" || lnk.linkType === "cc") &&
+        (lnk.linkType === "signature" || lnk.linkType === "cc" || lnk.linkType === "envelope") &&
         lnk.visits > 0
     )
     .map((lnk) => ({
@@ -554,7 +592,7 @@ export default function ActivityTab({
       pageData: lnk.pageData || [],
       bounced: false,
       firstOpened: null,
-      visitType: lnk.isCC ? "cc" : "signature",
+       visitType: lnk.isCC ? "cc" : lnk.isEnvelope ? "envelope" : "signature",
       signatureStatus: lnk.signatureStatus,
       isCC: lnk.isCC || false,
     }));
@@ -700,10 +738,12 @@ export default function ActivityTab({
                           />
                           <span className="text-xs font-semibold text-slate-500">
                             {visit.visitType === "signature"
-                              ? "✍️ Signature request"
-                              : visit.visitType === "cc"
-                              ? "📋 CC recipient view"
-                              : "🔗 Share link view"}
+  ? "✍️ Signature request"
+  : visit.visitType === "envelope"
+  ? "📦 Envelope signing"
+  : visit.visitType === "cc"
+  ? "📋 CC recipient view"
+  : "🔗 Share link view"}
                           </span>
                         </div>
                         <span className="text-xs text-slate-400">

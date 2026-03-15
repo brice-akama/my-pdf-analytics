@@ -605,7 +605,7 @@ export default function DocumentPage() {
               </div>
             )}
 
-            {!analyticsLoading && !doc.isTemplate && (!analytics?.shares || analytics.shares === 0) && (
+            {!analyticsLoading && !doc.isTemplate && !analytics?.shares && !analytics?.eSignature?.totalRecipients && (
               <div className="bg-white rounded-2xl border shadow-sm p-12 text-center">
                 <div className="max-w-md mx-auto">
                   <h2 className="text-2xl font-bold text-slate-900 mb-3">Put your document to work</h2>
@@ -634,7 +634,9 @@ export default function DocumentPage() {
               </div>
             )}
 
-            {!analyticsLoading && analytics?.shares > 0 && (
+            
+            
+{!analyticsLoading && !doc.isTemplate && (analytics?.shares > 0 || analytics?.eSignature?.totalRecipients > 0) && (
               <ActivityTab
                 analytics={analytics}
                 doc={doc}

@@ -235,72 +235,56 @@ if (ownerRes.ok) {
   const filledFields = allSignatureFields.filter(f => signatures[f.id]).length;
 
   const handleNextDocument = () => {
-  if (currentDocIndex < documents.length - 1) {
-    // Save current doc's signed fields as we move forward
-    if (allCurrentDocFieldsFilled) {
-      const signedFields = currentDocFields.map(field => ({
-        id: field.id,
-        type: field.type,
-        signatureData: field.type === 'signature' ? signatures[field.id]?.data : null,
-        dateValue: field.type === 'date' ? signatures[field.id]?.data : null,
-        textValue: ['text', 'checkbox'].includes(field.type) ? signatures[field.id]?.data : null,
-        timestamp: new Date().toISOString(),
-      }));
-      setSignedDocuments(prev => {
-        const exists = prev.find(d => d.documentId === currentDocument.documentId);
-        if (exists) return prev; // don't duplicate
-        return [...prev, {
-          documentId: currentDocument.documentId,
-          filename: currentDocument.filename,
-          signedFields,
-          signedAt: new Date().toISOString(),
-        }];
-      });
+    if (currentDocIndex < documents.length - 1) {
+      // Just advance — no state accumulation needed
+      // (stale state was causing doc 1 to be lost on submit)
+      setCurrentDocIndex(prev => prev + 1);
+      return;
     }
-    setCurrentDocIndex(prev => prev + 1);
-    return;
-  }
 
-  // Last doc — enforce ALL docs are fully signed before submitting
-  const allDocsSigned = documents.every(doc => {
-    const docFields = allSignatureFields.filter(f => f.documentId === doc.documentId);
-    return docFields.every(f => signatures[f.id]);
-  });
-
-  if (!allDocsSigned) {
-    const unsignedDocs = documents.filter(doc => {
+    // Last doc — enforce ALL docs are fully signed before submitting
+    const allDocsSigned = documents.every(doc => {
       const docFields = allSignatureFields.filter(f => f.documentId === doc.documentId);
-      return !docFields.every(f => signatures[f.id]);
+      return docFields.every(f => signatures[f.id]);
     });
-    toast.error(`Please complete all fields in: ${unsignedDocs.map(d => d.filename).join(', ')}`);
-    return;
-  }
 
-  // All signed — submit
-  const lastDocFields = currentDocFields.map(field => ({
-    id: field.id,
-    type: field.type,
-    signatureData: field.type === 'signature' ? signatures[field.id]?.data : null,
-    dateValue: field.type === 'date' ? signatures[field.id]?.data : null,
-    textValue: ['text', 'checkbox'].includes(field.type) ? signatures[field.id]?.data : null,
-    timestamp: new Date().toISOString(),
-  }));
-  handleSubmitEnvelope(lastDocFields);
-};
-    
+    if (!allDocsSigned) {
+      const unsignedDocs = documents.filter(doc => {
+        const docFields = allSignatureFields.filter(f => f.documentId === doc.documentId);
+        return !docFields.every(f => signatures[f.id]);
+      });
+      toast.error(`Please complete all fields in: ${unsignedDocs.map(d => d.filename).join(', ')}`);
+      return;
+    }
 
-  const handleSubmitEnvelope = async (lastDocFields: any[]) => {
+    // All signed — submit
+    handleSubmitEnvelope();
+  };
+
+  const handleSubmitEnvelope = async () => {
     setSubmitting(true);
     try {
-      const allSignedDocs = [
-        ...signedDocuments,
-        {
-          documentId: currentDocument.documentId,
-          filename:   currentDocument.filename,
-          signedFields: lastDocFields,
-          signedAt:   new Date().toISOString(),
-        }
-      ];
+      // Build allSignedDocs fresh from `signatures` state right now.
+      // Never reads `signedDocuments` state — that was stale and caused
+      // doc 1 to be missing from the array sent to the API.
+      const allSignedDocs = documents.map(doc => {
+        const docFields = allSignatureFields.filter(f => f.documentId === doc.documentId);
+        const signedFields = docFields.map(field => ({
+          id:            field.id,
+          type:          field.type,
+          signatureData: field.type === 'signature' ? (signatures[field.id]?.data ?? null) : null,
+          dateValue:     field.type === 'date'      ? (signatures[field.id]?.data ?? null) : null,
+          textValue:     ['text', 'checkbox', 'dropdown', 'radio'].includes(field.type)
+                           ? (signatures[field.id]?.data ?? null) : null,
+          timestamp:     new Date().toISOString(),
+        }));
+        return {
+          documentId:  doc.documentId,
+          filename:    doc.filename,
+          signedFields,
+          signedAt:    new Date().toISOString(),
+        };
+      });
 
       const res  = await fetch(`/api/envelope/${uniqueId}/sign`, {
         method:  'POST',
@@ -371,79 +355,120 @@ if (ownerRes.ok) {
           <p className="text-slate-400 text-sm mb-6">
             You have already signed this envelope. Each signing link can only be used once.
           </p>
-          <button
-            onClick={() => router.push('/')}
-            className="w-full py-3 rounded-xl text-sm font-medium text-white transition-colors"
-            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
-          >
-            Go Home
-          </button>
+           
         </div>
       </div>
     );
   }
 
   // ── COMPLETED ──
-  if (completed) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0f1117' }}>
-        <div className="rounded-2xl p-8 max-w-2xl w-full" style={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div className="text-center mb-8">
-            <div className="h-20 w-20 rounded-full flex items-center justify-center mx-auto mb-5" style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
-              <CheckCircle className="h-10 w-10 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Envelope Signed!</h2>
-            <p className="text-slate-400 text-sm">
-              You've completed all {documents.length} document{documents.length !== 1 ? 's' : ''} in this signing package
+if (completed) {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0f1117' }}>
+      <div className="rounded-2xl max-w-lg w-full overflow-hidden"
+        style={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.08)' }}>
+
+        {/* ── Top green banner ── */}
+        <div className="px-8 py-8 text-center"
+          style={{ background: 'linear-gradient(135deg,rgba(16,185,129,0.15),rgba(5,150,105,0.1))' }}>
+          <div className="h-20 w-20 rounded-full flex items-center justify-center mx-auto mb-5"
+            style={{ background: 'linear-gradient(135deg,#10b981,#059669)', boxShadow: '0 8px 32px rgba(16,185,129,0.35)' }}>
+            <CheckCircle className="h-10 w-10 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Envelope Signed!</h2>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            You&apos;ve completed all {documents.length} document{documents.length !== 1 ? 's' : ''} in this signing package
+          </p>
+        </div>
+
+        {/* ── Email notice ── */}
+        <div className="mx-6 mt-5 flex items-start gap-3 px-4 py-3.5 rounded-xl"
+          style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}>
+          <Mail className="h-4 w-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+          <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            A signed copy and certificate have been emailed to{' '}
+            <span className="font-semibold" style={{ color: '#a5b4fc' }}>
+              {envelope?.recipient?.email}
+            </span>
+            . You can access your signed documents from that email at any time.
+          </p>
+        </div>
+
+        {/* ── Signed docs summary ── */}
+        <div className="mx-6 mt-4 rounded-xl overflow-hidden"
+          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.28)' }}>
+              Signed Documents
             </p>
           </div>
-
-          {/* Signed docs list */}
-          <div className="rounded-xl overflow-hidden mb-6" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="px-5 py-3 border-b border-white/5">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Signed Documents</p>
-            </div>
-            {signedDocuments.map((doc, i) => (
-              <div key={i} className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 last:border-0">
-                <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(16,185,129,0.15)' }}>
-                  <Check className="h-4 w-4 text-emerald-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{doc.filename}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Signed at {new Date(doc.signedAt).toLocaleTimeString()}</p>
-                </div>
+          {signedDocuments.map((doc, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-3"
+              style={{ borderBottom: i < signedDocuments.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+              <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(16,185,129,0.15)' }}>
+                <Check className="h-3.5 w-3.5 text-emerald-400" />
               </div>
-            ))}
-          </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">{doc.filename}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  Signed at {new Date(doc.signedAt).toLocaleTimeString()}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
 
-          {/* Download */}
+        {/* ── Action buttons ── */}
+        <div className="px-6 pt-5 pb-6 space-y-3">
+
+          {/* PRIMARY: View signed documents */}
           <button
-            onClick={() => {
-              const a = document.createElement('a');
-              a.href = `/api/envelope/${uniqueId}/download`;
-              a.download = 'envelope_signed_package.pdf';
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-            }}
-            className="w-full py-3 rounded-xl font-semibold text-white flex items-center justify-center gap-2 mb-3 transition-all hover:opacity-90"
+            onClick={() => router.push(`/envelope/${uniqueId}/complete`)}
+            className="w-full py-3.5 rounded-xl font-semibold text-white flex items-center justify-center gap-2 transition-all hover:opacity-90"
             style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
           >
-            <Download className="h-4 w-4" />
-            Download Complete Signed Package
+            <Eye className="h-4 w-4" />
+            View Signed Documents
           </button>
-          <p className="text-xs text-slate-500 text-center mb-6">Contains all {documents.length} signed documents + audit trail</p>
 
+          {/* SECONDARY: Download */}
+          <button
+            onClick={async () => {
+              try {
+                const res  = await fetch(`/api/envelope/${uniqueId}/download`);
+                if (!res.ok) { toast.error('Download failed'); return; }
+                const blob = await res.blob();
+                const url  = URL.createObjectURL(blob);
+                const a    = Object.assign(document.createElement('a'), {
+                  href:     url,
+                  download: `envelope_signed_${uniqueId}.pdf`,
+                });
+                document.body.appendChild(a); a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              } catch { toast.error('Download failed'); }
+            }}
+            className="w-full py-3 rounded-xl font-medium flex items-center justify-center gap-2 transition-all hover:bg-white/10"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)' }}
+          >
+            <Download className="h-4 w-4" />
+            Download Signed Package
+          </button>
+
+          {/* TERTIARY: Done */}
           <button
             onClick={() => router.push('/')}
-            className="w-full py-3 rounded-xl text-sm font-medium text-slate-400 hover:text-white transition-colors border border-white/10 hover:border-white/20"
+            className="w-full py-2.5 text-sm transition-colors"
+            style={{ color: 'rgba(255,255,255,0.3)' }}
           >
             Done
           </button>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // ── MAIN ──
   return (
@@ -462,8 +487,8 @@ if (ownerRes.ok) {
             </div>
             <div className="min-w-0">
               <span className="font-semibold text-white text-sm">DocMetrics</span>
-              <span className="text-white/20 mx-2">·</span>
-              <span className="text-xs text-slate-400">Signing Package</span>
+               
+               
             </div>
           </div>
 
@@ -516,7 +541,7 @@ if (ownerRes.ok) {
 
               {showMessagePopover && (
                 <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowMessagePopover(false)} />
+                  <div className="fixed inset-0 z-100" onClick={() => setShowMessagePopover(false)} />
                   <div className="absolute right-0 top-12 z-50 w-80 rounded-xl shadow-2xl overflow-hidden"
                     style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
