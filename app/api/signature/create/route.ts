@@ -101,20 +101,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify document belongs to user
-    const document = await db.collection("documents").findOne({
-      _id: new ObjectId(documentId),
-      userId: ownerId,
-    });
+      
+const document = await db.collection("documents").findOne({
+  _id: new ObjectId(documentId),
+})
 
-    if (!document) {
-      return NextResponse.json(
-        { success: false, message: "Document not found or access denied" },
-        { status: 404 }
-      );
-    }
+if (!document) {
+  return NextResponse.json(
+    { success: false, message: "Document not found" },
+    { status: 404 }
+  )
+}
 
-    console.log('📝 Creating signature requests for', recipients.length, 'recipients');
-    console.log('👤 Owner:', ownerName, '(', ownerEmail, ')');
+// Then check ownership separately — gives Team a clear message
+if (document.userId !== ownerId) {
+  return NextResponse.json(
+    { 
+      success: false, 
+      message: "Only the document owner can perform this action",
+      code: "NOT_OWNER"
+    },
+    { status: 403 }
+  )
+}
 
     const signatureRequests = [];
 const emailPromises    = [];

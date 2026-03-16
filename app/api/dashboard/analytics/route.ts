@@ -218,11 +218,11 @@ const organizationId = userProfile?.organization_id || user.id
 // My docs = owned by this user
 // Team docs = sharedToTeam in the same org, owned by someone else
 const myDocumentIds = documents
-  .filter((d: any) => d.userId === user.id)
+  .filter((d: any) => d.userId === user.id && !d.sharedToTeam)
   .map((d: any) => d._id.toString())
 
 const teamDocumentIds = documents
-  .filter((d: any) => d.sharedToTeam === true && d.userId !== user.id)
+  .filter((d: any) => d.sharedToTeam === true)
   .map((d: any) => d._id.toString())
 
 const thirtyDaysAgoC = new Date()
@@ -319,7 +319,7 @@ const mostEngagedContacts = Array.from(contactMap2.values())
       ? 'team'
       : 'my',
   }))
-  
+
     return NextResponse.json({
       success: true,
       analytics: {

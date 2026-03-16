@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs';
 import { createNotification } from '@/lib/notifications';
 import { sendShareEmailViaGmailOrResend } from '@/lib/emails/shareEmails';
 
-// 🆕 ADD THIS TYPE DEFINITION
+ 
 interface ShareSettings {
   requireEmail: boolean;
   allowDownload: boolean;
@@ -65,16 +65,21 @@ export async function POST(
 
     // ✅ Verify ownership and check document exists
     const document = await db.collection('documents').findOne({
-      _id: documentId,
-      userId: user.id,
-    });
+  _id: documentId,
+})
 
-    console.log('📄 Document found:', document ? 'YES' : 'NO');
-    console.log('👤 Document owner:', document?.userId || user?.email);
 
-    if (!document) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
-    }
+
+if (!document) {
+  return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+}
+
+if (document.userId !== user.id) {
+  return NextResponse.json({ 
+    error: 'Only the document owner can perform this action',
+    code: 'NOT_OWNER'
+  }, { status: 403 })
+}
 
     // ✅ Parse share settings
     const body = await request.json();
@@ -615,19 +620,19 @@ export async function GET(
     const documentId = new ObjectId(id);
 
     const document = await db.collection('documents').findOne({
-      _id: documentId,
-      userId: user.id,
-    });
-    
-    console.log('📄 Document lookup:', {
-      found: !!document,
-      owner: document?.userId,
-      filename: document?.originalFilename,
-    });
+  _id: documentId,
+})
 
-    if (!document) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
-    }
+if (!document) {
+  return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+}
+
+if (document.userId !== user.id) {
+  return NextResponse.json({ 
+    error: 'Only the document owner can perform this action',
+    code: 'NOT_OWNER'
+  }, { status: 403 })
+}
 
     const shares = await db.collection('shares')
       .find({ documentId, userId: user.id })
@@ -751,8 +756,11 @@ export async function PATCH(
     });
 
     if (!share) {
-      return NextResponse.json({ error: 'Share link not found' }, { status: 404 });
-    }
+  return NextResponse.json({ 
+    error: 'Only the document owner can perform this action',
+    code: 'NOT_OWNER'
+  }, { status: 403 })
+}
 
     const updateFields: any = {
       updatedAt: new Date(),
@@ -828,8 +836,11 @@ export async function DELETE(
     });
 
     if (!share) {
-      return NextResponse.json({ error: 'Share link not found' }, { status: 404 });
-    }
+  return NextResponse.json({ 
+    error: 'Only the document owner can perform this action',
+    code: 'NOT_OWNER'
+  }, { status: 403 })
+}
 
     await db.collection('shares').deleteOne({ _id: new ObjectId(shareId) });
 
