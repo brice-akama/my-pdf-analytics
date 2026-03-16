@@ -10,9 +10,10 @@ import { isSlackConnected, notifyPortalEvent } from '@/lib/integrations/slack';
 
 function normalizeEvent(event: string): string {
   const map: Record<string, string> = {
-    'portal_opened':     'portal_enter',
-    'portal_open':       'portal_enter',
-    'space_open':        'portal_enter',
+    'portal_opened':     'document_open',
+    'portal_open':       'document_open',
+    'space_open':        'document_open',
+    'portal_enter':      'document_open',  // catches any already-saved old events
     'document_viewed':   'document_view',
     'doc_view':          'document_view',
     'view':              'document_view',

@@ -1,7 +1,4 @@
 // lib/integrations/hubspotSync.ts
-// Pushes document intelligence into HubSpot so sales teams
-// never have to leave their CRM to know what buyers are doing.
-
 import { getValidHubSpotToken } from './hubspot';
 import { dbPromise } from '@/app/api/lib/mongodb';
 
@@ -40,14 +37,13 @@ async function findHubSpotContact(
       }
     );
     const data = await res.json();
-    console.log('🔍 HubSpot search result:', data.results?.length, 'contacts for:', email);
     return data.results?.[0]?.id || null;
   } catch {
     return null;
   }
 }
 
-// ── Create or update a contact property ──────────────────────────
+// ── Update contact properties ─────────────────────────────────────
 async function updateContactProperties(
   token: string,
   contactId: string,
@@ -63,8 +59,7 @@ async function updateContactProperties(
   });
 }
 
-// ── Create a HubSpot note on a contact ───────────────────────────
-// Notes appear in the contact's activity timeline immediately
+// ── Create a note on a contact ────────────────────────────────────
 async function createContactNote(
   token: string,
   contactId: string,
@@ -72,7 +67,6 @@ async function createContactNote(
   timestamp: Date
 ) {
   try {
-    // Create the note
     const noteRes = await fetch('https://api.hubapi.com/crm/v3/objects/notes', {
       method: 'POST',
       headers: {
@@ -91,13 +85,9 @@ async function createContactNote(
     const noteData = await noteRes.json();
     const noteId = noteData.id;
 
-    // Associate note with the contact
     await fetch(
       `https://api.hubapi.com/crm/v3/objects/notes/${noteId}/associations/contacts/${contactId}/note_to_contact`,
-      {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-      }
+      { method: 'PUT', headers: { Authorization: `Bearer ${token}` } }
     );
 
     return noteId;
@@ -109,7 +99,6 @@ async function createContactNote(
 
 // ════════════════════════════════════════════════════════════════
 // SYNC 1 — Document Opened
-// Call this from session_start in your track route
 // ════════════════════════════════════════════════════════════════
 export async function syncDocumentOpenedToHubSpot({
   userId,
@@ -133,44 +122,39 @@ export async function syncDocumentOpenedToHubSpot({
   if (!viewerEmail) return { success: false, reason: 'no_email' };
 
   try {
-    const token = await getValidHubSpotToken(userId);
+    const token     = await getValidHubSpotToken(userId);
     const contactId = await findHubSpotContact(token, viewerEmail);
-
-    if (!contactId) {
-      return { success: false, reason: 'contact_not_in_hubspot' };
-    }
+    if (!contactId) return { success: false, reason: 'contact_not_in_hubspot' };
 
     const locationStr = location?.city && location?.country
       ? `${location.city}, ${location.country}`
       : location?.country || 'Unknown';
 
     const visitLabel = isRevisit
-      ? `🔄 Revisit #${visitCount || '?'} — High intent signal`
-      : '👁 First view';
+      ? `Revisit #${visitCount || '?'} — High intent signal`
+      : 'First view';
 
-    const noteBody = `📄 <b>DocMetrics — Document ${isRevisit ? 'Revisited' : 'Opened'}</b>
+    const noteBody = `<b>DocMetrics — Document ${isRevisit ? 'Revisited' : 'Opened'}</b>
 
 ${visitLabel}
 
-• Document: ${documentName}
-• Opened: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
-• Device: ${device || 'Desktop'}
-• Location: ${locationStr}
-• Analytics: ${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}
+Document: ${documentName}
+Opened: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+Device: ${device || 'Desktop'}
+Location: ${locationStr}
+Analytics: ${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}
 
-${isRevisit ? '⚡ This contact has returned to your document multiple times. Follow up now.' : '💡 Reach out while they\'re reading for best response rate.'}`;
+${isRevisit
+  ? 'This contact has returned to your document multiple times. Follow up now.'
+  : 'Reach out while they are reading for the best response rate.'}`;
 
     await createContactNote(token, contactId, noteBody, new Date());
-
-    // Update contact's "last document viewed" custom property
-    // (you create these once in HubSpot Settings → Properties)
     await updateContactProperties(token, contactId, {
       docmetrics_last_document: documentName,
-      docmetrics_last_viewed: new Date().toISOString(),
-      docmetrics_view_count: String(visitCount || 1),
+      docmetrics_last_viewed:   new Date().toISOString(),
+      docmetrics_view_count:    String(visitCount || 1),
     });
 
-    console.log(`✅ HubSpot synced: document opened — contact ${contactId}`);
     return { success: true, contactId };
   } catch (err) {
     console.error('HubSpot sync error (opened):', err);
@@ -179,8 +163,7 @@ ${isRevisit ? '⚡ This contact has returned to your document multiple times. Fo
 }
 
 // ════════════════════════════════════════════════════════════════
-// SYNC 2 — Document Completed (viewer read all pages)
-// Call this from page_view in your track route when last page hit
+// SYNC 2 — Document Completed
 // ════════════════════════════════════════════════════════════════
 export async function syncDocumentCompletedToHubSpot({
   userId,
@@ -204,50 +187,51 @@ export async function syncDocumentCompletedToHubSpot({
   if (!viewerEmail) return { success: false, reason: 'no_email' };
 
   try {
-    const token = await getValidHubSpotToken(userId);
+    const token     = await getValidHubSpotToken(userId);
     const contactId = await findHubSpotContact(token, viewerEmail);
+    if (!contactId) return { success: false, reason: 'contact_not_in_hubspot' };
 
-    if (!contactId) {
-      return { success: false, reason: 'contact_not_in_hubspot' };
-    }
-
-    const intentEmoji = intentLevel === 'high' ? '🔥' : intentLevel === 'medium' ? '👀' : '📖';
-    const intentLabel = intentLevel === 'high' ? 'HIGH INTENT' : intentLevel === 'medium' ? 'MEDIUM INTENT' : 'LOW INTENT';
+    const intentLabel = intentLevel === 'high'
+      ? 'HIGH INTENT'
+      : intentLevel === 'medium'
+      ? 'MEDIUM INTENT'
+      : 'LOW INTENT';
 
     const topPagesStr = topPages && topPages.length > 0
-      ? topPages.slice(0, 3)
-          .map(p => `  • Page ${p.page}: ${formatTime(p.timeSpent)}`)
-          .join('\n')
-      : '  • No page data';
+      ? topPages.slice(0, 3).map(p => `  Page ${p.page}: ${formatTime(p.timeSpent)}`).join('\n')
+      : '  No page data';
 
-    const noteBody = `✅ <b>DocMetrics — Full Read Completed ${intentEmoji} ${intentLabel}</b>
+    const followUpLine = intentLevel === 'high'
+      ? 'HIGH INTENT: This contact spent significant time reading. Follow up immediately.'
+      : intentLevel === 'medium'
+      ? 'MEDIUM INTENT: Decent engagement. Worth a follow-up this week.'
+      : 'LOW INTENT: They read it quickly. Gauge interest before investing time.';
+
+    const noteBody = `<b>DocMetrics — Full Read Completed — ${intentLabel}</b>
 
 ${viewerEmail} finished reading your entire document.
 
-• Document: ${documentName}
-• Total time: ${formatTime(totalTimeSeconds)}
-• Pages read: ${totalPages}/${totalPages} (100%)
-• Completed: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+Document: ${documentName}
+Total time: ${formatTime(totalTimeSeconds)}
+Pages read: ${totalPages}/${totalPages} (100%)
+Completed: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
 
-📊 Most time spent on:
+Most time spent on:
 ${topPagesStr}
 
-• Full analytics: ${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}
+Analytics: ${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}
 
-${intentLevel === 'high' ? '🎯 HIGH INTENT: This contact spent significant time reading. Follow up immediately.' : intentLevel === 'medium' ? '👀 MEDIUM INTENT: Decent engagement. Worth a follow-up this week.' : '📖 LOW INTENT: They read it quickly. Gauge interest before investing time.'}`;
+${followUpLine}`;
 
     await createContactNote(token, contactId, noteBody, new Date());
-
-    // Update HubSpot contact properties
     await updateContactProperties(token, contactId, {
-      docmetrics_last_document: documentName,
-      docmetrics_last_viewed: new Date().toISOString(),
+      docmetrics_last_document:  documentName,
+      docmetrics_last_viewed:    new Date().toISOString(),
       docmetrics_total_read_time: formatTime(totalTimeSeconds),
-      docmetrics_intent_level: intentLabel,
+      docmetrics_intent_level:   intentLabel,
       docmetrics_completed_read: 'true',
     });
 
-    console.log(`✅ HubSpot synced: document completed — contact ${contactId}`);
     return { success: true, contactId };
   } catch (err) {
     console.error('HubSpot sync error (completed):', err);
@@ -256,8 +240,7 @@ ${intentLevel === 'high' ? '🎯 HIGH INTENT: This contact spent significant tim
 }
 
 // ════════════════════════════════════════════════════════════════
-// SYNC 3 — Engagement Summary (called from session_end)
-// Pushes a summary of what the viewer did in this session
+// SYNC 3 — Engagement Summary
 // ════════════════════════════════════════════════════════════════
 export async function syncEngagementSummaryToHubSpot({
   userId,
@@ -283,42 +266,38 @@ export async function syncEngagementSummaryToHubSpot({
   }
 
   try {
-    const token = await getValidHubSpotToken(userId);
+    const token     = await getValidHubSpotToken(userId);
     const contactId = await findHubSpotContact(token, viewerEmail);
-
-    if (!contactId) {
-      return { success: false, reason: 'contact_not_in_hubspot' };
-    }
+    if (!contactId) return { success: false, reason: 'contact_not_in_hubspot' };
 
     const completionPct = totalPages > 0
       ? Math.round((pagesViewed.length / totalPages) * 100)
       : 0;
 
     const engagementLevel = sessionDurationSeconds > 300
-      ? '🔥 Deep read'
+      ? 'Deep read'
       : sessionDurationSeconds > 60
-      ? '👀 Moderate read'
-      : '⚡ Quick scan';
+      ? 'Moderate read'
+      : 'Quick scan';
 
-    const noteBody = `📊 <b>DocMetrics — Session Summary</b>
+    const noteBody = `<b>DocMetrics — Session Summary</b>
 
 ${engagementLevel}
 
-• Document: ${documentName}
-• Time in session: ${formatTime(sessionDurationSeconds)}
-• Pages reached: ${pagesViewed.length}/${totalPages} (${completionPct}%)
-• Device: ${device || 'Desktop'}
-• Analytics: ${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`;
+Document: ${documentName}
+Time in session: ${formatTime(sessionDurationSeconds)}
+Pages reached: ${pagesViewed.length}/${totalPages} (${completionPct}%)
+Device: ${device || 'Desktop'}
+Analytics: ${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`;
 
-    // Only create a session note if they spent meaningful time (>30s)
     if (sessionDurationSeconds >= 30) {
       await createContactNote(token, contactId, noteBody, new Date());
     }
 
     await updateContactProperties(token, contactId, {
-      docmetrics_last_document: documentName,
+      docmetrics_last_document:     documentName,
       docmetrics_last_session_time: formatTime(sessionDurationSeconds),
-      docmetrics_completion_rate: `${completionPct}%`,
+      docmetrics_completion_rate:   `${completionPct}%`,
     });
 
     return { success: true, contactId };
@@ -330,11 +309,10 @@ ${engagementLevel}
 
 // ════════════════════════════════════════════════════════════════
 // HELPER — Check if user has HubSpot connected
-// Call this before any sync to avoid unnecessary DB lookups
 // ════════════════════════════════════════════════════════════════
 export async function isHubSpotConnected(userId: string): Promise<boolean> {
   try {
-    const db = await dbPromise;
+    const db          = await dbPromise;
     const integration = await db.collection('integrations').findOne({
       userId,
       provider: 'hubspot',
@@ -346,9 +324,10 @@ export async function isHubSpotConnected(userId: string): Promise<boolean> {
   }
 }
 
-
 // ════════════════════════════════════════════════════════════════
-// SYNC 4 — Portal/Space Event (portal_enter, revisit, doc view, download)
+// SYNC 4 — Space/Portal Event
+// Handles: document_open, revisit, document_view, download
+// Also accepts legacy 'portal_enter' for backwards compat
 // ════════════════════════════════════════════════════════════════
 export async function syncPortalEventToHubSpot({
   userId,
@@ -362,7 +341,7 @@ export async function syncPortalEventToHubSpot({
   userId: string;
   visitorEmail: string;
   spaceName: string;
-  event: 'portal_enter' | 'revisit' | 'document_view' | 'download';
+  event: 'document_open' | 'revisit' | 'document_view' | 'download' | 'portal_enter';
   documentName?: string;
   isRevisit?: boolean;
   visitCount?: number;
@@ -370,49 +349,46 @@ export async function syncPortalEventToHubSpot({
   if (!visitorEmail) return { success: false, reason: 'no_email' };
 
   try {
-    const token = await getValidHubSpotToken(userId);
+    const token     = await getValidHubSpotToken(userId);
     const contactId = await findHubSpotContact(token, visitorEmail);
 
     if (!contactId) {
-      console.log(`⚠️ HubSpot: no contact found for ${visitorEmail} — skipping`);
+      console.log(`HubSpot: no contact found for ${visitorEmail} — skipping`);
       return { success: false, reason: 'contact_not_in_hubspot' };
     }
 
-    const eventConfig: Record<string, { emoji: string; title: string; body: string }> = {
-      portal_enter: {
-        emoji: '👁️',
-        title: 'Space Opened',
-        body: `${visitorEmail} opened your space for the first time.\n\n• Space: ${spaceName}\n• Time: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}\n\n💡 Reach out while they're browsing for best response rate.`,
+    // Normalise legacy event name
+    const normalised = event === 'portal_enter' ? 'document_open' : event;
+
+    const eventConfig: Record<string, { title: string; body: string }> = {
+      document_open: {
+        title: 'Document Opened',
+        body: `${visitorEmail} opened your space for the first time.\n\nSpace: ${spaceName}\nTime: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}\n\nReach out while they are browsing for the best response rate.`,
       },
       revisit: {
-        emoji: '🔄',
-        title: 'Space Revisited',
-        body: `${visitorEmail} returned to your space${visitCount ? ` (visit #${visitCount})` : ''}.\n\n• Space: ${spaceName}\n• Time: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}\n\n⚡ Returning visitor — high intent signal. Follow up now.`,
+        title: `Space Revisited${visitCount ? ` — Visit #${visitCount}` : ''}`,
+        body: `${visitorEmail} returned to your space${visitCount ? ` (visit #${visitCount})` : ''}.\n\nSpace: ${spaceName}\nTime: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}\n\nReturning visitor — high intent signal. Follow up now.`,
       },
       document_view: {
-        emoji: '📄',
         title: 'Document Viewed',
-        body: `${visitorEmail} viewed a document in your space.\n\n• Space: ${spaceName}\n• Document: ${documentName || 'Unknown'}\n• Time: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`,
+        body: `${visitorEmail} viewed a document in your space.\n\nSpace: ${spaceName}\nDocument: ${documentName || 'Unknown'}\nTime: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`,
       },
       download: {
-        emoji: '⬇️',
         title: 'Document Downloaded',
-        body: `${visitorEmail} downloaded a document from your space.\n\n• Space: ${spaceName}\n• Document: ${documentName || 'Unknown'}\n• Time: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}\n\n🎯 Downloads signal serious interest. Follow up today.`,
+        body: `${visitorEmail} downloaded a document from your space.\n\nSpace: ${spaceName}\nDocument: ${documentName || 'Unknown'}\nTime: ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}\n\nDownloads signal serious interest. Follow up today.`,
       },
     };
 
-    const config = eventConfig[event] || eventConfig['portal_enter'];
-    const noteBody = `${config.emoji} <b>DocMetrics — ${config.title}</b>\n\n${config.body}`;
+    const config   = eventConfig[normalised] || eventConfig['document_open'];
+    const noteBody = `<b>DocMetrics — ${config.title}</b>\n\n${config.body}`;
 
     await createContactNote(token, contactId, noteBody, new Date());
-
-    // Update contact's last activity properties
     await updateContactProperties(token, contactId, {
       docmetrics_last_document: documentName || spaceName,
       docmetrics_last_viewed:   new Date().toISOString(),
     });
 
-    console.log(`✅ HubSpot synced: ${event} — contact ${contactId}`);
+    console.log(`✅ HubSpot synced: ${normalised} — contact ${contactId}`);
     return { success: true, contactId };
   } catch (err) {
     console.error('HubSpot sync error (portal event):', err);

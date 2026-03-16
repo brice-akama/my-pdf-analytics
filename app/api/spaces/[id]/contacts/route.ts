@@ -17,42 +17,54 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: spaceId } = await params;
+    const { id: spaceId } = await params
+    const user = await verifyUserFromRequest(request)
+    if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
-    const user = await verifyUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const db = await dbPromise;
+    const db = await dbPromise
 
     const space = await db.collection('spaces').findOne({
       _id: new ObjectId(spaceId),
       userId: user.id
-    });
+    })
+    if (!space) return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 })
 
-    if (!space) {
-      return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 });
+    const members = space.members || []
+
+    // ── Fetch all pending invitations for this space in one query ──────────
+    const pendingInvitations = await db.collection('invitations').find({
+      spaceId: new ObjectId(spaceId),
+      status:  'pending',
+    }).toArray()
+
+    // Build a map: email → inviteToken
+    const inviteMap: Record<string, string> = {}
+    for (const inv of pendingInvitations) {
+      inviteMap[inv.email.toLowerCase()] = inv.token
     }
 
-    const members = space.members || [];
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
     const contacts = members.map((member: any) => ({
-      id: member.userId || null,
-      email: member.email,
-      role: member.role || 'viewer',
-      addedAt: member.addedAt || space.createdAt,
-      lastAccess: member.lastAccessedAt || null
-    }));
+      id:                member.userId || null,
+      email:             member.email,
+      role:              member.role || 'viewer',
+      addedAt:           member.addedAt || space.createdAt,
+      lastAccess:        member.lastAccessedAt || null,
+      invitationStatus:  inviteMap[member.email?.toLowerCase()] ? 'pending' : 'accepted',
+      
+      invitationLink:    inviteMap[member.email?.toLowerCase()]
+        ? `${baseUrl}/invite/${inviteMap[member.email.toLowerCase()]}`
+        : null,
+    }))
 
-    return NextResponse.json({ success: true, contacts, count: contacts.length });
+    return NextResponse.json({ success: true, contacts, count: contacts.length })
 
   } catch (error) {
-    console.error('❌ Get contacts error:', error);
-    return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
+    console.error('❌ Get contacts error:', error)
+    return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 })
   }
 }
-
 /* ======================================================
    POST: Add contact + create invitation
 ====================================================== */

@@ -11,7 +11,7 @@ import { Drawer } from "@/components/ui/drawer"
 import { motion } from "framer-motion"
 import { toast } from 'sonner'
 import { ShareSpaceDrawer } from "@/components/ShareSpaceDrawer"
-import { SendDigestButton } from "@/components/SendDigestButton"
+ import { PermissionsTab } from "./components/PermissionsTab"
 
 import {
   DropdownMenu,
@@ -685,23 +685,24 @@ function timeAgo(dateStr: string | null): string {
   
 }
 
-function eventLabel(event: string): { label: string; color: string; icon: string } {
-  const map: Record<string, { label: string; color: string; icon: string }> = {
-    'document_view':  { label: 'Viewed document',  color: 'text-blue-600 bg-blue-50',     icon: '👁️' },
-    'view':           { label: 'Viewed document',  color: 'text-blue-600 bg-blue-50',     icon: '👁️' },
-    'download':       { label: 'Downloaded',       color: 'text-green-600 bg-green-50',   icon: '⬇️' },
-    'space_open':     { label: 'Opened space',     color: 'text-purple-600 bg-purple-50', icon: '🔓' },
-    'portal_enter':   { label: 'Entered portal',   color: 'text-purple-600 bg-purple-50', icon: '🚪' },
-    'question_asked': { label: 'Asked a question', color: 'text-orange-600 bg-orange-50', icon: '💬' },
-    'nda_signed':     { label: 'Signed NDA',       color: 'text-green-700 bg-green-100',  icon: '✍️' },
+function eventLabel(event: string): { label: string; color: string } {
+  const map: Record<string, { label: string; color: string }> = {
+    'document_view':  { label: 'Viewed document',  color: 'text-blue-600 bg-blue-50'     },
+    'view':           { label: 'Viewed document',  color: 'text-blue-600 bg-blue-50'     },
+    'download':       { label: 'Downloaded',       color: 'text-green-600 bg-green-50'   },
+    'space_open':     { label: 'Opened doc',       color: 'text-purple-600 bg-purple-50' },
+    'portal_enter':   { label: 'Opened doc',       color: 'text-purple-600 bg-purple-50' },
+    'question_asked': { label: 'Asked a question', color: 'text-orange-600 bg-orange-50' },
+    'nda_signed':     { label: 'Signed NDA',       color: 'text-green-700 bg-green-100'  },
+    'revisit':        { label: 'Revisited',        color: 'text-indigo-600 bg-indigo-50' },
   }
-  return map[event] || { label: event, color: 'text-slate-600 bg-slate-100', icon: '📌' }
+  return map[event] || { label: event, color: 'text-slate-600 bg-slate-100' }
 }
 
 function securityIcon(level: string) {
-  if (level === 'whitelist') return { icon: '🛡️', label: 'Whitelist', color: 'text-purple-700 bg-purple-50' }
-  if (level === 'password')  return { icon: '🔒', label: 'Password',  color: 'text-blue-700 bg-blue-50' }
-  return { icon: '🌐', label: 'Open', color: 'text-slate-600 bg-slate-100' }
+  if (level === 'whitelist') return { label: 'Whitelist', color: 'text-purple-700 bg-purple-50' }
+  if (level === 'password')  return { label: 'Password',  color: 'text-blue-700 bg-blue-50' }
+  return { label: 'Open', color: 'text-slate-600 bg-slate-100' }
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -755,10 +756,10 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
   const maxDaily = Math.max(...dailyVisits.map(d => d.count), 1)
 
   const heatLabel =
-    overview.dealHeatScore >= 70 ? { text: 'Hot Deal 🔥',    color: 'text-red-600 bg-red-50 border-red-200' }
-    : overview.dealHeatScore >= 40 ? { text: 'Warming Up ⚡', color: 'text-orange-600 bg-orange-50 border-orange-200' }
-    : overview.dealHeatScore >= 15 ? { text: 'Cool 🌤️',       color: 'text-blue-600 bg-blue-50 border-blue-200' }
-    : { text: 'Quiet 💤',            color: 'text-slate-500 bg-slate-50 border-slate-200' }
+  overview.dealHeatScore >= 70 ? { text: 'High activity',    color: 'text-red-600 bg-red-50 border-red-200' }
+  : overview.dealHeatScore >= 40 ? { text: 'Moderate activity', color: 'text-orange-600 bg-orange-50 border-orange-200' }
+  : overview.dealHeatScore >= 15 ? { text: 'Low activity',      color: 'text-blue-600 bg-blue-50 border-blue-200' }
+  : { text: 'No activity',         color: 'text-slate-500 bg-slate-50 border-slate-200' }
 
   return (
     <div className="space-y-6">
@@ -777,8 +778,8 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
               overview.dealHeatScore >= 15 ? 'bg-blue-500' : 'bg-slate-400'
             }`} />
             {overview.dealHeatScore >= 70 ? 'High activity' :
-             overview.dealHeatScore >= 40 ? 'Moderate activity' :
-             overview.dealHeatScore >= 15 ? 'Low activity' : 'No activity'}
+ overview.dealHeatScore >= 40 ? 'Moderate activity' :
+ overview.dealHeatScore >= 15 ? 'Low activity' : 'No activity'}
           </span>
           <button onClick={fetchAnalytics} className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all">
             <RefreshCw className="h-4 w-4" />
@@ -1367,6 +1368,17 @@ function SidebarContent({
           <FileText className="h-4 w-4" />
           <span>Audit Log</span>
         </button>
+        <button
+  onClick={() => setActiveTab('permissions')}
+  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+    activeTab === 'permissions'
+      ? 'bg-purple-50 text-purple-700'
+      : 'text-slate-700 hover:bg-slate-50'
+  }`}
+>
+  <Lock className="h-4 w-4" />
+  <span>Permissions</span>
+</button>
       </div>
 
       {/* Folders Section */}
@@ -1457,7 +1469,7 @@ export default function SpaceDetailPage() {
   const router = useRouter()
   const [space, setSpace] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'home' | 'folders'  | 'qa' | 'trash' | 'analytics' | 'audit' | 'diligence' | 'members'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'folders'  | 'qa' | 'trash' | 'analytics' | 'audit' | 'diligence' | 'members' | 'permissions'>('home')
   const [folders, setFolders] = useState<FolderType[]>([])
   const [documents, setDocuments] = useState<DocumentType[]>([])
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
@@ -1513,8 +1525,16 @@ const [contacts, setContacts] = useState<Array<{
   email: string
   role: 'viewer' | 'editor' | 'admin'
   invitationStatus?: 'pending' | 'accepted'
+  invitationLink?: string;
   addedAt: string
 }>>([])
+const [uploadProgress, setUploadProgress] = useState<
+  Array<{
+    name: string;
+    status: 'pending' | 'uploading' | 'done' | 'error';
+    message?: string;
+  }>
+>([])
 const [user, setUser] = useState<{ email: string } | null>(null)
 const [isOwner, setIsOwner] = useState(false)
 const [userRole, setUserRole] = useState<string>(''); // ← Initialize as empty
@@ -1568,6 +1588,16 @@ const [showRequestFilesDrawer, setShowRequestFilesDrawer] = useState(false)
 const [requestFilesFolder, setRequestFilesFolder] = useState<{ id: string; name: string } | null>(null)
 const [myRole, setMyRole] = useState<string>('');
 const [bulkMode, setBulkMode] = useState(false)
+const [showDriveFilesDialog,    setShowDriveFilesDialog]    = useState(false)
+const [driveFiles,              setDriveFiles]              = useState<any[]>([])
+const [loadingDriveFiles,       setLoadingDriveFiles]       = useState(false)
+const [driveSearchQuery,        setDriveSearchQuery]        = useState('')
+const [showOneDriveFilesDialog, setShowOneDriveFilesDialog] = useState(false)
+const [oneDriveFiles,           setOneDriveFiles]           = useState<any[]>([])
+const [loadingOneDriveFiles,    setLoadingOneDriveFiles]    = useState(false)
+const [oneDriveSearchQuery,     setOneDriveSearchQuery]     = useState('')
+const [integrationStatus,       setIntegrationStatus]       = useState<Record<string, any>>({})
+const [oneDriveStatus,          setOneDriveStatus]          = useState<{ connected: boolean; email?: string }>({ connected: false })
 const [qaComments, setQaComments] = useState<Array<{
   id: string
   documentId: string
@@ -1580,6 +1610,8 @@ const [qaComments, setQaComments] = useState<Array<{
   repliedAt: string | null
   createdAt: string
 }>>([])
+const [showInviteLinkDialog, setShowInviteLinkDialog] = useState(false)
+const [invitationLink,       setInvitationLink]       = useState('')
 const [qaLoading, setQaLoading] = useState(false)
 const [replyingTo, setReplyingTo] = useState<string | null>(null)
 const [replyText, setReplyText] = useState('')
@@ -1591,6 +1623,7 @@ const [permissions, setPermissions] = useState({
   canUpload: false,
   canDelete: false
 });
+
 
 
 useEffect(() => {
@@ -1736,6 +1769,72 @@ const handleSelectDoc = (docId: string) => {
   );
 };
 
+
+const handleMultipleUpload = async (files: File[]) => {
+  // Single file — use existing flow with status messages
+  if (files.length === 1) {
+    handleFileUpload(files[0])
+    return
+  }
+
+  // Multiple files — show per-file progress
+  setUploadStatus('uploading')
+  setUploadProgress(files.map(f => ({ name: f.name, status: 'pending' })))
+
+  let allOk = true
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+
+    setUploadProgress(prev => prev.map((p, idx) =>
+      idx === i ? { ...p, status: 'uploading' } : p
+    ))
+
+    const formData = new FormData()
+    formData.append('file', file)
+    if (selectedFolder) formData.append('folderId', selectedFolder)
+
+    try {
+      const res  = await fetch(`/api/spaces/${params.id}/upload`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      })
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        setUploadProgress(prev => prev.map((p, idx) =>
+          idx === i ? { ...p, status: 'done' } : p
+        ))
+      } else {
+        allOk = false
+        setUploadProgress(prev => prev.map((p, idx) =>
+          idx === i ? { ...p, status: 'error', message: data.error || 'Failed' } : p
+        ))
+      }
+    } catch {
+      allOk = false
+      setUploadProgress(prev => prev.map((p, idx) =>
+        idx === i ? { ...p, status: 'error', message: 'Network error' } : p
+      ))
+    }
+  }
+
+  setUploadStatus(allOk ? 'success' : 'error')
+  setUploadMessage(
+    allOk
+      ? `${files.length} files uploaded successfully!`
+      : 'Some files failed — check results above'
+  )
+  setUploadProgress([])
+  fetchSpace()
+
+  setTimeout(() => {
+    setUploadStatus('idle')
+    setUploadMessage('')
+    if (allOk) setShowUploadDialog(false)
+  }, 2000)
+}
 
 const fetchQAComments = async () => {
   setQaLoading(true)
@@ -2168,11 +2267,8 @@ const handleDragLeave = (e: React.DragEvent) => {
 const handleDrop = (e: React.DragEvent) => {
   e.preventDefault()
   setIsDragging(false)
-  
-  const droppedFiles = e.dataTransfer.files
-  if (droppedFiles.length > 0) {
-    handleFileUpload(droppedFiles[0])
-  }
+  const files = Array.from(e.dataTransfer.files)
+  if (files.length > 0) handleMultipleUpload(files)
 }
 
 // Rename file
@@ -2360,49 +2456,34 @@ const handleEmptyTrash = async () => {
 };
 
 const handleAddContact = async () => {
-  if (!contactEmail.trim()) return;
-
-  setAddingContact(true);
-
+  if (!contactEmail.trim()) return
+  setAddingContact(true)
   try {
-    const res = await fetch(`/api/spaces/${params.id}/contacts`, {
-      method: 'POST',
+    const res  = await fetch(`/api/spaces/${params.id}/contacts`, {
+      method:  'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: contactEmail.trim(),
-        role: contactRole,
-      }),
-    });
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ email: contactEmail.trim(), role: contactRole }),
+    })
+    const data = await res.json()
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || 'Failed to add contact');
-    }
+    if (!res.ok) throw new Error(data.error || 'Failed to add contact')
 
     if (data.success) {
-      // ✅ Refresh contacts list
-      await fetchContacts();
-      
-      // ✅ Show popup with invitation link
-      setShareLink(data.invitationLink); // Store the link
-      setSharingStatus('success'); // Reuse existing dialog state
-      setShowShareDialog(true); // Show the share dialog
-      
-      setContactEmail('');
-      setContactRole('viewer');
-      setShowAddContactDialog(false);
+      await fetchContacts()
+      setContactEmail('')
+      setContactRole('viewer')
+      setShowAddContactDialog(false)
+      // show dedicated invite modal
+      setInvitationLink(data.invitationLink)
+      setShowInviteLinkDialog(true)
     }
   } catch (error: any) {
-    console.error('Failed to add contact:', error);
-    alert(error.message || 'Failed to add contact');
+    toast.error(error.message || 'Failed to add contact')
   } finally {
-    setAddingContact(false);
+    setAddingContact(false)
   }
-};
+}
 
 const fetchRecentFiles = async () => {
   try {
@@ -2451,7 +2532,100 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
   fetchSpace();
   fetchCurrentUser();
   fetchTrashedDocuments();
+  // fetch cloud storage statuses
+  fetch('/api/integrations/status', { credentials: 'include' })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => { if (data) setIntegrationStatus(data) })
+    .catch(() => {})
+  fetch('/api/integrations/onedrive/status', { credentials: 'include' })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => { if (data) setOneDriveStatus(data) })
+    .catch(() => {})
 }, [params.id]);
+
+
+const handleBrowseDriveFiles = async () => {
+  setLoadingDriveFiles(true)
+  try {
+    const res  = await fetch('/api/integrations/google-drive/files', { credentials: 'include' })
+    const data = await res.json()
+    if (res.ok) {
+      setDriveFiles(data.files || [])
+      setShowDriveFilesDialog(true)
+    } else {
+      toast.error(data.error || 'Failed to load Drive files')
+    }
+  } catch { toast.error('Network error') }
+  finally { setLoadingDriveFiles(false) }
+}
+
+const handleImportDriveFile = async (fileId: string, fileName: string) => {
+  const t = toast.loading(`Importing ${fileName}...`)
+  try {
+    const res  = await fetch('/api/integrations/google-drive/import', {
+      method:  'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ fileId, fileName }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      // Now attach to this space
+      await fetch(`/api/spaces/${params.id}/upload`, {
+        method:  'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ documentId: data.documentId, folderId: selectedFolder || null }),
+      })
+      toast.success(`${fileName} imported!`, { id: t })
+      setShowDriveFilesDialog(false)
+      fetchSpace()
+    } else {
+      toast.error(data.error || 'Import failed', { id: t })
+    }
+  } catch { toast.error('Network error', { id: t }) }
+}
+
+const handleBrowseOneDriveFiles = async () => {
+  setLoadingOneDriveFiles(true)
+  try {
+    const res  = await fetch('/api/integrations/onedrive/files', { credentials: 'include' })
+    const data = await res.json()
+    if (res.ok) {
+      setOneDriveFiles(data.files || [])
+      setShowOneDriveFilesDialog(true)
+    } else {
+      toast.error(data.error || 'Failed to load OneDrive files')
+    }
+  } catch { toast.error('Network error') }
+  finally { setLoadingOneDriveFiles(false) }
+}
+
+const handleImportOneDriveFile = async (fileId: string, fileName: string) => {
+  const t = toast.loading(`Importing ${fileName}...`)
+  try {
+    const res  = await fetch('/api/integrations/onedrive/import', {
+      method:  'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ fileId, fileName }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      await fetch(`/api/spaces/${params.id}/upload`, {
+        method:  'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ documentId: data.documentId, folderId: selectedFolder || null }),
+      })
+      toast.success(`${fileName} imported!`, { id: t })
+      setShowOneDriveFilesDialog(false)
+      fetchSpace()
+    } else {
+      toast.error(data.error || 'Import failed', { id: t })
+    }
+  } catch { toast.error('Network error', { id: t }) }
+}
 
 const fetchCurrentUser = async () => {
   try {
@@ -2754,12 +2928,9 @@ const fetchFolders = async () => {
         >
           <FolderOpen className="h-4 w-4 text-white" />
         </div>
-        <h1 className="text-sm lg:text-base font-semibold text-slate-900 truncate max-w-[140px] sm:max-w-[220px] lg:max-w-none">
-          {space.name}
-        </h1>
-        <div className="hidden sm:flex items-center gap-2">
-          <RoleBadge role={userRole} />
-        </div>
+       <span className="text-sm lg:text-base font-bold text-blue-900 tracking-tight hidden sm:block">
+  DocMetrics
+</span>
       </div>
     </div>
 
@@ -3190,9 +3361,9 @@ const fetchFolders = async () => {
             ? 'bg-red-100 text-red-700'
             : 'bg-yellow-100 text-yellow-700'
         }`}>
-          {doc.signatureStatus === 'completed' && '✅ Signed'}
-          {doc.signatureStatus === 'pending' && '🖊️ Awaiting Signature'}
-          {doc.signatureStatus === 'declined' && '❌ Declined'}
+          {doc.signatureStatus === 'completed' && 'Signed'}
+{doc.signatureStatus === 'pending' && 'Awaiting Signature'}
+{doc.signatureStatus === 'declined' && 'Declined'}
         </span>
       )}
                     {/*   NEW: View-Only Indicator */}
@@ -3260,6 +3431,20 @@ const fetchFolders = async () => {
 
 {activeTab === 'home' && (
   <>
+
+  {/* Space identity header */}
+<div className="flex items-center gap-3 mb-6">
+  <div
+    className="h-10 w-10 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0"
+    style={{ background: space.color }}
+  >
+    <FolderOpen className="h-5 w-5 text-white" />
+  </div>
+  <div>
+    <h1 className="text-xl font-bold text-slate-900">{space.name}</h1>
+     
+  </div>
+</div>
 
   {/* Search Results Banner */}
 {searchQuery.trim() && (
@@ -4630,22 +4815,46 @@ const fetchFolders = async () => {
                 </span>
               </div>
 
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">{contact.email}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs text-slate-400 capitalize">{contact.role}</span>
-                  <span className="text-slate-200">·</span>
-                  <span className="text-xs text-slate-400">
-                    Added {new Date(contact.addedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </span>
-                  {contact.invitationStatus === 'pending' && (
-                    <>
-                      <span className="text-slate-200">·</span>
-                      <span className="text-xs text-orange-500">Pending</span>
-                    </>
-                  )}
-                </div>
-              </div>
+             <div className="flex-1 min-w-0">
+  <p className="text-sm font-medium text-slate-900 truncate">{contact.email}</p>
+  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+    <span className="text-xs text-slate-400 capitalize">{contact.role}</span>
+    <span className="text-slate-200">·</span>
+    <span className="text-xs text-slate-400">
+      Added {new Date(contact.addedAt).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric'
+      })}
+    </span>
+    {contact.invitationStatus === 'pending' && (
+      <>
+        <span className="text-slate-200">·</span>
+        <span className="text-xs text-orange-500 font-medium">⏳ Pending</span>
+      </>
+    )}
+  </div>
+
+  {/* ── Invite link — visible when invitation not yet accepted ── */}
+  {contact.invitationLink && (
+    <div className="flex items-center gap-2 mt-1.5">
+      <input
+        readOnly
+        value={contact.invitationLink}
+        className="flex-1 px-2 py-1 text-[10px] font-mono bg-slate-50 border border-slate-200 rounded text-slate-500 outline-none min-w-0"
+        onClick={e => (e.target as HTMLInputElement).select()}
+      />
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(contact.invitationLink!)
+          toast.success('Link copied!')
+        }}
+        className="flex-shrink-0 p-1 rounded hover:bg-slate-100 transition-colors"
+        title="Copy invite link"
+      >
+        <Copy className="h-3 w-3 text-slate-400 hover:text-slate-600" />
+      </button>
+    </div>
+  )}
+</div>
 
               {canManageContacts && (
                 <DropdownMenu>
@@ -4712,6 +4921,14 @@ const fetchFolders = async () => {
 )}
             {activeTab === 'analytics' && (
   <AnalyticsTab spaceId={params.id as string} spaceName={space?.name} />
+)}
+
+{activeTab === 'permissions' && (
+  <PermissionsTab
+    spaceId={params.id as string}
+    folders={folders.map(f => ({ id: f.id, name: f.name }))}
+    canManage={canManageSpace || canManageContacts}
+  />
 )}
 
             
@@ -4998,96 +5215,253 @@ const fetchFolders = async () => {
 </Dialog>
 
       {/* Upload Dialog */}
-      {/* Upload Dialog */}
-      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-        <DialogContent className="max-w-xl bg-white scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Upload Documents</DialogTitle>
-            <DialogDescription>
-              Add documents to {selectedFolder ? folders.find(f => f.id === selectedFolder)?.name : 'this space'}
-            </DialogDescription>
-          </DialogHeader>
+      {/* ── Upload Drawer ─────────────────────────────────────────────────────────
+     Replace the entire <Dialog open={showUploadDialog}...> block with this
+─────────────────────────────────────────────────────────────────────────── */}
 
-          {uploadStatus === 'idle' && (
-            <div className="py-6">
-              <div
-                className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all ${
-                  isDragging ? 'border-purple-500 bg-purple-50' : 'border-slate-300 hover:border-purple-400 hover:bg-purple-50/30'
-                }`}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                <Upload className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                <p className="text-lg font-semibold text-slate-900 mb-2">
-                  {isDragging ? 'Drop file here' : 'Drop files here to upload'}
-                </p>
-                <p className="text-sm text-slate-500 mb-4">or click to browse</p>
-                <Button variant="outline">Select Files</Button>
+{showUploadDialog && (
+  <div className="fixed inset-0 z-50 flex justify-end">
+    {/* Backdrop */}
+    <div
+      className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+      onClick={() => {
+        if (uploadStatus === 'idle') setShowUploadDialog(false)
+      }}
+    />
+
+    {/* Drawer */}
+    <div className="relative w-full sm:w-[580px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-5 border-b bg-white flex-shrink-0">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Upload Documents</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {selectedFolder
+              ? `Uploading to: ${folders.find(f => f.id === selectedFolder)?.name}`
+              : 'Adding to this space'}
+          </p>
+        </div>
+        {uploadStatus === 'idle' && (
+          <button
+            onClick={() => setShowUploadDialog(false)}
+            className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center transition-colors"
+          >
+            <X className="h-5 w-5 text-slate-500" />
+          </button>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+
+        {/* ── IDLE ── */}
+        {uploadStatus === 'idle' && (
+          <>
+            {/* Drop zone */}
+            <div
+              className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
+                isDragging
+                  ? 'border-purple-500 bg-purple-50'
+                  : 'border-slate-300 hover:border-purple-400 hover:bg-purple-50/30'
+              }`}
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <Upload className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+              <p className="text-base font-semibold text-slate-900 mb-1">
+                {isDragging ? 'Drop files here' : 'Drop files here to upload'}
+              </p>
+              <p className="text-sm text-slate-500 mb-4">
+                or click to browse — select multiple files at once
+              </p>
+              <Button variant="outline" size="sm">Select Files</Button>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files || [])
+                if (files.length > 0) handleMultipleUpload(files)
+              }}
+            />
+
+            {/* Folder indicator */}
+            {selectedFolder && (
+              <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg border text-sm text-slate-600">
+                <Folder className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                Files will be uploaded to:{' '}
+                <span className="font-semibold text-slate-900">
+                  {folders.find(f => f.id === selectedFolder)?.name}
+                </span>
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) handleFileUpload(file)
+            )}
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-slate-200" />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Or import from cloud
+              </span>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+
+            {/* Cloud options */}
+            <div className="grid grid-cols-2 gap-3">
+
+              {/* Google Drive */}
+              <button
+                onClick={() => {
+                  setShowUploadDialog(false)
+                  integrationStatus.google_drive?.connected
+                    ? handleBrowseDriveFiles()
+                    : (window.location.href = '/api/integrations/google-drive/connect')
                 }}
-              />
-              {selectedFolder && (
-                <div className="mt-4 p-3 bg-slate-50 rounded-lg border">
-                  <p className="text-sm text-slate-600">
-                    Files will be uploaded to: <span className="font-semibold text-slate-900">
-                      {folders.find(f => f.id === selectedFolder)?.name}
-                    </span>
+                disabled={loadingDriveFiles}
+                className="flex items-center gap-3 px-4 py-4 rounded-xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 transition-all text-left group disabled:opacity-60"
+              >
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                  <span className="text-xl">📁</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800 group-hover:text-blue-700 transition-colors">
+                    Google Drive
+                  </p>
+                  <p className="text-xs text-slate-400 truncate mt-0.5">
+                    {integrationStatus.google_drive?.connected
+                      ? `✓ ${integrationStatus.google_drive.email || 'Connected'}`
+                      : 'Click to connect'}
                   </p>
                 </div>
-              )}
-            </div>
-          )}
+                {loadingDriveFiles
+                  ? <Loader2 className="h-4 w-4 animate-spin text-blue-500 flex-shrink-0" />
+                  : <ChevronRight className="h-4 w-4 text-slate-300 flex-shrink-0 group-hover:text-blue-400 transition-colors" />
+                }
+              </button>
 
-          {uploadStatus === 'uploading' && (
-            <div className="text-center py-12">
-              <div className="animate-spin h-12 w-12 border-4 border-purple-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-              <p className="text-slate-900 font-semibold">{uploadMessage}</p>
-            </div>
-          )}
-
-          {uploadStatus === 'success' && (
-            <div className="text-center py-12">
-              <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="h-8 w-8 text-green-600" />
-              </div>
-              <p className="text-slate-900 font-semibold">{uploadMessage}</p>
-            </div>
-          )}
-
-          {uploadStatus === 'error' && (
-            <div className="text-center py-12">
-              <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                <AlertCircle className="h-8 w-8 text-red-600" />
-              </div>
-              <p className="text-red-900 font-semibold">{uploadMessage}</p>
-              <Button
-                onClick={() => setUploadStatus('idle')}
-                variant="outline"
-                className="mt-4"
+              {/* OneDrive */}
+              <button
+                onClick={() => {
+                  setShowUploadDialog(false)
+                  oneDriveStatus.connected
+                    ? handleBrowseOneDriveFiles()
+                    : (window.location.href = '/api/integrations/onedrive/connect')
+                }}
+                disabled={loadingOneDriveFiles}
+                className="flex items-center gap-3 px-4 py-4 rounded-xl border-2 border-slate-200 hover:border-sky-400 hover:bg-sky-50/40 transition-all text-left group disabled:opacity-60"
               >
-                Try Again
-              </Button>
-            </div>
-          )}
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                  <span className="text-xl">☁️</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800 group-hover:text-sky-700 transition-colors">
+                    OneDrive
+                  </p>
+                  <p className="text-xs text-slate-400 truncate mt-0.5">
+                    {oneDriveStatus.connected
+                      ? `✓ ${oneDriveStatus.email || 'Connected'}`
+                      : 'Click to connect'}
+                  </p>
+                </div>
+                {loadingOneDriveFiles
+                  ? <Loader2 className="h-4 w-4 animate-spin text-sky-500 flex-shrink-0" />
+                  : <ChevronRight className="h-4 w-4 text-slate-300 flex-shrink-0 group-hover:text-sky-400 transition-colors" />
+                }
+              </button>
 
-          {uploadStatus === 'idle' && (
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
-                Cancel
-              </Button>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </>
+        )}
+
+        {/* ── UPLOADING ── */}
+        {uploadStatus === 'uploading' && (
+          <div className="space-y-3">
+            {uploadProgress.length > 0 ? (
+              <>
+                <p className="text-sm font-semibold text-slate-700">
+                  Uploading {uploadProgress.length} file{uploadProgress.length !== 1 ? 's' : ''}…
+                </p>
+                {uploadProgress.map((f, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl border bg-slate-50">
+                    <div className="flex-shrink-0">
+                      {f.status === 'pending'   && <div className="h-4 w-4 rounded-full border-2 border-slate-300" />}
+                      {f.status === 'uploading' && <div className="h-4 w-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />}
+                      {f.status === 'done'      && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                      {f.status === 'error'     && <AlertCircle className="h-4 w-4 text-red-500" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-800 truncate">{f.name}</p>
+                      {f.message && <p className="text-xs text-red-500 mt-0.5">{f.message}</p>}
+                    </div>
+                    <span className={`text-xs font-medium flex-shrink-0 ${
+                      f.status === 'done'      ? 'text-green-600' :
+                      f.status === 'error'     ? 'text-red-500'  :
+                      f.status === 'uploading' ? 'text-purple-600' :
+                      'text-slate-400'
+                    }`}>
+                      {f.status === 'done'      ? 'Done'        :
+                       f.status === 'error'     ? 'Failed'      :
+                       f.status === 'uploading' ? 'Uploading…'  :
+                       'Waiting'}
+                    </span>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16">
+                <div className="animate-spin h-12 w-12 border-4 border-purple-600 border-t-transparent rounded-full mb-4" />
+                <p className="text-slate-700 font-semibold">{uploadMessage}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── SUCCESS ── */}
+        {uploadStatus === 'success' && (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+              <CheckCircle2 className="h-9 w-9 text-green-600" />
+            </div>
+            <p className="text-slate-900 font-semibold text-lg">{uploadMessage}</p>
+          </div>
+        )}
+
+        {/* ── ERROR ── */}
+        {uploadStatus === 'error' && (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+              <AlertCircle className="h-9 w-9 text-red-600" />
+            </div>
+            <p className="text-red-900 font-semibold text-lg mb-4">{uploadMessage}</p>
+            <Button variant="outline" onClick={() => setUploadStatus('idle')}>
+              Try Again
+            </Button>
+          </div>
+        )}
+
+      </div>
+
+      {/* Footer */}
+      {uploadStatus === 'idle' && (
+        <div className="flex-shrink-0 px-6 py-4 border-t bg-white">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setShowUploadDialog(false)}
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
+
+    </div>
+  </div>
+)}
 
       {/* Rename Dialog */}
       <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
@@ -6666,6 +7040,294 @@ const fetchFolders = async () => {
     folderName={requestFilesFolder.name}
   />
 )}
+
+{/* Google Drive Drawer */}
+{showDriveFilesDialog && (
+  <div className="fixed inset-0 z-50 flex justify-end">
+    <div
+      className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+      onClick={() => setShowDriveFilesDialog(false)}
+    />
+    <div className="relative w-full sm:w-[680px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-5 border-b bg-gradient-to-r from-blue-50 to-slate-50">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+            <span className="text-xl">📁</span>
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-900 text-lg">Import from Google Drive</h2>
+            <p className="text-xs text-slate-500">{integrationStatus.google_drive?.email || 'Google Drive'}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowDriveFilesDialog(false)}
+          className="h-9 w-9 rounded-lg hover:bg-white/80 flex items-center justify-center transition-colors"
+        >
+          <X className="h-5 w-5 text-slate-500" />
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="px-6 py-3 border-b bg-slate-50">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input
+            placeholder="Search your Drive files..."
+            className="pl-9 bg-white"
+            value={driveSearchQuery}
+            onChange={e => setDriveSearchQuery(e.target.value)}
+          />
+        </div>
+        <p className="text-xs text-slate-400 mt-2">
+          {driveFiles.filter(f => f.name.toLowerCase().includes(driveSearchQuery.toLowerCase())).length} PDF file(s) available
+        </p>
+      </div>
+
+      {/* Files */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+        {loadingDriveFiles ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-3" />
+            <p className="text-sm text-slate-500">Loading your Drive files...</p>
+          </div>
+        ) : driveFiles.filter(f => f.name.toLowerCase().includes(driveSearchQuery.toLowerCase())).length === 0 ? (
+          <div className="text-center py-20">
+            <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-sm font-medium text-slate-600">
+              {driveSearchQuery ? 'No files match your search' : 'No PDF files found in Drive'}
+            </p>
+          </div>
+        ) : (
+          driveFiles
+            .filter(f => f.name.toLowerCase().includes(driveSearchQuery.toLowerCase()))
+            .map(file => (
+              <div
+                key={file.id}
+                className="group flex items-center gap-4 p-4 rounded-xl border border-slate-100 hover:border-blue-300 hover:bg-blue-50/40 transition-all cursor-pointer"
+                onClick={() => handleImportDriveFile(file.id, file.name)}
+              >
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                  <FileText className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
+                    {file.name}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {file.size ? `${Math.round(parseInt(file.size) / 1024)} KB` : ''}
+                    {file.modifiedTime ? ` · Modified ${new Date(file.modifiedTime).toLocaleDateString()}` : ''}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                  onClick={e => { e.stopPropagation(); handleImportDriveFile(file.id, file.name) }}
+                >
+                  Import
+                </Button>
+              </div>
+            ))
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="px-6 py-4 border-t bg-slate-50">
+        <Button variant="outline" className="w-full" onClick={() => setShowDriveFilesDialog(false)}>
+          Close
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* OneDrive Drawer */}
+{showOneDriveFilesDialog && (
+  <div className="fixed inset-0 z-50 flex justify-end">
+    <div
+      className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+      onClick={() => setShowOneDriveFilesDialog(false)}
+    />
+    <div className="relative w-full sm:w-[680px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-5 border-b bg-gradient-to-r from-blue-50 to-slate-50">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+            <span className="text-xl">☁️</span>
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-900 text-lg">Import from OneDrive</h2>
+            <p className="text-xs text-slate-500">{oneDriveStatus.email || 'Microsoft OneDrive'}</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setShowOneDriveFilesDialog(false)}
+          className="h-9 w-9 rounded-lg hover:bg-white/80 flex items-center justify-center transition-colors"
+        >
+          <X className="h-5 w-5 text-slate-500" />
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="px-6 py-3 border-b bg-slate-50">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input
+            placeholder="Search your OneDrive files..."
+            className="pl-9 bg-white"
+            value={oneDriveSearchQuery}
+            onChange={e => setOneDriveSearchQuery(e.target.value)}
+          />
+        </div>
+        <p className="text-xs text-slate-400 mt-2">
+          {oneDriveFiles.filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase())).length} PDF file(s) available
+        </p>
+      </div>
+
+      {/* Files */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+        {loadingOneDriveFiles ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-3" />
+            <p className="text-sm text-slate-500">Loading your OneDrive files...</p>
+          </div>
+        ) : oneDriveFiles.filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase())).length === 0 ? (
+          <div className="text-center py-20">
+            <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-sm font-medium text-slate-600">
+              {oneDriveSearchQuery ? 'No files match your search' : 'No PDF files found in OneDrive'}
+            </p>
+          </div>
+        ) : (
+          oneDriveFiles
+            .filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase()))
+            .map(file => (
+              <div
+                key={file.id}
+                className="group flex items-center gap-4 p-4 rounded-xl border border-slate-100 hover:border-blue-300 hover:bg-blue-50/40 transition-all cursor-pointer"
+                onClick={() => handleImportOneDriveFile(file.id, file.name)}
+              >
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                  <FileText className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
+                    {file.name}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {file.size ? `${Math.round(parseInt(file.size) / 1024)} KB` : ''}
+                    {file.modifiedTime ? ` · Modified ${new Date(file.modifiedTime).toLocaleDateString()}` : ''}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                  onClick={e => { e.stopPropagation(); handleImportOneDriveFile(file.id, file.name) }}
+                >
+                  Import
+                </Button>
+              </div>
+            ))
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="px-6 py-4 border-t bg-slate-50">
+        <Button variant="outline" className="w-full" onClick={() => setShowOneDriveFilesDialog(false)}>
+          Close
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* ── Invitation Success Modal ──────────────────────────────────────────── */}
+<Dialog open={showInviteLinkDialog} onOpenChange={setShowInviteLinkDialog}>
+  <DialogContent className="max-w-md bg-white">
+    <DialogHeader>
+      <div className="flex items-center gap-3 mb-1">
+        <div className="h-11 w-11 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+          <CheckCircle2 className="h-6 w-6 text-green-600" />
+        </div>
+        <div>
+          <DialogTitle className="text-lg">Member Added!</DialogTitle>
+          <DialogDescription className="text-sm mt-0.5">
+            An invitation email has been sent. Share the link below as a backup.
+          </DialogDescription>
+        </div>
+      </div>
+    </DialogHeader>
+
+    <div className="space-y-4 pt-1">
+      {/* Email sent confirmation */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
+        <Mail className="h-4 w-4 text-green-600 flex-shrink-0" />
+        <p className="text-sm text-green-800">
+          Invite email sent to{' '}
+          <span className="font-semibold">{contactEmail || 'recipient'}</span>
+        </p>
+      </div>
+
+      {/* Link copy */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          Backup Invite Link
+        </p>
+        <div className="flex gap-2">
+          <input
+            readOnly
+            value={invitationLink}
+            className="flex-1 px-3 py-2 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg text-slate-700 outline-none select-all"
+            onClick={e => (e.target as HTMLInputElement).select()}
+          />
+          <Button
+            variant="outline"
+            className="flex-shrink-0 gap-1.5"
+            onClick={() => {
+              navigator.clipboard.writeText(invitationLink)
+              toast.success('Link copied!')
+            }}
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Copy
+          </Button>
+        </div>
+        <p className="text-xs text-slate-400">
+          Expires in 7 days · Send this if the email doesn't arrive
+        </p>
+      </div>
+
+      {/* Members section nudge */}
+      <div className="flex items-start gap-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+        <Users className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-slate-600">
+          The new member is now visible in the{' '}
+          <button
+            className="font-semibold text-purple-600 hover:underline"
+            onClick={() => {
+              setShowInviteLinkDialog(false)
+              setActiveTab('members')
+            }}
+          >
+            Members tab
+          </button>
+          .
+        </p>
+      </div>
+
+      <div className="flex justify-end pt-1 border-t">
+        <Button
+          onClick={() => setShowInviteLinkDialog(false)}
+          className="bg-slate-900 hover:bg-slate-800 text-white px-6"
+        >
+          Done
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
 
     </div>
   )
