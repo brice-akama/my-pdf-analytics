@@ -151,6 +151,13 @@ export default function DashboardOverview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contactTab, setContactTab] = useState<"my" | "team">("my");
+  const [showAllContacts, setShowAllContacts] = useState(false)
+
+// Reset show-all when switching tabs
+const handleTabChange = (tab: "my" | "team") => {
+  setContactTab(tab)
+  setShowAllContacts(false)
+}
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -416,7 +423,7 @@ export default function DashboardOverview() {
               <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
                 Hot Visitors
               </h3>
-              <Flame className="h-3.5 w-3.5 text-orange-400" />
+               
             </div>
 
             {hotVisitors.length === 0 ? (
@@ -500,16 +507,16 @@ export default function DashboardOverview() {
             <p className="text-xs text-slate-400">Last 30 days</p>
           </div>
           <div className="flex border border-slate-200 rounded-md overflow-hidden text-xs">
-            <button
-              onClick={() => setContactTab("my")}
-              className={`px-3 py-1.5 font-medium transition-colors ${
-                contactTab === "my"
-                  ? "bg-slate-900 text-white"
-                  : "bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              My visits
-            </button>
+           <button
+  onClick={() => handleTabChange("my")}  
+  className={`px-3 py-1.5 font-medium transition-colors ${
+    contactTab === "my"
+      ? "bg-slate-900 text-white"
+      : "bg-white text-slate-600 hover:bg-slate-50"
+  }`}
+>
+  My visits
+</button>
             <button
               onClick={() => setContactTab("team")}
               className={`px-3 py-1.5 font-medium transition-colors border-l border-slate-200 ${
@@ -523,85 +530,107 @@ export default function DashboardOverview() {
           </div>
         </div>
 
-        {mostEngagedContacts.length === 0 ? (
-          <div className="text-center py-10">
-            <Users className="h-8 w-8 text-slate-200 mx-auto mb-2" />
-            <p className="text-xs text-slate-400">
-              No contacts have viewed your documents yet
-            </p>
-          </div>
-        ) : (
-          <div>
-            {/* Table header */}
-            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-              <div className="col-span-5">Contact</div>
-              <div className="col-span-3">Document</div>
-              <div className="col-span-1 text-center">Visits ↓</div>
-              <div className="col-span-1 text-center">Docs</div>
-              <div className="col-span-2 text-right">Time spent</div>
+        
+             {(() => {
+  const filtered = mostEngagedContacts.filter((c: any) =>
+    contactTab === "team"
+      ? c.source === "team" || c.source === "both"
+      : c.source === "my" || c.source === "both" || !c.source
+  )
+  const visible = showAllContacts ? filtered : filtered.slice(0, 5)
+
+  if (filtered.length === 0) {
+    return (
+      <div className="text-center py-10">
+        <Users className="h-8 w-8 text-slate-200 mx-auto mb-2" />
+        <p className="text-xs text-slate-400">
+          {contactTab === "team"
+            ? "No team document visits yet"
+            : "No contacts have viewed your documents yet"}
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* Table header */}
+      <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+        <div className="col-span-5">Contact</div>
+        <div className="col-span-3">Document</div>
+        <div className="col-span-1 text-center">Visits ↓</div>
+        <div className="col-span-1 text-center">Docs</div>
+        <div className="col-span-2 text-right">Time spent</div>
+      </div>
+
+      <div className="divide-y divide-slate-50">
+        {visible.map((contact: any, i: number) => (
+          <div
+            key={i}
+            className="grid grid-cols-12 gap-2 px-3 py-3 items-center hover:bg-slate-50 transition-colors group"
+          >
+            <div className="col-span-5 flex items-center gap-2 min-w-0">
+              <div
+                className="h-7 w-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                style={{
+                  background: `hsl(${(contact.email.charCodeAt(0) * 37) % 360}, 55%, 55%)`,
+                }}
+              >
+                {contact.email.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
+                  {contact.email.split("@")[0]}
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  {formatTimeAgo(contact.lastSeen)}
+                </p>
+              </div>
             </div>
 
-            {/* Table rows */}
-            <div className="divide-y divide-slate-50">
-              {mostEngagedContacts.map((contact: any, i: number) => (
-                <div
-                  key={i}
-                  className="grid grid-cols-12 gap-2 px-3 py-3 items-center hover:bg-slate-50 transition-colors group"
-                >
-                  {/* Contact */}
-                  <div className="col-span-5 flex items-center gap-2 min-w-0">
-                    <div
-                      className="h-7 w-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                      style={{
-                        background: `hsl(${(contact.email.charCodeAt(0) * 37) % 360}, 55%, 55%)`,
-                      }}
-                    >
-                      {contact.email.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
-                        {contact.email.split("@")[0]}
-                      </p>
-                      <p className="text-[10px] text-slate-400">
-                        {formatTimeAgo(contact.lastSeen)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Most-viewed doc name (truncated) */}
-                  <div className="col-span-3 min-w-0">
-                    <p className="text-[10px] text-slate-500 truncate">
-                      {contact.topDocName || "—"}
-                    </p>
-                  </div>
-
-                  {/* Visits */}
-                  <div className="col-span-1 text-center">
-                    <span className="text-xs font-semibold text-slate-700 tabular-nums">
-                      {contact.visits}
-                    </span>
-                  </div>
-
-                  {/* Docs */}
-                  <div className="col-span-1 text-center">
-                    <span className="text-xs font-semibold text-slate-700 tabular-nums">
-                      {contact.docs}
-                    </span>
-                  </div>
-
-                  {/* Time spent */}
-                  <div className="col-span-2 text-right">
-                    <span className="text-xs font-mono font-semibold text-slate-700 tabular-nums">
-                      {formatMMSS(contact.totalTime)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+            <div className="col-span-3 min-w-0">
+              <p className="text-[10px] text-slate-500 truncate">
+                {contact.topDocName || "—"}
+              </p>
             </div>
 
-            
+            <div className="col-span-1 text-center">
+              <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                {contact.visits}
+              </span>
+            </div>
+
+            <div className="col-span-1 text-center">
+              <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                {contact.docs}
+              </span>
+            </div>
+
+            <div className="col-span-2 text-right">
+              <span className="text-xs font-mono font-semibold text-slate-700 tabular-nums">
+                {formatMMSS(contact.totalTime)}
+              </span>
+            </div>
           </div>
-        )}
+        ))}
+      </div>
+
+      {/* Show more / show less */}
+      {filtered.length > 5 && (
+        <div className="pt-3 border-t border-slate-100 text-center">
+          <button
+            onClick={() => setShowAllContacts(prev => !prev)}
+            className="text-xs font-medium text-violet-600 hover:text-violet-800 transition-colors"
+          >
+            {showAllContacts
+              ? "Show less"
+              : `Show ${filtered.length - 5} more contact${filtered.length - 5 !== 1 ? "s" : ""}`}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+})()}
       </div>
     </div>
   );

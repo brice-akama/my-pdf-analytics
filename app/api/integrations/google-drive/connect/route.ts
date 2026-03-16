@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     googleAuthUrl.searchParams.append("client_id", process.env.GOOGLE_CLIENT_ID!);
     googleAuthUrl.searchParams.append("redirect_uri", process.env.GOOGLE_DRIVE_REDIRECT_URI!);
     googleAuthUrl.searchParams.append("response_type", "code");
-    googleAuthUrl.searchParams.append("scope", "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email");
+     googleAuthUrl.searchParams.append("scope", "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.email");
     googleAuthUrl.searchParams.append("access_type", "offline");
     googleAuthUrl.searchParams.append("prompt", "consent");
     googleAuthUrl.searchParams.append("state", user.id); // ✅ NEW// ✅ Pass user ID to identify them later

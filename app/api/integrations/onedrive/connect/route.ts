@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
   const scopes = [
     'offline_access',
     'Files.Read',
+    'Files.ReadWrite',
     'Files.Read.All',
     'User.Read',
   ].join(' ')

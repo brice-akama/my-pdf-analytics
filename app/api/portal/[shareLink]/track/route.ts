@@ -7,6 +7,8 @@ import { sendPortalNotification } from '@/lib/emails/portal-notifications';
 import { isHubSpotConnected } from '@/lib/integrations/hubspotSync';
 import { syncPortalEventToHubSpot } from '@/lib/integrations/hubspotSync';
 import { isSlackConnected, notifyPortalEvent } from '@/lib/integrations/slack';
+import { isTeamsConnected } from '@/lib/integrations/teams'
+import { sendTeamsNotification } from '@/app/api/integrations/teams/notify/route'
 
 function normalizeEvent(event: string): string {
   const map: Record<string, string> = {
@@ -210,6 +212,38 @@ if (email && notifyEvents.includes(event)) {
         });
       } else {
         console.log('⚠️ Slack skipped — owner has no active Slack integration or no channel set');
+      }
+
+      // ── 4. Teams notification ────────────────────────────────────────
+      const teamsConnected = await isTeamsConnected(ownerId)
+      console.log('Teams connected for ownerId', ownerId, ':', teamsConnected)
+ 
+      if (teamsConnected) {
+        console.log('Sending to Teams — visitor:', email, '| event:', finalEvent)
+ 
+        // Map normalised event to Teams payload event type
+        const teamsEvent = (() => {
+          if (finalEvent === 'document_open' || finalEvent === 'portal_enter') return 'document_open'
+          if (finalEvent === 'revisit')        return 'document_revisited'
+          if (finalEvent === 'document_view')  return 'document_viewed'
+          if (finalEvent === 'download')       return 'document_downloaded'
+          return 'document_viewed'
+        })()
+ 
+        await sendTeamsNotification({
+          userId:       ownerId,
+          event:        teamsEvent,
+          documentName: documentName || 'Document',
+          documentId:   documentId   || space._id.toString(),
+          viewerEmail:  email,
+          spaceName:    space.name,
+          spaceId:      space._id.toString(),
+          visitCount:   isRevisit ? priorVisits + 1 : 1,
+        }).catch(err => {
+          console.error('Teams notification failed silently:', err)
+        })
+      } else {
+        console.log('Teams skipped — owner has no active Teams integration or no channel set')
       }
     }
   } catch (emailErr) {

@@ -71,52 +71,34 @@ export default function Sidebar({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72 bg-white border border-slate-200 shadow-lg rounded-2xl p-1">
-          <DropdownMenuItem onClick={() => { onUploadClick(); onClose?.() }}
-            className="p-3 rounded-xl cursor-pointer hover:bg-slate-50">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <FileText className="h-4 w-4 text-blue-600" />
-              </div>
-              <div><p className="text-sm font-semibold text-slate-900">Document</p>
-                <p className="text-xs text-slate-500">Upload a PDF document</p></div>
-            </div>
-          </DropdownMenuItem>
+  <DropdownMenuItem onClick={() => { onUploadClick(); onClose?.() }}
+    className="p-3 rounded-xl cursor-pointer hover:bg-slate-50">
+    <div className="flex items-center gap-3">
+      <div className="h-9 w-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+        <FileText className="h-4 w-4 text-blue-600" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-slate-900">Upload Document</p>
+        <p className="text-xs text-slate-500">Upload a PDF from your computer or cloud</p>
+      </div>
+    </div>
+  </DropdownMenuItem>
 
-          <DropdownMenuItem onClick={() => { onUploadClick(); onClose?.() }}
-            className="p-3 rounded-xl cursor-pointer hover:bg-slate-50">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
-                <FolderOpen className="h-4 w-4 text-purple-600" />
-              </div>
-              <div><p className="text-sm font-semibold text-slate-900">Template</p>
-                <p className="text-xs text-slate-500">Reusable signable document</p></div>
-            </div>
-          </DropdownMenuItem>
+  <div className="h-px bg-slate-100 my-1 mx-3" />
 
-          <div className="h-px bg-slate-100 my-1 mx-3" />
-
-          <DropdownMenuItem onClick={() => { onBulkMode(); onClose?.() }}
-            className="p-3 rounded-xl cursor-pointer hover:bg-slate-50">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
-                <FileText className="h-4 w-4 text-green-600" />
-              </div>
-              <div><p className="text-sm font-semibold text-slate-900">Select Existing</p>
-                <p className="text-xs text-slate-500">Choose from uploaded documents</p></div>
-            </div>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem onClick={() => { router.push("/templates/group/create"); onClose?.() }}
-            className="p-3 rounded-xl cursor-pointer hover:bg-slate-50">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0">
-                <Folder className="h-4 w-4 text-purple-600" />
-              </div>
-              <div><p className="text-sm font-semibold text-slate-900">Group Template</p>
-                <p className="text-xs text-slate-500">Multi-doc reusable workflow</p></div>
-            </div>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
+  <DropdownMenuItem onClick={() => { onBulkMode(); onClose?.() }}
+    className="p-3 rounded-xl cursor-pointer hover:bg-slate-50">
+    <div className="flex items-center gap-3">
+      <div className="h-9 w-9 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+        <FileText className="h-4 w-4 text-green-600" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-slate-900">Select Existing</p>
+        <p className="text-xs text-slate-500">Choose from uploaded documents</p>
+      </div>
+    </div>
+  </DropdownMenuItem>
+</DropdownMenuContent>
       </DropdownMenu>
 
       {/* Personal section */}
@@ -126,18 +108,21 @@ export default function Sidebar({
           {navItem("documents", <FileText className="h-4 w-4 flex-shrink-0" />, "Documents", counts.documents)}
           {navItem("templates", <FolderOpen className="h-4 w-4 flex-shrink-0" />, "Templates", counts.templates)}
           {navItem("archive", <Trash2 className="h-4 w-4 flex-shrink-0" />, "Archive", counts.archive)}
-          <button
-            onClick={() => { router.push("/templates/group"); onClose?.() }}
-            className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            <div className="flex items-center gap-2.5">
-              <Folder className="h-4 w-4 flex-shrink-0" />
-              <span>Group Templates</span>
-            </div>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">
-              {counts.groupTemplates}
-            </span>
-          </button>
+         
+         {/*
+<button
+  onClick={() => { router.push("/templates/group"); onClose?.() }}
+  className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+>
+  <div className="flex items-center gap-2.5">
+    <Folder className="h-4 w-4 flex-shrink-0" />
+    <span>Group Templates</span>
+  </div>
+  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">
+    {counts.groupTemplates}
+  </span>
+</button>
+*/}
         </div>
       </div>
 

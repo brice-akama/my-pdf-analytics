@@ -211,21 +211,115 @@ export async function GET(request: NextRequest) {
       certificateId: n.certificateId,
     }));
 
-    const thirtyDaysAgoC = new Date();
-thirtyDaysAgoC.setDate(thirtyDaysAgoC.getDate() - 30);
-const recentContactSessions = await db.collection('analytics_sessions')
-  .find({ documentId: { $in: documentIds }, startedAt: { $gte: thirtyDaysAgoC }, email: { $exists: true, $ne: null } })
-  .toArray();
-const contactMap2 = new Map<string, any>();
-recentContactSessions.forEach((s: any) => {
-  if (!s.email) return;
-  const e = contactMap2.get(s.email) || { email: s.email, visits: 0, docs: new Set(), totalTime: 0, lastSeen: new Date(s.startedAt), topDocName: docNameMap.get(s.documentId) || '' };
-  e.visits++; e.docs.add(s.documentId); e.totalTime += s.duration || 0;
-  if (new Date(s.startedAt) > e.lastSeen) e.lastSeen = new Date(s.startedAt);
-  contactMap2.set(s.email, e);
-});
-const mostEngagedContacts = Array.from(contactMap2.values()).sort((a,b) => b.visits - a.visits).slice(0,10).map(c => ({ ...c, docs: c.docs.size }));
+   // Get user's organizationId to identify team docs vs personal docs
+const userProfile = await db.collection('profiles').findOne({ user_id: user.id })
+const organizationId = userProfile?.organization_id || user.id
 
+// My docs = owned by this user
+// Team docs = sharedToTeam in the same org, owned by someone else
+const myDocumentIds = documents
+  .filter((d: any) => d.userId === user.id)
+  .map((d: any) => d._id.toString())
+
+const teamDocumentIds = documents
+  .filter((d: any) => d.sharedToTeam === true && d.userId !== user.id)
+  .map((d: any) => d._id.toString())
+
+const thirtyDaysAgoC = new Date()
+thirtyDaysAgoC.setDate(thirtyDaysAgoC.getDate() - 30)
+
+// Sessions for time calculation
+const recentContactSessions = await db.collection('analytics_sessions')
+  .find({
+    documentId: { $in: documentIds },
+    startedAt: { $gte: thirtyDaysAgoC },
+    email: { $exists: true, $ne: null },
+  })
+  .toArray()
+
+// Page logs for accurate time (sessions.duration is often 0)
+const recentPageLogs = await db.collection('analytics_logs')
+  .find({
+    documentId: { $in: documentIds },
+    action: 'page_view',
+    timestamp: { $gte: thirtyDaysAgoC },
+    email: { $exists: true, $ne: null },
+  })
+  .toArray()
+
+const contactMap2 = new Map<string, any>()
+
+// Build visit/doc counts from sessions — and tag source
+recentContactSessions.forEach((s: any) => {
+  if (!s.email) return
+  const e = contactMap2.get(s.email) || {
+    email: s.email,
+    visits: 0,
+    docs: new Set<string>(),
+    totalTime: 0,
+    lastSeen: new Date(s.startedAt),
+    topDocName: docNameMap.get(s.documentId) || '',
+    viewedMyDocIds: new Set<string>(),
+    viewedTeamDocIds: new Set<string>(),
+  }
+  e.visits++
+  e.docs.add(s.documentId)
+  if (new Date(s.startedAt) > e.lastSeen) {
+    e.lastSeen = new Date(s.startedAt)
+    e.topDocName = docNameMap.get(s.documentId) || e.topDocName
+  }
+  // Tag which bucket this session falls into
+  if (myDocumentIds.includes(s.documentId)) {
+    e.viewedMyDocIds.add(s.documentId)
+  }
+  if (teamDocumentIds.includes(s.documentId)) {
+    e.viewedTeamDocIds.add(s.documentId)
+  }
+  contactMap2.set(s.email, e)
+})
+
+// Add time from page_view logs
+recentPageLogs.forEach((log: any) => {
+  if (!log.email) return
+  const e = contactMap2.get(log.email)
+  if (e) {
+    e.totalTime += log.viewTime || 0
+  } else {
+    contactMap2.set(log.email, {
+      email: log.email,
+      visits: 1,
+      docs: new Set([log.documentId]),
+      totalTime: log.viewTime || 0,
+      lastSeen: new Date(log.timestamp),
+      topDocName: docNameMap.get(log.documentId) || '',
+      viewedMyDocIds: myDocumentIds.includes(log.documentId)
+        ? new Set([log.documentId])
+        : new Set(),
+      viewedTeamDocIds: teamDocumentIds.includes(log.documentId)
+        ? new Set([log.documentId])
+        : new Set(),
+    })
+  }
+})
+
+const mostEngagedContacts = Array.from(contactMap2.values())
+  .sort((a, b) => b.visits - a.visits)
+  .slice(0, 50)
+  .map(c => ({
+    email: c.email,
+    visits: c.visits,
+    docs: c.docs.size,
+    totalTime: c.totalTime,
+    lastSeen: c.lastSeen,
+    topDocName: c.topDocName,
+    // 'my' | 'team' | 'both' — based on actual doc ownership
+    source: c.viewedMyDocIds.size > 0 && c.viewedTeamDocIds.size > 0
+      ? 'both'
+      : c.viewedTeamDocIds.size > 0
+      ? 'team'
+      : 'my',
+  }))
+  
     return NextResponse.json({
       success: true,
       analytics: {
