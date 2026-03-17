@@ -1,4 +1,4 @@
-// app/api/file-requests/[token]/track/route.ts
+// app/api/public/file-requests/[token]/track/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
@@ -6,7 +6,8 @@ import { ObjectId } from 'mongodb';
 import { Resend } from 'resend';
 import { sendSlackNotification } from '@/lib/integrations/slack';
 import { getValidHubSpotToken } from '@/lib/integrations/hubspot';
-import { createNotification } from '@/lib/notifications'; // ✅ ADD THIS
+import { createNotification } from '@/lib/notifications';
+import { sendTeamsNotification } from '@/app/api/integrations/teams/notify/route';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = 'DocMetrics <noreply@docmetrics.io>';
@@ -168,8 +169,6 @@ export async function POST(
       const openCount = (fileRequest.openCount || 0) + 1;
 
       // ── In-app notification ──
-      // Clicking takes the owner to file-requests page
-      // The query param tells the dashboard to open that specific request's drawer
       if (ownerId) {
         createNotification({
           userId: ownerId,
@@ -198,8 +197,8 @@ export async function POST(
             title: 'File Request Opened',
             subtitle: `${visitorEmail} just opened your file request link.`,
             stats: [
-              { label: 'Visitor', value: visitorEmail === 'Someone' ? '—' : visitorEmail.split('@')[0] },
-              { label: 'Open #', value: String(openCount) },
+              { label: 'Visitor', value: visitorEmail === 'Someone' ? 'Unknown' : visitorEmail.split('@')[0] },
+              { label: 'Open Number', value: String(openCount) },
               { label: 'Time', value: now.toLocaleTimeString() },
             ],
             color: '#0ea5e9',
@@ -224,13 +223,26 @@ export async function POST(
         }).catch(() => {});
       }
 
+      // ── Microsoft Teams ──
+      if (ownerId) {
+        sendTeamsNotification({
+          userId: ownerId,
+          event: 'document_open',
+          documentName: requestTitle,
+          documentId: fileRequestId,
+          viewerEmail: recipientEmail || undefined,
+          viewerName: visitorEmail !== 'Someone' ? visitorEmail : undefined,
+          extraInfo: `File request opened. Open count: ${openCount}`,
+        }).catch(() => {});
+      }
+
       // ── HubSpot ──
       if (ownerId && recipientEmail) {
         syncToHubSpot(
           ownerId,
           recipientEmail,
           requestTitle,
-          `File Request Opened\n\nRequest: ${requestTitle}\nVisitor: ${visitorEmail}\nOpen #${openCount}\nTime: ${now.toLocaleString()}`,
+          `File Request Opened\n\nRequest: ${requestTitle}\nVisitor: ${visitorEmail}\nOpen number: ${openCount}\nTime: ${now.toLocaleString()}`,
           {
             docmetrics_last_document: requestTitle,
             docmetrics_last_viewed: now.toISOString(),
@@ -248,8 +260,6 @@ export async function POST(
       const uploadedName = fileName || 'a file';
 
       // ── In-app notification ──
-      // This is the most important one — clicking goes straight to the request
-      // so the owner can see and download what was uploaded
       if (ownerId) {
         createNotification({
           userId: ownerId,
@@ -279,7 +289,7 @@ export async function POST(
             title: 'File Uploaded',
             subtitle: `${visitorEmail} just uploaded to "${requestTitle}".`,
             stats: [
-              { label: 'Uploader', value: visitorEmail === 'Someone' ? '—' : visitorEmail.split('@')[0] },
+              { label: 'Uploader', value: visitorEmail === 'Someone' ? 'Unknown' : visitorEmail.split('@')[0] },
               { label: 'Files', value: String(uploadedCount) },
               { label: 'Time', value: now.toLocaleTimeString() },
             ],
@@ -307,6 +317,19 @@ export async function POST(
               elements: [{ type: 'mrkdwn', text: `${now.toLocaleString()} · ${ip}` }],
             },
           ],
+        }).catch(() => {});
+      }
+
+      // ── Microsoft Teams ──
+      if (ownerId) {
+        sendTeamsNotification({
+          userId: ownerId,
+          event: 'file_request_received',
+          documentName: requestTitle,
+          documentId: fileRequestId,
+          viewerEmail: recipientEmail || undefined,
+          viewerName: visitorEmail !== 'Someone' ? visitorEmail : undefined,
+          extraInfo: `${uploadedCount} file(s) uploaded. File name: ${uploadedName}`,
         }).catch(() => {});
       }
 

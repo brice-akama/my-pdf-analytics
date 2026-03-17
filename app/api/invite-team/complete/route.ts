@@ -1,4 +1,4 @@
-// app/api/invite/complete/route.ts
+// app/api/invite-team/complete/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "@/app/api/lib/mongodb";
 import { ObjectId } from "mongodb";

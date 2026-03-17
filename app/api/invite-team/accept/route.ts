@@ -38,6 +38,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+     //  Update invitation with click info
+    await db.collection("organization_members").updateOne(
+      { inviteToken: token },
+      {
+        $set: { lastClickedAt: new Date() },
+        $inc: { clickCount: 1 },
+      }
+    )
+
     // Get inviter info
     const inviter = await db.collection("profiles").findOne({
       user_id: invitation.invitedBy,
