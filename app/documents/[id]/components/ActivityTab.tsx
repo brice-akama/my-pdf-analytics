@@ -388,6 +388,9 @@ export default function ActivityTab({
   const [expandedVisit, setExpandedVisit] = useState<string | null>(null);
   const [shareLinks, setShareLinks] = useState<any[]>([]);
   const [reassignLink, setReassignLink] = useState<any | null>(null);
+  const [videoStats, setVideoStats] = useState<any[]>([])
+const [documentVideos, setDocumentVideos] = useState<any[]>([])
+const [pageReactions, setPageReactions] = useState<any[]>([])
 
   React.useEffect(() => {
     Promise.all([
@@ -408,9 +411,27 @@ export default function ActivityTab({
       })
         .then((r) => r.json())
         .catch(() => ({ success: false, envelopes: [] })),
+        fetch(`/api/documents/${doc._id}/videos`, {
+  credentials: "include",
+})
+  .then((r) => r.json())
+  .catch(() => ({ success: false, videos: [] })),
+  fetch(`/api/documents/${doc._id}/reactions`, {
+  credentials: "include",
+})
+  .then((r) => r.json())
+  .catch(() => ({ success: false, reactions: [] })),
     ])
-      .then(([shareData, sigData, ccData, envData]) => {
+       .then(([shareData, sigData, ccData, envData, videoData , reactionData]) => {
         const links: any[] = [];
+
+        if (reactionData.success && reactionData.reactions) {
+  setPageReactions(reactionData.reactions)
+}
+
+        if (videoData.success && videoData.videos) {
+  setDocumentVideos(videoData.videos)
+}
 
         if (shareData.success && shareData.shares) {
           shareData.shares.forEach((s: any) => {
@@ -603,6 +624,73 @@ export default function ActivityTab({
     <div className="space-y-0">
       {/* ══ ALL VISITS SECTION ══ */}
       <div>
+        {/* Deal intent summary banner — only shows if anyone responded */}
+{analytics.dealIntentResponses && analytics.dealIntentResponses.length > 0 && (
+  <div className="py-3 border-b border-indigo-100 bg-indigo-50/50">
+    <p className="text-[10px] font-semibold text-indigo-700 uppercase tracking-wider mb-2 px-1">
+      Deal Intent Responses
+    </p>
+    <div className="flex flex-wrap gap-2">
+      {Object.entries(analytics.intentSummary || {}).map(([intent, count]: any) => {
+        const labels: Record<string, { label: string; color: string }> = {
+          ready_to_move_forward: {
+            label: 'Ready to move forward',
+            color: 'bg-green-50 text-green-700 border-green-200'
+          },
+          need_more_info: {
+            label: 'Need more information',
+            color: 'bg-amber-50 text-amber-700 border-amber-200'
+          },
+          discussing_with_team: {
+            label: 'Discussing with team',
+            color: 'bg-indigo-50 text-indigo-700 border-indigo-200'
+          },
+          not_interested: {
+            label: 'Not the right fit',
+            color: 'bg-slate-50 text-slate-600 border-slate-200'
+          },
+        }
+        const config = labels[intent] || {
+          label: intent,
+          color: 'bg-slate-50 text-slate-600 border-slate-200'
+        }
+        return (
+          <div
+            key={intent}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${config.color}`}
+          >
+            <span>{config.label}</span>
+            <span className="font-black">{count}</span>
+          </div>
+        )
+      })}
+    </div>
+
+    {/* Per-viewer intent */}
+    <div className="mt-2 space-y-1">
+      {analytics.dealIntentResponses.map((r: any, i: number) => {
+        const labels: Record<string, string> = {
+          ready_to_move_forward: 'Ready to move forward',
+          need_more_info: 'Need more information',
+          discussing_with_team: 'Discussing with team',
+          not_interested: 'Not the right fit',
+        }
+        return (
+          <div key={i} className="flex items-center gap-2 text-xs text-slate-600 px-1">
+            <div className="h-1.5 w-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+            <span className="font-medium">
+              {r.email || 'Anonymous'}
+            </span>
+            <span className="text-slate-400">responded:</span>
+            <span className="font-semibold text-slate-800">
+              {labels[r.response] || r.response}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  </div>
+)}
         <div className="flex items-center justify-between py-4 border-b border-slate-200">
           <h3 className="text-base font-semibold text-slate-900">All Visits</h3>
           <span className="text-sm text-slate-400">
@@ -798,6 +886,187 @@ export default function ActivityTab({
                           </div>
                         </div>
                       )}
+                      {/* ── Do They Understand It — per visitor ── */}
+{documentVideos.length > 0 && (
+  <div className="mt-5 border-t border-slate-100 pt-4">
+
+    {/* Section header */}
+    <div className="flex items-center justify-between mb-3">
+      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
+        Do They Understand It
+      </p>
+
+      {/* Overall understanding score */}
+      {(() => {
+        const pagesRead = visit.pageData.filter(
+          (p: any) => p.timeSpent > 5
+        ).length
+        const totalPages = visit.pageData.length
+        const videosForThisViewer = analytics.videoStats
+          ? analytics.videoStats.filter((s: any) => s.uniqueViewers > 0).length
+          : 0
+        const readScore = totalPages > 0 ? (pagesRead / totalPages) * 50 : 0
+        const videoScore = documentVideos.length > 0
+          ? (videosForThisViewer / documentVideos.length) * 50
+          : readScore
+        const score = Math.round(readScore + videoScore)
+        const color = score >= 80
+          ? '#16a34a'
+          : score >= 50
+          ? '#d97706'
+          : '#dc2626'
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400">Understanding score</span>
+            <span
+              className="text-sm font-black tabular-nums"
+              style={{ color }}
+            >
+              {score}%
+            </span>
+          </div>
+        )
+      })()}
+    </div>
+
+    {/* Per-page video + read combined bars */}
+    <div className="space-y-2">
+      {documentVideos.map((video: any) => {
+        const pageNum = video.pageNumber
+        const pageReadData = visit.pageData.find(
+          (p: any) => p.page === pageNum
+        )
+        const videoStat = analytics.videoStats?.find(
+          (s: any) => s.page === pageNum
+        )
+
+        const timeSpent = pageReadData?.timeSpent || 0
+        const watched = (videoStat?.totalWatches || 0) > 0
+        const replays = videoStat?.replays || 0
+        const completion = videoStat?.avgCompletion || 0
+
+        const readSignal = timeSpent > 30
+          ? { dot: '#16a34a', label: 'Read' }
+          : timeSpent > 5
+          ? { dot: '#d97706', label: 'Skimmed' }
+          : { dot: '#e2e8f0', label: 'Skipped' }
+
+        const videoSignal = !watched
+          ? { dot: '#e2e8f0', label: 'Not watched' }
+          : replays >= 3
+          ? { dot: '#dc2626', label: `Replayed ${replays}x` }
+          : completion >= 75
+          ? { dot: '#16a34a', label: `${completion}% watched` }
+          : { dot: '#d97706', label: `${completion}% watched` }
+
+        return (
+          <div key={video._id} className="flex items-center gap-3">
+
+            {/* Page label */}
+            <div className="w-12 flex-shrink-0 text-[10px] font-semibold text-slate-400 text-right">
+              {pageNum === 0 ? 'Intro' : `P${pageNum}`}
+            </div>
+
+            {/* Read bar */}
+            <div className="flex-1 flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <div
+                  className="h-1.5 w-1.5 rounded-full flex-shrink-0"
+                  style={{ background: readSignal.dot }}
+                />
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min((timeSpent / 120) * 100, 100)}%`,
+                      background: readSignal.dot,
+                    }}
+                  />
+                </div>
+                <span className="text-[10px] text-slate-400 w-12 flex-shrink-0">
+                  {readSignal.label}
+                </span>
+              </div>
+
+              {/* Video bar */}
+              <div className="flex items-center gap-2">
+                <div
+                  className="h-1.5 w-1.5 rounded-full flex-shrink-0"
+                  style={{ background: videoSignal.dot }}
+                />
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: watched ? `${completion}%` : '0%',
+                      background: videoSignal.dot,
+                    }}
+                  />
+                </div>
+                <span className="text-[10px] text-slate-400 w-12 flex-shrink-0">
+                  {videoSignal.label}
+                </span>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+
+    {/* Page clarity reactions for this visitor */}
+{(() => {
+  const visitorReactions = pageReactions.filter(
+    (r: any) =>
+      r.email === visit.email &&
+      (r.type === 'page_clarity' || !r.type)
+  )
+
+  if (visitorReactions.length === 0) return null
+
+  return (
+    <div className="mt-4 pt-3 border-t border-slate-50">
+      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+        Page Clarity Feedback
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {visitorReactions.map((r: any, i: number) => (
+          <div
+            key={i}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${
+              r.reaction === 'clear'
+                ? 'bg-green-50 text-green-700 border-green-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}
+          >
+            <div
+              className={`h-1.5 w-1.5 rounded-full ${
+                r.reaction === 'clear' ? 'bg-green-500' : 'bg-amber-500'
+              }`}
+            />
+            {r.reaction === 'clear'
+              ? `Page ${r.page} — Clear`
+              : `Page ${r.page} — Has questions`}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+})()}
+
+    {/* Legend */}
+    <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-50">
+      <div className="flex items-center gap-1.5">
+        <div className="h-1.5 w-8 rounded-full bg-slate-300" />
+        <span className="text-[10px] text-slate-400">Top bar = page read time</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="h-1.5 w-8 rounded-full bg-indigo-300" />
+        <span className="text-[10px] text-slate-400">Bottom bar = video watched %</span>
+      </div>
+    </div>
+
+  </div>
+)}
                     </div>
                   )}
                 </div>
@@ -1272,6 +1541,7 @@ export default function ActivityTab({
           ))
         )}
       </div>
+      
       <ReassignSignerDrawer
   isOpen={!!reassignLink}
   onClose={() => setReassignLink(null)}

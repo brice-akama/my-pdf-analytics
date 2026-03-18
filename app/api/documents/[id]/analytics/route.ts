@@ -943,6 +943,57 @@ const realTimeViewers = liveViewers.map((v: any) => ({
       recommendations: buildDeadDealRecommendations(deadDealVerdict, declineReasons, daysSinceLastActivity(lastActivity)),
     };
 
+    // ── Video walkthrough analytics ──────────────────────────────
+const videoLogs = await db.collection('analytics_logs').find({
+  documentId: id,
+  action: { $in: ['video_watched', 'video_progress', 'video_replayed'] }
+}).toArray()
+
+const videoStatsMap: Record<string, {
+  page: number
+  totalWatches: number
+  replays: number
+  completions: number[]
+  viewers: Set<string>
+}> = {}
+
+videoLogs.forEach((log: any) => {
+  const key = `page-${log.pageNumber}`
+  if (!videoStatsMap[key]) {
+    videoStatsMap[key] = {
+      page: log.pageNumber,
+      totalWatches: 0,
+      replays: 0,
+      completions: [],
+      viewers: new Set()
+    }
+  }
+  if (log.action === 'video_watched') videoStatsMap[key].totalWatches++
+  if (log.action === 'video_replayed') videoStatsMap[key].replays++
+  if (log.action === 'video_progress' && log.watchPercent) {
+    videoStatsMap[key].completions.push(log.watchPercent)
+  }
+  if (log.email) videoStatsMap[key].viewers.add(log.email)
+})
+
+const videoStats = Object.values(videoStatsMap).map(v => ({
+  page: v.page,
+  totalWatches: v.totalWatches,
+  replays: v.replays,
+  uniqueViewers: v.viewers.size,
+  avgCompletion: v.completions.length > 0
+    ? Math.round(v.completions.reduce((a, b) => a + b, 0) / v.completions.length)
+    : 0,
+  // Replay rate — high replay = confusion signal
+  replayRate: v.totalWatches > 0
+    ? Math.round((v.replays / v.totalWatches) * 100)
+    : 0,
+})).sort((a, b) => a.page - b.page)
+
+
+
+ 
+
     // ── NDA acceptances ──────────────────────────────────────────
     const ndaAcceptances = await db.collection('nda_acceptances')
       .find({ documentId: id })
@@ -1011,6 +1062,9 @@ averageTime: formatTime(averageTimeSeconds),
 
         // NDA
         ndaAcceptances,
+
+        // Video walkthroughs
+videoStats,
 
         // Content & document info (unchanged)
         contentQuality: {

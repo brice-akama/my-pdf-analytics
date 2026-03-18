@@ -85,6 +85,14 @@ const [ndaError, setNdaError] = useState<string | null>(null);
   const [messageSent, setMessageSent] = useState(false);
   const [containerWidth, setContainerWidth] = useState(850);
   const [helpPopoverOpen, setHelpPopoverOpen] = useState(false);
+const [pageVideos, setPageVideos] = useState<Record<number, string>>({}) // pageNum → videoUrl
+const [activeVideo, setActiveVideo] = useState<{ url: string; page: number } | null>(null)
+const [videoBouncing, setVideoBouncing] = useState(false)
+const [videoDismissed, setVideoDismissed] = useState(false)
+const [pageReactions, setPageReactions] = useState<Record<number, 'clear' | 'confused'>>({})
+const [showEndQuestion, setShowEndQuestion] = useState(false)
+const [endQuestionAnswer, setEndQuestionAnswer] = useState<string | null>(null)
+const [endQuestionSubmitted, setEndQuestionSubmitted] = useState(false)
   const [brandingInfo, setBrandingInfo] = useState<{
     sharedByName?: string | null;
     logoUrl?: string | null;
@@ -100,6 +108,26 @@ const [ndaError, setNdaError] = useState<string | null>(null);
   // Derived: display name — always falls back to DocMetrics
   const displayName = brandingInfo?.sharedByName || BRAND_NAME;
   const displayLogo = brandingInfo?.logoUrl || null;
+
+  // Fetch video walkthroughs for this document
+useEffect(() => {
+  const fetchVideos = async () => {
+    try {
+      const res = await fetch(`/api/view/${token}/videos`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.videos) {
+          const map: Record<number, string> = {}
+          data.videos.forEach((v: any) => {
+            map[v.pageNumber] = v.cloudinaryUrl
+          })
+          setPageVideos(map)
+        }
+      }
+    } catch (e) { /* silent */ }
+  }
+  fetchVideos()
+}, [token])
 
   useEffect(() => { loadSharedDocument(); }, [token]);
 
@@ -170,6 +198,16 @@ const [ndaError, setNdaError] = useState<string | null>(null);
     if (shareData?.document && currentPage > 0) {
       trackEvent('page_view', { page: currentPage });
       pageStartTimeRef.current = Date.now();
+      // Bounce bubble if this page has a video
+if (pageVideos[currentPage] && !videoDismissed) {
+  setVideoBouncing(true)
+  setTimeout(() => setVideoBouncing(false), 3000)
+}
+
+// Show end-of-doc question on last page
+if (currentPage === shareData.document!.numPages && !endQuestionSubmitted) {
+  setTimeout(() => setShowEndQuestion(true), 8000)
+}
       return () => {
         const t = Math.floor((Date.now() - pageStartTimeRef.current) / 1000);
         if (t > 0 && t < 600) {
@@ -325,6 +363,42 @@ console.log('📜 NDA data from API:', {
     });
     setIsAuthenticating(false);
   };
+
+
+  const handleReaction = async (page: number, reaction: 'clear' | 'confused') => {
+  setPageReactions(prev => ({ ...prev, [page]: reaction }))
+  try {
+    await fetch(`/api/view/${token}/reaction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        page,
+        reaction,
+        email: email || null,
+        sessionId,
+      })
+    })
+  } catch { /* silent */ }
+}
+
+const handleEndQuestion = async (answer: string) => {
+  setEndQuestionAnswer(answer)
+  setEndQuestionSubmitted(true)
+  setShowEndQuestion(false)
+  try {
+    await fetch(`/api/view/${token}/reaction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        page: 0,
+        reaction: answer,
+        type: 'deal_intent',
+        email: email || null,
+        sessionId,
+      })
+    })
+  } catch { /* silent */ }
+}
 
   const handleDownload = async () => {
     if (!shareData?.settings?.allowDownload) { await trackEvent('download_attempt', { allowed: false }); toast.error('Downloads are disabled for this document'); return; }
@@ -1155,6 +1229,188 @@ console.log('📜 NDA data from API:', {
           )}
 
           {/* PDF viewer */}
+          {/* ── Video Walkthrough Floating Bubble ── */}
+{Object.keys(pageVideos).length > 0 && !videoDismissed && (
+  <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+
+    {/* Expanded video player */}
+    {activeVideo && (
+      <div className="w-72 rounded-2xl overflow-hidden shadow-2xl"
+        style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.12)' }}>
+        <div className="flex items-center justify-between px-3 py-2.5"
+          style={{ background: 'rgba(99,102,241,0.2)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <p className="text-xs font-semibold text-white">
+            {activeVideo.page === 0 ? 'Introduction' : `Page ${activeVideo.page} — walkthrough`}
+          </p>
+          <button
+            onClick={() => setActiveVideo(null)}
+            className="h-5 w-5 rounded flex items-center justify-center hover:bg-white/10">
+            <X className="h-3 w-3 text-white/60" />
+          </button>
+        </div>
+        <video
+  src={activeVideo.url}
+  controls
+  autoPlay
+  className="w-full"
+  style={{ maxHeight: '160px', background: '#000' }}
+  onPlay={(e) => {
+  const v = e.currentTarget
+  // Only count as replay if more than 3 seconds in
+  // This prevents false replays from initial autoplay buffering
+  if (v.currentTime > 3) {
+    trackEvent('video_replayed', {
+      page: activeVideo.page,
+      replayedAt: Math.round(v.currentTime),
+    })
+  }
+}}
+  onEnded={() => {
+    trackEvent('video_watched', {
+      page: activeVideo.page,
+      watchedFully: true
+    })
+  }}
+  onTimeUpdate={(e) => {
+    const v = e.currentTarget
+    const pct = Math.round((v.currentTime / v.duration) * 100)
+    if (pct === 50 || pct === 75 || pct === 100) {
+      trackEvent('video_progress', { page: activeVideo.page, percent: pct })
+    }
+  }}
+/>
+        <div className="px-3 py-2">
+          <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            from {displayName}
+          </p>
+        </div>
+      </div>
+    )}
+
+    {/* Bubble button */}
+    <div className="relative">
+  {/* Pulse ring — only when current page has a video and bubble is not open */}
+  {pageVideos[currentPage] && !activeVideo && (
+    <>
+      <div className="absolute inset-0 rounded-full animate-ping"
+        style={{ background: 'rgba(99,102,241,0.3)', animationDuration: '2s' }} />
+      <div className="absolute inset-0 rounded-full animate-ping"
+        style={{ background: 'rgba(99,102,241,0.15)', animationDuration: '2s', animationDelay: '0.5s' }} />
+    </>
+  )}
+
+  {/* Tooltip — appears for 3 seconds when bubble bounces */}
+  {videoBouncing && !activeVideo && (
+    <div
+      className="absolute bottom-full mb-3 right-0 whitespace-nowrap rounded-xl px-3 py-2 shadow-xl"
+      style={{
+        background: '#1e2533',
+        border: '1px solid rgba(99,102,241,0.4)',
+        animation: 'fadeInOut 3s ease forwards',
+      }}
+    >
+      <p className="text-xs font-semibold text-white">
+        I recorded a walkthrough for this page
+      </p>
+      <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+        Click to watch — {Math.floor((pageVideos[currentPage] ? 60 : 0))}s
+      </p>
+      {/* Arrow pointing down to bubble */}
+      <div className="absolute -bottom-1.5 right-5 h-3 w-3 rotate-45"
+        style={{ background: '#1e2533', borderRight: '1px solid rgba(99,102,241,0.4)', borderBottom: '1px solid rgba(99,102,241,0.4)' }} />
+    </div>
+  )}
+
+  <button
+    onClick={() => {
+      const videoUrl = pageVideos[currentPage] || pageVideos[0]
+      if (!videoUrl) return
+      const page = pageVideos[currentPage] ? currentPage : 0
+      if (activeVideo?.page === page) {
+        setActiveVideo(null)
+      } else {
+        setActiveVideo({ url: videoUrl, page })
+      }
+    }}
+    className={`relative h-14 w-14 rounded-full shadow-2xl flex items-center justify-center transition-all
+      ${videoBouncing ? 'animate-bounce' : ''}
+      ${activeVideo ? 'ring-4 ring-indigo-400 ring-opacity-60' : ''}
+    `}
+    style={{
+      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+      border: '3px solid white',
+    }}
+  >
+    {displayLogo ? (
+      <img src={displayLogo} className="rounded-full h-full w-full object-cover p-0.5" alt="" />
+    ) : (
+      <span className="text-white font-bold text-lg">
+        {displayName.charAt(0).toUpperCase()}
+      </span>
+    )}
+  </button>
+
+      {/* Red dot — page has video */}
+      {pageVideos[currentPage] && !activeVideo && (
+        <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 border-2 border-white flex items-center justify-center">
+          <span className="text-[8px] text-white font-bold">▶</span>
+        </span>
+      )}
+
+      {/* Dismiss button */}
+      <button
+        onClick={(e) => { e.stopPropagation(); setActiveVideo(null); setVideoDismissed(true) }}
+        className="absolute -top-2 -left-2 h-5 w-5 rounded-full flex items-center justify-center"
+        style={{ background: 'rgba(30,37,51,0.9)', border: '1px solid rgba(255,255,255,0.15)' }}
+        title="Dismiss"
+      >
+        <X className="h-2.5 w-2.5 text-white/60" />
+      </button>
+    </div>
+  </div>
+)}
+
+{/* ── End of Document Intent Question ── */}
+{showEndQuestion && !endQuestionSubmitted && (
+  <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4">
+    <div className="rounded-2xl shadow-2xl overflow-hidden"
+      style={{ background: '#1e2533', border: '1px solid rgba(99,102,241,0.3)' }}>
+      <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <p className="text-sm font-bold text-white">
+          You have reviewed this document
+        </p>
+        <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
+          What best describes where you are?
+        </p>
+      </div>
+      <div className="p-3 grid grid-cols-2 gap-2">
+        {[
+          { value: 'ready_to_move_forward', label: 'Ready to move forward', color: '#22c55e' },
+          { value: 'need_more_info', label: 'Need more information', color: '#f59e0b' },
+           { value: 'discussing_with_team', label: 'Discussing with my team', color: '#6366f1' },
+          { value: 'not_interested', label: 'Not the right fit', color: '#64748b' },
+        ].map(option => (
+          <button
+            key={option.value}
+            onClick={() => handleEndQuestion(option.value)}
+            className="px-3 py-2.5 rounded-xl text-xs font-semibold text-white text-left transition-all hover:opacity-90 active:scale-95"
+            style={{ background: `${option.color}20`, border: `1px solid ${option.color}40` }}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div className="px-5 pb-4 flex justify-end">
+        <button
+          onClick={() => setShowEndQuestion(false)}
+          className="text-xs"
+          style={{ color: 'rgba(255,255,255,0.25)' }}>
+          Skip
+        </button>
+      </div>
+    </div>
+  </div>
+)}
           <div
   ref={(el) => {
     // ✅ FIX 2: Measure immediately when the div first mounts in the DOM.
@@ -1171,25 +1427,104 @@ console.log('📜 NDA data from API:', {
   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
 >
   <div className="flex flex-col items-center py-4 gap-4 w-full px-2 sm:px-8">
-    {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
-      <LazyPage
-        key={pageNum}
-        pageNum={pageNum}
-        token={token}
-        scrollContainer={scrollContainerRef}
-        onVisible={p => setCurrentPage(p)}
-        zoomScale={zoomScale}
-        containerWidth={containerWidth}   // ✅ pass it down
-        sessionId={sessionId}
-        email={email}
-        onScrolled={p => trackEvent('scroll', { page: p, scrollDepth: 100 })}
-        watermark={shareData?.settings?.enableWatermark ? {
-          enabled: true,
-          text: shareData.settings.watermarkText || email || 'CONFIDENTIAL',
-          position: shareData.settings.watermarkPosition || 'diagonal',
-        } : undefined}
-      />
-    ))}
+   {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+  <div key={pageNum} className="flex flex-col items-center w-full">
+
+    {/* The page itself */}
+    <LazyPage
+      pageNum={pageNum}
+      token={token}
+      scrollContainer={scrollContainerRef}
+      onVisible={p => setCurrentPage(p)}
+      zoomScale={zoomScale}
+      containerWidth={containerWidth}
+      sessionId={sessionId}
+      email={email}
+      onScrolled={p => trackEvent('scroll', { page: p, scrollDepth: 100 })}
+      onReaction={handleReaction}
+      reaction={pageReactions[pageNum]}
+      watermark={shareData?.settings?.enableWatermark ? {
+        enabled: true,
+        text: shareData.settings.watermarkText || email || 'CONFIDENTIAL',
+        position: shareData.settings.watermarkPosition || 'diagonal',
+      } : undefined}
+    />
+
+    {/* Reaction bar — below the page, outside PDF content */}
+    <div
+      style={{
+        width: `${Math.min(containerWidth, 850) * zoomScale}px`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '8px 16px',
+        marginBottom: '8px',
+        borderRadius: '0 0 12px 12px',
+        background: 'rgba(255,255,255,0.04)',
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
+      {/* Page number label */}
+      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', fontWeight: 500 }}>
+        Page {pageNum}
+      </span>
+
+      {/* Reaction buttons or submitted state */}
+      {!pageReactions[pageNum] ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+            Was this page clear?
+          </span>
+          <button
+            onClick={() => handleReaction(pageNum, 'clear')}
+            style={{
+              padding: '4px 14px',
+              borderRadius: '20px',
+              fontSize: '11px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: '1px solid rgba(34,197,94,0.3)',
+              background: 'transparent',
+              color: 'rgba(74,222,128,0.7)',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(34,197,94,0.15)'
+              e.currentTarget.style.color = '#4ade80'
+              e.currentTarget.style.borderColor = 'rgba(34,197,94,0.6)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.color = 'rgba(74,222,128,0.7)'
+              e.currentTarget.style.borderColor = 'rgba(34,197,94,0.3)'
+            }}
+          >
+            Yes, clear
+          </button>
+          
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{
+            width: '6px', height: '6px', borderRadius: '50%',
+            background: pageReactions[pageNum] === 'clear' ? '#4ade80' : '#f87171',
+          }} />
+          <span style={{
+            fontSize: '11px',
+            fontWeight: 500,
+            color: pageReactions[pageNum] === 'clear'
+              ? 'rgba(74,222,128,0.7)'
+              : 'rgba(248,113,113,0.7)',
+          }}>
+            {pageReactions[pageNum] === 'clear'
+              ? 'Marked as clear'
+              : 'Noted — the sender will follow up'}
+          </span>
+        </div>
+      )}
+    </div>
+  </div>
+))}
   </div>
 </div>
 
@@ -1300,7 +1635,7 @@ function ContactPopover({ brandingInfo, displayName, email, token, sessionId, on
 }
 
 // ─── LazyPage ─────────────────────────────────────────────────────────────────
-function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, watermark, containerWidth, sessionId, email, onScrolled }: {
+function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, watermark, containerWidth, sessionId, email, onScrolled , onReaction, reaction }: {
   pageNum: number;
   token: string;
   scrollContainer: React.RefObject<HTMLDivElement | null>;
@@ -1311,6 +1646,8 @@ function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, water
   email: string;
   onScrolled: (page: number) => void;
   watermark?: { enabled: boolean; text: string; position: string };
+  onReaction: (page: number, reaction: 'clear' | 'confused') => void;
+  reaction?: 'clear' | 'confused';
 }) {
   // Base page dimensions (standard A4 at 96dpi)
   const BASE_WIDTH = 850;
@@ -1413,7 +1750,7 @@ function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, water
     </span>
   </div>
 )}
-          <div ref={bottomRef} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px', pointerEvents: 'none' }} />
+        <div ref={bottomRef} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px', pointerEvents: 'none' }} />
         </>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-700">

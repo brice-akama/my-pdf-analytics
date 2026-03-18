@@ -19,8 +19,7 @@ export function Navbar() {
   const isLoggedIn = false;
 
   return (
-    <header className="sticky top-0 z-[100] w-full border-b  bg-gradient-to-br from-slate-100 via-blue-100 to-indigo-100
-">
+    <header className="sticky top-0 z-[100] w-full border-b bg-white border-indigo-100">
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <div className="flex items-center gap-6">
@@ -111,7 +110,7 @@ export function Navbar() {
                   </Button>
                 </Link>
                 <Link href="/signup">
-                  <Button size="sm" className="hidden md:block bg-black text-white px-4 py-2 shadow-lg hover:shadow-xl transition-shadow">
+                   <Button size="sm" className="hidden md:block bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 shadow-lg hover:shadow-xl transition-shadow">
                     Start Free Trial
                   </Button>
                 </Link>

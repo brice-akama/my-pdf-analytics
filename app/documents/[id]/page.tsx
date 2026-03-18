@@ -6,7 +6,8 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-// ── Sub-components (split out to keep this file small) ──
+
+import VideoWalkthroughDrawer from "./components/VideoWalkthroughDrawer"
 import DocumentHeader   from "./components/DocumentHeader";
 import DocumentTabs     from "./components/DocumentTabs";
 import MobileSidebar    from "./components/MobileSidebar";
@@ -25,7 +26,7 @@ import SignaturesTab    from "./components/SignaturesTab";
 import DriveImportDrawer from "./components/DriveImportDrawer";
 import PageInfoTooltip  from "@/components/PageInfoTooltip";
 
-import { FileText, LinkIcon, Loader2, Mail } from "lucide-react";
+import { FileText, LinkIcon, Loader2, Mail , Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // ── Types ──────────────────────────────────────────────
@@ -114,7 +115,8 @@ export default function DocumentPage() {
     onConfirm: () => void; danger?: boolean;
   }>({ open: false, title: "", message: "", onConfirm: () => {} });
 
-  // Share settings
+  const [showVideoDrawer, setShowVideoDrawer] = useState(false)
+const [documentVideos, setDocumentVideos] = useState<any[]>([])
   const [shareSettings, setShareSettings] = useState(DEFAULT_SHARE_SETTINGS);
   const [recipientInput, setRecipientInput] = useState("");
   const [recipientNameInput, setRecipientNameInput] = useState("");
@@ -629,6 +631,15 @@ export default function DocumentPage() {
     <Mail className="h-4 w-4" />
     Request signatures
   </Button>
+
+  <Button
+    onClick={() => setShowVideoDrawer(true)}
+    variant="outline"
+    className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+  >
+    <Video className="h-4 w-4" />
+    Add video walkthrough
+  </Button>
 </div>
                 </div>
               </div>
@@ -637,6 +648,20 @@ export default function DocumentPage() {
             
             
 {!analyticsLoading && !doc.isTemplate && (analytics?.shares > 0 || analytics?.eSignature?.totalRecipients > 0) && (
+
+  <>
+    {/* Video walkthrough button — always visible when doc has activity */}
+    <div className="flex justify-end mb-2">
+      <Button
+        onClick={() => setShowVideoDrawer(true)}
+        variant="outline"
+        size="sm"
+        className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+      >
+        <Video className="h-4 w-4" />
+        Manage video walkthroughs
+      </Button>
+    </div>
               <ActivityTab
                 analytics={analytics}
                 doc={doc}
@@ -649,6 +674,7 @@ export default function DocumentPage() {
                 }}
                 onConfirm={(opts) => setConfirmDialog({ open: true, ...opts })}
               />
+                </>
             )}
           </div>
         )}
@@ -767,6 +793,15 @@ export default function DocumentPage() {
         onImport={(contacts) => { setCsvPreview(contacts); setShowDriveFilesDialog(false); }}
         router={router}
       />
+
+      <VideoWalkthroughDrawer
+  open={showVideoDrawer}
+  onOpenChange={setShowVideoDrawer}
+  doc={doc}
+  docId={String(params.id)}
+  videos={documentVideos}
+  onVideosChange={setDocumentVideos}
+/>
     </div>
   );
 }

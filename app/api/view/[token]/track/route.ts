@@ -13,6 +13,7 @@ import {
   notifyDocumentViewed,
   notifyDocumentCompleted,
   notifySessionSummary,
+  sendSlackNotification,
 } from '@/lib/integrations/slack';
 import {
   syncDocumentOpenedToHubSpot,
@@ -1144,8 +1145,80 @@ if (share.userId && duration > 10) {
         break;
       }
 
-      default:
-        console.log('⚠️ Unknown event:', event);
+      // ── VIDEO WALKTHROUGH EVENTS ──────────────────────────────────
+case 'video_watched':
+case 'video_progress':
+case 'video_replayed': {
+  await db.collection('analytics_logs').insertOne({
+    documentId,
+    shareToken: token,
+    action: event,
+    pageNumber: body.page,
+    watchPercent: body.percent || (body.watchedFully ? 100 : null),
+    replayedAt: body.replayedAt || null,
+    email: email || null,
+    viewerId,
+    sessionId: currentSessionId,
+    timestamp: now,
+  })
+
+  if (event === 'video_watched' && share.userId) {
+    const { createNotification } = await import('@/lib/notifications')
+    createNotification({
+      userId: share.userId,
+      type: 'view',
+      title: 'Video Walkthrough Watched',
+      message: `${email || 'A viewer'} finished watching your page ${body.page} walkthrough`,
+      documentId,
+      metadata: { page: body.page, email: email || null },
+    }).catch(() => {})
+
+    sendSlackNotification({
+      userId: share.userId,
+      message: `${email || 'A viewer'} watched your video walkthrough for page ${body.page}`,
+    }).catch(() => {})
+
+    sendTeamsNotification({
+      userId: share.userId,
+      event: 'document_viewed',
+      documentName: share.documentSnapshot?.filename || 'Document',
+      documentId,
+      viewerEmail: email || undefined,
+      extraInfo: `Watched full video walkthrough for page ${body.page}`,
+    }).catch(() => {})
+  }
+
+  if (event === 'video_replayed' && share.userId) {
+    const { createNotification } = await import('@/lib/notifications')
+    createNotification({
+      userId: share.userId,
+      type: 'view',
+      title: 'Video Replayed',
+      message: `${email || 'A viewer'} replayed your page ${body.page} walkthrough — may need clarification`,
+      documentId,
+      metadata: { page: body.page, email: email || null, replayedAt: body.replayedAt },
+    }).catch(() => {})
+
+    sendSlackNotification({
+      userId: share.userId,
+      message: `${email || 'A viewer'} replayed the video on page ${body.page} — possible confusion signal`,
+    }).catch(() => {})
+
+    sendTeamsNotification({
+      userId: share.userId,
+      event: 'document_viewed',
+      documentName: share.documentSnapshot?.filename || 'Document',
+      documentId,
+      viewerEmail: email || undefined,
+      extraInfo: `Replayed video walkthrough for page ${body.page} — possible confusion`,
+    }).catch(() => {})
+  }
+
+  break
+}
+
+default:
+  console.log('⚠️ Unknown event:', event);
     }
 
     return NextResponse.json({ success: true });

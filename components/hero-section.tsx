@@ -5,27 +5,24 @@ import { ArrowRight } from "lucide-react"
 export function HeroSection() {
   return (
     <section className="relative pt-20 pb-32 overflow-hidden">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-200 via-blue-300 to-indigo-900" />
-      
-      {/* Brightness stabilizer (premium trick) */}
-      <div className="absolute inset-0 bg-white/10" />
+      {/* Background — pure indigo gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white via-indigo-50 to-indigo-100" />
 
       {/* Content */}
       <div className="relative container px-4">
         <div className="mx-auto max-w-4xl">
-          
+
           {/* Main Heading */}
           <h1 className="mb-6 text-5xl font-semibold tracking-tight text-slate-900 sm:text-6xl md:text-7xl text-left md:text-center">
             Know When Your
             <br className="hidden md:block" />
-            <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent">
               Documents Are Opened
             </span>
           </h1>
 
           {/* Subtitle */}
-          <p className="mb-10 text-lg sm:text-xl md:text-2xl text-slate-700 max-w-2xl text-left md:text-center md:mx-auto">
+          <p className="mb-10 text-lg sm:text-xl md:text-2xl text-slate-600 max-w-2xl text-left md:text-center md:mx-auto">
             Track every view, page, and second spent on your documents.
             Get instant alerts when prospects engage, and follow up at the
             perfect moment.
@@ -37,8 +34,8 @@ export function HeroSection() {
               size="lg"
               className="
                 text-base px-8 py-6
-                bg-slate-900 text-white
-                hover:bg-slate-800
+                bg-indigo-600 text-white
+                hover:bg-indigo-700
                 shadow-lg hover:shadow-xl
                 transition-all
                 w-full sm:w-auto
@@ -57,10 +54,10 @@ export function HeroSection() {
               className="
                 text-base px-8 py-6
                 w-full sm:w-auto
-                border-slate-400
-                text-slate-800
-                hover:bg-white/60
-                hover:border-slate-500
+                border-indigo-300
+                text-indigo-700
+                hover:bg-indigo-50
+                hover:border-indigo-400
                 transition-colors
               "
               asChild
