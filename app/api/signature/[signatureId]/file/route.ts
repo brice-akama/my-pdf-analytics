@@ -62,66 +62,100 @@ export async function GET(
     const page = searchParams.get('page');
 
     // Extract public_id from URL
-    const fileUrl = document.cloudinaryPdfUrl;
-    const urlParts = fileUrl.split('/upload/');
-    const afterUpload = urlParts[1];
-    const pathParts = afterUpload.split('/');
-    pathParts.shift(); // remove version
-    let publicId = pathParts.join('/').replace('.pdf', '');
-    publicId = decodeURIComponent(publicId);
+const fileUrl = document.cloudinaryPdfUrl
+const urlParts = fileUrl.split('/upload/')
+const afterUpload = urlParts[1]
+const pathParts = afterUpload.split('/')
+pathParts.shift() // remove version
+let publicId = pathParts.join('/').replace('.pdf', '')
+publicId = decodeURIComponent(publicId)
 
-    console.log('📝 Public ID:', publicId);
+console.log('📝 Public ID:', publicId)
 
-    // Generate authenticated download URL
+// Try resource types in order — PDFs stored as image in Cloudinary
+const resourceTypes = ['image', 'raw', 'auto']
+let arrayBuffer: ArrayBuffer | null = null
+
+for (const resourceType of resourceTypes) {
+  try {
     const downloadUrl = cloudinary.v2.utils.private_download_url(
       publicId,
       'pdf',
       {
-        resource_type: 'image',
+        resource_type: resourceType as any,
         type: 'upload',
-        attachment: false, // inline for viewing
-        expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour
+        attachment: false,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
       }
-    );
+    )
 
-    console.log('🔐 Generated private download URL');
+    console.log(`🔐 Trying resource_type: ${resourceType}`)
 
-    // Fetch the file from Cloudinary
-    const cloudinaryResponse = await fetch(downloadUrl);
-    
-    console.log('📡 Response status:', cloudinaryResponse.status);
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
 
-    if (!cloudinaryResponse.ok) {
-      console.error('❌ Private download failed');
-      return NextResponse.json({ 
-        error: 'Failed to fetch file from Cloudinary',
-        status: cloudinaryResponse.status,
-      }, { status: 500 });
+    const cloudinaryResponse = await fetch(downloadUrl, {
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout))
+
+    if (cloudinaryResponse.ok) {
+      arrayBuffer = await cloudinaryResponse.arrayBuffer()
+      console.log(`✅ File fetched with ${resourceType}:`, arrayBuffer.byteLength, 'bytes')
+      break
     }
 
-    const arrayBuffer = await cloudinaryResponse.arrayBuffer();
-    console.log('✅ File fetched:', arrayBuffer.byteLength, 'bytes');
+    console.log(`❌ ${resourceType} failed with status:`, cloudinaryResponse.status)
+  } catch (err) {
+    console.log(`❌ ${resourceType} threw error:`, err)
+    continue
+  }
+}
 
-    // Log the view (don't await, let it run in background)
-    db.collection('signature_views').insertOne({
-      signatureId: signatureId,
-      documentId: signatureRequest.documentId,
-      page: page ? parseInt(page) : null,
-      timestamp: new Date(),
-      userAgent: request.headers.get('user-agent'),
-      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
-    }).catch(err => console.error('Failed to log view:', err));
+if (!arrayBuffer) {
+  // Last resort — try direct URL without authentication
+  try {
+    console.log('🔄 Trying direct Cloudinary URL...')
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
 
-    // Return the PDF file
-    return new NextResponse(arrayBuffer, {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${document.originalFilename}"`,
-        'Content-Length': arrayBuffer.byteLength.toString(),
-        'Cache-Control': 'private, max-age=3600',
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
+    const directResponse = await fetch(document.cloudinaryPdfUrl, {
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeout))
+
+    if (directResponse.ok) {
+      arrayBuffer = await directResponse.arrayBuffer()
+      console.log('✅ File fetched via direct URL:', arrayBuffer.byteLength, 'bytes')
+    }
+  } catch (err) {
+    console.log('❌ Direct URL also failed:', err)
+  }
+}
+
+if (!arrayBuffer) {
+  return NextResponse.json({
+    error: 'Failed to fetch file from Cloudinary after all attempts',
+  }, { status: 500 })
+}
+
+// Log the view
+db.collection('signature_views').insertOne({
+  signatureId,
+  documentId: signatureRequest.documentId,
+  page: page ? parseInt(page) : null,
+  timestamp: new Date(),
+  userAgent: request.headers.get('user-agent'),
+  ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
+}).catch(err => console.error('Failed to log view:', err))
+
+return new NextResponse(arrayBuffer, {
+  headers: {
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `inline; filename="${document.originalFilename}"`,
+    'Content-Length': arrayBuffer.byteLength.toString(),
+    'Cache-Control': 'private, max-age=3600',
+    'Access-Control-Allow-Origin': '*',
+  },
+})
 
   } catch (error) {
     console.error('❌ Error fetching file:', error);

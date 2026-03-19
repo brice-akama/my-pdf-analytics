@@ -179,6 +179,101 @@ const totalTimeSpentSeconds = requests.reduce(
   (sum, r) => sum + (r.totalTimeSpentSeconds || 0), 0
 );
 
+// ── Per-signer video stats ────────────────────────────────────
+// Fetches video watch data from analytics_logs for each signer
+// so owner knows if confusion about a specific clause caused hesitation
+const signerEmails = recipients
+  .map(r => r.email)
+  .filter(Boolean)
+
+const signerVideoLogs = signerEmails.length > 0
+  ? await db.collection('analytics_logs').find({
+      documentId: id,
+      action: { $in: ['video_watched', 'video_progress', 'video_replayed'] },
+      email: { $in: signerEmails }
+    }).toArray()
+  : []
+
+// Group by signer email
+const signerVideoMap: Record<string, {
+  email: string
+  pages: Record<number, {
+    page: number
+    watchCount: number
+    replays: number
+    maxCompletion: number
+    replayedAt: number[]
+    lastWatchedAt: Date | null
+  }>
+}> = {}
+
+signerVideoLogs.forEach((log: any) => {
+  const email = log.email
+  if (!email) return
+
+  if (!signerVideoMap[email]) {
+    signerVideoMap[email] = { email, pages: {} }
+  }
+
+  const page = log.pageNumber
+  if (!signerVideoMap[email].pages[page]) {
+    signerVideoMap[email].pages[page] = {
+      page,
+      watchCount: 0,
+      replays: 0,
+      maxCompletion: 0,
+      replayedAt: [],
+      lastWatchedAt: null,
+    }
+  }
+
+  const p = signerVideoMap[email].pages[page]
+
+  if (log.action === 'video_watched') {
+    p.watchCount++
+    p.lastWatchedAt = log.timestamp || null
+  }
+  if (log.action === 'video_replayed') {
+    p.replays++
+    if (log.replayedAt) p.replayedAt.push(log.replayedAt)
+  }
+  if (log.action === 'video_progress' && log.watchPercent) {
+    p.maxCompletion = Math.max(p.maxCompletion, log.watchPercent)
+  }
+})
+
+// Convert to array — one entry per signer
+const signerVideoStats = Object.values(signerVideoMap).map(signer => ({
+  email: signer.email,
+  pages: Object.values(signer.pages).map(p => ({
+    page: p.page,
+    watchCount: p.watchCount,
+    replays: p.replays,
+    maxCompletion: p.maxCompletion,
+    replayedAt: p.replayedAt,
+    lastWatchedAt: p.lastWatchedAt,
+    signal: p.replays >= 3
+      ? 'needs_clarification'
+      : p.maxCompletion >= 75
+      ? 'understood'
+      : p.watchCount > 0
+      ? 'partial'
+      : 'not_watched'
+  })).sort((a, b) => a.page - b.page),
+  overallSignal: (() => {
+    const pages = Object.values(signer.pages)
+    if (pages.length === 0) return 'not_watched'
+    const totalReplays = pages.reduce((sum, p) => sum + p.replays, 0)
+    const avgCompletion = pages.length > 0
+      ? pages.reduce((sum, p) => sum + p.maxCompletion, 0) / pages.length
+      : 0
+    if (totalReplays >= 3) return 'needs_clarification'
+    if (avgCompletion >= 75) return 'understood'
+    if (pages.some(p => p.watchCount > 0)) return 'partial'
+    return 'not_watched'
+  })()
+}))
+
     return NextResponse.json({
       success: true,
       analytics: {
@@ -198,6 +293,7 @@ const totalTimeSpentSeconds = requests.reduce(
         allSigned: signed === total && total > 0,
         pageEngagement,                 // ← ADD
     totalDocPages,  
+    signerVideoStats,
       },
     });
   } catch (err) {

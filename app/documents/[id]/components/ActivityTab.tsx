@@ -624,73 +624,7 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
     <div className="space-y-0">
       {/* ══ ALL VISITS SECTION ══ */}
       <div>
-        {/* Deal intent summary banner — only shows if anyone responded */}
-{analytics.dealIntentResponses && analytics.dealIntentResponses.length > 0 && (
-  <div className="py-3 border-b border-indigo-100 bg-indigo-50/50">
-    <p className="text-[10px] font-semibold text-indigo-700 uppercase tracking-wider mb-2 px-1">
-      Deal Intent Responses
-    </p>
-    <div className="flex flex-wrap gap-2">
-      {Object.entries(analytics.intentSummary || {}).map(([intent, count]: any) => {
-        const labels: Record<string, { label: string; color: string }> = {
-          ready_to_move_forward: {
-            label: 'Ready to move forward',
-            color: 'bg-green-50 text-green-700 border-green-200'
-          },
-          need_more_info: {
-            label: 'Need more information',
-            color: 'bg-amber-50 text-amber-700 border-amber-200'
-          },
-          discussing_with_team: {
-            label: 'Discussing with team',
-            color: 'bg-indigo-50 text-indigo-700 border-indigo-200'
-          },
-          not_interested: {
-            label: 'Not the right fit',
-            color: 'bg-slate-50 text-slate-600 border-slate-200'
-          },
-        }
-        const config = labels[intent] || {
-          label: intent,
-          color: 'bg-slate-50 text-slate-600 border-slate-200'
-        }
-        return (
-          <div
-            key={intent}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${config.color}`}
-          >
-            <span>{config.label}</span>
-            <span className="font-black">{count}</span>
-          </div>
-        )
-      })}
-    </div>
-
-    {/* Per-viewer intent */}
-    <div className="mt-2 space-y-1">
-      {analytics.dealIntentResponses.map((r: any, i: number) => {
-        const labels: Record<string, string> = {
-          ready_to_move_forward: 'Ready to move forward',
-          need_more_info: 'Need more information',
-          discussing_with_team: 'Discussing with team',
-          not_interested: 'Not the right fit',
-        }
-        return (
-          <div key={i} className="flex items-center gap-2 text-xs text-slate-600 px-1">
-            <div className="h-1.5 w-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
-            <span className="font-medium">
-              {r.email || 'Anonymous'}
-            </span>
-            <span className="text-slate-400">responded:</span>
-            <span className="font-semibold text-slate-800">
-              {labels[r.response] || r.response}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  </div>
-)}
+       
         <div className="flex items-center justify-between py-4 border-b border-slate-200">
           <h3 className="text-base font-semibold text-slate-900">All Visits</h3>
           <span className="text-sm text-slate-400">
@@ -936,14 +870,26 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
         const pageReadData = visit.pageData.find(
           (p: any) => p.page === pageNum
         )
-        const videoStat = analytics.videoStats?.find(
-          (s: any) => s.page === pageNum
-        )
+       // Use per-viewer stats if available — more accurate than aggregate
+const viewerVideoData = analytics.viewerVideoStats?.find(
+  (v: any) => v.email === visit.email
+)
+const viewerPageVideo = viewerVideoData?.pages?.find(
+  (p: any) => p.page === pageNum
+)
 
-        const timeSpent = pageReadData?.timeSpent || 0
-        const watched = (videoStat?.totalWatches || 0) > 0
-        const replays = videoStat?.replays || 0
-        const completion = videoStat?.avgCompletion || 0
+// Fall back to aggregate if no per-viewer data
+const videoStat = analytics.videoStats?.find(
+  (s: any) => s.page === pageNum
+)
+
+const timeSpent = pageReadData?.timeSpent || 0
+
+// Per-viewer data takes priority over aggregate
+const watchCount = viewerPageVideo?.watchCount ?? (videoStat?.totalWatches || 0)
+const watched = watchCount > 0
+const replays = viewerPageVideo?.replays ?? (videoStat?.replays || 0)
+const completion = viewerPageVideo?.maxCompletion ?? (videoStat?.avgCompletion || 0)
 
         const readSignal = timeSpent > 30
           ? { dot: '#16a34a', label: 'Read' }
@@ -952,13 +898,12 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
           : { dot: '#e2e8f0', label: 'Skipped' }
 
         const videoSignal = !watched
-          ? { dot: '#e2e8f0', label: 'Not watched' }
-          : replays >= 3
-          ? { dot: '#dc2626', label: `Replayed ${replays}x` }
-          : completion >= 75
-          ? { dot: '#16a34a', label: `${completion}% watched` }
-          : { dot: '#d97706', label: `${completion}% watched` }
-
+  ? { dot: '#e2e8f0', label: 'Not watched' }
+  : replays >= 3
+  ? { dot: '#dc2626', label: `Replayed ${replays}x` }
+  : completion >= 75
+  ? { dot: '#16a34a', label: `${completion}% — watched` }
+  : { dot: '#d97706', label: `${completion}% — partial` }
         return (
           <div key={video._id} className="flex items-center gap-3">
 
@@ -1003,9 +948,14 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
                     }}
                   />
                 </div>
-                <span className="text-[10px] text-slate-400 w-12 flex-shrink-0">
-                  {videoSignal.label}
-                </span>
+                <span className="text-[10px] text-slate-400 w-20 flex-shrink-0">
+  {videoSignal.label}
+  {watched && watchCount > 1 && (
+    <span className="ml-1 text-indigo-500 font-semibold">
+      ×{watchCount}
+    </span>
+  )}
+</span>
               </div>
             </div>
           </div>
@@ -1048,6 +998,83 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
               : `Page ${r.page} — Has questions`}
           </div>
         ))}
+      </div>
+    </div>
+  )
+})()}
+
+{/* Deal intent response for this visitor */}
+{(() => {
+  const intentResponse = pageReactions.find(
+    (r: any) =>
+      r.email === visit.email &&
+      r.type === 'deal_intent'
+  )
+
+  if (!intentResponse) return null
+
+  const intentLabels: Record<string, {
+    label: string
+    color: string
+    dot: string
+    border: string
+  }> = {
+    ready_to_move_forward: {
+      label: 'Ready to move forward',
+      color: 'text-green-700',
+      dot: 'bg-green-500',
+      border: 'border-green-200 bg-green-50',
+    },
+    need_more_info: {
+      label: 'Need more information',
+      color: 'text-amber-700',
+      dot: 'bg-amber-500',
+      border: 'border-amber-200 bg-amber-50',
+    },
+    discussing_with_team: {
+      label: 'Discussing with my team',
+      color: 'text-indigo-700',
+      dot: 'bg-indigo-500',
+      border: 'border-indigo-200 bg-indigo-50',
+    },
+    not_interested: {
+      label: 'Not the right fit',
+      color: 'text-slate-600',
+      dot: 'bg-slate-400',
+      border: 'border-slate-200 bg-slate-50',
+    },
+  }
+
+  const config = intentLabels[intentResponse.reaction] || {
+    label: intentResponse.reaction,
+    color: 'text-slate-600',
+    dot: 'bg-slate-400',
+    border: 'border-slate-200 bg-slate-50',
+  }
+
+  return (
+    <div className="mt-4 pt-3 border-t border-slate-50">
+      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+        Deal Intent
+      </p>
+      <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${config.border}`}>
+        <div className={`h-2 w-2 rounded-full flex-shrink-0 ${config.dot}`} />
+        <div className="flex-1 min-w-0">
+          <p className={`text-xs font-semibold ${config.color}`}>
+            {config.label}
+          </p>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            Responded after reviewing the full document
+          </p>
+        </div>
+        <span className="text-[10px] text-slate-400 flex-shrink-0">
+          {intentResponse.createdAt
+            ? new Date(intentResponse.createdAt).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+              })
+            : ''}
+        </span>
       </div>
     </div>
   )

@@ -19,7 +19,7 @@ export function Navbar() {
   const isLoggedIn = false;
 
   return (
-    <header className="sticky top-0 z-[100] w-full border-b bg-white border-indigo-100">
+     <header className="sticky top-0 z-[100] w-full bg-transparent">
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <div className="flex items-center gap-6">
@@ -78,7 +78,9 @@ export function Navbar() {
                 <circle cx="119" cy="76" r="3" fill="white" />
               </svg>
             </div>
-            <span className="text-xl font-bold">DocMetrics</span>
+             <span className="text-xl font-bold text-blue-600">
+  DocMetrics
+</span>
           </Link>
 
           {/* Desktop Navigation — only render on client to avoid hydration mismatch */}

@@ -21,13 +21,16 @@ export default function Home() {
   }, [router]);
 
   return (
-    <>
+  <>
+    <div className="bg-gradient-to-br from-white via-indigo-50 to-indigo-100">
       <Navbar />
       <HeroSection />
-      <SocialProofSection />
-      <AnimatedFeaturesSection />
-      <Footer />
-    </>
-  );
+    </div>
+
+    <SocialProofSection />
+    <AnimatedFeaturesSection />
+    <Footer />
+  </>
+);
 }
 

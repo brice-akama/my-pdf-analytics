@@ -37,11 +37,7 @@ export function MobileNav() {
 
       <SheetContent side="left" className="w-[300px] sm:w-[400px] bg-white">
         <SheetHeader>
-          <SheetTitle>
-            <Link href="/" onClick={() => setOpen(false)}>
-              <span className="text-xl font-bold">DocMetrics</span>
-            </Link>
-          </SheetTitle>
+         
         </SheetHeader>
 
         <div className="flex flex-col gap-4 mt-8">

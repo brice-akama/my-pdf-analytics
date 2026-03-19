@@ -6,26 +6,23 @@ export function HeroSection() {
   return (
     <section className="relative pt-20 pb-32 overflow-hidden">
       {/* Background — pure indigo gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white via-indigo-50 to-indigo-100" />
+      <div className="" />
 
       {/* Content */}
       <div className="relative container px-4">
         <div className="mx-auto max-w-4xl">
 
           {/* Main Heading */}
-          <h1 className="mb-6 text-5xl font-semibold tracking-tight text-slate-900 sm:text-6xl md:text-7xl text-left md:text-center">
-            Know When Your
-            <br className="hidden md:block" />
-            <span className="bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent">
-              Documents Are Opened
-            </span>
-          </h1>
+          <h1 className="mb-6 text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
+  Know When Your{" "}
+  <span className="bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent">
+    Documents Are Opened
+  </span>
+</h1>
 
           {/* Subtitle */}
           <p className="mb-10 text-lg sm:text-xl md:text-2xl text-slate-600 max-w-2xl text-left md:text-center md:mx-auto">
-            Track every view, page, and second spent on your documents.
-            Get instant alerts when prospects engage, and follow up at the
-            perfect moment.
+             Track every view and see when prospects truly understand your documents. Get alerts and follow up at the perfect moment.
           </p>
 
           {/* CTA Buttons */}
@@ -48,24 +45,7 @@ export function HeroSection() {
               </Link>
             </Button>
 
-            <Button
-              size="lg"
-              variant="outline"
-              className="
-                text-base px-8 py-6
-                w-full sm:w-auto
-                border-indigo-300
-                text-indigo-700
-                hover:bg-indigo-50
-                hover:border-indigo-400
-                transition-colors
-              "
-              asChild
-            >
-              <Link href="/demo">
-                Watch Demo
-              </Link>
-            </Button>
+            
           </div>
 
         </div>

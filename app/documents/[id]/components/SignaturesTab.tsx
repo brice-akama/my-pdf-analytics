@@ -365,6 +365,102 @@ export default function SignaturesTab({
                       </div>
                     ))}
                   </div>
+                  {/* ── Do They Understand It — per signer ── */}
+{analytics?.videoStats && analytics.videoStats.length > 0 && (
+  <div className="mt-4 border-t border-slate-100 pt-4">
+     
+    <div className="space-y-2">
+      {analytics.videoStats.map((v: any) => {
+        const pageReadData = r.pageData?.find((p: any) => p.page === v.page)
+        const timeSpent = pageReadData?.timeSpent || 0
+
+        // Use per-signer video stats — more accurate than aggregate
+        const signerData = analytics.signerVideoStats?.find(
+          (s: any) => s.email === r.email
+        )
+        const signerPageData = signerData?.pages?.find(
+          (p: any) => p.page === v.page
+        )
+
+        // Per-signer values take priority over aggregate
+        const watchCount = signerPageData?.watchCount ?? v.totalWatches
+        const replays = signerPageData?.replays ?? v.replays
+        const completion = signerPageData?.maxCompletion ?? v.avgCompletion
+
+        const readSignal = timeSpent > 30
+          ? { dot: '#16a34a', label: 'Read', bar: '#16a34a' }
+          : timeSpent > 5
+          ? { dot: '#d97706', label: 'Skimmed', bar: '#d97706' }
+          : { dot: '#e2e8f0', label: 'Skipped', bar: '#e2e8f0' }
+
+        const videoSignal = watchCount === 0
+          ? { dot: '#e2e8f0', label: 'Not watched', bar: '#e2e8f0', completion: 0 }
+          : replays >= 3
+          ? { dot: '#dc2626', label: `Replayed ${replays}x`, bar: '#dc2626', completion }
+          : completion >= 75
+          ? { dot: '#16a34a', label: `${completion}% watched`, bar: '#16a34a', completion }
+          : { dot: '#d97706', label: `${completion}% watched`, bar: '#d97706', completion }
+
+        return (
+          <div key={v.page} className="flex items-center gap-3">
+            <div className="w-10 flex-shrink-0 text-[10px] font-semibold text-slate-400 text-right">
+              {v.page === 0 ? 'Intro' : `P${v.page}`}
+            </div>
+            <div className="flex-1 flex flex-col gap-1">
+              {/* Read bar */}
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-1.5 rounded-full flex-shrink-0"
+                  style={{ background: readSignal.dot }} />
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full"
+                    style={{
+                      width: `${Math.min((timeSpent / 120) * 100, 100)}%`,
+                      background: readSignal.bar,
+                    }} />
+                </div>
+                <span className="text-[10px] text-slate-400 w-14 flex-shrink-0">
+                  {readSignal.label}
+                </span>
+              </div>
+              {/* Video bar */}
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-1.5 rounded-full flex-shrink-0"
+                  style={{ background: videoSignal.dot }} />
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full"
+                    style={{
+                      width: `${videoSignal.completion}%`,
+                      background: videoSignal.bar,
+                    }} />
+                </div>
+                <span className="text-[10px] text-slate-400 w-14 flex-shrink-0">
+                  {videoSignal.label}
+                  {watchCount > 1 && (
+                    <span className="ml-1 text-indigo-500 font-semibold">
+                      ×{watchCount}
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+
+    {/* Legend */}
+    <div className="flex items-center gap-4 mt-3 pt-2 border-t border-slate-50">
+      <div className="flex items-center gap-1.5">
+        <div className="h-1.5 w-6 rounded-full bg-slate-300" />
+        <span className="text-[10px] text-slate-400">Read time</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="h-1.5 w-6 rounded-full bg-indigo-300" />
+        <span className="text-[10px] text-slate-400">Video watched</span>
+      </div>
+    </div>
+  </div>
+)}
                 </div>
               )}
             </div>

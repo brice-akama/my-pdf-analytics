@@ -991,8 +991,119 @@ const videoStats = Object.values(videoStatsMap).map(v => ({
 })).sort((a, b) => a.page - b.page)
 
 
+// ── Per-viewer video stats ────────────────────────────────────
+// Groups video events by email so owner sees each person's
+// individual watch history — how many times, completion, replays
+const viewerVideoMap: Record<string, {
+  email: string
+  pages: Record<number, {
+    page: number
+    watchCount: number
+    replays: number
+    maxCompletion: number
+    replayedAt: number[]
+    lastWatchedAt: Date | null
+  }>
+}> = {}
 
- 
+videoLogs.forEach((log: any) => {
+  const email = log.email
+  if (!email) return // skip anonymous — no email means we cannot identify them
+
+  if (!viewerVideoMap[email]) {
+    viewerVideoMap[email] = { email, pages: {} }
+  }
+
+  const page = log.pageNumber
+  if (!viewerVideoMap[email].pages[page]) {
+    viewerVideoMap[email].pages[page] = {
+      page,
+      watchCount: 0,
+      replays: 0,
+      maxCompletion: 0,
+      replayedAt: [],
+      lastWatchedAt: null,
+    }
+  }
+
+  const p = viewerVideoMap[email].pages[page]
+
+  if (log.action === 'video_watched') {
+    p.watchCount++
+    p.lastWatchedAt = log.timestamp || null
+  }
+
+  if (log.action === 'video_replayed') {
+    p.replays++
+    if (log.replayedAt) p.replayedAt.push(log.replayedAt)
+  }
+
+  if (log.action === 'video_progress' && log.watchPercent) {
+    p.maxCompletion = Math.max(p.maxCompletion, log.watchPercent)
+  }
+})
+
+// Convert to array — one entry per viewer
+const viewerVideoStats = Object.values(viewerVideoMap).map(viewer => ({
+  email: viewer.email,
+  pages: Object.values(viewer.pages).map(p => ({
+    page: p.page,
+    watchCount: p.watchCount,
+    replays: p.replays,
+    maxCompletion: p.maxCompletion,
+    replayedAt: p.replayedAt,
+    lastWatchedAt: p.lastWatchedAt,
+    // Signal per page per viewer
+    signal: p.replays >= 3
+      ? 'needs_clarification'
+      : p.maxCompletion >= 75
+      ? 'understood'
+      : p.watchCount > 0
+      ? 'partial'
+      : 'not_watched'
+  })).sort((a, b) => a.page - b.page),
+  // Overall signal for this viewer across all videos
+  overallSignal: (() => {
+    const pages = Object.values(viewer.pages)
+    if (pages.length === 0) return 'not_watched'
+    const totalReplays = pages.reduce((sum, p) => sum + p.replays, 0)
+    const avgCompletion = pages.reduce((sum, p) => sum + p.maxCompletion, 0) / pages.length
+    if (totalReplays >= 3) return 'needs_clarification'
+    if (avgCompletion >= 75) return 'understood'
+    if (pages.some(p => p.watchCount > 0)) return 'partial'
+    return 'not_watched'
+  })()
+}))
+
+
+
+ // ── Page clarity reactions ────────────────────────────────────
+const reactionLogs = await db.collection('document_reactions')
+  .find({ documentId: id })
+  .toArray()
+
+const clarityByPage: Record<number, { clear: number; confused: number }> = {}
+reactionLogs
+  .filter((r: any) => r.type === 'page_clarity' || !r.type)
+  .forEach((r: any) => {
+    if (!clarityByPage[r.page]) clarityByPage[r.page] = { clear: 0, confused: 0 }
+    if (r.reaction === 'clear') clarityByPage[r.page].clear++
+    if (r.reaction === 'confused') clarityByPage[r.page].confused++
+  })
+
+const dealIntentResponses = reactionLogs
+  .filter((r: any) => r.type === 'deal_intent')
+  .map((r: any) => ({
+    email: r.email || null,
+    response: r.reaction,
+    sessionId: r.sessionId,
+    createdAt: r.createdAt,
+  }))
+
+const intentSummary: Record<string, number> = {}
+dealIntentResponses.forEach((r: any) => {
+  intentSummary[r.response] = (intentSummary[r.response] || 0) + 1
+})
 
     // ── NDA acceptances ──────────────────────────────────────────
     const ndaAcceptances = await db.collection('nda_acceptances')
@@ -1065,6 +1176,12 @@ averageTime: formatTime(averageTimeSeconds),
 
         // Video walkthroughs
 videoStats,
+viewerVideoStats,
+
+// Reactions
+clarityByPage,
+dealIntentResponses,
+intentSummary,
 
         // Content & document info (unchanged)
         contentQuality: {

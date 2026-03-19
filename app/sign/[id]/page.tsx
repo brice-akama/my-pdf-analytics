@@ -137,6 +137,11 @@ const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 const pdfWrapperRef = useRef<HTMLDivElement>(null);
 const [pdfScale, setPdfScale] = useState(1);
 const PDF_NATURAL_W = 794; // A4 width in px at 96dpi
+const [sigPageVideos, setSigPageVideos] = useState<Record<number, string>>({})
+const [sigActiveVideo, setSigActiveVideo] = useState<{ url: string; page: number } | null>(null)
+const [sigVideoBouncing, setSigVideoBouncing] = useState(false)
+const [sigVideoDismissed, setSigVideoDismissed] = useState(false)
+const [sigCurrentPage, setSigCurrentPage] = useState(1)
 
 
 useEffect(() => {
@@ -672,6 +677,28 @@ if (signatureRequest.status === 'declined') {
     fetchSignatureRequest();
   }, [signatureId , accessCodeVerified ]);
 
+
+  // Fetch video walkthroughs for signing page
+useEffect(() => {
+  if (!signatureId || !pdfUrl) return
+  const fetchVideos = async () => {
+    try {
+      // We need the documentId from the signature request
+      if (!document?.id) return
+      const res = await fetch(`/api/documents/${document.id}/videos/public`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.videos) {
+          const map: Record<number, string> = {}
+          data.videos.forEach((v: any) => { map[v.pageNumber] = v.cloudinaryUrl })
+          setSigPageVideos(map)
+        }
+      }
+    } catch (e) { /* silent */ }
+  }
+  fetchVideos()
+}, [signatureId, pdfUrl, document?.id])
+
   useEffect(() => {
   const fetchAttachments = async () => {
     if (!signatureId) return;
@@ -739,6 +766,14 @@ useEffect(() => {
         const scrollTop = container ? container.scrollTop : window.scrollY;
         const pageHeight = 297 * 3.78;
         const newPage = Math.floor(scrollTop / pageHeight) + 1;
+        // Update current page for video bubble
+setSigCurrentPage(newPage)
+
+// Bounce bubble if this page has a video
+if (sigPageVideos[newPage] && !sigVideoDismissed) {
+  setSigVideoBouncing(true)
+  setTimeout(() => setSigVideoBouncing(false), 3000)
+}
         
         if (newPage !== currentTrackedPage) {
           // Send time spent on previous page
@@ -2090,6 +2125,159 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
   </div>
 </div>
 </div>
+
+
+{/* ── Video Walkthrough Bubble — signing page ── */}
+{Object.keys(sigPageVideos).length > 0 && !sigVideoDismissed && (
+  <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end gap-3">
+
+    {/* Expanded video player */}
+    {sigActiveVideo && (
+      <div className="w-72 rounded-2xl overflow-hidden shadow-2xl"
+        style={{ background: '#1e2533', border: '1px solid rgba(255,255,255,0.12)' }}>
+        <div className="flex items-center justify-between px-3 py-2.5"
+          style={{ background: 'rgba(99,102,241,0.2)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <p className="text-xs font-semibold text-white">
+            {sigActiveVideo.page === 0 ? 'Introduction' : `Page ${sigActiveVideo.page} — walkthrough`}
+          </p>
+          <button
+            onClick={() => setSigActiveVideo(null)}
+            className="h-5 w-5 rounded flex items-center justify-center hover:bg-white/10">
+            <X className="h-3 w-3 text-white/60" />
+          </button>
+        </div>
+        <video
+          src={sigActiveVideo.url}
+          controls
+          autoPlay
+          className="w-full"
+          style={{ maxHeight: '160px', background: '#000' }}
+          onPlay={(e) => {
+            const v = e.currentTarget
+            if (v.currentTime > 3) {
+              fetch(`/api/signature/${signatureId}/track`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'video_replayed',
+                  page: sigActiveVideo.page,
+                  replayedAt: Math.round(v.currentTime),
+                })
+              }).catch(() => {})
+            }
+          }}
+          onEnded={() => {
+            fetch(`/api/signature/${signatureId}/track`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'video_watched',
+                page: sigActiveVideo.page,
+                watchedFully: true,
+              })
+            }).catch(() => {})
+          }}
+          onTimeUpdate={(e) => {
+            const v = e.currentTarget
+            const pct = Math.round((v.currentTime / v.duration) * 100)
+            if (pct === 50 || pct === 75 || pct === 100) {
+              fetch(`/api/signature/${signatureId}/track`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'video_progress',
+                  page: sigActiveVideo.page,
+                  percent: pct,
+                })
+              }).catch(() => {})
+            }
+          }}
+        />
+        <div className="px-3 py-2">
+          <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            from the document sender
+          </p>
+        </div>
+      </div>
+    )}
+
+    {/* Bubble */}
+    <div className="relative">
+      {/* Pulse ring — when current page has a video */}
+      {sigPageVideos[sigCurrentPage] && !sigActiveVideo && (
+        <>
+          <div className="absolute inset-0 rounded-full animate-ping"
+            style={{ background: 'rgba(99,102,241,0.3)', animationDuration: '2s' }} />
+          <div className="absolute inset-0 rounded-full animate-ping"
+            style={{ background: 'rgba(99,102,241,0.15)', animationDuration: '2s', animationDelay: '0.5s' }} />
+        </>
+      )}
+
+      {/* Tooltip */}
+      {sigVideoBouncing && !sigActiveVideo && (
+        <div
+          className="absolute bottom-full mb-3 right-0 whitespace-nowrap rounded-xl px-3 py-2 shadow-xl"
+          style={{
+            background: '#1e2533',
+            border: '1px solid rgba(99,102,241,0.4)',
+            animation: 'fadeInOut 3s ease forwards',
+          }}
+        >
+          <p className="text-xs font-semibold text-white">
+            Walkthrough available for this page
+          </p>
+          <div className="absolute -bottom-1.5 right-5 h-3 w-3 rotate-45"
+            style={{ background: '#1e2533', borderRight: '1px solid rgba(99,102,241,0.4)', borderBottom: '1px solid rgba(99,102,241,0.4)' }} />
+        </div>
+      )}
+
+     <button
+  onClick={() => {
+    const videoUrl = sigPageVideos[sigCurrentPage] || sigPageVideos[0]
+    if (!videoUrl) return
+    const page = sigPageVideos[sigCurrentPage] ? sigCurrentPage : 0
+    if (sigActiveVideo?.page === page) {
+      setSigActiveVideo(null)
+    } else {
+      setSigActiveVideo({ url: videoUrl, page })
+    }
+  }}
+  className={`relative h-14 w-14 rounded-full shadow-2xl flex items-center justify-center transition-all
+    ${sigVideoBouncing ? 'animate-bounce' : ''}
+    ${sigActiveVideo ? 'ring-4 ring-indigo-400 ring-opacity-60' : ''}
+  `}
+  style={{
+    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+    border: '3px solid white',
+  }}
+  title={sigPageVideos[sigCurrentPage]
+    ? 'Walkthrough available for this page — click to watch'
+    : 'Watch document introduction'}
+>
+        <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+      </button>
+
+      {/* Red dot */}
+      {sigPageVideos[sigCurrentPage] && !sigActiveVideo && (
+        <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 border-2 border-white flex items-center justify-center">
+          <span className="text-[8px] text-white font-bold">▶</span>
+        </span>
+      )}
+
+      {/* Dismiss */}
+      <button
+        onClick={(e) => { e.stopPropagation(); setSigActiveVideo(null); setSigVideoDismissed(true) }}
+        className="absolute -top-2 -left-2 h-5 w-5 rounded-full flex items-center justify-center"
+        style={{ background: 'rgba(30,37,51,0.9)', border: '1px solid rgba(255,255,255,0.15)' }}
+      >
+        <X className="h-2.5 w-2.5 text-white/60" />
+      </button>
+    </div>
+  </div>
+)}
 
       <SignatureStyleModal
   isOpen={activeField !== null}

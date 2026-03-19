@@ -6,6 +6,8 @@ import { Resend } from "resend";
 import { ObjectId } from "mongodb";
 import { sendSlackNotification } from "@/lib/integrations/slack";
 import { getValidHubSpotToken } from "@/lib/integrations/hubspot";
+import { sendTeamsNotification } from "@/app/api/integrations/teams/notify/route";
+import { createNotification } from "@/lib/notifications";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -242,13 +244,13 @@ export async function POST(
       if (ownerId) {
         sendSlackNotification({
           userId: ownerId,
-          message: `${isFirstView ? "✍️" : "👀"} ${recipientName} ${isFirstView ? "opened" : `revisited (visit #${viewCount})`} their signing link for "${documentName}"`,
+          message: `${isFirstView ? "" : ""} ${recipientName} ${isFirstView ? "opened" : `revisited (visit #${viewCount})`} their signing link for "${documentName}"`,
           blocks: [
             {
               type: "section",
               text: {
                 type: "mrkdwn",
-                text: `${isFirstView ? "✍️" : "👀"} *${eventLabel}*\n*${recipientName}* (${recipientEmail}) ${isFirstView ? "just opened" : `revisited (visit #${viewCount})`} their signing link for *${documentName}*`,
+                text: `${isFirstView ? "" : ""} *${eventLabel}*\n*${recipientName}* (${recipientEmail}) ${isFirstView ? "just opened" : `revisited (visit #${viewCount})`} their signing link for *${documentName}*`,
               },
             },
             { type: "divider" },
@@ -260,6 +262,31 @@ export async function POST(
         }).catch(() => {});
       }
 
+      // ── In-app notification ──
+if (ownerId) {
+  createNotification({
+    userId: ownerId,
+    type: 'view',
+    title: isFirstView ? 'Signature Link Opened' : 'Signature Link Revisited',
+    message: `${recipientName} ${isFirstView ? 'opened' : 'revisited'} their signing link for "${documentName}"`,
+    documentId: signatureRequest.documentId?.toString(),
+    metadata: { recipientEmail, recipientName, viewCount },
+  }).catch(() => {})
+}
+
+// ── Teams ──
+if (ownerId) {
+  sendTeamsNotification({
+    userId: ownerId,
+    event: 'document_open',
+    documentName,
+    documentId: signatureRequest.documentId?.toString() || '',
+    viewerName: recipientName,
+    viewerEmail: recipientEmail,
+    extraInfo: `${isFirstView ? 'First time opening' : `Visit number ${viewCount}`} signing link`,
+  }).catch(() => {})
+}
+
       // ── HubSpot ──
       if (ownerId && recipientEmail) {
         syncToHubSpot(
@@ -267,7 +294,7 @@ export async function POST(
           recipientEmail,
           documentName,
           eventLabel,
-          `✍️ ${eventLabel}\n\nDocument: ${documentName}\nRecipient: ${recipientName} (${recipientEmail})\nVisit #${viewCount}\nTime: ${new Date().toLocaleString()}`,
+          ` ${eventLabel}\n\nDocument: ${documentName}\nRecipient: ${recipientName} (${recipientEmail})\nVisit #${viewCount}\nTime: ${new Date().toLocaleString()}`,
           {
             docmetrics_last_document: documentName,
             docmetrics_last_viewed: now.toISOString(),
@@ -385,6 +412,33 @@ export async function POST(
         ).catch(() => {});
       }
 
+      // ── In-app notification ──
+if (ownerId) {
+  createNotification({
+    userId: ownerId,
+    type: 'signature',
+    title: 'Document Signed',
+    message: `${recipientName} signed "${documentName}"`,
+    documentId: signatureRequest.documentId?.toString(),
+    metadata: { recipientEmail, recipientName, totalTime, pagesViewed },
+  }).catch(() => {})
+}
+
+// ── Teams ──
+if (ownerId) {
+  sendTeamsNotification({
+    userId: ownerId,
+    event: 'signature_completed',
+    documentName,
+    documentId: signatureRequest.documentId?.toString() || '',
+    viewerName: recipientName,
+    viewerEmail: recipientEmail,
+    totalTimeSeconds: totalTime,
+    pagesViewed,
+    extraInfo: `Signed after ${formatDuration(totalTime)} reading time`,
+  }).catch(() => {})
+}
+
       // ── Slack ──
       if (ownerId) {
         sendSlackNotification({
@@ -466,6 +520,32 @@ export async function POST(
         }).catch(() => {});
       }
 
+
+      // ── In-app notification ──
+if (ownerId) {
+  createNotification({
+    userId: ownerId,
+    type: 'view',
+    title: 'Signing Declined',
+    message: `${recipientName} declined to sign "${documentName}" — reason: ${reason}`,
+    documentId: signatureRequest.documentId?.toString(),
+    metadata: { recipientEmail, recipientName, reason },
+  }).catch(() => {})
+}
+
+// ── Teams ──
+if (ownerId) {
+  sendTeamsNotification({
+    userId: ownerId,
+    event: 'document_viewed',
+    documentName,
+    documentId: signatureRequest.documentId?.toString() || '',
+    viewerName: recipientName,
+    viewerEmail: recipientEmail,
+    extraInfo: `Declined to sign. Reason: ${reason}`,
+  }).catch(() => {})
+}
+
       // ── HubSpot ──
       if (ownerId && recipientEmail) {
         syncToHubSpot(
@@ -481,6 +561,76 @@ export async function POST(
         ).catch(() => {});
       }
     }
+
+    // ── VIDEO EVENTS ──────────────────────────────────────────────
+else if (
+  action === 'video_watched' ||
+  action === 'video_progress' ||
+  action === 'video_replayed'
+) {
+  await db.collection('analytics_logs').insertOne({
+    documentId: signatureRequest.documentId?.toString(),
+    signatureId,
+    action,
+    pageNumber: body.page,
+    watchPercent: body.percent || (body.watchedFully ? 100 : null),
+    replayedAt: body.replayedAt || null,
+    email: recipientEmail || null,
+    timestamp: now,
+  })
+
+  if (action === 'video_watched' && ownerId) {
+    createNotification({
+      userId: ownerId,
+      type: 'view',
+      title: 'Video Watched During Signing',
+      message: `${recipientName} watched your page ${body.page} walkthrough while reviewing the document`,
+      documentId: signatureRequest.documentId?.toString(),
+      metadata: { page: body.page, recipientEmail },
+    }).catch(() => {})
+
+    sendSlackNotification({
+      userId: ownerId,
+      message: `${recipientName} watched the video walkthrough for page ${body.page} while signing`,
+    }).catch(() => {})
+
+    sendTeamsNotification({
+      userId: ownerId,
+      event: 'document_viewed',
+      documentName,
+      documentId: signatureRequest.documentId?.toString() || '',
+      viewerName: recipientName,
+      viewerEmail: recipientEmail,
+      extraInfo: `Watched video walkthrough for page ${body.page} during signing`,
+    }).catch(() => {})
+  }
+
+  if (action === 'video_replayed' && ownerId) {
+    createNotification({
+      userId: ownerId,
+      type: 'view',
+      title: 'Video Replayed During Signing',
+      message: `${recipientName} replayed your page ${body.page} walkthrough — may need clarification before signing`,
+      documentId: signatureRequest.documentId?.toString(),
+      metadata: { page: body.page, recipientEmail, replayedAt: body.replayedAt },
+    }).catch(() => {})
+
+    sendSlackNotification({
+      userId: ownerId,
+      message: `${recipientName} replayed the page ${body.page} video during signing — possible confusion signal`,
+    }).catch(() => {})
+
+    sendTeamsNotification({
+      userId: ownerId,
+      event: 'document_viewed',
+      documentName,
+      documentId: signatureRequest.documentId?.toString() || '',
+      viewerName: recipientName,
+      viewerEmail: recipientEmail,
+      extraInfo: `Replayed video for page ${body.page} during signing — possible confusion`,
+    }).catch(() => {})
+  }
+}
 
     return NextResponse.json({ success: true });
   } catch (error) {
