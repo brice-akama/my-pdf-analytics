@@ -28,10 +28,8 @@ import {
   Monitor,
   Smartphone,
   Tablet,
-  MapPin,
 } from "lucide-react";
 
-// ── Helpers ──────────────────────────────────────────────────────
 function formatTime(seconds: number): string {
   if (!seconds || seconds < 0) return "0m 0s";
   const mins = Math.floor(seconds / 60);
@@ -61,11 +59,9 @@ function getDeviceIcon(device: string) {
   return <Monitor className="h-3 w-3" />;
 }
 
-// ── Custom Tooltip for the line chart ────────────────────────────
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || !payload.length) return null;
   const data = payload[0]?.payload;
-
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-xl p-3 min-w-[180px]">
       <p className="text-xs font-semibold text-slate-500 mb-2">{label}</p>
@@ -79,10 +75,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <div className="border-t border-slate-100 pt-2 space-y-1">
           {data.topDocs.map((doc: any, i: number) => (
             <div key={i} className="flex items-center justify-between gap-2">
-              <span
-                className="text-xs text-slate-600 truncate max-w-[120px]"
-                title={doc.name}
-              >
+              <span className="text-xs text-slate-600 truncate max-w-[120px]" title={doc.name}>
                 {doc.name}
               </span>
               <span className="text-xs font-semibold text-slate-900 flex-shrink-0">
@@ -96,7 +89,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-// ── KPI Card ─────────────────────────────────────────────────────
 function KPICard({
   icon,
   label,
@@ -128,7 +120,6 @@ function KPICard({
   );
 }
 
-// ── Intent badge ─────────────────────────────────────────────────
 function IntentBadge({ level }: { level: string }) {
   const map: Record<string, string> = {
     high: "bg-green-50 text-green-700 border-green-200",
@@ -144,20 +135,18 @@ function IntentBadge({ level }: { level: string }) {
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────
 export default function DashboardOverview() {
   const router = useRouter();
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contactTab, setContactTab] = useState<"my" | "team">("my");
-  const [showAllContacts, setShowAllContacts] = useState(false)
+  const [showAllContacts, setShowAllContacts] = useState(false);
 
-// Reset show-all when switching tabs
-const handleTabChange = (tab: "my" | "team") => {
-  setContactTab(tab)
-  setShowAllContacts(false)
-}
+  const handleTabChange = (tab: "my" | "team") => {
+    setContactTab(tab);
+    setShowAllContacts(false);
+  };
 
   const fetchAnalytics = useCallback(async () => {
     try {
@@ -176,7 +165,6 @@ const handleTabChange = (tab: "my" | "team") => {
 
   useEffect(() => {
     fetchAnalytics();
-    // Poll every 30s for live viewer count
     const interval = setInterval(fetchAnalytics, 30000);
     return () => clearInterval(interval);
   }, [fetchAnalytics]);
@@ -214,12 +202,307 @@ const handleTabChange = (tab: "my" | "team") => {
     recentNDAs = [],
   } = analytics;
 
-  // X-axis: show every 5th label to avoid crowding
-  const tickFormatter = (val: string, idx: number) =>
-    idx % 5 === 0 ? val : "";
+  const tickFormatter = (val: string, idx: number) => (idx % 5 === 0 ? val : "");
 
   return (
     <div className="space-y-0 bg-white border border-slate-200 rounded-lg overflow-hidden">
+
+      {/* ── Most engaged contacts — shown first ─────────────────── */}
+      <div className="border-b border-slate-100 px-6 py-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">
+              Most engaged contacts
+            </h2>
+            <p className="text-xs text-slate-400">Last 30 days</p>
+          </div>
+          <div className="flex border border-slate-200 rounded-md overflow-hidden text-xs">
+            <button
+              onClick={() => handleTabChange("my")}
+              className={`px-3 py-1.5 font-medium transition-colors ${
+                contactTab === "my"
+                  ? "bg-slate-900 text-white"
+                  : "bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              My visits
+            </button>
+            <button
+              onClick={() => handleTabChange("team")}
+              className={`px-3 py-1.5 font-medium transition-colors border-l border-slate-200 ${
+                contactTab === "team"
+                  ? "bg-slate-900 text-white"
+                  : "bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Team visits
+            </button>
+          </div>
+        </div>
+
+        {(() => {
+          const filtered = mostEngagedContacts.filter((c: any) =>
+            contactTab === "team"
+              ? c.source === "team" || c.source === "both"
+              : c.source === "my" || c.source === "both" || !c.source
+          );
+          const visible = showAllContacts ? filtered : filtered.slice(0, 5);
+
+          if (filtered.length === 0) {
+            return (
+              <div className="text-center py-10">
+                <Users className="h-8 w-8 text-slate-200 mx-auto mb-2" />
+                <p className="text-xs text-slate-400">
+                  {contactTab === "team"
+                    ? "No team document visits yet"
+                    : "No contacts have viewed your documents yet"}
+                </p>
+              </div>
+            );
+          }
+
+          return (
+            <div>
+              <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                <div className="col-span-5">Contact</div>
+                <div className="col-span-3">Document</div>
+                <div className="col-span-1 text-center">Visits ↓</div>
+                <div className="col-span-1 text-center">Docs</div>
+                <div className="col-span-2 text-right">Time spent</div>
+              </div>
+
+              <div className="divide-y divide-slate-50">
+                {visible.map((contact: any, i: number) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-12 gap-2 px-3 py-3 items-center hover:bg-slate-50 transition-colors group"
+                  >
+                    <div className="col-span-5 flex items-center gap-2 min-w-0">
+                      <div
+                        className="h-7 w-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
+                        style={{
+                          background: `hsl(${(contact.email.charCodeAt(0) * 37) % 360}, 55%, 55%)`,
+                        }}
+                      >
+                        {contact.email.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
+                          {contact.email.split("@")[0]}
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          {formatTimeAgo(contact.lastSeen)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="col-span-3 min-w-0">
+                      <p className="text-[10px] text-slate-500 truncate">
+                        {contact.topDocName || "—"}
+                      </p>
+                    </div>
+
+                    <div className="col-span-1 text-center">
+                      <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                        {contact.visits}
+                      </span>
+                    </div>
+
+                    <div className="col-span-1 text-center">
+                      <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                        {contact.docs}
+                      </span>
+                    </div>
+
+                    <div className="col-span-2 text-right">
+                      <span className="text-xs font-mono font-semibold text-slate-700 tabular-nums">
+                        {formatMMSS(contact.totalTime)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {filtered.length > 5 && (
+                <div className="pt-3 border-t border-slate-100 text-center">
+                  <button
+                    onClick={() => setShowAllContacts((prev) => !prev)}
+                    className="text-xs font-medium text-violet-600 hover:text-violet-800 transition-colors"
+                  >
+                    {showAllContacts
+                      ? "Show less"
+                      : `Show ${filtered.length - 5} more contact${filtered.length - 5 !== 1 ? "s" : ""}`}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* ── Top documents + Recent visits + Hot visitors ─────────── */}
+      <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100 border-b border-slate-100">
+
+        {/* Top documents */}
+        <div className="px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
+              Top Documents
+            </h3>
+            <TrendingUp className="h-3.5 w-3.5 text-slate-400" />
+          </div>
+
+          {topDocuments.length === 0 ? (
+            <p className="text-xs text-slate-400 py-4 text-center">No documents yet</p>
+          ) : (
+            <div className="space-y-1">
+              {topDocuments.map((doc: any, i: number) => (
+                <button
+                  key={doc.id}
+                  onClick={() => router.push(`/documents/${doc.id}`)}
+                  className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-slate-50 transition-colors group text-left"
+                >
+                  <span className="text-xs text-slate-400 w-4 flex-shrink-0 font-mono">
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
+                      {doc.name}
+                    </p>
+                    <p className="text-[10px] text-slate-400">{doc.numPages} pages</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Eye className="h-3 w-3 text-slate-300" />
+                    <span className="text-xs font-semibold text-slate-700 tabular-nums">
+                      {doc.views}
+                    </span>
+                  </div>
+                  <ChevronRight className="h-3 w-3 text-slate-300 group-hover:text-violet-400 transition-colors" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent visits */}
+        <div className="px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
+              Recent Visits
+            </h3>
+            <Clock className="h-3.5 w-3.5 text-slate-400" />
+          </div>
+
+          {recentVisits.length === 0 ? (
+            <p className="text-xs text-slate-400 py-4 text-center">No visits yet</p>
+          ) : (
+            <div className="space-y-1">
+              {recentVisits.slice(0, 6).map((visit: any, i: number) => (
+                <button
+                  key={i}
+                  onClick={() => router.push(`/documents/${visit.documentId}`)}
+                  className="w-full flex items-start gap-2 px-2 py-2 rounded hover:bg-slate-50 transition-colors group text-left"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-slate-800 truncate">
+                      {visit.email}
+                    </p>
+                    <p className="text-[10px] text-slate-400 truncate" title={visit.documentName}>
+                      {visit.documentName}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
+                    <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                      {formatTimeAgo(visit.startedAt)}
+                    </span>
+                    <div className="flex items-center gap-1 text-slate-300">
+                      {getDeviceIcon(visit.device)}
+                      {visit.location && (
+                        <span className="text-[9px] text-slate-400 truncate max-w-[60px]">
+                          {visit.location}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Hot visitors + NDAs */}
+        <div className="px-5 py-4 space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
+                Hot Visitors
+              </h3>
+              <Flame className="h-3.5 w-3.5 text-orange-400" />
+            </div>
+
+            {hotVisitors.length === 0 ? (
+              <p className="text-xs text-slate-400 py-2 text-center">
+                No high-intent visitors yet
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {hotVisitors.map((v: any, i: number) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-slate-800 truncate">
+                        {v.email}
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        {v.visits} {v.visits === 1 ? "visit" : "visits"} ·{" "}
+                        {v.totalTime > 0 ? formatTime(v.totalTime) : "—"} ·{" "}
+                        {v.docsViewed} doc{v.docsViewed !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <IntentBadge level={v.intentLevel} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {recentNDAs.length > 0 && (
+            <div className="border-t border-slate-100 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
+                  NDA Signings
+                </h3>
+                <Shield className="h-3.5 w-3.5 text-slate-400" />
+              </div>
+              <div className="space-y-1">
+                {recentNDAs.map((n: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 px-2 py-1.5">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-slate-800 truncate">{n.email}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{n.documentName}</p>
+                    </div>
+                    <span className="text-[10px] text-slate-400 flex-shrink-0">
+                      {formatTimeAgo(n.timestamp)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hotVisitors.length === 0 && recentNDAs.length === 0 && (
+            <div className="text-center py-6">
+              <FileText className="h-8 w-8 text-slate-200 mx-auto mb-2" />
+              <p className="text-xs text-slate-400">
+                Share documents to start tracking engagement
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* ── KPI strip ─────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-5 border-b border-slate-100">
         <KPICard
@@ -250,13 +533,11 @@ const handleTabChange = (tab: "my" | "team") => {
         />
       </div>
 
-      {/* ── Visit stats chart ─────────────────────────────────── */}
-      <div className="px-6 pt-6 pb-2 border-b border-slate-100">
+      {/* ── Visit stats chart — last ──────────────────────────── */}
+      <div className="px-6 pt-6 pb-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">
-              Visit stats
-            </h2>
+            <h2 className="text-sm font-semibold text-slate-900">Visit stats</h2>
             <p className="text-xs text-slate-400">number per day · last 30 days</p>
           </div>
           {liveViewers > 0 && (
@@ -272,11 +553,7 @@ const handleTabChange = (tab: "my" | "team") => {
             data={viewsByDate}
             margin={{ top: 4, right: 16, left: -24, bottom: 0 }}
           >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="#f1f5f9"
-              vertical={false}
-            />
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
             <XAxis
               dataKey="date"
               tick={{ fontSize: 10, fill: "#94a3b8" }}
@@ -316,322 +593,6 @@ const handleTabChange = (tab: "my" | "team") => {
         </ResponsiveContainer>
       </div>
 
-      {/* ── Bottom 3-column section ───────────────────────────── */}
-      <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-
-        {/* Top documents */}
-        <div className="px-5 py-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
-              Top Documents
-            </h3>
-            <TrendingUp className="h-3.5 w-3.5 text-slate-400" />
-          </div>
-
-          {topDocuments.length === 0 ? (
-            <p className="text-xs text-slate-400 py-4 text-center">
-              No documents yet
-            </p>
-          ) : (
-            <div className="space-y-1">
-              {topDocuments.map((doc: any, i: number) => (
-                <button
-                  key={doc.id}
-                  onClick={() => router.push(`/documents/${doc.id}`)}
-                  className="w-full flex items-center gap-3 px-2 py-2 rounded hover:bg-slate-50 transition-colors group text-left"
-                >
-                  <span className="text-xs text-slate-400 w-4 flex-shrink-0 font-mono">
-                    {i + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
-                      {doc.name}
-                    </p>
-                    <p className="text-[10px] text-slate-400">
-                      {doc.numPages} pages
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <Eye className="h-3 w-3 text-slate-300" />
-                    <span className="text-xs font-semibold text-slate-700 tabular-nums">
-                      {doc.views}
-                    </span>
-                  </div>
-                  <ChevronRight className="h-3 w-3 text-slate-300 group-hover:text-violet-400 transition-colors" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Recent visits */}
-        <div className="px-5 py-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
-              Recent Visits
-            </h3>
-            <Clock className="h-3.5 w-3.5 text-slate-400" />
-          </div>
-
-          {recentVisits.length === 0 ? (
-            <p className="text-xs text-slate-400 py-4 text-center">
-              No visits yet
-            </p>
-          ) : (
-            <div className="space-y-1">
-              {recentVisits.slice(0, 6).map((visit: any, i: number) => (
-                <button
-                  key={i}
-                  onClick={() => router.push(`/documents/${visit.documentId}`)}
-                  className="w-full flex items-start gap-2 px-2 py-2 rounded hover:bg-slate-50 transition-colors group text-left"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-800 truncate">
-                      {visit.email}
-                    </p>
-                    <p
-                      className="text-[10px] text-slate-400 truncate"
-                      title={visit.documentName}
-                    >
-                      {visit.documentName}
-                    </p>
-                  </div>
-                  <div className="flex-shrink-0 flex flex-col items-end gap-0.5">
-                    <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                      {formatTimeAgo(visit.startedAt)}
-                    </span>
-                    <div className="flex items-center gap-1 text-slate-300">
-                      {getDeviceIcon(visit.device)}
-                      {visit.location && (
-                        <span className="text-[9px] text-slate-400 truncate max-w-[60px]">
-                          {visit.location}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Hot visitors + NDAs */}
-        <div className="px-5 py-4 space-y-4">
-          {/* Hot visitors */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
-                Hot Visitors
-              </h3>
-               
-            </div>
-
-            {hotVisitors.length === 0 ? (
-              <p className="text-xs text-slate-400 py-2 text-center">
-                No high-intent visitors yet
-              </p>
-            ) : (
-              <div className="space-y-1">
-                {hotVisitors.map((v: any, i: number) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-slate-800 truncate">
-                        {v.email}
-                      </p>
-                      <p className="text-[10px] text-slate-400">
-                        {v.visits} visits · {formatTime(v.totalTime)} ·{" "}
-                        {v.docsViewed} doc
-                        {v.docsViewed !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                    <IntentBadge level={v.intentLevel} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Recent NDA signings */}
-          {recentNDAs.length > 0 && (
-            <div className="border-t border-slate-100 pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-widest">
-                  NDA Signings
-                </h3>
-                <Shield className="h-3.5 w-3.5 text-slate-400" />
-              </div>
-              <div className="space-y-1">
-                {recentNDAs.map((n: any, i: number) => (
-                  <div key={i} className="flex items-center gap-2 px-2 py-1.5">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-slate-800 truncate">
-                        {n.email}
-                      </p>
-                      <p className="text-[10px] text-slate-400 truncate">
-                        {n.documentName}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-slate-400 flex-shrink-0">
-                      {formatTimeAgo(n.timestamp)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Empty state for both */}
-          {hotVisitors.length === 0 && recentNDAs.length === 0 && (
-            <div className="text-center py-6">
-              <FileText className="h-8 w-8 text-slate-200 mx-auto mb-2" />
-              <p className="text-xs text-slate-400">
-                Share documents to start tracking engagement
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-
-
-      {/* ── Most engaged contacts ─────────────────────────────── */}
-      <div className="border-t border-slate-100 px-6 py-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-900">
-              Most engaged contacts
-            </h2>
-            <p className="text-xs text-slate-400">Last 30 days</p>
-          </div>
-          <div className="flex border border-slate-200 rounded-md overflow-hidden text-xs">
-           <button
-  onClick={() => handleTabChange("my")}  
-  className={`px-3 py-1.5 font-medium transition-colors ${
-    contactTab === "my"
-      ? "bg-slate-900 text-white"
-      : "bg-white text-slate-600 hover:bg-slate-50"
-  }`}
->
-  My visits
-</button>
-            <button
-              onClick={() => setContactTab("team")}
-              className={`px-3 py-1.5 font-medium transition-colors border-l border-slate-200 ${
-                contactTab === "team"
-                  ? "bg-slate-900 text-white"
-                  : "bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Team visits
-            </button>
-          </div>
-        </div>
-
-        
-             {(() => {
-  const filtered = mostEngagedContacts.filter((c: any) =>
-    contactTab === "team"
-      ? c.source === "team" || c.source === "both"
-      : c.source === "my" || c.source === "both" || !c.source
-  )
-  const visible = showAllContacts ? filtered : filtered.slice(0, 5)
-
-  if (filtered.length === 0) {
-    return (
-      <div className="text-center py-10">
-        <Users className="h-8 w-8 text-slate-200 mx-auto mb-2" />
-        <p className="text-xs text-slate-400">
-          {contactTab === "team"
-            ? "No team document visits yet"
-            : "No contacts have viewed your documents yet"}
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      {/* Table header */}
-      <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[10px] font-semibold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-        <div className="col-span-5">Contact</div>
-        <div className="col-span-3">Document</div>
-        <div className="col-span-1 text-center">Visits ↓</div>
-        <div className="col-span-1 text-center">Docs</div>
-        <div className="col-span-2 text-right">Time spent</div>
-      </div>
-
-      <div className="divide-y divide-slate-50">
-        {visible.map((contact: any, i: number) => (
-          <div
-            key={i}
-            className="grid grid-cols-12 gap-2 px-3 py-3 items-center hover:bg-slate-50 transition-colors group"
-          >
-            <div className="col-span-5 flex items-center gap-2 min-w-0">
-              <div
-                className="h-7 w-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                style={{
-                  background: `hsl(${(contact.email.charCodeAt(0) * 37) % 360}, 55%, 55%)`,
-                }}
-              >
-                {contact.email.charAt(0).toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
-                  {contact.email.split("@")[0]}
-                </p>
-                <p className="text-[10px] text-slate-400">
-                  {formatTimeAgo(contact.lastSeen)}
-                </p>
-              </div>
-            </div>
-
-            <div className="col-span-3 min-w-0">
-              <p className="text-[10px] text-slate-500 truncate">
-                {contact.topDocName || "—"}
-              </p>
-            </div>
-
-            <div className="col-span-1 text-center">
-              <span className="text-xs font-semibold text-slate-700 tabular-nums">
-                {contact.visits}
-              </span>
-            </div>
-
-            <div className="col-span-1 text-center">
-              <span className="text-xs font-semibold text-slate-700 tabular-nums">
-                {contact.docs}
-              </span>
-            </div>
-
-            <div className="col-span-2 text-right">
-              <span className="text-xs font-mono font-semibold text-slate-700 tabular-nums">
-                {formatMMSS(contact.totalTime)}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Show more / show less */}
-      {filtered.length > 5 && (
-        <div className="pt-3 border-t border-slate-100 text-center">
-          <button
-            onClick={() => setShowAllContacts(prev => !prev)}
-            className="text-xs font-medium text-violet-600 hover:text-violet-800 transition-colors"
-          >
-            {showAllContacts
-              ? "Show less"
-              : `Show ${filtered.length - 5} more contact${filtered.length - 5 !== 1 ? "s" : ""}`}
-          </button>
-        </div>
-      )}
-    </div>
-  )
-})()}
-      </div>
     </div>
   );
 }

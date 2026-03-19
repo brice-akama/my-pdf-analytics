@@ -8,6 +8,7 @@ import { Footer } from "@/components/footer";
 import { HeroSection } from "@/components/hero-section";
 import { Navbar } from "@/components/navbar/navbar";
 import { SocialProofSection } from "@/components/social-proof-section";
+import { FeatureBentoSection } from "@/components/feature-bento-section";
 
 export default function Home() {
   const router = useRouter();
@@ -22,13 +23,17 @@ export default function Home() {
 
   return (
   <>
-    <div className="bg-gradient-to-br from-white via-indigo-50 to-indigo-100">
-      <Navbar />
+
+  
+    <div className="bg-gradient-to-br from-white via-indigo-50 to-indigo-100 -mt-16 pt-16">
+      
       <HeroSection />
     </div>
 
     <SocialProofSection />
     <AnimatedFeaturesSection />
+    <FeatureBentoSection />
+
     <Footer />
   </>
 );

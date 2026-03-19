@@ -4,15 +4,14 @@ import "./globals.css";
 import BackToTop from "@/components/BackToTop";
 import CookieConsent from "@/components/cookies";
 import { Toaster } from 'sonner'
+import { PublicLayout } from "@/components/public-layout"
 
-// Inter font for UI (replaces Geist Sans)
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
 });
 
-// Keep Geist Mono for code blocks
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
@@ -30,11 +29,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable}>
-      <body
-        className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}
-      >
-        {children}
-        <Toaster 
+      <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}>
+        {/*
+          PublicLayout checks the current path:
+          - /dashboard and all sub-routes → Navbar & Footer hidden
+          - all other pages → Navbar & Footer shown normally
+        */}
+        <PublicLayout>
+          {children}
+        </PublicLayout>
+        <Toaster
           position="top-right"
           richColors
           closeButton

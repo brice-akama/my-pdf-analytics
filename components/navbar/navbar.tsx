@@ -11,15 +11,28 @@ import { UserNav } from "./user-nav";
 
 export function Navbar() {
   const [isClient, setIsClient] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
+
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10)
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
   }, []);
 
   const isLoggedIn = false;
 
   return (
-     <header className="sticky top-0 z-[100] w-full bg-transparent">
+    <header
+      className={`sticky top-0 z-[100] w-full transition-all duration-300 ${
+  scrolled
+    ? "bg-white/90 backdrop-blur-md border-b border-slate-200/60 shadow-sm"
+    : "bg-transparent"
+}`}
+    >
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <div className="flex items-center gap-6">
@@ -31,59 +44,30 @@ export function Navbar() {
                 className="h-full w-full"
               >
                 <defs>
-                  <linearGradient
-                    id="mainGradient"
-                    x1="0%"
-                    y1="0%"
-                    x2="100%"
-                    y2="100%"
-                  >
+                  <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" style={{ stopColor: "#8B5CF6", stopOpacity: 1 }} />
                     <stop offset="100%" style={{ stopColor: "#3B82F6", stopOpacity: 1 }} />
                   </linearGradient>
-                  <linearGradient
-                    id="accentGradient"
-                    x1="0%"
-                    y1="0%"
-                    x2="100%"
-                    y2="0%"
-                  >
+                  <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" style={{ stopColor: "#60A5FA", stopOpacity: 1 }} />
                     <stop offset="100%" style={{ stopColor: "#A78BFA", stopOpacity: 1 }} />
                   </linearGradient>
                 </defs>
-                <path
-                  d="M 60 50 L 60 150 L 140 150 L 140 70 L 120 50 Z"
-                  fill="url(#mainGradient)"
-                />
-                <path
-                  d="M 120 50 L 120 70 L 140 70 Z"
-                  fill="url(#accentGradient)"
-                  opacity="0.7"
-                />
+                <path d="M 60 50 L 60 150 L 140 150 L 140 70 L 120 50 Z" fill="url(#mainGradient)" />
+                <path d="M 120 50 L 120 70 L 140 70 Z" fill="url(#accentGradient)" opacity="0.7" />
                 <rect x="75" y="100" width="12" height="30" fill="white" opacity="0.9" rx="2" />
                 <rect x="94" y="85" width="12" height="45" fill="white" opacity="0.9" rx="2" />
                 <rect x="113" y="70" width="12" height="60" fill="white" opacity="0.9" rx="2" />
-                <path
-                  d="M 75 105 L 88 90 L 100 92 L 113 78 L 125 75"
-                  stroke="white"
-                  strokeWidth="3"
-                  fill="none"
-                  strokeLinecap="round"
-                  opacity="0.8"
-                />
+                <path d="M 75 105 L 88 90 L 100 92 L 113 78 L 125 75" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.8" />
                 <circle cx="81" cy="97" r="3" fill="white" />
                 <circle cx="94" cy="91" r="3" fill="white" />
                 <circle cx="107" cy="85" r="3" fill="white" />
                 <circle cx="119" cy="76" r="3" fill="white" />
               </svg>
             </div>
-             <span className="text-xl font-bold text-blue-600">
-  DocMetrics
-</span>
+            <span className="text-xl font-bold text-blue-600">DocMetrics</span>
           </Link>
 
-          {/* Desktop Navigation — only render on client to avoid hydration mismatch */}
           {isClient && (
             <nav className="hidden md:flex items-center gap-4">
               <ProductMenu />
@@ -106,20 +90,17 @@ export function Navbar() {
           ) : (
             isClient && (
               <>
-                <Link href="/login" className="hidden md:block ">
-                  <Button variant="ghost" size="sm">
-                    Login
-                  </Button>
+                <Link href="/login" className="hidden md:block">
+                  <Button variant="ghost" size="sm">Login</Button>
                 </Link>
                 <Link href="/signup">
-                   <Button size="sm" className="hidden md:block bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 shadow-lg hover:shadow-xl transition-shadow">
+                  <Button size="sm" className="hidden md:block bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 shadow-lg hover:shadow-xl transition-shadow">
                     Start Free Trial
                   </Button>
                 </Link>
               </>
             )
           )}
-
           {isClient && <MobileNav />}
         </div>
       </div>

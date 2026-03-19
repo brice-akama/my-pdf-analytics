@@ -167,10 +167,9 @@
 .product-details li { margin-bottom: 0.5rem; }
 
 /* ── Prevent horizontal overflow ── */
-html, body { overflow-x: hidden; }
-#__next  { overflow-x: hidden; }
-main     { overflow-x: hidden; }
-
+html, body { overflow-x: clip; }
+#__next  { overflow-x: clip; }
+main     { overflow-x: clip; }
 /* ── Slide-in animation ── */
 @keyframes slide-in {
   from { transform: translateX(100%); }

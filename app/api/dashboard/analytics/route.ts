@@ -157,46 +157,85 @@ export async function GET(request: NextRequest) {
     }));
 
     // ── Hot visitors (high intent across all docs) ────────────────
-    const viewerActivityMap = new Map<string, {
-      email: string;
-      totalTime: number;
-      visits: number;
-      lastSeen: Date;
-      docs: Set<string>;
-    }>();
+// Use analytics_logs page_view viewTime — sessions.duration is
+// unreliable because session_end rarely fires correctly
+const hotVisitorPageLogs = await db.collection('analytics_logs')
+  .find({
+    documentId: { $in: documentIds },
+    action: 'page_view',
+    $or: [
+      { email: { $exists: true, $ne: null } },
+      { viewerId: { $exists: true, $ne: null } },
+    ],
+  })
+  .toArray()
 
-    allSessionsEver.forEach((s: any) => {
-      const key = s.email || s.viewerId;
-      if (!key) return;
-      const existing = viewerActivityMap.get(key) || {
-        email: s.email || `Anonymous (${s.viewerId?.substring(0, 8)})`,
-        totalTime: 0,
-        visits: 0,
-        lastSeen: new Date(s.startedAt),
-        docs: new Set<string>(),
-      };
-      existing.totalTime += s.duration || 0;
-      existing.visits++;
-      existing.docs.add(s.documentId);
-      if (new Date(s.startedAt) > existing.lastSeen) {
-        existing.lastSeen = new Date(s.startedAt);
-      }
-      viewerActivityMap.set(key, existing);
-    });
+const viewerActivityMap = new Map<string, {
+  email: string
+  totalTime: number
+  visits: number
+  lastSeen: Date
+  docs: Set<string>
+  sessions: Set<string>
+}>()
 
-    const hotVisitors = Array.from(viewerActivityMap.values())
-      .filter(v => v.visits >= 2 || v.totalTime > 120)
-      .sort((a, b) => (b.totalTime + b.visits * 30) - (a.totalTime + a.visits * 30))
-      .slice(0, 5)
-      .map(v => ({
-        email: v.email,
-        visits: v.visits,
-        totalTime: v.totalTime,
-        docsViewed: v.docs.size,
-        lastSeen: v.lastSeen,
-        intentLevel: v.totalTime > 300 ? 'high' : v.totalTime > 120 ? 'medium' : 'low',
-      }));
+// First build visit counts from sessions
+allSessionsEver.forEach((s: any) => {
+  const key = s.email || s.viewerId
+  if (!key) return
+  const existing = viewerActivityMap.get(key) || {
+    email: s.email || `Anonymous (${s.viewerId?.substring(0, 8)})`,
+    totalTime: 0,
+    visits: 0,
+    lastSeen: new Date(s.startedAt),
+    docs: new Set<string>(),
+    sessions: new Set<string>(),
+  }
+  // Count unique sessions only
+  if (!existing.sessions.has(s.sessionId)) {
+    existing.sessions.add(s.sessionId)
+    existing.visits++
+  }
+  existing.docs.add(s.documentId)
+  if (new Date(s.startedAt) > existing.lastSeen) {
+    existing.lastSeen = new Date(s.startedAt)
+  }
+  viewerActivityMap.set(key, existing)
+})
 
+// Then add accurate time from page_view logs
+hotVisitorPageLogs.forEach((log: any) => {
+  const key = log.email || log.viewerId
+  if (!key) return
+  const existing = viewerActivityMap.get(key)
+  if (existing) {
+    existing.totalTime += log.viewTime || 0
+  } else {
+    // Viewer appeared in logs but not in sessions — add them
+    viewerActivityMap.set(key, {
+      email: log.email || `Anonymous (${log.viewerId?.substring(0, 8)})`,
+      totalTime: log.viewTime || 0,
+      visits: 1,
+      lastSeen: new Date(log.timestamp),
+      docs: new Set([log.documentId]),
+      sessions: new Set(),
+    })
+  }
+})
+
+const hotVisitors = Array.from(viewerActivityMap.values())
+  .filter(v => v.visits >= 2 || v.totalTime > 120)
+  .sort((a, b) => (b.totalTime + b.visits * 30) - (a.totalTime + a.visits * 30))
+  .slice(0, 5)
+  .map(v => ({
+    email: v.email,
+    visits: v.visits,
+    totalTime: v.totalTime,
+    docsViewed: v.docs.size,
+    lastSeen: v.lastSeen,
+    intentLevel: v.totalTime > 300 ? 'high' : v.totalTime > 120 ? 'medium' : 'low',
+  }))
+  
     // ── Recent NDA signings ──────────────────────────────────────
     const recentNDAs = await db.collection('nda_acceptances')
       .find({ documentId: { $in: documentIds } })
