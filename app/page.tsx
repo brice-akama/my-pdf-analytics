@@ -4,11 +4,12 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatedFeaturesSection } from "@/components/animated-features-section";
-import { Footer } from "@/components/footer";
 import { HeroSection } from "@/components/hero-section";
 import { Navbar } from "@/components/navbar/navbar";
 import { SocialProofSection } from "@/components/social-proof-section";
 import { FeatureBentoSection } from "@/components/feature-bento-section";
+import { VideoShowcaseSection } from "@/components/video-showcase-section"
+import { FAQSection } from "@/components/faq-section"
 
 export default function Home() {
   const router = useRouter();
@@ -33,8 +34,10 @@ export default function Home() {
     <SocialProofSection />
     <AnimatedFeaturesSection />
     <FeatureBentoSection />
+    <VideoShowcaseSection />
+    <FAQSection />
 
-    <Footer />
+    
   </>
 );
 }

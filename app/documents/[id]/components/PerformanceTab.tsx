@@ -176,7 +176,8 @@ export default function PerformanceTab({
           locations={analytics.locations || []}
         />
       </div>
-
+    
+    
       {analytics.locations && analytics.locations.length > 0 && (
         <div className="py-5 border-b border-slate-100">
           <div className="flex items-center gap-1.5 mb-5">
@@ -271,7 +272,7 @@ export default function PerformanceTab({
               </div>
               {analytics.revisitData.highFrequencyViewers?.length > 0 && (
                 <div className="space-y-2 pt-3 border-t border-slate-100">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">🔥 High-frequency</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest"> High-frequency</p>
                   {analytics.revisitData.highFrequencyViewers.slice(0, 3).map((v: any, i: number) => (
                     <div key={i} className="flex items-center justify-between">
                       <span className="text-xs text-slate-600 truncate flex-1">{v.email || 'Anonymous'}</span>
@@ -284,14 +285,14 @@ export default function PerformanceTab({
             {analytics.intentScores && (
               <div className="md:pl-8 pt-5 md:pt-0 border-t md:border-t-0 border-slate-100">
                 <div className="flex items-center gap-1.5 mb-4">
-                  <Target className="h-3.5 w-3.5 text-orange-400" />
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Buyer Intent</p>
+                   
+                   
                 </div>
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   {[
-                    { label: 'High', value: analytics.intentData?.highIntent || 0, color: 'text-green-600', emoji: '🔥' },
-                    { label: 'Medium', value: analytics.intentData?.mediumIntent || 0, color: 'text-amber-500', emoji: '👀' },
-                    { label: 'Low', value: analytics.intentData?.lowIntent || 0, color: 'text-slate-400', emoji: '😴' },
+                    { label: 'High', value: analytics.intentData?.highIntent || 0, color: 'text-green-600', emoji: '' },
+                    { label: 'Medium', value: analytics.intentData?.mediumIntent || 0, color: 'text-amber-500', emoji: '' },
+                    { label: 'Low', value: analytics.intentData?.lowIntent || 0, color: 'text-slate-400', emoji: '' },
                   ].map((s) => (
                     <div key={s.label}>
                       <div className="text-base mb-0.5">{s.emoji}</div>

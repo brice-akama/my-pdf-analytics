@@ -510,14 +510,21 @@ const realTimeViewers = liveViewers.map((v: any) => ({
       for (const email of viewerEmails) {
         if (!email) continue;
 
-        const emailEvents = await db.collection('analytics_logs')
-          .find({ documentId: id, email, action: 'document_viewed' })
-          .sort({ timestamp: -1 })
-          .toArray();
+        
 
-        const viewCount = emailEvents.length || 1;
-        const lastView = emailEvents[0]?.timestamp || share.tracking?.lastViewedAt || new Date();
-        const timeSpent = emailEvents.reduce((sum: number, e: any) => sum + (e.viewTime || 0), 0);
+        const emailPageLogs = await db.collection('analytics_logs')
+  .find({ documentId: id, email, action: 'page_view' })
+  .sort({ timestamp: -1 })
+  .toArray()
+
+const emailViewedLogs = await db.collection('analytics_logs')
+  .find({ documentId: id, email, action: 'document_viewed' })
+  .sort({ timestamp: -1 })
+  .toArray()
+
+const viewCount = emailViewedLogs.length || 1
+const lastView = emailViewedLogs[0]?.timestamp || share.tracking?.lastViewedAt || new Date()
+const timeSpent = emailPageLogs.reduce((sum: number, e: any) => sum + (e.viewTime || 0), 0)
 
         if (viewerEmailMap.has(email)) {
           const existing = viewerEmailMap.get(email)!;

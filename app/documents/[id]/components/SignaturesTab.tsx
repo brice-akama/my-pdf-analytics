@@ -216,12 +216,7 @@ export default function SignaturesTab({
               className="border-b border-slate-100 last:border-b-0"
             >
               <div className="py-4 flex items-center gap-2 sm:gap-4">
-                <div
-                  className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                  style={{ backgroundColor: r.color || "#9333ea" }}
-                >
-                  {r.name.charAt(0).toUpperCase()}
-                </div>
+                
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">

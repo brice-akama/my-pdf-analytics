@@ -649,11 +649,7 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
                   className="border-b border-slate-100 last:border-b-0"
                 >
                   <div className="py-4 flex items-center gap-2 sm:gap-4">
-                    <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-xs sm:text-sm font-bold flex-shrink-0">
-                      {visit.email !== "Anonymous"
-                        ? visit.email.charAt(0).toUpperCase()
-                        : "?"}
-                    </div>
+                   
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -669,27 +665,27 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
                           {visit.timeAgo}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
-                        <svg
-                          className="h-3.5 w-3.5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={1.5}
-                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                          />
-                        </svg>
-                        <span>
-                          {visit.city && visit.city !== "Unknown"
-                            ? `${visit.city}, `
-                            : ""}
-                          {visit.country}
-                        </span>
-                      </div>
+                       <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+  <svg
+    className="h-3.5 w-3.5"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.5}
+      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+    />
+  </svg>
+  <span>
+    {visit.city && visit.city !== "Unknown"
+      ? `${visit.city}, `
+      : ""}
+    {visit.country}
+  </span>
+</div> 
                     </div>
 
                     <div className="hidden md:flex items-center gap-2 flex-shrink-0">
@@ -760,20 +756,20 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
                           />
                           <span className="text-xs font-semibold text-slate-500">
                             {visit.visitType === "signature"
-  ? "✍️ Signature request"
+  ? " Signature request"
   : visit.visitType === "envelope"
-  ? "📦 Envelope signing"
+  ? " Envelope signing"
   : visit.visitType === "cc"
-  ? "📋 CC recipient view"
+  ? " CC recipient view"
   : "🔗 Share link view"}
                           </span>
                         </div>
-                        <span className="text-xs text-slate-400">
-                          {visit.city && visit.city !== "Unknown"
-                            ? `${visit.city}, `
-                            : ""}
-                          {visit.country}
-                        </span>
+                         <span className="text-xs text-slate-400">
+  {visit.city && visit.city !== "Unknown"
+    ? `${visit.city}, `
+    : ""}
+  {visit.country}
+</span> 
                         <span className="text-xs text-slate-400">
                           {visit.timeAgo}
                         </span>
@@ -1142,13 +1138,7 @@ const completion = viewerPageVideo?.maxCompletion ?? (videoStat?.avgCompletion |
                 style={{ gridTemplateColumns: "1fr 2fr auto auto auto" }}
               >
                 <div className="flex items-center gap-2 pr-4">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs font-bold">
-                      {(lnk.recipientName || lnk.recipientEmail || "P")
-                        .charAt(0)
-                        .toUpperCase()}
-                    </span>
-                  </div>
+                 
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">
                       {lnk.recipientName ||
@@ -1398,13 +1388,7 @@ const completion = viewerPageVideo?.maxCompletion ?? (videoStat?.avgCompletion |
               {/* ── MOBILE LINK CARD ── */}
               <div className="sm:hidden py-4 border-b border-slate-100 last:border-b-0">
                 <div className="flex items-start gap-3">
-                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs font-bold">
-                      {(lnk.recipientName || lnk.recipientEmail || "P")
-                        .charAt(0)
-                        .toUpperCase()}
-                    </span>
-                  </div>
+                  
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">

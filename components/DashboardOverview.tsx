@@ -225,7 +225,7 @@ export default function DashboardOverview() {
                   : "bg-white text-slate-600 hover:bg-slate-50"
               }`}
             >
-              My visits
+              My documents
             </button>
             <button
               onClick={() => handleTabChange("team")}
@@ -235,7 +235,7 @@ export default function DashboardOverview() {
                   : "bg-white text-slate-600 hover:bg-slate-50"
               }`}
             >
-              Team visits
+               Team documents
             </button>
           </div>
         </div>
@@ -278,24 +278,15 @@ export default function DashboardOverview() {
                     className="grid grid-cols-12 gap-2 px-3 py-3 items-center hover:bg-slate-50 transition-colors group"
                   >
                     <div className="col-span-5 flex items-center gap-2 min-w-0">
-                      <div
-                        className="h-7 w-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
-                        style={{
-                          background: `hsl(${(contact.email.charCodeAt(0) * 37) % 360}, 55%, 55%)`,
-                        }}
-                      >
-                        {contact.email.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
-                          {contact.email.split("@")[0]}
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          {formatTimeAgo(contact.lastSeen)}
-                        </p>
-                      </div>
-                    </div>
-
+  <div className="min-w-0">
+    <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
+      {contact.email.split("@")[0]}
+    </p>
+    <p className="text-[10px] text-slate-400">
+      {contact.email} · {formatTimeAgo(contact.lastSeen)}
+    </p>
+  </div>
+</div>
                     <div className="col-span-3 min-w-0">
                       <p className="text-[10px] text-slate-500 truncate">
                         {contact.topDocName || "—"}

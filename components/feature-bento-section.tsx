@@ -17,7 +17,7 @@ const CARDS = [
     iconBg:   "bg-[#bae6fd]",
     iconColor:"text-[#0369a1]",
     tagColor: "text-[#0284c7]",
-    image: "/assets/feature-tracking.png",
+    image: "/assets/performanced-tracking.png",
     imageAlt: "Document Analytics dashboard",
   },
   {
@@ -32,7 +32,7 @@ const CARDS = [
     iconBg:   "bg-[#e9d5ff]",
     iconColor:"text-[#7e22ce]",
     tagColor: "text-[#9333ea]",
-    image: "/assets/feature-dataroom.png",
+    image: "/assets/spaces-dataroom.png",
     imageAlt: "Data Room spaces",
   },
   {
@@ -47,7 +47,7 @@ const CARDS = [
     iconBg:   "bg-[#bae6fd]",
     iconColor:"text-[#075985]",
     tagColor: "text-[#0ea5e9]",
-    image: "/assets/feature-upload.png",
+    image: "/assets/feature-tracking.png",
     imageAlt: "Team collaboration view",
   },
 ]

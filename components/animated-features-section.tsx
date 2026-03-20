@@ -35,7 +35,7 @@ export function AnimatedFeaturesSection() {
 
         {/* CHANGE: mb-16 → mb-10 (tightens space between header and cards) */}
         <div className="mx-auto max-w-3xl text-center mb-10">
-          <h2 className="mb-4 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+          <h2 className="mb-4 text-2xl font-normal tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
             The all‑in‑one platform for deal management
           </h2>
           <p className="text-base text-slate-600 sm:text-lg">
