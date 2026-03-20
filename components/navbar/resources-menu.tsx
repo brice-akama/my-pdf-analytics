@@ -21,12 +21,7 @@ const resources = {
       description: "Quick setup guide to start tracking in minutes",
       icon: Book,
     },
-    {
-      title: "Video Tutorials",
-      href: "/tutorials",
-      description: "Watch step-by-step video guides",
-      icon: Video,
-    },
+    
     {
       title: "Best Practices",
       href: "/blog/best-practices",
@@ -47,12 +42,7 @@ const resources = {
       description: "Get in touch with our team",
       icon: MessageSquare,
     },
-    {
-      title: "API Documentation",
-      href: "/api-docs",
-      description: "Integrate with our RESTful API",
-      icon: Code,
-    },
+    
   ],
 }
 
@@ -89,7 +79,7 @@ export function ResourcesMenu() {
                 {/* Support Section - Right Column */}
                 <div>
                   <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-900">
-                    🆘 Support
+                     Support
                   </h4>
                   <div className="space-y-1">
                     {resources.support.map((item) => (

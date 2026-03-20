@@ -20,7 +20,7 @@ const HIDDEN_ROUTES = [
   "/compliance",
   "/docs",
   "/envelope",
-  "/features",
+  
   "/file-requests",
   "/forgot-password",
   "/invite",
