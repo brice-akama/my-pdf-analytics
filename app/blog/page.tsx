@@ -1,392 +1,337 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, ArrowRight, TrendingUp } from 'lucide-react';
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { Calendar, ArrowRight } from 'lucide-react'
 
 interface BlogPost {
-  _id: string;
-  slug: string;
-  title: string;
-  imageUrl: string;
-  content: string;
-  metaTitle: string;
-  metaDescription: string;
-  author: string;
-  category: string;
-  createdAt: string;
-  updatedAt: string;
+  _id: string
+  slug: string
+  title: string
+  imageUrl: string
+  content: string
+  metaTitle: string
+  metaDescription: string
+  author: string
+  category: string
+  createdAt: string
+  updatedAt: string
 }
 
 export default function BlogPage() {
-  const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const postsPerPage = 12;
+  const [posts, setPosts] = useState<BlogPost[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const postsPerPage = 12
 
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await fetch(`/api/blog`);
-        if (!res.ok) throw new Error('Failed to fetch blog posts');
-
-        const response = await res.json();
-
+        const res = await fetch('/api/blog')
+        if (!res.ok) throw new Error('Failed to fetch blog posts')
+        const response = await res.json()
         if (Array.isArray(response.data)) {
-          setPosts(response.data);
+          setPosts(response.data)
         } else {
-          throw new Error('Unexpected API response format');
+          throw new Error('Unexpected API response format')
         }
       } catch (error: unknown) {
-        if (error instanceof Error) setError(error.message);
-        else setError('An unknown error occurred');
+        if (error instanceof Error) setError(error.message)
+        else setError('An unknown error occurred')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
-
-    fetchPosts();
-  }, []);
+    }
+    fetchPosts()
+  }, [])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
-    });
-  };
+      day: 'numeric',
+    })
+  }
 
-  const stripHtml = (html: string) => {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || '';
-  };
+  const indexOfLastPost = currentPage * postsPerPage
+  const indexOfFirstPost = indexOfLastPost - postsPerPage
+  const currentPosts = posts.slice(indexOfFirstPost, indexOfLastPost)
+  const totalPages = Math.ceil(posts.length / postsPerPage)
 
-  const indexOfLastPost = currentPage * postsPerPage;
-  const indexOfFirstPost = indexOfLastPost - postsPerPage;
-  const currentPosts = posts.slice(indexOfFirstPost, indexOfLastPost);
-  const totalPages = Math.ceil(posts.length / postsPerPage);
-
-  const popularPosts = posts.slice(0, 3);
-
-  // Split posts: first 2 for top row, rest for 3-column grid
-  const topRowPosts = currentPosts.slice(0, 2);
-  const gridPosts = currentPosts.slice(2);
-
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+  const featuredPost = currentPosts[0]
+  const remainingPosts = currentPosts.slice(1)
+  const popularPosts = posts.slice(0, 4)
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading insights...</p>
+          <div className="h-10 w-10 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-slate-500">Loading posts...</p>
         </div>
       </div>
-    );
+    )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-500 text-xl font-semibold">Error: {error}</p>
-        </div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <p className="text-sm text-red-500">{error}</p>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="text-center">
-            <motion.h1 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="text-5xl md:text-6xl font-bold mb-6 tracking-tight"
-            >
-              Insights & Resources
-            </motion.h1>
-            <motion.p 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-xl md:text-2xl text-blue-100 max-w-3xl mx-auto leading-relaxed"
-            >
-              Expert advice, product updates, and industry insights to help you succeed
-            </motion.p>
+    <div className="min-h-screen bg-white">
+
+      {/* ── HERO ── */}
+      <div className="border-b border-slate-100">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 pb-16">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
+              Blog
+            </p>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
+              Insights, guides, and{' '}
+              <span className="text-sky-600">product updates.</span>
+            </h1>
+            <p className="text-base sm:text-lg text-slate-500 leading-relaxed max-w-lg">
+              Practical advice on document sharing, analytics, e-signatures,
+              and everything in between — written for the teams that use
+              DocMetrics every day.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        {/* First Row: 2 Posts + Sidebar */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          {/* First 2 Posts - Takes 2 columns */}
-          <div className="lg:col-span-2">
-            <motion.div 
-              className="grid gap-8"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <AnimatePresence mode="wait">
-                {topRowPosts.length > 0 ? (
-                  topRowPosts.map((post, index) => (
-                    <motion.article
-                      key={post._id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.4, delay: index * 0.1 }}
-                      className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer group border border-gray-100"
-                    >
-                      <Link href={`/blog/${post.slug}`} className="block">
-                        <div className="grid md:grid-cols-5 gap-6">
-                          {/* Image */}
-                          <div className="md:col-span-2 relative overflow-hidden h-64 md:h-auto">
-                            <motion.img
-                              whileHover={{ scale: 1.1 }}
-                              transition={{ duration: 0.5 }}
-                              src={post.imageUrl}
-                              alt={post.title}
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                          </div>
+      {/* ── MAIN CONTENT ── */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16">
+        <div className="grid lg:grid-cols-12 gap-12">
 
-                          {/* Content */}
-                          <div className="md:col-span-3 p-6 md:p-8 flex flex-col justify-between">
-                            <div>
-                              <div className="flex items-center gap-3 mb-4">
-                                <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full uppercase tracking-wide">
-                                  {post.category}
-                                </span>
-                                <div className="flex items-center text-gray-500 text-sm">
-                                  <Calendar className="w-4 h-4 mr-1" />
-                                  {formatDate(post.createdAt)}
-                                </div>
-                              </div>
+          {/* ── LEFT: Posts ── */}
+          <div className="lg:col-span-8 space-y-12">
 
-                              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4 group-hover:text-blue-600 transition-colors duration-200 leading-tight">
-                                {post.title}
-                              </h2>
+            {/* Featured post */}
+            {featuredPost && (
+              <Link href={`/blog/${featuredPost.slug}`} className="group block">
+                <article className="border border-slate-200 rounded-2xl overflow-hidden hover:border-sky-200 transition-colors">
+                  <div className="relative overflow-hidden h-64 sm:h-80">
+                    <img
+                      src={featuredPost.imageUrl}
+                      alt={featuredPost.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="p-6 sm:p-8">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-xs font-semibold uppercase tracking-widest text-sky-600 px-2.5 py-1 bg-sky-50 rounded-full">
+                        {featuredPost.category}
+                      </span>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {formatDate(featuredPost.createdAt)}
+                      </div>
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-3 group-hover:text-sky-600 transition-colors">
+                      {featuredPost.title}
+                    </h2>
+                    <p className="text-base text-slate-500 leading-relaxed mb-4 line-clamp-2">
+                      {featuredPost.metaDescription}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-slate-400">
+                        By{' '}
+                        <span className="font-medium text-slate-600">
+                          {featuredPost.author}
+                        </span>
+                      </p>
+                      <div className="inline-flex items-center gap-2 text-sm font-semibold text-sky-600 group-hover:text-sky-700 transition-colors">
+                        Read article
+                        <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              </Link>
+            )}
 
-                              <p className="text-gray-600 text-base leading-relaxed mb-4 line-clamp-3">
-                                {post.metaDescription}
-                              </p>
+            {/* Divider */}
+            {remainingPosts.length > 0 && (
+              <div className="border-t border-slate-100" />
+            )}
 
-                              <p className="text-sm text-gray-500">
-                                By <span className="font-medium text-gray-700">{post.author}</span>
-                              </p>
-                            </div>
-
-                            <div className="mt-6">
-                              <div className="inline-flex items-center text-blue-600 font-semibold group-hover:text-blue-700 transition-colors">
-                                Read Article
-                                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 transition-transform duration-200" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </Link>
-                    </motion.article>
-                  ))
-                ) : null}
-              </AnimatePresence>
-            </motion.div>
-          </div>
-
-          {/* Sidebar - Most Popular */}
-          <div className="lg:col-span-1">
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-8 shadow-xl sticky top-8"
-            >
-              <div className="flex items-center gap-2 mb-6">
-                <TrendingUp className="w-6 h-6 text-white" />
-                <h3 className="text-2xl font-bold text-white">Most Popular</h3>
-              </div>
-
-              <div className="space-y-6">
-                {popularPosts.map((post, index) => (
-                  <Link 
-                    key={post._id} 
+            {/* Remaining posts grid */}
+            {remainingPosts.length > 0 && (
+              <div className="grid sm:grid-cols-2 gap-8">
+                {remainingPosts.map((post) => (
+                  <Link
+                    key={post._id}
                     href={`/blog/${post.slug}`}
-                    className="block group"
+                    className="group block"
                   >
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      className="bg-white/10 backdrop-blur-sm rounded-xl p-4 hover:bg-white/20 transition-all duration-300 border border-white/20"
-                    >
-                      <div className="flex gap-4">
-                        <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                          <img
-                            src={post.imageUrl}
-                            alt={post.title}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs text-blue-200 uppercase font-semibold tracking-wide">
+                    <article className="border border-slate-200 rounded-2xl overflow-hidden hover:border-sky-200 transition-colors h-full flex flex-col">
+                      <div className="relative overflow-hidden h-44">
+                        <img
+                          src={post.imageUrl}
+                          alt={post.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      </div>
+                      <div className="p-5 flex flex-col flex-1">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xs font-semibold uppercase tracking-widest text-sky-600 px-2 py-0.5 bg-sky-50 rounded-full">
                             {post.category}
                           </span>
-                          <h4 className="text-white font-semibold text-sm mt-1 line-clamp-2 group-hover:text-blue-100 transition-colors">
-                            {post.title}
-                          </h4>
+                        </div>
+                        <h2 className="text-base font-semibold text-slate-900 leading-snug mb-2 group-hover:text-sky-600 transition-colors line-clamp-2 flex-1">
+                          {post.title}
+                        </h2>
+                        <p className="text-sm text-slate-500 leading-relaxed line-clamp-2 mb-4">
+                          {post.metaDescription}
+                        </p>
+                        <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
+                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(post.createdAt)}
+                          </div>
+                          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-600 group-hover:text-sky-700 transition-colors">
+                            Read
+                            <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                          </div>
                         </div>
                       </div>
-                    </motion.div>
+                    </article>
                   </Link>
                 ))}
               </div>
-            </motion.div>
+            )}
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pt-8 border-t border-slate-100">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                {[...Array(totalPages)].map((_, idx) => (
+                  <button
+                    key={idx + 1}
+                    onClick={() => setCurrentPage(idx + 1)}
+                    className={`h-9 w-9 rounded-lg text-sm font-semibold transition-all ${
+                      currentPage === idx + 1
+                        ? 'bg-slate-900 text-white'
+                        : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {idx + 1}
+                  </button>
+                ))}
+                <button
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(p + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Remaining Posts - 3 Column Grid */}
-        {gridPosts.length > 0 && (
-          <motion.div 
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            {gridPosts.map((post, index) => (
-              <motion.article
-                key={post._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.4, delay: index * 0.1 }}
-                className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer group border border-gray-100"
-              >
-                <Link href={`/blog/${post.slug}`} className="block">
-                  {/* Image */}
-                  <div className="relative overflow-hidden h-48">
-                    <motion.img
-                      whileHover={{ scale: 1.1 }}
-                      transition={{ duration: 0.5 }}
-                      src={post.imageUrl}
-                      alt={post.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  </div>
+          {/* ── RIGHT: Sidebar ── */}
+          <div className="lg:col-span-4 space-y-8">
 
-                  {/* Content */}
-                  <div className="p-6 flex flex-col h-64">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full uppercase tracking-wide">
-                          {post.category}
-                        </span>
-                      </div>
-
-                      <h2 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors duration-200 leading-tight line-clamp-2">
+            {/* Popular posts */}
+            <div className="border border-slate-200 rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Popular Posts
+                </p>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {popularPosts.map((post, index) => (
+                  <Link
+                    key={post._id}
+                    href={`/blog/${post.slug}`}
+                    className="group flex items-start gap-4 px-5 py-4 hover:bg-slate-50 transition-colors"
+                  >
+                    <span className="text-xs font-bold text-slate-300 mt-1 w-4 flex-shrink-0 tabular-nums">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-semibold uppercase tracking-widest text-sky-600 block mb-1">
+                        {post.category}
+                      </span>
+                      <p className="text-sm font-medium text-slate-900 leading-snug line-clamp-2 group-hover:text-sky-600 transition-colors">
                         {post.title}
-                      </h2>
-
-                      <p className="text-gray-600 text-sm leading-relaxed mb-3 line-clamp-3">
-                        {post.metaDescription}
                       </p>
-                    </div>
-
-                    <div className="border-t pt-4 mt-auto">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center text-gray-500 text-xs">
-                          <Calendar className="w-3 h-3 mr-1" />
-                          {formatDate(post.createdAt)}
-                        </div>
-                        <div className="inline-flex items-center text-blue-600 font-semibold text-sm group-hover:text-blue-700 transition-colors">
-                          Read
-                          <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform duration-200" />
-                        </div>
+                      <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-400">
+                        <Calendar className="h-3 w-3" />
+                        {formatDate(post.createdAt)}
                       </div>
                     </div>
-                  </div>
-                </Link>
-              </motion.article>
-            ))}
-          </motion.div>
-        )}
+                  </Link>
+                ))}
+              </div>
+            </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-2 mt-12">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => paginate(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              Previous
-            </motion.button>
-            
-            {[...Array(totalPages)].map((_, idx) => (
-              <motion.button
-                key={idx + 1}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => paginate(idx + 1)}
-                className={`w-10 h-10 rounded-lg font-semibold transition-all ${
-                  currentPage === idx + 1
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                }`}
+            {/* Newsletter */}
+            <div className="border border-slate-200 rounded-2xl p-6">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
+                Newsletter
+              </p>
+              <h3 className="text-base font-semibold text-slate-900 mb-2 leading-snug">
+                Get the latest insights in your inbox.
+              </h3>
+              <p className="text-sm text-slate-500 leading-relaxed mb-5">
+                New articles on document sharing, analytics, and closing deals
+                — delivered weekly.
+              </p>
+              <div className="space-y-2">
+                <input
+                  type="email"
+                  placeholder="your@email.com"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                />
+                <button className="w-full bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
+                  Subscribe
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mt-3 text-center">
+                No spam. Unsubscribe anytime.
+              </p>
+            </div>
+
+            {/* CTA */}
+            <div className="bg-sky-600 rounded-2xl p-6 text-center">
+              <h3 className="text-base font-semibold text-white mb-2 leading-snug">
+                Ready to try DocMetrics?
+              </h3>
+              <p className="text-sm text-white/80 leading-relaxed mb-5">
+                Upload your first document and see analytics in under two
+                minutes.
+              </p>
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-5 py-2.5 rounded-xl hover:bg-sky-50 transition-colors text-sm"
               >
-                {idx + 1}
-              </motion.button>
-            ))}
+                Start for free
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <p className="text-xs text-white/60 mt-3">
+                No credit card required
+              </p>
+            </div>
 
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => paginate(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-            >
-              Next
-            </motion.button>
           </div>
-        )}
-      </div>
-
-      {/* Newsletter Section */}
-      <div className="bg-gradient-to-r from-slate-900 to-blue-900 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="text-center"
-          >
-            <h2 className="text-4xl font-bold text-white mb-4">
-              Subscribe to The Weekly Index for exclusive content
-            </h2>
-            <p className="text-blue-200 text-lg mb-8">
-              Get the latest insights delivered straight to your inbox
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="bg-white text-blue-600 px-8 py-4 rounded-full font-semibold text-lg shadow-lg hover:shadow-xl transition-all"
-            >
-              Subscribe Now
-            </motion.button>
-          </motion.div>
         </div>
       </div>
+
     </div>
-  );
+  )
 }

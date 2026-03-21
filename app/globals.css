@@ -249,3 +249,18 @@ main     { overflow-x: clip; }
   75%  { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(-4px); }
 }
+
+.blog-content p {
+  margin-bottom: 1.5rem;
+  line-height: 2;
+}
+
+.blog-content h2 {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.blog-content h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}

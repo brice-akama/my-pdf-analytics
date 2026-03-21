@@ -1,689 +1,499 @@
-"use client";
 
 "use client"
-
-import { useState } from "react"
+import { JSX, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { 
-  ArrowLeft,
-  FileText,
-  TrendingUp,
-  Users,
-  Shield,
-  Target,
-  Zap,
-  CheckCircle2,
-  AlertTriangle,
-  Lightbulb,
-  BarChart3,
-  Clock,
-  Lock,
-  Share2,
-  Eye,
-  Download,
-  Mail,
-  Calendar,
-  Award,
-  ChevronRight,
-  Sparkles,
-  ThumbsUp,
-  ThumbsDown,
-  MessageSquare,
-  FileSignature,
-  Inbox,
-  BookOpen
-} from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
 
-export default function BestPracticesPage() {
-  const router = useRouter()
-  const [activeCategory, setActiveCategory] = useState("getting-started")
+const CATEGORIES = [
+  { id: "sharing", label: "Sharing Documents" },
+  { id: "analytics", label: "Analytics" },
+  { id: "spaces", label: "Spaces" },
+  { id: "signatures", label: "Signatures" },
+  { id: "security", label: "Security" },
+  { id: "bulk", label: "Bulk Sending" },
+]
 
-  const categories = [
-    { id: "getting-started", label: "Getting Started", icon: Sparkles },
-    { id: "document-sharing", label: "Document Sharing", icon: Share2 },
-    { id: "analytics", label: "Analytics & Tracking", icon: BarChart3 },
-    { id: "security", label: "Security", icon: Shield },
-    { id: "collaboration", label: "Collaboration", icon: Users },
-    { id: "optimization", label: "Optimization", icon: TrendingUp }
-  ]
+type Practice = {
+  title: string
+  description: string
+  do: string[]
+  dont: string[]
+}
 
-  const practicesByCategory = {
-    "getting-started": [
-      {
-        icon: Sparkles,
-        title: "Set Up Your Profile Completely",
-        description: "Complete your profile with company information, logo, and branding to build trust with recipients.",
-        do: [
-          "Add your company name and logo",
-          "Fill in contact information",
-          "Customize your email notifications",
-          "Set up your default sharing preferences"
-        ],
-        dont: [
-          "Leave your profile incomplete",
-          "Use a personal email for business documents",
-          "Skip the onboarding tutorial"
-        ],
-        impact: "high",
-        difficulty: "easy"
-      },
-      {
-        icon: FileText,
-        title: "Organize Documents with Clear Naming",
-        description: "Use descriptive, consistent naming conventions to make documents easy to find and manage.",
-        do: [
-          "Use clear, descriptive names (e.g., 'Q4_2024_Sales_Proposal_Acme')",
-          "Include dates in YYYY-MM-DD format",
-          "Use underscores or hyphens, not spaces",
-          "Create folders for different clients or projects"
-        ],
-        dont: [
-          "Use generic names like 'Document1' or 'Final_FINAL'",
-          "Include special characters that cause issues",
-          "Create overly long file names (keep under 50 characters)"
-        ],
-        impact: "medium",
-        difficulty: "easy"
-      },
-      {
-        icon: Target,
-        title: "Define Your Goals Before Sharing",
-        description: "Know what you want to achieve with each document share to measure success effectively.",
-        do: [
-          "Set clear objectives (e.g., get signature, receive feedback)",
-          "Identify your target audience",
-          "Plan your follow-up strategy",
-          "Set deadlines for responses"
-        ],
-        dont: [
-          "Share documents without a clear purpose",
-          "Send to everyone without targeting",
-          "Forget to track outcomes"
-        ],
-        impact: "high",
-        difficulty: "easy"
-      }
-    ],
-    "document-sharing": [
-      {
-        icon: Share2,
-        title: "Choose the Right Sharing Method",
-        description: "Select between link sharing and email-based sharing based on your security needs and audience.",
-        do: [
-          "Use public links for broad audiences (marketing materials)",
-          "Use email-based sharing for specific recipients (contracts)",
-          "Set expiration dates for time-sensitive documents",
-          "Enable email verification for added security"
-        ],
-        dont: [
-          "Share sensitive documents via public links",
-          "Forget to set expiration dates on confidential content",
-          "Share the same link across multiple channels without tracking"
-        ],
-        impact: "high",
-        difficulty: "medium"
-      },
-      {
-        icon: Lock,
-        title: "Set Appropriate Permissions",
-        description: "Control who can view, download, edit, and share your documents to maintain security.",
-        do: [
-          "Restrict downloads for confidential documents",
-          "Enable watermarks for legal documents",
-          "Use password protection for sensitive content",
-          "Set view-only permissions when editing isn't needed"
-        ],
-        dont: [
-          "Give everyone full permissions by default",
-          "Allow downloads of proprietary information",
-          "Forget to revoke access when no longer needed"
-        ],
-        impact: "high",
-        difficulty: "easy"
-      },
-      {
-        icon: Mail,
-        title: "Craft Compelling Share Messages",
-        description: "Include context and clear calls-to-action when sharing documents to improve engagement.",
-        do: [
-          "Personalize the message with recipient's name",
-          "Explain why you're sharing and what action you need",
-          "Set clear deadlines",
-          "Include your contact information for questions"
-        ],
-        dont: [
-          "Send generic messages without context",
-          "Use all caps or excessive exclamation marks",
-          "Write overly long messages (keep to 2-3 sentences)"
-        ],
-        impact: "medium",
-        difficulty: "easy"
-      },
-      {
-        icon: Clock,
-        title: "Time Your Document Shares Strategically",
-        description: "Send documents at optimal times for maximum engagement and response rates.",
-        do: [
-          "Send on Tuesday-Thursday between 10am-2pm (best engagement)",
-          "Avoid Monday mornings and Friday afternoons",
-          "Consider recipient's timezone",
-          "Follow up 2-3 days after initial share if no response"
-        ],
-        dont: [
-          "Send late at night or on weekends",
-          "Share multiple important documents at once",
-          "Forget to schedule reminders for yourself"
-        ],
-        impact: "medium",
-        difficulty: "easy"
-      }
-    ],
-    "analytics": [
-      {
-        icon: BarChart3,
-        title: "Track the Right Metrics",
-        description: "Focus on metrics that align with your business goals and provide actionable insights.",
-        do: [
-          "Monitor view rates (% of recipients who opened)",
-          "Track time spent per page",
-          "Analyze engagement patterns (which pages get most attention)",
-          "Measure conversion rates (views to signatures/responses)"
-        ],
-        dont: [
-          "Focus only on vanity metrics like total views",
-          "Ignore page-by-page analytics",
-          "Compare metrics without context"
-        ],
-        impact: "high",
-        difficulty: "medium"
-      },
-      {
-        icon: Eye,
-        title: "Understand Viewer Behavior",
-        description: "Use engagement data to understand what resonates with your audience and optimize accordingly.",
-        do: [
-          "Note which pages viewers spend most time on",
-          "Identify drop-off points in long documents",
-          "Track re-visits (indicates strong interest)",
-          "Monitor geographic locations for targeting insights"
-        ],
-        dont: [
-          "Make decisions based on a single data point",
-          "Ignore patterns across multiple shares",
-          "Forget to segment data by recipient type"
-        ],
-        impact: "high",
-        difficulty: "medium"
-      },
-      {
-        icon: TrendingUp,
-        title: "Act on Analytics Insights",
-        description: "Use data to improve your documents, timing, and follow-up strategies.",
-        do: [
-          "Follow up quickly after document views",
-          "Shorten documents if you see high drop-off rates",
-          "Test different document formats and measure results",
-          "Create templates based on high-performing documents"
-        ],
-        dont: [
-          "Collect data without taking action",
-          "Make changes based on insufficient data",
-          "Ignore negative trends"
-        ],
-        impact: "high",
-        difficulty: "medium"
-      },
-      {
-        icon: Target,
-        title: "Set Benchmarks and Goals",
-        description: "Establish baseline metrics and track improvement over time.",
-        do: [
-          "Calculate your average view rate",
-          "Set realistic improvement targets (e.g., +10% engagement)",
-          "Compare performance across document types",
-          "Review metrics weekly or monthly"
-        ],
-        dont: [
-          "Compare your metrics to unrelated industries",
-          "Set unrealistic goals without baseline data",
-          "Change too many variables at once when testing"
-        ],
-        impact: "medium",
-        difficulty: "medium"
-      }
-    ],
-    "security": [
-      {
-        icon: Shield,
-        title: "Implement Multi-Layer Security",
-        description: "Use multiple security features to protect sensitive documents from unauthorized access.",
-        do: [
-          "Enable two-factor authentication on your account",
-          "Use password protection for confidential documents",
-          "Set expiration dates on shared links",
-          "Require email verification before viewing"
-        ],
-        dont: [
-          "Reuse passwords across platforms",
-          "Share login credentials with team members",
-          "Leave old share links active indefinitely"
-        ],
-        impact: "high",
-        difficulty: "easy"
-      },
-      {
-        icon: Lock,
-        title: "Control Document Access Carefully",
-        description: "Regularly review and update who has access to your documents.",
-        do: [
-          "Revoke access immediately when someone leaves your organization",
-          "Audit document permissions quarterly",
-          "Use view-only mode by default for external shares",
-          "Log and monitor access for compliance"
-        ],
-        dont: [
-          "Grant 'edit' permissions unless absolutely necessary",
-          "Forget to remove access for external consultants after projects end",
-          "Share admin access broadly"
-        ],
-        impact: "high",
-        difficulty: "medium"
-      },
-      {
-        icon: AlertTriangle,
-        title: "Handle Sensitive Data Properly",
-        description: "Take extra precautions when sharing documents containing personal or confidential information.",
-        do: [
-          "Redact sensitive information before sharing",
-          "Use NDAs before sharing proprietary information",
-          "Enable download restrictions for confidential files",
-          "Add visible watermarks with recipient information"
-        ],
-        dont: [
-          "Include SSNs, credit card numbers, or passwords in documents",
-          "Share financial data without encryption",
-          "Upload HIPAA or PCI-compliant data without proper safeguards"
-        ],
-        impact: "high",
-        difficulty: "medium"
-      },
-      {
-        icon: FileSignature,
-        title: "Use Secure Signature Workflows",
-        description: "Ensure contracts and agreements are signed securely and legally binding.",
-        do: [
-          "Verify signer identities via email confirmation",
-          "Use built-in eSignature features for compliance",
-          "Keep audit trails of all signature activity",
-          "Store signed documents in encrypted format"
-        ],
-        dont: [
-          "Accept unsigned PDFs for legal agreements",
-          "Skip identity verification for important contracts",
-          "Delete signature audit logs"
-        ],
-        impact: "high",
-        difficulty: "easy"
-      }
-    ],
-    "collaboration": [
-      {
-        icon: Users,
-        title: "Coordinate Team Document Sharing",
-        description: "Establish clear processes for how your team creates, shares, and manages documents.",
-        do: [
-          "Create shared folders for team documents",
-          "Use consistent naming conventions across the team",
-          "Assign document ownership and responsibilities",
-          "Set up approval workflows for external shares"
-        ],
-        dont: [
-          "Let everyone share documents without oversight",
-          "Create duplicate documents in multiple locations",
-          "Skip version control"
-        ],
-        impact: "medium",
-        difficulty: "medium"
-      },
-      {
-        icon: MessageSquare,
-        title: "Enable Effective Document Feedback",
-        description: "Make it easy for recipients to provide feedback and ask questions about your documents.",
-        do: [
-          "Include clear instructions for providing feedback",
-          "Enable comments on documents when appropriate",
-          "Respond promptly to questions and comments",
-          "Create a feedback summary after receiving input"
-        ],
-        dont: [
-          "Ignore feedback requests",
-          "Make it difficult for recipients to reach you",
-          "Forget to close the feedback loop"
-        ],
-        impact: "medium",
-        difficulty: "easy"
-      },
-      {
-        icon: Inbox,
-        title: "Streamline File Request Processes",
-        description: "Create organized systems for collecting documents from clients and partners.",
-        do: [
-          "Provide clear instructions on what files you need",
-          "Set deadlines for file submissions",
-          "Send automated reminders",
-          "Organize received files in labeled folders"
-        ],
-        dont: [
-          "Request files via email attachments (use file requests instead)",
-          "Accept files in incompatible formats",
-          "Forget to confirm receipt of files"
-        ],
-        impact: "medium",
-        difficulty: "easy"
-      },
-      {
-        icon: Calendar,
-        title: "Manage Data Room Projects",
-        description: "Use data rooms effectively for complex deals, fundraising, or audits.",
-        do: [
-          "Organize documents in logical folder structures",
-          "Set different permissions for different user groups",
-          "Track who accessed what and when",
-          "Prepare all documents before inviting participants"
-        ],
-        dont: [
-          "Upload disorganized or mislabeled files",
-          "Give everyone access to everything",
-          "Update documents after deal negotiations start"
-        ],
-        impact: "high",
-        difficulty: "hard"
-      }
-    ],
-    "optimization": [
-      {
-        icon: TrendingUp,
-        title: "Optimize Document Structure",
-        description: "Structure your documents for maximum engagement and comprehension.",
-        do: [
-          "Put key information in the first 3 pages",
-          "Use clear headings and page breaks",
-          "Keep total page count under 20 when possible",
-          "Use executive summaries for long documents"
-        ],
-        dont: [
-          "Bury important information deep in the document",
-          "Create documents over 50 pages without navigation",
-          "Use tiny fonts or cramped layouts"
-        ],
-        impact: "high",
-        difficulty: "medium"
-      },
-      {
-        icon: Zap,
-        title: "Improve Document Load Times",
-        description: "Optimize file sizes and formats for faster loading and better user experience.",
-        do: [
-          "Compress PDFs before uploading (target < 10MB)",
-          "Optimize images within documents",
-          "Remove unnecessary embedded fonts",
-          "Test document loading on slower connections"
-        ],
-        dont: [
-          "Upload unnecessarily large files (>50MB)",
-          "Include ultra-high-resolution images",
-          "Embed large videos in PDFs"
-        ],
-        impact: "medium",
-        difficulty: "medium"
-      },
-      {
-        icon: Award,
-        title: "Create Reusable Templates",
-        description: "Build templates for common document types to save time and maintain consistency.",
-        do: [
-          "Create templates for proposals, contracts, and reports",
-          "Include placeholders for customization",
-          "Version control your templates",
-          "Share templates across your team"
-        ],
-        dont: [
-          "Recreate the same document from scratch each time",
-          "Forget to update templates with latest branding",
-          "Use outdated pricing or terms in templates"
-        ],
-        impact: "medium",
-        difficulty: "easy"
-      },
-      {
-        icon: Lightbulb,
-        title: "A/B Test Your Documents",
-        description: "Experiment with different versions to find what works best for your audience.",
-        do: [
-          "Test different document lengths",
-          "Try various cover page designs",
-          "Experiment with pricing presentation",
-          "Measure which version performs better"
-        ],
-        dont: [
-          "Test too many variables at once",
-          "Make conclusions with insufficient sample size",
-          "Forget to document your findings"
-        ],
-        impact: "medium",
-        difficulty: "hard"
-      }
-    ]
-  }
+type PracticesMap = {
+  [key: string]: Practice[]
+}
 
-  const renderPracticeCard = (practice: any, index: number) => (
-    <div key={index} className="bg-white rounded-xl border shadow-sm p-6 hover:shadow-lg transition-all">
-      <div className="flex items-start gap-4 mb-4">
-        <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${
-          practice.impact === 'high' ? 'from-purple-500 to-purple-600' :
-          practice.impact === 'medium' ? 'from-blue-500 to-blue-600' :
-          'from-green-500 to-green-600'
-        } flex items-center justify-center flex-shrink-0`}>
-          <practice.icon className="h-6 w-6 text-white" />
-        </div>
-        
-        <div className="flex-1">
-          <div className="flex items-start justify-between mb-2">
-            <h3 className="text-xl font-bold text-slate-900">{practice.title}</h3>
-            <div className="flex gap-2">
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                practice.impact === 'high' ? 'bg-purple-100 text-purple-700' :
-                practice.impact === 'medium' ? 'bg-blue-100 text-blue-700' :
-                'bg-green-100 text-green-700'
-              }`}>
-                {practice.impact === 'high' ? 'High Impact' : 
-                 practice.impact === 'medium' ? 'Medium Impact' : 'Low Impact'}
-              </span>
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                practice.difficulty === 'easy' ? 'bg-green-100 text-green-700' :
-                practice.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                'bg-red-100 text-red-700'
-              }`}>
-                {practice.difficulty === 'easy' ? 'Easy' : 
-                 practice.difficulty === 'medium' ? 'Medium' : 'Advanced'}
-              </span>
-            </div>
-          </div>
-          <p className="text-slate-600 mb-4">{practice.description}</p>
-        </div>
-      </div>
+const PRACTICES: PracticesMap = {
+  sharing: [
+    {
+      title: "Create a separate link for every recipient",
+      description:
+        "When you share one link with multiple people you lose the ability to know who opened what. Creating a unique link per recipient gives you individual tracking data so you know exactly which person read your document, how long they spent, and when to follow up.",
+      do: [
+        "Generate a new share link for each recipient directly from the document page",
+        "Label each link with the recipient name so you can identify it in your analytics",
+        "Set an expiry date on every link so access does not remain open indefinitely",
+        "Use email verification on links sent to clients or investors for accurate identification",
+      ],
+      dont: [
+        "Send the same link to an entire email list and expect individual tracking to work",
+        "Share links publicly on social media or websites if you need to know who is viewing",
+        "Leave links active after a deal closes or a contract is signed",
+      ],
+    },
+    {
+      title: "Write a message that tells the recipient exactly what to do",
+      description:
+        "The message you add to a share link is the first thing recipients read. A vague message leads to low open rates and no action. A specific message with a clear next step leads to faster responses and more signed contracts.",
+      do: [
+        "State what the document is and why you are sending it in the first sentence",
+        "Tell the recipient exactly what action you need — review and reply, sign by Friday, upload the requested files",
+        "Keep the message to two or three sentences so it is read in full",
+        "Include your name and a direct way to reach you if they have questions",
+      ],
+      dont: [
+        "Send documents with no message at all",
+        "Write a long message that buries the call to action at the bottom",
+        "Use the same generic message for every document you send",
+      ],
+    },
+    {
+      title: "Set the right expiry for every document type",
+      description:
+        "Not all documents should stay accessible forever. A proposal that was not accepted should not be viewable six months later. A contract that was signed does not need an active link. Setting expiry dates protects your information and keeps your link list clean.",
+      do: [
+        "Set 7 to 14 day expiry on proposals and pitch decks",
+        "Set 30 day expiry on documents that require a decision or signature",
+        "Use no expiry only for evergreen materials like product guides or public resources",
+        "Revoke access manually the moment a deal closes or a relationship ends",
+      ],
+      dont: [
+        "Leave sensitive financial documents accessible with no expiry date",
+        "Forget to revoke access for former clients or prospects who did not convert",
+        "Set expiry so short that recipients cannot reasonably review the document",
+      ],
+    },
+  ],
+  analytics: [
+    {
+      title: "Check the page breakdown before every follow-up call",
+      description:
+        "The page-by-page analytics in DocMetrics tell you more about a prospect's state of mind than any email response will. Before you pick up the phone or write a follow-up, spend sixty seconds reviewing which pages they spent the most time on. That data tells you exactly what to lead with.",
+      do: [
+        "Open the document analytics and check which pages had the highest reading time before calling",
+        "If they spent most time on pricing, lead the call with a direct conversation about budget",
+        "If they spent most time on case studies, open with ROI and results from similar clients",
+        "Note which pages were skipped entirely — these are objections waiting to happen",
+      ],
+      dont: [
+        "Follow up with a generic message that ignores what the analytics are telling you",
+        "Assume that a long total reading time means the prospect is ready to buy without checking which pages drove it",
+        "Wait more than 24 hours after a high engagement session to follow up",
+      ],
+    },
+    {
+      title: "Use return visits as your strongest buying signal",
+      description:
+        "A prospect who opens your document once is curious. A prospect who opens it three times in two days is serious. Return visits are the clearest signal that someone is actively evaluating your offer. DocMetrics shows you every return visit with a timestamp so you never miss this moment.",
+      do: [
+        "Set up email notifications so you are alerted to every new view in real time",
+        "Treat any prospect with three or more visits as a priority follow-up within the same day",
+        "Check whether return visits are happening on the same pages or new ones — same pages signal objections, new pages signal deeper evaluation",
+        "Reference the timing naturally in your follow-up — reaching out while the document is fresh increases response rates significantly",
+      ],
+      dont: [
+        "Ignore return visit notifications because you already followed up once",
+        "Wait until the end of the week to batch your follow-ups — timing is everything",
+        "Treat a single 10 second open the same as a 15 minute deep read",
+      ],
+    },
+    {
+      title: "Compare engagement across links to find your best performing content",
+      description:
+        "If you send the same proposal to ten different prospects and some links get high engagement while others get low engagement, the difference is worth understanding. DocMetrics lets you compare link performance so you can identify what is working and apply it everywhere.",
+      do: [
+        "Review your document analytics monthly and look for patterns in which pages consistently lose attention",
+        "Compare engagement between different versions of a proposal to identify which structure performs better",
+        "Use high drop-off pages as a signal to shorten or restructure that section of your document",
+        "Track your average time per page over time and set a personal benchmark to improve against",
+      ],
+      dont: [
+        "Make structural changes to a document based on one low performing share",
+        "Ignore the pages at the end of your document — consistently low engagement there means most people are not finishing",
+        "Confuse total views with engagement quality — ten views averaging 30 seconds is worse than two views averaging 8 minutes",
+      ],
+    },
+  ],
+  spaces: [
+    {
+      title: "Create one Space per client or deal — not one Space for everything",
+      description:
+        "A Space works best when it represents a single relationship or a single deal. Putting all your clients inside one Space creates confusion and makes tracking meaningless. One Space per client means clean analytics, organized folders, and a professional experience for each person you work with.",
+      do: [
+        "Create a new Space the moment you begin working with a new client or opening a new deal",
+        "Name the Space after the client or deal so it is immediately identifiable in your dashboard",
+        "Set up the folder structure before you invite anyone — financial, legal, proposals, deliverables",
+        "Customize the branding with your logo and brand color so every client sees your identity",
+      ],
+      dont: [
+        "Dump all your documents into one Space and invite multiple unrelated clients",
+        "Invite clients before the Space is organized — first impressions matter",
+        "Use the default Space name and skip branding customization",
+      ],
+    },
+    {
+      title: "Use role-based access to control what each person sees",
+      description:
+        "Not everyone you invite to a Space needs to see everything inside it. A legal advisor needs the contracts folder. A financial partner needs the financials. An operations contact needs the project briefs. DocMetrics lets you assign folder-level permissions so each person sees exactly what is relevant to them.",
+      do: [
+        "Review who needs access to what before inviting anyone",
+        "Assign Viewer role to most external contacts by default — upgrade permissions only when needed",
+        "Use folder-level permissions to restrict sensitive financial or legal documents to specific people",
+        "Revoke access immediately when someone's involvement in a deal ends",
+      ],
+      dont: [
+        "Give everyone Admin access because it is easier than thinking through permissions",
+        "Invite external parties to a Space that contains documents from other unrelated clients",
+        "Forget to remove access for advisors or consultants once their work is complete",
+      ],
+    },
+    {
+      title: "Require an NDA before anyone enters a Space with sensitive materials",
+      description:
+        "If your Space contains financial projections, legal documents, proprietary processes, or confidential deal terms, requiring an NDA before entry is not optional — it is standard practice. DocMetrics collects the signature digitally and timestamps it so you have a record without any additional tools.",
+      do: [
+        "Upload your NDA as a PDF and attach it to any Space containing confidential materials before inviting anyone",
+        "Use your own NDA drafted by a legal professional rather than a generic template",
+        "Check your NDA signatures dashboard regularly to confirm all active parties have signed",
+        "Download signed NDA certificates and store them with your deal records",
+      ],
+      dont: [
+        "Share sensitive financial models or proprietary information in a Space without NDA gating",
+        "Use an NDA template found online for high-value deals without having it reviewed",
+        "Forget to check whether all invited parties have actually signed before sharing new sensitive documents",
+      ],
+    },
+  ],
+  signatures: [
+    {
+      title: "Place signature fields after the pages that matter most",
+      description:
+        "Where you place the signature field affects whether people sign. If you drop a signature field on page one before the recipient has read anything, they will not sign it. Place signature fields after the key sections — after the terms, after the pricing, after the scope of work — so the recipient signs with full understanding.",
+      do: [
+        "Read through your document from the recipient's perspective before placing any fields",
+        "Place the signature field immediately after the final terms or key conditions",
+        "Add a date field next to every signature field so the signed date is captured automatically",
+        "Use the text field for any information you need the signer to fill in — name, title, company",
+      ],
+      dont: [
+        "Place signature fields on the first page before the recipient has read the document",
+        "Add so many fields that the signing experience feels like filling out a form",
+        "Forget to add a date field — unsigned dates create compliance issues",
+      ],
+    },
+    {
+      title: "Use sequential signing order when one signature depends on another",
+      description:
+        "If you are sending a contract that requires your client to sign before it goes to their manager for counter-signature, sequential order is not optional — it is the correct workflow. DocMetrics notifies each signer only after the previous person has completed their signature so the order is always respected.",
+      do: [
+        "Enable sequential signing any time one signature logically follows another",
+        "List signers in the order that reflects your actual approval process",
+        "Add a message to each recipient explaining who signs before them and what they are signing",
+        "Set a due date on sequential requests so the chain does not stall indefinitely",
+      ],
+      dont: [
+        "Use any order signing for legal documents where the signing sequence matters for validity",
+        "Set unrealistically short due dates on sequential requests",
+        "Forget to notify the first signer promptly so the chain does not stall at the beginning",
+      ],
+    },
+    {
+      title: "Check the signing analytics before sending a reminder",
+      description:
+        "Before you send a reminder to someone who has not signed yet, check the signature analytics. DocMetrics shows you whether they opened the request, which pages they read, and how far through the document they got. This tells you whether the issue is that they have not opened it or that they read it and are hesitating.",
+      do: [
+        "Open the signatures tab and check the recipient row before sending any reminder",
+        "If they opened the document but did not sign, reach out directly and ask if they have questions",
+        "If they never opened it, a simple reminder email is the right move",
+        "Use the time-to-open and time-to-sign data to identify recipients who need a call rather than an email",
+      ],
+      dont: [
+        "Send a generic reminder to everyone who has not signed without checking whether they opened the request",
+        "Send multiple reminders in one day — one well-timed reminder is more effective than three rushed ones",
+        "Ignore a recipient who opened the document multiple times but still has not signed",
+      ],
+    },
+  ],
+  security: [
+    {
+      title: "Use email verification on every link sent to a named individual",
+      description:
+        "Email verification requires the recipient to confirm their email address before they can view the document. This ensures the person viewing is who you think it is, and gives DocMetrics an accurate name to attach to every page view in your analytics. Without it you are tracking anonymous sessions.",
+      do: [
+        "Enable email verification on any link sent directly to a named client, investor, or prospect",
+        "Use domain restriction instead when sending to an entire company — restrict to their domain so only employees can access",
+        "Leave email verification off for public marketing materials where anonymous access is acceptable",
+        "Review your visitor list after a document is opened to confirm the emails match who you expected",
+      ],
+      dont: [
+        "Send a contract or confidential proposal without any form of recipient verification",
+        "Rely on the recipient's word about who they are without verification on sensitive documents",
+        "Enable email verification on public resources where you want frictionless access",
+      ],
+    },
+    {
+      title: "Enable dynamic watermarking on confidential documents",
+      description:
+        "A dynamic watermark embeds the viewer's email address visibly on every page of the document as they read it. This creates a strong deterrent and provides traceability if confidential information is leaked. For financial models, legal documents, and proprietary processes, watermarking should be standard.",
+      do: [
+        "Enable dynamic watermarking on any document containing financial projections, legal terms, or proprietary information",
+        "Use watermarking alongside download blocking so the document can be read but not saved",
+        "Inform recipients in your share message that the document is watermarked — transparency builds trust",
+        "Keep watermarking off for marketing materials and public resources where it adds friction without benefit",
+      ],
+      dont: [
+        "Rely on watermarking alone as your only security measure for highly sensitive documents",
+        "Watermark documents that recipients are meant to download and use — the watermark will appear in their working copy",
+        "Use a static watermark that does not identify the specific viewer — it provides no traceability",
+      ],
+    },
+    {
+      title: "Audit your active links regularly and revoke anything no longer needed",
+      description:
+        "Over time your DocMetrics account accumulates share links that are no longer relevant — proposals that were not accepted, contracts signed months ago, documents from clients you no longer work with. Leaving these links active is an unnecessary security risk. A monthly audit takes ten minutes and keeps your account clean.",
+      do: [
+        "Set a recurring reminder to review your active links once a month",
+        "Revoke any link attached to a deal that closed, a client relationship that ended, or a superseded document",
+        "Check the compliance page regularly for documents with expired or expiring links that need attention",
+        "Download an audit log export periodically for record keeping on high-value deals",
+      ],
+      dont: [
+        "Leave links active indefinitely because you forgot to revoke them after a deal ended",
+        "Assume that because nobody has viewed a link recently it is safe to leave it open",
+        "Skip the audit because it feels like admin — one leaked confidential document costs more than the time it takes",
+      ],
+    },
+  ],
+  bulk: [
+    {
+      title: "Validate and preview your CSV before sending to hundreds of recipients",
+      description:
+        "Bulk send is powerful but mistakes at scale are expensive. Sending a personalised proposal to 200 people with the wrong name in the greeting or a broken email address is a problem that cannot be undone. DocMetrics validates your CSV and lets you preview the document for individual recipients before anything is sent.",
+      do: [
+        "Download the sample CSV template from the bulk send page and use it as your starting structure",
+        "Check every row for missing names and invalid email formats before uploading",
+        "Use the recipient preview to select three or four different recipients and verify the document looks correct for each",
+        "Send a test batch of five recipients first before sending to your full list",
+      ],
+      dont: [
+        "Upload a CSV and send immediately without previewing at least a sample of recipients",
+        "Use the same email address for multiple rows — duplicate emails produce duplicate sends",
+        "Include special characters or line breaks in name fields that can break the personalisation rendering",
+      ],
+    },
+    {
+      title: "Segment your recipient list so you can follow up meaningfully",
+      description:
+        "After a bulk send, the engagement data becomes most useful when you act on it in segments rather than treating everyone the same. DocMetrics tracks each recipient individually so you can identify who read deeply, who bounced, and who never opened at all. Each group needs a different follow-up.",
+      do: [
+        "After 48 to 72 hours, review the engagement scores for your entire recipient list",
+        "Write a specific follow-up for high engagement recipients that references the document directly",
+        "Send a simple reminder to recipients who never opened — do not assume disinterest, emails are sometimes missed",
+        "Remove recipients with consistently low engagement from future sends rather than continuing to contact them",
+      ],
+      dont: [
+        "Send the same follow-up message to every recipient regardless of whether they opened the document",
+        "Follow up the same day you sent the bulk — give recipients 48 hours before reaching out",
+        "Ignore the recipients with the highest engagement scores because you are busy with other leads",
+      ],
+    },
+    {
+      title: "Use CC recipients on bulk sends for deals that require oversight",
+      description:
+        "When you are bulk sending contracts, offer letters, or compliance documents, there is often someone who needs to be notified when each recipient signs. DocMetrics lets you add CC recipients to a bulk send so the right people are automatically notified at each milestone without you having to manually forward anything.",
+      do: [
+        "Add your manager or legal contact as a CC recipient on any bulk send involving contracts or legally binding documents",
+        "Set CC notifications to trigger on completion if the oversight person only needs to know when everything is done",
+        "Confirm with your CC recipients that they want to receive these notifications before adding them",
+        "Review the CC recipient list before every bulk send to ensure it reflects current team structure",
+      ],
+      dont: [
+        "Add CC recipients who are not directly involved in the deal — unnecessary notifications reduce signal to noise ratio",
+        "Forget to update CC recipients when team members change roles or leave the organisation",
+        "Use CC recipients as a substitute for proper access permissions inside a Space",
+      ],
+    },
+  ],
+}
 
-      <div className="grid md:grid-cols-2 gap-4">
-        {/* Do's */}
-        <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-          <div className="flex items-center gap-2 mb-3">
-            <ThumbsUp className="h-5 w-5 text-green-600" />
-            <h4 className="font-semibold text-green-900">DO</h4>
-          </div>
-          <ul className="space-y-2">
-            {practice.do.map((item: string, i: number) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-green-800">
-                <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Don'ts */}
-        <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-          <div className="flex items-center gap-2 mb-3">
-            <ThumbsDown className="h-5 w-5 text-red-600" />
-            <h4 className="font-semibold text-red-900">DON'T</h4>
-          </div>
-          <ul className="space-y-2">
-            {practice.dont.map((item: string, i: number) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-red-800">
-                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </div>
-  )
+export default function BestPracticesPage(): JSX.Element {
+  const [activeCategory, setActiveCategory] = useState("sharing")
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50/30 to-blue-50/30">
-      {/* Header */}
-      <header className="border-b bg-white">
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="flex h-16 items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.back()}
-              className="gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-            
-            <Link href="/">
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                DocMetrics
-              </span>
-            </Link>
+    <div className="min-h-screen bg-white">
 
-            <Link href="/dashboard">
-              <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
-                Dashboard
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <section className="container mx-auto px-4 py-12 md:py-16">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-            <BookOpen className="h-4 w-4" />
-            Best Practices Guide
-          </div>
-          
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 leading-tight">
-            Master{" "}
-            <span className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              DocMetrics
-            </span>
-          </h1>
-          
-          <p className="text-xl text-slate-600 mb-8 max-w-2xl mx-auto">
-            Learn proven strategies to get more out of your document analytics, 
-            improve engagement, and close deals faster.
+      {/* ── HERO ── */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 pb-20">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
+            Best Practices
           </p>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
+            Get more out of{" "}
+            <span className="text-sky-600">every document you share.</span>
+          </h1>
+          <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
+            Practical guidance on how to use DocMetrics effectively — from
+            setting up your first share link to running a bulk send campaign
+            to thousands of recipients.
+          </p>
+          <Link href="/register">
+            <Button
+              size="lg"
+              className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-6 text-base rounded-xl shadow-md hover:shadow-lg transition-all gap-2"
+            >
+              Start for free
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+          <p className="text-xs text-slate-400 mt-3">No credit card required</p>
         </div>
-      </section>
+      </div>
 
-      {/* Quick Stats */}
-      <section className="container mx-auto px-4 mb-12">
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { icon: FileText, label: "Best Practices", value: "30+", color: "from-blue-500 to-blue-600" },
-            { icon: TrendingUp, label: "Avg. Improvement", value: "+40%", color: "from-green-500 to-green-600" },
-            { icon: Users, label: "Success Stories", value: "1000+", color: "from-purple-500 to-purple-600" },
-            { icon: Award, label: "Expert Tips", value: "50+", color: "from-orange-500 to-orange-600" }
-          ].map((stat, i) => (
-            <div key={i} className="bg-white rounded-xl border shadow-sm p-4 text-center">
-              <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center mx-auto mb-2`}>
-                <stat.icon className="h-5 w-5 text-white" />
+      {/* ── CATEGORY TABS ── */}
+      <div className="border-t border-slate-100 bg-slate-50 sticky top-0 z-10">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-1 overflow-x-auto py-3 scrollbar-none">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeCategory === cat.id
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── PRACTICES ── */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16">
+        <div className="space-y-16">
+          {PRACTICES[activeCategory]?.map((practice, index) => (
+            <div
+              key={index}
+              className="grid lg:grid-cols-12 gap-8 pb-16 border-b border-slate-100 last:border-0 last:pb-0"
+            >
+              {/* Left — title and description */}
+              <div className="lg:col-span-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {index + 1}
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                    Practice {index + 1}
+                  </span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-semibold text-slate-900 leading-snug mb-4">
+                  {practice.title}
+                </h2>
+                <p className="text-base text-slate-500 leading-relaxed">
+                  {practice.description}
+                </p>
               </div>
-              <div className="text-2xl font-bold text-slate-900">{stat.value}</div>
-              <div className="text-xs text-slate-600">{stat.label}</div>
+
+              {/* Right — do and dont */}
+              <div className="lg:col-span-8 grid sm:grid-cols-2 gap-4">
+
+                {/* Do */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+                  <div className="flex items-center gap-2 mb-5">
+                    <div className="h-5 w-5 rounded-full bg-sky-100 flex items-center justify-center flex-shrink-0">
+                      <div className="h-2 w-2 rounded-full bg-sky-600" />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-widest text-sky-600">
+                      Do this
+                    </span>
+                  </div>
+                  <ul className="space-y-4">
+                    {practice.do.map((item, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"
+                      >
+                        <div className="h-1.5 w-1.5 rounded-full bg-sky-400 mt-2 flex-shrink-0" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Dont */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
+                  <div className="flex items-center gap-2 mb-5">
+                    <div className="h-5 w-5 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                      <div className="h-2 w-2 rounded-full bg-red-500" />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-widest text-red-500">
+                      Avoid this
+                    </span>
+                  </div>
+                  <ul className="space-y-4">
+                    {practice.dont.map((item, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"
+                      >
+                        <div className="h-1.5 w-1.5 rounded-full bg-red-300 mt-2 flex-shrink-0" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+              </div>
             </div>
           ))}
         </div>
-      </section>
+      </div>
 
-      {/* Main Content */}
-      <section className="container mx-auto px-4 pb-16">
-        <div className="max-w-6xl mx-auto">
-          {/* Category Tabs */}
-          <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 lg:grid-cols-6 mb-8 bg-white p-1 rounded-xl">
-              {categories.map((cat) => (
-                <TabsTrigger 
-                  key={cat.id} 
-                  value={cat.id}
-                  className="gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-blue-600 data-[state=active]:text-white"
-                >
-                  <cat.icon className="h-4 w-4" />
-                  <span className="hidden md:inline">{cat.label}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            {Object.entries(practicesByCategory).map(([categoryId, practices]) => (
-              <TabsContent key={categoryId} value={categoryId} className="space-y-6">
-                {practices.map((practice, index) => renderPracticeCard(practice, index))}
-              </TabsContent>
-            ))}
-          </Tabs>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-gradient-to-br from-purple-600 to-blue-600 py-16">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center text-white">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Ready to put these into practice?
-            </h2>
-            <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
-              Start applying these best practices today and see measurable improvements 
-              in your document engagement and conversion rates.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Link href="/dashboard">
-                <Button size="lg" className="bg-white text-purple-600 hover:bg-purple-50">
-                  Go to Dashboard
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-              <Link href="/contact">
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10">
-                  Talk to an Expert
-                </Button>
-              </Link>
-            </div>
+      {/* ── CTA ── */}
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+        <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
+            Ready to put this into practice?
+          </h2>
+          <p className="text-base text-white/80 max-w-xl mx-auto mb-8">
+            Everything covered in this guide is available inside DocMetrics
+            today. Upload your first document and start applying these
+            practices in under two minutes.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
+            >
+              Start for free
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/docs"
+              className="inline-flex items-center gap-2 border border-white/40 text-white font-medium px-8 py-3 rounded-xl hover:bg-white/10 transition-colors text-sm"
+            >
+              Read the documentation
+            </Link>
           </div>
+          <p className="text-xs text-white/60 mt-5">No credit card required</p>
         </div>
-      </section>
+      </div>
+
     </div>
   )
 }

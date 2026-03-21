@@ -1,400 +1,380 @@
-'use client';
-import parse from 'html-react-parser';
-import Image from 'next/image';
-import Head from 'next/head';
-import Link from 'next/link';
-import { Calendar, Clock, User, Share2, Facebook, Twitter, Linkedin, Link2, ArrowLeft, ArrowRight } from 'lucide-react';
-import { useState } from 'react';
+'use client'
+import parse from 'html-react-parser'
+import Image from 'next/image'
+import Link from 'next/link'
+import {
+  Calendar,
+  Clock,
+  Facebook,
+  Twitter,
+  Linkedin,
+  Link2,
+  ArrowLeft,
+  ArrowRight,
+  Share2,
+} from 'lucide-react'
+import { useState } from 'react'
 
 interface BlogPost {
-  title: string;
-  content: string;
-  createdAt: string;
-  imageUrl?: string;
-  author?: string;
-  category?: string;
-  metaDescription?: string;
+  title: string
+  content: string
+  createdAt: string
+  imageUrl?: string
+  author?: string
+  category?: string
+  metaDescription?: string
 }
 
 export default function BlogDetails({ post }: { post: BlogPost }) {
-  const [showShareMenu, setShowShareMenu] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false)
+  const [copySuccess, setCopySuccess] = useState(false)
 
   if (!post) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading blog post...</p>
+          <div className="h-10 w-10 border-4 border-sky-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-slate-500">Loading post...</p>
         </div>
       </div>
-    );
+    )
   }
 
-  // Calculate reading time (average 200 words per minute)
-  const wordCount = post.content.replace(/<[^>]*>/g, '').split(/\s+/).length;
-  const readingTime = Math.ceil(wordCount / 200);
-
-  // Structured Data (JSON-LD) for the blog post
-  const structuredData = {
-    '@context': 'https://schema.org',
-    '@type': 'BlogPosting',
-    headline: post.title,
-    image: post.imageUrl || '',
-    datePublished: post.createdAt,
-    dateModified: post.createdAt,
-    author: {
-      '@type': 'Person',
-      name: post.author || 'Author Name',
-    },
-    description: post.metaDescription || post.content.slice(0, 150),
-    articleBody: post.content,
-  };
+  const wordCount = post.content.replace(/<[^>]*>/g, '').split(/\s+/).length
+  const readingTime = Math.ceil(wordCount / 200)
 
   const handleShare = (platform: string) => {
-    const url = window.location.href;
-    const title = post.title;
-
+    const url = window.location.href
+    const title = post.title
     const shareUrls: Record<string, string> = {
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
       twitter: `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`,
       linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
-    };
-
-    if (platform === 'copy') {
-      navigator.clipboard.writeText(url);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-    } else {
-      window.open(shareUrls[platform], '_blank', 'width=600,height=400');
     }
-  };
+    if (platform === 'copy') {
+      navigator.clipboard.writeText(url)
+      setCopySuccess(true)
+      setTimeout(() => setCopySuccess(false), 2000)
+    } else {
+      window.open(shareUrls[platform], '_blank', 'width=600,height=400')
+    }
+  }
+
+  const AnchorTag = 'a' as const
+
+const parseOptions = {
+  replace: (domNode: any) => {
+    if (domNode.type === 'tag' && domNode.name === 'img') {
+      return (
+        <img
+          src={domNode.attribs.src}
+          alt={domNode.attribs.alt || ''}
+          className="w-full h-auto rounded-xl my-8"
+        />
+      )
+    }
+    if (domNode.type === 'tag' && domNode.name === 'a') {
+      const href = domNode.attribs?.href || '#'
+      const text = domNode.children?.[0]?.data ?? ''
+      return (
+        <AnchorTag
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sky-600 hover:underline font-medium"
+        >
+          {text}
+        </AnchorTag>
+      )
+    }
+  },
+}
+
+  const htmlContent = /<\/?[a-z][\s\S]*>/i.test(post.content)
+    ? post.content
+    : post.content
+        .split(/\n{2,}|\r{2,}/)
+        .map((p) => `<p>${p.trim()}</p>`)
+        .join('')
 
   return (
-    <>
-      {/* Add structured data using next/head */}
-      <Head>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(structuredData),
-          }}
-        />
-      </Head>
+    <div className="min-h-screen bg-white">
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-        {/* Back Button & Breadcrumb */}
-        <div className="bg-white border-b border-gray-100">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <nav className="flex items-center space-x-2 text-sm text-gray-600" aria-label="Breadcrumb">
-                <Link href="/" className="hover:text-blue-600 transition-colors">
-                  Home
-                </Link>
-                <span>/</span>
-                <Link href="/blog" className="hover:text-blue-600 transition-colors">
-                  Blog
-                </Link>
-                <span>/</span>
-                <span className="text-gray-400 truncate max-w-xs">{post.title}</span>
-              </nav>
-              
-              <Link 
-                href="/blog" 
-                className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors font-medium"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Back to Blog</span>
+      {/* ── BREADCRUMB ── */}
+      <div className="border-b border-slate-100">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <nav className="flex items-center gap-2 text-sm text-slate-400">
+              <Link href="/" className="hover:text-slate-700 transition-colors">
+                Home
               </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Hero Section */}
-        <div className="relative bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
-          <div className="absolute inset-0 bg-black/20"></div>
-          <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-            {/* Category Badge */}
-            {post.category && (
-              <div className="mb-6">
-                <span className="inline-block px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-sm font-semibold uppercase tracking-wide">
-                  {post.category}
-                </span>
-              </div>
-            )}
-
-            {/* Title */}
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-8 leading-tight">
-              {post.title}
-            </h1>
-
-            {/* Meta Information */}
-            <div className="flex flex-wrap items-center gap-6 text-blue-100">
-              <div className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                <span className="font-medium">{post.author || 'Author Name'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                <span>
-                  {new Date(post.createdAt).toLocaleDateString(undefined, {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5" />
-                <span>{readingTime} min read</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 py-12">
-            {/* Sidebar - Share Buttons (Desktop) */}
-            <div className="hidden lg:block lg:col-span-1">
-              <div className="sticky top-24 space-y-4">
-                <div className="text-sm font-semibold text-gray-500 mb-4">Share</div>
-                <button
-                  onClick={() => handleShare('facebook')}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
-                  aria-label="Share on Facebook"
-                >
-                  <Facebook className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleShare('twitter')}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-sky-500 text-white hover:bg-sky-600 transition-colors shadow-lg hover:shadow-xl"
-                  aria-label="Share on Twitter"
-                >
-                  <Twitter className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleShare('linkedin')}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-700 text-white hover:bg-blue-800 transition-colors shadow-lg hover:shadow-xl"
-                  aria-label="Share on LinkedIn"
-                >
-                  <Linkedin className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleShare('copy')}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-600 text-white hover:bg-gray-700 transition-colors shadow-lg hover:shadow-xl relative"
-                  aria-label="Copy link"
-                >
-                  <Link2 className="w-5 h-5" />
-                  {copySuccess && (
-                    <span className="absolute -right-16 top-1/2 -translate-y-1/2 bg-green-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                      Copied!
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Article Content */}
-            <article className="lg:col-span-8">
-              {/* Featured Image */}
-              {post.imageUrl && (
-                <div className="relative w-full h-[300px] md:h-[500px] rounded-2xl overflow-hidden shadow-2xl mb-12 -mt-24 border-8 border-white">
-                  <Image
-                    src={post.imageUrl}
-                    alt={post.title}
-                    layout="fill"
-                    objectFit="cover"
-                    unoptimized
-                    className="hover:scale-105 transition-transform duration-700"
-                  />
-                </div>
-              )}
-
-              {/* Mobile Share Button */}
-              <div className="lg:hidden mb-8">
-                <button
-                  onClick={() => setShowShareMenu(!showShareMenu)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors shadow-lg"
-                >
-                  <Share2 className="w-4 h-4" />
-                  <span className="font-medium">Share Article</span>
-                </button>
-                
-                {showShareMenu && (
-                  <div className="flex gap-3 mt-4 flex-wrap">
-                    <button
-                      onClick={() => handleShare('facebook')}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
-                    >
-                      <Facebook className="w-4 h-4" />
-                      <span className="text-sm">Facebook</span>
-                    </button>
-                    <button
-                      onClick={() => handleShare('twitter')}
-                      className="flex items-center gap-2 px-4 py-2 bg-sky-500 text-white rounded-full hover:bg-sky-600 transition-colors"
-                    >
-                      <Twitter className="w-4 h-4" />
-                      <span className="text-sm">Twitter</span>
-                    </button>
-                    <button
-                      onClick={() => handleShare('linkedin')}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-full hover:bg-blue-800 transition-colors"
-                    >
-                      <Linkedin className="w-4 h-4" />
-                      <span className="text-sm">LinkedIn</span>
-                    </button>
-                    <button
-                      onClick={() => handleShare('copy')}
-                      className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-full hover:bg-gray-700 transition-colors"
-                    >
-                      <Link2 className="w-4 h-4" />
-                      <span className="text-sm">{copySuccess ? 'Copied!' : 'Copy Link'}</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Article Body */}
-              <div className="prose prose-lg max-w-none 
-                prose-headings:font-bold prose-headings:text-gray-900 prose-headings:tracking-tight
-                prose-h1:text-4xl prose-h1:mb-6 prose-h1:mt-12
-                prose-h2:text-3xl prose-h2:mb-5 prose-h2:mt-10 prose-h2:border-b prose-h2:border-gray-200 prose-h2:pb-3
-                prose-h3:text-2xl prose-h3:mb-4 prose-h3:mt-8
-                prose-h4:text-xl prose-h4:mb-3 prose-h4:mt-6
-                prose-p:text-gray-700 prose-p:leading-8 prose-p:mb-6 prose-p:text-lg
-                prose-a:text-blue-600 prose-a:no-underline hover:prose-a:text-blue-800 hover:prose-a:underline prose-a:font-medium prose-a:transition-colors
-                prose-strong:text-gray-900 prose-strong:font-bold
-                prose-em:text-gray-800 prose-em:italic
-                prose-code:text-blue-600 prose-code:bg-blue-50 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono prose-code:before:content-none prose-code:after:content-none
-                prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:rounded-xl prose-pre:shadow-lg prose-pre:overflow-x-auto
-                prose-blockquote:border-l-4 prose-blockquote:border-blue-600 prose-blockquote:pl-6 prose-blockquote:italic prose-blockquote:text-gray-700 prose-blockquote:bg-blue-50 prose-blockquote:py-4 prose-blockquote:rounded-r-lg
-                prose-ul:list-disc prose-ul:pl-6 prose-ul:mb-6 prose-ul:space-y-2
-                prose-ol:list-decimal prose-ol:pl-6 prose-ol:mb-6 prose-ol:space-y-2
-                prose-li:text-gray-700 prose-li:leading-7
-                prose-img:rounded-2xl prose-img:shadow-2xl prose-img:my-8 prose-img:mx-auto
-                prose-hr:border-gray-200 prose-hr:my-12
-                prose-table:border prose-table:border-gray-200 prose-table:rounded-lg prose-table:overflow-hidden
-                prose-th:bg-gray-100 prose-th:font-semibold prose-th:text-left prose-th:p-3
-                prose-td:p-3 prose-td:border-t prose-td:border-gray-200
-              ">
-                {parse(
-                  /<\/?[a-z][\s\S]*>/i.test(post.content)
-                    ? post.content
-                    : post.content
-                        .split(/\n{2,}|\r{2,}/)
-                        .map(p => `<p>${p.trim()}</p>`)
-                        .join(''),
-                  {
-                    replace: (domNode: any) => {
-                      if (domNode.name === 'img') {
-                        return (
-                          <img
-                            src={domNode.attribs.src}
-                            alt={domNode.attribs.alt || ''}
-                            className="max-w-full w-full h-auto rounded-2xl shadow-2xl my-8 mx-auto"
-                          />
-                        );
-                      }
-                      if (domNode.name === 'a') {
-                        return (
-                          <a
-                            href={domNode.attribs.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 transition-colors font-medium"
-                          >
-                            {domNode.children[0]?.data}
-                          </a>
-                        );
-                      }
-                    },
-                  }
-                )}
-              </div>
-
-              {/* Tags Section (if you have tags) */}
-              <div className="mt-12 pt-8 border-t border-gray-200">
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-sm font-semibold text-gray-500">Tags:</span>
-                  {/* Add your tags here */}
-                  <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full hover:bg-gray-200 transition-colors cursor-pointer">
-                    {post.category || 'Technology'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Author Bio Section */}
-              <div className="mt-12 p-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100">
-                <div className="flex items-start gap-6">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-                    {(post.author || 'A')[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      About {post.author || 'the Author'}
-                    </h3>
-                    <p className="text-gray-600 leading-relaxed">
-                      A passionate writer sharing insights and expertise on topics that matter. 
-                      Follow for more in-depth articles and industry analysis.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </article>
-
-            {/* Right Sidebar - Table of Contents or Related Posts */}
-            <aside className="lg:col-span-3">
-              <div className="sticky top-24">
-                <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="w-1 h-6 bg-blue-600 rounded"></span>
-                    Quick Navigation
-                  </h3>
-                  <div className="space-y-3 text-sm">
-                    <Link href="/blog" className="block text-gray-600 hover:text-blue-600 transition-colors">
-                      ← Back to all articles
-                    </Link>
-                    <Link href="/" className="block text-gray-600 hover:text-blue-600 transition-colors">
-                      Go to homepage
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Newsletter Signup */}
-                <div className="mt-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg p-6 text-white">
-                  <h3 className="text-xl font-bold mb-3">Stay Updated</h3>
-                  <p className="text-blue-100 text-sm mb-4">
-                    Get the latest insights delivered to your inbox
-                  </p>
-                  <button className="w-full bg-white text-blue-600 py-2 px-4 rounded-lg font-semibold hover:bg-blue-50 transition-colors">
-                    Subscribe
-                  </button>
-                </div>
-              </div>
-            </aside>
-          </div>
-        </div>
-
-        {/* Bottom CTA Section */}
-        <div className="bg-gradient-to-r from-gray-900 to-blue-900 text-white py-16">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Ready to explore more insights?
-            </h2>
-            <p className="text-blue-200 text-lg mb-8">
-              Discover more articles, tips, and resources on our blog
-            </p>
+              <span>/</span>
+              <Link href="/blog" className="hover:text-slate-700 transition-colors">
+                Blog
+              </Link>
+              <span>/</span>
+              <span className="text-slate-600 truncate max-w-xs">
+                {post.title}
+              </span>
+            </nav>
             <Link
               href="/blog"
-              className="inline-flex items-center gap-2 bg-white text-blue-600 px-8 py-4 rounded-full font-semibold text-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+              className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
             >
-              View All Articles
-              <ArrowRight className="w-5 h-5" />
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Back to Blog</span>
             </Link>
           </div>
         </div>
       </div>
-    </>
-  );
+
+      {/* ── HERO ── */}
+      <div className="border-b border-slate-100">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-12 pb-10">
+
+          <div className="flex items-center gap-3 mb-5">
+            {post.category && (
+              <span className="text-xs font-semibold uppercase tracking-widest text-sky-600 px-2.5 py-1 bg-sky-50 rounded-full">
+                {post.category}
+              </span>
+            )}
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <Calendar className="h-3.5 w-3.5" />
+              {new Date(post.createdAt).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <Clock className="h-3.5 w-3.5" />
+              {readingTime} min read
+            </div>
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
+            {post.title}
+          </h1>
+
+          {post.metaDescription && (
+            <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-6 max-w-2xl">
+              {post.metaDescription}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-sm font-bold text-slate-600">
+                  {(post.author || 'A')[0].toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">
+                  {post.author || 'DocMetrics Team'}
+                </p>
+                <p className="text-xs text-slate-400">Author</p>
+              </div>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2">
+              <span className="text-xs font-medium text-slate-400 mr-1">Share</span>
+              {[
+                { platform: 'facebook', icon: Facebook, label: 'Facebook' },
+                { platform: 'twitter', icon: Twitter, label: 'Twitter' },
+                { platform: 'linkedin', icon: Linkedin, label: 'LinkedIn' },
+                { platform: 'copy', icon: Link2, label: copySuccess ? 'Copied' : 'Copy' },
+              ].map(({ platform, icon: Icon, label }) => (
+                <button
+                  key={platform}
+                  onClick={() => handleShare(platform)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowShareMenu(!showShareMenu)}
+              className="sm:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              Share
+            </button>
+          </div>
+
+          {showShareMenu && (
+            <div className="sm:hidden flex flex-wrap gap-2 mt-4">
+              {[
+                { platform: 'facebook', icon: Facebook, label: 'Facebook' },
+                { platform: 'twitter', icon: Twitter, label: 'Twitter' },
+                { platform: 'linkedin', icon: Linkedin, label: 'LinkedIn' },
+                { platform: 'copy', icon: Link2, label: copySuccess ? 'Copied' : 'Copy link' },
+              ].map(({ platform, icon: Icon, label }) => (
+                <button
+                  key={platform}
+                  onClick={() => handleShare(platform)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── FEATURED IMAGE ── */}
+      {post.imageUrl && (
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-10">
+          <div className="relative w-full h-64 sm:h-96 rounded-2xl overflow-hidden border border-slate-200">
+            <Image
+              src={post.imageUrl}
+              alt={post.title}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── MAIN CONTENT ── */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid lg:grid-cols-12 gap-12">
+
+          {/* ── ARTICLE ── */}
+          <article className="lg:col-span-8">
+            <div className="prose prose-slate max-w-none blog-content ...">
+              {parse(htmlContent, parseOptions)}
+            </div>
+
+            {/* ── TAGS ── */}
+            <div className="mt-10 pt-8 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-medium text-slate-400">Tags:</span>
+             
+            </div>
+
+            {/* ── AUTHOR BIO ── */}
+            <div className="mt-10 border border-slate-200 rounded-2xl p-6 flex items-start gap-5">
+              <div className="h-14 w-14 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-lg font-bold text-slate-600">
+                  {(post.author || 'A')[0].toUpperCase()}
+                </span>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900 mb-1">
+                  {post.author || 'DocMetrics Team'}
+                </p>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  Writing about document sharing, analytics, and how teams use
+                  DocMetrics to track engagement and close deals faster.
+                </p>
+              </div>
+            </div>
+
+            {/* ── BACK TO BLOG ── */}
+            <div className="mt-10 pt-8 border-t border-slate-100">
+              <Link
+                href="/blog"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to all articles
+              </Link>
+            </div>
+          </article>
+
+          {/* ── SIDEBAR ── */}
+          <aside className="lg:col-span-4 space-y-6">
+            <div className="sticky top-8 space-y-6">
+
+              <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100">
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                    Navigation
+                  </p>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  <Link
+                    href="/blog"
+                    className="flex items-center gap-2 px-5 py-3.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5 text-slate-400" />
+                    Back to all articles
+                  </Link>
+                  <Link
+                    href="/"
+                    className="flex items-center gap-2 px-5 py-3.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+                    Go to homepage
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="flex items-center gap-2 px-5 py-3.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
+                    Try DocMetrics free
+                  </Link>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-2xl p-6">
+                <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
+                  Newsletter
+                </p>
+                <h3 className="text-base font-semibold text-slate-900 mb-2 leading-snug">
+                  Get the latest insights in your inbox.
+                </h3>
+                <p className="text-sm text-slate-500 leading-relaxed mb-4">
+                  New articles on document sharing, analytics, and closing
+                  deals — delivered weekly.
+                </p>
+                <div className="space-y-2">
+                  <input
+                    type="email"
+                    placeholder="your@email.com"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                  />
+                  <button className="w-full bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
+                    Subscribe
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-3 text-center">
+                  No spam. Unsubscribe anytime.
+                </p>
+              </div>
+
+              <div className="bg-sky-600 rounded-2xl p-6 text-center">
+                <h3 className="text-base font-semibold text-white mb-2 leading-snug">
+                  Ready to try DocMetrics?
+                </h3>
+                <p className="text-sm text-white/80 leading-relaxed mb-5">
+                  Upload your first document and see analytics in under two
+                  minutes.
+                </p>
+                <Link
+                  href="/register"
+                  className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-5 py-2.5 rounded-xl hover:bg-sky-50 transition-colors text-sm"
+                >
+                  Start for free
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <p className="text-xs text-white/60 mt-3">
+                  No credit card required
+                </p>
+              </div>
+
+            </div>
+          </aside>
+
+        </div>
+      </div>
+
+    </div>
+  )
 }

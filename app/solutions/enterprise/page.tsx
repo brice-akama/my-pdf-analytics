@@ -1,812 +1,582 @@
-"use client";
-import React, { JSX, useState } from "react";
-import { Building2, Shield, Users, Zap, HeadphonesIcon, Globe, Lock, Award, CheckCircle2, TrendingUp, BarChart3, Clock, FileText, Settings, Database, Workflow, PhoneCall, Mail, Calendar, ArrowRight, Star, Target, Briefcase, LineChart, Cloud, Server, Key, UserCheck, GitBranch, Package, Cpu, HardDrive } from "lucide-react";
+"use client"
+import { JSX, useState } from "react"
+import Link from "next/link"
+import { ArrowRight, Plus, Minus } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import Image from "next/image"
 
-export default function EnterprisePage(): JSX.Element {
-  const [selectedPlan, setSelectedPlan] = useState<"team" | "enterprise">("enterprise");
+const FAQS = [
+  {
+    question: "Do my clients need to create an account to view documents?",
+    answer:
+      "No. Anyone you share a link with can open and view the document instantly with no sign-up, no login, and no friction. You track everything on your end while they experience a seamless viewing flow.",
+  },
+  {
+    question: "Can I brand the client portal with my own logo and colors?",
+    answer:
+      "Yes. Every Space and share link can be customized with your logo, brand color, welcome message, and company name so clients experience your brand rather than DocMetrics.",
+  },
+  {
+    question: "Can I require clients to sign an NDA before viewing anything?",
+    answer:
+      "Yes. You can attach an NDA to any Space or document. Clients must sign it digitally before they can access any materials. Signatures are timestamped and stored automatically.",
+  },
+  {
+    question: "How do I collect files from clients?",
+    answer:
+      "You can create a file request inside any Space. Set a title, message, list of expected files, and a due date. Clients receive a secure upload link and their files land directly in the folder you specify.",
+  },
+  {
+    question: "Can clients ask questions about the documents inside their portal?",
+    answer:
+      "Yes. Every Space has a Q&A tab where clients can ask questions directly inside the portal. You receive a notification and reply from your dashboard. All questions and answers are visible to the relevant parties.",
+  },
+  {
+    question: "Can I control what each client sees inside a shared portal?",
+    answer:
+      "Yes. You assign roles to each person you invite — Admin, Member, or Viewer. You can also set folder-level permissions so each person only sees the documents they are meant to see.",
+  },
+  {
+    question: "Can I track whether a client actually read what I sent them?",
+    answer:
+      "Yes. DocMetrics tracks time spent on every page of every document inside your portal. You see exactly who read what, how long they spent, and whether they came back for a second look.",
+  },
+  {
+    question: "Is there an audit log so I can prove what was shared and when?",
+    answer:
+      "Yes. Every Space has a full audit log recording every action — every document opened, every page viewed, every file downloaded, and every login — with a timestamp and the name of the person who performed it.",
+  },
+]
 
-  const trustedCompanies = [
-    { name: "Fortune 500", logo: "🏢", industry: "Technology" },
-    { name: "Global Bank", logo: "🏦", industry: "Finance" },
-    { name: "Healthcare Corp", logo: "🏥", industry: "Healthcare" },
-    { name: "Retail Giant", logo: "🛒", industry: "Retail" },
-    { name: "Consulting Firm", logo: "💼", industry: "Consulting" },
-    { name: "Manufacturing Co", logo: "🏭", industry: "Manufacturing" }
-  ];
+function FAQItem({
+  faq,
+  isOpen,
+  onToggle,
+}: {
+  faq: typeof FAQS[0]
+  isOpen: boolean
+  onToggle: () => void
+}) {
+  return (
+    <div className="border-b border-slate-200 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-6 py-5 text-left group"
+      >
+        <span
+          className={`text-base font-medium transition-colors duration-150 ${
+            isOpen
+              ? "text-[#0284c7]"
+              : "text-slate-900 group-hover:text-[#0284c7]"
+          }`}
+        >
+          {faq.question}
+        </span>
+        <span
+          className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full border transition-all duration-200 ${
+            isOpen
+              ? "bg-[#0ea5e9] border-[#0ea5e9] text-white"
+              : "border-slate-300 text-slate-400 group-hover:border-[#0ea5e9] group-hover:text-[#0ea5e9]"
+          }`}
+        >
+          {isOpen ? (
+            <Minus className="h-3.5 w-3.5" />
+          ) : (
+            <Plus className="h-3.5 w-3.5" />
+          )}
+        </span>
+      </button>
+      <div
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{ maxHeight: isOpen ? 400 : 0 }}
+      >
+        <p className="pb-5 text-sm sm:text-base text-slate-500 leading-relaxed max-w-2xl">
+          {faq.answer}
+        </p>
+      </div>
+    </div>
+  )
+}
 
-  const enterpriseFeatures = [
-    {
-      category: "Security & Compliance",
-      icon: Shield,
-      color: "blue",
-      features: [
-        { name: "SSO/SAML Authentication", included: true },
-        { name: "SOC 2 Type II Certified", included: true },
-        { name: "GDPR & CCPA Compliant", included: true },
-        { name: "Custom Data Retention Policies", included: true },
-        { name: "Advanced Audit Logs", included: true },
-        { name: "HIPAA Compliance Available", included: true },
-        { name: "On-Premise Deployment Option", included: true },
-        { name: "Dedicated Security Team", included: true }
-      ]
-    },
-    {
-      category: "Scale & Performance",
-      icon: Zap,
-      color: "orange",
-      features: [
-        { name: "Unlimited Documents", included: true },
-        { name: "Unlimited Team Members", included: true },
-        { name: "Custom API Rate Limits", included: true },
-        { name: "99.99% Uptime SLA", included: true },
-        { name: "Dedicated Infrastructure", included: true },
-        { name: "Global CDN", included: true },
-        { name: "Priority Processing", included: true },
-        { name: "Load Balancing", included: true }
-      ]
-    },
-    {
-      category: "Advanced Features",
-      icon: Settings,
-      color: "purple",
-      features: [
-        { name: "Custom Integrations", included: true },
-        { name: "White-Label Solution", included: true },
-        { name: "Advanced Analytics & BI", included: true },
-        { name: "Custom Workflow Automation", included: true },
-        { name: "Multi-Workspace Management", included: true },
-        { name: "Advanced Permissions & Roles", included: true },
-        { name: "Custom Branding", included: true },
-        { name: "API Access & Webhooks", included: true }
-      ]
-    },
-    {
-      category: "Support & Success",
-      icon: HeadphonesIcon,
-      color: "green",
-      features: [
-        { name: "24/7 Priority Support", included: true },
-        { name: "Dedicated Account Manager", included: true },
-        { name: "Technical Success Manager", included: true },
-        { name: "Custom Onboarding Program", included: true },
-        { name: "Quarterly Business Reviews", included: true },
-        { name: "Training & Certification", included: true },
-        { name: "99% First Response SLA", included: true },
-        { name: "Direct Engineering Access", included: true }
-      ]
-    }
-  ];
+function FeatureBlock({
+  step,
+  label,
+  title,
+  description,
+  bullets,
+  imageSrc,
+  imageAlt,
+  reverse,
+}: {
+  step: string
+  label: string
+  title: string
+  description: string
+  bullets: string[]
+  imageSrc: string
+  imageAlt: string
+  reverse?: boolean
+}) {
+  return (
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+      <div
+        className={`grid lg:grid-cols-2 gap-12 lg:gap-20 items-center ${
+          reverse ? "lg:grid-flow-dense" : ""
+        }`}
+      >
+        <div className={reverse ? "lg:col-start-2" : ""}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              {step}
+            </div>
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+              {label}
+            </span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
+            {title}
+          </h2>
+          <p className="text-base text-slate-500 leading-relaxed mb-6">
+            {description}
+          </p>
+          <ul className="space-y-3">
+            {bullets.map((b, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"
+              >
+                <div className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-2 flex-shrink-0" />
+                {b}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div
+          className={`flex items-center justify-center ${
+            reverse ? "lg:col-start-1 lg:row-start-1" : ""
+          }`}
+        >
+          <Image
+            src={imageSrc}
+            alt={imageAlt}
+            width={520}
+            height={420}
+            className="w-full h-auto"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
 
-  const comparisonData = [
-    { feature: "Users", team: "Up to 50", enterprise: "Unlimited" },
-    { feature: "Documents", team: "10,000/month", enterprise: "Unlimited" },
-    { feature: "API Calls", team: "10,000/hour", enterprise: "Custom" },
-    { feature: "Storage", team: "1TB", enterprise: "Unlimited" },
-    { feature: "Support", team: "Email (24hr)", enterprise: "24/7 Priority" },
-    { feature: "SSO", team: "❌", enterprise: "✓" },
-    { feature: "Custom Integration", team: "❌", enterprise: "✓" },
-    { feature: "SLA", team: "99.5%", enterprise: "99.99%" },
-    { feature: "Dedicated Manager", team: "❌", enterprise: "✓" },
-    { feature: "Custom Contract", team: "❌", enterprise: "✓" }
-  ];
+function AudienceBlock({
+  label,
+  title,
+  description,
+  bullets,
+  imageSrc,
+  imageAlt,
+  reverse,
+}: {
+  label: string
+  title: string
+  description: string
+  bullets: string[]
+  imageSrc: string
+  imageAlt: string
+  reverse?: boolean
+}) {
+  return (
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+      <div
+        className={`grid lg:grid-cols-2 gap-12 lg:gap-20 items-center ${
+          reverse ? "lg:grid-flow-dense" : ""
+        }`}
+      >
+        <div className={reverse ? "lg:col-start-2" : ""}>
+          <p className="text-xs font-bold uppercase tracking-widest text-sky-500 mb-4">
+            {label}
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
+            {title}
+          </h2>
+          <p className="text-base text-slate-500 leading-relaxed mb-6">
+            {description}
+          </p>
+          <ul className="space-y-3">
+            {bullets.map((b, i) => (
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"
+              >
+                <div className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-2 flex-shrink-0" />
+                {b}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div
+          className={`flex items-center justify-center ${
+            reverse ? "lg:col-start-1 lg:row-start-1" : ""
+          }`}
+        >
+          <Image
+            src={imageSrc}
+            alt={imageAlt}
+            width={520}
+            height={420}
+            className="w-full h-auto"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function ClientPortalsPage(): JSX.Element {
+  const [openIndex, setOpenIndex] = useState<number | null>(0)
+  const toggle = (i: number) => setOpenIndex(openIndex === i ? null : i)
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="container mx-auto px-4 py-12 max-w-7xl">
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-            <Building2 className="h-4 w-4" />
-            Enterprise Solutions
-          </div>
-          <h1 className="text-4xl md:text-6xl font-bold text-slate-900 mb-6">
-            Built for Enterprise Scale
-          </h1>
-          <p className="text-xl text-slate-600 max-w-3xl mx-auto mb-8">
-            Secure, scalable document analytics for organizations that need enterprise-grade 
-            features, compliance, and dedicated support. Trusted by Fortune 500 companies worldwide.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button className="bg-blue-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-700 transition-colors shadow-lg">
-              Schedule Demo
-            </button>
-            <button className="bg-white text-blue-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-50 transition-colors border-2 border-blue-600">
-              Contact Sales
-            </button>
-          </div>
-        </div>
 
-        {/* Trusted By Section */}
-        <div className="mb-20">
-          <p className="text-center text-slate-600 mb-8 font-medium">
-            Trusted by leading organizations across industries
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {trustedCompanies.map((company, idx) => (
-              <div 
-                key={idx}
-                className="bg-white rounded-xl border-2 border-slate-200 p-6 hover:border-blue-300 hover:shadow-lg transition-all text-center"
-              >
-                <div className="text-4xl mb-2">{company.logo}</div>
-                <div className="font-semibold text-slate-900 text-sm mb-1">{company.name}</div>
-                <div className="text-xs text-slate-500">{company.industry}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Stats Section */}
-        <div className="mb-20">
-          <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-12 text-white">
-            <h2 className="text-3xl font-bold text-center mb-12">
-              Enterprise Impact at Scale
-            </h2>
-            <div className="grid md:grid-cols-4 gap-8">
-              <div className="text-center">
-                <div className="text-5xl font-bold mb-2">500+</div>
-                <div className="text-blue-100">Enterprise Customers</div>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl font-bold mb-2">99.99%</div>
-                <div className="text-blue-100">Uptime SLA</div>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl font-bold mb-2">50M+</div>
-                <div className="text-blue-100">Documents Tracked</div>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl font-bold mb-2">24/7</div>
-                <div className="text-blue-100">Priority Support</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Why Enterprise Section */}
-        <div className="mb-20">
-          <h2 className="text-3xl font-bold text-slate-900 text-center mb-4">
-            Why Choose DocMetri Enterprise?
-          </h2>
-          <p className="text-slate-600 text-center mb-12 max-w-3xl mx-auto">
-            Go beyond standard features with enterprise-grade security, dedicated support, 
-            and custom solutions tailored to your organization's needs.
-          </p>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-8 border-2 border-blue-200">
-              <Shield className="h-12 w-12 text-blue-600 mb-4" />
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Enterprise Security</h3>
-              <p className="text-slate-700 mb-4">
-                SOC 2 Type II certified with SSO, advanced encryption, and compliance with 
-                GDPR, CCPA, and HIPAA standards.
-              </p>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Single Sign-On (SSO/SAML)</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Advanced audit logging</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Custom data retention</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>On-premise deployment</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-8 border-2 border-purple-200">
-              <Zap className="h-12 w-12 text-purple-600 mb-4" />
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Unlimited Scale</h3>
-              <p className="text-slate-700 mb-4">
-                Built to handle millions of documents and thousands of users with 
-                guaranteed 99.99% uptime and lightning-fast performance.
-              </p>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Unlimited documents & users</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Dedicated infrastructure</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Custom API rate limits</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Global CDN delivery</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-8 border-2 border-green-200">
-              <HeadphonesIcon className="h-12 w-12 text-green-600 mb-4" />
-              <h3 className="text-xl font-bold text-slate-900 mb-3">White-Glove Support</h3>
-              <p className="text-slate-700 mb-4">
-                Dedicated account team including success manager, technical expert, 
-                and 24/7 priority support with direct engineering access.
-              </p>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Dedicated account manager</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Technical success manager</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>24/7 priority support</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-slate-700">
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Quarterly business reviews</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Enterprise Features Grid */}
-        <div className="mb-20 border-t pt-16">
-          <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">
-            Comprehensive Enterprise Features
-          </h2>
-
-          <div className="space-y-8">
-            {enterpriseFeatures.map((category, idx) => (
-              <div key={idx} className="bg-white rounded-xl border-2 border-slate-200 overflow-hidden">
-                <div className={`bg-${category.color}-50 border-b border-slate-200 p-6`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`h-12 w-12 rounded-xl bg-${category.color}-100 flex items-center justify-center`}>
-                      <category.icon className={`h-6 w-6 text-${category.color}-600`} />
-                    </div>
-                    <h3 className="text-xl font-bold text-slate-900">{category.category}</h3>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {category.features.map((feature, featureIdx) => (
-                      <div key={featureIdx} className="flex items-start gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
-                        <span className="text-sm text-slate-700">{feature.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Comparison Table */}
-        <div className="mb-20 border-t pt-16">
-          <h2 className="text-3xl font-bold text-slate-900 text-center mb-4">
-            Team vs Enterprise Comparison
-          </h2>
-          <p className="text-slate-600 text-center mb-12 max-w-2xl mx-auto">
-            See how Enterprise features compare to our Team plan. Need something custom? 
-            We can build a solution tailored to your needs.
-          </p>
-
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b-2 border-slate-200">
-                  <th className="text-left p-4 font-bold text-slate-900">Feature</th>
-                  <th className="text-center p-4">
-                    <div className="inline-block">
-                      <div className="font-bold text-slate-900 mb-1">Team</div>
-                      <div className="text-sm text-slate-600">$99/month</div>
-                    </div>
-                  </th>
-                  <th className="text-center p-4">
-                    <div className="inline-block">
-                      <div className="font-bold text-blue-600 mb-1">Enterprise</div>
-                      <div className="text-sm text-slate-600">Custom Pricing</div>
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {comparisonData.map((row, idx) => (
-                  <tr key={idx} className={idx % 2 === 0 ? "bg-slate-50" : ""}>
-                    <td className="p-4 font-medium text-slate-900">{row.feature}</td>
-                    <td className="p-4 text-center text-slate-700">{row.team}</td>
-                    <td className="p-4 text-center text-blue-600 font-semibold">{row.enterprise}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Use Cases */}
-        <div className="mb-20 border-t pt-16">
-          <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">
-            Enterprise Use Cases
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-8 border-2 border-blue-200">
-              <Briefcase className="h-10 w-10 text-blue-600 mb-4" />
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Global Sales Organizations</h3>
-              <p className="text-slate-700 mb-4">
-                Track proposal engagement across hundreds of sales reps worldwide. Integrate with 
-                Salesforce, HubSpot, or your custom CRM for seamless workflow automation.
-              </p>
-              <div className="bg-white rounded-lg p-4 border border-blue-200">
-                <div className="text-sm font-semibold text-slate-900 mb-2">Key Benefits:</div>
-                <ul className="space-y-1 text-xs text-slate-700">
-                  <li>• Multi-region compliance (GDPR, CCPA, PIPEDA)</li>
-                  <li>• Centralized analytics dashboard</li>
-                  <li>• Role-based access control by region</li>
-                  <li>• Custom reporting for leadership</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-8 border-2 border-purple-200">
-              <FileText className="h-10 w-10 text-purple-600 mb-4" />
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Legal & Financial Services</h3>
-              <p className="text-slate-700 mb-4">
-                Secure document sharing with advanced audit trails, SOC 2 compliance, and 
-                granular permissions for sensitive contracts and financial documents.
-              </p>
-              <div className="bg-white rounded-lg p-4 border border-purple-200">
-                <div className="text-sm font-semibold text-slate-900 mb-2">Key Benefits:</div>
-                <ul className="space-y-1 text-xs text-slate-700">
-                  <li>• Complete audit trail logging</li>
-                  <li>• Document expiration controls</li>
-                  <li>• Watermarking and DRM options</li>
-                  <li>• Compliance reporting dashboards</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-8 border-2 border-green-200">
-              <Building2 className="h-10 w-10 text-green-600 mb-4" />
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Healthcare Organizations</h3>
-              <p className="text-slate-700 mb-4">
-                HIPAA-compliant document tracking for patient information, research data, and 
-                internal communications with end-to-end encryption.
-              </p>
-              <div className="bg-white rounded-lg p-4 border border-green-200">
-                <div className="text-sm font-semibold text-slate-900 mb-2">Key Benefits:</div>
-                <ul className="space-y-1 text-xs text-slate-700">
-                  <li>• HIPAA compliance certification</li>
-                  <li>• BAA (Business Associate Agreement)</li>
-                  <li>• PHI data encryption at rest and in transit</li>
-                  <li>• Access logging and monitoring</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-8 border-2 border-orange-200">
-              <Target className="h-10 w-10 text-orange-600 mb-4" />
-              <h3 className="text-xl font-bold text-slate-900 mb-3">Marketing & PR Agencies</h3>
-              <p className="text-slate-700 mb-4">
-                White-label solution for agencies managing multiple client accounts with separate 
-                workspaces, billing, and custom branding.
-              </p>
-              <div className="bg-white rounded-lg p-4 border border-orange-200">
-                <div className="text-sm font-semibold text-slate-900 mb-2">Key Benefits:</div>
-                <ul className="space-y-1 text-xs text-slate-700">
-                  <li>• Multi-tenant architecture</li>
-                  <li>• Custom branding per client</li>
-                  <li>• Consolidated billing and reporting</li>
-                  <li>• Agency-level analytics dashboard</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Implementation Process */}
-        <div className="mb-20 border-t pt-16">
-          <h2 className="text-3xl font-bold text-slate-900 text-center mb-4">
-            Enterprise Onboarding Process
-          </h2>
-          <p className="text-slate-600 text-center mb-12 max-w-2xl mx-auto">
-            Our structured onboarding ensures a smooth transition with minimal disruption 
-            to your operations. From planning to go-live in 4-6 weeks.
-          </p>
-
-          <div className="grid md:grid-cols-4 gap-6">
-            {[
-              {
-                step: "1",
-                title: "Discovery & Planning",
-                duration: "Week 1",
-                icon: Calendar,
-                color: "blue",
-                items: ["Requirements gathering", "Technical assessment", "Success criteria definition", "Implementation roadmap"]
-              },
-              {
-                step: "2",
-                title: "Configuration & Integration",
-                duration: "Week 2-3",
-                icon: Settings,
-                color: "purple",
-                items: ["SSO setup", "API integration", "Custom workflows", "Data migration"]
-              },
-              {
-                step: "3",
-                title: "Training & Testing",
-                duration: "Week 4-5",
-                icon: Users,
-                color: "green",
-                items: ["Admin training", "User workshops", "UAT testing", "Documentation review"]
-              },
-              {
-                step: "4",
-                title: "Launch & Support",
-                duration: "Week 6+",
-                icon: Zap,
-                color: "orange",
-                items: ["Production launch", "Monitoring & optimization", "Ongoing support", "Quarterly reviews"]
-              }
-            ].map((phase, idx) => (
-              <div key={idx} className="relative">
-                <div className={`bg-gradient-to-br from-${phase.color}-50 to-${phase.color}-100 rounded-xl p-6 border-2 border-${phase.color}-200 h-full`}>
-                  <div className={`h-12 w-12 rounded-full bg-${phase.color}-600 text-white flex items-center justify-center text-xl font-bold mb-4`}>
-                    {phase.step}
-                  </div>
-                  <h3 className="font-bold text-slate-900 mb-2">{phase.title}</h3>
-                  <div className={`text-xs font-semibold text-${phase.color}-600 mb-4`}>{phase.duration}</div>
-                  <ul className="space-y-2">
-                    {phase.items.map((item, itemIdx) => (
-                      <li key={itemIdx} className="flex items-start gap-2 text-xs text-slate-700">
-                        <CheckCircle2 className={`h-3 w-3 text-${phase.color}-600 mt-0.5 flex-shrink-0`} />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                {idx < 3 && (
-                  <ArrowRight className="hidden md:block absolute top-1/2 -right-3 transform -translate-y-1/2 h-6 w-6 text-slate-300 z-10" />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Testimonials */}
-        <div className="mb-20 border-t pt-16">
-          <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">
-            What Enterprise Customers Say
-          </h2>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                quote: "DocMetri Enterprise transformed how we track proposal engagement across 50+ sales reps. The SSO integration was seamless, and our close rates improved by 35% in the first quarter.",
-                author: "Michael Chen",
-                role: "VP of Sales",
-                company: "TechCorp International",
-                rating: 5
-              },
-              {
-                quote: "As a healthcare organization, HIPAA compliance was non-negotiable. DocMetri's dedicated security team and BAA made implementation straightforward. The audit logs are comprehensive.",
-                author: "Dr. Sarah Williams",
-                role: "Chief Information Officer",
-                company: "HealthCare Systems",
-                rating: 5
-              },
-              {
-                quote: "The white-label solution lets us offer document analytics to our 200+ clients under our brand. The dedicated account manager has been invaluable for custom feature requests.",
-                author: "James Rodriguez",
-                role: "Managing Director",
-                company: "Global Marketing Agency",
-                rating: 5
-              }
-            ].map((testimonial, idx) => (
-              <div key={idx} className="bg-white rounded-xl border-2 border-slate-200 p-6">
-                <div className="flex gap-1 mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                  ))}
-                </div>
-                <p className="text-slate-700 mb-6 italic">"{testimonial.quote}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                    {testimonial.author.split(' ').map(n => n[0]).join('')}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-900">{testimonial.author}</div>
-                    <div className="text-sm text-slate-600">{testimonial.role}</div>
-                    <div className="text-xs text-slate-500">{testimonial.company}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Security & Compliance */}
-        <div className="mb-20 border-t pt-16">
-          <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">
-            Enterprise-Grade Security & Compliance
-          </h2>
-
-          <div className="grid md:grid-cols-4 gap-6 mb-8">
-            {[
-              { icon: Shield, label: "SOC 2 Type II", color: "blue" },
-              { icon: Lock, label: "GDPR Compliant", color: "green" },
-              { icon: Award, label: "ISO 27001", color: "purple" },
-              { icon: FileText, label: "HIPAA Ready", color: "orange" }
-            ].map((cert, idx) => (
-              <div key={idx} className={`bg-${cert.color}-50 rounded-xl p-6 border-2 border-${cert.color}-200 text-center`}>
-                <cert.icon className={`h-10 w-10 text-${cert.color}-600 mx-auto mb-3`} />
-                <div className="font-bold text-slate-900">{cert.label}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-slate-50 rounded-xl p-8 border-2 border-slate-200">
-            <h3 className="font-bold text-slate-900 mb-6 text-center">Comprehensive Security Features</h3>
-            <div className="grid md:grid-cols-3 gap-6">
-              <div>
-                <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <Lock className="h-5 w-5 text-blue-600" />
-                  Data Protection
-                </h4>
-                <ul className="space-y-2 text-sm text-slate-700">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>AES-256 encryption at rest</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>TLS 1.3 in transit</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>End-to-end encryption</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Key management service</span>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <UserCheck className="h-5 w-5 text-purple-600" />
-                  Access Control
-                </h4>
-                <ul className="space-y-2 text-sm text-slate-700">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>SSO/SAML 2.0</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Multi-factor authentication</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Role-based permissions</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Session management</span>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <Database className="h-5 w-5 text-green-600" />
-                  Compliance & Audit
-                </h4>
-                <ul className="space-y-2 text-sm text-slate-700">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Complete audit trails</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Data retention policies</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Regular security audits</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Penetration testing</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Infrastructure */}
-        <div className="mb-20 border-t pt-16">
-          <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">
-            Enterprise Infrastructure
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-8 border-2 border-blue-200">
-              <div className="flex items-center gap-3 mb-6">
-                <Server className="h-8 w-8 text-blue-600" />
-                <h3 className="text-xl font-bold text-slate-900">Dedicated Infrastructure</h3>
-              </div>
-              <p className="text-slate-700 mb-6">
-                Choose between our cloud infrastructure or deploy on-premise for maximum control 
-                and compliance with data sovereignty requirements.
-              </p>
-              <div className="space-y-4">
-                <div className="bg-white rounded-lg p-4 border border-blue-200">
-                  <div className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
-                    <Cloud className="h-5 w-5 text-blue-600" />
-                    Cloud Deployment
-                  </div>
-                  <ul className="space-y-1 text-sm text-slate-700">
-                    <li>• Multi-region availability</li>
-                    <li>• Auto-scaling capabilities</li>
-                    <li>• 99.99% uptime SLA</li>
-                    <li>• Managed infrastructure</li>
-                  </ul>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-blue-200">
-                  <div className="font-semibold text-slate-900 mb-2 flex items-center gap-2">
-                    <HardDrive className="h-5 w-5 text-blue-600" />
-                    On-Premise Option
-                  </div>
-                  <ul className="space-y-1 text-sm text-slate-700">
-                    <li>• Full data control</li>
-                    <li>• Custom infrastructure</li>
-                    <li>• Air-gapped deployment</li>
-                    <li>• Compliance flexibility</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-8 border-2 border-purple-200">
-              <div className="flex items-center gap-3 mb-6">
-                <Cpu className="h-8 w-8 text-purple-600" />
-                <h3 className="text-xl font-bold text-slate-900">Performance & Reliability</h3>
-              </div>
-              <p className="text-slate-700 mb-6">
-                Built on enterprise-grade infrastructure with redundancy, monitoring, and 
-                guaranteed uptime to ensure your business never stops.
-              </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white rounded-lg p-4 border border-purple-200 text-center">
-                  <div className="text-3xl font-bold text-purple-600 mb-1">99.99%</div>
-                  <div className="text-xs text-slate-600">Uptime SLA</div>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-purple-200 text-center">
-                  <div className="text-3xl font-bold text-purple-600 mb-1">&lt;100ms</div>
-                  <div className="text-xs text-slate-600">API Response</div>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-purple-200 text-center">
-                  <div className="text-3xl font-bold text-purple-600 mb-1">24/7</div>
-                  <div className="text-xs text-slate-600">Monitoring</div>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-purple-200 text-center">
-                  <div className="text-3xl font-bold text-purple-600 mb-1">Auto</div>
-                  <div className="text-xs text-slate-600">Failover</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* FAQ */}
-        <div className="mb-20 border-t pt-16">
-          <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">
-            Enterprise FAQs
-          </h2>
-
-          <div className="max-w-3xl mx-auto space-y-4">
-            {[
-              {
-                q: "What's included in Enterprise pricing?",
-                a: "Enterprise pricing is customized based on your needs and includes unlimited users, documents, API calls, dedicated support, SSO, custom integrations, and SLA guarantees. Contact sales for a personalized quote."
-              },
-              {
-                q: "How long does implementation take?",
-                a: "Most enterprise implementations are completed within 4-6 weeks from contract signing to production launch. Complex integrations or custom requirements may extend this timeline."
-              },
-              {
-                q: "Can we deploy DocMetri on-premise?",
-                a: "Yes! We offer on-premise deployment for enterprises with specific data sovereignty or security requirements. This includes full installation support and ongoing maintenance."
-              },
-              {
-                q: "What compliance certifications do you have?",
-                a: "We are SOC 2 Type II certified, GDPR and CCPA compliant, ISO 27001 certified, and offer HIPAA compliance with a Business Associate Agreement (BAA) for healthcare organizations."
-              },
-              {
-                q: "Do you offer custom integrations?",
-                a: "Absolutely! Our engineering team can build custom integrations with your CRM, ERP, data warehouse, or any internal systems. We also provide API access and webhooks for DIY integrations."
-              },
-              {
-                q: "What does the SLA cover?",
-                a: "Our Enterprise SLA guarantees 99.99% uptime, first response times under 1 hour for critical issues, and dedicated support channels. Financial credits are provided if we don't meet our commitments."
-              }
-            ].map((faq, idx) => (
-              <div key={idx} className="bg-white rounded-xl border-2 border-slate-200 p-6">
-                <h4 className="font-bold text-slate-900 mb-2">{faq.q}</h4>
-                <p className="text-sm text-slate-600">{faq.a}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* CTA Section */}
-        <div className="text-center">
-          <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-12 text-white">
-            <Building2 className="h-16 w-16 mx-auto mb-6 opacity-90" />
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Ready to Scale with Enterprise?
-            </h2>
-            <p className="text-lg text-blue-100 mb-8 max-w-2xl mx-auto">
-              Join hundreds of enterprise organizations that trust DocMetri for their document 
-              analytics needs. Let's discuss how we can support your specific requirements.
+      {/* ── HERO ── */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 pb-20">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
+              Client Portals
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-              <button 
-                className="bg-white text-blue-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-50 transition-colors shadow-lg"
-                aria-label="Schedule enterprise demo"
-              >
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Schedule Demo
-                </div>
-              </button>
-              <button 
-                className="bg-blue-700 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-800 transition-colors border-2 border-white"
-                aria-label="Contact sales team"
-              >
-                <div className="flex items-center gap-2">
-                  <PhoneCall className="h-5 w-5" />
-                  Contact Sales
-                </div>
-              </button>
-            </div>
-            
-            <div className="grid md:grid-cols-3 gap-6 max-w-3xl mx-auto">
-              <div className="flex items-center justify-center gap-2 text-sm text-blue-100">
-                <Mail className="h-4 w-4" />
-                enterprise@docmetri.com
-              </div>
-              <div className="flex items-center justify-center gap-2 text-sm text-blue-100">
-                <PhoneCall className="h-4 w-4" />
-                +1 (800) DOCMETRI
-              </div>
-              <div className="flex items-center justify-center gap-2 text-sm text-blue-100">
-                <Calendar className="h-4 w-4" />
-                Response within 24 hours
-              </div>
-            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
+              A secure branded space{" "}
+              <span className="text-sky-600">
+                for every client relationship.
+              </span>
+            </h1>
+            <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
+              DocMetrics gives freelancers, real estate professionals, and
+              recruiters a professional way to share documents, track
+              engagement, collect signatures, and manage client communication
+              — all in one place.
+            </p>
+            <Button
+              size="lg"
+              className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-6 text-base rounded-xl shadow-md hover:shadow-lg transition-all"
+              asChild
+            >
+              <Link href="/register">
+                Start for free
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+            <p className="text-xs text-slate-400 mt-3">
+              No credit card required
+            </p>
+          </div>
+          <div className="flex items-center justify-center">
+            <Image
+              src="/assets/illustrations/client-portals-hero.png"
+              alt="DocMetrics client portal overview"
+              width={560}
+              height={460}
+              className="w-full h-auto"
+            />
           </div>
         </div>
-
-        {/* Footer */}
-        <footer className="mt-20 pt-12 border-t text-center text-sm text-slate-600">
-          <p>© 2025 DocMetri. All rights reserved.</p>
-          <div className="flex justify-center gap-6 mt-4">
-            <a href="#" className="hover:text-blue-600 transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-blue-600 transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-blue-600 transition-colors">Security</a>
-            <a href="#" className="hover:text-blue-600 transition-colors">Contact</a>
-          </div>
-        </footer>
       </div>
+
+      {/* ── PROBLEM ── */}
+      <div className="border-t border-slate-100 bg-slate-50">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+          <div className="max-w-2xl mb-12">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
+              The Problem
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
+              Sharing documents with clients should not be this messy.
+            </h2>
+            <p className="text-base text-slate-500 leading-relaxed">
+              You send proposals, contracts, and supporting documents by email.
+              Clients lose them, forward them to the wrong people, or never
+              open them at all. You have no idea what they read or when they
+              are ready to move forward. Every deal involves a chaotic back and
+              forth of attachments, follow-up emails, and missed signatures.
+              There is no single place where everything lives and no visibility
+              into what is actually happening on the client side.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-4">
+            {[
+              {
+                title: "Documents scattered across email",
+                description:
+                  "Proposals, contracts, and briefs live in different email threads. Clients lose them, you resend them, and nothing is organized or trackable.",
+              },
+              {
+                title: "No idea if clients read anything",
+                description:
+                  "You send a contract and wait. You have no idea if they opened it, which sections they reviewed, or why they have not signed yet.",
+              },
+              {
+                title: "No professional client experience",
+                description:
+                  "Sending PDFs as email attachments does not reflect the quality of your work. Clients deserve a professional branded experience from the start.",
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className="bg-white border border-slate-200 rounded-xl p-6"
+              >
+                <div className="h-1.5 w-6 rounded-full bg-red-300 mb-5" />
+                <p className="text-sm font-semibold text-slate-900 mb-2">
+                  {item.title}
+                </p>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  {item.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── CORE FEATURES ── */}
+
+      <FeatureBlock
+        step="1"
+        label="Spaces"
+        title="Create a dedicated portal for every client."
+        description="A Space is a secure branded environment where you organize all documents for one client relationship. Invite your client with one link, assign their access level, and everything they need is in one place. You see every interaction across every document inside."
+        bullets={[
+          "Create a branded space with your logo, colors, and welcome message",
+          "Organize documents into folders — proposals, contracts, briefs, deliverables",
+          "Invite clients with role-based access so they only see what is relevant",
+          "One link gives clients access to everything you have shared with them",
+          "Full audit log of every document opened, every page viewed, every download",
+        ]}
+        imageSrc="/assets/illustrations/portal-spaces.png"
+        imageAlt="Client space illustration"
+      />
+
+      <FeatureBlock
+        step="2"
+        label="Document Tracking"
+        title="Know exactly what your client read and when."
+        description="The moment a client opens a document, DocMetrics notifies you. A page-by-page breakdown shows exactly how long they spent on each section, which pages they skipped, and whether they came back for a second look. You always know where they are in the process."
+        bullets={[
+          "Instant notification the moment a client opens any document",
+          "Per-page reading time so you know which sections held their attention",
+          "Return visit detection shows when a client comes back to review something",
+          "Live indicator shows when someone is reading a document right now",
+          "Track multiple clients on the same document independently",
+        ]}
+        imageSrc="/assets/illustrations/portal-tracking.png"
+        imageAlt="Document tracking illustration"
+        reverse
+      />
+
+      <FeatureBlock
+        step="3"
+        label="E-Signatures"
+        title="Get contracts signed without leaving the portal."
+        description="Send signature requests directly from DocMetrics. Place signature fields, date fields, and text inputs anywhere on any document. Clients sign inside the portal in one seamless flow. You track exactly how long they spent reading before they signed."
+        bullets={[
+          "Place signature, date, text, checkbox, and attachment fields on any document",
+          "Send to one client or multiple signers with a defined signing order",
+          "Track time to open, time to sign, and pages viewed before signing",
+          "Download a signed PDF once all parties have completed their signatures",
+          "Bundle multiple documents into one envelope for complex engagements",
+        ]}
+        imageSrc="/assets/illustrations/portal-signatures.png"
+        imageAlt="E-signature illustration"
+      />
+
+      <FeatureBlock
+        step="4"
+        label="File Requests"
+        title="Collect documents from clients without the back and forth."
+        description="Create a file request inside any Space. Specify what you need, set a due date, and send your client a secure upload link. Their files land directly in the folder you specify. No email attachments, no chasing, no confusion about what was received."
+        bullets={[
+          "Create a file request with a title, message, and list of expected files",
+          "Set a due date so clients know when materials are needed",
+          "Clients upload through a secure link — no account required",
+          "Files land directly in the folder you specify inside the Space",
+          "Receive a notification when each file is uploaded",
+        ]}
+        imageSrc="/assets/illustrations/portal-filerequests.png"
+        imageAlt="File requests illustration"
+        reverse
+      />
+
+      <FeatureBlock
+        step="5"
+        label="NDA and Security"
+        title="Protect confidential materials before clients can view anything."
+        description="For sensitive proposals, financial models, or confidential briefs, require clients to sign an NDA before they can access your Space. DocMetrics collects the signature digitally, timestamps it, and stores it automatically. No separate tool required."
+        bullets={[
+          "Attach an NDA to any Space — clients must sign before entering",
+          "Signatures are collected with timestamp and IP address recorded",
+          "Password protect individual documents for an extra layer of security",
+          "Set expiry dates on links so outdated materials cannot be accessed",
+          "Revoke access instantly if a client relationship ends",
+        ]}
+        imageSrc="/assets/illustrations/portal-nda.png"
+        imageAlt="NDA and security illustration"
+      />
+
+      <FeatureBlock
+        step="6"
+        label="Q&A"
+        title="Handle client questions inside the portal, not in your inbox."
+        description="Every Space has a Q&A tab where clients can ask questions directly about any document. You receive a notification and reply from your dashboard. All questions and answers stay organized inside the Space so nothing gets lost in email threads."
+        bullets={[
+          "Clients ask questions directly inside the portal without emailing you",
+          "You receive a notification for every new question",
+          "Reply from your dashboard — responses appear inside the Space",
+          "Filter questions by answered and unanswered",
+          "All communication stays in one place alongside the documents it relates to",
+        ]}
+        imageSrc="/assets/illustrations/portal-qa.png"
+        imageAlt="Q&A illustration"
+        reverse
+      />
+
+      {/* ── AUDIENCE SECTIONS ── */}
+      <div className="border-t border-slate-100 bg-slate-50">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 pb-4">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
+              Who It Is For
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
+              Built for professionals who share sensitive documents with clients every day.
+            </h2>
+            <p className="text-base text-slate-500 leading-relaxed">
+              Whether you are a freelancer sending proposals, a real estate
+              professional sharing deal documents, or a recruiter managing
+              candidate and client materials — DocMetrics gives you the same
+              professional infrastructure that enterprise teams use.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-slate-50">
+        <AudienceBlock
+          label="Freelancers and Consultants"
+          title="Send proposals that close faster and contracts that sign themselves."
+          description="You spend hours writing a proposal and send it by email. The client never confirms receipt, reads half of it, and takes two weeks to respond. DocMetrics gives you a professional client portal where proposals, contracts, and project briefs live in one place — and you always know what your client has read."
+          bullets={[
+            "Share proposals as tracked links — know the moment a client opens them",
+            "See which sections of your proposal the client spent the most time on",
+            "Send contracts for e-signature directly from the portal",
+            "Create a file request to collect briefs, assets, and onboarding documents",
+            "Brand every portal with your logo so clients experience your business",
+          ]}
+          imageSrc="/assets/illustrations/audience-freelancers.png"
+          imageAlt="Freelancers illustration"
+        />
+      </div>
+
+      <div className="bg-slate-50 border-t border-slate-200">
+        <AudienceBlock
+          label="Real Estate Professionals"
+          title="Organize every deal in a secure branded data room."
+          description="Real estate deals involve dozens of sensitive documents — purchase agreements, financial models, inspection reports, legal disclosures. DocMetrics gives you a secure Space for every property where buyers, sellers, and advisors each see only what they are meant to see, and every action is logged for compliance."
+          bullets={[
+            "Create a Space per property with folders for legal, financial, and marketing materials",
+            "Require buyers to sign an NDA before accessing financial projections",
+            "Track which pages of every document each party has reviewed",
+            "Full audit log for compliance — every view, every download, timestamped",
+            "Collect signatures on purchase agreements and disclosure documents",
+          ]}
+          imageSrc="/assets/illustrations/audience-realestate.png"
+          imageAlt="Real estate illustration"
+          reverse
+        />
+      </div>
+
+      <div className="bg-slate-50 border-t border-slate-200">
+        <AudienceBlock
+          label="Recruiters and Talent Professionals"
+          title="Share candidate profiles and offer letters with complete visibility."
+          description="Recruiters send candidate profiles to hiring managers and offer letters to candidates every day — with no idea who opened what or when. DocMetrics gives you tracked links for every document, e-signature for offer letters, and a dedicated Space for each client so all communication and materials stay organized."
+          bullets={[
+            "Share candidate profiles as tracked links — see which ones hiring managers actually read",
+            "Know when a hiring manager opens a profile and how long they spent reviewing it",
+            "Send offer letters for e-signature and track exactly when candidates sign",
+            "Create a Space per client with all active candidates and communication in one place",
+            "Bulk send documents to multiple candidates simultaneously with individual tracking",
+          ]}
+          imageSrc="/assets/illustrations/audience-recruiters.png"
+          imageAlt="Recruiters illustration"
+        />
+      </div>
+
+      {/* ── FAQ ── */}
+      <section className="bg-white border-t border-slate-100 py-16 sm:py-20">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-12 text-center">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
+              FAQ
+            </p>
+            <h2 className="text-3xl sm:text-4xl font-semibold text-slate-900 leading-tight">
+              Frequently asked questions
+            </h2>
+            <p className="mt-4 text-base text-slate-500">
+              Everything you need to know about DocMetrics client portals.{" "}
+              
+             <a   href="/contact"
+                className="text-[#0284c7] hover:text-[#0369a1] font-medium transition-colors"
+              >
+                Contact us
+              </a>{" "}
+              if you cannot find what you are looking for.
+            </p>
+          </div>
+          <div className="divide-y divide-slate-200 border-t border-slate-200">
+            {FAQS.map((faq, i) => (
+              <FAQItem
+                key={i}
+                faq={faq}
+                isOpen={openIndex === i}
+                onToggle={() => toggle(i)}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA ── */}
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+        <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
+            Give every client a portal they will remember.
+          </h2>
+          <p className="text-base text-white/80 max-w-xl mx-auto mb-8">
+            Create your first client Space in under two minutes. Upload your
+            documents, invite your client, and start tracking engagement from
+            day one.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
+            >
+              Start for free
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 border border-white/40 text-white font-medium px-8 py-3 rounded-xl hover:bg-white/10 transition-colors text-sm"
+            >
+              View pricing
+            </Link>
+          </div>
+          <p className="text-xs text-white/60 mt-5">No credit card required</p>
+        </div>
+      </div>
+
     </div>
-  );
+  )
 }
