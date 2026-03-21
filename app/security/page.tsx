@@ -1,235 +1,462 @@
-import React, { JSX } from "react";
-import { Shield, Lock, Server, Eye, FileCheck, AlertTriangle, CheckCircle2, Database, Key, RefreshCw } from "lucide-react";
+import React, { JSX } from "react"
+import Link from "next/link"
+import { ArrowRight } from "lucide-react"
 
 export default function SecurityPage(): JSX.Element {
   return (
     <div className="min-h-screen bg-white">
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
-        <div>
-          {/* Title */}
-          <div className="mb-8 pb-6 border-b">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                <Shield className="h-6 w-6 text-white" />
-              </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-slate-900">
-                Security
-              </h1>
-            </div>
-            <p className="text-lg text-slate-600">
-              Your trust is our top priority. We implement industry-leading security practices to protect your documents and data.
-            </p>
-          </div>
 
-          {/* Content */}
-          <div className="space-y-6 text-slate-700 leading-relaxed">
-            <p>
-              At DocMetri, security is fundamental to everything we build. We understand that you're entrusting us with sensitive documents and analytics data. This page outlines our comprehensive approach to protecting your information.
-            </p>
-
-            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-              <p className="text-blue-900 m-0">
-                <strong>Security is not a feature—it's our foundation.</strong> We follow industry best practices and continuously monitor emerging threats to keep your data safe.
-              </p>
-            </div>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Data Encryption
-            </h2>
-            <p>
-              <strong>Encryption in Transit:</strong> All data transmitted between your browser and our servers is encrypted using TLS 1.3 (Transport Layer Security) with strong cipher suites. This ensures that your documents and analytics data cannot be intercepted during transmission.
-            </p>
-            <p>
-              <strong>Encryption at Rest:</strong> All documents and user data stored on our servers are encrypted using AES-256 encryption, the same standard used by financial institutions and government agencies. Your files are encrypted before being written to disk and remain encrypted until retrieved for authorized access.
-            </p>
-            <p>
-              <strong>End-to-End Security:</strong> Document metadata and analytics data are encrypted throughout their entire lifecycle—from upload to storage to retrieval. Encryption keys are managed securely and rotated regularly following industry best practices.
-            </p>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Infrastructure Security
-            </h2>
-            <p>
-              <strong>Cloud Infrastructure:</strong> DocMetri is hosted on enterprise-grade cloud infrastructure (AWS/Google Cloud Platform) with multiple layers of security. Our hosting providers maintain SOC 2, ISO 27001, and other security certifications, and undergo regular independent security audits.
-            </p>
-            <p>
-              <strong>Network Security:</strong> We employ firewalls, intrusion detection systems (IDS), and distributed denial-of-service (DDoS) protection to safeguard our infrastructure. Our network architecture follows the principle of least privilege, with strict access controls at every layer.
-            </p>
-            <p>
-              <strong>Data Centers:</strong> Your data is stored in geographically distributed, redundant data centers with 24/7 physical security, environmental controls, and backup power systems. We offer data residency options to comply with regional data protection requirements.
-            </p>
-            <p>
-              <strong>Regular Backups:</strong> We perform automated, encrypted backups of all data multiple times daily. Backups are stored in geographically separate locations and are regularly tested to ensure successful recovery in the event of data loss.
-            </p>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Application Security
-            </h2>
-            <p>
-              <strong>Secure Authentication:</strong> User passwords are hashed using industry-standard algorithms (bcrypt/Argon2) with per-user salts. We never store passwords in plain text, and our authentication system is protected against brute-force attacks with rate limiting and account lockout mechanisms.
-            </p>
-            <p>
-              <strong>Multi-Factor Authentication (MFA):</strong> We support two-factor authentication (2FA) using time-based one-time passwords (TOTP) for an additional layer of account security. We strongly recommend enabling MFA for all accounts.
-            </p>
-            <p>
-              <strong>Session Management:</strong> User sessions are managed securely with cryptographically secure session tokens. Sessions automatically expire after periods of inactivity, and users can revoke active sessions at any time from their account settings.
-            </p>
-            <p>
-              <strong>Protection Against Common Vulnerabilities:</strong> Our application is designed and regularly tested to protect against common security threats including SQL injection, cross-site scripting (XSS), cross-site request forgery (CSRF), and other OWASP Top 10 vulnerabilities.
-            </p>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Access Control & Privacy
-            </h2>
-            <p>
-              <strong>Principle of Least Privilege:</strong> Access to user data is restricted to authorized personnel on a need-to-know basis. Our employees and systems have only the minimum permissions necessary to perform their functions.
-            </p>
-            <p>
-              <strong>Role-Based Access Control (RBAC):</strong> Within your organization, you can assign granular permissions to team members, ensuring that users only have access to the documents and analytics data appropriate for their role.
-            </p>
-            <p>
-              <strong>Document Privacy:</strong> Your documents are private by default. We do not access, read, or use your document content for any purpose other than providing our service. Analytics data is collected solely to provide you with insights about document engagement.
-            </p>
-            <p>
-              <strong>Employee Access:</strong> DocMetri employees do not access customer documents or data except when explicitly authorized by the customer for support purposes, or as required for system maintenance and security. All access is logged and audited.
-            </p>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Compliance & Certifications
-            </h2>
-            <p>
-              <strong>GDPR Compliance:</strong> We are fully compliant with the European Union's General Data Protection Regulation (GDPR). We provide data processing agreements (DPAs), support data subject access requests (DSARs), and ensure that data transfers comply with GDPR requirements including Standard Contractual Clauses (SCCs).
-            </p>
-            <p>
-              <strong>Data Protection:</strong> We adhere to data protection principles including data minimization, purpose limitation, and storage limitation. We collect only the data necessary to provide our service and retain it only as long as needed.
-            </p>
-            <p>
-              <strong>Privacy Shield & International Transfers:</strong> For international data transfers, we implement appropriate safeguards including Standard Contractual Clauses approved by the European Commission and adequacy decisions where applicable.
-            </p>
-            <p className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded text-amber-900">
-              <strong>Compliance Roadmap:</strong> We are currently pursuing SOC 2 Type II certification and ISO 27001 certification. Enterprise customers can request our security questionnaire and compliance documentation.
-            </p>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Monitoring & Incident Response
-            </h2>
-            <p>
-              <strong>24/7 Security Monitoring:</strong> We continuously monitor our infrastructure and applications for security threats using automated detection systems and security information and event management (SIEM) tools. Suspicious activity triggers immediate alerts to our security team.
-            </p>
-            <p>
-              <strong>Vulnerability Management:</strong> We regularly scan our systems for security vulnerabilities and apply security patches promptly. Our development team follows secure coding practices and conducts security reviews for all code changes.
-            </p>
-            <p>
-              <strong>Penetration Testing:</strong> We engage independent security firms to conduct regular penetration testing and security assessments of our platform. Findings are addressed according to severity and risk.
-            </p>
-            <p>
-              <strong>Incident Response Plan:</strong> We maintain a documented incident response plan to quickly identify, contain, and remediate security incidents. In the event of a data breach affecting your information, we will notify you within 72 hours as required by GDPR and other applicable regulations.
-            </p>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Data Retention & Deletion
-            </h2>
-            <p>
-              <strong>Data Retention:</strong> We retain your documents and analytics data for as long as your account is active or as needed to provide you with our services. You can delete individual documents or analytics data at any time from your dashboard.
-            </p>
-            <p>
-              <strong>Account Deletion:</strong> If you close your account, we will delete your documents and personal data within 30 days, except where we are required to retain information for legal, compliance, or security purposes. You can request immediate deletion by contacting our support team.
-            </p>
-            <p>
-              <strong>Secure Deletion:</strong> When data is deleted, it is permanently removed from our production systems and backups using secure deletion methods that prevent recovery. Deleted data cannot be restored.
-            </p>
-            <p>
-              <strong>Data Portability:</strong> You can export your documents and analytics data at any time in common formats (PDF, CSV, JSON) to transfer to another service or maintain your own records.
-            </p>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Third-Party Security
-            </h2>
-            <p>
-              <strong>Vendor Management:</strong> We carefully vet all third-party service providers who process or have access to customer data. Our vendors are required to maintain appropriate security standards and sign data processing agreements.
-            </p>
-            <p>
-              <strong>Subprocessors:</strong> We maintain a list of subprocessors (third-party service providers) who may process customer data. This list is available upon request and we notify customers of any changes to our subprocessors.
-            </p>
-            <p>
-              <strong>Payment Security:</strong> Payment card information is processed by PCI DSS compliant payment processors (Stripe). We do not store credit card numbers, CVV codes, or other sensitive payment information on our servers.
-            </p>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Security Best Practices for Users
-            </h2>
-            <p>
-              While we implement robust security measures, protecting your account also requires vigilance on your part. We recommend the following best practices:
-            </p>
-            <p>
-              <strong>Use Strong Passwords:</strong> Create unique, complex passwords for your DocMetri account. Use a password manager to generate and store strong passwords securely.
-            </p>
-            <p>
-              <strong>Enable Two-Factor Authentication:</strong> Activate 2FA on your account for an additional layer of security. This significantly reduces the risk of unauthorized access even if your password is compromised.
-            </p>
-            <p>
-              <strong>Keep Software Updated:</strong> Ensure your browser, operating system, and security software are up to date to protect against known vulnerabilities.
-            </p>
-            <p>
-              <strong>Be Cautious with Sharing:</strong> Only share document links with trusted recipients. Use password protection and expiration dates for sensitive documents. Review and revoke access permissions regularly.
-            </p>
-            <p>
-              <strong>Monitor Account Activity:</strong> Regularly review your account activity and active sessions. If you notice any suspicious activity, change your password immediately and contact our support team.
-            </p>
-            <p>
-              <strong>Report Security Concerns:</strong> If you discover a security vulnerability or have concerns about the security of your account, please contact us immediately at <a href="mailto:security@docmetri.com" className="text-blue-600 hover:underline font-medium">security@docmetri.com</a>.
-            </p>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Responsible Disclosure
-            </h2>
-            <p>
-              We value the security research community and welcome reports of potential security vulnerabilities. If you believe you have discovered a security issue in our platform, please report it responsibly by emailing <a href="mailto:security@docmetri.com" className="text-blue-600 hover:underline font-medium">security@docmetri.com</a> with details of the vulnerability.
-            </p>
-            <p>
-              <strong>What to Include:</strong> Please provide a detailed description of the vulnerability, steps to reproduce the issue, and any relevant screenshots or proof-of-concept code. Do not publicly disclose the vulnerability until we have had an opportunity to investigate and address it.
-            </p>
-            <p>
-              <strong>Our Commitment:</strong> We will acknowledge your report within 48 hours, provide an initial assessment within 5 business days, and work with you to understand and resolve the issue. We recognize security researchers who report valid vulnerabilities and may offer recognition on our security acknowledgments page (with your permission).
-            </p>
-            <p className="bg-green-50 border-l-4 border-green-500 p-4 rounded text-green-900">
-              <strong>Bug Bounty Program:</strong> We are planning to launch a formal bug bounty program in the near future. Security researchers who report valid vulnerabilities will be eligible for rewards based on severity and impact.
-            </p>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Contact Our Security Team
-            </h2>
-            <p>
-              For security-related inquiries, vulnerability reports, or to request additional security documentation, please contact our security team at <a href="mailto:security@docmetri.com" className="text-blue-600 hover:underline font-medium">security@docmetri.com</a>.
-            </p>
-            <p>
-              For enterprise customers requiring detailed security documentation, compliance certifications, or custom security agreements, please contact our enterprise sales team at <a href="mailto:enterprise@docmetri.com" className="text-blue-600 hover:underline font-medium">enterprise@docmetri.com</a>.
-            </p>
-            <p>
-              We maintain transparency about our security practices and are happy to answer questions about how we protect your data. Our security team is committed to working with you to address any concerns and ensure your confidence in our platform.
-            </p>
-
-            <h2 className="text-2xl font-bold text-slate-900 mt-8 mb-4">
-              Continuous Improvement
-            </h2>
-            <p>
-              Security is not a one-time effort but an ongoing commitment. We continuously evaluate and improve our security posture through regular assessments, employee training, and staying informed about emerging threats and best practices. We update our security measures as technology evolves and new threats emerge.
-            </p>
-            <p>
-              This security page is regularly reviewed and updated to reflect our current security practices. We encourage you to review this page periodically to stay informed about how we protect your data.
-            </p>
-          </div>
-
-          {/* Footer */}
-          <div className="mt-12 pt-6 border-t">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-sm text-slate-600">
-                Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-              </p>
-            </div>
-          </div>
+      {/* ── HERO ── */}
+      <div className="border-b border-slate-100">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-16 pb-12">
+          <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
+            Security
+          </p>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
+            How DocMetrics protects your documents and data.
+          </h1>
+          <p className="text-base sm:text-lg text-slate-500 leading-relaxed max-w-2xl">
+            You are trusting us with sensitive business documents — proposals,
+            contracts, financial models, and confidential deal materials.
+            This page explains exactly how we protect them.
+          </p>
         </div>
       </div>
+
+      {/* ── CONTENT ── */}
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16">
+        <div className="space-y-12">
+
+          {/* Encryption */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Encryption
+            </h2>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              All data transmitted between your browser and our servers is
+              encrypted using TLS — the same standard used by banks and
+              financial institutions. This ensures your documents and analytics
+              data cannot be intercepted during transmission.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              All documents and user data stored on our servers are encrypted
+              at rest using AES-256 encryption. Your files are encrypted before
+              being written to storage and remain encrypted until retrieved for
+              authorised access.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed">
+              Document metadata and analytics data are encrypted throughout
+              their entire lifecycle — from upload to storage to retrieval.
+            </p>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Document Privacy */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Document Privacy
+            </h2>
+            <div className="bg-slate-50 border-l-4 border-sky-400 p-4 rounded mb-5">
+              <p className="text-sm font-semibold text-slate-900">
+                Your documents are private. We do not read them.
+              </p>
+            </div>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              DocMetrics does not access, read, or use the content of your
+              documents for any purpose other than providing the Service. Your
+              documents are processed automatically to generate page counts,
+              thumbnails, and PDF rendering — this is technical processing only.
+              No human on our team reads your documents.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              The only exceptions are when you explicitly grant us access for
+              support purposes, or when we are legally required to produce
+              information by a valid court order or law enforcement request.
+              In the latter case we will notify you before complying unless
+              legally prohibited from doing so.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed">
+              All internal access to user data is logged with the reason for
+              access and the identity of the person who accessed it. This log
+              is auditable.
+            </p>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Access Controls */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Access Controls
+            </h2>
+            <p className="text-base text-slate-600 leading-relaxed mb-6">
+              DocMetrics is built on the principle that access to sensitive
+              documents should always be the minimum necessary and always
+              revocable. Every sharing feature in the product reflects this.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {[
+                {
+                  title: "Password Protection",
+                  description:
+                    "Require recipients to enter a password before they can view any document or Space.",
+                },
+                {
+                  title: "Email Verification",
+                  description:
+                    "Require recipients to verify their email address before accessing a shared link so you always know who is viewing.",
+                },
+                {
+                  title: "Domain Restriction",
+                  description:
+                    "Restrict access to specific email addresses or company domains so only the right people can open your documents.",
+                },
+                {
+                  title: "Link Expiry",
+                  description:
+                    "Set an expiry date on any share link so access is automatically revoked after a specified period.",
+                },
+                {
+                  title: "Download Blocking",
+                  description:
+                    "Prevent recipients from downloading documents while still allowing full viewing access.",
+                },
+                {
+                  title: "Dynamic Watermarking",
+                  description:
+                    "Embed the viewer's email address visibly on every page to deter unauthorised sharing and provide traceability.",
+                },
+                {
+                  title: "NDA Gating",
+                  description:
+                    "Require recipients to sign a confidentiality agreement before they can access any documents inside a Space.",
+                },
+                {
+                  title: "Instant Revocation",
+                  description:
+                    "Revoke access to any document or share link instantly from your dashboard at any time.",
+                },
+              ].map((item) => (
+                <div
+                  key={item.title}
+                  className="border border-slate-200 rounded-xl p-5"
+                >
+                  <div className="h-1.5 w-6 rounded-full bg-sky-400 mb-3" />
+                  <p className="text-sm font-semibold text-slate-900 mb-1.5">
+                    {item.title}
+                  </p>
+                  <p className="text-sm text-slate-500 leading-relaxed">
+                    {item.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Authentication */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Account Security
+            </h2>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              User passwords are hashed using industry-standard algorithms
+              with per-user salts. We never store passwords in plain text.
+              Our authentication system is protected against brute-force
+              attacks with rate limiting and account lockout mechanisms.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              We support two-factor authentication using time-based one-time
+              passwords. We strongly recommend enabling 2FA on your account.
+              Sessions are managed with cryptographically secure tokens and
+              expire automatically after periods of inactivity. You can revoke
+              active sessions at any time from your account settings.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed">
+              Our application is designed and regularly reviewed to protect
+              against common security vulnerabilities including SQL injection,
+              cross-site scripting, and cross-site request forgery.
+            </p>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Data Rooms */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Data Room Security
+            </h2>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              Every Space in DocMetrics has its own security layer independent
+              of the documents inside it. You control who enters, what they
+              see, and what they can do once inside.
+            </p>
+            <div className="space-y-3">
+              {[
+                "Role-based access — Admin, Member, and Viewer roles with different permission levels",
+                "Folder-level permissions — restrict specific folders to specific people within the same Space",
+                "NDA requirement — require a signed confidentiality agreement before anyone enters",
+                "Full audit log — every document opened, every page viewed, every file downloaded, timestamped and attributed to a named individual",
+                "Q&A isolation — questions asked inside a Space are visible only to the parties you specify",
+                "Invite-only access — Spaces are private by default and accessible only to people you explicitly invite",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"
+                >
+                  <div className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-2 flex-shrink-0" />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Payments */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Payment Security
+            </h2>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              DocMetrics does not store credit card numbers, CVV codes, or
+              any sensitive payment information on our servers. All payment
+              processing is handled by our payment processor which is PCI DSS
+              compliant. We receive only a tokenised reference to your payment
+              method — never the raw card details.
+            </p>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* GDPR */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              GDPR and Data Protection
+            </h2>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              DocMetrics is designed with GDPR compliance as a core
+              requirement rather than an afterthought. We collect the minimum
+              data necessary to provide the Service, retain it only as long
+              as needed, and support data subject rights including access,
+              deletion, and portability.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              For international data transfers we implement appropriate
+              safeguards including Standard Contractual Clauses approved by
+              the European Commission where required. All third-party
+              processors who handle user data on our behalf are required to
+              sign data processing agreements.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed">
+              In the event of a data breach that affects your personal
+              information, we will notify you within 72 hours as required
+              by GDPR and provide details about what happened, what data was
+              affected, and the steps we are taking to address it.
+            </p>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Data Retention */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Data Retention and Deletion
+            </h2>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              Your documents and analytics data are retained for as long as
+              your account is active. You can delete individual documents and
+              their associated analytics from your dashboard at any time.
+              Deletion is permanent and cannot be undone.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              If you close your account, we will delete your documents and
+              personal data within 90 days unless we are required to retain
+              information for legal or compliance purposes. You can export
+              your documents and analytics data at any time before closing
+              your account.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed">
+              When data is deleted it is permanently removed from our
+              production systems using secure deletion methods that prevent
+              recovery.
+            </p>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Third parties */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Third-Party Service Providers
+            </h2>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              DocMetrics uses trusted third-party service providers to
+              operate parts of the Service including cloud storage, payment
+              processing, and email delivery. All providers are carefully
+              vetted and are required to sign data processing agreements
+              committing them to appropriate security standards.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed">
+              We maintain a list of our active subprocessors and notify
+              customers of any material changes. You can request the current
+              subprocessor list by contacting us at{" "}
+              
+               <a href="mailto:support@docmetrics.io"
+                className="text-sky-600 hover:underline font-medium"
+              >
+                support@docmetrics.io
+              </a>
+              .
+            </p>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Best practices for users */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              What You Can Do to Protect Your Account
+            </h2>
+            <p className="text-base text-slate-600 leading-relaxed mb-5">
+              Security is a shared responsibility. While DocMetrics
+              implements robust protection at the platform level, these
+              practices on your end significantly reduce risk.
+            </p>
+            <div className="space-y-3">
+              {[
+                "Enable two-factor authentication on your account — this is the single most effective step you can take",
+                "Use a strong unique password for your DocMetrics account and store it in a password manager",
+                "Keep your browser and operating system updated to protect against known vulnerabilities",
+                "Use password protection and expiry dates on all share links sent to external recipients",
+                "Revoke access to documents and Spaces as soon as they are no longer needed",
+                "Review your active sessions regularly in account settings and revoke any you do not recognise",
+                "Enable email verification on links sent to named individuals so you always know who is viewing",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"
+                >
+                  <div className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-2 flex-shrink-0" />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Responsible disclosure */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Responsible Disclosure
+            </h2>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              We welcome reports of potential security vulnerabilities from
+              the security research community. If you believe you have
+              discovered a security issue in DocMetrics, please report it
+              responsibly by emailing{" "}
+              
+              <a  href="mailto:support@docmetrics.io"
+                className="text-sky-600 hover:underline font-medium"
+              >
+                support@docmetrics.io
+              </a>{" "}
+              with a detailed description of the vulnerability and steps to
+              reproduce it.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              Please do not publicly disclose the vulnerability until we have
+              had an opportunity to investigate and address it. We will
+              acknowledge your report within 48 hours and provide an initial
+              assessment within 5 business days.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed">
+              We recognise security researchers who report valid
+              vulnerabilities and will acknowledge your contribution on our
+              security page with your permission.
+            </p>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Contact */}
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">
+              Contact Our Security Team
+            </h2>
+            <p className="text-base text-slate-600 leading-relaxed mb-4">
+              For security-related enquiries, vulnerability reports, or
+              questions about how we protect your data, contact us at{" "}
+              
+              <a  href="mailto:support@docmetrics.io"
+                className="text-sky-600 hover:underline font-medium"
+              >
+                support@docmetrics.io
+              </a>
+              . We aim to respond to all security enquiries within 3
+              business days.
+            </p>
+            <p className="text-base text-slate-600 leading-relaxed">
+              For general privacy questions or data requests please see our{" "}
+              <Link
+                href="/privacy"
+                className="text-sky-600 hover:underline font-medium"
+              >
+                Privacy Policy
+              </Link>
+              . For general support please visit our{" "}
+              <Link
+                href="/contact"
+                className="text-sky-600 hover:underline font-medium"
+              >
+                contact page
+              </Link>
+              .
+            </p>
+          </div>
+
+          {/* CTA */}
+          <div className="rounded-2xl bg-sky-600 px-8 py-12 text-center">
+            <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
+              Have a security question?
+            </h2>
+            <p className="text-base text-white/80 max-w-xl mx-auto mb-8">
+              We are transparent about how we protect your data and happy
+              to answer any questions before you sign up.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              
+             <a   href="mailto:support@docmetrics.io"
+                className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
+              >
+                Email Security Team
+                <ArrowRight className="h-4 w-4" />
+              </a>
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-2 border border-white/40 text-white font-medium px-8 py-3 rounded-xl hover:bg-white/10 transition-colors text-sm"
+              >
+                Start for free
+              </Link>
+            </div>
+            <p className="text-xs text-white/60 mt-5">No credit card required</p>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Footer line */}
+      <div className="border-t border-slate-100">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-6">
+          <p className="text-sm text-slate-400">
+            Last updated: March 21, 2026
+          </p>
+        </div>
+      </div>
+
     </div>
-  );
+  )
 }
