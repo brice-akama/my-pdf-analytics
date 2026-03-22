@@ -34,7 +34,7 @@ const FAQS = [
   {
     question: "Can I control what each client sees inside a shared portal?",
     answer:
-      "Yes. You assign roles to each person you invite — Admin, Member, or Viewer. You can also set folder-level permissions so each person only sees the documents they are meant to see.",
+      "Yes. You assign roles to each person you invite — Admin, Editor, or Viewer. You can also set folder-level permissions so each person only sees the documents they are meant to see.",
   },
   {
     question: "Can I track whether a client actually read what I sent them?",
@@ -44,7 +44,7 @@ const FAQS = [
   {
     question: "Is there an audit log so I can prove what was shared and when?",
     answer:
-      "Yes. Every Space has a full audit log recording every action — every document opened, every page viewed, every file downloaded, and every login — with a timestamp and the name of the person who performed it.",
+      "Yes. Every Space has a full audit log recording every action — every document opened, every page viewed, every file downloaded — with a timestamp and the name of the person who performed it.",
   },
 ]
 
@@ -63,33 +63,14 @@ function FAQItem({
         onClick={onToggle}
         className="w-full flex items-center justify-between gap-6 py-5 text-left group"
       >
-        <span
-          className={`text-base font-medium transition-colors duration-150 ${
-            isOpen
-              ? "text-[#0284c7]"
-              : "text-slate-900 group-hover:text-[#0284c7]"
-          }`}
-        >
+        <span className={`text-base font-medium transition-colors duration-150 ${isOpen ? "text-sky-600" : "text-slate-900 group-hover:text-sky-600"}`}>
           {faq.question}
         </span>
-        <span
-          className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full border transition-all duration-200 ${
-            isOpen
-              ? "bg-[#0ea5e9] border-[#0ea5e9] text-white"
-              : "border-slate-300 text-slate-400 group-hover:border-[#0ea5e9] group-hover:text-[#0ea5e9]"
-          }`}
-        >
-          {isOpen ? (
-            <Minus className="h-3.5 w-3.5" />
-          ) : (
-            <Plus className="h-3.5 w-3.5" />
-          )}
+        <span className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full border transition-all duration-200 ${isOpen ? "bg-sky-600 border-sky-600 text-white" : "border-slate-300 text-slate-400 group-hover:border-sky-600 group-hover:text-sky-600"}`}>
+          {isOpen ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
         </span>
       </button>
-      <div
-        className="overflow-hidden transition-all duration-300 ease-in-out"
-        style={{ maxHeight: isOpen ? 400 : 0 }}
-      >
+      <div className="overflow-hidden transition-all duration-300 ease-in-out" style={{ maxHeight: isOpen ? 400 : 0 }}>
         <p className="pb-5 text-sm sm:text-base text-slate-500 leading-relaxed max-w-2xl">
           {faq.answer}
         </p>
@@ -119,11 +100,7 @@ function FeatureBlock({
 }) {
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-      <div
-        className={`grid lg:grid-cols-2 gap-12 lg:gap-20 items-center ${
-          reverse ? "lg:grid-flow-dense" : ""
-        }`}
-      >
+      <div className={`grid lg:grid-cols-2 gap-12 lg:gap-20 items-center ${reverse ? "lg:grid-flow-dense" : ""}`}>
         <div className={reverse ? "lg:col-start-2" : ""}>
           <div className="flex items-center gap-3 mb-6">
             <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -141,85 +118,14 @@ function FeatureBlock({
           </p>
           <ul className="space-y-3">
             {bullets.map((b, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"
-              >
-                <div className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-2 flex-shrink-0" />
+              <li key={i} className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed">
+                <div className="h-1.5 w-1.5 rounded-full bg-sky-400 mt-2 flex-shrink-0" />
                 {b}
               </li>
             ))}
           </ul>
         </div>
-        <div
-          className={`flex items-center justify-center ${
-            reverse ? "lg:col-start-1 lg:row-start-1" : ""
-          }`}
-        >
-          <Image
-            src={imageSrc}
-            alt={imageAlt}
-            width={520}
-            height={420}
-            className="w-full h-auto"
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function AudienceBlock({
-  label,
-  title,
-  description,
-  bullets,
-  imageSrc,
-  imageAlt,
-  reverse,
-}: {
-  label: string
-  title: string
-  description: string
-  bullets: string[]
-  imageSrc: string
-  imageAlt: string
-  reverse?: boolean
-}) {
-  return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-      <div
-        className={`grid lg:grid-cols-2 gap-12 lg:gap-20 items-center ${
-          reverse ? "lg:grid-flow-dense" : ""
-        }`}
-      >
-        <div className={reverse ? "lg:col-start-2" : ""}>
-          <p className="text-xs font-bold uppercase tracking-widest text-sky-500 mb-4">
-            {label}
-          </p>
-          <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
-            {title}
-          </h2>
-          <p className="text-base text-slate-500 leading-relaxed mb-6">
-            {description}
-          </p>
-          <ul className="space-y-3">
-            {bullets.map((b, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"
-              >
-                <div className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-2 flex-shrink-0" />
-                {b}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div
-          className={`flex items-center justify-center ${
-            reverse ? "lg:col-start-1 lg:row-start-1" : ""
-          }`}
-        >
+        <div className={`flex items-center justify-center ${reverse ? "lg:col-start-1 lg:row-start-1" : ""}`}>
           <Image
             src={imageSrc}
             alt={imageAlt}
@@ -249,34 +155,27 @@ export default function ClientPortalsPage(): JSX.Element {
             </p>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
               A secure branded space{" "}
-              <span className="text-sky-600">
-                for every client relationship.
-              </span>
+              <span className="text-sky-600">for every client relationship.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
-              DocMetrics gives freelancers, real estate professionals, and
-              recruiters a professional way to share documents, track
-              engagement, collect signatures, and manage client communication
-              — all in one place.
+              DocMetrics gives you a professional way to share documents, track engagement, collect signatures, and manage client communication — all in one branded space.
             </p>
             <Button
               size="lg"
               className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-6 text-base rounded-xl shadow-md hover:shadow-lg transition-all"
               asChild
             >
-              <Link href="/register">
+              <Link href="/signup">
                 Start for free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            <p className="text-xs text-slate-400 mt-3">
-              No credit card required
-            </p>
+            <p className="text-xs text-slate-400 mt-3">No credit card required</p>
           </div>
           <div className="flex items-center justify-center">
             <Image
               src="/assets/illustrations/client-portals-hero.png"
-              alt="DocMetrics client portal overview"
+              alt="Client portal overview"
               width={560}
               height={460}
               className="w-full h-auto"
@@ -286,61 +185,40 @@ export default function ClientPortalsPage(): JSX.Element {
       </div>
 
       {/* ── PROBLEM ── */}
-      <div className="border-t border-slate-100 bg-slate-50">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-          <div className="max-w-2xl mb-12">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
-              The Problem
-            </p>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
-              Sharing documents with clients should not be this messy.
-            </h2>
-            <p className="text-base text-slate-500 leading-relaxed">
-              You send proposals, contracts, and supporting documents by email.
-              Clients lose them, forward them to the wrong people, or never
-              open them at all. You have no idea what they read or when they
-              are ready to move forward. Every deal involves a chaotic back and
-              forth of attachments, follow-up emails, and missed signatures.
-              There is no single place where everything lives and no visibility
-              into what is actually happening on the client side.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-4">
-            {[
-              {
-                title: "Documents scattered across email",
-                description:
-                  "Proposals, contracts, and briefs live in different email threads. Clients lose them, you resend them, and nothing is organized or trackable.",
-              },
-              {
-                title: "No idea if clients read anything",
-                description:
-                  "You send a contract and wait. You have no idea if they opened it, which sections they reviewed, or why they have not signed yet.",
-              },
-              {
-                title: "No professional client experience",
-                description:
-                  "Sending PDFs as email attachments does not reflect the quality of your work. Clients deserve a professional branded experience from the start.",
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="bg-white border border-slate-200 rounded-xl p-6"
-              >
-                <div className="h-1.5 w-6 rounded-full bg-red-300 mb-5" />
-                <p className="text-sm font-semibold text-slate-900 mb-2">
-                  {item.title}
-                </p>
-                <p className="text-sm text-slate-500 leading-relaxed">
-                  {item.description}
-                </p>
-              </div>
-            ))}
-          </div>
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+        <div className="max-w-2xl mb-12">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
+            Sharing documents with clients should not be this messy.
+          </h2>
+          <p className="text-base text-slate-500 leading-relaxed">
+            You send proposals, contracts, and supporting documents by email. Clients lose them, forward them to the wrong people, or never open them at all. You have no idea what they read or when they are ready to move forward. Every deal involves a chaotic back and forth of attachments, follow-up emails, and missed signatures. There is no single place where everything lives and no visibility into what is actually happening on the client side.
+          </p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-4">
+          {[
+            {
+              title: "Documents scattered across email",
+              description: "Proposals, contracts, and briefs live in different email threads. Clients lose them, you resend them, and nothing is organized or trackable.",
+            },
+            {
+              title: "No idea if clients read anything",
+              description: "You send a contract and wait. You have no idea if they opened it, which sections they reviewed, or why they have not signed yet.",
+            },
+            {
+              title: "No professional client experience",
+              description: "Sending PDFs as email attachments does not reflect the quality of your work. Clients deserve a professional branded experience from the start.",
+            },
+          ].map((item) => (
+            <div key={item.title} className="bg-white border border-slate-200 rounded-xl p-6">
+              <div className="h-1.5 w-6 rounded-full bg-red-300 mb-5" />
+              <p className="text-sm font-semibold text-slate-900 mb-2">{item.title}</p>
+              <p className="text-sm text-slate-500 leading-relaxed">{item.description}</p>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ── CORE FEATURES ── */}
+      {/* ── FEATURE BLOCKS ── */}
 
       <FeatureBlock
         step="1"
@@ -354,7 +232,7 @@ export default function ClientPortalsPage(): JSX.Element {
           "One link gives clients access to everything you have shared with them",
           "Full audit log of every document opened, every page viewed, every download",
         ]}
-        imageSrc="/assets/illustrations/portal-spaces.png"
+        imageSrc="/assets/illustrations/step-dataroom.png"
         imageAlt="Client space illustration"
       />
 
@@ -370,7 +248,7 @@ export default function ClientPortalsPage(): JSX.Element {
           "Live indicator shows when someone is reading a document right now",
           "Track multiple clients on the same document independently",
         ]}
-        imageSrc="/assets/illustrations/portal-tracking.png"
+        imageSrc="/assets/illustrations/step-track.png"
         imageAlt="Document tracking illustration"
         reverse
       />
@@ -387,7 +265,7 @@ export default function ClientPortalsPage(): JSX.Element {
           "Download a signed PDF once all parties have completed their signatures",
           "Bundle multiple documents into one envelope for complex engagements",
         ]}
-        imageSrc="/assets/illustrations/portal-signatures.png"
+        imageSrc="/assets/illustrations/step-sign.png"
         imageAlt="E-signature illustration"
       />
 
@@ -420,7 +298,7 @@ export default function ClientPortalsPage(): JSX.Element {
           "Set expiry dates on links so outdated materials cannot be accessed",
           "Revoke access instantly if a client relationship ends",
         ]}
-        imageSrc="/assets/illustrations/portal-nda.png"
+        imageSrc="/assets/illustrations/step-share.png"
         imageAlt="NDA and security illustration"
       />
 
@@ -441,94 +319,16 @@ export default function ClientPortalsPage(): JSX.Element {
         reverse
       />
 
-      {/* ── AUDIENCE SECTIONS ── */}
-      <div className="border-t border-slate-100 bg-slate-50">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 pb-4">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
-              Who It Is For
-            </p>
-            <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
-              Built for professionals who share sensitive documents with clients every day.
-            </h2>
-            <p className="text-base text-slate-500 leading-relaxed">
-              Whether you are a freelancer sending proposals, a real estate
-              professional sharing deal documents, or a recruiter managing
-              candidate and client materials — DocMetrics gives you the same
-              professional infrastructure that enterprise teams use.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-slate-50">
-        <AudienceBlock
-          label="Freelancers and Consultants"
-          title="Send proposals that close faster and contracts that sign themselves."
-          description="You spend hours writing a proposal and send it by email. The client never confirms receipt, reads half of it, and takes two weeks to respond. DocMetrics gives you a professional client portal where proposals, contracts, and project briefs live in one place — and you always know what your client has read."
-          bullets={[
-            "Share proposals as tracked links — know the moment a client opens them",
-            "See which sections of your proposal the client spent the most time on",
-            "Send contracts for e-signature directly from the portal",
-            "Create a file request to collect briefs, assets, and onboarding documents",
-            "Brand every portal with your logo so clients experience your business",
-          ]}
-          imageSrc="/assets/illustrations/audience-freelancers.png"
-          imageAlt="Freelancers illustration"
-        />
-      </div>
-
-      <div className="bg-slate-50 border-t border-slate-200">
-        <AudienceBlock
-          label="Real Estate Professionals"
-          title="Organize every deal in a secure branded data room."
-          description="Real estate deals involve dozens of sensitive documents — purchase agreements, financial models, inspection reports, legal disclosures. DocMetrics gives you a secure Space for every property where buyers, sellers, and advisors each see only what they are meant to see, and every action is logged for compliance."
-          bullets={[
-            "Create a Space per property with folders for legal, financial, and marketing materials",
-            "Require buyers to sign an NDA before accessing financial projections",
-            "Track which pages of every document each party has reviewed",
-            "Full audit log for compliance — every view, every download, timestamped",
-            "Collect signatures on purchase agreements and disclosure documents",
-          ]}
-          imageSrc="/assets/illustrations/audience-realestate.png"
-          imageAlt="Real estate illustration"
-          reverse
-        />
-      </div>
-
-      <div className="bg-slate-50 border-t border-slate-200">
-        <AudienceBlock
-          label="Recruiters and Talent Professionals"
-          title="Share candidate profiles and offer letters with complete visibility."
-          description="Recruiters send candidate profiles to hiring managers and offer letters to candidates every day — with no idea who opened what or when. DocMetrics gives you tracked links for every document, e-signature for offer letters, and a dedicated Space for each client so all communication and materials stay organized."
-          bullets={[
-            "Share candidate profiles as tracked links — see which ones hiring managers actually read",
-            "Know when a hiring manager opens a profile and how long they spent reviewing it",
-            "Send offer letters for e-signature and track exactly when candidates sign",
-            "Create a Space per client with all active candidates and communication in one place",
-            "Bulk send documents to multiple candidates simultaneously with individual tracking",
-          ]}
-          imageSrc="/assets/illustrations/audience-recruiters.png"
-          imageAlt="Recruiters illustration"
-        />
-      </div>
-
       {/* ── FAQ ── */}
-      <section className="bg-white border-t border-slate-100 py-16 sm:py-20">
+      <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <div className="mb-12 text-center">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
-              FAQ
-            </p>
             <h2 className="text-3xl sm:text-4xl font-semibold text-slate-900 leading-tight">
               Frequently asked questions
             </h2>
             <p className="mt-4 text-base text-slate-500">
               Everything you need to know about DocMetrics client portals.{" "}
-              
-             <a   href="/contact"
-                className="text-[#0284c7] hover:text-[#0369a1] font-medium transition-colors"
-              >
+              <a href="/contact" className="text-sky-600 hover:text-sky-800 font-medium transition-colors">
                 Contact us
               </a>{" "}
               if you cannot find what you are looking for.
@@ -536,12 +336,7 @@ export default function ClientPortalsPage(): JSX.Element {
           </div>
           <div className="divide-y divide-slate-200 border-t border-slate-200">
             {FAQS.map((faq, i) => (
-              <FAQItem
-                key={i}
-                faq={faq}
-                isOpen={openIndex === i}
-                onToggle={() => toggle(i)}
-              />
+              <FAQItem key={i} faq={faq} isOpen={openIndex === i} onToggle={() => toggle(i)} />
             ))}
           </div>
         </div>
@@ -554,22 +349,14 @@ export default function ClientPortalsPage(): JSX.Element {
             Give every client a portal they will remember.
           </h2>
           <p className="text-base text-white/80 max-w-xl mx-auto mb-8">
-            Create your first client Space in under two minutes. Upload your
-            documents, invite your client, and start tracking engagement from
-            day one.
+            Create your first client Space in under two minutes. Upload your documents, invite your client, and start tracking engagement from day one.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/register"
-              className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
-            >
+            <Link href="/signup" className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm">
               Start for free
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link
-              href="/pricing"
-              className="inline-flex items-center gap-2 border border-white/40 text-white font-medium px-8 py-3 rounded-xl hover:bg-white/10 transition-colors text-sm"
-            >
+            <Link href="/pricing" className="inline-flex items-center gap-2 border border-white/40 text-white font-medium px-8 py-3 rounded-xl hover:bg-white/10 transition-colors text-sm">
               View pricing
             </Link>
           </div>

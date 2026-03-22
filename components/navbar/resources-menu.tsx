@@ -11,13 +11,11 @@ import {
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu"
 import { cn } from "@/lib/utils"
-import { Book, FileText, MessageSquare } from "lucide-react"
 
 type ResourceItemType = {
   title: string
   href: string
   description: string
-  icon: React.ElementType
 }
 
 const resources: { learn: ResourceItemType[]; support: ResourceItemType[] } = {
@@ -26,13 +24,11 @@ const resources: { learn: ResourceItemType[]; support: ResourceItemType[] } = {
       title: "Getting Started",
       href: "https://docmetrics-documentation.gitbook.io/docs",
       description: "Quick setup guide to start tracking in minutes",
-      icon: Book,
     },
     {
       title: "Best Practices",
       href: "/blog/best-practices",
       description: "Tips to maximize document engagement",
-      icon: FileText,
     },
   ],
   support: [
@@ -40,7 +36,6 @@ const resources: { learn: ResourceItemType[]; support: ResourceItemType[] } = {
       title: "Contact Us",
       href: "/contact",
       description: "Get in touch with our team",
-      icon: MessageSquare,
     },
   ],
 }
@@ -49,12 +44,11 @@ type ResourceItemProps = {
   href: string
   title: string
   description: string
-  icon: React.ElementType
   target?: string
   rel?: string
 }
 
-function ResourceItem({ href, title, description, icon: Icon, target, rel }: ResourceItemProps) {
+function ResourceItem({ href, title, description, target, rel }: ResourceItemProps) {
   return (
     <div>
       <NavigationMenuLink asChild>
@@ -66,15 +60,12 @@ function ResourceItem({ href, title, description, icon: Icon, target, rel }: Res
             "block select-none rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-gray-100 focus:bg-gray-100"
           )}
         >
-          <div className="flex items-start gap-3">
-            <Icon className="mt-0.5 h-4 w-4 text-purple-600" />
-            <div className="space-y-1">
-              <div className="text-sm font-semibold leading-none text-gray-900">{title}</div>
-              <p className="text-xs leading-snug text-gray-600">
-                {description}
-              </p>
-            </div>
+          <div className="text-sm font-semibold leading-none text-gray-900 mb-1">
+            {title}
           </div>
+          <p className="text-xs leading-snug text-gray-600">
+            {description}
+          </p>
         </Link>
       </NavigationMenuLink>
     </div>
@@ -96,7 +87,7 @@ export function ResourcesMenu() {
                 {/* Learn Section */}
                 <div>
                   <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-900">
-                    📚 Learn
+                    Learn
                   </h4>
                   <div className="space-y-1">
                     {resources.learn.map((item) => (
@@ -105,7 +96,6 @@ export function ResourcesMenu() {
                         title={item.title}
                         href={item.href}
                         description={item.description}
-                        icon={item.icon}
                         target={item.href.startsWith('https') ? '_blank' : undefined}
                         rel={item.href.startsWith('https') ? 'noopener noreferrer' : undefined}
                       />
@@ -125,7 +115,6 @@ export function ResourcesMenu() {
                         title={item.title}
                         href={item.href}
                         description={item.description}
-                        icon={item.icon}
                       />
                     ))}
                   </div>

@@ -764,7 +764,7 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
   : "🔗 Share link view"}
                           </span>
                         </div>
-                         <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-400">
   {visit.city && visit.city !== "Unknown"
     ? `${visit.city}, `
     : ""}

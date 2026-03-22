@@ -133,7 +133,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/solutions/enterprise" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  Enterprise
+                  Client Portals
                 </Link>
               </li>
             </ul>

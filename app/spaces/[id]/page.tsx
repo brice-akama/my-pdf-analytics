@@ -1048,9 +1048,7 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
             <div key={v.email} className="bg-white border rounded-xl p-4">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-semibold text-slate-600">{v.email.charAt(0).toUpperCase()}</span>
-                  </div>
+                 
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">{v.email}</p>
                     <p className="text-xs text-slate-400">First seen {timeAgo(v.firstSeen)}</p>
@@ -4630,9 +4628,7 @@ const fetchFolders = async () => {
               <div key={email} className="border rounded-xl overflow-hidden bg-white">
                 {/* Visitor header */}
                 <div className="flex items-center gap-3 px-4 py-3 border-b bg-slate-50">
-                  <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-semibold text-slate-600">{email.charAt(0).toUpperCase()}</span>
-                  </div>
+                   
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">{email}</p>
                     {firstComment.linkLabel && (
@@ -4791,11 +4787,7 @@ const fetchFolders = async () => {
 
         {/* Owner row */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b bg-slate-50">
-          <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0">
-            <span className="text-xs font-semibold text-white">
-              {user?.email?.charAt(0).toUpperCase()}
-            </span>
-          </div>
+           
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-slate-900 truncate">{user?.email}</p>
             <p className="text-xs text-slate-400">Space owner</p>
@@ -4809,11 +4801,7 @@ const fetchFolders = async () => {
         <div className="divide-y divide-slate-100">
           {contacts.map((contact) => (
             <div key={contact.email} className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 transition-colors">
-              <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-semibold text-slate-600">
-                  {contact.email.charAt(0).toUpperCase()}
-                </span>
-              </div>
+              
 
              <div className="flex-1 min-w-0">
   <p className="text-sm font-medium text-slate-900 truncate">{contact.email}</p>
@@ -6906,11 +6894,7 @@ const fetchFolders = async () => {
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center shadow-md">
-                          <span className="text-sm font-bold text-white">
-                            {signature.email.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                         
                         <div>
                           <p className="font-semibold text-slate-900">
                             {signature.email}

@@ -206,7 +206,7 @@ export default function SalesTeamsPage(): JSX.Element {
             </p>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
               Know exactly when your prospect{" "}
-              <span className="text-sky-600">is ready to buy.</span>
+              <span className="text-sky-600">is paying attention.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
               DocMetrics gives sales teams real-time visibility into how
@@ -323,7 +323,7 @@ export default function SalesTeamsPage(): JSX.Element {
           "Compare engagement across multiple prospects on the same document",
           "Use reading data to prepare smarter, more targeted follow-up calls",
         ]}
-        imageSrc="/assets/illustrations/sales-analytics.png"
+        imageSrc="/assets/illustrations/step-track.png"
         imageAlt="Page analytics illustration"
         reverse
       />
@@ -356,7 +356,7 @@ export default function SalesTeamsPage(): JSX.Element {
           "Set expiry dates so old proposals cannot be accessed after a deal closes",
           "Block downloads while still allowing full document viewing",
         ]}
-        imageSrc="/assets/illustrations/sales-sharing.png"
+        imageSrc="/assets/illustrations/step-share.png"
         imageAlt="Secure sharing illustration"
         reverse
       />
@@ -389,7 +389,7 @@ export default function SalesTeamsPage(): JSX.Element {
           "Signing funnel shows how many opened, reached the signature, and completed",
           "Bundle multiple documents into one envelope for complex deals",
         ]}
-        imageSrc="/assets/illustrations/sales-signatures.png"
+        imageSrc="/assets/illustrations/step-sign.png"
         imageAlt="E-signature illustration"
         reverse
       />

@@ -1,6 +1,6 @@
 "use client"
 
-import { JSX, useRef, useState } from "react"
+import { JSX, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { ArrowRight, Play } from "lucide-react"
 import Image from "next/image"
@@ -64,6 +64,7 @@ function VideoBlock({
   reverse?: boolean
 }) {
   const ref = useRef<HTMLVideoElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [playing, setPlaying] = useState(false)
 
   const toggle = () => {
@@ -72,6 +73,28 @@ function VideoBlock({
     if (playing) { el.pause(); setPlaying(false) }
     else { el.play(); setPlaying(true) }
   }
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const el = ref.current
+          if (!el) return
+          if (entry.isIntersecting) {
+            el.play()
+              .then(() => setPlaying(true))
+              .catch(() => {})
+          } else {
+            el.pause()
+            setPlaying(false)
+          }
+        })
+      },
+      { threshold: 0.5 }
+    )
+    if (containerRef.current) observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center mb-20">
@@ -84,6 +107,7 @@ function VideoBlock({
         </p>
       </div>
       <div
+        ref={containerRef}
         className={`${reverse ? "lg:order-1" : "lg:order-2"} relative rounded-2xl overflow-hidden shadow-xl bg-slate-900 cursor-pointer group`}
         onClick={toggle}
       >
@@ -94,6 +118,7 @@ function VideoBlock({
           className="w-full h-auto block"
           playsInline
           loop
+          muted
           onEnded={() => setPlaying(false)}
         />
         <div className={`absolute inset-0 bg-slate-900/30 flex items-center justify-center transition-opacity duration-200 ${playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
@@ -158,7 +183,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
         <VideoBlock
           title="See how long each person spent on every page."
           description="When someone opens your document a bar chart builds in real time showing their reading time per page. Tall bars mean they read carefully. Short bars mean they skimmed or skipped. Hover over any bar to see a thumbnail of that page and the exact time spent. You see this for every visitor individually — not averaged across everyone."
-          videoSrc="/videos/tracking-demo.mp4"
+          videoSrc="/videos/analytics-demo.mp4"
           posterSrc="/assets/screenshots/page-bar-chart-poster.png"
         />
 
@@ -167,7 +192,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
         <ScreenshotBlock
           title="Know who opened your document, not just that someone did."
           description="Every visitor is identified by their email address — either captured at the gate before they open the link, or matched against your share link settings. You see their first visit, every return visit, total time spent across all sessions, and which pages they came back to. Multiple visits from the same person stack into one profile so you see the full picture of their engagement over time."
-          imageSrc="/assets/screenshots/visitor-profile.png"
+          imageSrc="/assets/doc-open.png"
           imageAlt="Visitor engagement profile"
           reverse
         />
@@ -177,26 +202,26 @@ export default function DocumentAnalyticsPage(): JSX.Element {
         <ScreenshotBlock
           title="Reading time tells you how long. This tells you if they understood."
           description="For every page that has a video walkthrough recorded, you see two bars per visitor — their reading time and how much of your explanation they watched. If someone watched your page 4 walkthrough three times you know that page needs a conversation. If they marked every page as clear and answered ready to move forward on the deal intent question, you know the timing is right to close."
-          imageSrc="/assets/screenshots/understanding-bars.png"
+          imageSrc="/assets/understanding-bars.png"
           imageAlt="Do they understand it analytics"
         />
 
         <SectionLabel>Real time notifications</SectionLabel>
 
-        <ScreenshotBlock
-          title="Know the moment someone opens your document."
-          description="The instant a recipient opens your share link you receive a notification — in your dashboard, by email, and in Slack if connected. The notification includes their email, which document they opened, and what time. If they are viewing right now a live indicator appears on your dashboard. You always know when to follow up and you never have to guess whether they have seen it yet."
-          imageSrc="/assets/screenshots/notifications.png"
-          imageAlt="Real time document open notifications"
-          reverse
-        />
+        <VideoBlock
+  title="Know the moment someone opens your document."
+  description="The instant a recipient opens your share link you receive a notification — in your dashboard, by email, and in Slack if connected. The notification includes their email, which document they opened, and what time. If they are viewing right now a live indicator appears on your dashboard. You always know when to follow up and you never have to guess whether they have seen it yet."
+  videoSrc="/videos/tracking-demo.mp4"
+  posterSrc="/assets/screenshots/notifications-poster.png"
+  reverse
+/>
 
         <SectionLabel>Signature analytics</SectionLabel>
 
         <ScreenshotBlock
           title="Track the entire signing journey, not just the outcome."
           description="For every signature request you see a funnel — how many recipients opened the document, how many scrolled to the signature field, how many started signing, and how many completed it. For each individual signer you see their reading time per page, their video walkthrough completion, and if they declined, the page they were on and the reason they gave."
-          imageSrc="/assets/screenshots/signature-analytics.png"
+          imageSrc="/assets/signature-analytics.png"
           imageAlt="E-signature analytics funnel"
         />
 
@@ -205,7 +230,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
         <ScreenshotBlock
           title="Your most engaged contacts, always at the top."
           description="Your dashboard shows the contacts who have spent the most time across all your documents in the last 30 days — ranked by visits, total time, and number of documents viewed. Below that you see your top documents by views, your most recent visits in real time, and your hottest visitors by engagement score. Everything you need to know about what is happening across your entire document library, without digging."
-          imageSrc="/assets/screenshots/dashboard.png"
+          imageSrc="/assets/dashboard.png"
           imageAlt="DocMetrics dashboard overview"
           reverse
         />

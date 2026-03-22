@@ -11,50 +11,22 @@ import {
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu"
 import { cn } from "@/lib/utils"
-import { Briefcase, Building2, Code2, GraduationCap, Home, TrendingUp } from "lucide-react"
 
 const solutions = [
   {
-    emoji: "💼",
     title: "Sales Teams",
     href: "/solutions/sales",
     description: "Close more deals with proposal tracking and engagement insights",
-    icon: Briefcase,
   },
   {
-    emoji: "🏢",
-    title: "Real Estate",
-    href: "/solutions/real-estate",
-    description: "Track property brochures and know which listings interest clients",
-    icon: Home,
-  },
-  {
-    emoji: "💻",
-    title: "Freelancers & Agencies",
-    href: "/solutions/freelancers",
-    description: "Monitor portfolio views and client engagement with proposals",
-    icon: Code2,
-  },
-  {
-    emoji: "🎯",
-    title: "Recruiting",
-    href: "/solutions/recruiting",
-    description: "See which candidates engage with job descriptions and offers",
-    icon: GraduationCap,
-  },
-  {
-    emoji: "💰",
     title: "Fundraising",
     href: "/solutions/fundraising",
     description: "Track investor engagement with pitch decks and term sheets",
-    icon: TrendingUp,
   },
   {
-    emoji: "🏛️",
-    title: "Enterprise",
+    title: "Client Portals",
     href: "/solutions/enterprise",
     description: "Secure document sharing with advanced analytics and controls",
-    icon: Building2,
   },
 ]
 
@@ -82,7 +54,6 @@ export function SolutionsMenu() {
                     key={solution.title}
                     title={solution.title}
                     href={solution.href}
-                    icon={solution.icon}
                   >
                     {solution.description}
                   </SolutionItem>
@@ -99,42 +70,29 @@ export function SolutionsMenu() {
 interface SolutionItemProps {
   title: string
   href: string
-  icon?: React.ElementType
   children: React.ReactNode
   className?: string
 }
 
-const SolutionItem = React.forwardRef<HTMLAnchorElement, SolutionItemProps>(
-  ({ className, title, children, icon: Icon, href }, ref) => {
-    return (
-      <li>
-        <NavigationMenuLink asChild>
-          <Link
-            ref={ref}
-            href={href}
-            className={cn(
-              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-gray-100 focus:bg-gray-100",
-              className
-            )}
-          >
-            <div className="flex items-start gap-3">
-              {Icon && (
-                <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-purple-100">
-                  <Icon className="h-4 w-4 text-purple-600" />
-                </div>
-              )}
-              <div className="space-y-1">
-                <div className="text-sm font-semibold leading-none text-gray-900">{title}</div>
-                <p className="line-clamp-2 text-xs leading-snug text-gray-600">
-                  {children}
-                </p>
-              </div>
-            </div>
-          </Link>
-        </NavigationMenuLink>
-      </li>
-    )
-  }
-)
-
-SolutionItem.displayName = "SolutionItem"
+function SolutionItem({ className, title, children, href }: SolutionItemProps) {
+  return (
+    <div>
+      <NavigationMenuLink asChild>
+        <Link
+          href={href}
+          className={cn(
+            "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-gray-100 focus:bg-gray-100",
+            className
+          )}
+        >
+          <div className="text-sm font-semibold leading-none text-gray-900 mb-1">
+            {title}
+          </div>
+          <p className="line-clamp-2 text-xs leading-snug text-gray-600">
+            {children}
+          </p>
+        </Link>
+      </NavigationMenuLink>
+    </div>
+  )
+}

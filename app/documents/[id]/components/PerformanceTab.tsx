@@ -121,9 +121,7 @@ export default function PerformanceTab({
           <div className="space-y-2">
             {liveViewers.map((viewer: any, i: number) => (
               <div key={i} className="flex items-center gap-3">
-                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  {viewer.email ? viewer.email.charAt(0).toUpperCase() : '?'}
-                </div>
+                 
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-slate-800 truncate">{viewer.email || 'Anonymous viewer'}</p>
                   <p className="text-[11px] text-slate-400">Page {viewer.page} · {viewer.device}</p>
