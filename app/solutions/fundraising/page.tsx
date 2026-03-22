@@ -197,7 +197,7 @@ export default function FundraisingPage(): JSX.Element {
               className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-6 text-base rounded-xl shadow-md hover:shadow-lg transition-all"
               asChild
             >
-              <Link href="/register">
+              <Link href="/signup">
                 Start for free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
@@ -217,12 +217,11 @@ export default function FundraisingPage(): JSX.Element {
       </div>
 
       {/* ── PROBLEM ── */}
-      <div className="border-t border-slate-100 bg-slate-50">
+      <div className="">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <div className="max-w-2xl mb-12">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
-              The Problem
-            </p>
+            
+            
             <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
               You send the pitch deck. Then silence.
             </h2>
@@ -284,7 +283,7 @@ export default function FundraisingPage(): JSX.Element {
           "Know when your deck gets forwarded to a partner or investment committee",
           "Live indicator shows when someone is reading your document right now",
         ]}
-        imageSrc="/assets/illustrations/fundraising-tracking.png"
+        imageSrc="/assets/illustrations/sales-alerts.png"
         imageAlt="Investor tracking illustration"
       />
 
@@ -300,7 +299,7 @@ export default function FundraisingPage(): JSX.Element {
           "Compare engagement patterns across different investors",
           "Continuously refine your deck based on real engagement data",
         ]}
-        imageSrc="/assets/illustrations/fundraising-slides.png"
+        imageSrc="/assets/illustrations/step-track.png"
         imageAlt="Slide analytics illustration"
         reverse
       />
@@ -317,7 +316,7 @@ export default function FundraisingPage(): JSX.Element {
           "Stop chasing investors who opened page one and never came back",
           "Focus every follow-up call where buying intent is genuinely high",
         ]}
-        imageSrc="/assets/illustrations/fundraising-scoring.png"
+        imageSrc="/assets/illustrations/sales-scoring.png"
         imageAlt="Engagement scoring illustration"
       />
 
@@ -333,7 +332,7 @@ export default function FundraisingPage(): JSX.Element {
           "Set expiry dates so outdated materials cannot be accessed",
           "Block downloads while still allowing full document viewing",
         ]}
-        imageSrc="/assets/illustrations/fundraising-security.png"
+        imageSrc="/assets/illustrations/step-share.png"
         imageAlt="Secure sharing illustration"
         reverse
       />
@@ -350,7 +349,7 @@ export default function FundraisingPage(): JSX.Element {
           "Full audit log — every document opened, every page viewed, every download, timestamped",
           "Q&A tab where investors ask questions and you respond inside the space",
         ]}
-        imageSrc="/assets/illustrations/fundraising-dataroom.png"
+        imageSrc="/assets/illustrations/step-dataroom.png"
         imageAlt="Data room illustration"
       />
 
@@ -366,18 +365,16 @@ export default function FundraisingPage(): JSX.Element {
           "View all signed agreements and download certificates from your dashboard",
           "Revoke access at any time if the deal falls through",
         ]}
-        imageSrc="/assets/illustrations/fundraising-nda.png"
+        imageSrc="/assets/illustrations/step-sign.png"
         imageAlt="NDA and agreements illustration"
         reverse
       />
 
       {/* ── FAQ ── */}
-      <section className="bg-slate-50 border-t border-slate-100 py-16 sm:py-20">
+      <section className=" py-16 sm:py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <div className="mb-12 text-center">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
-              FAQ
-            </p>
+             
             <h2 className="text-3xl sm:text-4xl font-semibold text-slate-900 leading-tight">
               Frequently asked questions
             </h2>

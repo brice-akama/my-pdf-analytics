@@ -150,7 +150,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left Side - Illustration/Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-purple-50 via-blue-50 to-purple-100 items-center justify-center p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-100 to-blue-100 items-center justify-center p-12">
         <div className="max-w-md">
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-6">
@@ -182,15 +182,7 @@ export default function LoginPage() {
           {/* Feature highlights */}
           <div className="space-y-4 mt-8">
             <div className="flex items-start gap-3">
-              <div className="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-purple-600">
-                <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <span className="text-gray-700">Real-time document tracking</span>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-purple-600">
+              <div className="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600">
                 <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
@@ -198,7 +190,7 @@ export default function LoginPage() {
               <span className="text-gray-700">Detailed engagement analytics</span>
             </div>
             <div className="flex items-start gap-3">
-              <div className="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-purple-600">
+              <div className="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600">
                 <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
@@ -272,7 +264,7 @@ export default function LoginPage() {
   <Button
     type="submit"
     disabled={loading}
-    className="w-full h-12 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold"
+    className="w-full h-12 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold"
   >
     {loading ? "Signing in..." : "Sign In"}
   </Button>
@@ -312,7 +304,7 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center text-sm">
             <span className="text-gray-600">Don't have an account? </span>
-            <Link href="/signup" className="font-medium text-purple-600 hover:text-purple-700 hover:underline">
+            <Link href="/signup" className="font-medium text-indigo-600 hover:text-indigo-700 hover:underline">
               Sign up
             </Link>
           </div>
@@ -321,7 +313,7 @@ export default function LoginPage() {
           <div className="mt-4 text-center">
             <Link 
               href="/reset-password" 
-              className="text-sm text-purple-600 hover:text-purple-700 hover:underline"
+              className="text-sm text-indigo-600 hover:text-indigo-700 hover:underline"
             >
               Want to set a password or forgot yours? Reset here →
             </Link>
