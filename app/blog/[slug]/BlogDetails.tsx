@@ -14,6 +14,7 @@ import {
   Share2,
 } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from "sonner";
 
 interface BlogPost {
   title: string
@@ -28,6 +29,8 @@ interface BlogPost {
 export default function BlogDetails({ post }: { post: BlogPost }) {
   const [showShareMenu, setShowShareMenu] = useState(false)
   const [copySuccess, setCopySuccess] = useState(false)
+  const [newsletterEmail, setNewsletterEmail] = useState("")
+const [newsletterLoading, setNewsletterLoading] = useState(false)
 
   if (!post) {
     return (
@@ -42,6 +45,46 @@ export default function BlogDetails({ post }: { post: BlogPost }) {
 
   const wordCount = post.content.replace(/<[^>]*>/g, '').split(/\s+/).length
   const readingTime = Math.ceil(wordCount / 200)
+
+
+  const handleNewsletterSubmit = async () => {
+  if (!newsletterEmail.trim()) {
+    toast.error("Please enter your email address.");
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(newsletterEmail)) {
+    toast.error("Please enter a valid email address.");
+    return;
+  }
+
+  setNewsletterLoading(true);
+  try {
+    const res = await fetch("/api/newsletter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: newsletterEmail }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      toast.success("You are subscribed! Check your inbox for a confirmation.");
+      setNewsletterEmail("");
+    } else if (res.status === 429) {
+      toast.error(data.error ?? "Too many attempts. Please try again later.");
+    } else if (res.status === 409) {
+      toast.error("This email is already subscribed.");
+    } else {
+      toast.error(data.error ?? "Something went wrong. Please try again.");
+    }
+  } catch {
+    toast.error("Network error. Please check your connection.");
+  } finally {
+    setNewsletterLoading(false);
+  }
+};
 
   const handleShare = (platform: string) => {
     const url = window.location.href
@@ -335,15 +378,28 @@ const parseOptions = {
                   deals — delivered weekly.
                 </p>
                 <div className="space-y-2">
-                  <input
-                    type="email"
-                    placeholder="your@email.com"
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
-                  />
-                  <button className="w-full bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">
-                    Subscribe
-                  </button>
-                </div>
+  <input
+    type="email"
+    value={newsletterEmail}
+    onChange={(e) => setNewsletterEmail(e.target.value)}
+    placeholder="your@email.com"
+    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+  />
+  <button
+    onClick={handleNewsletterSubmit}
+    disabled={newsletterLoading}
+    className="w-full bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2"
+  >
+    {newsletterLoading ? (
+      <>
+        <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        Subscribing...
+      </>
+    ) : (
+      "Subscribe"
+    )}
+  </button>
+</div>
                 <p className="text-xs text-slate-400 mt-3 text-center">
                   No spam. Unsubscribe anytime.
                 </p>
@@ -358,7 +414,7 @@ const parseOptions = {
                   minutes.
                 </p>
                 <Link
-                  href="/register"
+                  href="/signup"
                   className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-5 py-2.5 rounded-xl hover:bg-sky-50 transition-colors text-sm"
                 >
                   Start for free

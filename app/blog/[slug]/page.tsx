@@ -2,27 +2,27 @@ import { getBlogPost } from "./fetchBlog";
 import BlogDetails from "./BlogDetails";
 import { Metadata } from "next";
 
-// ✅ Type for route params
+//  Type for route params
 type Props = {
   params: Promise<{ slug: string }>; // params is now async
 };
 
-// ✅ Optional revalidation (you can keep or remove)
+//  Optional revalidation (you can keep or remove)
 export const revalidate = 60;
 
-// ✅ Generate metadata for SEO and social sharing
+//  Generate metadata for SEO and social sharing
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  // 🧠 Unwrap params first
+  //  Unwrap params first
   const resolvedParams = await params;
 
   if (!resolvedParams?.slug) {
-    console.warn("⚠️ generateMetadata called without a slug");
+    console.warn(" generateMetadata called without a slug");
     return {};
   }
 
-  // ✅ Fetch post safely
+  //  Fetch post safely
   const post = await getBlogPost(resolvedParams.slug).catch((err) => {
-    console.error("❌ Failed to fetch post in generateMetadata:", err);
+    console.error(" Failed to fetch post in generateMetadata:", err);
     return null;
   });
 
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title
   )}`;
   const image = imageUrl || ogImageUrl;
-  const canonicalUrl = `https://www.16zip.com/blog/${resolvedParams.slug}`;
+  const canonicalUrl = `https://www.docmetrics.io/blog/${resolvedParams.slug}`;
 
   return {
     title,
@@ -60,17 +60,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-// ✅ Page rendering logic
+//  Page rendering logic
 export default async function Page({ params }: Props) {
-  const resolvedParams = await params; // 👈 same fix here
+  const resolvedParams = await params; //  same fix here
 
   if (!resolvedParams?.slug) {
-    console.error("❌ Page rendered without a slug param");
+    console.error(" Page rendered without a slug param");
     return <div>Invalid blog URL</div>;
   }
 
   const post = await getBlogPost(resolvedParams.slug).catch((err) => {
-    console.error("❌ Failed to fetch blog post in Page:", err);
+    console.error(" Failed to fetch blog post in Page:", err);
     return null;
   });
 

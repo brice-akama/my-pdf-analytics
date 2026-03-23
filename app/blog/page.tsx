@@ -373,7 +373,7 @@ const [newsletterLoading, setNewsletterLoading] = useState(false)
                 minutes.
               </p>
               <Link
-                href="/register"
+                href="/signup"
                 className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-5 py-2.5 rounded-xl hover:bg-sky-50 transition-colors text-sm"
               >
                 Start for free

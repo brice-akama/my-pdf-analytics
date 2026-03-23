@@ -4039,7 +4039,7 @@ export async function sendNewsletterWelcomeEmail({
             <p style="margin: 0 0 16px; font-size: 14px; color: #475569;">
               Ready to see what DocMetrics can do for your team?
             </p>
-            <a href="https://docmetrics.io/register"
+            <a href="https://docmetrics.io/signup"
                style="display: inline-block; background: #0284c7; color: #ffffff;
                       font-size: 14px; font-weight: 600; padding: 12px 28px;
                       border-radius: 8px; text-decoration: none;">
