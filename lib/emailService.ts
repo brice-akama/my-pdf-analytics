@@ -4,6 +4,9 @@ import { sendEmail } from './email';
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM = 'DocMetrics <noreply@docmetrics.io>'
+const NEWSLETTER_INBOX = 'hello@docmetrics.io';  
+ 
+const CONTACT_INBOX = 'support@docmetrics.io';
 // ===================================
 // SIGNATURE REQUEST EMAIL
 // ===================================
@@ -3859,4 +3862,256 @@ export async function sendCertificateEmail({
     console.error('❌ Certificate email exception:', err);
     return { success: false, error: err };
   }
+}
+
+
+
+// ── CONTACT FORM EMAIL ─────────────────────────────────────────
+export async function sendContactEmail({
+  name,
+  email,
+  subject,
+  message,
+}: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}) {
+    
+  await resend.emails.send({
+    from: FROM,
+    to: CONTACT_INBOX,
+    replyTo: email,         // ← replying goes straight back to the sender
+    subject: `[Contact] ${subject} — ${name}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b;">
+
+        <div style="background: #0284c7; padding: 24px 32px; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 18px; font-weight: 600;">
+            New Contact Form Submission
+          </h1>
+          <p style="margin: 4px 0 0; color: #bae6fd; font-size: 13px;">
+            DocMetrics Marketing Site
+          </p>
+        </div>
+
+        <div style="border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; padding: 32px;">
+
+          <!-- Sender details -->
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; width: 120px;">
+                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; 
+                             letter-spacing: 0.05em; color: #94a3b8;">From</span>
+              </td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
+                <span style="font-size: 14px; color: #1e293b; font-weight: 500;">${name}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
+                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; 
+                             letter-spacing: 0.05em; color: #94a3b8;">Email</span>
+              </td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
+                <a href="mailto:${email}" style="font-size: 14px; color: #0284c7; 
+                                                  text-decoration: none;">${email}</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0;">
+                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; 
+                             letter-spacing: 0.05em; color: #94a3b8;">Subject</span>
+              </td>
+              <td style="padding: 8px 0;">
+                <span style="font-size: 14px; color: #1e293b;">${subject}</span>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Message body -->
+          <div>
+            <p style="font-size: 12px; font-weight: 600; text-transform: uppercase; 
+                      letter-spacing: 0.05em; color: #94a3b8; margin: 0 0 10px;">
+              Message
+            </p>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; 
+                        padding: 16px 20px;">
+              <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.7; 
+                        white-space: pre-wrap;">${message}</p>
+            </div>
+          </div>
+
+          <!-- Reply CTA -->
+          <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
+            <a href="mailto:${email}?subject=Re: ${subject}"
+               style="display: inline-block; background: #0284c7; color: #ffffff; 
+                      font-size: 13px; font-weight: 600; padding: 10px 20px; 
+                      border-radius: 6px; text-decoration: none;">
+              Reply to ${name}
+            </a>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <p style="text-align: center; font-size: 11px; color: #cbd5e1; margin-top: 20px;">
+          Sent from docmetrics.io contact form · ${new Date().toUTCString()}
+        </p>
+
+      </div>
+    `,
+  });
+}
+
+// ===================================
+// SEND NEWSLETTER EMAIL
+// ===================================
+
+
+
+// ── NEWSLETTER: Email sent to the SUBSCRIBER ─────────────────
+export async function sendNewsletterWelcomeEmail({
+  email,
+}: {
+  email: string;
+}) {
+  await resend.emails.send({
+    from: FROM,
+    to: email,                    // goes to the subscriber
+    subject: "Welcome to DocMetrics Insights",
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+                  max-width: 560px; margin: 0 auto; color: #1e293b;">
+
+        <!-- Header -->
+        <div style="padding: 48px 0 32px;">
+          <p style="margin: 0; font-size: 20px; font-weight: 700; 
+                    letter-spacing: -0.5px; color: #0284c7;">
+            DocMetrics
+          </p>
+        </div>
+
+        <!-- Body -->
+        <div style="border: 1px solid #e2e8f0; border-radius: 12px; 
+                    padding: 40px; background: #ffffff;">
+          
+          <h1 style="margin: 0 0 16px; font-size: 24px; font-weight: 600; 
+                     color: #0f172a; line-height: 1.3;">
+            You are on the list.
+          </h1>
+
+          <p style="margin: 0 0 16px; font-size: 15px; color: #475569; 
+                    line-height: 1.7;">
+            Thank you for subscribing to DocMetrics Insights. You will receive 
+            practical guides on document sharing, analytics, and closing deals — 
+            delivered straight to your inbox.
+          </p>
+
+          <p style="margin: 0 0 32px; font-size: 15px; color: #475569; 
+                    line-height: 1.7;">
+            Here is what to expect from us:
+          </p>
+
+          <!-- List -->
+          <div style="margin-bottom: 32px;">
+            ${[
+              "Practical guides on document analytics",
+              "Tips for closing deals faster",
+              "Product updates and new features",
+              "Industry insights on document sharing",
+            ].map(item => `
+              <div style="display: flex; align-items: flex-start; 
+                          gap: 12px; margin-bottom: 12px;">
+                <div style="width: 6px; height: 6px; border-radius: 50%; 
+                            background: #0284c7; margin-top: 8px; 
+                            flex-shrink: 0;"></div>
+                <p style="margin: 0; font-size: 14px; color: #475569; 
+                          line-height: 1.6;">${item}</p>
+              </div>
+            `).join("")}
+          </div>
+
+          <!-- CTA -->
+          <div style="background: #f0f9ff; border-radius: 8px; 
+                      padding: 24px; margin-bottom: 32px; text-align: center;">
+            <p style="margin: 0 0 16px; font-size: 14px; color: #475569;">
+              Ready to see what DocMetrics can do for your team?
+            </p>
+            <a href="https://docmetrics.io/register"
+               style="display: inline-block; background: #0284c7; color: #ffffff;
+                      font-size: 14px; font-weight: 600; padding: 12px 28px;
+                      border-radius: 8px; text-decoration: none;">
+              Start for free
+            </a>
+          </div>
+
+          <p style="margin: 0; font-size: 14px; color: #475569; line-height: 1.7;">
+            If you have any questions, reply to this email or reach us at 
+            <a href="mailto:support@docmetrics.io" 
+               style="color: #0284c7; text-decoration: none;">
+              support@docmetrics.io
+            </a>
+          </p>
+
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 24px 0; text-align: center;">
+          <p style="margin: 0 0 8px; font-size: 12px; color: #94a3b8;">
+            You are receiving this because you subscribed at docmetrics.io
+          </p>
+          <p style="margin: 0; font-size: 12px; color: #94a3b8;">
+            © ${new Date().getFullYear()} DocMetrics · 
+            <a href="mailto:support@docmetrics.io?subject=Unsubscribe" 
+               style="color: #94a3b8;">
+              Unsubscribe
+            </a>
+          </p>
+        </div>
+
+      </div>
+    `,
+  });
+}
+
+// ── NEWSLETTER: Notification sent to YOU (the company) ────────
+export async function sendNewsletterNotificationEmail({
+  email,
+}: {
+  email: string;
+}) {
+  await resend.emails.send({
+    from: FROM,
+    to: NEWSLETTER_INBOX,         // lands in your hello@ inbox
+    subject: `New subscriber — ${email}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; 
+                  margin: 0 auto; color: #1e293b;">
+        <div style="background: #0284c7; padding: 20px 28px; 
+                    border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; color: #ffffff; font-size: 16px; 
+                     font-weight: 600;">
+            New Newsletter Subscriber
+          </h1>
+        </div>
+        <div style="border: 1px solid #e2e8f0; border-top: none; 
+                    border-radius: 0 0 8px 8px; padding: 24px 28px;">
+          <p style="margin: 0 0 8px; font-size: 13px; color: #94a3b8; 
+                    font-weight: 600; text-transform: uppercase; 
+                    letter-spacing: 0.05em;">
+            Subscriber Email
+          </p>
+          <p style="margin: 0 0 20px; font-size: 15px; font-weight: 500; 
+                    color: #0284c7;">
+            ${email}
+          </p>
+          <p style="margin: 0; font-size: 12px; color: #94a3b8;">
+            Subscribed on ${new Date().toUTCString()}
+          </p>
+        </div>
+      </div>
+    `,
+  });
 }

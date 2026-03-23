@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { ArrowRight, Plus, Minus } from "lucide-react"
+import { toast } from "sonner";
 
 const FAQS = [
   {
@@ -96,41 +97,49 @@ export default function ContactPage() {
 
   const toggle = (i: number) => setOpenIndex(openIndex === i ? null : i)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  
+
+const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
     if (
       !formData.name.trim() ||
       !formData.email.trim() ||
       !formData.subject.trim() ||
       !formData.message.trim()
     ) {
-      setError("Please fill in all fields before sending.")
-      return
+      toast.error("Please fill in all fields before sending.");
+      return;
     }
-    setError(null)
-    setSubmitting(true)
+
+    setError(null);
+    setSubmitting(true);
+
     try {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
-      })
+      });
+
+      const data = await res.json();
+
       if (res.ok) {
-        setSubmitted(true)
-        setFormData({ name: "", email: "", subject: "", message: "" })
+        toast.success("Message sent! We will get back to you within one business day.");
+        setSubmitted(true);
+        setFormData({ name: "", email: "", subject: "", message: "" });
+      } else if (res.status === 429) {
+        // Rate limit hit
+        toast.error(data.error ?? "Too many messages sent. Please try again later.");
       } else {
-        setError(
-          "Something went wrong sending your message. Please try again or email us directly."
-        )
+        toast.error(data.error ?? "Something went wrong. Please try again.");
       }
     } catch {
-      setError(
-        "Something went wrong sending your message. Please try again or email us directly."
-      )
+      toast.error("Network error. Please check your connection and try again.");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -377,16 +386,16 @@ export default function ContactPage() {
                     email: "security@docmetrics.io",
                     description: "Vulnerability reports and security concerns",
                   },
+                 {
+  department: "Privacy",
+  email: "support@docmetrics.io",        // ← points to real mailbox
+  description: "Data requests and privacy questions",
+},
                   {
-                    department: "Privacy",
-                    email: "privacy@docmetrics.io",
-                    description: "Data requests and privacy questions",
-                  },
-                  {
-                    department: "General",
-                    email: "hello@docmetrics.io",
-                    description: "Partnerships and press enquiries",
-                  },
+  department: "Sales & Partnerships",
+  email: "hello@docmetrics.io",
+  description: "Sales enquiries, partnerships, and press",   
+},
                 ].map((item) => (
                   <div key={item.department}>
                     <p className="text-xs font-semibold text-slate-500 mb-0.5">

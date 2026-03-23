@@ -4,14 +4,14 @@ import Image from "next/image";
 
 const features = [
   {
-    title: "Board Meetings",
-    description: "Share board materials securely. Know who read the agenda before the meeting starts.",
-    image: "/assets/team.png",
-  },
+  title: "Board Meetings",
+  description: "Share board materials securely. Know who read the agenda before the meeting starts.",
+  image: "/assets/board-meetings.jpg",
+},
   {
     title: "Investor Relations",
     description: "Send your pitch deck and know exactly which slides investors spent time on.",
-    image: "/assets/your-team-photo.jpg",
+    image: "/assets/team-photo.jpg",
   },
   {
     title: "Client Portals",
