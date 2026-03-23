@@ -81,21 +81,21 @@ export default function HowItWorksPage(): JSX.Element {
 
           {/* LEFT: Text */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500 mb-4">
+            <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
               How It Works
             </p>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
               From upload to insight —{" "}
-              <span className="text-indigo-600">in minutes.</span>
+               <span className="text-sky-600">in minutes.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
               DocMetrics turns every document you share into a live data source. See who read it, how long they stayed on each page, and exactly when to follow up.
             </p>
             <Button
-              size="lg"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-6 text-base rounded-xl shadow-md hover:shadow-lg transition-all"
-              asChild
-            >
+  size="lg"
+  className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-6 text-base rounded-xl transition-colors"
+  asChild
+>
               <Link href="/signup">
                 Start for free
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -216,7 +216,7 @@ export default function HowItWorksPage(): JSX.Element {
 
       {/* ── CTA ── */}
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-        <div className="rounded-2xl bg-indigo-600 px-8 py-14 sm:px-14 text-center">
+         <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
           <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
             Ready to track your first document?
           </h2>
@@ -224,10 +224,10 @@ export default function HowItWorksPage(): JSX.Element {
             Start for free — no credit card required. Upload a document and see your first analytics in under two minutes.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-2 bg-white text-indigo-600 font-semibold px-8 py-3 rounded-xl hover:bg-indigo-50 transition-colors shadow-sm text-sm"
-            >
+           <Link
+  href="/signup"
+  className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
+>
               Start for free
               <ArrowRight className="h-4 w-4" />
             </Link>

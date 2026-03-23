@@ -124,8 +124,8 @@ function VideoBlock({
         <div className={`absolute inset-0 bg-slate-900/30 flex items-center justify-center transition-opacity duration-200 ${playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
           <div className="h-14 w-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-200">
             {playing
-              ? <div className="flex gap-1"><div className="h-4 w-1.5 bg-indigo-600 rounded-full" /><div className="h-4 w-1.5 bg-indigo-600 rounded-full" /></div>
-              : <Play className="h-5 w-5 text-indigo-600 fill-indigo-600 ml-0.5" />
+             ? <div className="flex gap-1"><div className="h-4 w-1.5 bg-sky-600 rounded-full" /><div className="h-4 w-1.5 bg-sky-600 rounded-full" /></div>
+: <Play className="h-5 w-5 text-sky-600 fill-sky-600 ml-0.5" />
             }
           </div>
         </div>
@@ -142,17 +142,17 @@ export default function DocumentAnalyticsPage(): JSX.Element {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 pb-16">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500 mb-4">
+           <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
               Analytics
             </p>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
               Know exactly what happens{" "}
-              <span className="text-indigo-600">after you send.</span>
+               <span className="text-sky-600">after you send.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
               Every document you share becomes a live data source. See who read it, how long they spent on each page, whether they understood it, and where they dropped off.
             </p>
-            <Link href="/signup" className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-3 rounded-xl shadow-md hover:shadow-lg transition-all text-sm">
+            <Link href="/signup" className="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold px-8 py-3 rounded-xl shadow-md hover:shadow-lg transition-all text-sm">
               Start for free
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -239,7 +239,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
 
       {/* ── CTA ── */}
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-20">
-        <div className="rounded-2xl bg-indigo-600 px-8 py-14 sm:px-14 text-center">
+        <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
           <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
             See your own documents come alive.
           </h2>
@@ -247,7 +247,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
             Upload any PDF and share it. You will see your first analytics within seconds of your recipient opening the link.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/signup" className="inline-flex items-center gap-2 bg-white text-indigo-600 font-semibold px-8 py-3 rounded-xl hover:bg-indigo-50 transition-colors shadow-sm text-sm">
+            <Link href="/signup" className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm">
               Start for free
               <ArrowRight className="h-4 w-4" />
             </Link>

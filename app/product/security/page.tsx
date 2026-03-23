@@ -39,12 +39,12 @@ export default function SecurityControlPage(): JSX.Element {
 
       {/* ── Hero ── */}
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-16 pb-12">
-        <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500 mb-4">
+        <p className="text-xs font-bold uppercase tracking-widest text-sky-400 mt-16 mb-8">
           Security & Control
         </p>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
           Your document.{" "}
-          <span className="text-indigo-600">Your rules.</span>
+          <span className="text-sky-600">Your rules.</span>
         </h1>
         <p className="text-base sm:text-lg text-slate-500 leading-relaxed max-w-2xl">
           Every share link and data room you create in DocMetrics comes with a full set of access controls. Decide who can view, what they can do, and for how long — before you send and after.
@@ -148,7 +148,7 @@ export default function SecurityControlPage(): JSX.Element {
 
       {/* ── CTA ── */}
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pb-20">
-        <div className="rounded-2xl bg-indigo-600 px-8 py-14 sm:px-14 text-center">
+         <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
           <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
             Start with full control from day one.
           </h2>
@@ -156,7 +156,7 @@ export default function SecurityControlPage(): JSX.Element {
             Every security feature on this page is available on the free plan. No enterprise tier required.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/signup" className="inline-flex items-center gap-2 bg-white text-indigo-600 font-semibold px-8 py-3 rounded-xl hover:bg-indigo-50 transition-colors shadow-sm text-sm">
+           <Link href="/signup" className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm">
               Start for free
               <ArrowRight className="h-4 w-4" />
             </Link>

@@ -94,9 +94,9 @@ export function Navbar() {
                   <Button variant="ghost" size="sm">Login</Button>
                 </Link>
                 <Link href="/signup">
-                  <Button size="sm" className="hidden md:block bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 shadow-lg hover:shadow-xl transition-shadow">
-                    Start Free Trial
-                  </Button>
+                  <Button size="sm" className="hidden md:block bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 transition-colors">
+  Start Free Trial
+</Button>
                 </Link>
               </>
             )

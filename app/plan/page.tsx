@@ -2,322 +2,276 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { 
-  Check, 
-  ArrowLeft,
-  Zap,
-  Users,
-  Shield,
-  BarChart3,
-  Sparkles
-} from "lucide-react"
+import { Check, ArrowLeft } from "lucide-react"
+import Link from "next/link"
 
-type PlanType = 'monthly' | 'annual'
+type PlanType = "monthly" | "yearly"
 
-export default function PricingPage() {
+const plans = [
+  {
+    id: "free",
+    name: "Free",
+    description: "Get started with secure document sharing",
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    period: "forever",
+    features: [
+      "1 user",
+      "5 documents",
+      "3 share links",
+      "Basic analytics",
+      "1 Space",
+      "2 eSignatures per month",
+    ],
+  },
+  {
+    id: "starter",
+    name: "Starter",
+    description: "For individuals and freelancers",
+    monthlyPrice: 19,
+    yearlyPrice: 15,
+    period: "per month",
+    features: [
+      "1 user",
+      "Unlimited documents",
+      "Unlimited share links",
+      "Full document analytics",
+      "3 Spaces",
+      "10 eSignatures per month",
+      "Video walkthroughs",
+      "Custom branding",
+    ],
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    description: "For growing teams and sales",
+    monthlyPrice: 49,
+    yearlyPrice: 39,
+    period: "per month",
+    popular: true,
+    features: [
+      "3 users included",
+      "Everything in Starter",
+      "Unlimited Spaces",
+      "Unlimited eSignatures",
+      "Bulk send",
+      "NDA and agreements",
+      "Dynamic watermarking",
+      "Email OTP verification",
+      "Compliance reports",
+      "Version history",
+      "Google Drive + OneDrive",
+    ],
+  },
+  {
+    id: "business",
+    name: "Business",
+    description: "For teams that need full control",
+    monthlyPrice: 99,
+    yearlyPrice: 79,
+    period: "per month",
+    features: [
+      "10 users included",
+      "Everything in Pro",
+      "Advanced data rooms",
+      "Full audit logs",
+      "Folder level permissions",
+      "Advanced team management",
+      "Custom docs domain",
+      "Priority support",
+    ],
+  },
+]
+
+export default function UpgradePage() {
   const router = useRouter()
-  const [billingCycle, setBillingCycle] = useState<PlanType>('monthly')
-  const [currentPlan, setCurrentPlan] = useState('free')
+  const [billing, setBilling] = useState<PlanType>("monthly")
+  const [currentPlan, setCurrentPlan] = useState("free")
 
   useEffect(() => {
-    // Fetch user's current plan
     const fetchCurrentPlan = async () => {
       const token = localStorage.getItem("token")
       if (!token) return
-
       try {
         const res = await fetch("/api/auth/me", {
-          headers: { "Authorization": `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         })
         const data = await res.json()
         if (data.success) {
-          setCurrentPlan(data.user.profile.plan?.toLowerCase() || 'free')
+          setCurrentPlan(data.user.profile.plan?.toLowerCase() || "free")
         }
       } catch (error) {
-        console.error("Failed to fetch plan:", error)
+        // fail silently
       }
     }
-
     fetchCurrentPlan()
   }, [])
 
-  const plans = [
-    {
-      id: 'personal',
-      name: 'Personal',
-      description: 'For secure sharing',
-      monthlyPrice: 15,
-      annualPrice: 10,
-      features: [
-        '1 user included',
-        'Basic sharing controls',
-        'Document level analytics',
-        '4 eSignatures per month',
-        'Unlimited visitors'
-      ],
-      cta: currentPlan === 'personal' ? 'Current Plan' : 'Select Plan',
-      highlighted: false
-    },
-    {
-      id: 'standard',
-      name: 'Standard',
-      description: 'For multi-file secure sharing',
-      monthlyPrice: 65,
-      annualPrice: 45,
-      popular: true,
-      features: [
-        'All Personal features, plus:',
-        '1 user included',
-        'Multi-file sharing',
-        'Video and rich media analytics',
-        'File requests',
-        'Customizable branding'
-      ],
-      cta: currentPlan === 'standard' ? 'Current Plan' : 'Select Plan',
-      highlighted: true
-    },
-    {
-      id: 'advanced',
-      name: 'Advanced',
-      description: 'For advanced security',
-      monthlyPrice: 250,
-      annualPrice: 150,
-      features: [
-        'All Standard features, plus:',
-        '3 users included',
-        'Lightweight data rooms (Spaces)',
-        'Email authentication for visitors',
-        'Allow/block visitors lists',
-        'Folder and file level security'
-      ],
-      cta: currentPlan === 'advanced' ? 'Current Plan' : 'Select Plan',
-      highlighted: false
-    },
-    {
-      id: 'advanced-data-rooms',
-      name: 'Advanced Data Rooms',
-      description: 'For complete deal control',
-      monthlyPrice: 300,
-      annualPrice: 180,
-      features: [
-        'All Advanced features, plus:',
-        '3 users included',
-        'Enhanced data rooms (Spaces)',
-        'Group visitor permissions',
-        'Data room audit log',
-        'Automatic file indexing'
-      ],
-      cta: currentPlan === 'advanced-data-rooms' ? 'Current Plan' : 'Select Plan',
-      highlighted: false,
-      badge: 'Your trial'
-    }
-  ]
-
-  const getPrice = (plan: typeof plans[0]) => {
-    const price = billingCycle === 'annual' ? plan.annualPrice : plan.monthlyPrice
-    return `$${price}`
-  }
-
   const handleSelectPlan = (planId: string) => {
     if (planId === currentPlan) return
-    
-    // Here you would integrate with your payment processor (Stripe, etc.)
-    console.log('Selected plan:', planId, 'Billing:', billingCycle)
-    // For now, just navigate back
-    router.push('/dashboard')
+    // Wire up Stripe or payment processor here
+    router.push("/dashboard")
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-purple-200 to-purple-300">
-      {/* Header */}
-      <header className="border-b bg-white/20 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white">
+
+      {/* ── Header ── */}
+      <div className="border-b border-slate-100 bg-white sticky top-0 z-10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Button
-              variant="ghost"
-              onClick={() => router.push('/dashboard')}
-              className="gap-2 text-slate-900 hover:bg-white/30"
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Button>
-            
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-900" />
-              <span className="font-bold text-xl text-slate-900">
-                DocMetrics
-              </span>
-            </div>
-
-            {/* Your trial badge */}
-            <div className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              Your trial
-            </div>
+              Back to dashboard
+            </button>
+            <span className="text-sm font-semibold text-slate-900">DocMetrics</span>
+            <div className="w-32" />
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Title */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-6">
-            There's a plan for everyone
-          </h1>
-          
-          {/* Billing Toggle */}
-          <div className="flex items-center justify-center gap-3">
-            <button
-              onClick={() => setBillingCycle('monthly')}
-              className={`px-5 py-2.5 rounded-full font-medium transition-all ${
-                billingCycle === 'monthly'
-                  ? 'bg-purple-900 text-white shadow-lg'
-                  : 'text-slate-900 hover:bg-white/30'
-              }`}
-            >
-              Billed monthly
-            </button>
-            <button
-              onClick={() => setBillingCycle('annual')}
-              className={`px-5 py-2.5 rounded-full font-medium transition-all flex items-center gap-2 ${
-                billingCycle === 'annual'
-                  ? 'bg-purple-900 text-white shadow-lg'
-                  : 'text-slate-900 hover:bg-white/30'
-              }`}
-            >
-              <span>Billed annually (Save up to 40%)</span>
-            </button>
-          </div>
+      {/* ── Hero ── */}
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-12 pb-10 text-center">
+        <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500 mb-4">
+          Upgrade your plan
+        </p>
+        <h1 className="text-3xl sm:text-4xl font-semibold text-slate-900 leading-tight mb-4">
+          Choose the plan that fits{" "}
+          <span className="text-indigo-600">where you are now.</span>
+        </h1>
+        <p className="text-base text-slate-500 leading-relaxed mb-8">
+          Every plan includes core tracking, analytics, and e-signatures. Upgrade or downgrade at any time.
+        </p>
+
+        {/* Billing toggle */}
+        <div className="inline-flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+          <button
+            onClick={() => setBilling("monthly")}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+              billing === "monthly"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setBilling("yearly")}
+            className={`px-5 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+              billing === "yearly"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            Yearly
+            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">
+              Save 20%
+            </span>
+          </button>
         </div>
+      </div>
 
-        {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
-          {plans.map((plan) => (
-            <div
-              key={plan.id}
-              className={`relative rounded-2xl bg-white/90 backdrop-blur p-6 transition-all hover:shadow-2xl hover:scale-105 ${
-                plan.highlighted
-                  ? 'shadow-2xl ring-2 ring-purple-900 scale-105'
-                  : 'shadow-lg'
-              }`}
-            >
-              {/* Most Popular Badge */}
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-purple-900 text-white text-xs font-semibold px-4 py-1.5 rounded-full flex items-center gap-1">
-                    ⭐ Most Popular
-                  </span>
-                </div>
-              )}
-              
-              {/* Your trial badge */}
-              {plan.badge && (
-                <div className="absolute -top-3 right-4">
-                  <span className="bg-slate-900 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                    {plan.badge}
-                  </span>
-                </div>
-              )}
+      {/* ── Plans ── */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {plans.map((plan) => {
+            const isCurrent = currentPlan === plan.id
+            const price = billing === "monthly" ? plan.monthlyPrice : plan.yearlyPrice
 
-              {/* Plan Header */}
-              <div className="mb-6">
-                <h3 className="text-xl font-bold text-slate-900 mb-2">
-                  {plan.name}
-                </h3>
-                <p className="text-sm text-slate-600 mb-4">
-                  {plan.description}
-                </p>
-                
-                <div className="mb-4">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-slate-900">
-                      {getPrice(plan)}
-                    </span>
-                    <span className="text-slate-600 text-sm">
-                      /user/month
-                    </span>
+            return (
+              <div
+                key={plan.id}
+                className={`relative bg-white rounded-2xl overflow-hidden flex flex-col ${
+                  plan.popular
+                    ? "ring-2 ring-indigo-600 shadow-xl"
+                    : isCurrent
+                    ? "ring-2 ring-slate-300 shadow-sm"
+                    : "border border-slate-200 shadow-sm"
+                }`}
+              >
+                {plan.popular && (
+                  <div className="bg-indigo-600 text-white text-xs font-semibold text-center py-2 tracking-wide">
+                    Most Popular
+                  </div>
+                )}
+
+                {isCurrent && !plan.popular && (
+                  <div className="bg-slate-900 text-white text-xs font-semibold text-center py-2 tracking-wide">
+                    Current Plan
+                  </div>
+                )}
+
+                <div className="p-7 flex flex-col flex-1">
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-slate-900 mb-1">{plan.name}</h3>
+                    <p className="text-sm text-slate-500">{plan.description}</p>
+                  </div>
+
+                  <div className="mb-8">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-slate-900">${price}</span>
+                      <span className="text-slate-500 text-sm">/{plan.period}</span>
+                    </div>
+                    {billing === "yearly" && plan.monthlyPrice > 0 && (
+                      <p className="text-xs text-emerald-600 mt-1 font-medium">
+                        Save ${(plan.monthlyPrice - plan.yearlyPrice) * 12}/year
+                      </p>
+                    )}
+                    {plan.monthlyPrice === 0 && (
+                      <p className="text-xs text-slate-400 mt-1">No credit card required</p>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => handleSelectPlan(plan.id)}
+                    disabled={isCurrent}
+                    className={`w-full py-3 px-4 rounded-xl font-semibold text-sm text-center transition-all mb-8 disabled:opacity-60 disabled:cursor-not-allowed ${
+                      isCurrent
+                        ? "bg-slate-100 text-slate-500 cursor-not-allowed"
+                        : plan.popular
+                        ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                        : plan.monthlyPrice === 0
+                        ? "bg-slate-900 text-white hover:bg-slate-800"
+                        : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200"
+                    }`}
+                  >
+                    {isCurrent ? "Current plan" : plan.monthlyPrice === 0 ? "Downgrade to free" : "Upgrade"}
+                  </button>
+
+                  <div className="space-y-3 flex-1">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">
+                      What is included
+                    </p>
+                    {plan.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        <div className="flex-shrink-0 h-5 w-5 rounded-full bg-indigo-50 flex items-center justify-center mt-0.5">
+                          <Check className="w-3 h-3 text-indigo-600" />
+                        </div>
+                        <span className="text-sm text-slate-600 leading-relaxed">{feature}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
-
-              {/* CTA Button */}
-              <Button
-                onClick={() => handleSelectPlan(plan.id)}
-                disabled={currentPlan === plan.id}
-                className={`w-full mb-6 py-6 font-semibold text-base ${
-                  plan.highlighted
-                    ? 'bg-purple-900 hover:bg-purple-800 text-white shadow-lg'
-                    : currentPlan === plan.id
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-900 hover:bg-slate-800 text-white'
-                }`}
-              >
-                {plan.cta}
-              </Button>
-
-              {/* Features */}
-              <div>
-                <p className="text-sm font-semibold text-slate-900 mb-3">
-                  {plan.id === 'personal' ? 'Key Features:' : `All ${plans[0].name} features, plus:`}
-                </p>
-                <ul className="space-y-2.5">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-start gap-2.5 text-sm text-slate-700">
-                      <div className="flex-shrink-0 mt-0.5">
-                        <div className="h-5 w-5 rounded-full bg-purple-100 flex items-center justify-center">
-                          <Check className="h-3.5 w-3.5 text-purple-900" />
-                        </div>
-                      </div>
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
-        {/* Footer Note */}
-        <div className="mt-12 text-center">
-          <p className="text-sm text-slate-700 max-w-3xl mx-auto">
-            Relevant taxes will be automatically included for jurisdictions where DocMetrics Inc. and DocMetrics International are registered. 
-            For more information, visit our Help Center.
+        {/* ── Footer note ── */}
+        <div className="mt-10 text-center">
+          <p className="text-xs text-slate-400">
+            All plans include a 14-day money-back guarantee.{" "}
+            <Link href="/contact" className="text-indigo-600 hover:text-indigo-700 font-medium">
+              Contact us
+            </Link>{" "}
+            if you have questions about which plan is right for you.
           </p>
         </div>
 
-        {/* Trust Badges */}
-        <div className="mt-16 grid md:grid-cols-4 gap-8">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/80 mb-3">
-              <Shield className="h-8 w-8 text-purple-900" />
-            </div>
-            <h4 className="font-semibold text-slate-900 mb-1">Bank-level Security</h4>
-            <p className="text-sm text-slate-700">256-bit SSL encryption</p>
-          </div>
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/80 mb-3">
-              <Users className="h-8 w-8 text-purple-900" />
-            </div>
-            <h4 className="font-semibold text-slate-900 mb-1">10,000+ Companies</h4>
-            <p className="text-sm text-slate-700">Trust DocMetrics</p>
-          </div>
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/80 mb-3">
-              <BarChart3 className="h-8 w-8 text-purple-900" />
-            </div>
-            <h4 className="font-semibold text-slate-900 mb-1">Real-time Analytics</h4>
-            <p className="text-sm text-slate-700">Track every view</p>
-          </div>
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/80 mb-3">
-              <Zap className="h-8 w-8 text-purple-900" />
-            </div>
-            <h4 className="font-semibold text-slate-900 mb-1">Lightning Fast</h4>
-            <p className="text-sm text-slate-700">99.9% uptime guarantee</p>
-          </div>
-        </div>
       </div>
     </div>
   )

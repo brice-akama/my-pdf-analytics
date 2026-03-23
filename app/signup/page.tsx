@@ -1,48 +1,43 @@
 "use client"
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
 import { Sparkles, Bell, Clock, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect } from "react"
 
-// Industry options for step 2
 const industries = [
   'Legal',
-  'Media & entertainment',
+  'Media and entertainment',
   'Real Estate',
   'Financial services',
-  'Lending & investment',
+  'Lending and investment',
   'Healthcare',
   'Education',
-  'Manufacturing & distribution',
-  'Technology (Hardware & Software)',
-  'Professional services & consulting',
-  'Other'
+  'Manufacturing and distribution',
+  'Technology',
+  'Professional services and consulting',
+  'Other',
 ]
 
 interface SignupFormData {
-  firstName: string;
-  lastName?: string;      // optional
-  companyName: string;
-  email: string;
-  password: string;
-  avatar?: string;        // optional
+  firstName: string
+  lastName?: string
+  companyName: string
+  email: string
+  password: string
+  avatar?: string
 }
 
-// Company size options for step 3
 const companySizes = [
-  { value: '1', label: 'Just me', icon: '👤' },
-  { value: '2-10', label: '2-10 people', icon: '👥' },
-  { value: '11-50', label: '11-50 people', icon: '👨‍👩‍👧' },
-  { value: '51-200', label: '51-200 people', icon: '👨‍👩‍👧‍👦' },
-  { value: '201-500', label: '201-500 people', icon: '🏢' },
-  { value: '501+', label: '501+ people', icon: '🏛️' }
+  { value: '1', label: 'Just me' },
+  { value: '2-10', label: '2 to 10 people' },
+  { value: '11-50', label: '11 to 50 people' },
+  { value: '51-200', label: '51 to 200 people' },
+  { value: '201-500', label: '201 to 500 people' },
+  { value: '501+', label: '501 or more people' },
 ]
 
-// Use case options for step 4
 const useCases = [
   { value: 'board-investor', label: 'Board and investor updates' },
   { value: 'raising-capital', label: 'Raising capital for an investment fund' },
@@ -51,7 +46,7 @@ const useCases = [
   { value: 'client-partner', label: 'Client or partner relationships management' },
   { value: 'merger-acquisition', label: 'Merger or acquisition' },
   { value: 'raising-funds', label: 'Raising funds for a company' },
-  { value: 'other', label: 'Other' }
+  { value: 'other', label: 'Other' },
 ]
 
 export default function OnboardingFlow() {
@@ -62,35 +57,25 @@ export default function OnboardingFlow() {
   const [selectedCompanySize, setSelectedCompanySize] = useState<string>('')
   const [selectedUseCases, setSelectedUseCases] = useState<string[]>([])
   const searchParams = useSearchParams()
-  
   const [formData, setFormData] = useState<SignupFormData>({
-  firstName: "",
-  companyName: "",
-  email: "",
-  password: "",
-});
-
+    firstName: '',
+    companyName: '',
+    email: '',
+    password: '',
+  })
   const [loading, setLoading] = useState(false)
- const [signupError, setSignupError] = useState<string | null>(null)
- 
+  const [signupError, setSignupError] = useState<string | null>(null)
 
-  // Calculate trial dates dynamically
   const trialInfo = useMemo(() => {
     const today = new Date()
     const endDate = new Date(today)
     endDate.setDate(endDate.getDate() + 14)
-
-    const formatDate = (date: Date) => {
-      return date.toLocaleDateString('en-US', { 
-        month: 'long', 
-        day: 'numeric'
-      })
-    }
-
+    const formatDate = (date: Date) =>
+      date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
     return {
       startDate: formatDate(today),
       endDate: formatDate(endDate),
-      currentYear: today.getFullYear()
+      currentYear: today.getFullYear(),
     }
   }, [])
 
@@ -100,451 +85,399 @@ export default function OnboardingFlow() {
   }
 
   const handleIndustryNext = () => {
-    if (selectedIndustry) {
-      setStep(3)
-    }
+    if (selectedIndustry) setStep(3)
   }
 
   const handleCompanySizeNext = () => {
-    if (selectedCompanySize) {
-      setStep(4)
-    }
+    if (selectedCompanySize) setStep(4)
   }
 
   const toggleUseCase = (value: string) => {
-    setSelectedUseCases(prev => 
-      prev.includes(value) 
-        ? prev.filter(v => v !== value)
-        : [...prev, value]
+    setSelectedUseCases((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
     )
   }
 
-   
-useEffect(() => {
-  // ✅ Detect invitation type from URL
-  
-  // Check for Team Invitation (/invite-team/)
-  const redirect = searchParams?.get('redirect');
-  if (redirect && redirect.includes('/invite-team/')) {
-    const token = redirect.split('/invite-team/')[1];
-    if (token) {
-      sessionStorage.setItem('pendingTeamInvite', token);
-      console.log('📧 Team invitation detected:', token);
-    }
-  }
-  
-  // Check for Space Invitation (/invite/)
-  if (redirect && redirect.includes('/invite/') && !redirect.includes('/invite-team/')) {
-    const token = redirect.split('/invite/')[1];
-    if (token) {
-      sessionStorage.setItem('pendingSpaceInvite', token);
-      console.log('🏢 Space invitation detected:', token);
-    }
-  }
-
-  // Direct token parameters (backup method)
-  const teamInviteParam = searchParams?.get('team_invite');
-  if (teamInviteParam) {
-    sessionStorage.setItem('pendingTeamInvite', teamInviteParam);
-  }
-
-  const spaceInviteParam = searchParams?.get('space_invite');
-  if (spaceInviteParam) {
-    sessionStorage.setItem('pendingSpaceInvite', spaceInviteParam);
-  }
-
-}, [searchParams]);
-
-// At the top of your OnboardingFlow component, add this useEffect:
-useEffect(() => {
-  // ✅ Check if there's a redirect parameter (from invitation)
-  const redirect = searchParams?.get('redirect');
-  if (redirect && redirect.includes('/invite/')) {
-    // Extract the token from the redirect URL
-    const token = redirect.split('/invite/')[1];
-    if (token) {
-      sessionStorage.setItem('pendingInvite', token);
-    }
-  }
-}, [searchParams]);
-
-// ...existing code...
-  // If OAuth returns the user with ?step=2 (or any step), pick 
   useEffect(() => {
-  const handle = async () => {
-    try {
-      // 1️⃣ Respect explicit ?step= query
-      const s = searchParams?.get("step");
-      if (s) {
-        const n = parseInt(s, 10);
-        if (!isNaN(n) && n >= 1 && n <= 4) {
-          setStep(n);
-        }
-      }
-
-      // 2️⃣ Verify OAuth state (anti-CSRF)
-      const stateParam = searchParams?.get("state");
-      if (stateParam) {
-        const saved = sessionStorage.getItem("oauth_state");
-        if (!saved || stateParam !== saved) {
-          setSignupError("OAuth verification failed (state mismatch). Please try again.");
-          return;
-        }
-        sessionStorage.removeItem("oauth_state");
-      }
-
-      // 3️⃣ Decode Google profile data (if present)
-      const profileB64 = searchParams?.get("profile");
-      const oauthProcessed = sessionStorage.getItem("oauth_processed");
-      if (profileB64 && !oauthProcessed) {
-        try {
-          const profileJson = JSON.parse(atob(profileB64));
-
-          // Prefill fields for the user
-          setFormData(prev => ({
-            ...prev,
-            firstName: profileJson.firstName || prev.firstName,
-            companyName: profileJson.companyName || prev.companyName,
-            email: profileJson.email || prev.email,
-            password: "" // no password for Google users
-          }));
-
-          // Move user to step 2 (instead of 4)
-          setStep(2);
-
-          // Mark processed so it won’t re-run
-          sessionStorage.setItem("oauth_processed", "1");
-        } catch (err) {
-          console.error("Invalid OAuth profile:", err);
-          setSignupError("Invalid OAuth profile data");
-        }
-      }
-    } catch (e) {
-      console.error("OAuth handling error:", e);
+    const redirect = searchParams?.get('redirect')
+    if (redirect && redirect.includes('/invite-team/')) {
+      const token = redirect.split('/invite-team/')[1]
+      if (token) sessionStorage.setItem('pendingTeamInvite', token)
     }
-  };
-  handle();
-}, [searchParams]);
+    if (redirect && redirect.includes('/invite/') && !redirect.includes('/invite-team/')) {
+      const token = redirect.split('/invite/')[1]
+      if (token) sessionStorage.setItem('pendingSpaceInvite', token)
+    }
+    const teamInviteParam = searchParams?.get('team_invite')
+    if (teamInviteParam) sessionStorage.setItem('pendingTeamInvite', teamInviteParam)
+    const spaceInviteParam = searchParams?.get('space_invite')
+    if (spaceInviteParam) sessionStorage.setItem('pendingSpaceInvite', spaceInviteParam)
+  }, [searchParams])
 
- const handleGoogleSignUp = () => {
+  useEffect(() => {
+    const redirect = searchParams?.get('redirect')
+    if (redirect && redirect.includes('/invite/')) {
+      const token = redirect.split('/invite/')[1]
+      if (token) sessionStorage.setItem('pendingInvite', token)
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    const handle = async () => {
+      try {
+        const s = searchParams?.get('step')
+        if (s) {
+          const n = parseInt(s, 10)
+          if (!isNaN(n) && n >= 1 && n <= 4) setStep(n)
+        }
+        const stateParam = searchParams?.get('state')
+        if (stateParam) {
+          const saved = sessionStorage.getItem('oauth_state')
+          if (!saved || stateParam !== saved) {
+            setSignupError('OAuth verification failed. Please try again.')
+            return
+          }
+          sessionStorage.removeItem('oauth_state')
+        }
+        const profileB64 = searchParams?.get('profile')
+        const oauthProcessed = sessionStorage.getItem('oauth_processed')
+        if (profileB64 && !oauthProcessed) {
+          try {
+            const profileJson = JSON.parse(atob(profileB64))
+            setFormData((prev) => ({
+              ...prev,
+              firstName: profileJson.firstName || prev.firstName,
+              companyName: profileJson.companyName || prev.companyName,
+              email: profileJson.email || prev.email,
+              password: '',
+            }))
+            setStep(2)
+            sessionStorage.setItem('oauth_processed', '1')
+          } catch {
+            setSignupError('Invalid OAuth profile data')
+          }
+        }
+      } catch {
+        // silent
+      }
+    }
+    handle()
+  }, [searchParams])
+
+  const handleGoogleSignUp = () => {
     const state = Math.random().toString(36).slice(2)
     sessionStorage.setItem('oauth_state', state)
-    
-    // Google will handle signup and redirect to dashboard
     window.location.href = `/api/auth/google?mode=signup&state=${state}`
   }
- 
 
- const handleUseCaseNext = async () => {
-  if (selectedUseCases.length === 0) return
-
-  setSignupError(null)
-  setLoading(true)
-
-  try {
-     const payload = {
-  firstName: formData.firstName,
-  lastName: formData.lastName || "",
-  companyName: formData.companyName || "",
-  email: formData.email,
-  password: formData.password || undefined, // ← don't send empty string
-  avatar: formData.avatar || "",
-  // only send full_name if no password (OAuth flow)
-  ...(formData.password ? {} : { full_name: `${formData.firstName} ${formData.lastName || ""}` }),
-  industry: selectedIndustry,
-  companySize: selectedCompanySize,
-  useCases: selectedUseCases,
-}
-
-
-    
-
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      credentials: "include" // ✅ HTTP-only cookies
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      setSignupError(data?.error || "Signup failed")
+  const handleUseCaseNext = async () => {
+    if (selectedUseCases.length === 0) return
+    setSignupError(null)
+    setLoading(true)
+    try {
+      const payload = {
+        firstName: formData.firstName,
+        lastName: formData.lastName || '',
+        companyName: formData.companyName || '',
+        email: formData.email,
+        password: formData.password || undefined,
+        avatar: formData.avatar || '',
+        ...(formData.password ? {} : { full_name: `${formData.firstName} ${formData.lastName || ''}` }),
+        industry: selectedIndustry,
+        companySize: selectedCompanySize,
+        useCases: selectedUseCases,
+      }
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setSignupError(data?.error || 'Signup failed')
+        setLoading(false)
+        return
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      const pendingTeamInvite = sessionStorage.getItem('pendingTeamInvite')
+      if (pendingTeamInvite) {
+        sessionStorage.removeItem('pendingTeamInvite')
+        router.push(`/invite-team/${pendingTeamInvite}`)
+        return
+      }
+      const pendingInvite = sessionStorage.getItem('pendingInvite')
+      if (pendingInvite) {
+        sessionStorage.removeItem('pendingInvite')
+        router.push(`/invite/${pendingInvite}`)
+        return
+      }
+      const sp = new URLSearchParams(window.location.search)
+      const redirect = sp.get('redirect')
+      if (redirect) {
+        router.push(redirect)
+        return
+      }
+      router.push('/dashboard')
+    } catch {
+      setSignupError('Network error. Please try again.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    // Allow cookie/session to settle
-    await new Promise(resolve => setTimeout(resolve, 100))
-
-     /* ======================================================
-       ✅ Priority 1a: Team invitation (invite-team)
-    ====================================================== */
-    const pendingTeamInvite = sessionStorage.getItem("pendingTeamInvite")
-    if (pendingTeamInvite) {
-      sessionStorage.removeItem("pendingTeamInvite")
-      router.push(`/invite-team/${pendingTeamInvite}`)
-      return
-    }
-
-    /* ======================================================
-       ✅ Priority 1b: Pending invitation
-    ====================================================== */
-    const pendingInvite = sessionStorage.getItem("pendingInvite")
-    if (pendingInvite) {
-      sessionStorage.removeItem("pendingInvite")
-      router.push(`/invite/${pendingInvite}`)
-      return
-    }
-
-    /* ======================================================
-       ✅ Priority 2: Redirect from query params
-    ====================================================== */
-    const searchParams = new URLSearchParams(window.location.search)
-    const redirect = searchParams.get("redirect")
-    if (redirect) {
-      router.push(redirect)
-      return
-    }
-
-    /* ======================================================
-       ✅ Priority 3: Default redirect
-    ====================================================== */
-    router.push("/dashboard")
-
-
-  } catch (err) {
-    console.error("Signup request failed", err)
-    setSignupError("Network error. Please try again.")
-  } finally {
-    setLoading(false)
   }
-}
 
-  // Progress calculation
   const progress = (step / 4) * 100
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-6xl">
-        {signupError && <div className="mb-4 text-sm text-red-600">{signupError}</div>}
-        {/* Progress Bar */}
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="w-full max-w-5xl">
+
+        {/* Error */}
+        {signupError && (
+          <div className="mb-4 flex items-start gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+            <svg className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-red-700">{signupError}</p>
+          </div>
+        )}
+
+        {/* Progress bar */}
         {step > 1 && (
-          <div className="mb-6">
+          <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-slate-600">Step {step} of 4</span>
-              <span className="text-sm font-medium text-slate-600">{Math.round(progress)}%</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Step {step} of 4
+              </span>
+              <span className="text-xs font-semibold text-slate-500">
+                {Math.round(progress)}%
+              </span>
             </div>
-            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-500 ease-out"
+            <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-sky-600 transition-all duration-500 ease-out rounded-full"
                 style={{ width: `${progress}%` }}
               />
             </div>
           </div>
         )}
 
-        {/* Step 1: Sign Up Form */}
+        {/* ── STEP 1: Sign Up ── */}
         {step === 1 && (
-          <Card className="overflow-hidden shadow-2xl border-0">
-            <div className="grid lg:grid-cols-2 min-h-[550px]">
-              {/* Left Side - Sign Up Form */}
-              <div className="bg-white p-6 lg:p-10 flex flex-col justify-center">
+          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="grid lg:grid-cols-2 min-h-[560px]">
+
+              {/* LEFT — Form */}
+              <div className="bg-white p-8 lg:p-12 flex flex-col justify-center">
                 <div className="max-w-md mx-auto w-full">
+
                   {/* Logo */}
-                  <div className="mb-8">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="h-10 w-10">
-                        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
-                          <defs>
-                            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" style={{stopColor:"#8B5CF6", stopOpacity:1}} />
-                              <stop offset="100%" style={{stopColor:"#3B82F6", stopOpacity:1}} />
-                            </linearGradient>
-                          </defs>
-                          <path d="M 60 50 L 60 150 L 140 150 L 140 70 L 120 50 Z" fill="url(#logoGrad)"/>
-                          <rect x="75" y="100" width="12" height="30" fill="white" opacity="0.9" rx="2"/>
-                          <rect x="94" y="85" width="12" height="45" fill="white" opacity="0.9" rx="2"/>
-                          <rect x="113" y="70" width="12" height="60" fill="white" opacity="0.9" rx="2"/>
-                        </svg>
-                      </div>
-                      <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                        DocMetrics
-                      </span>
+                  <div className="flex items-center gap-2.5 mb-10">
+                    <div className="h-9 w-9">
+                      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="h-full w-full">
+                        <defs>
+                          <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style={{ stopColor: '#a855f7', stopOpacity: 1 }} />
+                            <stop offset="100%" style={{ stopColor: '#0ea5e9', stopOpacity: 1 }} />
+                          </linearGradient>
+                        </defs>
+                        <path d="M 60 50 L 60 150 L 140 150 L 140 70 L 120 50 Z" fill="url(#logoGrad)" />
+                        <rect x="75" y="100" width="12" height="30" fill="white" opacity="0.9" rx="2" />
+                        <rect x="94" y="85" width="12" height="45" fill="white" opacity="0.9" rx="2" />
+                        <rect x="113" y="70" width="12" height="60" fill="white" opacity="0.9" rx="2" />
+                      </svg>
                     </div>
+                    <span className="text-xl font-bold text-slate-900">DocMetrics</span>
                   </div>
 
-                  <div className="mb-6">
-                    <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                      Start your 14-day free trial now
+                  <div className="mb-7">
+                    <h1 className="text-2xl font-semibold text-slate-900 mb-1">
+                      Start your 14-day free trial
                     </h1>
-                    <p className="text-slate-600">
+                    <p className="text-sm text-slate-500">
                       No credit card required. Cancel anytime.
                     </p>
                   </div>
 
                   <div className="space-y-4">
-                    <Input
-                      type="text"
-                      placeholder="First Name"
-                      value={formData.firstName}
-                      onChange={(e) => setFormData({...formData, firstName: e.target.value})}
-                      className="h-12 px-4 bg-slate-50 border-slate-200"
-                    />
-
-                    <Input
-                      type="text"
-                      placeholder="Company name"
-                      value={formData.companyName}
-                      onChange={(e) => setFormData({...formData, companyName: e.target.value})}
-                      className="h-12 px-4 bg-slate-50 border-slate-200"
-                    />
-
-                    <Input
-                      type="email"
-                      placeholder="Email address"
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="h-12 px-4 bg-slate-50 border-slate-200"
-                    />
-
-                    <div className="relative">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+                        First Name
+                      </label>
                       <Input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({...formData, password: e.target.value})}
-                        className="h-12 px-4 pr-12 bg-slate-50 border-slate-200"
+                        type="text"
+                        placeholder="Jane"
+                        value={formData.firstName}
+                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                        className="h-11 border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                      </button>
                     </div>
-
-                    <Button 
-                      onClick={handleGetStarted}
-                      className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold"
-                    >
-                      Get Started
-                    </Button>
-
-                    <div className="relative my-6">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-slate-200"></div>
-                      </div>
-                      <div className="relative flex justify-center text-sm">
-                        <span className="px-4 bg-white text-slate-500">Or continue with</span>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+                        Company Name
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="Acme Inc"
+                        value={formData.companyName}
+                        onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                        className="h-11 border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+                        Email Address
+                      </label>
+                      <Input
+                        type="email"
+                        placeholder="you@company.com"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="h-11 border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Create a password"
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          className="h-11 pr-11 border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                       </div>
                     </div>
 
                     <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleGoogleSignUp}
-                      className="w-full h-12 border-slate-200 hover:bg-slate-50"
+                      onClick={handleGetStarted}
+                      className="w-full h-11 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl transition-colors"
                     >
-                      <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      Get Started
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+
+                    <div className="relative my-2">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-slate-200" />
+                      </div>
+                      <div className="relative flex justify-center text-xs">
+                        <span className="px-3 bg-white text-slate-400">Or continue with</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignUp}
+                      className="w-full h-11 flex items-center justify-center gap-3 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <svg className="h-5 w-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                       </svg>
                       Sign up with Google
-                    </Button>
+                    </button>
                   </div>
 
-                  <p className="mt-6 text-center text-sm text-slate-600">
+                  <p className="mt-6 text-center text-sm text-slate-500">
                     Already have an account?{' '}
-                    <a href="/login" className="text-blue-600 hover:text-blue-700 font-semibold">
-                      Log in
+                    <a href="/login" className="font-semibold text-sky-600 hover:text-sky-700 transition-colors">
+                      Sign in
                     </a>
                   </p>
                 </div>
               </div>
 
-              {/* Right Side - Trial Info */}
-              <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 p-6 lg:p-10 flex flex-col justify-center text-white relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl"></div>
-                
-                <div className="relative z-10 max-w-md mx-auto w-full">
-                  <div className="inline-block px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-sm font-semibold mb-6">
+              {/* RIGHT — Trial info */}
+              <div className="bg-slate-900 p-8 lg:p-12 flex flex-col justify-center">
+                <div className="max-w-md mx-auto w-full">
+
+                  <div className="inline-block px-3 py-1.5 bg-white/10 rounded-full text-xs font-semibold text-white/80 mb-8">
                     How your free trial works
                   </div>
 
-                  <div className="space-y-6">
-                    <div className="flex gap-4">
-                      <div className="flex-shrink-0 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                        <Sparkles className="w-6 h-6" />
+                  <div className="space-y-8">
+                    {[
+                      {
+                        icon: Sparkles,
+                        title: `Trial starts today, ${trialInfo.startDate}`,
+                        description: 'Get full access to all DocMetrics features from day one. No restrictions during your trial.',
+                      },
+                      {
+                        icon: Bell,
+                        title: 'Trial ending reminder',
+                        description: 'We will remind you 3 days before your trial ends so you are never surprised.',
+                      },
+                      {
+                        icon: Clock,
+                        title: `Trial ends ${trialInfo.endDate}`,
+                        description: 'You will not be charged unless you choose to upgrade to a paid plan.',
+                      },
+                    ].map((item, i) => (
+                      <div key={i} className="flex gap-4">
+                        <div className="flex-shrink-0 h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center">
+                          <item.icon className="h-5 w-5 text-white/70" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white mb-1">{item.title}</p>
+                          <p className="text-sm text-white/50 leading-relaxed">{item.description}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-lg font-semibold mb-1">Trial starts today, {trialInfo.startDate}</h3>
-                        <p className="text-blue-100">Try the latest advanced data room features built for your workflow</p>
-                      </div>
-                    </div>
-
-                    <div className="ml-6 h-6 w-0.5 bg-white/20"></div>
-
-                    <div className="flex gap-4">
-                      <div className="flex-shrink-0 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                        <Bell className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold mb-1">Trial ending reminder</h3>
-                        <p className="text-blue-100">We'll remind you 3 days before your trial ends</p>
-                      </div>
-                    </div>
-
-                    <div className="ml-6 h-6 w-0.5 bg-white/20"></div>
-
-                    <div className="flex gap-4">
-                      <div className="flex-shrink-0 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                        <Clock className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold mb-1">Trial ends {trialInfo.endDate}</h3>
-                        <p className="text-blue-100">You will not be charged unless you choose to upgrade</p>
-                      </div>
-                    </div>
+                    ))}
                   </div>
+
                 </div>
               </div>
+
             </div>
-          </Card>
+          </div>
         )}
 
-        {/* Step 2: Industry Selection */}
+        {/* ── STEP 2: Industry ── */}
         {step === 2 && (
-          <Card className="overflow-hidden shadow-2xl border-0 p-8">
-            <div className="max-w-4xl mx-auto">
+          <div className="border border-slate-200 rounded-2xl bg-white p-8 lg:p-12 shadow-sm">
+            <div className="max-w-3xl mx-auto">
               <button
                 onClick={() => setStep(1)}
-                className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-6 transition-colors"
+                className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 mb-8 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </button>
 
               <div className="mb-8">
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">Tell us about yourself</h1>
-                <p className="text-slate-600">This helps us customize your experience</p>
+                <h1 className="text-2xl font-semibold text-slate-900 mb-1">
+                  Tell us about yourself
+                </h1>
+                <p className="text-sm text-slate-500">
+                  This helps us customise your experience.
+                </p>
               </div>
 
               <div className="mb-8">
-                <h2 className="text-lg font-semibold text-slate-900 mb-4">What industry are you in?</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <p className="text-sm font-semibold text-slate-700 mb-4">
+                  What industry are you in?
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {industries.map((industry) => (
                     <button
                       key={industry}
                       onClick={() => setSelectedIndustry(industry)}
-                      className={`px-4 py-3 rounded-lg border-2 transition-all text-sm font-medium ${
+                      className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all text-left ${
                         selectedIndustry === industry
-                          ? 'border-blue-600 bg-blue-50 text-blue-700'
-                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                          ? 'border-sky-500 bg-sky-50 text-sky-700'
+                          : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
                       {industry}
@@ -556,49 +489,58 @@ useEffect(() => {
               <Button
                 onClick={handleIndustryNext}
                 disabled={!selectedIndustry}
-                className="w-full sm:w-auto px-8 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50"
+                className="h-11 px-8 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors"
               >
                 Continue
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
-          </Card>
+          </div>
         )}
 
-        {/* Step 3: Company Size */}
+        {/* ── STEP 3: Company Size ── */}
         {step === 3 && (
-          <Card className="overflow-hidden shadow-2xl border-0 p-8">
-            <div className="max-w-4xl mx-auto">
+          <div className="border border-slate-200 rounded-2xl bg-white p-8 lg:p-12 shadow-sm">
+            <div className="max-w-3xl mx-auto">
               <button
                 onClick={() => setStep(2)}
-                className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-6 transition-colors"
+                className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 mb-8 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </button>
 
               <div className="mb-8">
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">Before we get started</h1>
-                <p className="text-slate-600">Help us understand your team size</p>
+                <h1 className="text-2xl font-semibold text-slate-900 mb-1">
+                  Before we get started
+                </h1>
+                <p className="text-sm text-slate-500">
+                  Help us understand your team size.
+                </p>
               </div>
 
               <div className="mb-8">
-                <h2 className="text-lg font-semibold text-slate-900 mb-4">How many people work at your company?</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <p className="text-sm font-semibold text-slate-700 mb-4">
+                  How many people work at your company?
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {companySizes.map((size) => (
                     <button
                       key={size.value}
                       onClick={() => setSelectedCompanySize(size.value)}
-                      className={`p-5 rounded-xl border-2 transition-all text-left ${
+                      className={`px-5 py-4 rounded-xl border text-left transition-all ${
                         selectedCompanySize === size.value
-                          ? 'border-blue-600 bg-blue-50'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
+                          ? 'border-sky-500 bg-sky-50'
+                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl">{size.icon}</span>
-                        <span className="font-semibold text-slate-900">{size.label}</span>
-                      </div>
+                      <span className={`text-sm font-semibold ${
+                        selectedCompanySize === size.value
+                          ? 'text-sky-700'
+                          : 'text-slate-900'
+                      }`}>
+                        {size.label}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -607,157 +549,122 @@ useEffect(() => {
               <Button
                 onClick={handleCompanySizeNext}
                 disabled={!selectedCompanySize}
-                className="w-full sm:w-auto px-8 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50"
+                className="h-11 px-8 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors"
               >
                 Continue
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
-          </Card>
+          </div>
         )}
 
-        {/* Step 4: Use Case Selection */}
+        {/* ── STEP 4: Use Cases ── */}
         {step === 4 && (
-          <Card className="overflow-hidden shadow-2xl border-0">
-            <div className="grid lg:grid-cols-2 min-h-[600px]">
-              {/* Left Side - Use Case Selection */}
-              <div className="bg-white p-8 lg:p-10 flex flex-col justify-center">
-                <div className="max-w-xl mx-auto w-full">
+          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="grid lg:grid-cols-2 min-h-[560px]">
+
+              {/* LEFT — Use case selection */}
+              <div className="bg-white p-8 lg:p-12 flex flex-col justify-center">
+                <div className="max-w-md mx-auto w-full">
                   <button
                     onClick={() => setStep(3)}
-                    className="flex items-center gap-2 text-slate-600 hover:text-slate-900 mb-6 transition-colors"
+                    className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 mb-8 transition-colors"
                   >
                     <ArrowLeft className="w-4 h-4" />
                     Back
                   </button>
 
-                  <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-slate-900 mb-2">
-                      Tell us about yourself
+                  <div className="mb-7">
+                    <h1 className="text-2xl font-semibold text-slate-900 mb-1">
+                      What will you use DocMetrics for?
                     </h1>
-                    <p className="text-slate-600">
-                      This helps us customize your experience.
+                    <p className="text-sm text-slate-500">
+                      Select all that apply.
                     </p>
                   </div>
 
-                  <div className="mb-8">
-                    <h2 className="text-lg font-semibold text-slate-900 mb-1">
-                      What are you planning to use DocMetrics for?
-                    </h2>
-                    <p className="text-sm text-slate-500 mb-6">Select all that apply.</p>
-                    
-                    <div className="space-y-3">
-                      {useCases.map((useCase) => (
-                        <button
-                          key={useCase.value}
-                          onClick={() => toggleUseCase(useCase.value)}
-                          className={`w-full px-5 py-4 rounded-xl border-2 transition-all text-left font-medium ${
-                            selectedUseCases.includes(useCase.value)
-                              ? 'border-blue-600 bg-blue-50 text-blue-700'
-                              : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span>{useCase.label}</span>
-                            {selectedUseCases.includes(useCase.value) && (
-                              <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
-                                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                              </div>
-                            )}
+                  <div className="space-y-2 mb-8">
+                    {useCases.map((useCase) => (
+                      <button
+                        key={useCase.value}
+                        onClick={() => toggleUseCase(useCase.value)}
+                        className={`w-full px-4 py-3.5 rounded-xl border text-left text-sm font-medium transition-all flex items-center justify-between ${
+                          selectedUseCases.includes(useCase.value)
+                            ? 'border-sky-500 bg-sky-50 text-sky-700'
+                            : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>{useCase.label}</span>
+                        {selectedUseCases.includes(useCase.value) && (
+                          <div className="h-5 w-5 rounded-full bg-sky-600 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
                           </div>
-                        </button>
-                      ))}
-                    </div>
+                        )}
+                      </button>
+                    ))}
                   </div>
 
-<Button
+                  <Button
                     onClick={handleUseCaseNext}
                     disabled={selectedUseCases.length === 0 || loading}
-                    className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full h-11 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl disabled:opacity-40 transition-colors"
                   >
-                    {loading ? "Creating account..." : "Continue"}
-                    <ArrowRight className="w-4 h-4 ml-2" />
+                    {loading ? (
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Creating account...
+                      </div>
+                    ) : (
+                      <>
+                        Continue
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
 
-              {/* Right Side - Illustration */}
-              <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 p-8 lg:p-10 flex flex-col justify-center items-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-200/30 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-200/30 rounded-full blur-3xl"></div>
-                
-                <div className="relative z-10 max-w-md mx-auto w-full flex items-center justify-center">
-                  {/* Artistic Illustration */}
-                  <svg viewBox="0 0 400 400" className="w-full max-w-md" xmlns="http://www.w3.org/2000/svg">
-                    {/* Artist figure */}
-                    <g transform="translate(100, 80)">
-                      {/* Head with hat */}
-                      <ellipse cx="50" cy="40" rx="35" ry="38" fill="#1e293b" opacity="0.15"/>
-                      <rect x="20" y="10" width="60" height="30" rx="15" fill="#475569" opacity="0.2"/>
-                      <circle cx="50" cy="45" r="25" fill="#f1f5f9"/>
-                      
-                      {/* Body */}
-                      <path d="M 30 70 L 30 150 L 70 150 L 70 70 Z" fill="#cbd5e1" opacity="0.3"/>
-                      
-                      {/* Arms */}
-                      <path d="M 30 80 L 10 120 L 15 125 L 35 85 Z" fill="#cbd5e1" opacity="0.3"/>
-                      <path d="M 70 80 Q 90 100 85 120" stroke="#475569" strokeWidth="12" fill="none" opacity="0.3"/>
-                      
-                      {/* Tool/Chisel */}
-                      <line x1="85" y1="120" x2="120" y2="160" stroke="#64748b" strokeWidth="4" opacity="0.4"/>
-                      <rect x="118" y="158" width="8" height="25" fill="#94a3b8" opacity="0.4" transform="rotate(45 122 170)"/>
-                    </g>
-
-                    {/* Statue/Sculpture */}
-                    <g transform="translate(220, 100)">
-                      {/* Head */}
-                      <ellipse cx="50" cy="40" rx="30" ry="35" fill="#e2e8f0" opacity="0.4"/>
-                      
-                      {/* Classical hair/curls */}
-                      <path d="M 25 25 Q 20 20 25 15 Q 30 10 35 15 Q 40 20 35 25" fill="#cbd5e1" opacity="0.4"/>
-                      <path d="M 65 30 Q 70 25 75 30 Q 75 35 70 38" fill="#cbd5e1" opacity="0.4"/>
-                      
-                      {/* Face features */}
-                      <circle cx="40" cy="38" r="2" fill="#64748b" opacity="0.3"/>
-                      <circle cx="60" cy="38" r="2" fill="#64748b" opacity="0.3"/>
-                      <path d="M 45 50 Q 50 52 55 50" stroke="#64748b" strokeWidth="1.5" fill="none" opacity="0.3"/>
-                      
-                      {/* Neck and shoulders */}
-                      <rect x="40" y="70" width="20" height="15" fill="#e2e8f0" opacity="0.4"/>
-                      <path d="M 30 85 L 30 100 L 70 100 L 70 85 Z" fill="#f1f5f9" opacity="0.4"/>
-                      
-                      {/* Decorative draping */}
-                      <path d="M 25 90 Q 30 95 35 90" stroke="#cbd5e1" strokeWidth="2" fill="none" opacity="0.3"/>
-                      <path d="M 65 90 Q 70 95 75 90" stroke="#cbd5e1" strokeWidth="2" fill="none" opacity="0.3"/>
-                    </g>
-
-                    {/* Decorative elements */}
-                    <circle cx="80" cy="320" r="4" fill="#a78bfa" opacity="0.3"/>
-                    <circle cx="320" cy="100" r="6" fill="#60a5fa" opacity="0.3"/>
-                    <circle cx="300" cy="340" r="5" fill="#c084fc" opacity="0.3"/>
-                    
-                    {/* Sparkles */}
-                    <path d="M 140 60 L 142 66 L 148 68 L 142 70 L 140 76 L 138 70 L 132 68 L 138 66 Z" fill="#818cf8" opacity="0.4"/>
-                    <path d="M 280 280 L 282 284 L 286 286 L 282 288 L 280 292 L 278 288 L 274 286 L 278 284 Z" fill="#818cf8" opacity="0.4"/>
-                  </svg>
-                </div>
-
-                {/* Decorative text */}
-                <div className="relative z-10 mt-8 text-center">
-                  <p className="text-slate-600 text-lg font-medium">Customize your experience</p>
-                  <p className="text-slate-500 text-sm mt-2">Help us tailor DocMetrics to your needs</p>
+              {/* RIGHT — Info panel */}
+              <div className="bg-slate-50 border-l border-slate-200 p-8 lg:p-12 flex flex-col justify-center">
+                <div className="max-w-md mx-auto w-full">
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-6">
+                    Almost there
+                  </p>
+                  <h2 className="text-2xl font-semibold text-slate-900 mb-4 leading-snug">
+                    DocMetrics adapts to how you work.
+                  </h2>
+                  <p className="text-sm text-slate-500 leading-relaxed mb-8">
+                    Your answers help us show you the most relevant features
+                    first so you get value from DocMetrics on day one.
+                  </p>
+                  <div className="space-y-4">
+                    {[
+                      "Your dashboard is personalised based on your use case",
+                      "We surface the features most relevant to your industry",
+                      "Your onboarding checklist is tailored to your goals",
+                    ].map((item) => (
+                      <div key={item} className="flex items-start gap-3">
+                        <div className="h-1.5 w-1.5 rounded-full bg-sky-500 mt-2 flex-shrink-0" />
+                        <span className="text-sm text-slate-600 leading-relaxed">{item}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
+
             </div>
-          </Card>
+          </div>
         )}
 
         {/* Footer */}
-        <div className="text-center mt-6 text-slate-600 text-sm">
-          <p>© {trialInfo.currentYear} DocMetrics. All rights reserved.</p>
+        <div className="text-center mt-6">
+          <p className="text-xs text-slate-400">
+            © {trialInfo.currentYear} DocMetrics. All rights reserved.
+          </p>
         </div>
+
       </div>
     </div>
   )

@@ -1,3 +1,4 @@
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
@@ -15,9 +16,9 @@ export function HeroSection() {
           {/* Main Heading */}
           <h1 className="mb-6 text-2xl sm:text-3xl md:text-4xl lg:text-4xl xl:text-6xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
             Stop Guessing{" "}
-            <span className="bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent">
-              Know Exactly When Deals Move
-            </span>
+            <span className="text-sky-600">
+  Know Exactly When Deals Move
+</span>
           </h1>
 
           {/* Subtitle */}
@@ -28,17 +29,16 @@ export function HeroSection() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-start md:items-center md:justify-center gap-4">
             <Button
-              size="lg"
-              className="
-                text-base px-8 py-6
-                bg-indigo-600 text-white
-                hover:bg-indigo-700
-                shadow-lg hover:shadow-xl
-                transition-all
-                w-full sm:w-auto
-              "
-              asChild
-            >
+  size="lg"
+  className="
+    text-base px-8 py-6
+    bg-sky-600 text-white
+    hover:bg-sky-700
+    transition-colors
+    w-full sm:w-auto
+  "
+  asChild
+>
               <Link href="/signup">
                 Start Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />
