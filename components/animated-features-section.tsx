@@ -38,10 +38,10 @@ export function AnimatedFeaturesSection() {
           <h2 className="mb-4 text-2xl font-normal tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
             The all‑in‑one platform for deal management
           </h2>
-          <p className="text-base text-slate-600 sm:text-lg">
-            DocMetrics is built to allow companies, founders and financial teams to swiftly
-            navigate the dealmaking process.
-          </p>
+         <p className="text-base text-slate-600 sm:text-lg">
+  From the first pitch deck to the final signature — DocMetrics gives you 
+  full visibility into every document, every reader, and every next step.
+</p>
         </div>
 
         {/* Sliding Container */}

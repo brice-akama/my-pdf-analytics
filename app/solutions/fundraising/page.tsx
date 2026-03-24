@@ -1,10 +1,42 @@
-"use client"
-import { JSX, useState } from "react"
-import Link from "next/link"
-import { ArrowRight, Plus, Minus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Image from "next/image"
+// app/solutions/fundraising/page.tsx
+// ✅ Server Component — Google indexes all content
+// ✅ FAQAccordion isolated as its own client component
+import type { Metadata } from "next";
+import { JSX } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
+import { FAQAccordion } from "@/components/faq-accordion";
 
+// ── METADATA ──────────────────────────────────────────────────
+export const metadata: Metadata = {
+  title: "Fundraising — Track Investor Engagement on Your Pitch Deck",
+  description:
+    "Know the instant an investor opens your pitch deck. Track time spent on every slide, score investor interest, and follow up at exactly the right moment. No guessing.",
+  alternates: {
+    canonical: "https://docmetrics.io/solutions/fundraising",
+  },
+  openGraph: {
+    title: "DocMetrics Fundraising — Know Which Investors Are Serious About Your Deal",
+    description:
+      "Real-time visibility into how investors engage with pitch decks, financial models, and due diligence materials. Stop guessing. Start closing.",
+    url: "https://docmetrics.io/solutions/fundraising",
+    siteName: "DocMetrics",
+    type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "DocMetrics Fundraising — Investor Pitch Deck Tracking",
+      },
+    ],
+  },
+};
+
+// ── FAQ DATA ──────────────────────────────────────────────────
 const FAQS = [
   {
     question: "Will investors know they are being tracked?",
@@ -46,58 +78,52 @@ const FAQS = [
     answer:
       "The score is calculated from visit count, total reading time, pages viewed, whether the document was downloaded, and whether it was forwarded to additional viewers. Higher scores indicate stronger interest and should be prioritized for follow-up.",
   },
-]
+];
 
-function FAQItem({
-  faq,
-  isOpen,
-  onToggle,
-}: {
-  faq: typeof FAQS[0]
-  isOpen: boolean
-  onToggle: () => void
-}) {
-  return (
-    <div className="border-b border-slate-200 last:border-0">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between gap-6 py-5 text-left group"
-      >
-        <span
-          className={`text-base font-medium transition-colors duration-150 ${
-            isOpen
-              ? "text-[#0284c7]"
-              : "text-slate-900 group-hover:text-[#0284c7]"
-          }`}
-        >
-          {faq.question}
-        </span>
-        <span
-          className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full border transition-all duration-200 ${
-            isOpen
-              ? "bg-[#0ea5e9] border-[#0ea5e9] text-white"
-              : "border-slate-300 text-slate-400 group-hover:border-[#0ea5e9] group-hover:text-[#0ea5e9]"
-          }`}
-        >
-          {isOpen ? (
-            <Minus className="h-3.5 w-3.5" />
-          ) : (
-            <Plus className="h-3.5 w-3.5" />
-          )}
-        </span>
-      </button>
-      <div
-        className="overflow-hidden transition-all duration-300 ease-in-out"
-        style={{ maxHeight: isOpen ? 400 : 0 }}
-      >
-        <p className="pb-5 text-sm sm:text-base text-slate-500 leading-relaxed max-w-2xl">
-          {faq.answer}
-        </p>
-      </div>
-    </div>
-  )
-}
+// ── JSON-LD ───────────────────────────────────────────────────
+const softwareSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "DocMetrics Fundraising",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  url: "https://docmetrics.io/solutions/fundraising",
+  description:
+    "Real-time investor engagement tracking for pitch decks, financial models, and due diligence materials. Know instantly when investors open your deck, which slides hold their attention, and who is most likely to invest.",
+  featureList: [
+    "Real-time pitch deck open notifications",
+    "Page-by-page slide engagement analytics",
+    "Investor engagement scoring",
+    "Forward detection to partners and investment committees",
+    "Password protection and email verification",
+    "Secure branded data rooms for due diligence",
+    "NDA gating before investors can access materials",
+    "Role-based access and folder-level permissions",
+    "Full audit log of every investor interaction",
+    "Instant access revocation",
+  ],
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+    description: "Free trial — no credit card required",
+  },
+};
 
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  })),
+};
+
+// ── COMPONENTS ────────────────────────────────────────────────
 function FeatureBlock({
   step,
   label,
@@ -108,14 +134,14 @@ function FeatureBlock({
   imageAlt,
   reverse,
 }: {
-  step: string
-  label: string
-  title: string
-  description: string
-  bullets: string[]
-  imageSrc: string
-  imageAlt: string
-  reverse?: boolean
+  step: string;
+  label: string;
+  title: string;
+  description: string;
+  bullets: string[];
+  imageSrc: string;
+  imageAlt: string;
+  reverse?: boolean;
 }) {
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
@@ -126,7 +152,7 @@ function FeatureBlock({
       >
         <div className={reverse ? "lg:col-start-2" : ""}>
           <div className="flex items-center gap-3 mb-6">
-            <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-xs font-bold shrink-0">
               {step}
             </div>
             <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
@@ -145,7 +171,7 @@ function FeatureBlock({
                 key={i}
                 className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"
               >
-                <div className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-2 flex-shrink-0" />
+                <div className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-2 shrink-0" />
                 {b}
               </li>
             ))}
@@ -166,22 +192,30 @@ function FeatureBlock({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
+// ── PAGE ──────────────────────────────────────────────────────
 export default function FundraisingPage(): JSX.Element {
-  const [openIndex, setOpenIndex] = useState<number | null>(0)
-  const toggle = (i: number) => setOpenIndex(openIndex === i ? null : i)
-
   return (
     <div className="min-h-screen bg-white">
+
+      {/* JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
 
       {/* ── HERO ── */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 pb-20">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
-              For Fundraising
+               Fundraising
             </p>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
               Know exactly which investors{" "}
@@ -210,6 +244,7 @@ export default function FundraisingPage(): JSX.Element {
               alt="DocMetrics fundraising overview"
               width={560}
               height={460}
+              priority
               className="w-full h-auto"
             />
           </div>
@@ -217,60 +252,55 @@ export default function FundraisingPage(): JSX.Element {
       </div>
 
       {/* ── PROBLEM ── */}
-      <div className="">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-          <div className="max-w-2xl mb-12">
-            
-            
-            <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
-              You send the pitch deck. Then silence.
-            </h2>
-            <p className="text-base text-slate-500 leading-relaxed">
-              You spend weeks perfecting your pitch deck, financial model, and
-              data room. You send it to investors and then have no idea what
-              happens next. Did they open it? Which slides held their attention?
-              Is now the right time to follow up or will you come across as
-              desperate? Meanwhile your runway keeps burning and your competitor
-              just closed their round.
-            </p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-4">
-            {[
-              {
-                title: "No visibility after sending",
-                description:
-                  "Once you share your deck you lose all visibility. You have no idea if the investor even opened it, let alone which slides they spent time on.",
-              },
-              {
-                title: "Wrong follow-up timing",
-                description:
-                  "Following up too early feels desperate. Waiting too long means the investor has moved on to the next deal that was better timed.",
-              },
-              {
-                title: "No signal of genuine interest",
-                description:
-                  "You cannot tell which investors are seriously evaluating your deal and which ones gave you a polite yes but never intend to invest.",
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="bg-white border border-slate-200 rounded-xl p-6"
-              >
-                <div className="h-1.5 w-6 rounded-full bg-red-300 mb-5" />
-                <p className="text-sm font-semibold text-slate-900 mb-2">
-                  {item.title}
-                </p>
-                <p className="text-sm text-slate-500 leading-relaxed">
-                  {item.description}
-                </p>
-              </div>
-            ))}
-          </div>
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+        <div className="max-w-2xl mb-12">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
+            You send the pitch deck. Then silence.
+          </h2>
+          <p className="text-base text-slate-500 leading-relaxed">
+            You spend weeks perfecting your pitch deck, financial model, and
+            data room. You send it to investors and then have no idea what
+            happens next. Did they open it? Which slides held their attention?
+            Is now the right time to follow up or will you come across as
+            desperate? Meanwhile your runway keeps burning and your competitor
+            just closed their round.
+          </p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-4">
+          {[
+            {
+              title: "No visibility after sending",
+              description:
+                "Once you share your deck you lose all visibility. You have no idea if the investor even opened it, let alone which slides they spent time on.",
+            },
+            {
+              title: "Wrong follow-up timing",
+              description:
+                "Following up too early feels desperate. Waiting too long means the investor has moved on to the next deal that was better timed.",
+            },
+            {
+              title: "No signal of genuine interest",
+              description:
+                "You cannot tell which investors are seriously evaluating your deal and which ones gave you a polite yes but never intend to invest.",
+            },
+          ].map((item) => (
+            <div
+              key={item.title}
+              className="bg-white border border-slate-200 rounded-xl p-6"
+            >
+              <div className="h-1.5 w-6 rounded-full bg-red-300 mb-5" />
+              <p className="text-sm font-semibold text-slate-900 mb-2">
+                {item.title}
+              </p>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                {item.description}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
 
       {/* ── FEATURE BLOCKS ── */}
-
       <FeatureBlock
         step="1"
         label="Investor Tracking"
@@ -284,7 +314,7 @@ export default function FundraisingPage(): JSX.Element {
           "Live indicator shows when someone is reading your document right now",
         ]}
         imageSrc="/assets/illustrations/sales-alerts.png"
-        imageAlt="Investor tracking illustration"
+        imageAlt="Investor tracking notification showing pitch deck open event"
       />
 
       <FeatureBlock
@@ -300,7 +330,7 @@ export default function FundraisingPage(): JSX.Element {
           "Continuously refine your deck based on real engagement data",
         ]}
         imageSrc="/assets/illustrations/step-track.png"
-        imageAlt="Slide analytics illustration"
+        imageAlt="Slide analytics showing per-page investor engagement time"
         reverse
       />
 
@@ -317,7 +347,7 @@ export default function FundraisingPage(): JSX.Element {
           "Focus every follow-up call where buying intent is genuinely high",
         ]}
         imageSrc="/assets/illustrations/sales-scoring.png"
-        imageAlt="Engagement scoring illustration"
+        imageAlt="Investor engagement scoring dashboard with hot warm cold tiers"
       />
 
       <FeatureBlock
@@ -333,7 +363,7 @@ export default function FundraisingPage(): JSX.Element {
           "Block downloads while still allowing full document viewing",
         ]}
         imageSrc="/assets/illustrations/step-share.png"
-        imageAlt="Secure sharing illustration"
+        imageAlt="Secure document sharing controls for investor pitch materials"
         reverse
       />
 
@@ -350,7 +380,7 @@ export default function FundraisingPage(): JSX.Element {
           "Q&A tab where investors ask questions and you respond inside the space",
         ]}
         imageSrc="/assets/illustrations/step-dataroom.png"
-        imageAlt="Data room illustration"
+        imageAlt="Due diligence data room with organized folders and investor access controls"
       />
 
       <FeatureBlock
@@ -366,15 +396,14 @@ export default function FundraisingPage(): JSX.Element {
           "Revoke access at any time if the deal falls through",
         ]}
         imageSrc="/assets/illustrations/step-sign.png"
-        imageAlt="NDA and agreements illustration"
+        imageAlt="NDA digital signature collection before investor data room access"
         reverse
       />
 
       {/* ── FAQ ── */}
-      <section className=" py-16 sm:py-20">
+      <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
           <div className="mb-12 text-center">
-             
             <h2 className="text-3xl sm:text-4xl font-semibold text-slate-900 leading-tight">
               Frequently asked questions
             </h2>
@@ -382,23 +411,15 @@ export default function FundraisingPage(): JSX.Element {
               Everything you need to know about using DocMetrics for fundraising.{" "}
               <a
                 href="/contact"
-                className="text-[#0284c7] hover:text-[#0369a1] font-medium transition-colors"
+                className="text-sky-600 hover:text-sky-800 font-medium transition-colors"
               >
                 Contact us
               </a>{" "}
               if you cannot find what you are looking for.
             </p>
           </div>
-          <div className="divide-y divide-slate-200 border-t border-slate-200">
-            {FAQS.map((faq, i) => (
-              <FAQItem
-                key={i}
-                faq={faq}
-                isOpen={openIndex === i}
-                onToggle={() => toggle(i)}
-              />
-            ))}
-          </div>
+          {/* ✅ Only this part is client-side */}
+          <FAQAccordion faqs={FAQS} defaultOpen={0} />
         </div>
       </section>
 
@@ -415,7 +436,7 @@ export default function FundraisingPage(): JSX.Element {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/register"
+              href="/signup"
               className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
             >
               Start for free
@@ -433,5 +454,5 @@ export default function FundraisingPage(): JSX.Element {
       </div>
 
     </div>
-  )
+  );
 }

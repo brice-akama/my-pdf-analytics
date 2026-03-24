@@ -1,12 +1,42 @@
 // app/solutions/enterprise/page.tsx
+// ✅ Server Component — Google indexes all content
+// ✅ FAQAccordion isolated as its own client component
+import type { Metadata } from "next";
+import { JSX } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
+import { FAQAccordion } from "@/components/faq-accordion";
 
-"use client"
-import { JSX, useState } from "react"
-import Link from "next/link"
-import { ArrowRight, Plus, Minus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Image from "next/image"
+// ── METADATA ──────────────────────────────────────────────────
+export const metadata: Metadata = {
+  title: "Client Portals — A Secure Branded Space for Every Client",
+  description:
+    "Share documents, track engagement, collect e-signatures, gather files, and manage client communication — all in one branded portal. No account required for clients.",
+  alternates: {
+    canonical: "https://docmetrics.io/solutions/enterprise",
+  },
+  openGraph: {
+    title: "DocMetrics Client Portals — Secure Branded Spaces for Every Client",
+    description:
+      "Share documents, track engagement, collect e-signatures, gather files, and manage client communication — all in one branded portal.",
+    url: "https://docmetrics.io/solutions/enterprise",
+    siteName: "DocMetrics",
+    type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "DocMetrics Client Portals — Secure Branded Document Sharing",
+      },
+    ],
+  },
+};
 
+// ── FAQ DATA ──────────────────────────────────────────────────
 const FAQS = [
   {
     question: "Do my clients need to create an account to view documents?",
@@ -48,39 +78,52 @@ const FAQS = [
     answer:
       "Yes. Every Space has a full audit log recording every action — every document opened, every page viewed, every file downloaded — with a timestamp and the name of the person who performed it.",
   },
-]
+];
 
-function FAQItem({
-  faq,
-  isOpen,
-  onToggle,
-}: {
-  faq: typeof FAQS[0]
-  isOpen: boolean
-  onToggle: () => void
-}) {
-  return (
-    <div className="border-b border-slate-200 last:border-0">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between gap-6 py-5 text-left group"
-      >
-        <span className={`text-base font-medium transition-colors duration-150 ${isOpen ? "text-sky-600" : "text-slate-900 group-hover:text-sky-600"}`}>
-          {faq.question}
-        </span>
-        <span className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full border transition-all duration-200 ${isOpen ? "bg-sky-600 border-sky-600 text-white" : "border-slate-300 text-slate-400 group-hover:border-sky-600 group-hover:text-sky-600"}`}>
-          {isOpen ? <Minus className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-        </span>
-      </button>
-      <div className="overflow-hidden transition-all duration-300 ease-in-out" style={{ maxHeight: isOpen ? 400 : 0 }}>
-        <p className="pb-5 text-sm sm:text-base text-slate-500 leading-relaxed max-w-2xl">
-          {faq.answer}
-        </p>
-      </div>
-    </div>
-  )
-}
+// ── JSON-LD ───────────────────────────────────────────────────
+const softwareSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "DocMetrics Client Portals",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  url: "https://docmetrics.io/solutions/enterprise",
+  description:
+    "Branded client portals for sharing documents, tracking engagement, collecting e-signatures, gathering files, and managing client communication in one secure space.",
+  featureList: [
+    "Branded client spaces with custom logo and colors",
+    "Page-by-page document tracking per client",
+    "E-signature requests with signing funnel analytics",
+    "File request collection from clients",
+    "NDA gating before portal access",
+    "Role-based access and folder-level permissions",
+    "Q&A tab for client questions inside the portal",
+    "Full audit log of every client action",
+    "Real-time open notifications",
+    "Instant access revocation",
+  ],
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+    description: "Free trial — no credit card required",
+  },
+};
 
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  })),
+};
+
+// ── COMPONENTS ────────────────────────────────────────────────
 function FeatureBlock({
   step,
   label,
@@ -102,10 +145,14 @@ function FeatureBlock({
 }) {
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-      <div className={`grid lg:grid-cols-2 gap-12 lg:gap-20 items-center ${reverse ? "lg:grid-flow-dense" : ""}`}>
+      <div
+        className={`grid lg:grid-cols-2 gap-12 lg:gap-20 items-center ${
+          reverse ? "lg:grid-flow-dense" : ""
+        }`}
+      >
         <div className={reverse ? "lg:col-start-2" : ""}>
           <div className="flex items-center gap-3 mb-6">
-            <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-xs font-bold shrink-0">
               {step}
             </div>
             <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
@@ -120,14 +167,21 @@ function FeatureBlock({
           </p>
           <ul className="space-y-3">
             {bullets.map((b, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed">
-                <div className="h-1.5 w-1.5 rounded-full bg-sky-400 mt-2 flex-shrink-0" />
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"
+              >
+                <div className="h-1.5 w-1.5 rounded-full bg-sky-400 mt-2 shrink-0" />
                 {b}
               </li>
             ))}
           </ul>
         </div>
-        <div className={`flex items-center justify-center ${reverse ? "lg:col-start-1 lg:row-start-1" : ""}`}>
+        <div
+          className={`flex items-center justify-center ${
+            reverse ? "lg:col-start-1 lg:row-start-1" : ""
+          }`}
+        >
           <Image
             src={imageSrc}
             alt={imageAlt}
@@ -138,15 +192,23 @@ function FeatureBlock({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
+// ── PAGE ──────────────────────────────────────────────────────
 export default function ClientPortalsPage(): JSX.Element {
-  const [openIndex, setOpenIndex] = useState<number | null>(0)
-  const toggle = (i: number) => setOpenIndex(openIndex === i ? null : i)
-
   return (
     <div className="min-h-screen bg-white">
+
+      {/* JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
 
       {/* ── HERO ── */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 pb-20">
@@ -157,10 +219,14 @@ export default function ClientPortalsPage(): JSX.Element {
             </p>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
               A secure branded space{" "}
-              <span className="text-sky-600">for every client relationship.</span>
+              <span className="text-sky-600">
+                for every client relationship.
+              </span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
-              DocMetrics gives you a professional way to share documents, track engagement, collect signatures, and manage client communication — all in one branded space.
+              DocMetrics gives you a professional way to share documents,
+              track engagement, collect signatures, and manage client
+              communication — all in one branded space.
             </p>
             <Button
               size="lg"
@@ -172,14 +238,17 @@ export default function ClientPortalsPage(): JSX.Element {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            <p className="text-xs text-slate-400 mt-3">No credit card required</p>
+            <p className="text-xs text-slate-400 mt-3">
+              No credit card required
+            </p>
           </div>
           <div className="flex items-center justify-center">
             <Image
               src="/assets/illustrations/client-portals-hero.png"
-              alt="Client portal overview"
+              alt="DocMetrics branded client portal with documents and tracking"
               width={560}
               height={460}
+              priority
               className="w-full h-auto"
             />
           </div>
@@ -193,35 +262,51 @@ export default function ClientPortalsPage(): JSX.Element {
             Sharing documents with clients should not be this messy.
           </h2>
           <p className="text-base text-slate-500 leading-relaxed">
-            You send proposals, contracts, and supporting documents by email. Clients lose them, forward them to the wrong people, or never open them at all. You have no idea what they read or when they are ready to move forward. Every deal involves a chaotic back and forth of attachments, follow-up emails, and missed signatures. There is no single place where everything lives and no visibility into what is actually happening on the client side.
+            You send proposals, contracts, and supporting documents by
+            email. Clients lose them, forward them to the wrong people, or
+            never open them at all. You have no idea what they read or when
+            they are ready to move forward. Every deal involves a chaotic
+            back and forth of attachments, follow-up emails, and missed
+            signatures. There is no single place where everything lives and
+            no visibility into what is actually happening on the client
+            side.
           </p>
         </div>
         <div className="grid md:grid-cols-3 gap-4">
           {[
             {
               title: "Documents scattered across email",
-              description: "Proposals, contracts, and briefs live in different email threads. Clients lose them, you resend them, and nothing is organized or trackable.",
+              description:
+                "Proposals, contracts, and briefs live in different email threads. Clients lose them, you resend them, and nothing is organized or trackable.",
             },
             {
               title: "No idea if clients read anything",
-              description: "You send a contract and wait. You have no idea if they opened it, which sections they reviewed, or why they have not signed yet.",
+              description:
+                "You send a contract and wait. You have no idea if they opened it, which sections they reviewed, or why they have not signed yet.",
             },
             {
               title: "No professional client experience",
-              description: "Sending PDFs as email attachments does not reflect the quality of your work. Clients deserve a professional branded experience from the start.",
+              description:
+                "Sending PDFs as email attachments does not reflect the quality of your work. Clients deserve a professional branded experience from the start.",
             },
           ].map((item) => (
-            <div key={item.title} className="bg-white border border-slate-200 rounded-xl p-6">
+            <div
+              key={item.title}
+              className="bg-white border border-slate-200 rounded-xl p-6"
+            >
               <div className="h-1.5 w-6 rounded-full bg-red-300 mb-5" />
-              <p className="text-sm font-semibold text-slate-900 mb-2">{item.title}</p>
-              <p className="text-sm text-slate-500 leading-relaxed">{item.description}</p>
+              <p className="text-sm font-semibold text-slate-900 mb-2">
+                {item.title}
+              </p>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                {item.description}
+              </p>
             </div>
           ))}
         </div>
       </div>
 
       {/* ── FEATURE BLOCKS ── */}
-
       <FeatureBlock
         step="1"
         label="Spaces"
@@ -235,7 +320,7 @@ export default function ClientPortalsPage(): JSX.Element {
           "Full audit log of every document opened, every page viewed, every download",
         ]}
         imageSrc="/assets/illustrations/step-dataroom.png"
-        imageAlt="Client space illustration"
+        imageAlt="Branded client space with organized document folders"
       />
 
       <FeatureBlock
@@ -251,7 +336,7 @@ export default function ClientPortalsPage(): JSX.Element {
           "Track multiple clients on the same document independently",
         ]}
         imageSrc="/assets/illustrations/step-track.png"
-        imageAlt="Document tracking illustration"
+        imageAlt="Client document tracking showing page-by-page reading time"
         reverse
       />
 
@@ -268,7 +353,7 @@ export default function ClientPortalsPage(): JSX.Element {
           "Bundle multiple documents into one envelope for complex engagements",
         ]}
         imageSrc="/assets/illustrations/step-sign.png"
-        imageAlt="E-signature illustration"
+        imageAlt="Client portal e-signature request and signing flow"
       />
 
       <FeatureBlock
@@ -284,7 +369,7 @@ export default function ClientPortalsPage(): JSX.Element {
           "Receive a notification when each file is uploaded",
         ]}
         imageSrc="/assets/illustrations/portal-filerequests.png"
-        imageAlt="File requests illustration"
+        imageAlt="Secure file request collection from clients inside portal"
         reverse
       />
 
@@ -301,7 +386,7 @@ export default function ClientPortalsPage(): JSX.Element {
           "Revoke access instantly if a client relationship ends",
         ]}
         imageSrc="/assets/illustrations/step-share.png"
-        imageAlt="NDA and security illustration"
+        imageAlt="NDA gating and security controls for client portal access"
       />
 
       <FeatureBlock
@@ -317,7 +402,7 @@ export default function ClientPortalsPage(): JSX.Element {
           "All communication stays in one place alongside the documents it relates to",
         ]}
         imageSrc="/assets/illustrations/portal-qa.png"
-        imageAlt="Q&A illustration"
+        imageAlt="Client portal Q&A tab for document questions and answers"
         reverse
       />
 
@@ -330,17 +415,17 @@ export default function ClientPortalsPage(): JSX.Element {
             </h2>
             <p className="mt-4 text-base text-slate-500">
               Everything you need to know about DocMetrics client portals.{" "}
-              <a href="/contact" className="text-sky-600 hover:text-sky-800 font-medium transition-colors">
+              
+              <a  href="/contact"
+                className="text-sky-600 hover:text-sky-800 font-medium transition-colors"
+              >
                 Contact us
               </a>{" "}
               if you cannot find what you are looking for.
             </p>
           </div>
-          <div className="divide-y divide-slate-200 border-t border-slate-200">
-            {FAQS.map((faq, i) => (
-              <FAQItem key={i} faq={faq} isOpen={openIndex === i} onToggle={() => toggle(i)} />
-            ))}
-          </div>
+          {/*  Only this part is client-side */}
+          <FAQAccordion faqs={FAQS} defaultOpen={0} />
         </div>
       </section>
 
@@ -351,21 +436,31 @@ export default function ClientPortalsPage(): JSX.Element {
             Give every client a portal they will remember.
           </h2>
           <p className="text-base text-white/80 max-w-xl mx-auto mb-8">
-            Create your first client Space in under two minutes. Upload your documents, invite your client, and start tracking engagement from day one.
+            Create your first client Space in under two minutes. Upload
+            your documents, invite your client, and start tracking
+            engagement from day one.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/signup" className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm">
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
+            >
               Start for free
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/pricing" className="inline-flex items-center gap-2 border border-white/40 text-white font-medium px-8 py-3 rounded-xl hover:bg-white/10 transition-colors text-sm">
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 border border-white/40 text-white font-medium px-8 py-3 rounded-xl hover:bg-white/10 transition-colors text-sm"
+            >
               View pricing
             </Link>
           </div>
-          <p className="text-xs text-white/60 mt-5">No credit card required</p>
+          <p className="text-xs text-white/60 mt-5">
+            No credit card required
+          </p>
         </div>
       </div>
 
     </div>
-  )
+  );
 }

@@ -56,6 +56,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
   changeFrequency: "monthly",
   priority: 0.8,
 },
+{
+  url: "https://docmetrics.io/solutions/enterprise",
+  lastModified: new Date(),
+  changeFrequency: "monthly",
+  priority: 0.8,
+},
+{
+  url: "https://docmetrics.io/solutions/fundraising",
+  lastModified: new Date(),
+  changeFrequency: "monthly",
+  priority: 0.8,
+},
+{
+  url: "https://docmetrics.io/blog/best-practices",
+  lastModified: new Date(),
+  changeFrequency: "monthly",
+  priority: 0.7,
+},
   ];
 }
 

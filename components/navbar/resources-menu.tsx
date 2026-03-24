@@ -30,6 +30,11 @@ const resources: { learn: ResourceItemType[]; support: ResourceItemType[] } = {
       href: "/blog/best-practices",
       description: "Tips to maximize document engagement",
     },
+    {
+      title: "Blog",
+      href: "/blog",
+      description: "Latest news and insights on document analytics",
+    },
   ],
   support: [
     {

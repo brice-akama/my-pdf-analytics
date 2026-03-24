@@ -3180,60 +3180,41 @@ const handleFeedbackSubmit = async () => {
     title: "Share content with secure file sharing",
     description: "Share content",
     color: "from-blue-500 to-blue-600",
-    onClick: () => {
-      // If user has documents, show share dialog for first document
-      if (documents.length > 0) {
-        setSelectedDocumentToShare(documents[0]._id)
-        setShowShareDialog(true)
-      } else {
-        alert('Upload a document first to share it')
-      }
-    }
+    onClick: () => router.push('/documents-page'),
+    //  Goes to documents page where user uploads and shares
   },
   {
     icon: BarChart3,
     title: "Track viewer analytics to see who engages with your file",
     description: "View analytics",
     color: "from-purple-500 to-purple-600",
-    onClick: () => {
-      // Navigate to first document's analytics
-      if (documents.length > 0) {
-        router.push(`/documents/${documents[0]._id}`)
-      } else {
-        alert('Upload a document first to view analytics')
-      }
-    }
+    onClick: () => setActivePage('dashboard'),
+    //  Switches to dashboard tab which renders DashboardOverview
   },
   {
     icon: FolderOpen,
     title: "Manage large projects and organize deals in one place",
     description: "Create a data room",
     color: "from-indigo-500 to-indigo-600",
-    onClick: () => {
-      // Navigate to spaces (data rooms)
-      router.push('/spaces')
-    }
+    onClick: () => setActivePage('spaces'),
+    //  Switches to spaces tab - stays inside dashboard
   },
   {
     icon: FileSignature,
     title: "Collect eSignatures on contracts and agreements",
     description: "Request signatures",
     color: "from-pink-500 to-pink-600",
-    onClick: () => {
-      // Open upload agreement dialog
-      setShowUploadAgreementDialog(true)
-    }
+    onClick: () => setActivePage('agreements'),
+    //  Switches to agreements tab - stays inside dashboard
   },
   {
     icon: Inbox,
     title: "Safely receive files in one place with file requests",
     description: "Request files",
     color: "from-orange-500 to-orange-600",
-    onClick: () => {
-      // Open create file request dialog
-      setShowCreateFileRequestDialog(true)
-    }
-  }
+    onClick: () => setActivePage('file-requests'),
+    //  Switches to file-requests tab - stays inside dashboard
+  },
 ]
 
 // Fetch user data
