@@ -70,9 +70,9 @@ export async function getBlogPost(slug: string) {
   const post = data?.data?.post;
 
   if (!post) {
-    console.error("❌ No post found in API response:", data);
+    console.error(" No post found in API response:", data);
     return null;
   }
 
-  return post; // ✅ return the post directly, not the wrapper object
+  return post; //  return the post directly, not the wrapper object
 }

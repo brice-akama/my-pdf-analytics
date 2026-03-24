@@ -12,10 +12,35 @@ export function Footer() {
           {/* Column 1: Brand */}
           <div className="lg:col-span-2">
             <Link href="/" className="mb-4 flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-r from-purple-600 to-blue-600">
-                <span className="text-lg font-bold text-white">D</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">DocMetrics</span>
+              <div className="h-8 w-8">
+              <svg
+                viewBox="0 0 200 200"
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-full w-full"
+              >
+                <defs>
+                  <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style={{ stopColor: "#8B5CF6", stopOpacity: 1 }} />
+                    <stop offset="100%" style={{ stopColor: "#3B82F6", stopOpacity: 1 }} />
+                  </linearGradient>
+                  <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style={{ stopColor: "#60A5FA", stopOpacity: 1 }} />
+                    <stop offset="100%" style={{ stopColor: "#A78BFA", stopOpacity: 1 }} />
+                  </linearGradient>
+                </defs>
+                <path d="M 60 50 L 60 150 L 140 150 L 140 70 L 120 50 Z" fill="url(#mainGradient)" />
+                <path d="M 120 50 L 120 70 L 140 70 Z" fill="url(#accentGradient)" opacity="0.7" />
+                <rect x="75" y="100" width="12" height="30" fill="white" opacity="0.9" rx="2" />
+                <rect x="94" y="85" width="12" height="45" fill="white" opacity="0.9" rx="2" />
+                <rect x="113" y="70" width="12" height="60" fill="white" opacity="0.9" rx="2" />
+                <path d="M 75 105 L 88 90 L 100 92 L 113 78 L 125 75" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.8" />
+                <circle cx="81" cy="97" r="3" fill="white" />
+                <circle cx="94" cy="91" r="3" fill="white" />
+                <circle cx="107" cy="85" r="3" fill="white" />
+                <circle cx="119" cy="76" r="3" fill="white" />
+              </svg>
+            </div>
+              <span className="text-xl font-bold text-blue-600">DocMetrics</span>
             </Link>
             <p className="mb-6 text-sm text-gray-600 leading-relaxed">
               Track every view, page, and interaction. Know exactly when prospects engage with your documents.
@@ -87,58 +112,12 @@ export function Footer() {
                   Document Analytics
                 </Link>
               </li>
-              <li>
-                <Link href="/features/notifications" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  Real-Time Notifications
-                </Link>
-              </li>
-              <li>
-                <Link href="/features/engagement" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  Engagement Tracking
-                </Link>
-              </li>
+               
+               
             </ul>
           </div>
 
-          {/* Column 3: Solutions */}
-          <div>
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-900">
-              Solutions
-            </h3>
-            <ul className="space-y-3">
-              <li>
-                <Link href="/solutions/sales" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  Sales Teams
-                </Link>
-              </li>
-              <li>
-                <Link href="/solutions/real-estate" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  Real Estate
-                </Link>
-              </li>
-              <li>
-                <Link href="/solutions/freelancers" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  Freelancers
-                </Link>
-              </li>
-              <li>
-                <Link href="/solutions/recruiting" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  Recruiting
-                </Link>
-              </li>
-              <li>
-                <Link href="/solutions/fundraising" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  Fundraising
-                </Link>
-              </li>
-              <li>
-                <Link href="/solutions/enterprise" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  Client Portals
-                </Link>
-              </li>
-            </ul>
-          </div>
-
+         
           {/* Column 4: Resources */}
           <div>
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-900">
@@ -146,15 +125,11 @@ export function Footer() {
             </h3>
             <ul className="space-y-3">
               <li>
-                <Link href="/docs/getting-started" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                <Link href="https://docmetrics-documentation.gitbook.io/docs" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                   Getting Started
                 </Link>
               </li>
-              <li>
-                <Link href="/tutorials" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  Video Tutorials
-                </Link>
-              </li>
+             
               <li>
                 <Link href="/blog" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                   Blog
@@ -170,13 +145,37 @@ export function Footer() {
                   Contact Us
                 </Link>
               </li>
+               
+            </ul>
+          </div>
+
+           {/* Column 3: Solutions */}
+          <div>
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-900">
+              Solutions
+            </h3>
+            <ul className="space-y-3">
               <li>
-                <Link href="/api-docs" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  API Documentation
+                <Link href="/solutions/sales" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                  Sales Teams
+                </Link>
+              </li>
+              
+               
+               
+              <li>
+                <Link href="/solutions/fundraising" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                  Fundraising
+                </Link>
+              </li>
+              <li>
+                <Link href="/solutions/enterprise" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                  Client Portals
                 </Link>
               </li>
             </ul>
           </div>
+
 
           {/* Column 5: Company */}
           <div>
@@ -194,11 +193,7 @@ export function Footer() {
                   Pricing
                 </Link>
               </li>
-              <li>
-                <Link href="/careers" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                  Careers
-                </Link>
-              </li>
+              
               <li>
                 <Link href="/privacy" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                   Privacy Policy

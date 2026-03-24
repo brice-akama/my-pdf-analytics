@@ -1,3 +1,5 @@
+//app/about/page.tsx
+
 import React, { JSX } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"

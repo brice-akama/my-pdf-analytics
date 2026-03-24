@@ -230,7 +230,7 @@ export default function SalesTeamsPage(): JSX.Element {
               className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-6 text-base rounded-xl shadow-md hover:shadow-lg transition-all"
               asChild
             >
-              <Link href="/register">
+              <Link href="/signup">
                 Start for free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
