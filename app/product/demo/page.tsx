@@ -1,62 +1,78 @@
+// app/product/demo/page.tsx
+//  Server Component — Google indexes all content
+//  VideoPlayer isolated as its own client component
+import type { Metadata } from "next";
+import { JSX } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { VideoPlayer } from "@/components/video-player";
 
-"use client"
+// ── METADATA ──────────────────────────────────────────────────
+export const metadata: Metadata = {
+  title: "See DocMetrics in Action — Full Product Walkthrough",
+  description:
+    "Watch a 2-minute walkthrough of DocMetrics — upload a document, create a share link, and see exactly how long each person spent on every page.",
+  alternates: {
+    canonical: "https://docmetrics.io/product/demo",
+  },
+  openGraph: {
+    title: "See DocMetrics in Action — Full Product Walkthrough",
+    description:
+      "Watch a 2-minute walkthrough of DocMetrics — upload a document, create a share link, and see exactly how long each person spent on every page.",
+    url: "https://docmetrics.io/product/demo",
+    siteName: "DocMetrics",
+    type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "DocMetrics Product Demo Walkthrough",
+      },
+    ],
+  },
+};
 
-import { JSX, useRef, useState } from "react"
-import Link from "next/link"
-import { Play, X, ArrowRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
+// ── JSON-LD: VideoObject Schema ───────────────────────────────
+// Tells Google this page contains a video
+// Google can show it as a rich result with thumbnail in search
+const videoSchema = {
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  name: "DocMetrics Product Walkthrough",
+  description:
+    "A full walkthrough of DocMetrics — from uploading a document to seeing exactly how long each person spent on every page. Covers share links, real-time tracking, and data rooms.",
+  thumbnailUrl: "https://docmetrics.io/assets/screenshots/demo-poster.png",
+  uploadDate: new Date().toISOString(),
+  duration: "PT2M",
+  contentUrl: "https://docmetrics.io/videos/demo.mp4",
+  embedUrl: "https://docmetrics.io/product/demo",
+  publisher: {
+    "@type": "Organization",
+    name: "DocMetrics",
+    url: "https://docmetrics.io",
+    logo: {
+      "@type": "ImageObject",
+      url: "https://docmetrics.io/logo.png",
+    },
+  },
+};
 
-function VideoPlayer() {
-  const ref = useRef<HTMLVideoElement>(null)
-  const [playing, setPlaying] = useState(false)
-
-  const toggle = () => {
-    const el = ref.current
-    if (!el) return
-    if (playing) {
-      el.pause()
-      setPlaying(false)
-    } else {
-      el.play()
-      setPlaying(true)
-    }
-  }
-
-  return (
-    <div className="relative rounded-2xl overflow-hidden bg-slate-900 shadow-2xl aspect-video cursor-pointer group"
-      onClick={toggle}
-    >
-      <video
-        ref={ref}
-        src="/videos/demo.mp4"
-        poster="/assets/screenshots/demo-poster.png"
-        className="w-full h-full object-cover"
-        playsInline
-        onEnded={() => setPlaying(false)}
-      />
-
-      {/* Overlay — hidden when playing */}
-      <div className={`absolute inset-0 bg-slate-900/50 flex flex-col items-center justify-center transition-opacity duration-200 ${playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"}`}>
-        <div className="h-20 w-20 rounded-full bg-white/90 flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform duration-200 mb-4">
-          {playing
-           ? <div className="flex gap-1.5"><div className="h-5 w-1.5 bg-sky-600 rounded-full" /><div className="h-5 w-1.5 bg-sky-600 rounded-full" /></div>
-: <Play className="h-8 w-8 text-sky-600 fill-sky-600 ml-1" />
-          }
-        </div>
-        <p className="text-white font-semibold text-lg">Watch the full walkthrough</p>
-        <p className="text-white/60 text-sm mt-1">2 minutes · No sound needed</p>
-      </div>
-    </div>
-  )
-}
-
-export default function SeeItInActionPage(): JSX.Element {
+// ── PAGE ──────────────────────────────────────────────────────
+export default function DemoPage(): JSX.Element {
   return (
     <div className="min-h-screen bg-white">
 
+      {/* JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(videoSchema) }}
+      />
+
       {/* ── Hero ── */}
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-16 pb-12 text-center">
-         <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
           See It In Action
         </p>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
@@ -64,7 +80,9 @@ export default function SeeItInActionPage(): JSX.Element {
           <span className="text-sky-600">two minutes.</span>
         </h1>
         <p className="text-base sm:text-lg text-slate-500 leading-relaxed max-w-2xl mx-auto">
-          Watch a real walkthrough of DocMetrics — from uploading a document to seeing exactly how long each person spent on every page.
+          Watch a real walkthrough of DocMetrics — from uploading a
+          document to seeing exactly how long each person spent on every
+          page.
         </p>
       </div>
 
@@ -94,32 +112,35 @@ export default function SeeItInActionPage(): JSX.Element {
 
       {/* ── CTA ── */}
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pb-20">
-         <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
+        <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
           <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
             Ready to try it yourself?
           </h2>
           <p className="text-base text-white/80 max-w-xl mx-auto mb-8">
-            Start for free — no credit card required. Upload your first document and see real analytics in under two minutes.
+            Start for free — no credit card required. Upload your first
+            document and see real analytics in under two minutes.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-  href="/signup"
-  className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
->
+              href="/signup"
+              className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
+            >
               Start for free
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              href="/how-it-works"
+              href="/product/how-it-works"
               className="inline-flex items-center gap-2 border border-white/40 text-white font-medium px-8 py-3 rounded-xl hover:bg-white/10 transition-colors text-sm"
             >
               How it works
             </Link>
           </div>
-          <p className="text-xs text-white/60 mt-5">No credit card required</p>
+          <p className="text-xs text-white/60 mt-5">
+            No credit card required
+          </p>
         </div>
       </div>
 
     </div>
-  )
+  );
 }

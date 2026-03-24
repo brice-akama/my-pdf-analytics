@@ -1,13 +1,43 @@
 
-"use client"
-import { JSX, useState } from "react"
-import Link from "next/link"
-import { ArrowRight, Plus, Minus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Image from "next/image"
+// app/solutions/sales/page.tsx
+// ✅ Server Component — Google indexes all content
+// ✅ FAQAccordion isolated as its own client component
+import type { Metadata } from "next";
+import { JSX } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
+import { FAQAccordion } from "@/components/faq-accordion";
 
-// ── FAQ Data ──────────────────────────────────────────────────────────────────
+// ── METADATA ──────────────────────────────────────────────────
+export const metadata: Metadata = {
+  title: "DocMetrics for Sales Teams — Know When Your Prospect Is Paying Attention",
+  description:
+    "Real-time alerts when prospects open your proposals, page-by-page reading analytics, automatic lead scoring, and e-signatures — all in one platform. Stop guessing. Start closing.",
+  alternates: {
+    canonical: "https://docmetrics.io/solutions/sales",
+  },
+  openGraph: {
+    title: "DocMetrics for Sales Teams — Know When Your Prospect Is Paying Attention",
+    description:
+      "Real-time alerts when prospects open your proposals, page-by-page reading analytics, automatic lead scoring, and e-signatures — all in one platform.",
+    url: "https://docmetrics.io/solutions/sales",
+    siteName: "DocMetrics",
+    type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "DocMetrics for Sales Teams — Proposal Tracking and Analytics",
+      },
+    ],
+  },
+};
 
+// ── FAQ DATA ──────────────────────────────────────────────────
 const FAQS = [
   {
     question: "Can prospects tell they are being tracked?",
@@ -49,63 +79,50 @@ const FAQS = [
     answer:
       "All documents are encrypted in transit and at rest. Share links support NDA gating so recipients must sign a confidentiality agreement before they can view anything. You retain full ownership of everything you upload and can revoke access at any time.",
   },
-]
+];
 
-// ── FAQ Components ────────────────────────────────────────────────────────────
+// ── JSON-LD ───────────────────────────────────────────────────
+const softwareSchema = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "DocMetrics for Sales Teams",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  url: "https://docmetrics.io/solutions/sales",
+  description:
+    "Document tracking and analytics for sales teams. Real-time alerts when prospects open proposals, page-by-page reading data, automatic lead scoring, and e-signatures.",
+  featureList: [
+    "Real-time open notifications by email, Slack, and in-app",
+    "Page-by-page reading time analytics",
+    "Automatic lead scoring based on engagement",
+    "Bulk send with individual tracking per recipient",
+    "E-signature requests with signing funnel analytics",
+    "Secure share links with password protection and expiry dates",
+    "Live reading indicator",
+    "Forwarding detection",
+  ],
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+    description: "Free trial — no credit card required",
+  },
+};
 
-function FAQItem({
-  faq,
-  isOpen,
-  onToggle,
-}: {
-  faq: typeof FAQS[0]
-  isOpen: boolean
-  onToggle: () => void
-}) {
-  return (
-    <div className="border-b border-slate-200 last:border-0">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between gap-6 py-5 text-left group"
-      >
-        <span
-          className={`text-base font-medium transition-colors duration-150 ${
-            isOpen
-              ? "text-[#0284c7]"
-              : "text-slate-900 group-hover:text-[#0284c7]"
-          }`}
-        >
-          {faq.question}
-        </span>
-        <span
-          className={`shrink-0 flex items-center justify-center h-7 w-7 rounded-full border transition-all duration-200 ${
-            isOpen
-              ? "bg-[#0ea5e9] border-[#0ea5e9] text-white"
-              : "border-slate-300 text-slate-400 group-hover:border-[#0ea5e9] group-hover:text-[#0ea5e9]"
-          }`}
-        >
-          {isOpen ? (
-            <Minus className="h-3.5 w-3.5" />
-          ) : (
-            <Plus className="h-3.5 w-3.5" />
-          )}
-        </span>
-      </button>
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  })),
+};
 
-      <div
-        className="overflow-hidden transition-all duration-300 ease-in-out"
-        style={{ maxHeight: isOpen ? 400 : 0 }}
-      >
-        <p className="pb-5 text-sm sm:text-base text-slate-500 leading-relaxed max-w-2xl">
-          {faq.answer}
-        </p>
-      </div>
-    </div>
-  )
-}
-
-// ── Feature Block ─────────────────────────────────────────────────────────────
-
+// ── COMPONENTS ────────────────────────────────────────────────
 function FeatureBlock({
   step,
   label,
@@ -132,7 +149,6 @@ function FeatureBlock({
           reverse ? "lg:grid-flow-dense" : ""
         }`}
       >
-        {/* Text */}
         <div className={reverse ? "lg:col-start-2" : ""}>
           <div className="flex items-center gap-3 mb-6">
             <div className="h-8 w-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
@@ -142,15 +158,12 @@ function FeatureBlock({
               {label}
             </span>
           </div>
-
           <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
             {title}
           </h2>
-
           <p className="text-base text-slate-500 leading-relaxed mb-6">
             {description}
           </p>
-
           <ul className="space-y-3">
             {bullets.map((b, i) => (
               <li
@@ -163,8 +176,6 @@ function FeatureBlock({
             ))}
           </ul>
         </div>
-
-        {/* Illustration */}
         <div
           className={`flex items-center justify-center ${
             reverse ? "lg:col-start-1 lg:row-start-1" : ""
@@ -180,26 +191,27 @@ function FeatureBlock({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
-
+// ── PAGE ──────────────────────────────────────────────────────
 export default function SalesTeamsPage(): JSX.Element {
-  const [openIndex, setOpenIndex] = useState<number | null>(0)
-
-  const toggle = (i: number) => {
-    setOpenIndex(openIndex === i ? null : i)
-  }
-
   return (
     <div className="min-h-screen bg-white">
+
+      {/* JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
 
       {/* ── HERO ── */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 pb-20">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
-
-          {/* LEFT: Text */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
               For Sales Teams
@@ -223,20 +235,20 @@ export default function SalesTeamsPage(): JSX.Element {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            <p className="text-xs text-slate-400 mt-3">No credit card required</p>
+            <p className="text-xs text-slate-400 mt-3">
+              No credit card required
+            </p>
           </div>
-
-          {/* RIGHT: Illustration */}
           <div className="flex items-center justify-center">
             <Image
               src="/assets/illustrations/sales-hero.png"
-              alt="DocMetrics sales team overview"
+              alt="DocMetrics sales team proposal tracking dashboard"
               width={560}
               height={460}
+              priority
               className="w-full h-auto"
             />
           </div>
-
         </div>
       </div>
 
@@ -244,7 +256,6 @@ export default function SalesTeamsPage(): JSX.Element {
       <div className="bg-white">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <div className="max-w-2xl mb-12">
-            
             <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
               You send the proposal. Then silence.
             </h2>
@@ -252,9 +263,9 @@ export default function SalesTeamsPage(): JSX.Element {
               You spend hours crafting the perfect proposal, pricing deck, or
               pitch presentation. You send it. Then you have no idea what
               happens next. Did they open it? Which sections did they care
-              about? Is now the right time to follow up or will you come across
-              as pushy? Meanwhile your competitor who called at the right moment
-              wins the deal.
+              about? Is now the right time to follow up or will you come
+              across as pushy? Meanwhile your competitor who called at the
+              right moment wins the deal.
             </p>
           </div>
 
@@ -294,7 +305,6 @@ export default function SalesTeamsPage(): JSX.Element {
       </div>
 
       {/* ── FEATURE BLOCKS ── */}
-
       <FeatureBlock
         step="1"
         label="Real-Time Alerts"
@@ -308,7 +318,7 @@ export default function SalesTeamsPage(): JSX.Element {
           "Live indicator shows when someone is reading your document right now",
         ]}
         imageSrc="/assets/illustrations/sales-alerts.png"
-        imageAlt="Real time alert illustration"
+        imageAlt="Real-time sales proposal open notification alert"
       />
 
       <FeatureBlock
@@ -324,7 +334,7 @@ export default function SalesTeamsPage(): JSX.Element {
           "Use reading data to prepare smarter, more targeted follow-up calls",
         ]}
         imageSrc="/assets/illustrations/step-track.png"
-        imageAlt="Page analytics illustration"
+        imageAlt="Sales proposal page-by-page analytics chart"
         reverse
       />
 
@@ -341,7 +351,7 @@ export default function SalesTeamsPage(): JSX.Element {
           "Focus your energy where buying intent is actually high",
         ]}
         imageSrc="/assets/illustrations/sales-scoring.png"
-        imageAlt="Lead scoring illustration"
+        imageAlt="Automatic lead scoring based on document engagement"
       />
 
       <FeatureBlock
@@ -357,7 +367,7 @@ export default function SalesTeamsPage(): JSX.Element {
           "Block downloads while still allowing full document viewing",
         ]}
         imageSrc="/assets/illustrations/step-share.png"
-        imageAlt="Secure sharing illustration"
+        imageAlt="Secure document sharing with access controls for sales"
         reverse
       />
 
@@ -374,7 +384,7 @@ export default function SalesTeamsPage(): JSX.Element {
           "Follow up with non-openers or high-intent readers as a targeted group",
         ]}
         imageSrc="/assets/illustrations/sales-bulk.png"
-        imageAlt="Bulk send illustration"
+        imageAlt="Bulk send personalised proposals with individual tracking"
       />
 
       <FeatureBlock
@@ -390,42 +400,30 @@ export default function SalesTeamsPage(): JSX.Element {
           "Bundle multiple documents into one envelope for complex deals",
         ]}
         imageSrc="/assets/illustrations/step-sign.png"
-        imageAlt="E-signature illustration"
+        imageAlt="E-signature tracking and signing funnel analytics"
         reverse
       />
 
       {/* ── FAQ ── */}
-      <section className=" py-16 sm:py-20">
+      <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-
           <div className="mb-12 text-center">
-            
             <h2 className="text-3xl sm:text-4xl font-semibold text-slate-900 leading-tight">
               Frequently asked questions
             </h2>
-            <p className="mt-4 text-base text-slate-500">
-              Everything you need to know about DocMetrics for sales teams.{" "}
-              
-               <a href="/contact"
-                className="text-[#0284c7] hover:text-[#0369a1] font-medium transition-colors"
-              >
-                Contact us
-              </a>{" "}
-              if you cannot find what you are looking for.
-            </p>
+           <p className="mt-4 text-base text-slate-500">
+  Everything you need to know about DocMetrics for sales teams{" "}
+  <a
+    href="/contact"
+    className="text-[#0284c7] hover:text-[#0369a1] font-medium transition-colors"
+  >
+    Contact us
+  </a>{" "}
+  if you cannot find what you are looking for.
+</p>
           </div>
-
-          <div className="divide-y divide-slate-200 border-t border-slate-200">
-            {FAQS.map((faq, i) => (
-              <FAQItem
-                key={i}
-                faq={faq}
-                isOpen={openIndex === i}
-                onToggle={() => toggle(i)}
-              />
-            ))}
-          </div>
-
+          {/*  Only this part is client-side */}
+          <FAQAccordion faqs={FAQS} defaultOpen={0} />
         </div>
       </section>
 
@@ -436,12 +434,12 @@ export default function SalesTeamsPage(): JSX.Element {
             Start knowing what happens after you hit send.
           </h2>
           <p className="text-base text-white/80 max-w-xl mx-auto mb-8">
-            Upload your first document and see real engagement data in under two
-            minutes. No credit card required.
+            Upload your first document and see real engagement data in
+            under two minutes. No credit card required.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/register"
+              href="/signup"
               className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
             >
               Start for free
@@ -454,10 +452,12 @@ export default function SalesTeamsPage(): JSX.Element {
               View pricing
             </Link>
           </div>
-          <p className="text-xs text-white/60 mt-5">No credit card required</p>
+          <p className="text-xs text-white/60 mt-5">
+            No credit card required
+          </p>
         </div>
       </div>
 
     </div>
-  )
+  );
 }

@@ -18,8 +18,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DocMetrics - Document Analytics & Tracking",
-  description: "Track document views, signatures, and analytics in real-time",
+  metadataBase: new URL("https://docmetrics.io"),
+  title: {
+    default: "DocMetrics",
+    template: "%s | DocMetrics",
+  },
+  description:
+    "Document sharing with analytics — see who opened, read, and spent time on your docs.",
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

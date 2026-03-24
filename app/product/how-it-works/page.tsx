@@ -1,10 +1,89 @@
-"use client"
-import { JSX } from "react"
-import Link from "next/link"
-import { ArrowRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Image from "next/image"
+// app/product/how-it-works/page.tsx
+import type { Metadata } from "next";
+import { JSX } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
+// ── METADATA ──────────────────────────────────────────────────
+export const metadata: Metadata = {
+  title: "How It Works — From Upload to Insight in Minutes",
+  description:
+    "Upload a document, share a secure link, and see who read every page in real time. Track views, collect e-signatures, and know exactly when to follow up.",
+  alternates: {
+    canonical: "https://docmetrics.io/product/how-it-works",
+  },
+  openGraph: {
+    title: "How DocMetrics Works — Document Analytics for Sales Teams",
+    description:
+      "Upload a document, share a secure link, and see who read every page in real time. Track views, collect e-signatures, and know exactly when to follow up.",
+    url: "https://docmetrics.io/product/how-it-works",
+    siteName: "DocMetrics",
+    type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "How DocMetrics Works — Document Analytics",
+      },
+    ],
+  },
+};
+
+// ── JSON-LD: HowTo Schema ─────────────────────────────────────
+// This tells Google this page is a step-by-step guide
+// Google can show this as a rich result with numbered steps
+const howToSchema = {
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  name: "How to Track Your Documents with DocMetrics",
+  description:
+    "DocMetrics turns every document you share into a live data source. See who read it, how long they stayed on each page, and exactly when to follow up.",
+  step: [
+    {
+      "@type": "HowToStep",
+      position: 1,
+      name: "Upload Your Document",
+      text: "Drag your PDF into DocMetrics and within seconds you have a trackable share link ready to send. Import directly from Google Drive or OneDrive — no downloading required.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 2,
+      name: "Share With Full Control",
+      text: "Every link you create has its own settings. Require an email, add a password, restrict to specific domains, set an expiry date, or block downloads — all before you send.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 3,
+      name: "Track Every Page in Real Time",
+      text: "The moment your recipient opens the link you get a notification. A bar chart shows exactly how long they spent on each page, which pages they skipped, and which ones they came back to.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 4,
+      name: "Understand If They Got It",
+      text: "Record a short video walkthrough for any page. Prospects watch your explanation without leaving the document and you see exactly how much they understood.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 5,
+      name: "Collect E-Signatures",
+      text: "Send documents for e-signature directly from DocMetrics. Track time to open, time to sign, and pages viewed before signing — all in one analytics dashboard.",
+    },
+    {
+      "@type": "HowToStep",
+      position: 6,
+      name: "Organize Deals in a Data Room",
+      text: "Create a private branded space for one client, investor, or deal. Invite people with one link, assign roles, require an NDA, and track every view across every document inside.",
+    },
+  ],
+};
+
+// ── STEP BLOCK COMPONENT ──────────────────────────────────────
+//  No "use client" needed — pure display, no state or events
 function StepBlock({
   step,
   label,
@@ -14,13 +93,13 @@ function StepBlock({
   imageSrc,
   imageAlt,
 }: {
-  step: string
-  label: string
-  title: string
-  description: string
-  bullets: string[]
-  imageSrc: string
-  imageAlt: string
+  step: string;
+  label: string;
+  title: string;
+  description: string;
+  bullets: string[];
+  imageSrc: string;
+  imageAlt: string;
 }) {
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
@@ -47,7 +126,10 @@ function StepBlock({
 
           <ul className="space-y-3">
             {bullets.map((b, i) => (
-              <li key={i} className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed">
+              <li
+                key={i}
+                className="flex items-start gap-3 text-sm text-slate-600 leading-relaxed"
+              >
                 <div className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-2 flex-shrink-0" />
                 {b}
               </li>
@@ -68,12 +150,19 @@ function StepBlock({
 
       </div>
     </div>
-  )
+  );
 }
 
+// ── PAGE ──────────────────────────────────────────────────────
 export default function HowItWorksPage(): JSX.Element {
   return (
     <div className="min-h-screen bg-white">
+
+      {/* JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
+      />
 
       {/* ── Hero ── */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 pb-20">
@@ -86,32 +175,37 @@ export default function HowItWorksPage(): JSX.Element {
             </p>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
               From upload to insight —{" "}
-               <span className="text-sky-600">in minutes.</span>
+              <span className="text-sky-600">in minutes.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
-              DocMetrics turns every document you share into a live data source. See who read it, how long they stayed on each page, and exactly when to follow up.
+              DocMetrics turns every document you share into a live data
+              source. See who read it, how long they stayed on each page,
+              and exactly when to follow up.
             </p>
             <Button
-  size="lg"
-  className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-6 text-base rounded-xl transition-colors"
-  asChild
->
+              size="lg"
+              className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-6 text-base rounded-xl transition-colors"
+              asChild
+            >
               <Link href="/signup">
                 Start for free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            <p className="text-xs text-slate-400 mt-3">No credit card required</p>
+            <p className="text-xs text-slate-400 mt-3">
+              No credit card required
+            </p>
           </div>
 
           {/* RIGHT: Hero illustration */}
           <div className="flex items-center justify-center">
             <Image
               src="/assets/illustrations/hero-how-it-works.png"
-              alt="DocMetrics platform overview"
+              alt="DocMetrics platform overview showing document analytics dashboard"
               width={560}
               height={460}
               className="w-full h-auto"
+              priority
             />
           </div>
 
@@ -131,7 +225,7 @@ export default function HowItWorksPage(): JSX.Element {
           "Upload once, create unlimited share links from the same document",
         ]}
         imageSrc="/assets/illustrations/step-upload.png"
-        imageAlt="Upload document illustration"
+        imageAlt="Upload document to DocMetrics for tracking"
       />
 
       <StepBlock
@@ -147,7 +241,7 @@ export default function HowItWorksPage(): JSX.Element {
           "Set a link to expire after a number of views or a specific date",
         ]}
         imageSrc="/assets/illustrations/step-share.png"
-        imageAlt="Share link settings illustration"
+        imageAlt="Document share link settings and access controls"
       />
 
       <StepBlock
@@ -163,7 +257,7 @@ export default function HowItWorksPage(): JSX.Element {
           "Live indicator shows when someone is reading right now",
         ]}
         imageSrc="/assets/illustrations/step-track.png"
-        imageAlt="Real time tracking illustration"
+        imageAlt="Real time document tracking analytics dashboard"
       />
 
       <StepBlock
@@ -179,7 +273,7 @@ export default function HowItWorksPage(): JSX.Element {
           "Deal intent question at the end — ready to move forward, need more info, or discussing with team",
         ]}
         imageSrc="/assets/illustrations/step-understand.png"
-        imageAlt="Understanding analytics illustration"
+        imageAlt="Document understanding analytics with video walkthrough"
       />
 
       <StepBlock
@@ -195,7 +289,7 @@ export default function HowItWorksPage(): JSX.Element {
           "All signature data appears in the same analytics dashboard",
         ]}
         imageSrc="/assets/illustrations/step-sign.png"
-        imageAlt="E-signature illustration"
+        imageAlt="E-signature tracking and analytics"
       />
 
       <StepBlock
@@ -211,23 +305,24 @@ export default function HowItWorksPage(): JSX.Element {
           "Q&A tab where visitors ask questions and you reply inside the space",
         ]}
         imageSrc="/assets/illustrations/step-dataroom.png"
-        imageAlt="Data room illustration"
+        imageAlt="Secure data room for deal management"
       />
 
       {/* ── CTA ── */}
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-         <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
+        <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
           <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
             Ready to track your first document?
           </h2>
           <p className="text-base text-white/80 max-w-xl mx-auto mb-8">
-            Start for free — no credit card required. Upload a document and see your first analytics in under two minutes.
+            Start for free — no credit card required. Upload a document
+            and see your first analytics in under two minutes.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-           <Link
-  href="/signup"
-  className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
->
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
+            >
               Start for free
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -238,10 +333,12 @@ export default function HowItWorksPage(): JSX.Element {
               Talk to us
             </Link>
           </div>
-          <p className="text-xs text-white/60 mt-5">No credit card required</p>
+          <p className="text-xs text-white/60 mt-5">
+            No credit card required
+          </p>
         </div>
       </div>
 
     </div>
-  )
+  );
 }

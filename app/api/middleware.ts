@@ -27,45 +27,43 @@ async function refreshUserToken(payload: any) {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  // ========================================
-  // 🔐 ADMIN ROUTES
-  // ========================================
+  // ── ADMIN ROUTES ─────────────────────────────────────────
   if (pathname.startsWith("/admin")) {
     const adminToken = request.cookies.get("auth_token")?.value;
-
     if (!adminToken) {
       return NextResponse.redirect(new URL("/admin/secure-login", request.url));
     }
-
     const adminPayload = await verifyToken(adminToken, ADMIN_SECRET);
     if (!adminPayload) {
       return NextResponse.redirect(new URL("/admin/login", request.url));
     }
-
     return NextResponse.next();
   }
 
-  // ========================================
-  // 🔐 USER ROUTES & TOKEN REFRESH
-  // ========================================
+  // ── ROOT REDIRECT ─────────────────────────────────────────
+  // If logged-in user hits homepage → send to dashboard
+  if (pathname === "/") {
+    const userToken = request.cookies.get("token")?.value;
+    if (userToken) {
+      const payload = await verifyToken(userToken, USER_SECRET);
+      if (payload) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+    }
+    return NextResponse.next(); // not logged in → show homepage normally
+  }
+
+  // ── USER ROUTES & TOKEN REFRESH ───────────────────────────
   const userToken = request.cookies.get("token")?.value;
 
-  // dashboard routes can load without token (frontend will handle redirects)
   if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
     if (!userToken) {
-      const referer = request.headers.get("referer");
-      const isFromSignupOrLogin =
-        referer?.includes("/signup") || referer?.includes("/login");
-
-      if (isFromSignupOrLogin) return NextResponse.next();
-
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
 
   if (!userToken) return NextResponse.next();
 
-  // --- Decode without verifying (Edge-safe, does not use crypto)
   const base64Payload = userToken.split(".")[1];
   const decodedPayload = base64Payload
     ? JSON.parse(Buffer.from(base64Payload, "base64").toString())
@@ -76,7 +74,6 @@ export async function middleware(request: NextRequest) {
   const now = Math.floor(Date.now() / 1000);
   const timeUntilExpiry = decodedPayload.exp - now;
 
-  // Token expired → redirect only dashboard pages
   if (timeUntilExpiry <= 0) {
     if (pathname.startsWith("/dashboard")) {
       return NextResponse.redirect(new URL("/login", request.url));
@@ -84,7 +81,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Token expiring soon → silently refresh it
   if (timeUntilExpiry < 86400) {
     const newToken = await refreshUserToken(decodedPayload);
     const res = NextResponse.next();
@@ -101,6 +97,7 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
+// ── ADD "/" to matcher ────────────────────────────────────────
 export const config = {
-  matcher: ["/admin/:path*", "/dashboard/:path*", "/api/:path*"],
+  matcher: ["/", "/admin/:path*", "/dashboard/:path*", "/api/:path*"],
 };

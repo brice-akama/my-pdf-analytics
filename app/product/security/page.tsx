@@ -1,8 +1,143 @@
-"use client"
 
-import { JSX } from "react"
-import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+// app/product/security/page.tsx
+import type { Metadata } from "next";
+import { JSX } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+
+// ── METADATA ──────────────────────────────────────────────────
+export const metadata: Metadata = {
+  title: "Security & Control — Your Document. Your Rules.",
+  description:
+    "Password protection, NDA gating, domain whitelists, dynamic watermarks, instant access revocation, and full audit logs. Every security feature is available on the free plan.",
+  alternates: {
+    canonical: "https://docmetrics.io/product/security",
+  },
+  openGraph: {
+    title: "Document Security & Access Controls — DocMetrics",
+    description:
+      "Password protection, NDA gating, domain whitelists, dynamic watermarks, instant access revocation, and full audit logs. Every security feature free.",
+    url: "https://docmetrics.io/product/security",
+    siteName: "DocMetrics",
+    type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "DocMetrics Document Security and Access Controls",
+      },
+    ],
+  },
+};
+
+// ── JSON-LD: ItemList Schema ───────────────────────────────────
+// Tells Google this page lists distinct security features
+// Can appear as a rich result with feature names in search
+const securityFeaturesSchema = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: "DocMetrics Document Security Features",
+  description:
+    "Complete list of document security and access control features available in DocMetrics.",
+  url: "https://docmetrics.io/product/security",
+  numberOfItems: 13,
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Password Protection",
+      description:
+        "Add a password to any share link. Only people with the correct password can open the document.",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Email Capture",
+      description:
+        "Require visitors to enter their email address before viewing. Every view is tied to a real identity.",
+    },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: "Domain and Email Whitelist",
+      description:
+        "Restrict a share link so only specific email addresses or entire email domains can access it.",
+    },
+    {
+      "@type": "ListItem",
+      position: 4,
+      name: "Expiry Date",
+      description:
+        "Set a date and time after which the link automatically stops working.",
+    },
+    {
+      "@type": "ListItem",
+      position: 5,
+      name: "View Limit",
+      description:
+        "Cap the total number of times a link can be opened. Once the limit is reached the link stops working.",
+    },
+    {
+      "@type": "ListItem",
+      position: 6,
+      name: "Block Downloads",
+      description:
+        "Prevent anyone from saving a copy of the document to their device.",
+    },
+    {
+      "@type": "ListItem",
+      position: 7,
+      name: "Block Forwarding and Printing",
+      description:
+        "Disable the ability to forward the link or print the document.",
+    },
+    {
+      "@type": "ListItem",
+      position: 8,
+      name: "Dynamic Watermark",
+      description:
+        "Overlay the viewer's email address onto every page in real time. Cannot be removed by the viewer.",
+    },
+    {
+      "@type": "ListItem",
+      position: 9,
+      name: "Instant Access Revocation",
+      description:
+        "Disable any share link at any time with a single click. Access stops immediately.",
+    },
+    {
+      "@type": "ListItem",
+      position: 10,
+      name: "NDA Signature Before Access",
+      description:
+        "Require visitors to read and sign your NDA before they can view anything.",
+    },
+    {
+      "@type": "ListItem",
+      position: 11,
+      name: "Role-Based Access",
+      description:
+        "Assign Viewer, Editor, or Admin roles to people inside a Space.",
+    },
+    {
+      "@type": "ListItem",
+      position: 12,
+      name: "Folder-Level Permissions",
+      description:
+        "Restrict individual folders so only specific people can see them.",
+    },
+    {
+      "@type": "ListItem",
+      position: 13,
+      name: "Full Audit Log",
+      description:
+        "Every action inside a Space is recorded — who viewed what, when, and for how long. Exportable as CSV.",
+    },
+  ],
+};
+
 
 function SectionLabel({ children }: { children: string }) {
   return (

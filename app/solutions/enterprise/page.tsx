@@ -1,3 +1,5 @@
+// app/solutions/enterprise/page.tsx
+
 "use client"
 import { JSX, useState } from "react"
 import Link from "next/link"
