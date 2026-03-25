@@ -19,7 +19,7 @@ const VIDEOS = [
     description: "Time spent per page, completion rates, and engagement scores — everything you need to follow up with confidence.",
     src: "/videos/analytics-demo.mp4",
     poster: "/assets/doc2-tracking.png",
-    href: "/features/notifications",
+    href: "/features/analytics",
   },
   {
     id: "dataroom",
@@ -27,7 +27,7 @@ const VIDEOS = [
     description: "Create a branded space for investors or clients. Control access, track every view, and collect signatures — all in one place.",
     src: "/videos/dataroom-demo.mp4",
     poster: "/assets/feature-dataroom.png",
-    href: "/features/data-rooms",
+    href: "/solutions/enterprise",
   },
 ]
 
