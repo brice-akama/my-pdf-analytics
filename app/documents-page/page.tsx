@@ -330,6 +330,67 @@ const handleImportSelectedOneDriveFiles = async () => {
     } catch (e) { fetchDocuments(); fetchTemplates() }
   }
 
+  const handleMultipleFileUpload = async (files: File[]) => {
+  const pdfFiles = files.filter(f => f.type === 'application/pdf')
+  const nonPdf = files.filter(f => f.type !== 'application/pdf')
+
+  if (nonPdf.length > 0 && pdfFiles.length === 0) {
+    setUploadStatus('error')
+    setUploadMessage('Only PDF files are supported')
+    setTimeout(() => setUploadStatus('idle'), 3000)
+    return
+  }
+
+  if (pdfFiles.length === 1) {
+    handleFileUpload(pdfFiles[0])
+    return
+  }
+
+  setUploadStatus('uploading')
+  setUploadMessage(`Uploading 0 of ${pdfFiles.length} files...`)
+
+  let successCount = 0
+  let failCount = 0
+
+  for (let i = 0; i < pdfFiles.length; i++) {
+    const file = pdfFiles[i]
+    setUploadMessage(`Uploading ${i + 1} of ${pdfFiles.length} — ${file.name}`)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        successCount++
+      } else {
+        failCount++
+      }
+    } catch {
+      failCount++
+    }
+  }
+
+  if (failCount === 0) {
+    setUploadStatus('success')
+    setUploadMessage(`Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}`)
+  } else if (successCount === 0) {
+    setUploadStatus('error')
+    setUploadMessage(`All ${failCount} uploads failed`)
+  } else {
+    setUploadStatus('success')
+    setUploadMessage(`${successCount} uploaded, ${failCount} failed`)
+  }
+
+  fetchDocuments(1)
+  setTimeout(() => { setUploadStatus('idle'); setUploadMessage('') }, 4000)
+}
+
   const handleDelete = async (docId: string, docName: string) => {
     if (!confirm(`Move "${docName}" to archive?`)) return
     try {
@@ -651,9 +712,15 @@ const handleImportSelectedOneDriveFiles = async () => {
 
       {/* Hidden file input */}
       <input ref={fileInputRef} type="file" accept="application/pdf"
-        onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(e.target.files[0]) }}
-        className="hidden"
-      />
+  multiple
+  onChange={(e) => {
+    const files = e.target.files
+    if (files && files.length > 0) {
+      handleMultipleFileUpload(Array.from(files))
+    }
+  }}
+  className="hidden"
+/>
 
       {/* Preview Drawer */}
       <Drawer open={previewDrawerOpen} onOpenChange={setPreviewDrawerOpen}>

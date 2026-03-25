@@ -1621,6 +1621,10 @@ const [permissions, setPermissions] = useState({
   canUpload: false,
   canDelete: false
 });
+const [selectedDriveImports, setSelectedDriveImports] = useState<Set<string>>(new Set())
+const [selectedOneDriveImports, setSelectedOneDriveImports] = useState<Set<string>>(new Set())
+const [importingDriveFiles, setImportingDriveFiles] = useState(false)
+const [importingOneDriveFiles, setImportingOneDriveFiles] = useState(false)
 
 
 
@@ -1766,6 +1770,107 @@ const handleSelectDoc = (docId: string) => {
       : [...prev, docId]
   );
 };
+
+
+const handleImportMultipleDriveFiles = async () => {
+  if (selectedDriveImports.size === 0) return
+  setImportingDriveFiles(true)
+  const filesToImport = driveFiles.filter(f => selectedDriveImports.has(f.id))
+  let successCount = 0
+  let failCount = 0
+
+  for (let i = 0; i < filesToImport.length; i++) {
+    const file = filesToImport[i]
+    try {
+      const importRes = await fetch('/api/integrations/google-drive/import', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: file.id, fileName: file.name }),
+      })
+      const importData = await importRes.json()
+      if (importRes.ok && importData.documentId) {
+        await fetch(`/api/spaces/${params.id}/upload`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            documentId: importData.documentId,
+            folderId: selectedFolder || null,
+          }),
+        })
+        successCount++
+      } else {
+        failCount++
+      }
+    } catch {
+      failCount++
+    }
+  }
+
+  setImportingDriveFiles(false)
+  setSelectedDriveImports(new Set())
+  setShowDriveFilesDialog(false)
+  fetchSpace()
+
+  if (failCount === 0) {
+    toast.success(`${successCount} file${successCount > 1 ? 's' : ''} imported from Google Drive!`)
+  } else if (successCount === 0) {
+    toast.error(`All ${failCount} imports failed`)
+  } else {
+    toast.success(`${successCount} imported, ${failCount} failed`)
+  }
+}
+
+const handleImportMultipleOneDriveFiles = async () => {
+  if (selectedOneDriveImports.size === 0) return
+  setImportingOneDriveFiles(true)
+  const filesToImport = oneDriveFiles.filter(f => selectedOneDriveImports.has(f.id))
+  let successCount = 0
+  let failCount = 0
+
+  for (let i = 0; i < filesToImport.length; i++) {
+    const file = filesToImport[i]
+    try {
+      const importRes = await fetch('/api/integrations/onedrive/import', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: file.id, fileName: file.name }),
+      })
+      const importData = await importRes.json()
+      if (importRes.ok && importData.documentId) {
+        await fetch(`/api/spaces/${params.id}/upload`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            documentId: importData.documentId,
+            folderId: selectedFolder || null,
+          }),
+        })
+        successCount++
+      } else {
+        failCount++
+      }
+    } catch {
+      failCount++
+    }
+  }
+
+  setImportingOneDriveFiles(false)
+  setSelectedOneDriveImports(new Set())
+  setShowOneDriveFilesDialog(false)
+  fetchSpace()
+
+  if (failCount === 0) {
+    toast.success(`${successCount} file${successCount > 1 ? 's' : ''} imported from OneDrive!`)
+  } else if (successCount === 0) {
+    toast.error(`All ${failCount} imports failed`)
+  } else {
+    toast.success(`${successCount} imported, ${failCount} failed`)
+  }
+}
 
 
 const handleMultipleUpload = async (files: File[]) => {
@@ -7054,75 +7159,146 @@ const fetchFolders = async () => {
       </div>
 
       {/* Search */}
-      <div className="px-6 py-3 border-b bg-slate-50">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search your Drive files..."
-            className="pl-9 bg-white"
-            value={driveSearchQuery}
-            onChange={e => setDriveSearchQuery(e.target.value)}
-          />
-        </div>
-        <p className="text-xs text-slate-400 mt-2">
-          {driveFiles.filter(f => f.name.toLowerCase().includes(driveSearchQuery.toLowerCase())).length} PDF file(s) available
-        </p>
-      </div>
+   {/* Search + Select All */}
+<div className="px-6 py-3 border-b bg-slate-50 flex items-center gap-3">
+  <div className="relative flex-1">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+    <Input
+      placeholder="Search your Drive files..."
+      className="pl-9 bg-white"
+      value={driveSearchQuery}
+      onChange={e => setDriveSearchQuery(e.target.value)}
+    />
+  </div>
+  <button
+    onClick={() => {
+      const filtered = driveFiles.filter(f =>
+        f.name.toLowerCase().includes(driveSearchQuery.toLowerCase())
+      )
+      if (selectedDriveImports.size === filtered.length) {
+        setSelectedDriveImports(new Set())
+      } else {
+        setSelectedDriveImports(new Set(filtered.map(f => f.id)))
+      }
+    }}
+    className="text-xs font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap"
+  >
+    {selectedDriveImports.size ===
+      driveFiles.filter(f => f.name.toLowerCase().includes(driveSearchQuery.toLowerCase())).length &&
+    driveFiles.length > 0
+      ? 'Deselect All'
+      : 'Select All'}
+  </button>
+</div>
 
-      {/* Files */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
-        {loadingDriveFiles ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-3" />
-            <p className="text-sm text-slate-500">Loading your Drive files...</p>
+{/* Files */}
+<div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+  {loadingDriveFiles ? (
+    <div className="flex flex-col items-center justify-center py-20">
+      <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-3" />
+      <p className="text-sm text-slate-500">Loading your Drive files...</p>
+    </div>
+  ) : driveFiles.filter(f => f.name.toLowerCase().includes(driveSearchQuery.toLowerCase())).length === 0 ? (
+    <div className="text-center py-20">
+      <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+      <p className="text-sm font-medium text-slate-600">
+        {driveSearchQuery ? 'No files match your search' : 'No PDF files found in Drive'}
+      </p>
+    </div>
+  ) : (
+    driveFiles
+      .filter(f => f.name.toLowerCase().includes(driveSearchQuery.toLowerCase()))
+      .map(file => (
+        <div
+          key={file.id}
+          onClick={() => {
+            setSelectedDriveImports(prev => {
+              const next = new Set(prev)
+              next.has(file.id) ? next.delete(file.id) : next.add(file.id)
+              return next
+            })
+          }}
+          className={`group flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+            selectedDriveImports.has(file.id)
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-slate-100 hover:border-blue-300 hover:bg-blue-50/40'
+          }`}
+        >
+          {/* Checkbox */}
+          <div className={`h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+            selectedDriveImports.has(file.id)
+              ? 'bg-blue-600 border-blue-600'
+              : 'border-slate-300 group-hover:border-blue-400'
+          }`}>
+            {selectedDriveImports.has(file.id) && (
+              <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
           </div>
-        ) : driveFiles.filter(f => f.name.toLowerCase().includes(driveSearchQuery.toLowerCase())).length === 0 ? (
-          <div className="text-center py-20">
-            <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-sm font-medium text-slate-600">
-              {driveSearchQuery ? 'No files match your search' : 'No PDF files found in Drive'}
+
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <FileText className="h-6 w-6 text-red-600" />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-slate-900 truncate">
+              {file.name}
+            </p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {file.size ? `${Math.round(parseInt(file.size) / 1024)} KB` : ''}
+              {file.modifiedTime
+                ? ` · Modified ${new Date(file.modifiedTime).toLocaleDateString()}`
+                : ''}
             </p>
           </div>
-        ) : (
-          driveFiles
-            .filter(f => f.name.toLowerCase().includes(driveSearchQuery.toLowerCase()))
-            .map(file => (
-              <div
-                key={file.id}
-                className="group flex items-center gap-4 p-4 rounded-xl border border-slate-100 hover:border-blue-300 hover:bg-blue-50/40 transition-all cursor-pointer"
-                onClick={() => handleImportDriveFile(file.id, file.name)}
-              >
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                  <FileText className="h-6 w-6 text-red-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
-                    {file.name}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {file.size ? `${Math.round(parseInt(file.size) / 1024)} KB` : ''}
-                    {file.modifiedTime ? ` · Modified ${new Date(file.modifiedTime).toLocaleDateString()}` : ''}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                  onClick={e => { e.stopPropagation(); handleImportDriveFile(file.id, file.name) }}
-                >
-                  Import
-                </Button>
-              </div>
-            ))
-        )}
-      </div>
+        </div>
+      ))
+  )}
+</div>
 
-      {/* Footer */}
-      <div className="px-6 py-4 border-t bg-slate-50">
-        <Button variant="outline" className="w-full" onClick={() => setShowDriveFilesDialog(false)}>
-          Close
-        </Button>
-      </div>
-    </div>
+{/* Footer */}
+<div className="px-6 py-4 border-t bg-slate-50">
+  <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
+    <span>
+      {selectedDriveImports.size > 0
+        ? `${selectedDriveImports.size} file${selectedDriveImports.size > 1 ? 's' : ''} selected`
+        : 'Click files to select'}
+    </span>
+    <span className="text-slate-400">
+      {driveFiles.length} total
+    </span>
+  </div>
+  <div className="flex gap-2">
+    <Button
+      variant="outline"
+      className="flex-1"
+      onClick={() => {
+        setShowDriveFilesDialog(false)
+        setSelectedDriveImports(new Set())
+      }}
+    >
+      Cancel
+    </Button>
+    {selectedDriveImports.size > 0 && (
+      <Button
+        onClick={handleImportMultipleDriveFiles}
+        disabled={importingDriveFiles}
+        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+      >
+        {importingDriveFiles ? (
+          <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Importing...</>
+        ) : (
+          <>
+            <Download className="h-4 w-4 mr-2" />
+            Import {selectedDriveImports.size} File{selectedDriveImports.size > 1 ? 's' : ''}
+          </>
+        )}
+      </Button>
+    )}
+  </div>
+</div>
+  </div>
   </div>
 )}
 
@@ -7155,74 +7331,145 @@ const fetchFolders = async () => {
       </div>
 
       {/* Search */}
-      <div className="px-6 py-3 border-b bg-slate-50">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search your OneDrive files..."
-            className="pl-9 bg-white"
-            value={oneDriveSearchQuery}
-            onChange={e => setOneDriveSearchQuery(e.target.value)}
-          />
-        </div>
-        <p className="text-xs text-slate-400 mt-2">
-          {oneDriveFiles.filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase())).length} PDF file(s) available
-        </p>
-      </div>
+      {/* Search + Select All */}
+<div className="px-6 py-3 border-b bg-slate-50 flex items-center gap-3">
+  <div className="relative flex-1">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+    <Input
+      placeholder="Search your OneDrive files..."
+      className="pl-9 bg-white"
+      value={oneDriveSearchQuery}
+      onChange={e => setOneDriveSearchQuery(e.target.value)}
+    />
+  </div>
+  <button
+    onClick={() => {
+      const filtered = oneDriveFiles.filter(f =>
+        f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase())
+      )
+      if (selectedOneDriveImports.size === filtered.length) {
+        setSelectedOneDriveImports(new Set())
+      } else {
+        setSelectedOneDriveImports(new Set(filtered.map(f => f.id)))
+      }
+    }}
+    className="text-xs font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap"
+  >
+    {selectedOneDriveImports.size ===
+      oneDriveFiles.filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase())).length &&
+    oneDriveFiles.length > 0
+      ? 'Deselect All'
+      : 'Select All'}
+  </button>
+</div>
 
-      {/* Files */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
-        {loadingOneDriveFiles ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-3" />
-            <p className="text-sm text-slate-500">Loading your OneDrive files...</p>
+{/* Files */}
+<div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+  {loadingOneDriveFiles ? (
+    <div className="flex flex-col items-center justify-center py-20">
+      <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-3" />
+      <p className="text-sm text-slate-500">Loading your OneDrive files...</p>
+    </div>
+  ) : oneDriveFiles.filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase())).length === 0 ? (
+    <div className="text-center py-20">
+      <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+      <p className="text-sm font-medium text-slate-600">
+        {oneDriveSearchQuery ? 'No files match your search' : 'No PDF files found in OneDrive'}
+      </p>
+    </div>
+  ) : (
+    oneDriveFiles
+      .filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase()))
+      .map(file => (
+        <div
+          key={file.id}
+          onClick={() => {
+            setSelectedOneDriveImports(prev => {
+              const next = new Set(prev)
+              next.has(file.id) ? next.delete(file.id) : next.add(file.id)
+              return next
+            })
+          }}
+          className={`group flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+            selectedOneDriveImports.has(file.id)
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-slate-100 hover:border-blue-300 hover:bg-blue-50/40'
+          }`}
+        >
+          {/* Checkbox */}
+          <div className={`h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+            selectedOneDriveImports.has(file.id)
+              ? 'bg-blue-600 border-blue-600'
+              : 'border-slate-300 group-hover:border-blue-400'
+          }`}>
+            {selectedOneDriveImports.has(file.id) && (
+              <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
           </div>
-        ) : oneDriveFiles.filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase())).length === 0 ? (
-          <div className="text-center py-20">
-            <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-sm font-medium text-slate-600">
-              {oneDriveSearchQuery ? 'No files match your search' : 'No PDF files found in OneDrive'}
+
+          <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <FileText className="h-6 w-6 text-blue-600" />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-slate-900 truncate">
+              {file.name}
+            </p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {file.size ? `${Math.round(parseInt(file.size) / 1024)} KB` : ''}
+              {file.modifiedTime
+                ? ` · Modified ${new Date(file.modifiedTime).toLocaleDateString()}`
+                : ''}
             </p>
           </div>
-        ) : (
-          oneDriveFiles
-            .filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase()))
-            .map(file => (
-              <div
-                key={file.id}
-                className="group flex items-center gap-4 p-4 rounded-xl border border-slate-100 hover:border-blue-300 hover:bg-blue-50/40 transition-all cursor-pointer"
-                onClick={() => handleImportOneDriveFile(file.id, file.name)}
-              >
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                  <FileText className="h-6 w-6 text-blue-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
-                    {file.name}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {file.size ? `${Math.round(parseInt(file.size) / 1024)} KB` : ''}
-                    {file.modifiedTime ? ` · Modified ${new Date(file.modifiedTime).toLocaleDateString()}` : ''}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                  onClick={e => { e.stopPropagation(); handleImportOneDriveFile(file.id, file.name) }}
-                >
-                  Import
-                </Button>
-              </div>
-            ))
-        )}
-      </div>
+        </div>
+      ))
+  )}
+</div>
 
-      {/* Footer */}
-      <div className="px-6 py-4 border-t bg-slate-50">
-        <Button variant="outline" className="w-full" onClick={() => setShowOneDriveFilesDialog(false)}>
-          Close
-        </Button>
-      </div>
+{/* Footer */}
+<div className="px-6 py-4 border-t bg-slate-50">
+  <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
+    <span>
+      {selectedOneDriveImports.size > 0
+        ? `${selectedOneDriveImports.size} file${selectedOneDriveImports.size > 1 ? 's' : ''} selected`
+        : 'Click files to select'}
+    </span>
+    <span className="text-slate-400">
+      {oneDriveFiles.length} total
+    </span>
+  </div>
+  <div className="flex gap-2">
+    <Button
+      variant="outline"
+      className="flex-1"
+      onClick={() => {
+        setShowOneDriveFilesDialog(false)
+        setSelectedOneDriveImports(new Set())
+      }}
+    >
+      Cancel
+    </Button>
+    {selectedOneDriveImports.size > 0 && (
+      <Button
+        onClick={handleImportMultipleOneDriveFiles}
+        disabled={importingOneDriveFiles}
+        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+      >
+        {importingOneDriveFiles ? (
+          <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Importing...</>
+        ) : (
+          <>
+            <Download className="h-4 w-4 mr-2" />
+            Import {selectedOneDriveImports.size} File{selectedOneDriveImports.size > 1 ? 's' : ''}
+          </>
+        )}
+      </Button>
+    )}
+  </div>
+</div>
     </div>
   </div>
 )}

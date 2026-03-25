@@ -431,7 +431,8 @@ const [driveFiles, setDriveFiles] = useState<any[]>([])
 const [loadingDriveFiles, setLoadingDriveFiles] = useState(false)
 const [driveSearchQuery, setDriveSearchQuery] = useState('')
 const [autoOpenRequestId, setAutoOpenRequestId] = useState<string | null>(null)
-// State
+const [selectedDriveFiles, setSelectedDriveFiles] = useState<Set<string>>(new Set())
+const [selectedOneDriveFiles, setSelectedOneDriveFiles] = useState<Set<string>>(new Set())
 const [teamsStatus, setTeamsStatus] = useState<{
   connected: boolean
   email?: string
@@ -876,10 +877,7 @@ const handleBrowseDriveFiles = async () => {
 
 // Add function to import file
 const handleImportFile = async (fileId: string, fileName: string) => {
-  const loadingToast = toast.loading(`Importing ${fileName}...`, {
-    description: 'This may take a moment'
-  })
-  
+  const loadingToast = toast.loading(`Importing ${fileName}...`)
   try {
     const res = await fetch('/api/integrations/google-drive/import', {
       method: 'POST',
@@ -887,28 +885,125 @@ const handleImportFile = async (fileId: string, fileName: string) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fileId, fileName })
     })
-    
     const data = await res.json()
-    
     if (res.ok) {
-      toast.success('File imported!', { 
+      toast.success('File imported!', {
         id: loadingToast,
         description: `${fileName} is now in your library`,
-        action: {
-          label: 'View',
-          onClick: () => router.push(`/documents/${data.documentId}`)
-        }
       })
       setShowDriveFilesDialog(false)
+      setSelectedDriveFiles(new Set())
       fetchDocuments()
     } else {
       toast.error(data.error || 'Import failed', { id: loadingToast })
     }
-  } catch (error) {
+  } catch {
     toast.error('Network error', { id: loadingToast })
   }
 }
 
+const handleImportMultipleOneDriveFiles = async () => {
+  if (selectedOneDriveFiles.size === 0) return
+
+  const filesToImport = oneDriveFiles.filter(f => selectedOneDriveFiles.has(f.id))
+  const loadingToast = toast.loading(`Importing 0 of ${filesToImport.length} files...`)
+
+  let successCount = 0
+  let failCount = 0
+
+  for (let i = 0; i < filesToImport.length; i++) {
+    const file = filesToImport[i]
+    toast.loading(`Importing ${i + 1} of ${filesToImport.length} — ${file.name}`, {
+      id: loadingToast,
+    })
+
+    try {
+      const res = await fetch('/api/integrations/onedrive/import', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: file.id, fileName: file.name })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        successCount++
+      } else {
+        failCount++
+        console.error(`Failed to import ${file.name}:`, data.error)
+      }
+    } catch {
+      failCount++
+      console.error(`Network error importing ${file.name}`)
+    }
+  }
+
+  if (failCount === 0) {
+    toast.success(`${successCount} file${successCount > 1 ? 's' : ''} imported!`, {
+      id: loadingToast,
+      description: 'All files are now in your library',
+    })
+  } else if (successCount === 0) {
+    toast.error(`All ${failCount} imports failed`, { id: loadingToast })
+  } else {
+    toast.success(`${successCount} imported, ${failCount} failed`, { id: loadingToast })
+  }
+
+  setSelectedOneDriveFiles(new Set())
+  setShowOneDriveFilesDialog(false)
+  fetchDocuments()
+}
+
+const handleImportMultipleDriveFiles = async () => {
+  if (selectedDriveFiles.size === 0) return
+
+  const filesToImport = driveFiles.filter(f => selectedDriveFiles.has(f.id))
+  const loadingToast = toast.loading(`Importing 0 of ${filesToImport.length} files...`)
+
+  let successCount = 0
+  let failCount = 0
+
+  for (let i = 0; i < filesToImport.length; i++) {
+    const file = filesToImport[i]
+    toast.loading(`Importing ${i + 1} of ${filesToImport.length} — ${file.name}`, {
+      id: loadingToast,
+    })
+
+    try {
+      const res = await fetch('/api/integrations/google-drive/import', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: file.id, fileName: file.name })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        successCount++
+      } else {
+        failCount++
+        console.error(`Failed to import ${file.name}:`, data.error)
+      }
+    } catch {
+      failCount++
+      console.error(`Network error importing ${file.name}`)
+    }
+  }
+
+  if (failCount === 0) {
+    toast.success(`${successCount} file${successCount > 1 ? 's' : ''} imported!`, {
+      id: loadingToast,
+      description: 'All files are now in your library',
+    })
+  } else if (successCount === 0) {
+    toast.error(`All ${failCount} imports failed`, { id: loadingToast })
+  } else {
+    toast.success(`${successCount} imported, ${failCount} failed`, { id: loadingToast })
+  }
+
+  setSelectedDriveFiles(new Set())
+  setShowDriveFilesDialog(false)
+  fetchDocuments()
+}
+ 
 
 // Fetch HubSpot status
 const fetchHubSpotStatus = async () => {
@@ -2294,7 +2389,7 @@ const FileRequestsSection = () => {
         </div>
         <Button
           onClick={() => setShowCreateFileRequestDialog(true)}
-          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+          className="gap-2 . from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
         >
           <Plus className="h-4 w-4" />
           Create Request
@@ -3358,17 +3453,114 @@ const handleDragLeave = (e: React.DragEvent) => {
 const handleDrop = (e: React.DragEvent) => {
   e.preventDefault()
   setIsDragging(false)
-  
   const files = e.dataTransfer.files
   if (files.length > 0) {
-    handleFileUpload(files[0])
+    handleMultipleFileUpload(Array.from(files))
   }
+}
+
+const handleMultipleFileUpload = async (files: File[]) => {
+  // Filter only PDFs
+  const pdfFiles = files.filter(f => f.type === 'application/pdf')
+  const nonPdf = files.filter(f => f.type !== 'application/pdf')
+
+  if (nonPdf.length > 0) {
+    setUploadStatus('error')
+    setUploadMessage(`${nonPdf.length} file(s) skipped — only PDF files are supported`)
+    setTimeout(() => setUploadStatus('idle'), 3000)
+    if (pdfFiles.length === 0) return
+  }
+
+  if (pdfFiles.length === 0) return
+
+  // Single file — redirect to document page after upload
+  if (pdfFiles.length === 1) {
+    const file = pdfFiles[0]
+    setUploadStatus('uploading')
+    setUploadMessage(`Uploading ${file.name}...`)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setUploadStatus('success')
+        setUploadMessage(`Successfully uploaded ${file.name}`)
+        router.push(`/documents/${data.documentId}`)
+        fetchDocuments()
+        setTimeout(() => { setUploadStatus('idle'); setUploadMessage('') }, 3000)
+      } else {
+        setUploadStatus('error')
+        setUploadMessage(data.error || 'Upload failed')
+        setTimeout(() => setUploadStatus('idle'), 3000)
+      }
+    } catch {
+      setUploadStatus('error')
+      setUploadMessage('Upload failed. Please try again.')
+      setTimeout(() => setUploadStatus('idle'), 3000)
+    }
+    return
+  }
+
+  // Multiple files — upload all, stay on page
+  setUploadStatus('uploading')
+  setUploadMessage(`Uploading 0 of ${pdfFiles.length} files...`)
+
+  let successCount = 0
+  let failCount = 0
+
+  for (let i = 0; i < pdfFiles.length; i++) {
+    const file = pdfFiles[i]
+    setUploadMessage(`Uploading ${i + 1} of ${pdfFiles.length} — ${file.name}`)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        successCount++
+      } else {
+        failCount++
+        console.error(`Failed to upload ${file.name}:`, data.error)
+      }
+    } catch {
+      failCount++
+      console.error(`Network error uploading ${file.name}`)
+    }
+  }
+
+  // Final status
+  if (failCount === 0) {
+    setUploadStatus('success')
+    setUploadMessage(`Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}`)
+  } else if (successCount === 0) {
+    setUploadStatus('error')
+    setUploadMessage(`All ${failCount} uploads failed. Please try again.`)
+  } else {
+    setUploadStatus('success')
+    setUploadMessage(`${successCount} uploaded successfully, ${failCount} failed`)
+  }
+
+  fetchDocuments()
+  setTimeout(() => { setUploadStatus('idle'); setUploadMessage('') }, 4000)
 }
 
 const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const files = e.target.files
   if (files && files.length > 0) {
-    handleFileUpload(files[0])
+    handleMultipleFileUpload(Array.from(files))
   }
 }
 
@@ -3501,13 +3693,14 @@ case 'dashboard':
   </div>
 
   {/* Hidden File Input */}
-  <input
-    ref={fileInputRef}
-    type="file"
-    accept="application/pdf"
-    onChange={handleFileInputChange}
-    className="hidden"
-  />
+ <input
+  ref={fileInputRef}
+  type="file"
+  accept="application/pdf"
+  multiple
+  onChange={handleFileInputChange}
+  className="hidden"
+/>
 </div>
 
             <div className="mb-8">
@@ -4968,59 +5161,61 @@ case 'dashboard':
         </div>
       ) : filteredDriveFiles.length > 0 ? (
         <div className="space-y-3">
-          {filteredDriveFiles.map((file) => (
-            <motion.div
-              key={file.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="group relative bg-white border-2 border-slate-200 rounded-xl p-5 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer"
-              onClick={() => handleImportFile(file.id, file.name)}
-            >
-              <div className="flex items-center gap-4">
-                {/* PDF Icon */}
-                <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-md">
-                  <FileText className="h-8 w-8 text-red-600" />
-                </div>
-                
-                {/* File Info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-slate-900 truncate mb-1 group-hover:text-blue-700 transition-colors">
-                    {file.name}
-                  </h3>
-                  <div className="flex items-center gap-3 text-xs text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                      </svg>
-                      {file.size ? formatFileSize(parseInt(file.size)) : 'Unknown size'}
-                    </span>
-                    {file.modifiedTime && (
-                      <>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          Modified {formatTimeAgo(file.modifiedTime)}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Import Button */}
-                <Button
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleImportFile(file.id, file.name)
-                  }}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Import
-                </Button>
-              </div>
-            </motion.div>
-          ))}
+         {filteredDriveFiles.map((file) => (
+  <motion.div
+    key={file.id}
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className={`group relative bg-white border-2 rounded-xl p-5 transition-all cursor-pointer ${
+      selectedDriveFiles.has(file.id)
+        ? 'border-sky-500 bg-sky-50'
+        : 'border-slate-200 hover:border-sky-400 hover:bg-sky-50/30'
+    }`}
+    onClick={() => {
+      setSelectedDriveFiles(prev => {
+        const next = new Set(prev)
+        next.has(file.id) ? next.delete(file.id) : next.add(file.id)
+        return next
+      })
+    }}
+  >
+    <div className="flex items-center gap-4">
+      {/* Checkbox */}
+      <div className={`h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+        selectedDriveFiles.has(file.id)
+          ? 'bg-sky-600 border-sky-600'
+          : 'border-slate-300 group-hover:border-sky-400'
+      }`}>
+        {selectedDriveFiles.has(file.id) && (
+          <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </div>
+
+      {/* PDF Icon */}
+      <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center flex-shrink-0 shadow-md">
+        <FileText className="h-8 w-8 text-red-600" />
+      </div>
+
+      {/* File Info */}
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold text-slate-900 truncate mb-1">
+          {file.name}
+        </h3>
+        <div className="flex items-center gap-3 text-xs text-slate-500">
+          <span>{file.size ? formatFileSize(parseInt(file.size)) : 'Unknown size'}</span>
+          {file.modifiedTime && (
+            <>
+              <span>•</span>
+              <span>Modified {formatTimeAgo(file.modifiedTime)}</span>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  </motion.div>
+))}
         </div>
       ) : (
         <div className="text-center py-20">
@@ -5041,23 +5236,42 @@ case 'dashboard':
     
     {/* Footer */}
     <div className="px-6 py-4 border-t bg-slate-50">
-      <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
-        <span>{filteredDriveFiles.length} file(s) available</span>
-        <button
-          onClick={handleDisconnectGoogleDrive}
-          className="text-red-600 hover:text-red-700 font-medium"
-        >
-          Disconnect Drive
-        </button>
-      </div>
+  <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
+    <span>
+      {selectedDriveFiles.size > 0
+        ? `${selectedDriveFiles.size} file${selectedDriveFiles.size > 1 ? 's' : ''} selected`
+        : `${filteredDriveFiles.length} file(s) available — click to select`
+      }
+    </span>
+    <button
+      onClick={handleDisconnectGoogleDrive}
+      className="text-red-600 hover:text-red-700 font-medium"
+    >
+      Disconnect Drive
+    </button>
+  </div>
+  <div className="flex gap-2">
+    <Button
+      variant="outline"
+      onClick={() => {
+        setShowDriveFilesDialog(false)
+        setSelectedDriveFiles(new Set())
+      }}
+      className="flex-1"
+    >
+      Close
+    </Button>
+    {selectedDriveFiles.size > 0 && (
       <Button
-        variant="outline"
-        onClick={() => setShowDriveFilesDialog(false)}
-        className="w-full"
+        onClick={handleImportMultipleDriveFiles}
+        className="flex-1 bg-sky-600 hover:bg-sky-700 text-white"
       >
-        Close
+        <Download className="h-4 w-4 mr-2" />
+        Import {selectedDriveFiles.size} File{selectedDriveFiles.size > 1 ? 's' : ''}
       </Button>
-    </div>
+    )}
+  </div>
+</div>
   </div>
 </Drawer>
 {/* Billing Drawer */}
@@ -7055,55 +7269,63 @@ case 'dashboard':
       ) : oneDriveFiles.filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase())).length > 0 ? (
         <div className="space-y-3">
           {oneDriveFiles
-            .filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase()))
-            .map((file) => (
-              <motion.div
-                key={file.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="group relative bg-white border-2 border-slate-200 rounded-xl p-5 hover:border-blue-400 hover:bg-blue-50/30 transition-all cursor-pointer"
-                onClick={() => handleImportOneDriveFile(file.id, file.name)}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-md">
-                    <FileText className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-slate-900 truncate mb-1 group-hover:text-blue-700 transition-colors">
-                      {file.name}
-                    </h3>
-                    <div className="flex items-center gap-3 text-xs text-slate-500">
-                      {file.size && (
-                        <span className="flex items-center gap-1">
-                          <FileText className="h-3 w-3" />
-                          {formatFileSize(parseInt(file.size))}
-                        </span>
-                      )}
-                      {file.modifiedTime && (
-                        <>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Modified {formatTimeAgo(file.modifiedTime)}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleImportOneDriveFile(file.id, file.name)
-                    }}
-                    className="bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Import
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
+  .filter(f => f.name.toLowerCase().includes(oneDriveSearchQuery.toLowerCase()))
+  .map((file) => (
+    <motion.div
+      key={file.id}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`group relative bg-white border-2 rounded-xl p-5 transition-all cursor-pointer ${
+        selectedOneDriveFiles.has(file.id)
+          ? 'border-sky-500 bg-sky-50'
+          : 'border-slate-200 hover:border-sky-400 hover:bg-sky-50/30'
+      }`}
+      onClick={() => {
+        setSelectedOneDriveFiles(prev => {
+          const next = new Set(prev)
+          next.has(file.id) ? next.delete(file.id) : next.add(file.id)
+          return next
+        })
+      }}
+    >
+      <div className="flex items-center gap-4">
+        {/* Checkbox */}
+        <div className={`h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+          selectedOneDriveFiles.has(file.id)
+            ? 'bg-sky-600 border-sky-600'
+            : 'border-slate-300 group-hover:border-sky-400'
+        }`}>
+          {selectedOneDriveFiles.has(file.id) && (
+            <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </div>
+
+        {/* File Icon */}
+        <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center flex-shrink-0 shadow-md">
+          <FileText className="h-8 w-8 text-blue-600" />
+        </div>
+
+        {/* File Info */}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-slate-900 truncate mb-1">
+            {file.name}
+          </h3>
+          <div className="flex items-center gap-3 text-xs text-slate-500">
+            {file.size && <span>{formatFileSize(parseInt(file.size))}</span>}
+            {file.modifiedTime && (
+              <>
+                <span>•</span>
+                <span>Modified {formatTimeAgo(file.modifiedTime)}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  ))
+}
         </div>
       ) : (
         <div className="text-center py-20">
@@ -7124,19 +7346,42 @@ case 'dashboard':
 
     {/* Footer */}
     <div className="px-6 py-4 border-t bg-slate-50">
-      <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
-        <span>{oneDriveFiles.length} file(s) available</span>
-        <button
-          onClick={handleDisconnectOneDrive}
-          className="text-red-600 hover:text-red-700 font-medium"
-        >
-          Disconnect OneDrive
-        </button>
-      </div>
-      <Button variant="outline" onClick={() => setShowOneDriveFilesDialog(false)} className="w-full">
-        Close
+  <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
+    <span>
+      {selectedOneDriveFiles.size > 0
+        ? `${selectedOneDriveFiles.size} file${selectedOneDriveFiles.size > 1 ? 's' : ''} selected`
+        : `${oneDriveFiles.length} file(s) available — click to select`
+      }
+    </span>
+    <button
+      onClick={handleDisconnectOneDrive}
+      className="text-red-600 hover:text-red-700 font-medium"
+    >
+      Disconnect OneDrive
+    </button>
+  </div>
+  <div className="flex gap-2">
+    <Button
+      variant="outline"
+      onClick={() => {
+        setShowOneDriveFilesDialog(false)
+        setSelectedOneDriveFiles(new Set())
+      }}
+      className="flex-1"
+    >
+      Close
+    </Button>
+    {selectedOneDriveFiles.size > 0 && (
+      <Button
+        onClick={handleImportMultipleOneDriveFiles}
+        className="flex-1 bg-sky-600 hover:bg-sky-700 text-white"
+      >
+        <Download className="h-4 w-4 mr-2" />
+        Import {selectedOneDriveFiles.size} File{selectedOneDriveFiles.size > 1 ? 's' : ''}
       </Button>
-    </div>
+    )}
+  </div>
+</div>
   </div>
 </Drawer>
 
