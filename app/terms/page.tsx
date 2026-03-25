@@ -1,8 +1,60 @@
-"use client"
 
+// app/terms/page.tsx
+//  Server Component — removed "use client" (zero interactivity)
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+
+// ── METADATA ──────────────────────────────────────────────────
+export const metadata: Metadata = {
+  title: "Terms of Service — DocMetrics",
+  description:
+    "Read the DocMetrics Terms of Service covering account registration, acceptable use, payment terms, data retention, intellectual property, and dispute resolution.",
+  alternates: {
+    canonical: "https://docmetrics.io/terms",
+  },
+  openGraph: {
+    title: "Terms of Service — DocMetrics",
+    description:
+      "Read the DocMetrics Terms of Service covering account registration, acceptable use, payment terms, and dispute resolution.",
+    url: "https://docmetrics.io/terms",
+    siteName: "DocMetrics",
+    type: "website",
+    locale: "en_US",
+  },
+  robots: {
+    index: true,
+    follow: false,
+  },
+};
+
+// ── JSON-LD ───────────────────────────────────────────────────
+const termsPageSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: "DocMetrics Terms of Service",
+  url: "https://docmetrics.io/terms",
+  description:
+    "Terms of Service for DocMetrics document analytics and management platform.",
+  dateModified: "2026-03-21",
+  publisher: {
+    "@type": "Organization",
+    name: "DocMetrics",
+    url: "https://docmetrics.io",
+  },
+};
+
+// ── PAGE ──────────────────────────────────────────────────────
 export default function TermsOfService() {
   return (
     <div className="min-h-screen bg-white">
+
+      {/* JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(termsPageSchema) }}
+      />
+
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <div>
 
@@ -276,19 +328,19 @@ export default function TermsOfService() {
             </h2>
             <p>
               If you have any questions about these Terms please contact us at{" "}
-              
-              <a  href="mailto:support@docmetrics.io"
+              <a
+                href="mailto:support@docmetrics.io"
                 className="text-sky-600 hover:underline font-medium"
               >
                 support@docmetrics.io
               </a>
-              . For general support inquiries please visit our{" "}
-              
-             <a   href="/contact"
+              . For general support enquiries please visit our{" "}
+              <Link
+                href="/contact"
                 className="text-sky-600 hover:underline font-medium"
               >
                 contact page
-              </a>
+              </Link>
               .
             </p>
 
@@ -317,5 +369,5 @@ export default function TermsOfService() {
         </div>
       </div>
     </div>
-  )
+  );
 }

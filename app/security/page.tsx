@@ -1,10 +1,86 @@
+//app/security/page.tsx
+
+import type { Metadata } from "next"
 import React, { JSX } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 
+// ── METADATA ──────────────────────────────────────────────────
+export const metadata: Metadata = {
+  title: "Security — How DocMetrics Protects Your Documents and Data",
+  description:
+    "DocMetrics uses TLS encryption, AES-256 storage encryption, password protection, NDA gating, dynamic watermarking, and full audit logs to protect your sensitive business documents.",
+  alternates: {
+    canonical: "https://docmetrics.io/security",
+  },
+  openGraph: {
+    title: "Security — How DocMetrics Protects Your Documents and Data",
+    description:
+      "DocMetrics uses TLS encryption, AES-256 storage encryption, password protection, NDA gating, dynamic watermarking, and full audit logs to protect your sensitive business documents.",
+    url: "https://docmetrics.io/security",
+    siteName: "DocMetrics",
+    type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "DocMetrics Security — Document and Data Protection",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Security — How DocMetrics Protects Your Documents and Data",
+    description:
+      "TLS encryption, AES-256 storage, password protection, NDA gating, dynamic watermarking, and full audit logs.",
+    images: ["/og-image.png"],
+  },
+}
+
+// ── JSON-LD ───────────────────────────────────────────────────
+const securitySchema = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: "Security — DocMetrics",
+  description:
+    "How DocMetrics protects your documents and data. Covers encryption, access controls, GDPR compliance, data retention, and responsible disclosure.",
+  url: "https://docmetrics.io/security",
+  publisher: {
+    "@type": "Organization",
+    name: "DocMetrics",
+    url: "https://docmetrics.io",
+  },
+  breadcrumb: {
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: "https://docmetrics.io",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Security",
+        item: "https://docmetrics.io/security",
+      },
+    ],
+  },
+}
+
+// ── PAGE ──────────────────────────────────────────────────────
 export default function SecurityPage(): JSX.Element {
   return (
     <div className="min-h-screen bg-white">
+
+      {/* JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(securitySchema) }}
+      />
 
       {/* ── HERO ── */}
       <div className="border-b border-slate-100">
@@ -304,7 +380,7 @@ export default function SecurityPage(): JSX.Element {
               customers of any material changes. You can request the current
               subprocessor list by contacting us at{" "}
               
-               <a href="mailto:support@docmetrics.io"
+            <a    href="mailto:support@docmetrics.io"
                 className="text-sky-600 hover:underline font-medium"
               >
                 support@docmetrics.io
@@ -315,7 +391,7 @@ export default function SecurityPage(): JSX.Element {
 
           <div className="border-t border-slate-100" />
 
-          {/* Best practices for users */}
+          {/* Best practices */}
           <div>
             <h2 className="text-xl font-semibold text-slate-900 mb-4">
               What You Can Do to Protect Your Account
@@ -359,7 +435,7 @@ export default function SecurityPage(): JSX.Element {
               discovered a security issue in DocMetrics, please report it
               responsibly by emailing{" "}
               
-              <a  href="mailto:support@docmetrics.io"
+             <a   href="mailto:support@docmetrics.io"
                 className="text-sky-600 hover:underline font-medium"
               >
                 support@docmetrics.io
@@ -391,7 +467,7 @@ export default function SecurityPage(): JSX.Element {
               For security-related enquiries, vulnerability reports, or
               questions about how we protect your data, contact us at{" "}
               
-              <a  href="mailto:support@docmetrics.io"
+             <a   href="mailto:support@docmetrics.io"
                 className="text-sky-600 hover:underline font-medium"
               >
                 support@docmetrics.io
@@ -436,7 +512,7 @@ export default function SecurityPage(): JSX.Element {
                 <ArrowRight className="h-4 w-4" />
               </a>
               <Link
-                href="/register"
+                href="/signup"
                 className="inline-flex items-center gap-2 border border-white/40 text-white font-medium px-8 py-3 rounded-xl hover:bg-white/10 transition-colors text-sm"
               >
                 Start for free

@@ -1,11 +1,60 @@
-"use client"
+// app/privacy/page.tsx
+// ✅ Server Component — removed "use client" (zero interactivity)
+// ✅ Legal pages should be indexable but with low priority
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
-import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+// ── METADATA ──────────────────────────────────────────────────
+export const metadata: Metadata = {
+  title: "Privacy Policy — How DocMetrics Handles Your Data",
+  description:
+    "DocMetrics is committed to protecting your privacy. Read our full privacy policy covering data collection, usage, GDPR compliance, your rights, and how to contact us.",
+  alternates: {
+    canonical: "https://docmetrics.io/privacy",
+  },
+  openGraph: {
+    title: "Privacy Policy — DocMetrics",
+    description:
+      "Read the DocMetrics privacy policy covering data collection, GDPR compliance, your rights, and how to contact our privacy team.",
+    url: "https://docmetrics.io/privacy",
+    siteName: "DocMetrics",
+    type: "website",
+    locale: "en_US",
+  },
+  // Legal pages should be indexed but not followed aggressively
+  robots: {
+    index: true,
+    follow: false,
+  },
+};
 
+// ── JSON-LD ───────────────────────────────────────────────────
+const privacyPageSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: "DocMetrics Privacy Policy",
+  url: "https://docmetrics.io/privacy",
+  description:
+    "DocMetrics privacy policy covering data collection, usage, GDPR compliance, and user rights.",
+  dateModified: "2026-03-21",
+  publisher: {
+    "@type": "Organization",
+    name: "DocMetrics",
+    url: "https://docmetrics.io",
+  },
+};
+
+// ── PAGE ──────────────────────────────────────────────────────
 export default function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-white">
+
+      {/* JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(privacyPageSchema) }}
+      />
 
       {/* ── HERO ── */}
       <div className="border-b border-slate-100">
@@ -130,7 +179,7 @@ export default function PrivacyPolicy() {
                 organisation that sent you the link. You may also contact us
                 at{" "}
                 
-               <a   href="mailto:support@docmetrics.io"
+                <a  href="mailto:support@docmetrics.io"
                   className="text-sky-600 hover:underline font-medium"
                 >
                   support@docmetrics.io
@@ -446,7 +495,8 @@ export default function PrivacyPolicy() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               
-              <a  href="mailto:support@docmetrics.io"
+              <a
+                href="mailto:support@docmetrics.io"
                 className="inline-flex items-center gap-2 bg-white text-sky-600 font-semibold px-8 py-3 rounded-xl hover:bg-sky-50 transition-colors shadow-sm text-sm"
               >
                 Email Privacy Team
@@ -474,5 +524,5 @@ export default function PrivacyPolicy() {
       </div>
 
     </div>
-  )
+  );
 }

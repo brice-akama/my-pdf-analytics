@@ -109,6 +109,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "yearly",
       priority: 0.3,
     },
+    {
+  url: "https://docmetrics.io/about",
+  lastModified: new Date(),
+  changeFrequency: "monthly",
+  priority: 0.7,
+},
+{
+  url: "https://docmetrics.io/help",
+  lastModified: new Date(),
+  changeFrequency: "monthly",
+  priority: 0.7,
+},
+{
+      url: "https://docmetrics.io/security",
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    { url: "https://docmetrics.io/cookies", lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
   ]
 
   const blogPages: MetadataRoute.Sitemap = blogSlugs.map((slug) => ({
