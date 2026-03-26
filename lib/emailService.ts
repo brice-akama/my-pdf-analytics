@@ -152,9 +152,11 @@ export async function sendSignatureRequestEmail({
   return { success: true }
 }
  
-// ===================================
-// DOCUMENT SIGNED NOTIFICATION
-// ===================================
+// ════════════════════════════════════════════════════════════════
+// sendDocumentSignedNotification
+// Sent to the document owner each time a recipient signs.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendDocumentSignedNotification({
   ownerEmail,
   ownerName,
@@ -164,243 +166,164 @@ export async function sendDocumentSignedNotification({
   signedCount,
   totalRecipients,
 }: {
-  ownerEmail: string;
-  ownerName: string;
-  signerName: string;
-  signerEmail: string;
-  originalFilename: string;
-  signedCount: number;
-  totalRecipients: number;
+  ownerEmail: string
+  ownerName: string
+  signerName: string
+  signerEmail: string
+  originalFilename: string
+  signedCount: number
+  totalRecipients: number
 }) {
-  try {
-    const isComplete = signedCount === totalRecipients;
-    const signedDate = new Date().toLocaleString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long',
-      day: 'numeric', hour: '2-digit', minute: '2-digit',
-    });
-
-    const { data, error } = await resend.emails.send({
-      from: FROM,
-      to: [ownerEmail],
-      subject: `${signerName} signed "${originalFilename}"`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f7; color: #333; }
-            .wrap { max-width: 560px; margin: 40px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-            .top-bar { height: 4px; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
-            .header { background: #1a1a2e; padding: 28px 36px; }
-            .brand { color: #fff; font-size: 16px; font-weight: 700; }
-            .brand-sub { color: rgba(255,255,255,0.4); font-size: 12px; margin-top: 3px; }
-            .header-title { color: #fff; font-size: 21px; font-weight: 700; margin-top: 18px; line-height: 1.3; }
-            .header-sub { color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 5px; }
-            .body { padding: 30px 36px; }
-            .badge { display: inline-block; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; margin-bottom: 20px; }
-            .body p { font-size: 14px; color: #444; line-height: 1.7; margin-bottom: 14px; }
-            .info-card { background: #fafafa; border: 1px solid #ebebeb; border-radius: 8px; padding: 16px 20px; margin: 18px 0; }
-            .info-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
-            .info-row:last-child { border-bottom: none; }
-            .info-label { color: #888; }
-            .info-value { font-weight: 600; color: #111; }
-            .progress-bar-wrap { background: #f0f0f0; border-radius: 20px; height: 8px; margin: 16px 0 6px; overflow: hidden; }
-            .progress-bar-fill { height: 8px; border-radius: 20px; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
-            .progress-label { font-size: 12px; color: #888; }
-            .footer { padding: 22px 36px; border-top: 1px solid #f0f0f0; }
-            .footer p { font-size: 11px; color: #aaa; line-height: 1.6; }
-          </style>
-        </head>
-        <body>
-          <div class="wrap">
-            <div class="top-bar"></div>
-            <div class="header">
-              <p class="brand">DocMetrics</p>
-              <p class="brand-sub">Secure Electronic Signatures</p>
-              <p class="header-title">${signerName} has signed your document</p>
-              <p class="header-sub">${signedCount} of ${totalRecipients} signature${totalRecipients !== 1 ? 's' : ''} collected</p>
-            </div>
-            <div class="body">
-              <span class="badge">&#10003; Signature Received</span>
-              <p>Hi ${ownerName},</p>
-              <p><strong>${signerName}</strong> has signed <strong>"${originalFilename}"</strong>.</p>
-
-              <div class="info-card">
-                <div class="info-row">
-                  <span class="info-label">Document</span>
-                  <span class="info-value">${originalFilename}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Signed by</span>
-                  <span class="info-value">${signerName}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Email</span>
-                  <span class="info-value">${signerEmail}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Signed at</span>
-                  <span class="info-value">${signedDate}</span>
-                </div>
-              </div>
-
-              <div class="progress-bar-wrap">
-                <div class="progress-bar-fill" style="width: ${Math.round((signedCount / totalRecipients) * 100)}%"></div>
-              </div>
-              <p class="progress-label">${signedCount} of ${totalRecipients} signature${totalRecipients !== 1 ? 's' : ''} collected</p>
-
-              ${!isComplete ? `<p style="margin-top: 16px;">You will receive another email once all parties have signed.</p>` : ''}
-            </div>
-            <div class="footer">
-              <p>Sent via DocMetrics. Do not reply to this email.</p>
-              <p style="margin-top: 5px;">© ${new Date().getFullYear()} DocMetrics. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) throw error;
-    console.log('Owner signed notification sent to:', ownerEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('Owner notification error:', error);
-    throw error;
+  const isComplete = signedCount === totalRecipients
+  const progressPercent = Math.round((signedCount / totalRecipients) * 100)
+  const signedDate = new Date().toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+ 
+  const subject = `${signerName} signed "${originalFilename}"`
+  const previewText = `${signedCount} of ${totalRecipients} signature${totalRecipients !== 1 ? 's' : ''} collected`
+ 
+  const content = `
+    <p class="title">Signature received</p>
+    <p class="meta">${signerName} has signed your document.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${originalFilename}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Signed by</td>
+        <td class="val">${signerName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val">${signerEmail}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Signed at</td>
+        <td class="val">${signedDate}</td>
+      </tr>
+    </table>
+ 
+    <div class="bar-track">
+      <div class="bar-fill" style="width:${progressPercent}%"></div>
+    </div>
+    <p class="progress-label">${signedCount} of ${totalRecipients} signature${totalRecipients !== 1 ? 's' : ''} collected</p>
+ 
+    ${!isComplete
+      ? `<div class="notice">You will receive another email once all parties have signed.</div>`
+      : ''}
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [ownerEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendDocumentSignedNotification error:', error)
+    throw error
   }
+ 
+  console.log('Owner signed notification sent to:', ownerEmail)
+  return { success: true }
 }
-
-// ===================================
-
-
-// SIGNER CONFIRMATION EMAIL
-
+ 
+// ════════════════════════════════════════════════════════════════
+// sendSignerConfirmationEmail
+// Sent to the signer after they complete signing.
+// Attaches the signed PDF if available.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendSignerConfirmationEmail({
   signerEmail,
   signerName,
   originalFilename,
   signedPdfUrl,
 }: {
-  signerEmail: string;
-  signerName: string;
-  originalFilename: string;
-  signedPdfUrl?: string;
+  signerEmail: string
+  signerName: string
+  originalFilename: string
+  signedPdfUrl?: string
 }) {
-  try {
-    let attachments: any[] = [];
-    if (signedPdfUrl) {
-      try {
-        const res = await fetch(signedPdfUrl);
-        const buffer = await res.arrayBuffer();
-        attachments = [{
-          filename: originalFilename.replace(/\.pdf$/i, '') + '_signed.pdf',
-          content: Buffer.from(buffer),
-          contentType: 'application/pdf',
-        }];
-      } catch (err) {
-        console.error('Failed to attach PDF for signer:', err);
-      }
+  let attachments: any[] = []
+ 
+  if (signedPdfUrl) {
+    try {
+      const res = await fetch(signedPdfUrl)
+      const buffer = await res.arrayBuffer()
+      attachments = [{
+        filename: originalFilename.replace(/\.pdf$/i, '') + '_signed.pdf',
+        content: Buffer.from(buffer),
+        contentType: 'application/pdf',
+      }]
+    } catch (err) {
+      console.error('Failed to attach signed PDF:', err)
     }
-
-    const signedDate = new Date().toLocaleString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long',
-      day: 'numeric', hour: '2-digit', minute: '2-digit',
-    });
-
-    const { data, error } = await resend.emails.send({
-      from: FROM,
-      to: [signerEmail],
-      subject: `Your signed copy of "${originalFilename}"`,
-      attachments,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f7; color: #333; }
-            .wrap { max-width: 560px; margin: 40px auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-            .top-bar { height: 4px; background: linear-gradient(90deg, #6366f1, #8b5cf6); }
-            .header { background: #1a1a2e; padding: 28px 36px; }
-            .brand { color: #fff; font-size: 16px; font-weight: 700; }
-            .brand-sub { color: rgba(255,255,255,0.4); font-size: 12px; margin-top: 3px; }
-            .header-title { color: #fff; font-size: 21px; font-weight: 700; margin-top: 18px; line-height: 1.3; }
-            .header-sub { color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 5px; }
-            .body { padding: 30px 36px; }
-            .badge { display: inline-block; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; margin-bottom: 20px; }
-            .body p { font-size: 14px; color: #444; line-height: 1.7; margin-bottom: 14px; }
-            .info-card { background: #fafafa; border: 1px solid #ebebeb; border-radius: 8px; padding: 16px 20px; margin: 18px 0; }
-            .info-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
-            .info-row:last-child { border-bottom: none; }
-            .info-label { color: #888; }
-            .info-value { font-weight: 600; color: #111; }
-            .attachment-note { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px; margin: 18px 0; font-size: 13px; color: #166534; line-height: 1.6; }
-            .footer { padding: 22px 36px; border-top: 1px solid #f0f0f0; }
-            .footer p { font-size: 11px; color: #aaa; line-height: 1.6; }
-          </style>
-        </head>
-        <body>
-          <div class="wrap">
-            <div class="top-bar"></div>
-            <div class="header">
-              <p class="brand">DocMetrics</p>
-              <p class="brand-sub">Secure Electronic Signatures</p>
-              <p class="header-title">You have successfully signed</p>
-              <p class="header-sub">"${originalFilename}"</p>
-            </div>
-            <div class="body">
-              <span class="badge">&#10003; Signature Complete</span>
-              <p>Hi ${signerName},</p>
-              <p>Your signature has been recorded. ${signedPdfUrl ? 'Your signed copy is attached to this email.' : 'You will receive your signed copy once all parties have signed.'}</p>
-
-              <div class="info-card">
-                <div class="info-row">
-                  <span class="info-label">Document</span>
-                  <span class="info-value">${originalFilename}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Signed by</span>
-                  <span class="info-value">${signerName}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">Signed at</span>
-                  <span class="info-value">${signedDate}</span>
-                </div>
-              </div>
-
-              ${signedPdfUrl ? `
-              <div class="attachment-note">
-                Your signed copy with a certificate of completion and full audit trail is attached to this email. Save it for your records.
-              </div>` : `
-              <p>Once all parties have signed, you will automatically receive the fully executed copy.</p>`}
-            </div>
-            <div class="footer">
-              <p>This signature is legally binding per the ESIGN Act and UETA. Do not reply to this email.</p>
-              <p style="margin-top: 5px;">© ${new Date().getFullYear()} DocMetrics. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) throw error;
-    console.log('Signer confirmation sent to:', signerEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('Signer confirmation error:', error);
-    throw error;
   }
+ 
+  const signedDate = new Date().toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+ 
+  const subject = `Your signed copy of "${originalFilename}"`
+  const previewText = signedPdfUrl
+    ? `Your signed copy of "${originalFilename}" is attached`
+    : `Your signature on "${originalFilename}" has been recorded`
+ 
+  const attachmentNote = signedPdfUrl
+    ? `<div class="notice">Your signed copy with a certificate of completion and full audit trail is attached. Save it for your records.</div>`
+    : `<div class="notice">Once all parties have signed, you will automatically receive the fully executed copy.</div>`
+ 
+  const content = `
+    <p class="title">Signature complete</p>
+    <p class="meta">Your signature on "${originalFilename}" has been recorded.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${originalFilename}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Signed by</td>
+        <td class="val">${signerName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Signed at</td>
+        <td class="val">${signedDate}</td>
+      </tr>
+    </table>
+ 
+    ${attachmentNote}
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [signerEmail],
+    subject,
+    attachments,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendSignerConfirmationEmail error:', error)
+    throw error
+  }
+ 
+  console.log('Signer confirmation sent to:', signerEmail)
+  return { success: true }
 }
-
-// ===================================
-// ALL SIGNATURES COMPLETE EMAIL
-// ===================================
+ 
+// ════════════════════════════════════════════════════════════════
+// sendAllSignaturesCompleteEmail
+// Sent to all parties once every recipient has signed.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendAllSignaturesCompleteEmail({
   recipientEmail,
   recipientName,
@@ -408,313 +331,152 @@ export async function sendAllSignaturesCompleteEmail({
   downloadLink,
   allSigners,
 }: {
-  recipientEmail: string;
-  recipientName: string;
-   originalFilename: string;
-  downloadLink: string;
-  allSigners: { name: string; email: string; signedAt: Date }[];
+  recipientEmail: string
+  recipientName: string
+  originalFilename: string
+  downloadLink: string
+  allSigners: { name: string; email: string; signedAt: Date }[]
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [recipientEmail],
-      subject: `🎉 All signatures collected for "${originalFilename}"`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              background-color: #f5f5f5;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 600px;
-              margin: 40px auto;
-              background: white;
-              border-radius: 12px;
-              overflow: hidden;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .header {
-              background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-              padding: 40px 30px;
-              text-align: center;
-              color: white;
-            }
-            .celebration {
-              font-size: 60px;
-              margin-bottom: 10px;
-            }
-            .content {
-              padding: 40px 30px;
-            }
-            .complete-box {
-              background: #fef3c7;
-              border-left: 4px solid #f59e0b;
-              padding: 20px;
-              border-radius: 8px;
-              margin: 20px 0;
-            }
-            .signers-list {
-              background: #f8f9fa;
-              padding: 20px;
-              border-radius: 8px;
-              margin: 20px 0;
-            }
-            .signer-item {
-              padding: 10px 0;
-              border-bottom: 1px solid #e9ecef;
-            }
-            .signer-item:last-child {
-              border-bottom: none;
-            }
-            .download-button {
-              display: inline-block;
-              background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-              color: white;
-              padding: 16px 40px;
-              text-decoration: none;
-              border-radius: 8px;
-              font-weight: 600;
-              font-size: 16px;
-              margin: 20px 0;
-            }
-            .footer {
-              background: #f8f9fa;
-              padding: 30px;
-              text-align: center;
-              font-size: 14px;
-              color: #6c757d;
-              border-top: 1px solid #e9ecef;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="celebration">🎉</div>
-              <h1 style="margin: 0; font-size: 28px;">Document Fully Signed!</h1>
-            </div>
-            
-            <div class="content">
-              <p>Hi ${recipientName},</p>
-              
-              <p>
-                Congratulations! All parties have signed <strong>"${originalFilename}"</strong>. 
-                The document is now legally binding and complete.
-              </p>
-              
-              <div class="complete-box">
-                <strong>✅ Status:</strong> All signatures collected<br>
-                <strong>📄 Document:</strong> ${originalFilename}<br>
-                <strong>⏰ Completed:</strong> ${new Date().toLocaleString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </div>
-              
-              <div class="signers-list">
-                <strong>Signatures collected from:</strong>
-                ${allSigners
-                  .map(
-                    (signer) => `
-                  <div class="signer-item">
-                    <div style="font-weight: 600; color: #10b981;">✓ ${signer.name}</div>
-                    <div style="font-size: 13px; color: #6c757d;">
-                      ${signer.email} • 
-                      Signed ${new Date(signer.signedAt).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </div>
-                  </div>
-                `
-                  )
-                  .join('')}
-              </div>
-              
-             <center>
-  <a href="${downloadLink}" class="download-button">
-    📥 View & Download Signed Document
-  </a>
-</center>
-              
-              <p style="margin-top: 30px; font-size: 14px; color: #6c757d;">
-                Keep this signed document for your records. All signatures are timestamped and legally binding.
-              </p>
-            </div>
-            
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send completion email:', error);
-      throw error;
-    }
-
-    console.log('✅ Completion email sent to:', recipientEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Email service error:', error);
-    throw error;
+  const completedDate = new Date().toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+ 
+  const subject = `All signatures collected — "${originalFilename}"`
+  const previewText = `All parties have signed "${originalFilename}"`
+ 
+  const signersHtml = allSigners.map(signer => `
+    <div class="signer-row">
+      <div class="signer-name">${signer.name}</div>
+      <div class="signer-sub">
+        ${signer.email} &middot;
+        Signed ${new Date(signer.signedAt).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
+      </div>
+    </div>
+  `).join('')
+ 
+  const content = `
+    <p class="title">Document complete</p>
+    <p class="meta">All parties have signed "${originalFilename}".</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${originalFilename}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Completed</td>
+        <td class="val">${completedDate}</td>
+      </tr>
+    </table>
+ 
+    <p class="section-label">Signatories</p>
+    <div class="signers">${signersHtml}</div>
+ 
+    <div class="cta"><a href="${downloadLink}">Download signed document</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${downloadLink}">${downloadLink}</a>
+    </p>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [recipientEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendAllSignaturesCompleteEmail error:', error)
+    throw error
   }
+ 
+  console.log('All signatures complete email sent to:', recipientEmail)
+  return { success: true }
 }
-
-// ===================================
-// REMINDER EMAIL (if not signed yet)
-// ===================================
+ 
+// ════════════════════════════════════════════════════════════════
+// sendSignatureReminderEmail
+// Sent to a recipient who has not yet signed.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendSignatureReminderEmail({
   recipientName,
   recipientEmail,
-   originalFilename,
+  originalFilename,
   signingLink,
   senderName,
   daysLeft,
 }: {
-  recipientName: string;
-  recipientEmail: string;
-   originalFilename: string;
-  signingLink: string;
-  senderName: string;
-  daysLeft?: number;
+  recipientName: string
+  recipientEmail: string
+  originalFilename: string
+  signingLink: string
+  senderName: string
+  daysLeft?: number
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [recipientEmail],
-      subject: `⏰ Reminder: Please sign "${originalFilename}"`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              background-color: #f5f5f5;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 600px;
-              margin: 40px auto;
-              background: white;
-              border-radius: 12px;
-              overflow: hidden;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .header {
-              background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-              padding: 40px 30px;
-              text-align: center;
-              color: white;
-            }
-            .content {
-              padding: 40px 30px;
-            }
-            .reminder-box {
-              background: #fff3cd;
-              border-left: 4px solid #ffc107;
-              padding: 20px;
-              border-radius: 8px;
-              margin: 20px 0;
-            }
-            .cta-button {
-              display: inline-block;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-              padding: 16px 40px;
-              text-decoration: none;
-              border-radius: 8px;
-              font-weight: 600;
-              font-size: 16px;
-              margin: 20px 0;
-            }
-            .footer {
-              background: #f8f9fa;
-              padding: 30px;
-              text-align: center;
-              font-size: 14px;
-              color: #6c757d;
-              border-top: 1px solid #e9ecef;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1 style="margin: 0; font-size: 28px;">⏰ Signature Reminder</h1>
-            </div>
-            
-            <div class="content">
-              <p>Hi ${recipientName},</p>
-              
-              <p>
-                This is a friendly reminder that <strong>${senderName}</strong> is waiting for your signature on:
-              </p>
-              
-              <div class="reminder-box">
-                <strong>📄 Document:</strong> ${originalFilename}
-                ${daysLeft ? `<br><strong>⏰ Due in:</strong> ${daysLeft} day${daysLeft > 1 ? 's' : ''}` : ''}
-              </div>
-              
-              <p>Please take a moment to review and sign the document.</p>
-              
-              <center>
-                <a href="${signingLink}" class="cta-button">
-                  Sign Now
-                </a>
-              </center>
-              
-              <p style="margin-top: 30px; font-size: 14px; color: #6c757d;">
-                If you have any questions, please contact ${senderName} directly.
-              </p>
-            </div>
-            
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send reminder email:', error);
-      throw error;
-    }
-
-    console.log('✅ Reminder email sent to:', recipientEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Email service error:', error);
-    throw error;
+  // Plain subject — "Reminder: Please sign" matches phishing patterns
+  const subject = `${senderName} is waiting for your signature on "${originalFilename}"`
+  const previewText = daysLeft
+    ? `${daysLeft} day${daysLeft > 1 ? 's' : ''} remaining to sign`
+    : `Your signature is pending on "${originalFilename}"`
+ 
+  const dueDateRow = daysLeft
+    ? `<tr>
+        <td class="lbl">Due in</td>
+        <td class="val">${daysLeft} day${daysLeft > 1 ? 's' : ''}</td>
+      </tr>`
+    : ''
+ 
+  const content = `
+    <p class="title">Signature pending</p>
+    <p class="meta">${senderName} is waiting for your signature on the document below.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${originalFilename}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Requested by</td>
+        <td class="val">${senderName}</td>
+      </tr>
+      ${dueDateRow}
+    </table>
+ 
+    <div class="cta"><a href="${signingLink}">Review and sign</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${signingLink}">${signingLink}</a>
+    </p>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [recipientEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendSignatureReminderEmail error:', error)
+    throw error
   }
+ 
+  console.log('Signature reminder sent to:', recipientEmail)
+  return { success: true }
 }
+
+
 // ===================================
 // SIGNATURE REQUEST CANCELLED EMAIL
-// ===================================
+// =================================
 
 
 export async function sendSignatureRequestCancelledEmail({

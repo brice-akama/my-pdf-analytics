@@ -464,6 +464,10 @@ useEffect(() => {
     toast.success('Teams connected! Now pick a channel.')
     setShowTeamsChannelPicker(true)
     window.history.replaceState({}, '', '/dashboard')
+    fetch('/api/integrations/status', { credentials: 'include' })
+      .then(r => r.json())
+      .then(setIntegrationStatus)
+      .catch(() => {})
     fetchTeamsChannels()
   }
 }, [])
@@ -544,9 +548,8 @@ useEffect(() => {
     }
   }
 
-  if (showIntegrationsDialog) {
-    fetchIntegrationStatus()
-  }
+   
+  fetchIntegrationStatus()
 }, [showIntegrationsDialog])
 
 
@@ -1575,12 +1578,12 @@ const handleAvatarUpload = async (file: File) => {
   if (!file) return;
 
   if (!file.type.startsWith('image/')) {
-    alert('Please upload an image file');
+    toast.error('Please upload an image file');
     return;
   }
 
   if (file.size > 5 * 1024 * 1024) {
-    alert('Image must be less than 5MB');
+    toast.error('Image must be less than 5MB');
     return;
   }
 
@@ -1641,7 +1644,7 @@ const fetchContacts = async () => {
 
 const handleAddContact = async () => {
   if (!contactName.trim() || !contactEmail.trim()) {
-    alert('Please enter name and email')
+     toast.error('Name and email are required')
     return
   }
 
@@ -1660,37 +1663,50 @@ const handleAddContact = async () => {
     })
 
     if (res.ok) {
-      alert('Contact added successfully!')
+       toast.success('Contact added!', { description: `${contactName} has been saved` })
       setShowAddContactDrawer(false)
       resetContactForm()
       fetchContacts()
     } else {
       const data = await res.json()
-      alert(data.error || 'Failed to add contact')
+       toast.error(data.error || 'Failed to add contact')
     }
   } catch (error) {
     console.error('Add contact error:', error)
-    alert('Failed to add contact')
+     toast.error('Network error', { description: 'Please check your connection' })
   }
 }
 
+ 
 const handleDeleteContact = async (contactId: string) => {
-  if (!confirm('Delete this contact?')) return
-
-  try {
-    const res = await fetch(`/api/contacts/${contactId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    })
-
-    if (res.ok) {
-      alert('Contact deleted')
-      fetchContacts()
-    }
-  } catch (error) {
-    console.error('Delete contact error:', error)
-    alert('Failed to delete contact')
-  }
+  toast.warning('Delete this contact?', {
+    description: 'This action cannot be undone.',
+    duration: 6000,
+    action: {
+      label: 'Delete',
+      onClick: async () => {
+        const loadingToast = toast.loading('Deleting contact...')
+        try {
+          const res = await fetch(`/api/contacts/${contactId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+          })
+          if (res.ok) {
+            toast.success('Contact deleted', { id: loadingToast })
+            fetchContacts()
+          } else {
+            toast.error('Failed to delete contact', { id: loadingToast })
+          }
+        } catch (error) {
+          toast.error('Network error', { id: loadingToast })
+        }
+      },
+    },
+    cancel: {
+      label: 'Cancel',
+      onClick: () => {},
+    },
+  })
 }
 
 const resetContactForm = () => {
@@ -1709,7 +1725,7 @@ const resetContactForm = () => {
 // Handle document sharing
 const handleShareDocument = async () => {
   if (!selectedDocumentToShare || !shareEmails.trim()) {
-    alert('Please enter at least one email address')
+    toast.error('Please enter at least one email address')
     return
   }
 
@@ -1719,7 +1735,7 @@ const handleShareDocument = async () => {
     .filter(email => email.length > 0)
 
   if (emails.length === 0) {
-    alert('Please enter valid email addresses')
+    toast.error('Please enter valid email addresses')
     return
   }
 
@@ -1752,11 +1768,11 @@ const handleShareDocument = async () => {
         canShare: false
       })
     } else {
-      alert(data.error || 'Failed to share document')
+      toast.error(data.error || 'Failed to share document')
     }
   } catch (error) {
     console.error('Share error:', error)
-    alert('Failed to share document. Please try again.')
+    toast.error('Failed to share document. Please try again.')
   }
 }
 
@@ -1929,7 +1945,7 @@ const handleSaveProfileChanges = async () => {
 
 const handleCreateFileRequest = async () => {
   if (!fileRequestTitle.trim()) {
-    alert('Please enter a title')
+    toast.error('Please enter a title')
     return
   }
 
@@ -1948,7 +1964,7 @@ const handleCreateFileRequest = async () => {
   }
 
   if (emailList.length === 0) {
-    alert('Please enter at least one email address')
+    toast.error('Please enter at least one email address')
     return
   }
 
@@ -1957,7 +1973,7 @@ const handleCreateFileRequest = async () => {
   const invalidEmails = emailList.filter(email => !emailRegex.test(email))
   
   if (invalidEmails.length > 0) {
-    alert(`Invalid email(s): ${invalidEmails.join(', ')}`)
+    toast.error(`Invalid email(s): ${invalidEmails.join(', ')}`)
     return
   }
 
@@ -2101,7 +2117,7 @@ useEffect(() => {
 
 const handleUpdateContact = async () => {
   if (!contactName.trim() || !contactEmail.trim() || !selectedContact) {
-    alert('Please enter name and email')
+     toast.error('Name and email are required')
     return
   }
 
@@ -2120,17 +2136,17 @@ const handleUpdateContact = async () => {
     })
 
     if (res.ok) {
-      alert('Contact updated successfully!')
+      toast.success('Contact updated successfully!')
       setShowEditContactDrawer(false)
       resetContactForm()
       fetchContacts()
     } else {
       const data = await res.json()
-      alert(data.error || 'Failed to update contact')
+      toast.error(data.error || 'Failed to update contact')
     }
   } catch (error) {
     console.error('Update contact error:', error)
-    alert('Failed to update contact')
+    toast.error('Failed to update contact')
   }
 }
 
@@ -2212,31 +2228,40 @@ const AgreementsSection = () => {
               
             </div>
           </div>
-         <Button
+        <Button
   variant="ghost"
   size="sm"
   className="text-red-500 hover:text-red-700 hover:bg-red-50"
-  onClick={async () => {
-    if (!confirm('Delete this agreement?')) return;
-    
-    const loadingToast = toast.loading('Deleting agreement...')
-    
-    try {
-      const res = await fetch(`/api/agreements/${agreement._id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      })
-      
-      if (res.ok) {
-        toast.success('Agreement deleted', { id: loadingToast })
-        fetchUploadedAgreements()
-      } else {
-        const data = await res.json()
-        toast.error(data.error || 'Failed to delete', { id: loadingToast })
-      }
-    } catch (error) {
-      toast.error('Network error', { id: loadingToast })
-    }
+  onClick={() => {
+    toast.warning('Delete this agreement?', {
+      description: 'This action cannot be undone.',
+      duration: 6000,
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          const loadingToast = toast.loading('Deleting agreement...')
+          try {
+            const res = await fetch(`/api/agreements/${agreement._id}`, {
+              method: 'DELETE',
+              credentials: 'include',
+            })
+            if (res.ok) {
+              toast.success('Agreement deleted', { id: loadingToast })
+              fetchUploadedAgreements()
+            } else {
+              const data = await res.json()
+              toast.error(data.error || 'Failed to delete', { id: loadingToast })
+            }
+          } catch (error) {
+            toast.error('Network error', { id: loadingToast })
+          }
+        },
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {},
+      },
+    })
   }}
 >
   <Trash2 className="h-4 w-4" />
@@ -3572,14 +3597,14 @@ case 'dashboard':
     <div>
       <h1 className="text-3xl font-bold text-slate-900 mb-6">Dashboard</h1>
       
-      {/* 🎯 Real-time tracking dashboard */}
+      {/*  Real-time tracking dashboard */}
       <DashboardOverview />
     </div>
   );
       case 'content-library':
         return (
           <div>
-             {/* ✅ PAGE-SPECIFIC TOOLTIP */}
+             {/*  PAGE-SPECIFIC TOOLTIP */}
       <PageInfoTooltip 
         pageId="content-library"
         message="Upload your PDFs here. Track who views them, when, and for how long. Share securely with a link."
@@ -3631,7 +3656,7 @@ case 'dashboard':
     {integrationStatus.google_drive?.connected ? (
       <DropdownMenuItem onClick={handleBrowseDriveFiles}>
         <div className="h-4 w-4 mr-2 flex items-center justify-center">
-          📁
+          
         </div>
         <div>
           <p className="font-medium">Google Drive</p>
@@ -3641,7 +3666,7 @@ case 'dashboard':
     ) : (
       <DropdownMenuItem onClick={handleConnectGoogleDrive}>
         <div className="h-4 w-4 mr-2 flex items-center justify-center opacity-50">
-          📁
+          
         </div>
         <div>
           <p className="font-medium text-slate-500">Google Drive</p>
@@ -3656,7 +3681,7 @@ case 'dashboard':
       disabled
     >
       <div className="h-4 w-4 mr-2 flex items-center justify-center opacity-50">
-        📦
+        
       </div>
       <div>
         <p className="font-medium text-slate-400">Dropbox</p>
@@ -3669,7 +3694,7 @@ case 'dashboard':
   onClick={() => oneDriveStatus.connected ? handleBrowseOneDriveFiles() : handleConnectOneDrive()}
 >
   <div className="h-4 w-4 mr-2 flex items-center justify-center">
-    ☁️
+    
   </div>
   <div>
     <p className="font-medium">OneDrive</p>
@@ -3704,33 +3729,7 @@ case 'dashboard':
 </div>
 
             <div className="mb-8">
-              <div className="bg-white rounded-lg border shadow-sm p-6">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
-                    <Folder className="h-5 w-5 text-blue-500" />
-                    <span className="font-medium text-slate-900">My Company Content</span>
-                  </div>
-                  <div className="ml-8 space-y-2">
-                    <div
-                     onClick={() => setActivePage('content-library')}
-                    className="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
-                      <Folder className="h-5 w-5 text-blue-500" />
-                      <span className="font-medium text-slate-700">My Content</span>
-                      <span className="ml-auto text-xs text-slate-500">{documents.length} items</span>
-                    </div>
-                    <div
-                    onClick={() => {
-            // Show deleted documents
-            alert('Deleted content feature - coming soon!')
-          }}
-                    className="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors">
-                      <Trash2 className="h-5 w-5 text-slate-400" />
-                      <span className="font-medium text-slate-500">Deleted Content</span>
-                    </div>
-                    <span className="text-xs text-slate-400">0 items</span>
-                  </div>
-                </div>
-              </div>
+               
               {/* Upload Status Message */}
 {uploadStatus !== 'idle' && (
   <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
@@ -5609,7 +5608,7 @@ case 'dashboard':
             className="bg-slate-900 hover:bg-slate-800 text-white px-6 h-10 font-semibold text-sm"
             onClick={() => {
               if (referralEmail) {
-                alert(`Invitations sent to: ${referralEmail}`)
+                toast.success(`Invitations sent to: ${referralEmail}`)
                 setReferralEmail('')
               }
             }}
@@ -5703,7 +5702,7 @@ case 'dashboard':
           className="text-blue-600 hover:text-blue-700 font-medium text-sm h-8"
           onClick={() => {
             setShowEarnCreditDialog(false)
-            alert('Referral tracking feature - coming soon!')
+            toast.info('Referral tracking feature - coming soon!')
           }}
         >
           Check out the status of your referrals here

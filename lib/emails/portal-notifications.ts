@@ -50,7 +50,7 @@ export async function sendPortalNotification({
   const analyticsUrl = appUrl && spaceId ? `${appUrl}/spaces/${spaceId}` : null;
 
   // Clean subject — no emoji
-  const subject = `Activity: ${visitorEmail} ${label} — ${spaceName}`;
+  const subject = `${visitorEmail} ${label} in ${spaceName}`;
 
   const timeRow = totalSecondsOnDoc && event === 'document_view'
     ? `<tr>
@@ -102,9 +102,9 @@ export async function sendPortalNotification({
                 <p style="margin:0;font-size:13px;color:#9ca3af;letter-spacing:0.05em;text-transform:uppercase;">
                   DocMetrics
                 </p>
-                <h1 style="margin:6px 0 0;font-size:22px;color:#ffffff;font-weight:700;">
-                  Activity Alert
-                </h1>
+               <h1 style="margin:6px 0 0;font-size:22px;color:#ffffff;font-weight:700;">
+  New activity in ${spaceName}
+</h1>
               </td>
             </tr>
 

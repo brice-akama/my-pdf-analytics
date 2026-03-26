@@ -117,13 +117,103 @@ export async function POST(
 
     const space = spaceExists;
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const folderId = formData.get('folderId') as string | null;
+     const contentType = request.headers.get('content-type') || '';
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+// ── Cloud import path (Google Drive / OneDrive) ──────────────────────────
+if (contentType.includes('application/json')) {
+  const body = await request.json();
+  const { documentId, folderId } = body;
+
+  if (!documentId) {
+    return NextResponse.json({ error: 'No documentId provided' }, { status: 400 });
+  }
+
+  // Verify the document exists
+  const existingDoc = await db.collection('documents').findOne({
+    _id: new ObjectId(documentId)
+  });
+
+  if (!existingDoc) {
+    return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+  }
+
+  if (folderId) {
+    const folder = await db.collection('space_folders').findOne({
+      _id: new ObjectId(folderId),
+      spaceId: spaceId
+    });
+    if (!folder) {
+      return NextResponse.json({ error: 'Folder not found in this space' }, { status: 404 });
     }
+  }
+
+  // Link document to this space
+  await db.collection('documents').updateOne(
+    { _id: new ObjectId(documentId) },
+    { $set: { spaceId, belongsToSpace: true, folder: folderId || null } }
+  );
+
+  const spaceFileRecord = {
+    spaceId,
+    folderId: folderId || null,
+    documentId,
+    filename: existingDoc.originalFilename,
+    size: existingDoc.size,
+    mimeType: existingDoc.mimeType,
+    numPages: existingDoc.numPages || 0,
+    viewsInSpace: 0,
+    downloadsInSpace: 0,
+    lastViewedInSpace: null,
+    addedBy: user.id,
+    addedAt: new Date(),
+    order: 0,
+  };
+
+  await db.collection('space_files').insertOne(spaceFileRecord);
+
+  await db.collection('spaces').updateOne(
+    { _id: new ObjectId(spaceId) },
+    {
+      $inc: { documentsCount: 1 },
+      $set: { lastActivity: new Date(), updatedAt: new Date() }
+    }
+  );
+
+  await db.collection('activityLogs').insertOne({
+    spaceId: new ObjectId(spaceId),
+    shareLink: null,
+    visitorEmail: null,
+    performedBy: user.email || user.id,
+    performedByRole: userRole,
+    event: 'document_uploaded',
+    documentId: new ObjectId(documentId),
+    documentName: existingDoc.originalFilename,
+    timestamp: new Date(),
+    ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+    userAgent: request.headers.get('user-agent') || 'unknown',
+    meta: { folderId: folderId || null, source: 'cloud_import' }
+  });
+
+  console.log(`✅ Cloud document linked to space ${spaceId}: ${existingDoc.originalFilename}`);
+
+  return NextResponse.json({
+    success: true,
+    documentId,
+    filename: existingDoc.originalFilename,
+    spaceId,
+    folderId,
+    message: `${existingDoc.originalFilename} added to space successfully`
+  }, { status: 201 });
+}
+
+// ── Normal file upload path ───────────────────────────────────────────────
+const formData = await request.formData();
+const file = formData.get('file') as File;
+const folderId = formData.get('folderId') as string | null;
+
+if (!file) {
+  return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+}
 
     if (folderId) {
       const folder = await db.collection('space_folders').findOne({
