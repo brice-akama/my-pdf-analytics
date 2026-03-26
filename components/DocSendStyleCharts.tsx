@@ -203,6 +203,62 @@ export default function DocSendStyleCharts({
         </div>
       )}
 
+      {/* ── TOP PAGES STRIP ── */}
+{pageEngagement.length > 0 && (() => {
+  const sorted = [...pageEngagement]
+    .sort((a, b) => b.avgTime - a.avgTime)
+    .slice(0, 5);
+
+  return (
+    <div className="py-5 border-b border-slate-100">
+      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-4">
+        Top Pages <span className="text-slate-300 normal-case tracking-normal font-normal">(by average time per page)</span>
+      </p>
+      <div className="flex gap-3 overflow-x-auto pb-1">
+        {sorted.map((p) => (
+          <div
+            key={p.page}
+            className="flex-shrink-0 w-36 rounded-xl border border-slate-100 overflow-hidden hover:border-sky-200 hover:shadow-md transition-all"
+          >
+            {/* PDF thumbnail */}
+            <div className="relative bg-slate-50" style={{ height: '96px', overflow: 'hidden' }}>
+              <iframe
+                src={`/api/documents/${documentId}/page?page=${p.page}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                className="pointer-events-none w-full"
+                style={{ border: 'none', height: '120px', marginTop: '-8px' }}
+                scrolling="no"
+              />
+              {/* Page number badge */}
+              <div className="absolute bottom-1.5 left-1.5 bg-slate-900/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md backdrop-blur-sm">
+                P{p.page}
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="px-2.5 py-2">
+              <p className="text-sm font-black text-slate-800 tabular-nums leading-tight">
+                {formatTime(p.avgTime)}
+              </p>
+              <p className="text-[10px] text-slate-400 leading-tight">avg time</p>
+              <p className="text-[10px] text-slate-500 mt-1 tabular-nums">
+                Visit{p.totalViews !== 1 ? 's' : ''}: <span className="font-semibold text-slate-700">{p.totalViews}</span>
+              </p>
+            </div>
+
+            {/* Color bar at bottom — proportional to time */}
+            <div className="h-0.5 bg-slate-100">
+              <div
+                className="h-full bg-gradient-to-r from-sky-400 to-purple-400"
+                style={{ width: `${Math.min((p.avgTime / Math.max(...pageEngagement.map(x => x.avgTime), 1)) * 100, 100)}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+})()}
+
       {/* ── TWO CHARTS ── */}
       <div className="py-5 border-b border-slate-100">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 lg:divide-x lg:divide-slate-100">

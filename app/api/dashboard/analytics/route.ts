@@ -298,14 +298,17 @@ recentContactSessions.forEach((s: any) => {
     totalTime: 0,
     lastSeen: new Date(s.startedAt),
     topDocName: docNameMap.get(s.documentId) || '',
+    topDocId: s.documentId,
     viewedMyDocIds: new Set<string>(),
     viewedTeamDocIds: new Set<string>(),
+    pageTimeMap: new Map<number, number>(), // docId -> time spent
   }
   e.visits++
   e.docs.add(s.documentId)
   if (new Date(s.startedAt) > e.lastSeen) {
     e.lastSeen = new Date(s.startedAt)
     e.topDocName = docNameMap.get(s.documentId) || e.topDocName
+    e.topDocId = s.documentId || e.topDocId
   }
   // Tag which bucket this session falls into
   if (myDocumentIds.includes(s.documentId)) {
@@ -321,9 +324,15 @@ recentContactSessions.forEach((s: any) => {
 recentPageLogs.forEach((log: any) => {
   if (!log.email) return
   const e = contactMap2.get(log.email)
+  const pageNum = Number(log.pageNumber || log.page)  // ← check both fields
+  if (!pageNum) return  // skip if still 0/NaN
   if (e) {
     e.totalTime += log.viewTime || 0
+    const existing = e.pageTimeMap.get(pageNum) || 0
+    e.pageTimeMap.set(pageNum, existing + (log.viewTime || 0))
   } else {
+    const pageTimeMap = new Map<number, number>()
+    pageTimeMap.set(pageNum, log.viewTime || 0)
     contactMap2.set(log.email, {
       email: log.email,
       visits: 1,
@@ -331,12 +340,14 @@ recentPageLogs.forEach((log: any) => {
       totalTime: log.viewTime || 0,
       lastSeen: new Date(log.timestamp),
       topDocName: docNameMap.get(log.documentId) || '',
+      topDocId: log.documentId,
       viewedMyDocIds: myDocumentIds.includes(log.documentId)
         ? new Set([log.documentId])
         : new Set(),
       viewedTeamDocIds: teamDocumentIds.includes(log.documentId)
         ? new Set([log.documentId])
         : new Set(),
+      pageTimeMap,
     })
   }
 })
@@ -350,8 +361,17 @@ const mostEngagedContacts = Array.from(contactMap2.values())
     docs: c.docs.size,
     totalTime: c.totalTime,
     lastSeen: c.lastSeen,
+    topDocId: c.topDocId,
     topDocName: c.topDocName,
-    // 'my' | 'team' | 'both' — based on actual doc ownership
+   pageData: (Array.from(c.pageTimeMap.entries()) as [number, number][])
+  .sort(([a], [b]) => a - b)
+  .map(([page, timeSpent]) => ({
+    page,
+    timeSpent,
+    visits: 1,
+    skipped: timeSpent === 0,
+  })),
+    
     source: c.viewedMyDocIds.size > 0 && c.viewedTeamDocIds.size > 0
       ? 'both'
       : c.viewedTeamDocIds.size > 0

@@ -6,7 +6,7 @@ import { ObjectId } from 'mongodb';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { createNotification } from '@/lib/notifications';
-import { sendShareEmailViaGmailOrResend } from '@/lib/emails/shareEmails';
+// import { sendShareEmailViaGmailOrResend } from '@/lib/emails/shareEmails';
 
  
 interface ShareSettings {
@@ -45,17 +45,14 @@ export async function POST(
   console.log('\n🟢 ===== CREATE SHARE API =====');
     
   try {
-    // ✅ Verify user via HTTP-only cookie
     const user = await verifyUserFromRequest(request);
     console.log('👤 User:', user?.email);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // ✅ Await params (Next.js 15)
     const { id } = await context.params;
 
-    // ✅ Validate document ID
     if (!ObjectId.isValid(id)) {
       return NextResponse.json({ error: 'Invalid document ID' }, { status: 400 });
     }
@@ -63,25 +60,21 @@ export async function POST(
     const db = await dbPromise;
     const documentId = new ObjectId(id);
 
-    // ✅ Verify ownership and check document exists
     const document = await db.collection('documents').findOne({
-  _id: documentId,
-})
+      _id: documentId,
+    })
 
+    if (!document) {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    }
 
+    if (document.userId !== user.id) {
+      return NextResponse.json({ 
+        error: 'Only the document owner can perform this action',
+        code: 'NOT_OWNER'
+      }, { status: 403 })
+    }
 
-if (!document) {
-  return NextResponse.json({ error: 'Document not found' }, { status: 404 })
-}
-
-if (document.userId !== user.id) {
-  return NextResponse.json({ 
-    error: 'Only the document owner can perform this action',
-    code: 'NOT_OWNER'
-  }, { status: 403 })
-}
-
-    // ✅ Parse share settings
     const body = await request.json();
     console.log('📨 Request body:', body);
     const {
@@ -93,7 +86,7 @@ if (document.userId !== user.id) {
       password = null,
       expiresIn = 'never',
       ndaAgreementId = null,   
-  ndaUrl = null,  
+      ndaUrl = null,  
       maxViews = null,
       allowedEmails = [],
       customMessage = null,
@@ -119,61 +112,10 @@ if (document.userId !== user.id) {
       logoUrl = null,
     } = body;
 
-    // ⭐ Use whichever one has data
     const emailWhitelist = allowedEmails.length > 0 ? allowedEmails : recipientEmails;
 
-    // ✅ Check plan limits (COMMENTED OUT FOR TESTING)
-    // const shareLimit = user.plan === 'premium' ? 100 : 10;
-    // const existingShares = await db.collection('shares').countDocuments({
-    //   userId: user.id,
-    //   active: true,
-    // });
-    // if (existingShares >= shareLimit) {
-    //   return NextResponse.json({
-    //     error: `Share limit reached. ${user.plan === 'free' ? 'Upgrade to Premium for more shares.' : 'Maximum shares reached.'}`,
-    //     limit: shareLimit,
-    //     current: existingShares,
-    //     upgrade: user.plan === 'free',
-    //   }, { status: 403 });
-    // }
-
-    // ✅ Validate premium features
     let ndaTemplate = null;
 
-    // if (user.plan === 'free') {
-    //   if (password) {
-    //     return NextResponse.json({
-    //       error: 'Password protection requires Premium plan',
-    //       upgrade: true,
-    //     }, { status: 403 });
-    //   }
-    //   if (emailWhitelist.length > 0) {
-    //     return NextResponse.json({
-    //       error: 'Email whitelist requires Premium plan',
-    //       upgrade: true,
-    //     }, { status: 403 });
-    //   }
-    //   if (requireNDA) {
-    //     return NextResponse.json({
-    //       error: 'NDA requirement requires Premium plan',
-    //       upgrade: true,
-    //     }, { status: 403 });
-    //   }
-    //   if (maxViews) {
-    //     return NextResponse.json({
-    //       error: 'View limits require Premium plan',
-    //       upgrade: true,
-    //     }, { status: 403 });
-    //   }
-    //   if (enableWatermark) {
-    //     return NextResponse.json({
-    //       error: 'Watermarking requires Premium plan',
-    //       upgrade: true,
-    //     }, { status: 403 });
-    //   }
-    // }
-
-    // Process NDA template
     if (requireNDA) {
       if (customNdaText) {
         ndaTemplate = customNdaText;
@@ -204,16 +146,11 @@ if (document.userId !== user.id) {
       }
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // 🔥 FIXED: Generate ONE UNIQUE TOKEN PER RECIPIENT (DocSend style)
-    // ══════════════════════════════════════════════════════════════
-
     const shareRecords = [];
     const shareLinks = [];
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
     if (emailWhitelist.length > 0) {
-      // ✅ Create ONE share per recipient
       console.log(`📧 Creating ${emailWhitelist.length} unique share links...`);
       
       for (let i = 0; i < emailWhitelist.length; i++) {
@@ -221,13 +158,11 @@ if (document.userId !== user.id) {
         const recipientName = recipientNames[i] || recipientEmail.split('@')[0];
         const shareToken = crypto.randomBytes(32).toString('base64url');
         
-        // Hash password if provided (same for all recipients)
         let hashedPassword = null;
         if (password) {
           hashedPassword = await bcrypt.hash(password, 10);
         }
         
-        // Calculate expiry (same for all)
         let expiresAt = null;
         if (expiresIn !== 'never') {
           const days = parseInt(expiresIn);
@@ -242,11 +177,8 @@ if (document.userId !== user.id) {
           documentId,
           userId: user.id,
           shareToken,
-          
-          // 🔥 Recipient-specific data
           recipientEmail,
           recipientName,
-          
           settings: {
             requireEmail,
             allowDownload,
@@ -254,14 +186,14 @@ if (document.userId !== user.id) {
             notifyOnView,
             hasPassword: !!password,
             maxViews: viewLimit,
-            allowedEmails: [recipientEmail], // Only this recipient
+            allowedEmails: [recipientEmail],
             recipientNames: [recipientName],
             customMessage,
             trackDetailedAnalytics,
             enableWatermark,
             watermarkText,
             ndaAgreementId: ndaAgreementId || null,   
-  ndaUrl: ndaUrl || null, 
+            ndaUrl: ndaUrl || null, 
             watermarkPosition,
             requireNDA,
             ndaText,
@@ -273,16 +205,14 @@ if (document.userId !== user.id) {
             viewLimit,
             selfDestruct,
             availableFrom: availableFrom ? new Date(availableFrom) : null,
-            linkType: 'email-gated', // Force email-gated for recipient links
+            linkType: 'email-gated',
             sharedByName,
             allowedDomain: allowedDomain || null,
             logoUrl,
-            sendEmailNotification,
+            sendEmailNotification: false, // emails are sent manually by the user
           },
-          
           password: hashedPassword,
           expiresAt,
-          
           tracking: {
             views: 0,
             uniqueViewers: [],
@@ -308,7 +238,6 @@ if (document.userId !== user.id) {
             printEvents: [],
             ndaAcceptances: [],
           },
-          
           active: true,
           deactivatedAt: null,
           deactivatedBy: null,
@@ -337,7 +266,6 @@ if (document.userId !== user.id) {
         });
       }
     } else {
-      // ✅ No recipients = create ONE public link
       console.log('📧 Creating 1 public share link...');
       
       const shareToken = crypto.randomBytes(32).toString('base64url');
@@ -360,7 +288,6 @@ if (document.userId !== user.id) {
         shareToken,
         recipientEmail: null,
         recipientName: null,
-        
         settings: {
           requireEmail,
           allowDownload,
@@ -393,10 +320,8 @@ if (document.userId !== user.id) {
           logoUrl,
           sendEmailNotification: false,
         },
-        
         password: hashedPassword,
         expiresAt,
-        
         tracking: {
           views: 0,
           uniqueViewers: [],
@@ -422,7 +347,6 @@ if (document.userId !== user.id) {
           printEvents: [],
           ndaAcceptances: [],
         },
-        
         active: true,
         deactivatedAt: null,
         deactivatedBy: null,
@@ -451,73 +375,66 @@ if (document.userId !== user.id) {
       });
     }
 
-    // ✅ Insert ALL share records at once
     const result = await db.collection('shares').insertMany(shareRecords);
     const insertedIds = Object.values(result.insertedIds).map(id => id.toString());
 
     console.log(`✅ Created ${shareRecords.length} share link(s)`);
 
-    // ✅ Send notifications + emails (email failures NEVER crash the response)
-const profile = await db.collection('profiles').findOne({ user_id: user.id });
-const senderName = profile?.full_name || user.email.split('@')[0];
+    // ── Notifications only — email sending removed, users send links manually ──
+    const profile = await db.collection('profiles').findOne({ user_id: user.id });
 
-const emailResults: { email: string; sent: boolean; error?: string }[] = [];
+    for (let i = 0; i < shareRecords.length; i++) {
+      const share = shareRecords[i];
 
-for (let i = 0; i < shareRecords.length; i++) {
-  const share = shareRecords[i];
-  const link = shareLinks[i];
-
-  // ── Notification (fire-and-forget, never throws) ──────────────────────────
-  createNotification({
-    userId: user.id,
-    type: 'share',
-    title: 'Share Link Created',
-    message: share.recipientEmail
-      ? `Share link created for ${share.recipientEmail}`
-      : `Public share link created for "${document.originalFilename}"`,
-    documentId: documentId.toString(),
-    metadata: {
-      shareToken: share.shareToken,
-      recipientEmail: share.recipientEmail,
-    },
-  }).catch((err: unknown) =>
-    console.error('⚠️ Notification error (non-fatal):', err)
-  );
-
-  // ── Email (fully isolated — a Resend failure never touches the response) ──
-  if (sendEmailNotification && share.recipientEmail) {
-    try {
-      await Promise.race([
-        sendShareEmailViaGmailOrResend({
-          userId: user.id,
+      createNotification({
+        userId: user.id,
+        type: 'share',
+        title: 'Share Link Created',
+        message: share.recipientEmail
+          ? `Share link created for ${share.recipientEmail}`
+          : `Public share link created for "${document.originalFilename}"`,
+        documentId: documentId.toString(),
+        metadata: {
+          shareToken: share.shareToken,
           recipientEmail: share.recipientEmail,
-          senderName,
-          documentName: document.originalFilename,
-          shareLink: link.shareLink,
-          customMessage,
-          expiresAt: share.expiresAt,
-          sharedByName,
-          logoUrl,
-        }),
-        // ⏱ Hard timeout — if Resend hangs, we move on after 8s
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Email timeout after 8s')), 8000)
-        ),
-      ]);
+        },
+      }).catch((err: unknown) =>
+        console.error('⚠️ Notification error (non-fatal):', err)
+      );
 
-      console.log(`✅ Email sent to: ${share.recipientEmail}`);
-      emailResults.push({ email: share.recipientEmail, sent: true });
-
-    } catch (emailError: unknown) {
-      //  Log it, track it, but NEVER rethrow — share link still returns
-      const msg = emailError instanceof Error ? emailError.message : 'Unknown error';
-      console.error(`⚠️ Email failed for ${share.recipientEmail} (non-fatal): ${msg}`);
-      emailResults.push({ email: share.recipientEmail, sent: false, error: msg });
+      // ── Email sending is intentionally disabled ────────────────────────────
+      // Users copy the generated link and send it manually via their own email.
+      // This avoids spam filter issues entirely.
+      //
+      // To re-enable in future:
+      //
+      // if (sendEmailNotification && share.recipientEmail) {
+      //   try {
+      //     await Promise.race([
+      //       sendShareEmailViaGmailOrResend({
+      //         userId: user.id,
+      //         recipientEmail: share.recipientEmail,
+      //         senderName: profile?.full_name || user.email.split('@')[0],
+      //         senderEmail: user.email,
+      //         documentName: document.originalFilename,
+      //         shareLink: shareLinks[i].shareLink,
+      //         customMessage,
+      //         expiresAt: share.expiresAt,
+      //         sharedByName,
+      //         logoUrl,
+      //       }),
+      //       new Promise<never>((_, reject) =>
+      //         setTimeout(() => reject(new Error('Email timeout after 8s')), 8000)
+      //       ),
+      //     ]);
+      //     console.log(`✅ Email sent to: ${share.recipientEmail}`);
+      //   } catch (emailError: unknown) {
+      //     const msg = emailError instanceof Error ? emailError.message : 'Unknown error';
+      //     console.error(`⚠️ Email failed for ${share.recipientEmail} (non-fatal): ${msg}`);
+      //   }
+      // }
     }
-  }
-}
 
-    // Update document share count
     await db.collection('documents').updateOne(
       { _id: documentId },
       {
@@ -526,7 +443,6 @@ for (let i = 0; i < shareRecords.length; i++) {
       }
     );
 
-    // Log share creation
     for (let i = 0; i < shareRecords.length; i++) {
       await db.collection('analytics_logs').insertOne({
         documentId: id,
@@ -548,9 +464,7 @@ for (let i = 0; i < shareRecords.length; i++) {
       }).catch(err => console.error('Failed to log share creation:', err));
     }
 
-    // ✅ Return response
     if (shareLinks.length === 1 && !shareLinks[0].recipientEmail) {
-      // Single public link
       return NextResponse.json({
         success: true,
         shareLink: shareLinks[0].shareLink,
@@ -572,7 +486,6 @@ for (let i = 0; i < shareRecords.length; i++) {
         message: 'Share link created successfully',
       }, { status: 201 });
     } else {
-      // Multiple recipient-specific links
       return NextResponse.json({
         success: true,
         shareLinks: shareLinks.map((link, i) => ({
@@ -583,7 +496,6 @@ for (let i = 0; i < shareRecords.length; i++) {
           id: insertedIds[i],
         })),
         totalLinks: shareLinks.length,
-        emailResults,
         message: `${shareLinks.length} share link${shareLinks.length > 1 ? 's' : ''} created successfully`,
       }, { status: 201 });
     }
@@ -620,19 +532,19 @@ export async function GET(
     const documentId = new ObjectId(id);
 
     const document = await db.collection('documents').findOne({
-  _id: documentId,
-})
+      _id: documentId,
+    })
 
-if (!document) {
-  return NextResponse.json({ error: 'Document not found' }, { status: 404 })
-}
+    if (!document) {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+    }
 
-if (document.userId !== user.id) {
-  return NextResponse.json({ 
-    error: 'Only the document owner can perform this action',
-    code: 'NOT_OWNER'
-  }, { status: 403 })
-}
+    if (document.userId !== user.id) {
+      return NextResponse.json({ 
+        error: 'Only the document owner can perform this action',
+        code: 'NOT_OWNER'
+      }, { status: 403 })
+    }
 
     const shares = await db.collection('shares')
       .find({ documentId, userId: user.id })
@@ -641,73 +553,69 @@ if (document.userId !== user.id) {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const formattedShares = await Promise.all(
-  shares.map(async (share) => {
-    // Calculate real total time from analytics_logs for this share
-    const pageLogs = await db.collection('analytics_logs').find({
-      documentId: id,
-      action: 'page_view',
-      ...(share.recipientEmail ? { email: share.recipientEmail } : {}),
-    }).toArray();
+      shares.map(async (share) => {
+        const pageLogs = await db.collection('analytics_logs').find({
+          documentId: id,
+          action: 'page_view',
+          ...(share.recipientEmail ? { email: share.recipientEmail } : {}),
+        }).toArray();
 
-    const totalTimeSpent = pageLogs.reduce(
-      (sum: number, log: any) => sum + (log.viewTime || 0), 
-      0
+        const totalTimeSpent = pageLogs.reduce(
+          (sum: number, log: any) => sum + (log.viewTime || 0), 
+          0
+        );
+
+        return {
+          id: share._id.toString(),
+          shareLink: `${baseUrl}/view/${share.shareToken}`,
+          shareToken: share.shareToken,
+          recipientEmail: share.recipientEmail || null,
+          recipientName: share.recipientName || null,
+          active: share.active,
+          settings: {
+            requireEmail: share.settings.requireEmail,
+            allowDownload: share.settings.allowDownload,
+            allowPrint: share.settings.allowPrint,
+            hasPassword: share.settings.hasPassword,
+            maxViews: share.settings.maxViews,
+            allowedEmails: share.settings.allowedEmails || [],
+            allowForwarding: share.settings.allowForwarding ?? true,
+            notifyOnDownload: share.settings.notifyOnDownload ?? false,
+            selfDestruct: share.settings.selfDestruct ?? false,
+            enableWatermark: share.settings.enableWatermark ?? false,
+            watermarkText: share.settings.watermarkText || '',
+            watermarkPosition: share.settings.watermarkPosition || 'bottom',
+            requireNDA: share.settings.requireNDA ?? false,
+            ndaTemplateId: share.settings.ndaTemplateId || '',
+            customMessage: share.settings.customMessage || '',
+            sharedByName: share.settings.sharedByName || '',
+            logoUrl: share.settings.logoUrl || '',
+            viewLimit: share.settings.viewLimit ?? undefined,
+            downloadLimit: share.settings.downloadLimit ?? undefined,
+            linkType: share.settings.linkType || 'public',
+            allowedDomain: share.settings.allowedDomain || null,
+            expiresIn: share.expiresAt
+              ? Math.ceil((new Date(share.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+              : 0,
+          },
+          tracking: {
+            views: share.tracking.views,
+            uniqueViewers: share.tracking.uniqueViewers.length,
+            downloads: share.tracking.downloads,
+            prints: share.tracking.prints,
+            totalTimeSpent,
+            lastViewedAt: share.tracking.lastViewedAt,
+            firstViewedAt: share.tracking.firstViewedAt,
+          },
+          expiresAt: share.expiresAt,
+          expired: share.expiresAt ? new Date(share.expiresAt) < new Date() : false,
+          maxViewsReached: share.settings.maxViews ? share.tracking.views >= share.settings.maxViews : false,
+          createdAt: share.createdAt,
+          updatedAt: share.updatedAt,
+        };
+      })
     );
 
-    return {
-      id: share._id.toString(),
-      shareLink: `${baseUrl}/view/${share.shareToken}`,
-      shareToken: share.shareToken,
-      recipientEmail: share.recipientEmail || null,
-      recipientName: share.recipientName || null,
-      active: share.active,
-      
-     settings: {
-  requireEmail: share.settings.requireEmail,
-  allowDownload: share.settings.allowDownload,
-  allowPrint: share.settings.allowPrint,
-  hasPassword: share.settings.hasPassword,
-  maxViews: share.settings.maxViews,
-  allowedEmails: share.settings.allowedEmails || [],
-  allowForwarding: share.settings.allowForwarding ?? true,
-  notifyOnDownload: share.settings.notifyOnDownload ?? false,
-  selfDestruct: share.settings.selfDestruct ?? false,
-  enableWatermark: share.settings.enableWatermark ?? false,
-  watermarkText: share.settings.watermarkText || '',
-  watermarkPosition: share.settings.watermarkPosition || 'bottom',
-  requireNDA: share.settings.requireNDA ?? false,
-  ndaTemplateId: share.settings.ndaTemplateId || '',
-  customMessage: share.settings.customMessage || '',
-  sharedByName: share.settings.sharedByName || '',
-  logoUrl: share.settings.logoUrl || '',
-  viewLimit: share.settings.viewLimit ?? undefined,
-  downloadLimit: share.settings.downloadLimit ?? undefined,
-  linkType: share.settings.linkType || 'public',
-  allowedDomain: share.settings.allowedDomain || null,
-  expiresIn: share.expiresAt
-    ? Math.ceil((new Date(share.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-    : 0,
-},
-
-      tracking: {
-        views: share.tracking.views,
-        uniqueViewers: share.tracking.uniqueViewers.length,
-        downloads: share.tracking.downloads,
-        prints: share.tracking.prints,
-        totalTimeSpent, // ✅ Real calculated time
-        lastViewedAt: share.tracking.lastViewedAt,
-        firstViewedAt: share.tracking.firstViewedAt,
-      },
-
-      expiresAt: share.expiresAt,
-      expired: share.expiresAt ? new Date(share.expiresAt) < new Date() : false,
-      maxViewsReached: share.settings.maxViews ? share.tracking.views >= share.settings.maxViews : false,
-      
-      createdAt: share.createdAt,
-      updatedAt: share.updatedAt,
-    };
-  })
-);
     return NextResponse.json({
       success: true,
       shares: formattedShares,
@@ -756,11 +664,11 @@ export async function PATCH(
     });
 
     if (!share) {
-  return NextResponse.json({ 
-    error: 'Only the document owner can perform this action',
-    code: 'NOT_OWNER'
-  }, { status: 403 })
-}
+      return NextResponse.json({ 
+        error: 'Only the document owner can perform this action',
+        code: 'NOT_OWNER'
+      }, { status: 403 })
+    }
 
     const updateFields: any = {
       updatedAt: new Date(),
@@ -836,11 +744,11 @@ export async function DELETE(
     });
 
     if (!share) {
-  return NextResponse.json({ 
-    error: 'Only the document owner can perform this action',
-    code: 'NOT_OWNER'
-  }, { status: 403 })
-}
+      return NextResponse.json({ 
+        error: 'Only the document owner can perform this action',
+        code: 'NOT_OWNER'
+      }, { status: 403 })
+    }
 
     await db.collection('shares').deleteOne({ _id: new ObjectId(shareId) });
 

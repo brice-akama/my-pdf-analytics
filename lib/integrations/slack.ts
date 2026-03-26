@@ -1,5 +1,5 @@
 // lib/integrations/slack.ts
-import { dbPromise } from "@/app/api/lib/mongodb";
+import { dbPromise } from '@/app/api/lib/mongodb';
 
 // ── Core sender ───────────────────────────────────────────────────
 export async function sendSlackNotification({
@@ -12,73 +12,78 @@ export async function sendSlackNotification({
   blocks?: any[];
 }) {
   try {
-    const db          = await dbPromise;
-    const integration = await db.collection("integrations").findOne({
+    const db = await dbPromise;
+    const integration = await db.collection('integrations').findOne({
       userId,
-      provider: "slack",
+      provider: 'slack',
       isActive: true,
     });
 
     if (!integration || !integration.metadata?.channelId) {
-      return { success: false, reason: "not_configured" };
+      return { success: false, reason: 'not_configured' };
     }
 
-    const response = await fetch("https://slack.com/api/chat.postMessage", {
-      method: "POST",
+    const response = await fetch('https://slack.com/api/chat.postMessage', {
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${integration.accessToken}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        channel:       integration.metadata.channelId,
-        text:          message,
+        channel:      integration.metadata.channelId,
+        text:         message,
         blocks,
-        unfurl_links:  false,
-        unfurl_media:  false,
+        unfurl_links: false,
+        unfurl_media: false,
       }),
     });
 
     const data = await response.json();
     if (!data.ok) {
-      console.error("Slack message failed:", data.error);
+      console.error('Slack message failed:', data.error);
       return { success: false, error: data.error };
     }
 
     return { success: true };
   } catch (error) {
-    console.error("Slack notification error:", error);
+    console.error('Slack notification error:', error);
     return { success: false, error };
   }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
 function formatDuration(seconds: number): string {
-  if (!seconds || seconds <= 0) return "0s";
+  if (!seconds || seconds <= 0) return '0s';
   if (seconds < 60) return `${seconds}s`;
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
 
-function intentLabel(level: "high" | "medium" | "low"): string {
-  if (level === "high")   return "HIGH INTENT";
-  if (level === "medium") return "MEDIUM INTENT";
-  return "LOW INTENT";
-}
-
 function divider() {
-  return { type: "divider" };
+  return { type: 'divider' };
 }
 
 function context(text: string) {
   return {
-    type: "context",
-    elements: [{ type: "mrkdwn", text }],
+    type: 'context',
+    elements: [{ type: 'mrkdwn', text }],
   };
 }
 
+function analyticsButton(documentId: string, label = 'View Analytics') {
+  return {
+    type: 'button',
+    text: { type: 'plain_text', text: label },
+    url: `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
+  };
+}
+
+const ts = () =>
+  new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+
 // ════════════════════════════════════════════════════════════════
-// 1. DOCUMENT VIEWED
+// 1 — DOCUMENT VIEWED
 // ════════════════════════════════════════════════════════════════
 export async function notifyDocumentViewed({
   userId,
@@ -104,59 +109,38 @@ export async function notifyDocumentViewed({
   isRevisit?: boolean;
   visitCount?: number;
 }) {
-  const durationStr = formatDuration(duration);
-  const visitLabel  = isRevisit
-    ? `Revisit #${visitCount || "?"} — *High intent signal*`
-    : "First view";
+  const title = isRevisit
+    ? `Document Revisited — Visit ${visitCount || '?'}`
+    : 'Document Opened';
 
   return sendSlackNotification({
     userId,
-    message: `${viewerEmail} viewed "${documentName}"`,
+    message: `${viewerEmail} opened "${documentName}"`,
     blocks: [
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Document Viewed*\n${visitLabel}`,
-        },
-        accessory: {
-          type: "button",
-          text: { type: "plain_text", text: "View Analytics" },
-          url: `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
-          style: "primary",
-        },
+        type: 'section',
+        text: { type: 'mrkdwn', text: `*${title}*` },
+        accessory: analyticsButton(documentId),
       },
       divider(),
       {
-        type: "section",
+        type: 'section',
         fields: [
-          { type: "mrkdwn", text: `*Document*\n${documentName}` },
-          { type: "mrkdwn", text: `*Time Spent*\n${durationStr}` },
-          { type: "mrkdwn", text: `*Viewer*\n${viewerEmail}` },
-          { type: "mrkdwn", text: `*Pages*\n${pageCount ? `${pageCount} pages` : "—"}` },
-          { type: "mrkdwn", text: `*Location*\n${location && location !== "Unknown" ? location : "N/A"}` },
-          { type: "mrkdwn", text: `*Device*\n${device || "Desktop"}` },
+          { type: 'mrkdwn', text: `*Document*\n${documentName}` },
+          { type: 'mrkdwn', text: `*Viewer*\n${viewerEmail}` },
+          { type: 'mrkdwn', text: `*Pages*\n${pageCount ?? '—'}` },
+          { type: 'mrkdwn', text: `*Device*\n${device || 'Desktop'}` },
+          { type: 'mrkdwn', text: `*Location*\n${location || 'Unknown'}` },
+          { type: 'mrkdwn', text: `*Time*\n${ts()}` },
         ],
       },
-      divider(),
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "Full Analytics" },
-            url: `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
-            style: "primary",
-          },
-        ],
-      },
-      context(`DocMetrics · ${new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`),
+      context('DocMetrics'),
     ],
   });
 }
 
 // ════════════════════════════════════════════════════════════════
-// 2. DOCUMENT COMPLETED
+// 2 — DOCUMENT COMPLETED
 // ════════════════════════════════════════════════════════════════
 export async function notifyDocumentCompleted({
   userId,
@@ -174,74 +158,49 @@ export async function notifyDocumentCompleted({
   totalTimeSeconds: number;
   totalPages: number;
   topPages?: { page: number; timeSpent: number }[];
-  intentLevel?: "high" | "medium" | "low";
+  intentLevel?: 'high' | 'medium' | 'low';
   documentId: string;
 }) {
-  const level      = intentLevel || "medium";
-  const iLabel     = intentLabel(level);
-  const followUpLine = level === "high"
-    ? "*Follow up immediately — they read every word.*"
-    : level === "medium"
-    ? "*Worth a follow-up this week.*"
-    : "*Gauge interest before investing time.*";
+  const engagementLabel = intentLevel
+    ? intentLevel.charAt(0).toUpperCase() + intentLevel.slice(1)
+    : '—';
 
   const topPagesText = topPages && topPages.length > 0
-    ? topPages.slice(0, 3).map(p => `• Page ${p.page}: *${formatDuration(p.timeSpent)}*`).join("\n")
-    : "• No page data available";
+    ? topPages.slice(0, 3).map(p => `Page ${p.page}: ${formatDuration(p.timeSpent)}`).join('  ·  ')
+    : '—';
 
   return sendSlackNotification({
     userId,
-    message: `${viewerEmail} finished reading "${documentName}" — ${iLabel}`,
+    message: `${viewerEmail} finished reading "${documentName}"`,
     blocks: [
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Full Read Completed — ${iLabel}*\n\n${followUpLine}`,
-        },
-        accessory: {
-          type: "button",
-          text: { type: "plain_text", text: "View Analytics" },
-          url: `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
-          style: "primary",
-        },
+        type: 'section',
+        text: { type: 'mrkdwn', text: '*Document Completed*' },
+        accessory: analyticsButton(documentId),
       },
       divider(),
       {
-        type: "section",
+        type: 'section',
         fields: [
-          { type: "mrkdwn", text: `*Document*\n${documentName}` },
-          { type: "mrkdwn", text: `*Viewer*\n${viewerEmail}` },
-          { type: "mrkdwn", text: `*Total Time*\n${formatDuration(totalTimeSeconds)}` },
-          { type: "mrkdwn", text: `*Pages Read*\n${totalPages}/${totalPages} (100%)` },
+          { type: 'mrkdwn', text: `*Document*\n${documentName}` },
+          { type: 'mrkdwn', text: `*Viewer*\n${viewerEmail}` },
+          { type: 'mrkdwn', text: `*Total time*\n${formatDuration(totalTimeSeconds)}` },
+          { type: 'mrkdwn', text: `*Pages read*\n${totalPages}/${totalPages}` },
+          { type: 'mrkdwn', text: `*Engagement*\n${engagementLabel}` },
+          { type: 'mrkdwn', text: `*Completed*\n${ts()}` },
         ],
       },
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Most time spent on:*\n${topPagesText}`,
-        },
+        type: 'section',
+        text: { type: 'mrkdwn', text: `*Pages by time spent*\n${topPagesText}` },
       },
-      divider(),
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "View Full Analytics" },
-            url: `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
-            style: "primary",
-          },
-        ],
-      },
-      context(`DocMetrics · ${new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`),
+      context('DocMetrics'),
     ],
   });
 }
 
 // ════════════════════════════════════════════════════════════════
-// 3. SESSION SUMMARY
+// 3 — SESSION SUMMARY
 // ════════════════════════════════════════════════════════════════
 export async function notifySessionSummary({
   userId,
@@ -264,66 +223,40 @@ export async function notifySessionSummary({
   location?: string;
   documentId: string;
 }) {
-  if (sessionDurationSeconds < 10) return { success: false, reason: "too_short" };
+  if (sessionDurationSeconds < 10) return { success: false, reason: 'too_short' };
 
-  const completionPct    = totalPages > 0
+  const completionPct = totalPages > 0
     ? Math.round((pagesViewed.length / totalPages) * 100)
     : 0;
 
-  const engagementLabel  = sessionDurationSeconds > 300
-    ? "Deep read"
-    : sessionDurationSeconds > 60
-    ? "Moderate read"
-    : "Quick scan";
-
   return sendSlackNotification({
     userId,
-    message: `Session ended — ${viewerEmail} spent ${formatDuration(sessionDurationSeconds)} on "${documentName}"`,
+    message: `${viewerEmail} spent ${formatDuration(sessionDurationSeconds)} on "${documentName}"`,
     blocks: [
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Session Summary*\n${engagementLabel}`,
-        },
-        accessory: {
-          type: "button",
-          text: { type: "plain_text", text: "View Analytics" },
-          url: `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
-          style: "primary",
-        },
+        type: 'section',
+        text: { type: 'mrkdwn', text: '*Session Summary*' },
+        accessory: analyticsButton(documentId),
       },
       divider(),
       {
-        type: "section",
+        type: 'section',
         fields: [
-          { type: "mrkdwn", text: `*Document*\n${documentName}` },
-          { type: "mrkdwn", text: `*Viewer*\n${viewerEmail}` },
-          { type: "mrkdwn", text: `*Session Duration*\n${formatDuration(sessionDurationSeconds)}` },
-          { type: "mrkdwn", text: `*Completion*\n${pagesViewed.length}/${totalPages} pages (${completionPct}%)` },
-          { type: "mrkdwn", text: `*Device*\n${device || "Desktop"}` },
-          { type: "mrkdwn", text: `*Location*\n${location && location !== "Unknown" ? location : "N/A"}` },
+          { type: 'mrkdwn', text: `*Document*\n${documentName}` },
+          { type: 'mrkdwn', text: `*Viewer*\n${viewerEmail}` },
+          { type: 'mrkdwn', text: `*Duration*\n${formatDuration(sessionDurationSeconds)}` },
+          { type: 'mrkdwn', text: `*Pages*\n${pagesViewed.length}/${totalPages} (${completionPct}%)` },
+          { type: 'mrkdwn', text: `*Device*\n${device || 'Desktop'}` },
+          { type: 'mrkdwn', text: `*Location*\n${location || 'Unknown'}` },
         ],
       },
-      divider(),
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "Full Analytics" },
-            url: `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
-            style: "primary",
-          },
-        ],
-      },
-      context(`DocMetrics · ${new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`),
+      context('DocMetrics'),
     ],
   });
 }
 
 // ════════════════════════════════════════════════════════════════
-// 4. SIGNATURE COMPLETED
+// 4 — SIGNATURE COMPLETED
 // ════════════════════════════════════════════════════════════════
 export async function notifySignatureCompleted({
   userId,
@@ -343,47 +276,27 @@ export async function notifySignatureCompleted({
     message: `${signerName || signerEmail} signed "${documentName}"`,
     blocks: [
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Signature Collected*\n*${signerName || signerEmail}* has signed your document.`,
-        },
-        accessory: {
-          type: "button",
-          text: { type: "plain_text", text: "View Document" },
-          url: `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
-          style: "primary",
-        },
+        type: 'section',
+        text: { type: 'mrkdwn', text: '*Signature Collected*' },
+        accessory: analyticsButton(documentId, 'View Document'),
       },
       divider(),
       {
-        type: "section",
+        type: 'section',
         fields: [
-          { type: "mrkdwn", text: `*Document*\n${documentName}` },
-          { type: "mrkdwn", text: `*Signer*\n${signerEmail}` },
-          { type: "mrkdwn", text: `*Signed At*\n${new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}` },
-          { type: "mrkdwn", text: `*Status*\nCompleted` },
+          { type: 'mrkdwn', text: `*Document*\n${documentName}` },
+          { type: 'mrkdwn', text: `*Signer*\n${signerEmail}` },
+          { type: 'mrkdwn', text: `*Name*\n${signerName || '—'}` },
+          { type: 'mrkdwn', text: `*Signed*\n${ts()}` },
         ],
       },
-      divider(),
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "View Signed Document" },
-            url: `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
-            style: "primary",
-          },
-        ],
-      },
-      context(`DocMetrics · ${new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`),
+      context('DocMetrics'),
     ],
   });
 }
 
 // ════════════════════════════════════════════════════════════════
-// 5. DAILY DIGEST
+// 5 — DAILY DIGEST
 // ════════════════════════════════════════════════════════════════
 export async function notifyDailyDigest({
   userId,
@@ -402,69 +315,60 @@ export async function notifyDailyDigest({
 
   const leadsText = highIntentLeads.length > 0
     ? highIntentLeads.slice(0, 3)
-        .map(l => `• ${l.email} — ${formatDuration(l.timeSpent)} on _${l.document}_`)
-        .join("\n")
-    : "• No high-intent activity yesterday";
+        .map(l => `${l.email}  ·  ${formatDuration(l.timeSpent)}  ·  ${l.document}`)
+        .join('\n')
+    : 'No activity';
+
+  const dateStr = new Date().toLocaleDateString('en-US', { dateStyle: 'long' });
 
   return sendSlackNotification({
     userId,
-    message: `DocMetrics Daily Digest — ${totalViews} views yesterday`,
+    message: `Daily summary — ${totalViews} views`,
     blocks: [
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*DocMetrics Daily Digest*\nHere's what happened with your documents yesterday.`,
-        },
+        type: 'section',
+        text: { type: 'mrkdwn', text: `*Daily Summary*\n${dateStr}` },
       },
       divider(),
       {
-        type: "section",
+        type: 'section',
         fields: [
-          { type: "mrkdwn", text: `*Total Views*\n${totalViews}` },
-          { type: "mrkdwn", text: `*Unique Viewers*\n${uniqueViewers}` },
-          { type: "mrkdwn", text: `*New Signatures*\n${newSignatures}` },
+          { type: 'mrkdwn', text: `*Views*\n${totalViews}` },
+          { type: 'mrkdwn', text: `*Unique viewers*\n${uniqueViewers}` },
+          { type: 'mrkdwn', text: `*Signatures*\n${newSignatures}` },
           {
-            type: "mrkdwn",
-            text: `*Top Document*\n${topDocument ? `${topDocument.name} (${topDocument.views} views)` : "No views"}`,
+            type: 'mrkdwn',
+            text: `*Top document*\n${topDocument ? `${topDocument.name} (${topDocument.views})` : '—'}`,
           },
         ],
       },
       {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*High Intent Leads Yesterday*\n${leadsText}`,
-        },
+        type: 'section',
+        text: { type: 'mrkdwn', text: `*Most engaged viewers*\n${leadsText}` },
       },
       divider(),
       {
-        type: "actions",
+        type: 'actions',
         elements: [
           {
-            type: "button",
-            text: { type: "plain_text", text: "View Full Report" },
-            url: `${process.env.NEXT_PUBLIC_APP_URL}/reports`,
-            style: "primary",
+            type: 'button',
+            text: { type: 'plain_text', text: 'Dashboard' },
+            url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
           },
-          ...(topDocument
-            ? [{
-                type: "button",
-                text: { type: "plain_text", text: "Top Document" },
-                url: `${process.env.NEXT_PUBLIC_APP_URL}/documents/${topDocument.id}`,
-              }]
-            : []),
+          ...(topDocument ? [{
+            type: 'button',
+            text: { type: 'plain_text', text: topDocument.name },
+            url: `${process.env.NEXT_PUBLIC_APP_URL}/documents/${topDocument.id}`,
+          }] : []),
         ],
       },
-      context(`DocMetrics Daily Digest · ${new Date().toLocaleDateString("en-US", { dateStyle: "long" })}`),
+      context('DocMetrics'),
     ],
   });
 }
 
 // ════════════════════════════════════════════════════════════════
-// 6. PORTAL / SPACE EVENT
-// Handles: document_open, revisit, document_view, download
-// Also accepts legacy 'portal_enter' for backwards compat
+// 6 — PORTAL / SPACE EVENT
 // ════════════════════════════════════════════════════════════════
 export async function notifyPortalEvent({
   userId,
@@ -486,89 +390,57 @@ export async function notifyPortalEvent({
   visitCount?: number;
 }) {
   const spaceUrl = `${process.env.NEXT_PUBLIC_APP_URL}/spaces/${spaceId}`;
-
-  // Normalise legacy event name
   const normalised = event === 'portal_enter' ? 'document_open' : event;
 
-  const config: Record<string, { title: string; detail: string; tip: string }> = {
-    document_open: {
-      title:  'Document Opened',
-      detail: `*${visitorEmail}* opened your space for the first time.`,
-      tip:    'Reach out while they are browsing for the best response rate.',
-    },
-    revisit: {
-      title:  `Space Revisited${visitCount ? ` — Visit #${visitCount}` : ''}`,
-      detail: `*${visitorEmail}* returned to your space.`,
-      tip:    'Returning visitor — high intent signal. Follow up now.',
-    },
-    document_view: {
-      title:  'Document Viewed',
-      detail: `*${visitorEmail}* viewed *${documentName || 'a document'}* in your space.`,
-      tip:    'They are reading — a timely follow-up could close the deal.',
-    },
-    download: {
-      title:  'Document Downloaded',
-      detail: `*${visitorEmail}* downloaded *${documentName || 'a document'}* from your space.`,
-      tip:    'Downloads signal serious interest. Follow up today.',
-    },
+  const titleMap: Record<string, string> = {
+    document_open: 'Space Opened',
+    revisit:       `Space Revisited${visitCount ? ` — Visit ${visitCount}` : ''}`,
+    document_view: 'Document Viewed',
+    download:      'Document Downloaded',
   };
 
-  const c = config[normalised] || config['document_open'];
+  const title = titleMap[normalised] || 'Space Event';
+
+  const fields: any[] = [
+    { type: 'mrkdwn', text: `*Visitor*\n${visitorEmail}` },
+    { type: 'mrkdwn', text: `*Space*\n${spaceName}` },
+    { type: 'mrkdwn', text: `*Time*\n${ts()}` },
+  ];
+
+  if (documentName) {
+    fields.push({ type: 'mrkdwn', text: `*Document*\n${documentName}` });
+  }
+
+  if (isRevisit && visitCount) {
+    fields.push({ type: 'mrkdwn', text: `*Visit number*\n${visitCount}` });
+  }
 
   return sendSlackNotification({
     userId,
-    message: `${visitorEmail} — ${c.title} — ${spaceName}`,
+    message: `${visitorEmail} — ${title} — ${spaceName}`,
     blocks: [
       {
         type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*${c.title}*\n${c.detail}`,
-        },
+        text: { type: 'mrkdwn', text: `*${title}*` },
         accessory: {
           type: 'button',
           text: { type: 'plain_text', text: 'View Space' },
           url: spaceUrl,
-          style: 'primary',
         },
       },
       divider(),
-      {
-        type: 'section',
-        fields: [
-          { type: 'mrkdwn', text: `*Visitor*\n${visitorEmail}` },
-          { type: 'mrkdwn', text: `*Space*\n${spaceName}` },
-          ...(documentName ? [{ type: 'mrkdwn', text: `*Document*\n${documentName}` }] : []),
-          { type: 'mrkdwn', text: `*Time*\n${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}` },
-        ],
-      },
-      divider(),
-      {
-        type: 'section',
-        text: { type: 'mrkdwn', text: c.tip },
-      },
-      {
-        type: 'actions',
-        elements: [
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: 'View Space' },
-            url: spaceUrl,
-            style: 'primary',
-          },
-        ],
-      },
-      context(`DocMetrics · ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`),
+      { type: 'section', fields },
+      context('DocMetrics'),
     ],
   });
 }
 
 // ════════════════════════════════════════════════════════════════
-// HELPER — Check if user has Slack connected
+// HELPER — Check if Slack is connected
 // ════════════════════════════════════════════════════════════════
 export async function isSlackConnected(userId: string): Promise<boolean> {
   try {
-    const db          = await dbPromise;
+    const db = await dbPromise;
     const integration = await db.collection('integrations').findOne({
       userId,
       provider: 'slack',

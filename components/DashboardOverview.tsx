@@ -1,7 +1,7 @@
 // components/DashboardOverview.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   LineChart,
@@ -28,6 +28,8 @@ import {
   Monitor,
   Smartphone,
   Tablet,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 function formatTime(seconds: number): string {
@@ -57,6 +59,160 @@ function getDeviceIcon(device: string) {
   if (device === "mobile") return <Smartphone className="h-3 w-3" />;
   if (device === "tablet") return <Tablet className="h-3 w-3" />;
   return <Monitor className="h-3 w-3" />;
+}
+
+
+// ─── Detect touch device ──────────────────────────────────────────────────────
+
+function useIsTouchDevice() {
+  const [isTouch, setIsTouch] = useState(false);
+  useEffect(() => {
+    setIsTouch(
+      window.matchMedia("(hover: none) and (pointer: coarse)").matches
+    );
+  }, []);
+  return isTouch;
+}
+
+// ─── Page Bar Chart ───────────────────────────────────────────────────────────
+
+function PageBarChart({ visit, docId }: { visit: any; docId: string }) {
+  const isTouch = useIsTouchDevice();
+  const [activePage, setActivePage] = useState<number | null>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  const maxT = Math.max(
+    ...visit.pageData.map((p: any) => p.timeSpent || 0),
+    1
+  );
+  const fmt = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  useEffect(() => {
+    if (!isTouch || activePage === null) return;
+    function handler(e: TouchEvent) {
+      if (chartRef.current && !chartRef.current.contains(e.target as Node)) {
+        setActivePage(null);
+      }
+    }
+    document.addEventListener("touchstart", handler);
+    return () => document.removeEventListener("touchstart", handler);
+  }, [isTouch, activePage]);
+
+  return (
+    <div
+      ref={chartRef}
+      className="relative"
+      style={{ paddingLeft: "52px", paddingBottom: "28px" }}
+    >
+      {[maxT, Math.round(maxT * 0.5), 0].map((val, i) => (
+        <div
+          key={`y-label-${i}`}
+          className="absolute text-right text-[10px] text-slate-400 font-mono leading-none"
+          style={{
+            left: 0,
+            top: `${(i / 2) * 100}%`,
+            width: "44px",
+            transform: "translateY(-50%)",
+          }}
+        >
+          {fmt(val)}
+        </div>
+      ))}
+
+      {[0, 0.5, 1].map((frac, i) => (
+        <div
+          key={i}
+          className="absolute right-0 border-t border-slate-100"
+          style={{ left: "52px", top: `${frac * 100}%` }}
+        />
+      ))}
+
+      <div className="relative flex items-end gap-1.5" style={{ height: "140px" }}>
+        {visit.pageData.map((page: any) => {
+          const heightPct = (page.timeSpent / maxT) * 100;
+          const isActive = activePage === page.page;
+
+          return (
+            <div
+              key={page.page}
+              className="flex-1 flex flex-col items-center justify-end h-full relative"
+              onMouseEnter={!isTouch ? () => setActivePage(page.page) : undefined}
+              onMouseLeave={!isTouch ? () => setActivePage(null) : undefined}
+              onTouchEnd={
+                isTouch
+                  ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setActivePage((prev) =>
+                        prev === page.page ? null : page.page
+                      );
+                    }
+                  : undefined
+              }
+            >
+              {!isTouch && isActive && (
+                <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                  <div className="bg-slate-900 rounded-xl shadow-2xl overflow-hidden w-48">
+                    <div className="relative bg-slate-100" style={{ height: "120px" }}>
+                      <iframe
+                        src={`/api/documents/${docId}/page?page=${page.page}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
+                        className="w-full h-full border-0 pointer-events-none"
+                        title={`Page ${page.page}`}
+                      />
+                      <div className="absolute top-2 left-2 bg-slate-900/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                        P{page.page}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2.5">
+                      <div>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider">Page</p>
+                        <p className="text-sm font-bold text-white">{page.page}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] text-slate-400 uppercase tracking-wider">Time</p>
+                        <p className="text-sm font-bold text-white">{fmt(page.timeSpent)}</p>
+                      </div>
+                    </div>
+                    <div className="h-1 bg-slate-800 mx-3 mb-3 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-sky-400 transition-all"
+                        style={{ width: `${Math.min((page.timeSpent / maxT) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-center -mt-1">
+                    <div className="w-2.5 h-2.5 bg-slate-900 rotate-45" />
+                  </div>
+                </div>
+              )}
+
+              <div
+                className="w-full rounded-t-lg transition-all duration-150 cursor-pointer select-none"
+                style={{
+                  height: `${Math.max(heightPct, page.timeSpent > 0 ? 3 : 0)}%`,
+                  backgroundColor: isActive ? "#0284c7" : "#38bdf8",
+                  minHeight: page.timeSpent > 0 ? "4px" : "2px",
+                  opacity: page.skipped ? 0.5 : 1,
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex gap-1.5 pt-2.5">
+        {visit.pageData.map((page: any) => (
+          <div
+               key={`x-${page.page}`} 
+            className="flex-1 text-center text-[10px] text-slate-400 tabular-nums"
+          >
+            {page.page}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -142,6 +298,7 @@ export default function DashboardOverview() {
   const [error, setError] = useState<string | null>(null);
   const [contactTab, setContactTab] = useState<"my" | "team">("my");
   const [showAllContacts, setShowAllContacts] = useState(false);
+  const [expandedContact, setExpandedContact] = useState<string | null>(null);
 
   const handleTabChange = (tab: "my" | "team") => {
     setContactTab(tab);
@@ -272,46 +429,86 @@ export default function DashboardOverview() {
               </div>
 
               <div className="divide-y divide-slate-50">
-                {visible.map((contact: any, i: number) => (
-                  <div
-                    key={i}
-                    className="grid grid-cols-12 gap-2 px-3 py-3 items-center hover:bg-slate-50 transition-colors group"
-                  >
-                    <div className="col-span-5 flex items-center gap-2 min-w-0">
-  <div className="min-w-0">
-    <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
-      {contact.email.split("@")[0]}
-    </p>
-    <p className="text-[10px] text-slate-400">
-      {contact.email} · {formatTimeAgo(contact.lastSeen)}
-    </p>
-  </div>
-</div>
-                    <div className="col-span-3 min-w-0">
-                      <p className="text-[10px] text-slate-500 truncate">
-                        {contact.topDocName || "—"}
-                      </p>
-                    </div>
+                {visible.map((contact: any, i: number) => {
+  const isExpanded = expandedContact === contact.email;
 
-                    <div className="col-span-1 text-center">
-                      <span className="text-xs font-semibold text-slate-700 tabular-nums">
-                        {contact.visits}
-                      </span>
-                    </div>
+  return (
+    <div key={i} className="divide-y divide-slate-50">
+      {/* ── Main row ── */}
+      <div className="grid grid-cols-12 gap-2 px-3 py-3 items-center hover:bg-slate-50 transition-colors group">
+        <div className="col-span-5 flex items-center gap-2 min-w-0">
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-slate-800 truncate group-hover:text-violet-700 transition-colors">
+              {contact.email.split("@")[0]}
+            </p>
+            <p className="text-[10px] text-slate-400">
+              {contact.email} · {formatTimeAgo(contact.lastSeen)}
+            </p>
+          </div>
+        </div>
 
-                    <div className="col-span-1 text-center">
-                      <span className="text-xs font-semibold text-slate-700 tabular-nums">
-                        {contact.docs}
-                      </span>
-                    </div>
+        <div className="col-span-3 min-w-0">
+          <p className="text-[10px] text-slate-500 truncate">
+            {contact.topDocName || "—"}
+          </p>
+        </div>
 
-                    <div className="col-span-2 text-right">
-                      <span className="text-xs font-mono font-semibold text-slate-700 tabular-nums">
-                        {formatMMSS(contact.totalTime)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+        <div className="col-span-1 text-center">
+          <span className="text-xs font-semibold text-slate-700 tabular-nums">
+            {contact.visits}
+          </span>
+        </div>
+
+        <div className="col-span-1 text-center">
+          <span className="text-xs font-semibold text-slate-700 tabular-nums">
+            {contact.docs}
+          </span>
+        </div>
+
+        <div className="col-span-2 text-right flex items-center justify-end gap-2">
+          <span className="text-xs font-mono font-semibold text-slate-700 tabular-nums">
+            {formatMMSS(contact.totalTime)}
+          </span>
+          {/* Expand button — only show if pageData exists */}
+          {contact.pageData?.length > 0 && (
+            <button
+              onClick={() => setExpandedContact(isExpanded ? null : contact.email)}
+              className="h-5 w-5 flex items-center justify-center text-slate-300 hover:text-violet-600 transition-colors flex-shrink-0"
+            >
+              {isExpanded ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Expanded bar chart ── */}
+      {isExpanded && contact.pageData?.length > 0 && (
+        <div className="px-4 py-4 bg-slate-50/60 border-t border-slate-100">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+              Page engagement · {contact.topDocName || "document"}
+            </span>
+            <span className="ml-auto text-[10px] text-slate-400">
+              {formatMMSS(contact.totalTime)} total
+            </span>
+          </div>
+          <PageBarChart
+            visit={{
+              pageData: contact.pageData,
+              visitType: "share",
+            }}
+            docId={contact.topDocId}
+          />
+        </div>
+      )}
+    </div>
+  );
+})}
               </div>
 
               {filtered.length > 5 && (

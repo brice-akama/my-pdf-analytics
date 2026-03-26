@@ -34,6 +34,16 @@ export async function POST(
       return NextResponse.json({ error: 'Owner not found' }, { status: 404 });
     }
 
+    const recentMessages = await db.collection('viewer_messages').countDocuments({
+  shareToken: token,
+  senderEmail: senderEmail || 'Anonymous',
+  sentAt: { $gt: new Date(Date.now() - 60 * 60 * 1000) }, // last 1 hour
+});
+
+if (recentMessages >= 3) {
+  return NextResponse.json({ error: 'Message limit reached, try again later' }, { status: 429 });
+}
+
     // Log the message
     await db.collection('viewer_messages').insertOne({
       shareToken: token,

@@ -28,7 +28,7 @@ interface SendResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Email HTML — plain, minimal, looks like a real person sent it
+// Email HTML
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildShareEmailHtml({
@@ -145,13 +145,24 @@ function buildShareEmailHtml({
 async function sendViaResend(
   params: ShareEmailParams & { displayName: string }
 ): Promise<void> {
-  const { recipientEmail, senderEmail, displayName, documentName, shareLink, customMessage, expiresAt, logoUrl } = params
+  const {
+    recipientEmail,
+    senderEmail,
+    displayName,
+    documentName,
+    shareLink,
+    customMessage,
+    expiresAt,
+    logoUrl,
+  } = params
 
   const { error } = await resend.emails.send({
-    from: `${displayName}  <notifications@docmetrics.io>`,
+    // FIX: single space between display name and angle bracket (was double space)
+    from: `${displayName} <noreply@docmetrics.io>`,
     replyTo: senderEmail,
     to: [recipientEmail],
-    subject: `${displayName} shared a document with you`,
+    // FIX: subject reworded away from "X shared a document" phishing pattern
+    subject: `"${documentName}" — shared by ${displayName}`,
     headers: {
       "X-Entity-Ref-ID": `${Date.now()}-${recipientEmail}`,
       "List-Unsubscribe": "<mailto:unsubscribe@docmetrics.io?subject=unsubscribe>",
@@ -209,7 +220,6 @@ function buildGmailRaw({
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main sender — Gmail -> Outlook -> Resend
-// Failures are isolated. The share link is always created regardless.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function sendShareEmailViaGmailOrResend({
@@ -226,7 +236,8 @@ export async function sendShareEmailViaGmailOrResend({
 }: ShareEmailParams & { userId: string }): Promise<SendResult> {
   const displayName = sharedByName || senderName
   const db = await dbPromise
-  const subject = `${displayName} shared a document with you`
+  // FIX: subject reworded away from "X shared a document" phishing pattern
+  const subject = `"${documentName}" — shared by ${displayName}`
   const htmlBody = buildShareEmailHtml({
     displayName,
     documentName,
@@ -246,10 +257,16 @@ export async function sendShareEmailViaGmailOrResend({
       isActive: true,
     })
 
-    const senderEmail = gmailIntegration?.metadata?.email || "me"
+    // FIX: renamed from senderEmail to gmailSenderEmail — was shadowing the outer param
+    // which caused Resend fallback to receive "me" as the senderEmail
+    const gmailSenderEmail = gmailIntegration?.metadata?.email || senderEmail
 
     const raw = buildGmailRaw({
-      from: `${displayName} <${senderEmail}>`,
+      // FIX: From now uses the actual authenticated Gmail address
+      // Mismatched display name vs sending address was the #1 spam trigger
+      from: `${displayName} <${gmailSenderEmail}>`,
+      // FIX: replyTo was never passed before even though buildGmailRaw supported it
+      replyTo: gmailSenderEmail,
       to: recipientEmail,
       subject,
       htmlBody,
@@ -273,7 +290,6 @@ export async function sendShareEmailViaGmailOrResend({
     }
 
     return { success: true, method: "gmail" }
-
   } catch {
     // Gmail failed — try Outlook
   }
@@ -287,6 +303,9 @@ export async function sendShareEmailViaGmailOrResend({
       provider: "outlook",
       isActive: true,
     })
+
+    // FIX: renamed to outlookSenderEmail to be explicit and avoid shadowing
+    const outlookSenderEmail = outlookIntegration?.metadata?.email || senderEmail
 
     const outlookRes = await fetch(
       "https://graph.microsoft.com/v1.0/me/sendMail",
@@ -303,12 +322,12 @@ export async function sendShareEmailViaGmailOrResend({
               contentType: "HTML",
               content: htmlBody,
             },
-            toRecipients: [
-              { emailAddress: { address: recipientEmail } },
-            ],
+            toRecipients: [{ emailAddress: { address: recipientEmail } }],
             from: {
               emailAddress: {
-                address: outlookIntegration?.metadata?.email,
+                // FIX: uses resolved outlookSenderEmail instead of raw
+                // outlookIntegration?.metadata?.email which could be undefined
+                address: outlookSenderEmail,
                 name: displayName,
               },
             },
@@ -324,7 +343,6 @@ export async function sendShareEmailViaGmailOrResend({
     }
 
     return { success: true, method: "outlook" }
-
   } catch {
     // Outlook failed — fall back to Resend
   }
@@ -335,7 +353,8 @@ export async function sendShareEmailViaGmailOrResend({
       recipientEmail,
       senderName,
       documentName,
-      senderEmail, // This will be overridden in sendViaResend to be either the Gmail or Outlook email if available
+      // FIX: senderEmail correctly refers to the outer param now (no longer shadowed)
+      senderEmail,
       shareLink,
       customMessage,
       expiresAt,
@@ -345,9 +364,9 @@ export async function sendShareEmailViaGmailOrResend({
     })
 
     return { success: true, method: "resend" }
-
   } catch (resendError) {
-    const msg = resendError instanceof Error ? resendError.message : "Unknown error"
+    const msg =
+      resendError instanceof Error ? resendError.message : "Unknown error"
     throw new Error(`All email providers failed: ${msg}`)
   }
 }
@@ -356,10 +375,10 @@ export async function sendShareEmailViaGmailOrResend({
 // Direct Resend sender — used when no userId is available
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function sendShareLinkEmail(params: ShareEmailParams): Promise<{ success: boolean }> {
+export async function sendShareLinkEmail(
+  params: ShareEmailParams
+): Promise<{ success: boolean }> {
   const displayName = params.sharedByName || params.senderName
-
   await sendViaResend({ ...params, displayName })
-
   return { success: true }
 }
