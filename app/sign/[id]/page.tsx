@@ -1797,16 +1797,10 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
               })}
             </div>
 
-            {!isAwaitingTurn && !completed && !isDelegatedMode && (
-              <button
-                onClick={() => setShowDelegateModal(true)}
-                disabled={submitting}
-                className="w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 border-2 border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400 disabled:opacity-50 disabled:cursor-not-allowed mb-3"
-              >
-                <UserPlus className="h-5 w-5" />
-                Delegate to Someone Else
-              </button>
-            )}
+
+       
+
+          
 
             {intentVideoRequired && (
               <div className={`mb-3 p-3 rounded-lg border ${

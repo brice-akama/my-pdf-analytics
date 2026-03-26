@@ -299,7 +299,7 @@ const parseOptions = {
             {/* ── TAGS ── */}
             <div className="mt-10 pt-8 border-t border-slate-100 flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium text-slate-400">Tags:</span>
-             
+             <span className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded-full">{post.category || 'General'}</span>
             </div>
 
             {/* ── AUTHOR BIO ── */}

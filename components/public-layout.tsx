@@ -26,6 +26,7 @@ const HIDDEN_ROUTES = [
   "/invite",
   "/invite-team",
   "/nda-records",
+  "/admin",
   "/public",
   "/portal",
   "/reports",

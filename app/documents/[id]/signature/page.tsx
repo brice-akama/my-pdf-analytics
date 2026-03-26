@@ -902,7 +902,7 @@ export default function ESignaturePage() {
                   Signature Request Sent!
                 </DialogTitle>
                 <p className="text-sm text-slate-600 mt-1">
-                  Emails have been sent to all recipients with their signing links
+                  Emails have been sent to the  recipients with their signing links
                 </p>
               </div>
             </div>
@@ -991,8 +991,8 @@ export default function ESignaturePage() {
                       </div>
                       <p className="text-xs text-slate-500 mt-2">
                         {item.isCC
-                          ? `💡 This view-only link has been emailed to ${item.recipient}.`
-                          : `💡 This unique link has been emailed to ${item.recipient}. You can also share it manually.`}
+                          ? ` This view-only link has been emailed to ${item.recipient}.`
+                          : ` This unique link has been emailed to ${item.recipient}. You can also share it manually.`}
                       </p>
                     </div>
                   </div>
@@ -1000,42 +1000,12 @@ export default function ESignaturePage() {
               </div>
             </div>
 
-            {/* What happens next */}
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                What happens next?
-              </h4>
-              <ul className="space-y-2 text-sm text-blue-800">
-                <li className="flex items-start gap-2"><span>✓</span><span>Each recipient will receive an email with their unique signing link</span></li>
-                <li className="flex items-start gap-2"><span>✓</span><span>They can click the link to view and sign the document</span></li>
-                <li className="flex items-start gap-2"><span>✓</span><span>You'll receive notifications when each person signs</span></li>
-                <li className="flex items-start gap-2"><span>✓</span><span>Track signing status in your dashboard</span></li>
-              </ul>
-            </div>
+            
           </div>
 
           {/* Footer */}
           <div className="px-6 py-4 border-t bg-slate-50 flex items-center justify-between">
-            <Button
-              variant="outline"
-              onClick={() => {
-                const all = generatedLinks
-                  .map((i) => `${i.recipient} (${i.email}): ${i.link}`)
-                  .join("\n\n");
-                navigator.clipboard.writeText(all);
-                toast.success("All links copied", {
-                  description: `${generatedLinks.length} signing links copied to clipboard.`,
-                });
-              }}
-            >
-              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              Copy All Links
-            </Button>
+             
             <div className="flex gap-3">
               <Button
                 variant="outline"

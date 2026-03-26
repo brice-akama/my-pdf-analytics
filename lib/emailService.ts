@@ -5,11 +5,67 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM = 'DocMetrics <noreply@docmetrics.io>'
 const NEWSLETTER_INBOX = 'hello@docmetrics.io';  
+const SUPPORT_INBOX = 'support@docmetrics.io'
  
 const CONTACT_INBOX = 'support@docmetrics.io';
-// ===================================
-// SIGNATURE REQUEST EMAIL
-// ===================================
+function shell(content: string, previewText: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DocMetrics</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; color: #1e293b; }
+  .wrap { padding: 40px 16px; }
+  .card { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }
+  .accent { height: 3px; background: #0f172a; }
+  .head { padding: 24px 32px 20px; border-bottom: 1px solid #f1f5f9; }
+  .wordmark { font-size: 11px; font-weight: 700; color: #94a3b8; letter-spacing: 1.5px; text-transform: uppercase; }
+  .body { padding: 32px 32px 24px; }
+  .title { font-size: 17px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+  .meta { font-size: 13px; color: #64748b; margin-bottom: 28px; }
+  .table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  .table td { padding: 10px 0; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  .table tr:last-child td { border-bottom: none; }
+  .table .lbl { font-size: 12px; color: #94a3b8; font-weight: 500; width: 38%; }
+  .table .val { font-size: 13px; color: #0f172a; font-weight: 600; }
+  .msg { background: #f8fafc; border-left: 3px solid #e2e8f0; padding: 12px 16px; border-radius: 0 6px 6px 0; font-size: 13px; color: #475569; line-height: 1.6; margin-bottom: 24px; }
+  .cta { display: block; text-align: center; margin: 28px 0 4px; }
+  .cta a { display: inline-block; padding: 12px 32px; background: #0f172a; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600; }
+  .fallback { font-size: 12px; color: #94a3b8; text-align: center; margin-top: 12px; word-break: break-all; }
+  .fallback a { color: #64748b; }
+  .foot { padding: 20px 32px; border-top: 1px solid #f1f5f9; }
+  .foot p { font-size: 11px; color: #94a3b8; line-height: 1.7; }
+  .foot a { color: #64748b; text-decoration: underline; }
+</style>
+</head>
+<body>
+<span style="display:none;font-size:1px;max-height:0;overflow:hidden;color:#f8fafc;">${previewText}</span>
+<div class="wrap">
+  <div class="card">
+    <div class="accent"></div>
+    <div class="head"><span class="wordmark">DocMetrics</span></div>
+    <div class="body">${content}</div>
+    <div class="foot">
+      <p>
+        This message was sent on behalf of ${'\u0020'}<strong>DocMetrics</strong>.<br>
+        If you were not expecting this, you can safely ignore it.
+      </p>
+    </div>
+  </div>
+</div>
+</body>
+</html>`
+}
+ 
+// ════════════════════════════════════════════════════════════════
+// sendSignatureRequestEmail
+// Sent to the person who needs to sign.
+// Subject is intentionally plain — avoids DocuSign phishing filters.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendSignatureRequestEmail({
   recipientName,
   recipientEmail,
@@ -19,215 +75,83 @@ export async function sendSignatureRequestEmail({
   message,
   dueDate,
 }: {
-  recipientName: string;
-  recipientEmail: string;
-  originalFilename: string;
-  signingLink: string;
-  senderName: string;
-  message?: string;
-  dueDate?: string;
+  recipientName: string
+  recipientEmail: string
+  originalFilename: string
+  signingLink: string
+  senderName: string
+  message?: string
+  dueDate?: string
 }) {
-  try {
-    const dueDateFormatted = dueDate
-      ? new Date(dueDate).toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        })
-      : null;
-
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics <noreply@docmetrics.io>', // ⚠️ Change this to your verified domain
-      to: [recipientEmail],
-      subject: `${senderName} has requested your signature on "${originalFilename}"`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              background-color: #f5f5f5;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 600px;
-              margin: 40px auto;
-              background: white;
-              border-radius: 12px;
-              overflow: hidden;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .header {
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              padding: 40px 30px;
-              text-align: center;
-              color: white;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 28px;
-              font-weight: 600;
-            }
-            .content {
-              padding: 40px 30px;
-            }
-            .greeting {
-              font-size: 18px;
-              color: #333;
-              margin-bottom: 20px;
-            }
-            .message-box {
-              background: #f8f9fa;
-              border-left: 4px solid #667eea;
-              padding: 15px 20px;
-              margin: 20px 0;
-              border-radius: 4px;
-            }
-            .document-info {
-              background: #f8f9fa;
-              padding: 20px;
-              border-radius: 8px;
-              margin: 20px 0;
-            }
-            .document-name {
-              font-weight: 600;
-              font-size: 16px;
-              color: #667eea;
-              margin-bottom: 10px;
-            }
-            .cta-button {
-              display: inline-block;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-              padding: 16px 40px;
-              text-decoration: none;
-              border-radius: 8px;
-              font-weight: 600;
-              font-size: 16px;
-              margin: 20px 0;
-              text-align: center;
-            }
-            .cta-button:hover {
-              opacity: 0.9;
-            }
-            .deadline {
-              background: #fff3cd;
-              border-left: 4px solid #ffc107;
-              padding: 12px 20px;
-              border-radius: 4px;
-              margin: 20px 0;
-              color: #856404;
-            }
-            .footer {
-              background: #f8f9fa;
-              padding: 30px;
-              text-align: center;
-              font-size: 14px;
-              color: #6c757d;
-              border-top: 1px solid #e9ecef;
-            }
-            .security-note {
-              margin-top: 20px;
-              padding: 15px;
-              background: #e7f3ff;
-              border-radius: 4px;
-              font-size: 13px;
-              color: #004085;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>📝 Signature Request</h1>
-            </div>
-            
-            <div class="content">
-              <p class="greeting">Hi ${recipientName},</p>
-              
-              <p>
-                <strong>${senderName}</strong> has requested your signature on the following document:
-              </p>
-              
-              <div class="document-info">
-                <div class="document-name">📄 ${originalFilename}</div>
-                <p style="margin: 5px 0; color: #6c757d; font-size: 14px;">
-                  Click the button below to review and sign this document
-                </p>
-              </div>
-              
-              ${
-                message
-                  ? `
-              <div class="message-box">
-                <strong>Message from ${senderName}:</strong>
-                <p style="margin: 10px 0 0 0;">${message}</p>
-              </div>
-              `
-                  : ''
-              }
-              
-              ${
-                dueDateFormatted
-                  ? `
-              <div class="deadline">
-                ⏰ <strong>Due Date:</strong> Please sign by ${dueDateFormatted}
-              </div>
-              `
-                  : ''
-              }
-              
-              <center>
-                <a href="${signingLink}" class="cta-button">
-                  Review & Sign Document
-                </a>
-              </center>
-              
-              <div class="security-note">
-                🔒 <strong>Secure Signing:</strong> This link is unique to you and expires after signing. 
-                Your signature will be legally binding and timestamped.
-              </div>
-              
-              <p style="margin-top: 30px; font-size: 14px; color: #6c757d;">
-                If you have any questions about this document, please contact ${senderName} directly.
-              </p>
-            </div>
-            
-            <div class="footer">
-              <p>
-                This is an automated message from DocuShare.<br>
-                If you didn't expect this email, you can safely ignore it.
-              </p>
-              <p style="margin-top: 15px; font-size: 12px;">
-                © ${new Date().getFullYear()} DocuShare. All rights reserved.
-              </p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send signature request email:', error);
-      throw error;
-    }
-
-    console.log('✅ Signature request email sent to:', recipientEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Email service error:', error);
-    throw error;
+  const dueDateFormatted = dueDate
+    ? new Date(dueDate).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : null
+ 
+  // Plain subject — avoids "signature request" phishing trigger
+  const subject = `${senderName} shared a document for your review`
+  const previewText = `${senderName} is requesting your signature on "${originalFilename}"`
+ 
+  const messageBlock = message
+    ? `<div class="msg">${message}</div>`
+    : ''
+ 
+  const dueDateRow = dueDateFormatted
+    ? `<tr>
+        <td class="lbl">Due by</td>
+        <td class="val">${dueDateFormatted}</td>
+      </tr>`
+    : ''
+ 
+  const content = `
+    <p class="title">Document for your signature</p>
+    <p class="meta">${senderName} is requesting your signature on the document below.</p>
+ 
+    ${messageBlock}
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${originalFilename}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Requested by</td>
+        <td class="val">${senderName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Recipient</td>
+        <td class="val">${recipientName}</td>
+      </tr>
+      ${dueDateRow}
+    </table>
+ 
+    <div class="cta"><a href="${signingLink}">Review and sign</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${signingLink}">${signingLink}</a>
+    </p>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [recipientEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendSignatureRequestEmail error:', error)
+    throw error
   }
+ 
+  console.log('Signature request sent to:', recipientEmail)
+  return { success: true }
 }
-
+ 
 // ===================================
 // DOCUMENT SIGNED NOTIFICATION
 // ===================================
@@ -884,80 +808,66 @@ export async function sendCCNotificationEmail({
   senderName,
   viewLink,
 }: {
-  ccName: string;
-  ccEmail: string;
-  documentName: string;
-  senderName: string;
-  viewLink: string;
+  ccName: string
+  ccEmail: string
+  documentName: string
+  senderName: string
+  viewLink: string
 }) {
-  const emailHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
-        .content { padding: 30px; background: #f9fafb; }
-        .info-box { background: #e0e7ff; border-left: 4px solid #6366f1; padding: 15px; margin: 20px 0; border-radius: 5px; }
-        .button { display: inline-block; padding: 12px 30px; background: #6366f1; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; text-align: center; }
-        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; padding: 20px; background: #f8f9fa; border-top: 1px solid #e9ecef; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1 style="margin: 0; font-size: 24px;">📋 Document Copy (CC)</h1>
-        </div>
-        <div class="content">
-          <p>Hi ${ccName},</p>
-          <p>You've been copied on a signature request for:</p>
-
-          <div class="info-box">
-            <p style="margin: 0; font-weight: bold;">${documentName}</p>
-            <p style="margin: 5px 0 0 0; font-size: 14px; color: #475569;">Sent by ${senderName}</p>
-          </div>
-
-          <p><strong>Note:</strong> You are receiving a copy for your records. You are not required to sign this document.</p>
-
-          <p>The document is currently being signed by the required parties. You'll receive the final signed version once complete.</p>
-
-          <a href="${viewLink}" class="button">View Document</a>
-
-          <div class="footer">
-            <p>This is an informational email. No action is required from you.</p>
-            <p style="margin-top: 10px;">© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
-          </div>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-
-  try {
-    const { data, error } = await resend.emails.send({
-     from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [ccEmail],
-      subject: `CC: ${documentName} - Signature Request`,
-      html: emailHtml,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send CC notification email:', error);
-      throw error;
-    }
-
-    console.log('✅ CC notification email sent to:', ccEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Email service error:', error);
-    throw error;
+  const subject = `${senderName} copied you on a document`
+  const previewText = `You have been copied on "${documentName}" sent by ${senderName}`
+ 
+  const content = `
+    <p class="title">You have been copied</p>
+    <p class="meta">${senderName} copied you on a signature request. No action is required from you.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${documentName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Sent by</td>
+        <td class="val">${senderName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Your role</td>
+        <td class="val">Copy only — no signature required</td>
+      </tr>
+    </table>
+ 
+    <p style="font-size:13px;color:#475569;margin-bottom:24px;line-height:1.6;">
+      You will receive the fully signed copy once all parties have signed.
+    </p>
+ 
+    <div class="cta"><a href="${viewLink}">View document</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${viewLink}">${viewLink}</a>
+    </p>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [ccEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendCCNotificationEmail error:', error)
+    throw error
   }
+ 
+  console.log('CC notification sent to:', ccEmail)
+  return { success: true }
 }
-
-/**
- * Sends a completion notification to CC recipients when all signatures are collected
- */
+ 
+// ════════════════════════════════════════════════════════════════
+// sendCCCompletionEmail
+// Sent to CC recipients when all signatures have been collected.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendCCCompletionEmail({
   ccName,
   ccEmail,
@@ -965,100 +875,77 @@ export async function sendCCCompletionEmail({
   downloadLink,
   allSigners,
 }: {
-  ccName: string;
-  ccEmail: string;
-  originalFilename: string;
-  downloadLink: string;
-  allSigners: Array<{ name: string; email: string; signedAt: Date }>;
+  ccName: string
+  ccEmail: string
+  originalFilename: string
+  downloadLink: string
+  allSigners: Array<{ name: string; email: string; signedAt: Date }>
 }) {
-  const emailHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
-        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; }
-        .content { padding: 30px; background: #f9fafb; }
-        .success-box { background: #d1fae5; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 5px; }
-        .signers-list { background: white; border: 1px solid #e5e7eb; border-radius: 5px; padding: 15px; margin: 20px 0; }
-        .signer-item { padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
-        .signer-item:last-child { border-bottom: none; }
-        .button { display: inline-block; padding: 12px 30px; background: #10b981; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; text-align: center; }
-        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; padding: 20px; background: #f8f9fa; border-top: 1px solid #e9ecef; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1 style="margin: 0; font-size: 24px;">✅ Document Fully Signed</h1>
-        </div>
-        <div class="content">
-          <p>Hi ${ccName},</p>
-
-          <div class="success-box">
-            <p style="margin: 0; font-weight: bold; color: #065f46;">All Signatures Collected!</p>
-            <p style="margin: 5px 0 0 0; font-size: 14px; color: #047857;">${originalFilename}</p>
-          </div>
-
-          <p>The following parties have signed the document:</p>
-
-          <div class="signers-list">
-            ${allSigners
-              .map(
-                (signer) => `
-                <div class="signer-item">
-                  <strong>${signer.name}</strong><br/>
-                  <span style="font-size: 13px; color: #6b7280;">${signer.email}</span><br/>
-                  <span style="font-size: 12px; color: #9ca3af;">Signed: ${new Date(
-                    signer.signedAt
-                  ).toLocaleString()}</span>
-                </div>
-              `
-              )
-              .join("")}
-          </div>
-
-          <p>Download the final signed document:</p>
-
-          <a href="${downloadLink}" class="button">Download Signed Document</a>
-
-          <div class="footer">
-            <p>You received this email because you were CC'd on this signature request.</p>
-            <p style="margin-top: 10px;">© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
-          </div>
-        </div>
+  const subject = `All signatures collected — ${originalFilename}`
+  const previewText = `The signing process for "${originalFilename}" is complete`
+ 
+  const signersHtml = allSigners.map(signer => `
+    <div class="signer-row">
+      <div class="signer-name">${signer.name}</div>
+      <div class="signer-sub">
+        ${signer.email} &middot;
+        Signed ${new Date(signer.signedAt).toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })}
       </div>
-    </body>
-    </html>
-  `;
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [ccEmail],
-      subject: `✅ Completed: ${originalFilename}`,
-      html: emailHtml,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send CC completion email:', error);
-      throw error;
-    }
-
-    console.log('✅ CC completion email sent to:', ccEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Email service error:', error);
-    throw error;
+    </div>
+  `).join('')
+ 
+  const content = `
+    <p class="title">Document complete</p>
+    <p class="meta">All parties have signed "${originalFilename}".</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${originalFilename}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Completed</td>
+        <td class="val">${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+      </tr>
+    </table>
+ 
+    <p class="section-label">Signatories</p>
+    <div class="signers">${signersHtml}</div>
+ 
+    <div class="cta"><a href="${downloadLink}">Download signed document</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${downloadLink}">${downloadLink}</a>
+    </p>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [ccEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendCCCompletionEmail error:', error)
+    throw error
   }
+ 
+  console.log('CC completion email sent to:', ccEmail)
+  return { success: true }
 }
-
-
-// ===================================
-// SIGNATURE DECLINED NOTIFICATION
-// ===================================
-
+ 
+// ════════════════════════════════════════════════════════════════
+// sendSignatureDeclinedNotification
+// Sent to the document owner when a recipient declines to sign.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendSignatureDeclinedNotification({
   ownerEmail,
   ownerName,
@@ -1068,184 +955,90 @@ export async function sendSignatureDeclinedNotification({
   reason,
   statusLink,
 }: {
-  ownerEmail: string;
-  ownerName: string;
-  declinerName: string;
-  declinerEmail: string;
-  documentName: string;
-  reason: string;
-  statusLink: string;
+  ownerEmail: string
+  ownerName: string
+  declinerName: string
+  declinerEmail: string
+  documentName: string
+  reason: string
+  statusLink: string
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [ownerEmail],
-      subject: `🚫 ${declinerName} declined to sign "${documentName}"`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              line-height: 1.6;
-              color: #333;
-              background-color: #f5f5f5;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 600px;
-              margin: 40px auto;
-              background: white;
-              border-radius: 12px;
-              overflow: hidden;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }
-            .header {
-              background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-              padding: 40px 30px;
-              text-align: center;
-              color: white;
-            }
-            .icon {
-              font-size: 60px;
-              margin-bottom: 10px;
-            }
-            .content {
-              padding: 40px 30px;
-            }
-            .decline-info {
-              background: #fef2f2;
-              border-left: 4px solid #ef4444;
-              padding: 20px;
-              border-radius: 8px;
-              margin: 20px 0;
-            }
-            .reason-box {
-              background: #f9fafb;
-              border: 1px solid #e5e7eb;
-              padding: 15px;
-              border-radius: 6px;
-              margin: 15px 0;
-              font-style: italic;
-              color: #4b5563;
-            }
-            .cta-button {
-              display: inline-block;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-              padding: 14px 32px;
-              text-decoration: none;
-              border-radius: 8px;
-              font-weight: 600;
-              margin: 20px 0;
-            }
-            .footer {
-              background: #f8f9fa;
-              padding: 30px;
-              text-align: center;
-              font-size: 14px;
-              color: #6c757d;
-              border-top: 1px solid #e9ecef;
-            }
-            .next-steps {
-              background: #eff6ff;
-              border-left: 4px solid #3b82f6;
-              padding: 15px;
-              border-radius: 6px;
-              margin: 20px 0;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="icon">🚫</div>
-              <h1 style="margin: 0; font-size: 28px;">Signature Declined</h1>
-            </div>
-            
-            <div class="content">
-              <p>Hi ${ownerName},</p>
-              
-              <p>
-                <strong>${declinerName}</strong> has declined to sign the following document:
-              </p>
-              
-              <div class="decline-info">
-                <div style="margin-bottom: 15px;">
-                  <strong>📄 Document:</strong> ${documentName}
-                </div>
-                <div style="margin-bottom: 15px;">
-                  <strong>🚫 Declined by:</strong> ${declinerName} (${declinerEmail})
-                </div>
-                <div>
-                  <strong>⏰ Declined at:</strong> ${new Date().toLocaleString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <strong>Reason provided:</strong>
-                <div class="reason-box">
-                  "${reason}"
-                </div>
-              </div>
-              
-              <div class="next-steps">
-                <strong>📌 What happens next:</strong>
-                <ul style="margin: 10px 0; padding-left: 20px;">
-                  <li>This signature request has been cancelled</li>
-                  <li>Other recipients have been notified</li>
-                  <li>No further signatures can be collected</li>
-                  <li>You may want to contact ${declinerName} to discuss their concerns</li>
-                </ul>
-              </div>
-              
-              <center>
-                <a href="${statusLink}" class="cta-button">
-                  View Document Status
-                </a>
-              </center>
-              
-              <p style="margin-top: 30px; font-size: 14px; color: #6c757d;">
-                If you need to proceed with this document, you may create a new signature request after addressing the concerns raised.
-              </p>
-            </div>
-            
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send decline notification:', error);
-      throw error;
-    }
-
-    console.log('✅ Decline notification sent to:', ownerEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Email service error:', error);
-    throw error;
+  const subject = `${declinerName} declined to sign "${documentName}"`
+  const previewText = `${declinerName} has declined the signature request for "${documentName}"`
+ 
+  const content = `
+    <p class="title">Signature declined</p>
+    <p class="meta">${declinerName} has declined to sign the document below.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${documentName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Declined by</td>
+        <td class="val">${declinerName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val">${declinerEmail}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Declined at</td>
+        <td class="val">${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+      </tr>
+    </table>
+ 
+    <p class="section-label">Reason provided</p>
+    <div class="reason">${reason || 'No reason provided'}</div>
+ 
+    <p class="section-label">What happens next</p>
+    <table class="table" style="margin-bottom:28px;">
+      <tr>
+        <td style="font-size:13px;color:#475569;padding:6px 0;border-bottom:1px solid #f1f5f9;">
+          This signature request has been cancelled.
+        </td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#475569;padding:6px 0;border-bottom:1px solid #f1f5f9;">
+          Other recipients have been notified.
+        </td>
+      </tr>
+      <tr>
+        <td style="font-size:13px;color:#475569;padding:6px 0;">
+          No further signatures can be collected on this request.
+        </td>
+      </tr>
+    </table>
+ 
+    <div class="cta"><a href="${statusLink}">View document status</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${statusLink}">${statusLink}</a>
+    </p>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [ownerEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendSignatureDeclinedNotification error:', error)
+    throw error
   }
+ 
+  console.log('Decline notification sent to:', ownerEmail)
+  return { success: true }
 }
-
-// ===================================
-// EXPIRATION WARNING EMAIL
-// ===================================
-
+// ════════════════════════════════════════════════════════════════
+// sendExpirationWarningEmail
+// Sent to a signer when their signing link is about to expire.
+// Subject is plain — avoids urgency-word spam triggers.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendExpirationWarningEmail({
   recipientName,
   recipientEmail,
@@ -1255,103 +1048,77 @@ export async function sendExpirationWarningEmail({
   expiresAt,
   daysLeft,
 }: {
-  recipientName: string;
-  recipientEmail: string;
-  originalFilename: string;
-  signingLink: string;
-  senderName: string;
-  expiresAt: string;
-  daysLeft: number;
+  recipientName: string
+  recipientEmail: string
+  originalFilename: string
+  signingLink: string
+  senderName: string
+  expiresAt: string
+  daysLeft: number
 }) {
-  const urgencyColor = daysLeft === 1 ? '#dc2626' : daysLeft === 2 ? '#ea580c' : '#f59e0b';
-  const urgencyBg = daysLeft === 1 ? '#fef2f2' : daysLeft === 2 ? '#fff7ed' : '#fffbeb';
-  const urgencyEmoji = daysLeft === 1 ? '🚨' : daysLeft === 2 ? '⚠️' : '⏰';
-  const urgencyText = daysLeft === 1 ? 'FINAL WARNING' : daysLeft === 2 ? 'URGENT' : 'REMINDER';
-
   const expirationDate = new Date(expiresAt).toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
-  });
-
+    minute: '2-digit',
+  })
+ 
+  // Plain subject — "FINAL WARNING", "URGENT" and emoji are spam triggers
+  const subject = daysLeft === 1
+    ? `Your signing link for "${originalFilename}" expires tomorrow`
+    : `Your signing link for "${originalFilename}" expires in ${daysLeft} days`
+ 
+  const previewText = `The link sent by ${senderName} expires on ${expirationDate}`
+ 
+  const content = `
+    <p class="title">Signing link expiring soon</p>
+    <p class="meta">${senderName} is waiting for your signature on the document below.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${originalFilename}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Requested by</td>
+        <td class="val">${senderName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Link expires</td>
+        <td class="val">${expirationDate}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Days remaining</td>
+        <td class="val">${daysLeft} day${daysLeft !== 1 ? 's' : ''}</td>
+      </tr>
+    </table>
+ 
+    <p style="font-size:13px;color:#475569;margin-bottom:28px;line-height:1.6;">
+      After the expiration date, this link will no longer be valid. 
+      If you miss the deadline, contact ${senderName} to request a new link.
+    </p>
+ 
+    <div class="cta"><a href="${signingLink}">Review and sign</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${signingLink}">${signingLink}</a>
+    </p>
+  `
+ 
   return sendEmail({
     to: recipientEmail,
-    subject: `${urgencyEmoji} ${urgencyText}: Signing Link Expires in ${daysLeft} Day${daysLeft > 1 ? 's' : ''}!`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 2px solid ${urgencyColor}; border-radius: 8px; overflow: hidden;">
-        <!-- Header -->
-        <div style="background: linear-gradient(135deg, ${urgencyColor} 0%, ${urgencyColor}dd 100%); padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${urgencyEmoji} ${urgencyText}</h1>
-          <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">
-            Your signing link expires in <strong>${daysLeft} day${daysLeft > 1 ? 's' : ''}</strong>
-          </p>
-        </div>
-
-        <!-- Content -->
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
-            Hi <strong>${recipientName}</strong>,
-          </p>
-
-          <div style="background: ${urgencyBg}; border: 2px solid ${urgencyColor}; border-radius: 8px; padding: 20px; margin: 20px 0;">
-            <p style="margin: 0; font-size: 18px; font-weight: bold; color: ${urgencyColor}; text-align: center;">
-              ⏰ Time is running out!
-            </p>
-            <p style="margin: 10px 0 0 0; font-size: 14px; color: #374151; text-align: center;">
-              Your signing link for <strong>${originalFilename}</strong> will expire on:
-            </p>
-            <p style="margin: 10px 0 0 0; font-size: 16px; font-weight: bold; color: ${urgencyColor}; text-align: center;">
-              ${expirationDate}
-            </p>
-          </div>
-
-          <p style="font-size: 14px; color: #6b7280; margin: 20px 0;">
-            This document was sent by <strong>${senderName}</strong>. After the expiration date, this link will no longer work and you won't be able to sign.
-          </p>
-
-          <!-- CTA Button -->
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${signingLink}" 
-               style="display: inline-block; background: linear-gradient(135deg, ${urgencyColor} 0%, ${urgencyColor}dd 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 18px; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
-              ${urgencyEmoji} Sign Now - Don't Wait!
-            </a>
-          </div>
-
-          <p style="font-size: 13px; color: #9ca3af; text-align: center; margin-top: 20px;">
-            If the button doesn't work, copy and paste this link:<br/>
-            <span style="color: #6b7280; word-break: break-all;">${signingLink}</span>
-          </p>
-
-          ${daysLeft === 1 ? `
-          <div style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 6px; padding: 15px; margin-top: 25px; text-align: center;">
-            <p style="font-size: 14px; color: #991b1b; margin: 0; font-weight: bold;">
-              🚨 LAST CHANCE: This is your final reminder. Sign within 24 hours or this link will expire forever!
-            </p>
-          </div>
-          ` : ''}
-        </div>
-
-        <!-- Footer -->
-        <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 12px; color: #9ca3af; margin: 0;">
-            This is an automated expiration warning. Please sign the document before ${expirationDate}.
-          </p>
-        </div>
-      </div>
-    `,
-  });
+    subject,
+    html: shell(content, previewText),
+  })
 }
-
-// ============================================
-// ENVELOPE EMAIL TEMPLATES
-// ============================================
-
-/**
- * Send initial envelope notification to recipient
- */
+ 
+// ════════════════════════════════════════════════════════════════
+// sendEnvelopeEmail
+// Sent to a recipient when they have a multi-document signing package.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendEnvelopeEmail({
   recipientName,
   recipientEmail,
@@ -1362,257 +1129,155 @@ export async function sendEnvelopeEmail({
   message,
   dueDate,
 }: {
-  recipientName: string;
-  recipientEmail: string;
-  documentCount: number;
-  documentNames: string[];
-  signingLink: string;
-  senderName: string;
-  message?: string;
-  dueDate?: string;
+  recipientName: string
+  recipientEmail: string
+  documentCount: number
+  documentNames: string[]
+  signingLink: string
+  senderName: string
+  message?: string
+  dueDate?: string
 }) {
-  const dueDateText = dueDate
-    ? `<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 20px 0;">
-        <p style="margin: 0; font-size: 14px; color: #92400e;">
-          <strong>⏰ Due Date:</strong> ${new Date(dueDate).toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })}
-        </p>
-      </div>`
-    : '';
-
-  const messageText = message
-    ? `<div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 20px 0;">
-        <p style="margin: 0; font-size: 14px; color: #374151; font-style: italic;">
-          "${message}"
-        </p>
-        <p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">
-          - ${senderName}
-        </p>
-      </div>`
-    : '';
-
+  const dueDateFormatted = dueDate
+    ? new Date(dueDate).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : null
+ 
+  // Plain subject — emoji and "Require Your Signature" pattern matches phishing filters
+  const subject = `${senderName} sent you ${documentCount} document${documentCount > 1 ? 's' : ''} to sign`
+  const previewText = `${documentCount} document${documentCount > 1 ? 's' : ''} from ${senderName} require your signature`
+ 
+  const messageBlock = message
+    ? `<div class="msg">${message}<br><span style="font-size:12px;color:#94a3b8;margin-top:4px;display:block;">— ${senderName}</span></div>`
+    : ''
+ 
+  const dueDateRow = dueDateFormatted
+    ? `<tr>
+        <td class="lbl">Due by</td>
+        <td class="val">${dueDateFormatted}</td>
+      </tr>`
+    : ''
+ 
+  const docListHtml = documentNames.map((name, i) => `
+    <div class="doc-row">
+      <span class="doc-num">${i + 1}</span>
+      <span class="doc-name">${name}</span>
+    </div>
+  `).join('')
+ 
+  const content = `
+    <p class="title">Documents for your signature</p>
+    <p class="meta">${senderName} has sent you a signing package. You can review and sign all documents in one session.</p>
+ 
+    ${messageBlock}
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Sent by</td>
+        <td class="val">${senderName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Documents</td>
+        <td class="val">${documentCount}</td>
+      </tr>
+      ${dueDateRow}
+    </table>
+ 
+    <p class="section-label">Documents in this package</p>
+    <div class="doc-list">${docListHtml}</div>
+ 
+    <div class="cta"><a href="${signingLink}">Review and sign</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${signingLink}">${signingLink}</a>
+    </p>
+  `
+ 
   return sendEmail({
     to: recipientEmail,
-    subject: `📦 Signing Package: ${documentCount} Document${documentCount > 1 ? 's' : ''} Require Your Signature`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-        <!-- Header -->
-        <div style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); padding: 30px; text-align: center;">
-          <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="9" y1="9" x2="15" y2="9"></line>
-              <line x1="9" y1="15" x2="15" y2="15"></line>
-            </svg>
-          </div>
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Signing Package Ready</h1>
-          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">
-            ${documentCount} document${documentCount > 1 ? 's' : ''} • One signing session
-          </p>
-        </div>
-
-        <!-- Content -->
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
-            Hi <strong>${recipientName}</strong>,
-          </p>
-
-          <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">
-            <strong>${senderName}</strong> has sent you a signing package containing <strong>${documentCount} document${documentCount > 1 ? 's' : ''}</strong>. You can review and sign all documents in one convenient session.
-          </p>
-
-          ${messageText}
-
-          <!-- Document List -->
-          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 25px 0;">
-            <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">
-              📄 Documents in this package:
-            </h3>
-            <div style="space-y: 10px;">
-              ${documentNames.map((name, index) => `
-                <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 8px; border-left: 3px solid #7c3aed;">
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="background: #ede9fe; color: #7c3aed; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">
-                      ${index + 1}
-                    </span>
-                    <span style="font-size: 14px; color: #111827; font-weight: 500;">
-                      ${name}
-                    </span>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-
-          ${dueDateText}
-
-          <!-- CTA Button -->
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${signingLink}" 
-               style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);">
-              📝 Review & Sign Package
-            </a>
-          </div>
-
-          <p style="font-size: 13px; color: #9ca3af; text-align: center; margin-top: 20px;">
-            If the button doesn't work, copy and paste this link:<br/>
-            <span style="color: #6b7280; word-break: break-all; font-size: 11px;">${signingLink}</span>
-          </p>
-
-          <!-- Info Boxes -->
-          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 15px; margin-top: 25px;">
-            <p style="font-size: 13px; color: #1e40af; margin: 0;">
-              <strong>✨ What's a signing package?</strong><br/>
-              Instead of signing ${documentCount} separate documents, you'll sign them all in one streamlined session. It's faster and easier!
-            </p>
-          </div>
-
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 15px; margin-top: 15px;">
-            <p style="font-size: 13px; color: #166534; margin: 0;">
-              <strong>🔒 Secure & Legal:</strong><br/>
-              Your signatures are encrypted and legally binding. A complete audit trail is maintained for all documents.
-            </p>
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 12px; color: #9ca3af; margin: 0;">
-            This signing package was sent by ${senderName}
-          </p>
-          <p style="font-size: 11px; color: #d1d5db; margin: 10px 0 0 0;">
-            Powered by DocSend E-Signature
-          </p>
-        </div>
-      </div>
-    `,
-  });
+    subject,
+    html: shell(content, previewText),
+  })
 }
-
-/**
- * Send envelope completion notification
- */
+ 
+// ════════════════════════════════════════════════════════════════
+// sendEnvelopeCompletedEmail
+// Sent to the document owner when all recipients in an envelope
+// have completed signing.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendEnvelopeCompletedEmail({
   ownerEmail,
   recipients,
   documentCount,
 }: {
-  ownerEmail: string;
-  recipients: any[];
-  documentCount: number;
+  ownerEmail: string
+  recipients: any[]
+  documentCount: number
 }) {
-  const allCompleted = recipients.every(r => r.status === 'completed');
-
-  if (!allCompleted) {
-    return; // Don't send until all recipients complete
-  }
-
+  const allCompleted = recipients.every(r => r.status === 'completed')
+  if (!allCompleted) return
+ 
+  const subject = `All ${documentCount} document${documentCount > 1 ? 's' : ''} signed`
+  const previewText = `Your signing package is complete — all ${recipients.length} recipient${recipients.length > 1 ? 's' : ''} have signed`
+ 
+  const signersHtml = recipients.map(r => `
+    <div class="signer-row">
+      <div class="signer-name">${r.name}</div>
+      <div class="signer-sub">
+        ${r.email}
+        ${r.completedAt
+          ? ` &middot; ${new Date(r.completedAt).toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}`
+          : ''}
+      </div>
+    </div>
+  `).join('')
+ 
+  const content = `
+    <p class="title">Signing package complete</p>
+    <p class="meta">All recipients have signed. ${documentCount} document${documentCount > 1 ? 's' : ''} fully executed.</p>
+ 
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-n">${documentCount}</span>
+        <span class="stat-l">Documents</span>
+      </div>
+      <div class="stat">
+        <span class="stat-n">${recipients.length}</span>
+        <span class="stat-l">Signers</span>
+      </div>
+    </div>
+ 
+    <p class="section-label">Completed by</p>
+    <div class="signers">${signersHtml}</div>
+ 
+    <div class="cta">
+      <a href="${process.env.NEXT_PUBLIC_BASE_URL}/dashboard">View dashboard</a>
+    </div>
+  `
+ 
   return sendEmail({
     to: ownerEmail,
-    subject: `✅ Envelope Completed - All ${documentCount} Documents Signed`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-        <!-- Header -->
-        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center;">
-          <div style="background: rgba(255,255,255,0.2); width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-          </div>
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Envelope Completed!</h1>
-          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">
-            All signatures collected
-          </p>
-        </div>
-
-        <!-- Content -->
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
-            Great news! Your signing package has been completed by all recipients.
-          </p>
-
-          <!-- Stats Box -->
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 25px 0;">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-              <div style="text-align: center;">
-                <div style="font-size: 32px; font-weight: bold; color: #059669; margin-bottom: 5px;">
-                  ${documentCount}
-                </div>
-                <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">
-                  Documents
-                </div>
-              </div>
-              <div style="text-align: center;">
-                <div style="font-size: 32px; font-weight: bold; color: #059669; margin-bottom: 5px;">
-                  ${recipients.length}
-                </div>
-                <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">
-                  Signers
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Recipients List -->
-          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 25px 0;">
-            <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">
-              ✓ Completed by:
-            </h3>
-            ${recipients.map((r, index) => `
-              <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
-                <div style="background: #d1fae5; color: #065f46; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                    <polyline points="20 6 9 17 4 12"></polyline>
-                  </svg>
-                </div>
-                <div style="flex: 1;">
-                  <div style="font-weight: 600; color: #111827; font-size: 14px;">${r.name}</div>
-                  <div style="font-size: 12px; color: #6b7280;">${r.email}</div>
-                </div>
-                <div style="font-size: 11px; color: #6b7280;">
-                  ${r.completedAt ? new Date(r.completedAt).toLocaleString() : ''}
-                </div>
-              </div>
-            `).join('')}
-          </div>
-
-          <!-- CTA Button -->
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.NEXT_PUBLIC_BASE_URL}/SignatureDashboard" 
-               style="display: inline-block; background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">
-              📊 View Dashboard
-            </a>
-          </div>
-
-          <!-- Info Box -->
-          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 15px; margin-top: 25px;">
-            <p style="font-size: 13px; color: #1e40af; margin: 0;">
-              <strong>📥 What's Next?</strong><br/>
-              • Signed PDFs are available for download<br/>
-              • Complete audit trail has been generated<br/>
-              • All parties have received their copies
-            </p>
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 12px; color: #9ca3af; margin: 0;">
-            Powered by DocSend E-Signature
-          </p>
-        </div>
-      </div>
-    `,
-  });
+    subject,
+    html: shell(content, previewText),
+  })
 }
 
-/**
- * Send reminder for incomplete envelope
- */
+// ════════════════════════════════════════════════════════════════
+// sendEnvelopeReminderEmail
+// Sent to a recipient who has not yet signed their package.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendEnvelopeReminderEmail({
   recipientName,
   recipientEmail,
@@ -1622,100 +1287,78 @@ export async function sendEnvelopeReminderEmail({
   senderName,
   dueDate,
 }: {
-  recipientName: string;
-  recipientEmail: string;
-  documentCount: number;
-  documentNames: string[];
-  signingLink: string;
-  senderName: string;
-  dueDate?: string;
+  recipientName: string
+  recipientEmail: string
+  documentCount: number
+  documentNames: string[]
+  signingLink: string
+  senderName: string
+  dueDate?: string
 }) {
-  const dueDateText = dueDate
-    ? `<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 20px 0;">
-        <p style="margin: 0; font-size: 14px; color: #92400e;">
-          <strong>⏰ Due Date:</strong> ${new Date(dueDate).toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })}
-        </p>
-      </div>`
-    : '';
-
+  const dueDateFormatted = dueDate
+    ? new Date(dueDate).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : null
+ 
+  const subject = `Reminder: ${documentCount} document${documentCount > 1 ? 's' : ''} from ${senderName} await your signature`
+  const previewText = `${senderName} is waiting for your signature on ${documentCount} document${documentCount > 1 ? 's' : ''}`
+ 
+  const dueDateRow = dueDateFormatted
+    ? `<tr>
+        <td class="lbl">Due by</td>
+        <td class="val">${dueDateFormatted}</td>
+      </tr>`
+    : ''
+ 
+  const docListHtml = documentNames.map((name, i) => `
+    <div class="doc-row">
+      <span class="doc-num">${i + 1}</span>
+      <span class="doc-name">${name}</span>
+    </div>
+  `).join('')
+ 
+  const content = `
+    <p class="title">Signature reminder</p>
+    <p class="meta">${senderName} is waiting for your signature on the documents below.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Sent by</td>
+        <td class="val">${senderName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Documents</td>
+        <td class="val">${documentCount}</td>
+      </tr>
+      ${dueDateRow}
+    </table>
+ 
+    <p class="section-label">Pending documents</p>
+    <div class="doc-list">${docListHtml}</div>
+ 
+    <div class="cta"><a href="${signingLink}">Review and sign</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${signingLink}">${signingLink}</a>
+    </p>
+  `
+ 
   return sendEmail({
     to: recipientEmail,
-    subject: `⏰ Reminder: ${documentCount} Documents Awaiting Your Signature`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 2px solid #f59e0b; border-radius: 8px; overflow: hidden;">
-        <!-- Header -->
-        <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">⏰ Signature Reminder</h1>
-          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">
-            Your signing package is waiting
-          </p>
-        </div>
-
-        <!-- Content -->
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
-            Hi <strong>${recipientName}</strong>,
-          </p>
-
-          <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">
-            This is a friendly reminder that you have a signing package from <strong>${senderName}</strong> containing <strong>${documentCount} document${documentCount > 1 ? 's' : ''}</strong> that require your signature.
-          </p>
-
-          <!-- Document List -->
-          <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 20px; margin: 25px 0;">
-            <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #92400e; font-weight: 600;">
-              📄 Pending Documents:
-            </h3>
-            ${documentNames.map((name, index) => `
-              <div style="background: white; padding: 10px; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid #f59e0b;">
-                <span style="font-size: 13px; color: #111827;">
-                  ${index + 1}. ${name}
-                </span>
-              </div>
-            `).join('')}
-          </div>
-
-          ${dueDateText}
-
-          <!-- CTA Button -->
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${signingLink}" 
-               style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);">
-              📝 Sign Now
-            </a>
-          </div>
-
-          <p style="font-size: 13px; color: #9ca3af; text-align: center; margin-top: 20px;">
-            If the button doesn't work, copy and paste this link:<br/>
-            <span style="color: #6b7280; word-break: break-all; font-size: 11px;">${signingLink}</span>
-          </p>
-
-          <!-- Info Box -->
-          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 15px; margin-top: 25px;">
-            <p style="font-size: 13px; color: #1e40af; margin: 0;">
-              💡 <strong>Quick Reminder:</strong> You can sign all ${documentCount} documents in one session. It usually takes less than 5 minutes!
-            </p>
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 12px; color: #9ca3af; margin: 0;">
-            This is an automated reminder from ${senderName}
-          </p>
-        </div>
-      </div>
-    `,
-  });
+    subject,
+    html: shell(content, previewText),
+  })
 }
-
-
- // Notify recipient that one document in envelope was signed
+ 
+// ════════════════════════════════════════════════════════════════
+// sendEnvelopeProgressEmail
+// Sent to a recipient after they sign one document in a package,
+// showing how many remain.
+// ════════════════════════════════════════════════════════════════
  
 export async function sendEnvelopeProgressEmail({
   recipientName,
@@ -1725,950 +1368,409 @@ export async function sendEnvelopeProgressEmail({
   remainingDocuments,
   signingLink,
 }: {
-  recipientName: string;
-  recipientEmail: string;
-  completedCount: number;
-  totalCount: number;
-  remainingDocuments: string[];
-  signingLink: string;
+  recipientName: string
+  recipientEmail: string
+  completedCount: number
+  totalCount: number
+  remainingDocuments: string[]
+  signingLink: string
 }) {
-  const progressPercent = Math.round((completedCount / totalCount) * 100);
-
+  const progressPercent = Math.round((completedCount / totalCount) * 100)
+ 
+  const subject = `${completedCount} of ${totalCount} documents signed — ${remainingDocuments.length} remaining`
+  const previewText = `${remainingDocuments.length} document${remainingDocuments.length !== 1 ? 's' : ''} still need your signature`
+ 
+  const remainingHtml = remainingDocuments.map((name, i) => `
+    <div class="doc-row">
+      <span class="doc-num">${i + 1}</span>
+      <span class="doc-name">${name}</span>
+    </div>
+  `).join('')
+ 
+  const content = `
+    <p class="title">Signing in progress</p>
+    <p class="meta">${completedCount} of ${totalCount} documents signed. ${remainingDocuments.length} still need your signature.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Signed</td>
+        <td class="val">${completedCount} of ${totalCount}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Remaining</td>
+        <td class="val">${remainingDocuments.length}</td>
+      </tr>
+    </table>
+ 
+    <div class="bar-track">
+      <div class="bar-fill" style="width:${progressPercent}%"></div>
+    </div>
+    <p class="progress-label">${progressPercent}% complete</p>
+ 
+    <p class="section-label" style="margin-top:20px;">Still to sign</p>
+    <div class="doc-list">${remainingHtml}</div>
+ 
+    <div class="cta"><a href="${signingLink}">Continue signing</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${signingLink}">${signingLink}</a>
+    </p>
+  `
+ 
   return sendEmail({
     to: recipientEmail,
-    subject: `📊 Progress Update: ${completedCount}/${totalCount} Documents Signed`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-        <!-- Header -->
-        <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Almost There!</h1>
-          <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 14px;">
-            ${completedCount} of ${totalCount} documents signed
-          </p>
-        </div>
-
-        <!-- Content -->
-        <div style="padding: 30px;">
-          <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">
-            Hi <strong>${recipientName}</strong>,
-          </p>
-
-          <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">
-            Great progress! You've signed ${completedCount} out of ${totalCount} documents. 
-            ${remainingDocuments.length === 1 ? 'Just one more to go!' : `${remainingDocuments.length} more to go!`}
-          </p>
-
-          <!-- Progress Bar -->
-          <div style="background: #f3f4f6; border-radius: 8px; padding: 20px; margin: 25px 0;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-              <span style="font-size: 14px; color: #6b7280;">Progress</span>
-              <span style="font-size: 14px; font-weight: 600; color: #3b82f6;">${progressPercent}%</span>
-            </div>
-            <div style="background: #e5e7eb; height: 12px; border-radius: 6px; overflow: hidden;">
-              <div style="background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%); height: 100%; width: ${progressPercent}%; transition: width 0.3s;"></div>
-            </div>
-          </div>
-
-          <!-- Remaining Documents -->
-          <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 20px; margin: 25px 0;">
-            <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #92400e; font-weight: 600;">
-              📋 Still need your signature:
-            </h3>
-            ${remainingDocuments.map((name, index) => `
-              <div style="background: white; padding: 10px; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid #fbbf24;">
-                <span style="font-size: 13px; color: #111827;">
-                  ${index + 1}. ${name}
-                </span>
-              </div>
-            `).join('')}
-          </div>
-
-          <!-- CTA Button -->
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${signingLink}" 
-               style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
-              ✍️ Continue Signing
-            </a>
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div style="background: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 12px; color: #9ca3af; margin: 0;">
-            You're so close to completing this package!
-          </p>
-        </div>
-      </div>
-    `,
-  });
+    subject,
+    html: shell(content, previewText),
+  })
 }
-
-// ===================================
-// SPACE INVITATION EMAIL
-// ===================================
+ 
+// ════════════════════════════════════════════════════════════════
+// sendSpaceInvitation
+// Sent when an owner invites someone to a space.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendSpaceInvitation({
   toEmail,
   spaceName,
   inviterName,
   role,
-  inviteToken
+  inviteToken,
 }: {
-  toEmail: string;
-  spaceName: string;
-  inviterName: string;
-  role: string;
-  inviteToken: string;
+  toEmail: string
+  spaceName: string
+  inviterName: string
+  role: string
+  inviteToken: string
 }) {
-  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${inviteToken}`;
-
-  await resend.emails.send({
-    from: 'DocMetrics <noreply@docmetrics.io>',
+  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${inviteToken}`
+  const roleLabel = role.charAt(0).toUpperCase() + role.slice(1)
+ 
+  const subject = `${inviterName} invited you to "${spaceName}"`
+  const previewText = `You have been invited to access the "${spaceName}" data room`
+ 
+  const content = `
+    <p class="title">You have been invited</p>
+    <p class="meta">${inviterName} has invited you to access a data room on DocMetrics.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Data room</td>
+        <td class="val">${spaceName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Invited by</td>
+        <td class="val">${inviterName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Your role</td>
+        <td class="val">${roleLabel}</td>
+      </tr>
+    </table>
+ 
+    <div class="cta"><a href="${inviteUrl}">Accept invitation</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${inviteUrl}">${inviteUrl}</a>
+    </p>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
     to: toEmail,
-    subject: `You've been invited to ${spaceName}`,
-    html: `
-      <h2>You've been invited!</h2>
-      <p>${inviterName} has invited you to collaborate on <strong>${spaceName}</strong></p>
-      <p>Your role: <strong>${role}</strong></p>
-      <a href="${inviteUrl}" style="background: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block; margin-top: 16px;">
-        Accept Invitation
-      </a>
-      <p style="color: #64748b; font-size: 14px; margin-top: 24px;">
-        Or copy this link: ${inviteUrl}
-      </p>
-    `
-  });
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendSpaceInvitation error:', error)
+    throw error
+  }
+ 
+  console.log('Space invitation sent to:', toEmail)
+  return { success: true }
 }
-
-
-// ===================================
-// MEMBER ROLE CHANGED EMAIL
-// ===================================
+ 
+// ════════════════════════════════════════════════════════════════
+// sendMemberRoleChangedEmail
+// Sent when a member's role in a space is updated.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendMemberRoleChangedEmail({
   toEmail,
   spaceName,
   oldRole,
   newRole,
-  changedBy
+  changedBy,
 }: {
-  toEmail: string;
-  spaceName: string;
-  oldRole: string;
-  newRole: string;
-  changedBy: string;
+  toEmail: string
+  spaceName: string
+  oldRole: string
+  newRole: string
+  changedBy: string
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [toEmail],
-      subject: `Your role in "${spaceName}" has been updated`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; color: white; }
-            .content { padding: 30px; }
-            .role-change { background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 20px 0; border-radius: 8px; }
-            .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1 style="margin: 0; font-size: 24px;">🔄 Role Updated</h1>
-            </div>
-            <div class="content">
-              <p>Your permissions in <strong>${spaceName}</strong> have been updated.</p>
-              <div class="role-change">
-                <p style="margin: 0;"><strong>Previous Role:</strong> ${oldRole}</p>
-                <p style="margin: 10px 0 0 0;"><strong>New Role:</strong> ${newRole}</p>
-              </div>
-              <p style="font-size: 14px; color: #6b7280;">Updated by: ${changedBy}</p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/spaces" style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin-top: 20px;">
-                View Space
-              </a>
-            </div>
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `
-    });
-
-    if (error) throw error;
-    console.log('✅ Role change email sent to:', toEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Email service error:', error);
-    throw error;
+  const subject = `Your role in "${spaceName}" has been updated`
+  const previewText = `${changedBy} changed your role from ${oldRole} to ${newRole}`
+ 
+  const content = `
+    <p class="title">Role updated</p>
+    <p class="meta">Your permissions in "${spaceName}" have changed.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Data room</td>
+        <td class="val">${spaceName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Previous role</td>
+        <td class="val">${oldRole}</td>
+      </tr>
+      <tr>
+        <td class="lbl">New role</td>
+        <td class="val">${newRole}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Updated by</td>
+        <td class="val">${changedBy}</td>
+      </tr>
+    </table>
+ 
+    <div class="cta">
+      <a href="${process.env.NEXT_PUBLIC_APP_URL}/spaces">View spaces</a>
+    </div>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [toEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendMemberRoleChangedEmail error:', error)
+    throw error
   }
+ 
+  console.log('Role change email sent to:', toEmail)
+  return { success: true }
 }
-
-// ===================================
-// MEMBER REMOVED EMAIL
-// ===================================
+// ════════════════════════════════════════════════════════════════
+// sendMemberRemovedEmail
+// Sent when a member's access to a space is revoked.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendMemberRemovedEmail({
   toEmail,
   spaceName,
-  removedBy
+  removedBy,
 }: {
-  toEmail: string;
-  spaceName: string;
-  removedBy: string;
+  toEmail: string
+  spaceName: string
+  removedBy: string
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [toEmail],
-      subject: `Access removed from "${spaceName}"`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-            .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 30px; text-align: center; color: white; }
-            .content { padding: 30px; }
-            .info-box { background: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 20px 0; border-radius: 8px; }
-            .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1 style="margin: 0; font-size: 24px;">❌ Access Removed</h1>
-            </div>
-            <div class="content">
-              <p>Your access to <strong>${spaceName}</strong> has been removed.</p>
-              <div class="info-box">
-                <p style="margin: 0;">You no longer have access to documents in this space.</p>
-                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6b7280;">Removed by: ${removedBy}</p>
-              </div>
-              <p style="font-size: 14px; color: #6b7280;">If you believe this was done in error, please contact ${removedBy}.</p>
-            </div>
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} DocuShare. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `
-    });
-
-    if (error) throw error;
-    console.log('✅ Removal email sent to:', toEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Email service error:', error);
-    throw error;
+  const subject = `Your access to "${spaceName}" has been removed`
+  const previewText = `${removedBy} has removed your access to "${spaceName}"`
+ 
+  const content = `
+    <p class="title">Access removed</p>
+    <p class="meta">Your access to the data room below has been revoked.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Data room</td>
+        <td class="val">${spaceName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Removed by</td>
+        <td class="val">${removedBy}</td>
+      </tr>
+    </table>
+ 
+    <p style="font-size:13px;color:#475569;line-height:1.6;">
+      You no longer have access to documents in this space.
+      If you believe this was done in error, contact ${removedBy} directly.
+    </p>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [toEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendMemberRemovedEmail error:', error)
+    throw error
   }
+ 
+  console.log('Removal email sent to:', toEmail)
+  return { success: true }
 }
-
-
-// ===================================
-// WELCOME EMAIL FOR NEW SIGNUPS
-// ===================================
+ 
+// ════════════════════════════════════════════════════════════════
+// sendWelcomeEmail
+// Sent when a new user creates an account.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendWelcomeEmail({
   recipientName,
   recipientEmail,
 }: {
-  recipientName: string;
-  recipientEmail: string;
+  recipientName: string
+  recipientEmail: string
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [recipientEmail],
-      subject: 'Welcome to DocMetrics - Your Document Workflow Starts Here',
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-              line-height: 1.6;
-              color: #1f2937;
-              background-color: #f9fafb;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 600px;
-              margin: 40px auto;
-              background: white;
-              border-radius: 16px;
-              overflow: hidden;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-            }
-            .header {
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              padding: 50px 30px;
-              text-align: center;
-              color: white;
-            }
-            .logo {
-              font-size: 48px;
-              margin-bottom: 15px;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 32px;
-              font-weight: 700;
-              letter-spacing: -0.5px;
-            }
-            .header p {
-              margin: 12px 0 0 0;
-              font-size: 16px;
-              opacity: 0.95;
-            }
-            .content {
-              padding: 45px 35px;
-            }
-            .greeting {
-              font-size: 20px;
-              color: #111827;
-              margin-bottom: 20px;
-              font-weight: 600;
-            }
-            .intro-text {
-              font-size: 16px;
-              color: #4b5563;
-              margin-bottom: 30px;
-              line-height: 1.7;
-            }
-            .feature-grid {
-              display: grid;
-              gap: 20px;
-              margin: 35px 0;
-            }
-            .feature-card {
-              background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
-              border-left: 4px solid #667eea;
-              padding: 24px;
-              border-radius: 10px;
-              transition: transform 0.2s;
-            }
-            .feature-icon {
-              font-size: 32px;
-              margin-bottom: 12px;
-            }
-            .feature-title {
-              font-size: 18px;
-              font-weight: 700;
-              color: #1f2937;
-              margin-bottom: 8px;
-            }
-            .feature-desc {
-              font-size: 14px;
-              color: #6b7280;
-              line-height: 1.6;
-            }
-            .cta-section {
-              background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-              border-radius: 12px;
-              padding: 30px;
-              margin: 35px 0;
-              text-align: center;
-            }
-            .cta-title {
-              font-size: 20px;
-              font-weight: 700;
-              color: #78350f;
-              margin-bottom: 15px;
-            }
-            .cta-button {
-              display: inline-block;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-              padding: 16px 40px;
-              text-decoration: none;
-              border-radius: 10px;
-              font-weight: 600;
-              font-size: 16px;
-              margin: 15px 0;
-              box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-              transition: transform 0.2s;
-            }
-            .cta-button:hover {
-              transform: translateY(-2px);
-            }
-            .stats-box {
-              background: #f0fdf4;
-              border: 2px solid #bbf7d0;
-              border-radius: 12px;
-              padding: 25px;
-              margin: 30px 0;
-            }
-            .stats-grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr 1fr;
-              gap: 20px;
-              text-align: center;
-            }
-            .stat-item {
-              padding: 15px;
-            }
-            .stat-number {
-              font-size: 28px;
-              font-weight: 800;
-              color: #059669;
-              display: block;
-            }
-            .stat-label {
-              font-size: 12px;
-              color: #047857;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              margin-top: 5px;
-            }
-            .tips-section {
-              background: #eff6ff;
-              border-radius: 12px;
-              padding: 25px;
-              margin: 30px 0;
-            }
-            .tips-title {
-              font-size: 18px;
-              font-weight: 700;
-              color: #1e40af;
-              margin-bottom: 15px;
-            }
-            .tip-item {
-              display: flex;
-              align-items: start;
-              margin-bottom: 12px;
-              padding: 10px;
-              background: white;
-              border-radius: 6px;
-            }
-            .tip-number {
-              background: #3b82f6;
-              color: white;
-              width: 24px;
-              height: 24px;
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-weight: 700;
-              font-size: 12px;
-              margin-right: 12px;
-              flex-shrink: 0;
-            }
-            .tip-text {
-              font-size: 14px;
-              color: #1f2937;
-              line-height: 1.5;
-            }
-            .support-box {
-              background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-              border-left: 4px solid #ef4444;
-              padding: 20px;
-              border-radius: 10px;
-              margin: 30px 0;
-            }
-            .support-title {
-              font-size: 16px;
-              font-weight: 700;
-              color: #991b1b;
-              margin-bottom: 10px;
-            }
-            .support-text {
-              font-size: 14px;
-              color: #7f1d1d;
-              margin-bottom: 12px;
-            }
-            .support-email {
-              color: #dc2626;
-              font-weight: 600;
-              text-decoration: none;
-            }
-            .footer {
-              background: #f9fafb;
-              padding: 35px 30px;
-              text-align: center;
-              border-top: 1px solid #e5e7eb;
-            }
-            .footer-text {
-              font-size: 14px;
-              color: #6b7280;
-              margin-bottom: 15px;
-            }
-            .social-links {
-              margin: 20px 0;
-            }
-            .social-link {
-              display: inline-block;
-              margin: 0 10px;
-              color: #6b7280;
-              text-decoration: none;
-              font-size: 13px;
-            }
-            .footer-small {
-              font-size: 12px;
-              color: #9ca3af;
-              margin-top: 20px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <!-- Header -->
-            <div class="header">
-              <div class="logo">📊</div>
-              <h1>Welcome to DocMetrics</h1>
-              <p>Where document sharing meets digital signatures</p>
-            </div>
-            
-            <!-- Content -->
-            <div class="content">
-              <p class="greeting">Hi ${recipientName}! 👋</p>
-              
-              <p class="intro-text">
-                We're thrilled to have you on board! DocMetrics combines the power of secure document sharing 
-                with seamless e-signature capabilities, giving you complete control over your document workflow.
-              </p>
-
-              <!-- Feature Grid -->
-              <div class="feature-grid">
-                <div class="feature-card">
-                  <div class="feature-icon">📤</div>
-                  <div class="feature-title">Smart Document Sharing</div>
-                  <div class="feature-desc">
-                    Share documents securely with custom permissions, expiration dates, and detailed analytics. 
-                    Know exactly who viewed your documents and when.
-                  </div>
-                </div>
-
-                <div class="feature-card">
-                  <div class="feature-icon">✍️</div>
-                  <div class="feature-title">E-Signature Made Simple</div>
-                  <div class="feature-desc">
-                    Send documents for signature, track status in real-time, and get legally binding signatures 
-                    in minutes. No printing, no scanning.
-                  </div>
-                </div>
-
-                <div class="feature-card">
-                  <div class="feature-icon">📈</div>
-                  <div class="feature-title">Powerful Analytics</div>
-                  <div class="feature-desc">
-                    Gain insights into document engagement. Track views, downloads, time spent, and recipient 
-                    behavior to optimize your workflow.
-                  </div>
-                </div>
-              </div>
-
-              <!-- CTA Section -->
-              <div class="cta-section">
-                <div class="cta-title">🚀 Ready to Get Started?</div>
-                <p style="color: #92400e; font-size: 15px; margin-bottom: 10px;">
-                  Upload your first document and experience the power of DocMetrics
-                </p>
-                <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://docmetrics.io'}/dashboard" class="cta-button">
-                  Go to Dashboard
-                </a>
-              </div>
-
-              <!-- Quick Start Tips -->
-              <div class="tips-section">
-                <div class="tips-title">💡 Quick Start Guide</div>
-                <div class="tip-item">
-                  <div class="tip-number">1</div>
-                  <div class="tip-text">
-                    <strong>Upload a document</strong> - Drag and drop any PDF or use our upload button
-                  </div>
-                </div>
-                <div class="tip-item">
-                  <div class="tip-number">2</div>
-                  <div class="tip-text">
-                    <strong>Share or request signatures</strong> - Choose whether to share for viewing or send for signing
-                  </div>
-                </div>
-                <div class="tip-item">
-                  <div class="tip-number">3</div>
-                  <div class="tip-text">
-                    <strong>Track everything</strong> - Monitor views, downloads, and signature progress in real-time
-                  </div>
-                </div>
-                <div class="tip-item">
-                  <div class="tip-number">4</div>
-                  <div class="tip-text">
-                    <strong>Collaborate seamlessly</strong> - Invite team members and manage permissions from your dashboard
-                  </div>
-                </div>
-              </div>
-
-              <!-- Stats Box -->
-              <div class="stats-box">
-                <div style="text-align: center; margin-bottom: 20px;">
-                  <strong style="color: #047857; font-size: 16px;">Join thousands of professionals who trust DocMetrics</strong>
-                </div>
-                <div class="stats-grid">
-                  <div class="stat-item">
-                    <span class="stat-number">500K+</span>
-                    <span class="stat-label">Documents Shared</span>
-                  </div>
-                  <div class="stat-item">
-                    <span class="stat-number">250K+</span>
-                    <span class="stat-label">Signatures Collected</span>
-                  </div>
-                  <div class="stat-item">
-                    <span class="stat-number">99.9%</span>
-                    <span class="stat-label">Uptime</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Support Box -->
-              <div class="support-box">
-                <div class="support-title">🆘 Need Help?</div>
-                <p class="support-text">
-                  Our support team is here to help you succeed. Whether you have questions about features, 
-                  need technical assistance, or want to share feedback, we're just an email away.
-                </p>
-                <p style="margin: 0;">
-                  <strong>📧 Email us:</strong> 
-                  <a href="mailto:support@docmetrics.io" class="support-email">support@docmetrics.io</a>
-                </p>
-              </div>
-
-              <p style="font-size: 15px; color: #4b5563; margin-top: 35px; line-height: 1.7;">
-                Thanks for choosing DocMetrics. We're committed to making your document workflow more efficient, 
-                secure, and insightful. Let's build something great together!
-              </p>
-
-              <p style="font-size: 15px; color: #1f2937; margin-top: 25px; font-weight: 600;">
-                Best regards,<br>
-                The DocMetrics Team
-              </p>
-            </div>
-            
-            <!-- Footer -->
-            <div class="footer">
-              <p class="footer-text">
-                You're receiving this email because you created an account at DocMetrics.
-              </p>
-              <div class="social-links">
-                <a href="#" class="social-link">Twitter</a> • 
-                <a href="#" class="social-link">LinkedIn</a> • 
-                <a href="#" class="social-link">Documentation</a>
-              </div>
-              <p class="footer-small">
-                © ${new Date().getFullYear()} DocMetrics. All rights reserved.<br>
-                <a href="#" style="color: #9ca3af; text-decoration: none;">Privacy Policy</a> • 
-                <a href="#" style="color: #9ca3af; text-decoration: none;">Terms of Service</a>
-              </p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send welcome email:', error);
-      throw error;
-    }
-
-    console.log('✅ Welcome email sent to:', recipientEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Welcome email service error:', error);
-    throw error;
+  const dashboardUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://docmetrics.io'}/dashboard`
+ 
+  const subject = 'Welcome to DocMetrics'
+  const previewText = 'Your account is ready. Here is how to get started.'
+ 
+  const content = `
+    <p class="title">Welcome, ${recipientName}</p>
+    <p class="meta">Your DocMetrics account is ready. Here is a quick overview of what you can do.</p>
+ 
+    <p class="section-label">What DocMetrics does</p>
+    <div class="feature-list">
+      <div class="feature-row">
+        <div class="feature-title">Document sharing</div>
+        <div class="feature-desc">Share documents with custom permissions, expiration dates, and view tracking.</div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-title">E-signatures</div>
+        <div class="feature-desc">Send documents for signature and track signing status in real time.</div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-title">Analytics</div>
+        <div class="feature-desc">See who viewed your documents, how long they spent, and which pages they read.</div>
+      </div>
+    </div>
+ 
+    <p class="section-label">Getting started</p>
+    <div class="steps">
+      <div class="step-row">
+        <span class="step-num">1</span>
+        <span class="step-text"><strong>Upload a document</strong> — drag and drop any PDF from your dashboard.</span>
+      </div>
+      <div class="step-row">
+        <span class="step-num">2</span>
+        <span class="step-text"><strong>Share or send for signature</strong> — choose who can view it or request a signature.</span>
+      </div>
+      <div class="step-row">
+        <span class="step-num">3</span>
+        <span class="step-text"><strong>Track activity</strong> — monitor views, time spent, and signature progress.</span>
+      </div>
+      <div class="step-row">
+        <span class="step-num">4</span>
+        <span class="step-text"><strong>Invite your team</strong> — add members and manage permissions from settings.</span>
+      </div>
+    </div>
+ 
+    <div class="cta"><a href="${dashboardUrl}">Go to dashboard</a></div>
+ 
+    <p style="font-size:13px;color:#475569;margin-top:24px;line-height:1.6;">
+      Questions? Reply to this email or reach us at
+      <a href="mailto:support@docmetrics.io" style="color:#0f172a;font-weight:600;">support@docmetrics.io</a>
+    </p>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [recipientEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendWelcomeEmail error:', error)
+    throw error
   }
+ 
+  console.log('Welcome email sent to:', recipientEmail)
+  return { success: true }
 }
 
-
-
-
-// ===================================
-// PASSWORD RESET EMAIL
-// ===================================
+// ════════════════════════════════════════════════════════════════
+// sendPasswordResetEmail
+// Sent to a user who requested a password reset.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendPasswordResetEmail({
   recipientName,
   recipientEmail,
   resetCode,
 }: {
-  recipientName: string;
-  recipientEmail: string;
-  resetCode: string;
+  recipientName: string
+  recipientEmail: string
+  resetCode: string
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [recipientEmail],
-      subject: 'Reset Your DocMetrics Password',
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-              line-height: 1.6;
-              color: #1f2937;
-              background-color: #f9fafb;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 600px;
-              margin: 40px auto;
-              background: white;
-              border-radius: 16px;
-              overflow: hidden;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-            }
-            .header {
-              background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-              padding: 40px 30px;
-              text-align: center;
-              color: white;
-            }
-            .lock-icon {
-              font-size: 56px;
-              margin-bottom: 15px;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 28px;
-              font-weight: 700;
-            }
-            .content {
-              padding: 45px 35px;
-            }
-            .greeting {
-              font-size: 20px;
-              color: #111827;
-              margin-bottom: 20px;
-              font-weight: 600;
-            }
-            .intro-text {
-              font-size: 16px;
-              color: #4b5563;
-              margin-bottom: 30px;
-              line-height: 1.7;
-            }
-            .code-container {
-              background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-              border: 3px dashed #f59e0b;
-              border-radius: 12px;
-              padding: 30px;
-              text-align: center;
-              margin: 30px 0;
-            }
-            .code-label {
-              font-size: 14px;
-              color: #92400e;
-              font-weight: 600;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              margin-bottom: 10px;
-            }
-            .reset-code {
-              font-size: 42px;
-              font-weight: 800;
-              color: #92400e;
-              letter-spacing: 8px;
-              font-family: 'Courier New', monospace;
-              margin: 15px 0;
-              display: block;
-            }
-            .code-expires {
-              font-size: 13px;
-              color: #b45309;
-              margin-top: 15px;
-            }
-            .warning-box {
-              background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-              border-left: 4px solid #ef4444;
-              padding: 20px;
-              border-radius: 10px;
-              margin: 30px 0;
-            }
-            .warning-title {
-              font-size: 16px;
-              font-weight: 700;
-              color: #991b1b;
-              margin-bottom: 10px;
-              display: flex;
-              align-items: center;
-            }
-            .warning-text {
-              font-size: 14px;
-              color: #7f1d1d;
-              line-height: 1.6;
-            }
-            .info-box {
-              background: #eff6ff;
-              border-radius: 12px;
-              padding: 20px;
-              margin: 25px 0;
-            }
-            .info-item {
-              display: flex;
-              align-items: start;
-              margin-bottom: 12px;
-              font-size: 14px;
-              color: #1e40af;
-            }
-            .info-icon {
-              margin-right: 10px;
-              font-size: 18px;
-            }
-            .button-container {
-              text-align: center;
-              margin: 35px 0;
-            }
-            .cta-button {
-              display: inline-block;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-              color: white;
-              padding: 16px 40px;
-              text-decoration: none;
-              border-radius: 10px;
-              font-weight: 600;
-              font-size: 16px;
-              box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-            }
-            .footer {
-              background: #f9fafb;
-              padding: 30px;
-              text-align: center;
-              border-top: 1px solid #e5e7eb;
-            }
-            .footer-text {
-              font-size: 14px;
-              color: #6b7280;
-              margin-bottom: 10px;
-            }
-            .footer-small {
-              font-size: 12px;
-              color: #9ca3af;
-              margin-top: 15px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <!-- Header -->
-            <div class="header">
-              <div class="lock-icon">🔐</div>
-              <h1>Password Reset Request</h1>
-            </div>
-            
-            <!-- Content -->
-            <div class="content">
-              <p class="greeting">Hi ${recipientName || 'there'}! 👋</p>
-              
-              <p class="intro-text">
-                We received a request to reset your DocMetrics password. Use the code below to set a new password.
-                If you didn't request this, you can safely ignore this email.
-              </p>
-
-              <!-- Reset Code -->
-              <div class="code-container">
-                <div class="code-label">Your Reset Code</div>
-                <span class="reset-code">${resetCode}</span>
-                <div class="code-expires">
-                  ⏰ This code expires in <strong>15 minutes</strong>
-                </div>
-              </div>
-
-              <!-- Instructions -->
-              <div class="info-box">
-                <div class="info-item">
-                  <span class="info-icon">1️⃣</span>
-                  <span>Go to the password reset page (or click the button below)</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-icon">2️⃣</span>
-                  <span>Enter your email address</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-icon">3️⃣</span>
-                  <span>Enter the 6-digit code above</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-icon">4️⃣</span>
-                  <span>Create your new password</span>
-                </div>
-              </div>
-
-              <!-- CTA Button -->
-              <div class="button-container">
-                <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://docmetrics.io'}/reset-password/verify" class="cta-button">
-                  Reset Password Now
-                </a>
-              </div>
-
-              <!-- Security Warning -->
-              <div class="warning-box">
-                <div class="warning-title">
-                  <span style="margin-right: 8px;">⚠️</span>
-                  Security Notice
-                </div>
-                <p class="warning-text">
-                  <strong>Never share this code with anyone.</strong> DocMetrics staff will never ask for your 
-                  reset code. If you didn't request this password reset, please contact our support team immediately 
-                  at <a href="mailto:support@docmetrics.io" style="color: #dc2626; font-weight: 600;">support@docmetrics.io</a>
-                </p>
-              </div>
-
-              <p style="font-size: 15px; color: #4b5563; margin-top: 30px; line-height: 1.7;">
-                After resetting your password, you'll be able to sign in with both Google and your new password.
-              </p>
-
-              <p style="font-size: 15px; color: #1f2937; margin-top: 25px; font-weight: 600;">
-                Best regards,<br>
-                The DocMetrics Security Team
-              </p>
-            </div>
-            
-            <!-- Footer -->
-            <div class="footer">
-              <p class="footer-text">
-                You're receiving this email because someone requested a password reset for your DocMetrics account.
-              </p>
-              <p class="footer-small">
-                © ${new Date().getFullYear()} DocMetrics. All rights reserved.<br>
-                If you have questions, contact us at 
-                <a href="mailto:support@docmetrics.io" style="color: #9ca3af; text-decoration: none;">support@docmetrics.io</a>
-              </p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send password reset email:', error);
-      throw error;
-    }
-
-    console.log('✅ Password reset email sent to:', recipientEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Password reset email service error:', error);
-    throw error;
+  const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://docmetrics.io'}/reset-password/verify`
+ 
+  const subject = 'Your DocMetrics password reset code'
+  const previewText = 'Use the code in this email to reset your password. It expires in 15 minutes.'
+ 
+  const content = `
+    <p class="title">Password reset</p>
+    <p class="meta">
+      We received a request to reset the password for your account.
+      Use the code below to continue. If you did not request this, you can ignore this email.
+    </p>
+ 
+    <div class="code-box">
+      <span class="code">${resetCode}</span>
+      <span class="code-expiry">Expires in 15 minutes</span>
+    </div>
+ 
+    <p class="section-label">How to reset your password</p>
+    <div class="steps">
+      <div class="step-row">
+        <span class="step-num">1</span>
+        <span class="step-text">Click the button below or visit the reset page.</span>
+      </div>
+      <div class="step-row">
+        <span class="step-num">2</span>
+        <span class="step-text">Enter your email address.</span>
+      </div>
+      <div class="step-row">
+        <span class="step-num">3</span>
+        <span class="step-text">Enter the code shown above.</span>
+      </div>
+      <div class="step-row">
+        <span class="step-num">4</span>
+        <span class="step-text">Create your new password.</span>
+      </div>
+    </div>
+ 
+    <div class="cta"><a href="${resetUrl}">Reset password</a></div>
+ 
+    <div class="notice" style="margin-top:24px;">
+      Do not share this code with anyone. DocMetrics will never ask for your reset code.
+      If you did not request a password reset, contact
+      <a href="mailto:${SUPPORT_INBOX}" style="color:#0f172a;font-weight:600;">${SUPPORT_INBOX}</a>
+    </div>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [recipientEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendPasswordResetEmail error:', error)
+    throw error
   }
+ 
+  console.log('Password reset email sent to:', recipientEmail)
+  return { success: true }
 }
-
-// ===================================
-// SUPPORT REQUEST EMAIL
-// ===================================
+ 
+// ════════════════════════════════════════════════════════════════
+// sendSupportRequestEmail
+// Internal email landing in support@docmetrics.io when a user
+// submits a support request.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendSupportRequestEmail({
   userName,
   userEmail,
@@ -2676,161 +1778,66 @@ export async function sendSupportRequestEmail({
   message,
   userCompany,
 }: {
-  userName: string;
-  userEmail: string;
-  subject: string;
-  message: string;
-  userCompany?: string;
+  userName: string
+  userEmail: string
+  subject: string
+  message: string
+  userCompany?: string
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics Support <noreply@docmetrics.io>',
-      to: ['support@docmetrics.io'], // Your support email
-      replyTo: userEmail,
-      subject: `Support Request: ${subject}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              line-height: 1.6;
-              color: #1f2937;
-              background-color: #f9fafb;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 600px;
-              margin: 40px auto;
-              background: white;
-              border-radius: 16px;
-              overflow: hidden;
-              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
-            }
-            .header {
-              background: linear-gradient(135deg, #0ea5e9 0%, #a855f7 100%);
-              padding: 40px 30px;
-              text-align: center;
-              color: white;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 24px;
-              font-weight: 700;
-            }
-            .content {
-              padding: 40px 35px;
-            }
-            .section {
-              margin-bottom: 25px;
-            }
-            .label {
-              font-size: 12px;
-              font-weight: 600;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              color: #6b7280;
-              margin-bottom: 8px;
-            }
-            .value {
-              font-size: 16px;
-              color: #111827;
-              background: #f9fafb;
-              padding: 12px 16px;
-              border-radius: 8px;
-              border-left: 3px solid #0ea5e9;
-            }
-            .message-box {
-              background: #f0f9ff;
-              border: 2px solid #bae6fd;
-              border-radius: 12px;
-              padding: 20px;
-              margin: 25px 0;
-            }
-            .message-text {
-              font-size: 15px;
-              color: #075985;
-              line-height: 1.7;
-              white-space: pre-wrap;
-            }
-            .footer {
-              background: #f9fafb;
-              padding: 25px;
-              text-align: center;
-              border-top: 1px solid #e5e7eb;
-              font-size: 13px;
-              color: #6b7280;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🎧 New Support Request</h1>
-            </div>
-            
-            <div class="content">
-              <div class="section">
-                <div class="label">From</div>
-                <div class="value">${userName}</div>
-              </div>
-
-              <div class="section">
-                <div class="label">Email</div>
-                <div class="value">${userEmail}</div>
-              </div>
-
-              ${userCompany ? `
-              <div class="section">
-                <div class="label">Company</div>
-                <div class="value">${userCompany}</div>
-              </div>
-              ` : ''}
-
-              <div class="section">
-                <div class="label">Subject</div>
-                <div class="value">${subject}</div>
-              </div>
-
-              <div class="message-box">
-                <div class="label" style="color: #075985;">Message</div>
-                <div class="message-text">${message}</div>
-              </div>
-            </div>
-            
-            <div class="footer">
-              Sent via DocMetrics Support System<br>
-              ${new Date().toLocaleString('en-US', { 
-                dateStyle: 'full', 
-                timeStyle: 'short' 
-              })}
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send support email:', error);
-      throw error;
-    }
-
-    console.log('✅ Support email sent:', data?.id);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Support email error:', error);
-    throw error;
+  const previewText = `Support request from ${userName}${userCompany ? ` at ${userCompany}` : ''}`
+ 
+  const content = `
+    <p class="title">Support request</p>
+    <p class="meta">${new Date().toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' })}</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">From</td>
+        <td class="val">${userName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val"><a href="mailto:${userEmail}" style="color:#0f172a;">${userEmail}</a></td>
+      </tr>
+      ${userCompany ? `<tr>
+        <td class="lbl">Company</td>
+        <td class="val">${userCompany}</td>
+      </tr>` : ''}
+      <tr>
+        <td class="lbl">Subject</td>
+        <td class="val">${subject}</td>
+      </tr>
+    </table>
+ 
+    <p class="section-label">Message</p>
+    <div class="message-body">${message}</div>
+ 
+    <div class="cta"><a href="mailto:${userEmail}?subject=Re: ${subject}">Reply to ${userName}</a></div>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [SUPPORT_INBOX],
+    replyTo: userEmail,
+    subject: `Support: ${subject} — ${userName}`,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendSupportRequestEmail error:', error)
+    throw error
   }
+ 
+  console.log('Support email sent')
+  return { success: true }
 }
-
-// ===================================
-// DEMO BOOKING REQUEST EMAIL
-// ===================================
+ 
+// ════════════════════════════════════════════════════════════════
+// sendDemoBookingEmail
+// Internal email landing in support@docmetrics.io when someone
+// requests a demo.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendDemoBookingEmail({
   userName,
   userEmail,
@@ -2840,381 +1847,120 @@ export async function sendDemoBookingEmail({
   preferredDate,
   message,
 }: {
-  userName: string;
-  userEmail: string;
-  userCompany?: string;
-  phoneNumber?: string;
-  teamSize?: string;
-  preferredDate?: string;
-  message?: string;
+  userName: string
+  userEmail: string
+  userCompany?: string
+  phoneNumber?: string
+  teamSize?: string
+  preferredDate?: string
+  message?: string
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics Demos <noreply@docmetrics.io>',
-      to: ['support@docmetrics.io'],
-      replyTo: userEmail,
-      subject: `Demo Request: ${userName} - ${userCompany || 'Individual'}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              line-height: 1.6;
-              color: #1f2937;
-              background-color: #f9fafb;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 600px;
-              margin: 40px auto;
-              background: white;
-              border-radius: 16px;
-              overflow: hidden;
-              box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-            }
-            .header {
-              background: linear-gradient(135deg, #a855f7 0%, #0ea5e9 100%);
-              padding: 40px 30px;
-              text-align: center;
-              color: white;
-            }
-            .header-icon {
-              font-size: 48px;
-              margin-bottom: 12px;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 26px;
-              font-weight: 700;
-            }
-            .priority-badge {
-              display: inline-block;
-              background: #fef3c7;
-              color: #92400e;
-              padding: 6px 16px;
-              border-radius: 20px;
-              font-size: 12px;
-              font-weight: 700;
-              margin-top: 12px;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-            .content {
-              padding: 40px 35px;
-            }
-            .info-grid {
-              display: grid;
-              gap: 20px;
-              margin-bottom: 30px;
-            }
-            .info-item {
-              background: #f9fafb;
-              border-left: 4px solid #a855f7;
-              padding: 16px 20px;
-              border-radius: 8px;
-            }
-            .info-label {
-              font-size: 12px;
-              font-weight: 600;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              color: #6b7280;
-              margin-bottom: 6px;
-            }
-            .info-value {
-              font-size: 16px;
-              color: #111827;
-              font-weight: 500;
-            }
-            .message-section {
-              background: linear-gradient(135deg, #faf5ff 0%, #f0f9ff 100%);
-              border: 2px solid #e9d5ff;
-              border-radius: 12px;
-              padding: 25px;
-              margin: 30px 0;
-            }
-            .message-text {
-              font-size: 15px;
-              color: #581c87;
-              line-height: 1.7;
-              white-space: pre-wrap;
-            }
-            .action-box {
-              background: #eff6ff;
-              border-radius: 12px;
-              padding: 20px;
-              text-align: center;
-              margin: 30px 0;
-            }
-            .cta-button {
-              display: inline-block;
-              background: linear-gradient(135deg, #0ea5e9 0%, #a855f7 100%);
-              color: white;
-              padding: 14px 32px;
-              text-decoration: none;
-              border-radius: 10px;
-              font-weight: 600;
-              font-size: 15px;
-              margin-top: 10px;
-            }
-            .footer {
-              background: #f9fafb;
-              padding: 25px;
-              text-align: center;
-              border-top: 1px solid #e5e7eb;
-              font-size: 13px;
-              color: #6b7280;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="header-icon">🎥</div>
-              <h1>New Demo Request</h1>
-              <div class="priority-badge">⚡ High Priority</div>
-            </div>
-            
-            <div class="content">
-              <div class="info-grid">
-                <div class="info-item">
-                  <div class="info-label">Contact Name</div>
-                  <div class="info-value">${userName}</div>
-                </div>
-
-                <div class="info-item">
-                  <div class="info-label">Email</div>
-                  <div class="info-value">${userEmail}</div>
-                </div>
-
-                ${userCompany ? `
-                <div class="info-item">
-                  <div class="info-label">Company</div>
-                  <div class="info-value">${userCompany}</div>
-                </div>
-                ` : ''}
-
-                ${phoneNumber ? `
-                <div class="info-item">
-                  <div class="info-label">Phone Number</div>
-                  <div class="info-value">${phoneNumber}</div>
-                </div>
-                ` : ''}
-
-                ${teamSize ? `
-                <div class="info-item">
-                  <div class="info-label">Team Size</div>
-                  <div class="info-value">${teamSize}</div>
-                </div>
-                ` : ''}
-
-                ${preferredDate ? `
-                <div class="info-item">
-                  <div class="info-label">Preferred Date/Time</div>
-                  <div class="info-value">${preferredDate}</div>
-                </div>
-                ` : ''}
-              </div>
-
-              ${message ? `
-              <div class="message-section">
-                <div class="info-label" style="color: #581c87; margin-bottom: 12px;">Additional Notes</div>
-                <div class="message-text">${message}</div>
-              </div>
-              ` : ''}
-
-              <div class="action-box">
-                <p style="margin: 0 0 15px; color: #1e40af; font-weight: 600;">
-                  📅 Schedule This Demo
-                </p>
-                <a href="mailto:${userEmail}" class="cta-button">
-                  Reply to ${userName}
-                </a>
-              </div>
-            </div>
-            
-            <div class="footer">
-              Sent via DocMetrics Demo System<br>
-              ${new Date().toLocaleString('en-US', { 
-                dateStyle: 'full', 
-                timeStyle: 'short' 
-              })}
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send demo email:', error);
-      throw error;
-    }
-
-    console.log('✅ Demo booking email sent:', data?.id);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Demo booking email error:', error);
-    throw error;
+  const previewText = `Demo request from ${userName}${userCompany ? ` at ${userCompany}` : ''}`
+ 
+  const optionalRows = [
+    userCompany   && `<tr><td class="lbl">Company</td><td class="val">${userCompany}</td></tr>`,
+    phoneNumber   && `<tr><td class="lbl">Phone</td><td class="val">${phoneNumber}</td></tr>`,
+    teamSize      && `<tr><td class="lbl">Team size</td><td class="val">${teamSize}</td></tr>`,
+    preferredDate && `<tr><td class="lbl">Preferred time</td><td class="val">${preferredDate}</td></tr>`,
+  ].filter(Boolean).join('')
+ 
+  const messageBlock = message
+    ? `<p class="section-label">Notes</p>
+       <div class="message-body">${message}</div>`
+    : ''
+ 
+  const content = `
+    <p class="title">Demo request</p>
+    <p class="meta">${new Date().toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' })}</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Name</td>
+        <td class="val">${userName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val"><a href="mailto:${userEmail}" style="color:#0f172a;">${userEmail}</a></td>
+      </tr>
+      ${optionalRows}
+    </table>
+ 
+    ${messageBlock}
+ 
+    <div class="cta"><a href="mailto:${userEmail}">Reply to ${userName}</a></div>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [SUPPORT_INBOX],
+    replyTo: userEmail,
+    subject: `Demo request: ${userName}${userCompany ? ` — ${userCompany}` : ''}`,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendDemoBookingEmail error:', error)
+    throw error
   }
+ 
+  console.log('Demo booking email sent')
+  return { success: true }
 }
-
-
-
-// ===================================
-// FEEDBACK SUBMISSION EMAIL (SIMPLIFIED)
-// ===================================
+ 
+// ════════════════════════════════════════════════════════════════
+// sendFeedbackEmail
+// Internal email landing in support@docmetrics.io when a user
+// submits product feedback.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendFeedbackEmail({
   userEmail,
   feedback,
 }: {
-  userEmail: string;
-  feedback: string;
+  userEmail: string
+  feedback: string
 }) {
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics Feedback <noreply@docmetrics.io>',
-      to: ['support@docmetrics.io'],
-      replyTo: userEmail,
-      subject: `Feedback from ${userEmail}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body {
-              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              line-height: 1.6;
-              color: #1f2937;
-              background-color: #f9fafb;
-              margin: 0;
-              padding: 0;
-            }
-            .container {
-              max-width: 600px;
-              margin: 40px auto;
-              background: white;
-              border-radius: 16px;
-              overflow: hidden;
-              box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-            }
-            .header {
-              background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
-              padding: 40px 30px;
-              text-align: center;
-              color: white;
-            }
-            .header-icon {
-              font-size: 48px;
-              margin-bottom: 12px;
-            }
-            .header h1 {
-              margin: 0;
-              font-size: 26px;
-              font-weight: 700;
-            }
-            .content {
-              padding: 40px 35px;
-            }
-            .info-item {
-              background: #f9fafb;
-              border-left: 4px solid #10b981;
-              padding: 16px 20px;
-              border-radius: 8px;
-              margin-bottom: 20px;
-            }
-            .info-label {
-              font-size: 12px;
-              font-weight: 600;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              color: #6b7280;
-              margin-bottom: 6px;
-            }
-            .info-value {
-              font-size: 16px;
-              color: #111827;
-              font-weight: 500;
-            }
-            .feedback-box {
-              background: linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 100%);
-              border: 2px solid #a7f3d0;
-              border-radius: 12px;
-              padding: 25px;
-              margin: 30px 0;
-            }
-            .feedback-text {
-              font-size: 15px;
-              color: #065f46;
-              line-height: 1.7;
-              white-space: pre-wrap;
-            }
-            .footer {
-              background: #f9fafb;
-              padding: 25px;
-              text-align: center;
-              border-top: 1px solid #e5e7eb;
-              font-size: 13px;
-              color: #6b7280;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="header-icon">💬</div>
-              <h1>New User Feedback</h1>
-            </div>
-            
-            <div class="content">
-              <div class="info-item">
-                <div class="info-label">From</div>
-                <div class="info-value">${userEmail}</div>
-              </div>
-
-              <div class="feedback-box">
-                <div class="info-label" style="color: #065f46; margin-bottom: 12px;">💡 Feedback</div>
-                <div class="feedback-text">${feedback}</div>
-              </div>
-            </div>
-            
-            <div class="footer">
-              Sent via DocMetrics Feedback System<br>
-              ${new Date().toLocaleString('en-US', { 
-                dateStyle: 'full', 
-                timeStyle: 'short' 
-              })}
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send feedback email:', error);
-      throw error;
-    }
-
-    console.log('✅ Feedback email sent:', data?.id);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Feedback email error:', error);
-    throw error;
+  const previewText = `Feedback from ${userEmail}`
+ 
+  const content = `
+    <p class="title">User feedback</p>
+    <p class="meta">${new Date().toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' })}</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">From</td>
+        <td class="val"><a href="mailto:${userEmail}" style="color:#0f172a;">${userEmail}</a></td>
+      </tr>
+    </table>
+ 
+    <p class="section-label">Feedback</p>
+    <div class="message-body">${feedback}</div>
+ 
+    <div class="cta"><a href="mailto:${userEmail}">Reply to ${userEmail}</a></div>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [SUPPORT_INBOX],
+    replyTo: userEmail,
+    subject: `Feedback from ${userEmail}`,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendFeedbackEmail error:', error)
+    throw error
   }
+ 
+  console.log('Feedback email sent')
+  return { success: true }
 }
 
-
-// ===================================
-// BULK SEND CC SUMMARY EMAIL
-// ===================================
+// ════════════════════════════════════════════════════════════════
+// sendCCBulkSummaryEmail
+// Sent to CC recipients when a bulk send goes out.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendCCBulkSummaryEmail({
   ccName,
   ccEmail,
@@ -3224,145 +1970,89 @@ export async function sendCCBulkSummaryEmail({
   recipients,
   origin,
 }: {
-  ccName: string;
-  ccEmail: string;
-  senderName: string;
-  documentName: string;
-  batchId: string;
-  recipients: Array<{ name: string; email: string; signingLink: string; ccViewLink: string }>;
-  origin: string;
+  ccName: string
+  ccEmail: string
+  senderName: string
+  documentName: string
+  batchId: string
+  recipients: Array<{ name: string; email: string; signingLink: string; ccViewLink: string }>
+  origin: string
 }) {
-  const recipientRows = recipients
-    .map(
-      (r, i) => `
-      <tr style="border-bottom: 1px solid #f3f4f6;">
-        <td style="padding: 12px 16px; font-size: 14px; color: #111827; font-weight: 500;">
-          <span style="background: #ede9fe; color: #7c3aed; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; margin-right: 8px;">${i + 1}</span>
-          ${r.name}
-        </td>
-        <td style="padding: 12px 16px; font-size: 13px; color: #6b7280;">${r.email}</td>
-        <td style="padding: 12px 16px;">
-          <a href="${r.ccViewLink}" style="display: inline-block; background: #ede9fe; color: #7c3aed; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none;">
-            View Doc
-          </a>
-        </td>
+  const subject = `Bulk send summary — ${recipients.length} recipient${recipients.length !== 1 ? 's' : ''} sent "${documentName}"`
+  const previewText = `${senderName} sent "${documentName}" to ${recipients.length} recipients. You were copied.`
+ 
+  const recipientRows = recipients.map((r, i) => `
+    <tr>
+      <td class="num">${i + 1}</td>
+      <td>${r.name}</td>
+      <td>${r.email}</td>
+      <td class="link"><a href="${r.ccViewLink}">View</a></td>
+    </tr>
+  `).join('')
+ 
+  const content = `
+    <p class="title">Bulk send summary</p>
+    <p class="meta">You were copied on a bulk send by ${senderName}. No action is required.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${documentName}</td>
       </tr>
-    `
-    )
-    .join('');
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [ccEmail],
-      subject: `CC: Bulk send summary — ${recipients.length} recipients sent "${documentName}"`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
-            .container { max-width: 650px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.08); }
-            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 36px 30px; text-align: center; color: white; }
-            .content { padding: 35px 30px; }
-            .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 25px 0; }
-            .meta-card { background: #f9fafb; border-radius: 8px; padding: 14px 18px; border-left: 3px solid #667eea; }
-            .meta-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; font-weight: 600; margin-bottom: 4px; }
-            .meta-value { font-size: 15px; font-weight: 600; color: #111827; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            thead tr { background: #f9fafb; }
-            thead th { padding: 10px 16px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; font-weight: 600; }
-            .footer { background: #f9fafb; padding: 25px 30px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 13px; color: #9ca3af; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1 style="margin: 0; font-size: 22px;">📋 Bulk Send Summary (CC)</h1>
-              <p style="margin: 10px 0 0; opacity: 0.9; font-size: 15px;">
-                You were CC'd on this bulk send by <strong>${senderName}</strong>
-              </p>
-            </div>
-
-            <div class="content">
-              <p style="font-size: 15px; color: #374151;">Hi ${ccName},</p>
-              <p style="font-size: 14px; color: #6b7280; margin-bottom: 25px;">
-                <strong>${senderName}</strong> has sent <strong>"${documentName}"</strong> to <strong>${recipients.length} recipient${recipients.length !== 1 ? 's' : ''}</strong> for signature. 
-                You are copied on this send for your records. Use the links below to view each recipient's copy of the document.
-              </p>
-
-              <div class="meta-grid">
-                <div class="meta-card">
-                  <div class="meta-label">Document</div>
-                  <div class="meta-value">${documentName}</div>
-                </div>
-                <div class="meta-card">
-                  <div class="meta-label">Total Recipients</div>
-                  <div class="meta-value">${recipients.length}</div>
-                </div>
-                <div class="meta-card">
-                  <div class="meta-label">Sent By</div>
-                  <div class="meta-value">${senderName}</div>
-                </div>
-                <div class="meta-card">
-                  <div class="meta-label">Sent On</div>
-                  <div class="meta-value">${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                </div>
-              </div>
-
-              <h3 style="font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 0;">Recipients & Document Links</h3>
-              <p style="font-size: 13px; color: #9ca3af; margin-top: 4px;">Click "View Doc" to see each recipient's individual document copy.</p>
-
-              <table>
-                <thead>
-                  <tr>
-                    <th>Recipient</th>
-                    <th>Email</th>
-                    <th>Document</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${recipientRows}
-                </tbody>
-              </table>
-
-              <div style="margin-top: 28px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px 20px;">
-                <p style="margin: 0; font-size: 13px; color: #1e40af;">
-                  <strong>ℹ️ Note:</strong> You will receive a separate notification email when each recipient signs their document. 
-                  You are view-only on these documents — no action is required from you.
-                </p>
-              </div>
-            </div>
-
-            <div class="footer">
-              <p style="margin: 0;">You received this because you were CC'd on a bulk send from ${senderName}.</p>
-              <p style="margin: 8px 0 0;">© ${new Date().getFullYear()} DocMetrics. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send CC bulk summary email:', error);
-      throw error;
-    }
-
-    console.log('✅ CC bulk summary email sent to:', ccEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ CC bulk summary email error:', error);
-    throw error;
+      <tr>
+        <td class="lbl">Sent by</td>
+        <td class="val">${senderName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Recipients</td>
+        <td class="val">${recipients.length}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Sent on</td>
+        <td class="val">${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+      </tr>
+    </table>
+ 
+    <p class="section-label">Recipients</p>
+    <table class="recipients">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Document</th>
+        </tr>
+      </thead>
+      <tbody>${recipientRows}</tbody>
+    </table>
+ 
+    <div class="notice">
+      You will receive a separate notification when each recipient signs.
+      You are view-only on these documents.
+    </div>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [ccEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendCCBulkSummaryEmail error:', error)
+    throw error
   }
+ 
+  console.log('CC bulk summary sent to:', ccEmail)
+  return { success: true }
 }
-
-
-
-// ===================================
-// CC PER-SIGNATURE NOTIFICATION
-// ===================================
+ 
+// ════════════════════════════════════════════════════════════════
+// sendCCSignatureUpdateEmail
+// Sent to CC recipients each time one recipient signs.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendCCSignatureUpdateEmail({
   ccName,
   ccEmail,
@@ -3373,100 +2063,87 @@ export async function sendCCSignatureUpdateEmail({
   totalRecipients,
   ccViewLink,
 }: {
-  ccName: string;
-  ccEmail: string;
-  signerName: string;
-  signerEmail: string;
-  documentName: string;
-  totalSigned: number;
-  totalRecipients: number;
-  ccViewLink: string;
+  ccName: string
+  ccEmail: string
+  signerName: string
+  signerEmail: string
+  documentName: string
+  totalSigned: number
+  totalRecipients: number
+  ccViewLink: string
 }) {
-  const allDone = totalSigned === totalRecipients;
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [ccEmail],
-      subject: `${signerName} signed "${documentName}" (${totalSigned}/${totalRecipients} complete)`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
-            .container { max-width: 580px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.08); }
-            .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 30px; text-align: center; color: white; }
-            .content { padding: 32px 30px; }
-            .signer-card { background: #f0fdf4; border-left: 4px solid #10b981; border-radius: 8px; padding: 18px 20px; margin: 20px 0; }
-            .progress-bar-bg { background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden; margin: 8px 0; }
-            .progress-bar-fill { background: #10b981; height: 100%; border-radius: 4px; }
-            .cta-button { display: inline-block; background: #7c3aed; color: white; padding: 13px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; margin-top: 20px; }
-            .footer { background: #f9fafb; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1 style="margin: 0; font-size: 20px;">✍️ New Signature Received</h1>
-              <p style="margin: 8px 0 0; opacity: 0.9; font-size: 14px;">${documentName}</p>
-            </div>
-            <div class="content">
-              <p style="font-size: 15px; color: #374151;">Hi ${ccName},</p>
-
-              <div class="signer-card">
-                <p style="margin: 0; font-weight: 700; color: #065f46; font-size: 15px;">✅ ${signerName} just signed</p>
-                <p style="margin: 4px 0 0; font-size: 13px; color: #6b7280;">${signerEmail}</p>
-              </div>
-
-              <div style="margin: 20px 0;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                  <span style="font-size: 13px; font-weight: 600; color: #374151;">Signing Progress</span>
-                  <span style="font-size: 13px; color: #6b7280;">${totalSigned} of ${totalRecipients} signed</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill" style="width: ${Math.round((totalSigned / totalRecipients) * 100)}%;"></div>
-                </div>
-                <p style="font-size: 12px; color: #9ca3af; margin-top: 6px;">
-                  ${allDone ? '🎉 All signatures collected — document is complete!' : `${totalRecipients - totalSigned} signature${totalRecipients - totalSigned !== 1 ? 's' : ''} remaining`}
-                </p>
-              </div>
-
-              <center>
-                <a href="${ccViewLink}" class="cta-button">View Document</a>
-              </center>
-
-              <p style="font-size: 12px; color: #9ca3af; margin-top: 24px;">
-                You are receiving this because you were CC'd on this document. No action is required from you.
-              </p>
-            </div>
-            <div class="footer">
-              © ${new Date().getFullYear()} DocMetrics. All rights reserved.
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) throw error;
-    console.log('✅ CC signature update email sent to:', ccEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ CC signature update email error:', error);
-    throw error;
-  }
-}
-
-
-
+  const allDone = totalSigned === totalRecipients
+  const progressPercent = Math.round((totalSigned / totalRecipients) * 100)
  
-// ─────────────────────────────────────────────────────────────────────────────
-// 1. SPACE VIEW NOTIFICATION
-//    Fires when a visitor enters a space (once per 24h per visitor)
-//    Owner receives this if settings.notifyOnView = true
-// ─────────────────────────────────────────────────────────────────────────────
+  const subject = `${signerName} signed "${documentName}" — ${totalSigned}/${totalRecipients}`
+  const previewText = allDone
+    ? `All signatures collected on "${documentName}"`
+    : `${totalRecipients - totalSigned} signature${totalRecipients - totalSigned !== 1 ? 's' : ''} remaining on "${documentName}"`
+ 
+  const content = `
+    <p class="title">Signature received</p>
+    <p class="meta">${signerName} has signed "${documentName}".</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${documentName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Signed by</td>
+        <td class="val">${signerName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val">${signerEmail}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Progress</td>
+        <td class="val">${totalSigned} of ${totalRecipients} signed</td>
+      </tr>
+    </table>
+ 
+    <div class="bar-track">
+      <div class="bar-fill" style="width:${progressPercent}%"></div>
+    </div>
+    <p class="progress-label">
+      ${allDone
+        ? 'All signatures collected.'
+        : `${totalRecipients - totalSigned} signature${totalRecipients - totalSigned !== 1 ? 's' : ''} remaining.`}
+    </p>
+ 
+    <div class="cta"><a href="${ccViewLink}">View document</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${ccViewLink}">${ccViewLink}</a>
+    </p>
+ 
+    <div class="notice" style="margin-top:20px;">
+      You are receiving this because you were copied on this document. No action is required.
+    </div>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [ccEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendCCSignatureUpdateEmail error:', error)
+    throw error
+  }
+ 
+  console.log('CC signature update sent to:', ccEmail)
+  return { success: true }
+}
+ 
+// ════════════════════════════════════════════════════════════════
+// sendSpaceViewNotification
+// Sent to the space owner when a visitor accesses their data room.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendSpaceViewNotification({
   ownerEmail,
   spaceName,
@@ -3479,87 +2156,53 @@ export async function sendSpaceViewNotification({
   spaceId: string
 }) {
   const spaceUrl = `${process.env.NEXT_PUBLIC_APP_URL}/spaces/${spaceId}`
-
-  const { data, error } = await resend.emails.send({
+ 
+  const subject = `${visitorEmail} viewed "${spaceName}"`
+  const previewText = `${visitorEmail} accessed your data room`
+ 
+  const content = `
+    <p class="title">Data room viewed</p>
+    <p class="meta">${visitorEmail} accessed your data room.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Data room</td>
+        <td class="val">${spaceName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Visitor</td>
+        <td class="val">${visitorEmail}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Time</td>
+        <td class="val">${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+      </tr>
+    </table>
+ 
+    <div class="cta"><a href="${spaceUrl}">View data room</a></div>
+  `
+ 
+  const { error } = await resend.emails.send({
     from: FROM,
     to: [ownerEmail],
-    subject: `👁️ ${visitorEmail} viewed your data room "${spaceName}"`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
-          .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-          .header { background: linear-gradient(135deg, #111 0%, #333 100%); padding: 32px; text-align: center; }
-          .header h1 { color: white; margin: 0; font-size: 22px; font-weight: 600; }
-          .header p { color: rgba(255,255,255,0.7); margin: 6px 0 0; font-size: 14px; }
-          .body { padding: 32px; }
-          .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; border-radius: 8px; overflow: hidden; border: 1px solid #eee; }
-          .info-table td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; }
-          .info-table td:first-child { color: #888; font-weight: 500; width: 120px; background: #f9fafb; }
-          .info-table td:last-child { color: #111; font-weight: 500; }
-          .info-table tr:last-child td { border-bottom: none; }
-          .cta { display: inline-block; margin-top: 24px; padding: 12px 24px; background: #111; color: white !important; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600; }
-          .footer { padding: 20px 32px; border-top: 1px solid #eee; font-size: 12px; color: #aaa; text-align: center; }
-          .footer a { color: #888; }
-          .badge { display: inline-flex; align-items: center; gap: 6px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>New Visitor Alert</h1>
-            <p>Someone just accessed your data room</p>
-          </div>
-          <div class="body">
-            <div class="badge">👁️ View Activity</div>
-            <p style="font-size: 15px; color: #555; margin: 0 0 20px;">
-              <strong style="color: #111;">${visitorEmail}</strong> just accessed your data room 
-              <strong style="color: #111;">"${spaceName}"</strong>.
-            </p>
-            <table class="info-table">
-              <tr>
-                <td>Data Room</td>
-                <td>${spaceName}</td>
-              </tr>
-              <tr>
-                <td>Visitor</td>
-                <td>${visitorEmail}</td>
-              </tr>
-              <tr>
-                <td>Time</td>
-                <td>${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</td>
-              </tr>
-            </table>
-            <a href="${spaceUrl}" class="cta">View Data Room →</a>
-          </div>
-          <div class="footer">
-            You're receiving this because view notifications are enabled for this data room.<br/>
-            <a href="${spaceUrl}?action=settings">Manage notification settings</a>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
+    subject,
+    html: shell(content, previewText),
   })
-
+ 
   if (error) {
-    console.error('❌ Space view notification email failed:', error)
+    console.error('sendSpaceViewNotification error:', error)
     throw error
   }
-
-  console.log('✅ Space view notification sent to:', ownerEmail)
-  return data
+ 
+  console.log('Space view notification sent to:', ownerEmail)
+  return { success: true }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. NDA SIGNED NOTIFICATION
-//    Fires when a visitor signs the NDA
-//    Owner receives this immediately after signing
-// ─────────────────────────────────────────────────────────────────────────────
+ 
+// ════════════════════════════════════════════════════════════════
+// sendNdaSignedNotification
+// Sent to the space owner when a visitor signs the NDA.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendNdaSignedNotification({
   ownerEmail,
   spaceName,
@@ -3577,89 +2220,57 @@ export async function sendNdaSignedNotification({
 }) {
   const spaceUrl = `${process.env.NEXT_PUBLIC_APP_URL}/spaces/${spaceId}`
   const displayName = signerName ? `${signerName} (${signerEmail})` : signerEmail
-
-  const { data, error } = await resend.emails.send({
+ 
+  const subject = `NDA signed — ${signerEmail} can now access "${spaceName}"`
+  const previewText = `${displayName} signed the NDA for "${spaceName}"`
+ 
+  const content = `
+    <p class="title">NDA signed</p>
+    <p class="meta">${displayName} has signed the NDA and now has access to the data room.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Signer</td>
+        <td class="val">${displayName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Data room</td>
+        <td class="val">${spaceName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Signed at</td>
+        <td class="val">${signedAt.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+      </tr>
+    </table>
+ 
+    <div class="notice">
+      The signer's email, timestamp, and IP address have been recorded.
+    </div>
+ 
+    <div class="cta"><a href="${spaceUrl}">View data room</a></div>
+  `
+ 
+  const { error } = await resend.emails.send({
     from: FROM,
     to: [ownerEmail],
-    subject: `✅ NDA signed — ${signerEmail} can now access "${spaceName}"`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
-          .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-          .header { background: linear-gradient(135deg, #14532d 0%, #16a34a 100%); padding: 32px; text-align: center; }
-          .header h1 { color: white; margin: 0; font-size: 22px; font-weight: 600; }
-          .header p { color: rgba(255,255,255,0.8); margin: 6px 0 0; font-size: 14px; }
-          .body { padding: 32px; }
-          .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; border-radius: 8px; overflow: hidden; border: 1px solid #eee; }
-          .info-table td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #eee; }
-          .info-table td:first-child { color: #888; font-weight: 500; width: 120px; background: #f9fafb; }
-          .info-table td:last-child { color: #111; font-weight: 500; }
-          .info-table tr:last-child td { border-bottom: none; }
-          .cta { display: inline-block; margin-top: 24px; padding: 12px 24px; background: #111; color: white !important; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600; }
-          .footer { padding: 20px 32px; border-top: 1px solid #eee; font-size: 12px; color: #aaa; text-align: center; }
-          .badge { display: inline-flex; align-items: center; gap: 6px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
-          .legal-note { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #92400e; margin-top: 16px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>NDA Signed</h1>
-            <p>A visitor has accepted your Non-Disclosure Agreement</p>
-          </div>
-          <div class="body">
-            <div class="badge">✅ NDA Complete</div>
-            <p style="font-size: 15px; color: #555; margin: 0 0 20px;">
-              <strong style="color: #111;">${displayName}</strong> has signed the NDA for 
-              <strong style="color: #111;">"${spaceName}"</strong> and now has full access to the data room.
-            </p>
-            <table class="info-table">
-              <tr>
-                <td>Signer</td>
-                <td>${displayName}</td>
-              </tr>
-              <tr>
-                <td>Data Room</td>
-                <td>${spaceName}</td>
-              </tr>
-              <tr>
-                <td>Signed At</td>
-                <td>${signedAt.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</td>
-              </tr>
-            </table>
-            <div class="legal-note">
-              ⚖️ This signature is legally binding. The signer's email, timestamp, and IP address have been recorded.
-            </div>
-            <a href="${spaceUrl}" class="cta">View Data Room →</a>
-          </div>
-          <div class="footer">
-            Sent by DocMetrics · <a href="${spaceUrl}?tab=nda">View all NDA signatures</a>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
+    subject,
+    html: shell(content, previewText),
   })
-
+ 
   if (error) {
-    console.error('❌ NDA signed notification email failed:', error)
+    console.error('sendNdaSignedNotification error:', error)
     throw error
   }
-
-  console.log('✅ NDA signed notification sent to:', ownerEmail)
-  return data
+ 
+  console.log('NDA signed notification sent to:', ownerEmail)
+  return { success: true }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. SPACE INVITE EMAIL
-//    Fires when owner invites someone via the Quick Invite drawer
-//    or the Add Contact dialog inside spaces/[id]
-// ─────────────────────────────────────────────────────────────────────────────
+ 
+// ════════════════════════════════════════════════════════════════
+// sendSpaceInviteEmail
+// Sent when an owner invites someone to a data room with a role.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendSpaceInviteEmail({
   recipientEmail,
   senderName,
@@ -3677,78 +2288,71 @@ export async function sendSpaceInviteEmail({
 }) {
   const roleLabel = role === 'admin' ? 'Admin' : role === 'editor' ? 'Editor' : 'Viewer'
   const roleDesc = role === 'admin'
-    ? 'You have full access to manage this data room.'
+    ? 'Full access to manage this data room.'
     : role === 'editor'
-    ? 'You can upload, edit, and manage documents.'
-    : 'You can view and download documents.'
-
-  const { data, error } = await resend.emails.send({
+    ? 'Can upload, edit, and manage documents.'
+    : 'Can view and download documents.'
+ 
+  const subject = `${senderName} invited you to "${spaceName}"`
+  const previewText = `You have been invited to access the "${spaceName}" data room`
+ 
+  const messageBlock = message
+    ? `<div class="msg">${message}</div>`
+    : ''
+ 
+  const content = `
+    <p class="title">You have been invited</p>
+    <p class="meta">${senderName} has invited you to access a data room on DocMetrics.</p>
+ 
+    ${messageBlock}
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Data room</td>
+        <td class="val">${spaceName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Invited by</td>
+        <td class="val">${senderName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Your role</td>
+        <td class="val">${roleLabel} — ${roleDesc}</td>
+      </tr>
+    </table>
+ 
+    <div class="cta"><a href="${inviteLink}">Accept invitation</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${inviteLink}">${inviteLink}</a>
+    </p>
+ 
+    <div class="notice" style="margin-top:20px;">
+      This link is personal to you. Do not share it with others.
+    </div>
+  `
+ 
+  const { error } = await resend.emails.send({
     from: FROM,
     to: [recipientEmail],
-    subject: `${senderName} invited you to "${spaceName}"`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
-          .container { max-width: 600px; margin: 40px auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-          .header { background: linear-gradient(135deg, #111 0%, #374151 100%); padding: 32px; text-align: center; }
-          .header h1 { color: white; margin: 0; font-size: 22px; font-weight: 600; }
-          .header p { color: rgba(255,255,255,0.7); margin: 6px 0 0; font-size: 14px; }
-          .body { padding: 32px; }
-          .role-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #f3f4f6; color: #374151; margin-bottom: 4px; }
-          .message-box { background: #f9fafb; border-left: 3px solid #d1d5db; padding: 12px 16px; border-radius: 0 8px 8px 0; font-size: 14px; color: #555; font-style: italic; margin: 20px 0; }
-          .cta { display: block; margin-top: 24px; padding: 14px 24px; background: #111; color: white !important; text-decoration: none; border-radius: 8px; font-size: 15px; font-weight: 600; text-align: center; }
-          .footer { padding: 20px 32px; border-top: 1px solid #eee; font-size: 12px; color: #aaa; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>You've been invited</h1>
-            <p>Access a secure data room on DocMetrics</p>
-          </div>
-          <div class="body">
-            <p style="font-size: 15px; color: #555; margin: 0 0 8px;">
-              <strong style="color: #111;">${senderName}</strong> has invited you to access the data room
-              <strong style="color: #111;">"${spaceName}"</strong>.
-            </p>
-            <div class="role-badge">${roleLabel} — ${roleDesc}</div>
-            ${message ? `
-            <div class="message-box">
-              "${message}"
-            </div>
-            ` : ''}
-            <a href="${inviteLink}" class="cta">Accept Invitation & View Data Room →</a>
-            <p style="font-size: 12px; color: #aaa; margin-top: 16px;">
-              This link is personal to you. Do not share it with others.
-            </p>
-          </div>
-          <div class="footer">
-            Sent via DocMetrics · If you weren't expecting this, you can ignore this email.
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
+    subject,
+    html: shell(content, previewText),
   })
-
+ 
   if (error) {
-    console.error('❌ Space invite email failed:', error)
+    console.error('sendSpaceInviteEmail error:', error)
     throw error
   }
-
-  console.log('✅ Space invite email sent to:', recipientEmail)
-  return data
+ 
+  console.log('Space invite sent to:', recipientEmail)
+  return { success: true }
 }
-
-
-// ===================================
-// CERTIFICATE OF COMPLETION EMAIL
-// ===================================
+ 
+// ════════════════════════════════════════════════════════════════
+// sendCertificateEmail
+// Sent with the signed certificate PDF attached.
+// ════════════════════════════════════════════════════════════════
+ 
 export async function sendCertificateEmail({
   recipientEmail,
   recipientName,
@@ -3758,113 +2362,77 @@ export async function sendCertificateEmail({
   signedAt,
   certificatePdfBuffer,
 }: {
-  recipientEmail: string;
-  recipientName: string;
-  signerName: string;
-  signerEmail: string;
-  originalFilename: string;
-  signedAt: Date;
-  certificatePdfBuffer: Buffer;
+  recipientEmail: string
+  recipientName: string
+  signerName: string
+  signerEmail: string
+  originalFilename: string
+  signedAt: Date
+  certificatePdfBuffer: Buffer
 }) {
-  try {
-    const signedDateFormatted = new Date(signedAt).toLocaleDateString('en-US', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    });
-
-    const { data, error } = await resend.emails.send({
-      from: FROM,
-      to: [recipientEmail],
-      subject: `Certificate of Completion — "${originalFilename}"`,
-      attachments: [
-        {
-          filename: `Certificate_${originalFilename.replace('.pdf', '')}_${signerName.replace(/\s+/g, '_')}.pdf`,
-          content: certificatePdfBuffer,
-        },
-      ],
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        </head>
-        <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:#f5f5f5;margin:0;padding:0;">
-          <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
-            
-            <!-- Header -->
-            <div style="background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px 40px;">
-              <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-                <div style="background:rgba(255,255,255,0.2);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;">
-                  <span style="color:#fff;font-weight:bold;font-size:14px;">DM</span>
-                </div>
-                <span style="color:#fff;font-weight:700;font-size:18px;">DocMetrics</span>
-              </div>
-              <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700;">Certificate of Completion</h1>
-              <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:14px;">Signing complete — certificate attached</p>
-            </div>
-
-            <!-- Body -->
-            <div style="padding:32px 40px;">
-              <p style="color:#374151;font-size:15px;margin:0 0 20px;">Hi ${recipientName},</p>
-              <p style="color:#374151;font-size:15px;margin:0 0 24px;">
-                <strong>${signerName}</strong> (${signerEmail}) has signed <strong>"${originalFilename}"</strong> on ${signedDateFormatted}.
-                The certificate of completion is attached to this email as a PDF.
-              </p>
-
-              <!-- Certificate info box -->
-              <div style="background:#f8f7ff;border:1px solid #e0e7ff;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
-                <p style="color:#4f46e5;font-weight:700;font-size:13px;margin:0 0 12px;text-transform:uppercase;letter-spacing:0.05em;">Certificate Details</p>
-                <table style="width:100%;border-collapse:collapse;">
-                  <tr>
-                    <td style="color:#6b7280;font-size:13px;padding:4px 0;width:40%;">Document</td>
-                    <td style="color:#111827;font-size:13px;font-weight:600;padding:4px 0;">${originalFilename}</td>
-                  </tr>
-                  <tr>
-                    <td style="color:#6b7280;font-size:13px;padding:4px 0;">Signed by</td>
-                    <td style="color:#111827;font-size:13px;font-weight:600;padding:4px 0;">${signerName}</td>
-                  </tr>
-                  <tr>
-                    <td style="color:#6b7280;font-size:13px;padding:4px 0;">Email</td>
-                    <td style="color:#111827;font-size:13px;font-weight:600;padding:4px 0;">${signerEmail}</td>
-                  </tr>
-                  <tr>
-                    <td style="color:#6b7280;font-size:13px;padding:4px 0;">Date signed</td>
-                    <td style="color:#111827;font-size:13px;font-weight:600;padding:4px 0;">${signedDateFormatted}</td>
-                  </tr>
-                </table>
-              </div>
-
-              <p style="color:#6b7280;font-size:13px;margin:0;">
-                The attached certificate serves as legal proof of signing and includes the full audit trail, IP address, timestamps, and document fingerprint.
-              </p>
-            </div>
-
-            <!-- Footer -->
-            <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center;">
-              <p style="color:#9ca3af;font-size:12px;margin:0;">
-                This certificate was generated by <strong>DocMetrics</strong> and is legally binding under ESIGN Act, UETA, and eIDAS.
-              </p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    });
-
-    if (error) {
-      console.error('❌ Certificate email error:', error);
-      return { success: false, error };
-    }
-
-    console.log('✅ Certificate email sent to:', recipientEmail);
-    return { success: true, data };
-  } catch (err) {
-    console.error('❌ Certificate email exception:', err);
-    return { success: false, error: err };
+  const signedDateFormatted = new Date(signedAt).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+ 
+  const subject = `Certificate of completion — "${originalFilename}"`
+  const previewText = `${signerName} signed "${originalFilename}" on ${signedDateFormatted}. Certificate attached.`
+ 
+  const content = `
+    <p class="title">Certificate of completion</p>
+    <p class="meta">
+      ${signerName} signed "${originalFilename}" on ${signedDateFormatted}.
+      The certificate of completion is attached to this email as a PDF.
+    </p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${originalFilename}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Signed by</td>
+        <td class="val">${signerName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val">${signerEmail}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Date signed</td>
+        <td class="val">${signedDateFormatted}</td>
+      </tr>
+    </table>
+ 
+    <div class="notice">
+      The attached certificate includes the full audit trail, IP address, timestamps,
+      and document fingerprint.
+    </div>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [recipientEmail],
+    subject,
+    attachments: [
+      {
+        filename: `Certificate_${originalFilename.replace('.pdf', '')}_${signerName.replace(/\s+/g, '_')}.pdf`,
+        content: certificatePdfBuffer,
+      },
+    ],
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendCertificateEmail error:', error)
+    return { success: false, error }
   }
+ 
+  console.log('Certificate email sent to:', recipientEmail)
+  return { success: true }
 }
-
-
 
 // ── CONTACT FORM EMAIL ─────────────────────────────────────────
 export async function sendContactEmail({

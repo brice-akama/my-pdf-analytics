@@ -101,10 +101,8 @@ function formatTime(seconds: number): string {
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`
 }
 
-function intentText(level: 'high' | 'medium' | 'low'): string {
-  if (level === 'high')   return 'High'
-  if (level === 'medium') return 'Medium'
-  return 'Low'
+ function intentText(level: 'high' | 'medium' | 'low'): string {
+  return level.charAt(0).toUpperCase() + level.slice(1)
 }
 
 function buildAdaptiveCard(
