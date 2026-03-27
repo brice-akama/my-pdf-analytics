@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    typedRoutes: false,
+  },
   turbopack: {
     resolveAlias: {
       canvas: "./empty-module.ts",
