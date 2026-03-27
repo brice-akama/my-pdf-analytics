@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 //app/documents/[id]/signature/page.tsx
  
  

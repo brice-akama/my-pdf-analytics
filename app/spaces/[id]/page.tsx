@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 
 
 //app/spaces/[id]/page.tsx
