@@ -9,13 +9,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_SECRET_KEY,
 });
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '500mb', //  
-    },
-  },
-};
+export const maxDuration = 60; // seconds (for Vercel)
 
 export async function POST(
   request: NextRequest,

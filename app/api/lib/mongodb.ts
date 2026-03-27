@@ -1,4 +1,5 @@
 // lib/mongodb.ts
+import 'server-only';
 import { MongoClient, Db } from 'mongodb';
 
 const uri = process.env.MONGODB_URI || '';
@@ -72,7 +73,6 @@ async function initializeIndexes(db: Db): Promise<void> {
     ]);
     console.log('✅ MongoDB indexes ready');
   } catch (error) {
-    // Non-fatal — app still works, just slower queries
     console.error('⚠️ Index init error (non-fatal):', error);
   }
 }
@@ -80,8 +80,6 @@ async function initializeIndexes(db: Db): Promise<void> {
 // ── Singleton client (prevents multiple connections in dev HMR) ─
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
-
-// Track whether indexes have been initialized this process lifetime
 let indexesInitialized = false;
 
 if (process.env.NODE_ENV === 'development') {
@@ -99,7 +97,6 @@ if (process.env.NODE_ENV === 'development') {
   indexesInitialized = globalWithMongo._mongoIndexesInitialized || false;
 
 } else {
-  // Production — single instance, no global needed
   client = new MongoClient(uri);
   clientPromise = client.connect();
 }
@@ -108,7 +105,6 @@ if (process.env.NODE_ENV === 'development') {
 export const dbPromise: Promise<Db> = clientPromise.then(c => {
   const db = c.db('pdf-project');
 
-  // Only initialize indexes once per process
   if (!indexesInitialized) {
     indexesInitialized = true;
 
@@ -117,7 +113,6 @@ export const dbPromise: Promise<Db> = clientPromise.then(c => {
         ._mongoIndexesInitialized = true;
     }
 
-    // Run in background — never blocks requests
     initializeIndexes(db).catch(console.error);
   }
 
