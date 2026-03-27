@@ -487,73 +487,55 @@ export async function sendSignatureRequestCancelledEmail({
   reason,
   wasVoided,
 }: {
-  recipientEmail: string;
-  recipientName: string;
-  originalFilename: string;
-  ownerName: string;
-  reason: string;
-  wasVoided: boolean;
+  recipientEmail: string
+  recipientName: string
+  originalFilename: string
+  ownerName: string
+  reason: string
+  wasVoided: boolean
 }) {
-  try {
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
-          .alert-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 5px; }
-          .button { display: inline-block; padding: 12px 30px; background: #6366f1; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-          .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0;">❌ Signature Request Cancelled</h1>
-          </div>
-          <div class="content">
-            <p>Hi ${recipientName},</p>
-
-            <div class="alert-box">
-              <p style="margin: 0; font-weight: bold;">The signature request for "${originalFilename}" has been cancelled by ${ownerName}.</p>
-            </div>
-
-            <p><strong>Reason:</strong> ${reason}</p>
-
-            <p>You no longer need to take any action on this document. The signing link you received is no longer valid.</p>
-
-            <p>If you have questions, please contact ${ownerName} directly.</p>
-
-            <div class="footer">
-              <p>This is an automated email from our signature service.</p>
-            </div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const { data, error } = await resend.emails.send({
-     from: 'DocMetrics <noreply@docmetrics.io>',
-      to: [recipientEmail],
-      subject: `Signature Request Cancelled - ${originalFilename}`,
-      html: emailHtml,
-    });
-
-    if (error) {
-      console.error('❌ Failed to send cancellation email:', error);
-      throw error;
-    }
-
-    console.log('✅ Cancellation email sent to:', recipientEmail);
-    return { success: true, data };
-  } catch (error) {
-    console.error('❌ Email service error:', error);
-    throw error;
+  const subject = `Signature request cancelled — "${originalFilename}"`
+  const previewText = `${ownerName} has cancelled the signature request for "${originalFilename}"`
+ 
+  const content = `
+    <p class="title">Signature request cancelled</p>
+    <p class="meta">${ownerName} has cancelled the signature request for the document below.</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${originalFilename}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Cancelled by</td>
+        <td class="val">${ownerName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Reason</td>
+        <td class="val">${reason || 'No reason provided'}</td>
+      </tr>
+    </table>
+ 
+    <div class="notice">
+      Your signing link is no longer valid. No further action is required.
+      If you have questions, contact ${ownerName} directly.
+    </div>
+  `
+ 
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [recipientEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+ 
+  if (error) {
+    console.error('sendSignatureRequestCancelledEmail error:', error)
+    throw error
   }
+ 
+  console.log('Cancellation email sent to:', recipientEmail)
+  return { success: true }
 }
 
 // ===================================
@@ -2203,96 +2185,47 @@ export async function sendContactEmail({
   subject,
   message,
 }: {
-  name: string;
-  email: string;
-  subject: string;
-  message: string;
+  name: string
+  email: string
+  subject: string
+  message: string
 }) {
-    
+  const previewText = `Contact form message from ${name}`
+ 
+  const content = `
+    <p class="title">Contact form submission</p>
+    <p class="meta">${new Date().toUTCString()}</p>
+ 
+    <table class="table">
+      <tr>
+        <td class="lbl">From</td>
+        <td class="val">${name}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val"><a href="mailto:${email}" style="color:#0f172a;">${email}</a></td>
+      </tr>
+      <tr>
+        <td class="lbl">Subject</td>
+        <td class="val">${subject}</td>
+      </tr>
+    </table>
+ 
+    <p class="section-label">Message</p>
+    <div class="message-body">${message}</div>
+ 
+    <div class="cta">
+      <a href="mailto:${email}?subject=Re: ${subject}">Reply to ${name}</a>
+    </div>
+  `
+ 
   await resend.emails.send({
     from: FROM,
     to: CONTACT_INBOX,
-    replyTo: email,         // ← replying goes straight back to the sender
+    replyTo: email,
     subject: `[Contact] ${subject} — ${name}`,
-    html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b;">
-
-        <div style="background: #0284c7; padding: 24px 32px; border-radius: 8px 8px 0 0;">
-          <h1 style="margin: 0; color: #ffffff; font-size: 18px; font-weight: 600;">
-            New Contact Form Submission
-          </h1>
-          <p style="margin: 4px 0 0; color: #bae6fd; font-size: 13px;">
-            DocMetrics Marketing Site
-          </p>
-        </div>
-
-        <div style="border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; padding: 32px;">
-
-          <!-- Sender details -->
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
-            <tr>
-              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; width: 120px;">
-                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; 
-                             letter-spacing: 0.05em; color: #94a3b8;">From</span>
-              </td>
-              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
-                <span style="font-size: 14px; color: #1e293b; font-weight: 500;">${name}</span>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
-                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; 
-                             letter-spacing: 0.05em; color: #94a3b8;">Email</span>
-              </td>
-              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">
-                <a href="mailto:${email}" style="font-size: 14px; color: #0284c7; 
-                                                  text-decoration: none;">${email}</a>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0;">
-                <span style="font-size: 12px; font-weight: 600; text-transform: uppercase; 
-                             letter-spacing: 0.05em; color: #94a3b8;">Subject</span>
-              </td>
-              <td style="padding: 8px 0;">
-                <span style="font-size: 14px; color: #1e293b;">${subject}</span>
-              </td>
-            </tr>
-          </table>
-
-          <!-- Message body -->
-          <div>
-            <p style="font-size: 12px; font-weight: 600; text-transform: uppercase; 
-                      letter-spacing: 0.05em; color: #94a3b8; margin: 0 0 10px;">
-              Message
-            </p>
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; 
-                        padding: 16px 20px;">
-              <p style="margin: 0; font-size: 14px; color: #334155; line-height: 1.7; 
-                        white-space: pre-wrap;">${message}</p>
-            </div>
-          </div>
-
-          <!-- Reply CTA -->
-          <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #f1f5f9;">
-            <a href="mailto:${email}?subject=Re: ${subject}"
-               style="display: inline-block; background: #0284c7; color: #ffffff; 
-                      font-size: 13px; font-weight: 600; padding: 10px 20px; 
-                      border-radius: 6px; text-decoration: none;">
-              Reply to ${name}
-            </a>
-          </div>
-
-        </div>
-
-        <!-- Footer -->
-        <p style="text-align: center; font-size: 11px; color: #cbd5e1; margin-top: 20px;">
-          Sent from docmetrics.io contact form · ${new Date().toUTCString()}
-        </p>
-
-      </div>
-    `,
-  });
+    html: shell(content, previewText),
+  })
 }
 
 // ===================================

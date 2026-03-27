@@ -25,6 +25,7 @@ const HIDDEN_ROUTES = [
   "/forgot-password",
   "/invite",
   "/invite-team",
+  "/report",
   "/nda-records",
   "/admin",
   "/public",

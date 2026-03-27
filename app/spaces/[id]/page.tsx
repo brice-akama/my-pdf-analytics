@@ -1625,6 +1625,13 @@ const [selectedDriveImports, setSelectedDriveImports] = useState<Set<string>>(ne
 const [selectedOneDriveImports, setSelectedOneDriveImports] = useState<Set<string>>(new Set())
 const [importingDriveFiles, setImportingDriveFiles] = useState(false)
 const [importingOneDriveFiles, setImportingOneDriveFiles] = useState(false)
+const [confirmDialog, setConfirmDialog] = useState<{
+  open: boolean
+  title: string
+  description: string
+  onConfirm: () => void
+  variant?: 'default' | 'destructive'
+} | null>(null)
 
 
 
@@ -1744,6 +1751,10 @@ useEffect(() => {
 }, [searchParams, canShareSpace, canManageSpace])
 
 
+
+const showConfirm = (title: string, description: string, onConfirm: () => void, variant: 'default' | 'destructive' = 'destructive') => {
+  setConfirmDialog({ open: true, title, description, onConfirm, variant })
+}
 
 const getUnsignedDocs = () => {
   return displayedFilterDocuments.filter(doc => 
@@ -2090,7 +2101,7 @@ const handleGrantFolderPermission = async () => {
     const data = await res.json()
 
     if (res.ok && data.success) {
-      alert(data.message)
+      toast.success(data.message)
       // Refresh permissions list
       await fetchFolderPermissions(selectedFolderForPermissions)
       // Reset form
@@ -2100,11 +2111,11 @@ const handleGrantFolderPermission = async () => {
       setNewPermissionExpiresAt('')
       setNewPermissionWatermark(false)
     } else {
-      alert(data.error || 'Failed to grant permission')
+      toast.error(data.error || 'Failed to grant permission')
     }
   } catch (error) {
     console.error('Failed to grant permission:', error)
-    alert('Failed to grant permission')
+    toast.error('Failed to grant permission')
   } finally {
     setAddingPermission(false)
   }
@@ -2187,7 +2198,7 @@ const fetchContacts = async () => {
 
 const handleSignNDA = async () => {
   if (!ndaAccepted) {
-    alert('Please accept the NDA to continue');
+    toast.error('Please accept the NDA to continue');
     return;
   }
 
@@ -2348,7 +2359,7 @@ const updateSpaceNDA = async (document: any) => {
     const data = await res.json()
     
     if (data.success) {
-      alert('✅ NDA document set successfully!')
+      toast.success('✅ NDA document set successfully!')
       await fetchSpace() // Refresh to show new NDA
     }
   } catch (error) {
@@ -2392,16 +2403,16 @@ const handleRenameFile = async () => {
     const data = await res.json()
 
     if (res.ok && data.success) {
-      alert(data.message)
+      toast.success(data.message)
       setShowRenameDialog(false)
       setSelectedFile(null)
       setNewFilename('')
       fetchSpace()
     } else {
-      alert(data.error || 'Failed to rename file')
+      toast.error(data.error || 'Failed to rename file')
     }
   } catch (error) {
-    alert('Failed to rename file')
+    toast.error('Failed to rename file')
   }
 }
 
@@ -2423,47 +2434,45 @@ const handleMoveFile = async () => {
     const data = await res.json()
 
     if (res.ok && data.success) {
-      alert(data.message)
+      toast.success(data.message)
       setShowMoveDialog(false)
       setSelectedFile(null)
       setTargetFolderId(null)
       fetchSpace()
     } else {
-      alert(data.error || 'Failed to move file')
+      toast.error(data.error || 'Failed to move file')
     }
   } catch (error) {
-    alert('Failed to move file')
+    toast.error('Failed to move file')
   }
 }
 
 // Delete file
-const handleDeleteFile = async (fileId: string, filename: string) => {
-  if (!confirm(`Move "${filename}" to trash?`)) return
-
-  try {
-    const res = await fetch(`/api/spaces/${params.id}/files/${fileId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    })
-
-    const data = await res.json()
-
-   if (res.ok && data.success) {
-  alert(data.message)
-  
-  // ✅ Remove deleted document from state immediately
-  setDocuments(prev => prev.filter(doc => doc.id !== fileId))
-  setAllDocuments(prev => prev.filter(doc => doc.id !== fileId))
-  
-  // ✅ FIX: Immediately fetch trashed documents to update count
-  await fetchTrashedDocuments()
-  await fetchFolders()
-} else {
-      alert(data.error || 'Failed to delete file')
+ const handleDeleteFile = async (fileId: string, filename: string) => {
+  showConfirm(
+    'Move to Trash',
+    `"${filename}" will be moved to trash. You can restore it later.`,
+    async () => {
+      try {
+        const res = await fetch(`/api/spaces/${params.id}/files/${fileId}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          toast.success(data.message || 'Moved to trash')
+          setDocuments(prev => prev.filter(doc => doc.id !== fileId))
+          setAllDocuments(prev => prev.filter(doc => doc.id !== fileId))
+          await fetchTrashedDocuments()
+          await fetchFolders()
+        } else {
+          toast.error(data.error || 'Failed to delete file')
+        }
+      } catch {
+        toast.error('Failed to delete file')
+      }
     }
-  } catch (error) {
-    alert('Failed to delete file')
-  }
+  )
 }
 
 // Fetch trashed documents
@@ -2500,16 +2509,16 @@ const handleRestoreDocument = async (fileId: string) => {
     const data = await res.json();
 
     if (res.ok && data.success) {
-      alert(data.message);
+      toast.success(data.message);
       // Refresh both lists
       await fetchSpace();
       await fetchTrashedDocuments();
     } else {
-      alert(data.error || 'Failed to restore document');
+      toast.error(data.error || 'Failed to restore document');
     }
   } catch (error) {
     console.error('Restore error:', error);
-    alert('Failed to restore document');
+    toast.error('Failed to restore document');
   }
 };
 
@@ -2527,36 +2536,39 @@ const handlePermanentDelete = async (fileId: string) => {
     const data = await res.json();
 
     if (res.ok && data.success) {
-      alert(data.message);
+      toast.success(data.message);
       await fetchTrashedDocuments();
     } else {
-      alert(data.error || 'Failed to delete permanently');
+      toast.error(data.error || 'Failed to delete permanently');
     }
   } catch (error) {
     console.error('Permanent delete error:', error);
-    alert('Failed to delete permanently');
+    toast.error('Failed to delete permanently');
   }
 };
 
 // Empty entire trash
 const handleEmptyTrash = async () => {
-  try {
-    // Delete all trashed documents one by one
-    const deletePromises = trashedDocuments.map(doc =>
-      fetch(`/api/spaces/${params.id}/files/${doc.id}?permanent=true`, {
-        method: 'DELETE',
-        credentials: 'include',
-      })
-    );
-
-    await Promise.all(deletePromises);
-    alert('Trash emptied successfully');
-    await fetchTrashedDocuments();
-  } catch (error) {
-    console.error('Empty trash error:', error);
-    alert('Failed to empty trash');
-  }
-};
+  showConfirm(
+    'Empty Trash',
+    `Permanently delete all ${trashedDocuments.length} item${trashedDocuments.length !== 1 ? 's' : ''}? This cannot be undone.`,
+    async () => {
+      try {
+        const deletePromises = trashedDocuments.map(doc =>
+          fetch(`/api/spaces/${params.id}/files/${doc.id}?permanent=true`, {
+            method: 'DELETE',
+            credentials: 'include',
+          })
+        )
+        await Promise.all(deletePromises)
+        toast.success('Trash emptied')
+        await fetchTrashedDocuments()
+      } catch {
+        toast.error('Failed to empty trash')
+      }
+    }
+  )
+}
 
 const handleAddContact = async () => {
   if (!contactEmail.trim()) return
@@ -2857,8 +2869,8 @@ const handleGenerateShareLink = async () => {
       body: JSON.stringify({
         securityLevel,
         password: (securityLevel === 'password' || securityLevel === 'whitelist') ? password : undefined,
-        allowedEmails: securityLevel === 'whitelist' ? finalAllowedEmails : [], // ✅ Use final array
-        allowedDomains: securityLevel === 'whitelist' ? finalAllowedDomains : [], // ✅ Use final array
+        allowedEmails: securityLevel === 'whitelist' ? finalAllowedEmails : [], //  Use final array
+        allowedDomains: securityLevel === 'whitelist' ? finalAllowedDomains : [], //  Use final array
         expiresAt: expiresAt || null,
         viewLimit: viewLimit ? parseInt(viewLimit) : null,
         label: shareLinkLabel.trim() || null,
@@ -2885,10 +2897,10 @@ const handleGenerateShareLink = async () => {
 const handleCopyLink = async () => {
   try {
     await navigator.clipboard.writeText(shareLink)
-    alert('Link copied to clipboard!')
+    toast.success('Link copied to clipboard!')
   } catch (error) {
     console.error('Copy error:', error)
-    alert('❌ Failed to copy. Please copy manually.')
+    toast.error('❌ Failed to copy. Please copy manually.')
   }
 }
 
@@ -3752,7 +3764,7 @@ const fetchFolders = async () => {
     <Eye className="mr-2 h-4 w-4" />
     View
   </DropdownMenuItem>
- {/* ✅ Show download only if allowed */}
+ {/*  Show download only if allowed */}
   {doc.canDownload !== false ? (
     <DropdownMenuItem onClick={async () => {
       try {
@@ -3779,7 +3791,7 @@ const fetchFolders = async () => {
         document.body.removeChild(a);
       } catch (err) {
         console.error('Download error:', err);
-        alert('Download failed. Please try again.');
+        toast.error('Download failed. Please try again.');
       }
     }}>
       <Download className="mr-2 h-4 w-4" />
@@ -4141,7 +4153,7 @@ const fetchFolders = async () => {
                   window.open(`/api/spaces/${params.id}/files/${doc.id}/view`, '_blank');
                 } catch (err) {
                   console.error('View error:', err);
-                  alert('Failed to open document');
+                  toast.error('Failed to open document');
                 }
               }}>
                 <Eye className="mr-2 h-4 w-4" />
@@ -4176,7 +4188,7 @@ const fetchFolders = async () => {
         document.body.removeChild(a);
       } catch (err) {
         console.error('Download error:', err);
-        alert('Download failed. Please try again.');
+        toast.error('Download failed. Please try again.');
       }
     }}>
       <Download className="mr-2 h-4 w-4" />
@@ -4405,20 +4417,21 @@ const fetchFolders = async () => {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-red-600"
-                onClick={async (e) => {
-                  e.stopPropagation()
-                  const docCount = folder.documentCount || 0
-                  const message = docCount > 0
-                    ? `Delete "${folder.name}"? The ${docCount} file(s) inside will be moved to root.`
-                    : `Delete "${folder.name}"?`
-                  if (!confirm(message)) return
-                  const res = await fetch(`/api/spaces/${params.id}/folders/${folder.id}?force=true`, {
-                    method: 'DELETE', credentials: 'include'
-                  })
-                  const data = await res.json()
-                  if (data.success) { toast.success(data.message); fetchFolders(); fetchSpace() }
-                  else toast.error(data.error || 'Delete failed')
-                }}
+               onClick={async (e) => {
+  e.stopPropagation()
+  const docCount = folder.documentCount || 0
+  const message = docCount > 0
+    ? `"${folder.name}" has ${docCount} file(s) inside that will be moved to root.`
+    : `Delete "${folder.name}"?`
+  showConfirm('Delete Folder', message, async () => {
+    const res = await fetch(`/api/spaces/${params.id}/folders/${folder.id}?force=true`, {
+      method: 'DELETE', credentials: 'include'
+    })
+    const data = await res.json()
+    if (data.success) { toast.success(data.message); fetchFolders(); fetchSpace() }
+    else toast.error(data.error || 'Delete failed')
+  })
+}}
               >
                 <Trash2 className="mr-2 h-4 w-4" />Delete Folder
               </DropdownMenuItem>
@@ -4565,20 +4578,21 @@ const fetchFolders = async () => {
                     <DropdownMenuItem
                       className="text-red-600"
                       onClick={async (e) => {
-                        e.stopPropagation()
-                        const docCount = folder.documentCount || 0
-                        const message = docCount > 0
-                          ? `Delete "${folder.name}"? The ${docCount} file(s) inside will be moved to root.`
-                          : `Delete "${folder.name}"?`
-                        if (!confirm(message)) return
-                        const res = await fetch(`/api/spaces/${params.id}/folders/${folder.id}?force=true`, {
-                          method: 'DELETE', credentials: 'include'
-                        })
-                        const data = await res.json()
-                        if (data.success) { toast.success(data.message); fetchFolders(); fetchSpace() }
-                        else toast.error(data.error || 'Delete failed')
-                      }}
-                    >
+  e.stopPropagation()
+  const docCount = folder.documentCount || 0
+  const message = docCount > 0
+    ? `"${folder.name}" has ${docCount} file(s) inside that will be moved to root.`
+    : `Delete "${folder.name}"?`
+  showConfirm('Delete Folder', message, async () => {
+    const res = await fetch(`/api/spaces/${params.id}/folders/${folder.id}?force=true`, {
+      method: 'DELETE', credentials: 'include'
+    })
+    const data = await res.json()
+    if (data.success) { toast.success(data.message); fetchFolders(); fetchSpace() }
+    else toast.error(data.error || 'Delete failed')
+  })
+}}
+>
                       <Trash2 className="mr-2 h-4 w-4" />Delete Folder
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -7559,6 +7573,33 @@ const fetchFolders = async () => {
     </div>
   </DialogContent>
 </Dialog>
+
+{/* Confirmation Dialog */}
+{confirmDialog && (
+  <Dialog open={confirmDialog.open} onOpenChange={() => setConfirmDialog(null)}>
+    <DialogContent className="max-w-sm bg-white">
+      <DialogHeader>
+        <DialogTitle>{confirmDialog.title}</DialogTitle>
+        <DialogDescription>{confirmDialog.description}</DialogDescription>
+      </DialogHeader>
+      <div className="flex gap-2 justify-end pt-2">
+        <Button variant="outline" onClick={() => setConfirmDialog(null)}>
+          Cancel
+        </Button>
+        <Button
+          variant={confirmDialog.variant === 'destructive' ? 'destructive' : 'default'}
+          className={confirmDialog.variant === 'destructive' ? 'bg-red-600 hover:bg-red-700' : ''}
+          onClick={() => {
+            confirmDialog.onConfirm()
+            setConfirmDialog(null)
+          }}
+        >
+          Confirm
+        </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+)}
 
     </div>
   )
