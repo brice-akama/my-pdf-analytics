@@ -316,44 +316,8 @@ export default function PerformanceTab({
         </div>
       )}
 
-      {/* SECTION 7 — PER-VIEWER PAGE BREAKDOWN */}
-      {analytics.recipientPageTracking?.length > 0 && (
-        <div className="py-5 border-b border-slate-100">
-          <div className="flex items-center gap-1.5 mb-5">
-            <MousePointer className="h-3.5 w-3.5 text-sky-400" />
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Per-Viewer Page Breakdown</p>
-          </div>
-          <div className="space-y-5">
-            {analytics.recipientPageTracking.map((recipient: any, idx: number) => (
-              <div key={idx} className="pb-5 border-b border-slate-100 last:border-b-0 last:pb-0">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                    {recipient.recipientEmail ? recipient.recipientEmail.charAt(0).toUpperCase() : '?'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">{recipient.recipientEmail || 'Anonymous'}</p>
-                    <p className="text-[11px] text-slate-400">{recipient.totalTimeOnDoc} total</p>
-                  </div>
-                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${recipient.neverOpened ? 'text-slate-400 bg-slate-100' : recipient.bounced ? 'text-red-500 bg-red-50' : 'text-green-600 bg-green-50'}`}>
-                    {recipient.neverOpened ? 'Never opened' : recipient.bounced ? 'Bounced' : 'Engaged'}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {recipient.pageData?.map((p: any) => (
-                    <div key={p.page} title={p.skipped ? `Page ${p.page}: Skipped` : `Page ${p.page}: ${p.timeSpent}s · ${p.scrollDepth}% scroll`}
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border ${p.skipped ? 'bg-slate-50 text-slate-300 border-slate-200' : p.timeSpent > 120 ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-violet-50 text-violet-600 border-violet-200'}`}>
-                      <span className="tabular-nums">P{p.page}</span>
-                      {!p.skipped && <span className="opacity-60">· {p.timeSpent}s</span>}
-                      {p.skipped && <span>⊘</span>}
-                      {!p.skipped && p.visits > 1 && <span>↩</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      
+         
 
       {/* SECTION 8 — BOUNCE ANALYTICS */}
       {analytics.bounceAnalytics && (

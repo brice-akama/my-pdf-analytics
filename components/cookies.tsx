@@ -59,12 +59,7 @@ const CookieConsent = () => {
               </button>
             </div>
 
-            <button
-              onClick={handleManagePreferences}
-              className="w-full mt-4 text-sm text-slate-500 hover:text-slate-700 underline transition-colors"
-            >
-              Manage Preferences
-            </button>
+            
           </div>
         </div>
       </div>

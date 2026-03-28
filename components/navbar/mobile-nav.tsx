@@ -50,9 +50,7 @@ export function MobileNav() {
               <AccordionContent>
                 <div className="flex flex-col space-y-3 pl-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-                      Platform
-                    </p>
+                     
                     <div className="space-y-2">
                       <Link
                         href="/product/how-it-works"
@@ -89,20 +87,8 @@ export function MobileNav() {
                       >
                         Document Analytics
                       </Link>
-                      <Link
-                        href="/features/notifications"
-                        className="block py-2 text-sm text-muted-foreground hover:text-foreground"
-                        onClick={() => setOpen(false)}
-                      >
-                        Real-Time Notifications
-                      </Link>
-                      <Link
-                        href="/features/engagement"
-                        className="block py-2 text-sm text-muted-foreground hover:text-foreground"
-                        onClick={() => setOpen(false)}
-                      >
-                        Engagement Tracking
-                      </Link>
+                      
+                      
                     </div>
                   </div>
                 </div>
@@ -121,85 +107,30 @@ export function MobileNav() {
                     className="py-2 text-sm text-muted-foreground hover:text-foreground"
                     onClick={() => setOpen(false)}
                   >
-                    💼 Sales Teams
+                     Sales Teams
                   </Link>
-                  <Link
-                    href="/solutions/real-estate"
-                    className="py-2 text-sm text-muted-foreground hover:text-foreground"
-                    onClick={() => setOpen(false)}
-                  >
-                    🏢 Real Estate
-                  </Link>
-                  <Link
-                    href="/solutions/freelancers"
-                    className="py-2 text-sm text-muted-foreground hover:text-foreground"
-                    onClick={() => setOpen(false)}
-                  >
-                    💻 Freelancers
-                  </Link>
-                  <Link
-                    href="/solutions/recruiting"
-                    className="py-2 text-sm text-muted-foreground hover:text-foreground"
-                    onClick={() => setOpen(false)}
-                  >
-                    🎯 Recruiting
-                  </Link>
+                  
+                   
+                   
                   <Link
                     href="/solutions/fundraising"
                     className="py-2 text-sm text-muted-foreground hover:text-foreground"
                     onClick={() => setOpen(false)}
                   >
-                    💰 Fundraising
+                     Fundraising
                   </Link>
                   <Link
                     href="/solutions/enterprise"
                     className="py-2 text-sm text-muted-foreground hover:text-foreground"
                     onClick={() => setOpen(false)}
                   >
-                    🏛️ Enterprise
+                     Client Portal
                   </Link>
                 </div>
               </AccordionContent>
             </AccordionItem>
 
-            {/* Use Cases Accordion */}
-            <AccordionItem value="use-cases" className="border-none">
-              <AccordionTrigger className="text-base font-medium hover:no-underline">
-                Use Cases
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="flex flex-col space-y-2 pl-4">
-                  <Link
-                    href="/use-cases/sales"
-                    className="py-2 text-sm text-muted-foreground hover:text-foreground"
-                    onClick={() => setOpen(false)}
-                  >
-                    💼 Sales Teams
-                  </Link>
-                  <Link
-                    href="/use-cases/real-estate"
-                    className="py-2 text-sm text-muted-foreground hover:text-foreground"
-                    onClick={() => setOpen(false)}
-                  >
-                    🏢 Real Estate
-                  </Link>
-                  <Link
-                    href="/use-cases/freelancers"
-                    className="py-2 text-sm text-muted-foreground hover:text-foreground"
-                    onClick={() => setOpen(false)}
-                  >
-                    💻 Freelancers
-                  </Link>
-                  <Link
-                    href="/use-cases/recruiters"
-                    className="py-2 text-sm text-muted-foreground hover:text-foreground"
-                    onClick={() => setOpen(false)}
-                  >
-                    🎯 Recruiters
-                  </Link>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
+             
 
             {/* Resources Accordion */}
             <AccordionItem value="resources" className="border-none">
@@ -209,32 +140,26 @@ export function MobileNav() {
               <AccordionContent>
                 <div className="flex flex-col space-y-2 pl-4">
                   <Link
-                    href="/docs"
+                    href="/https://docmetrics-documentation.gitbook.io/docs"
                     className="py-2 text-sm text-muted-foreground hover:text-foreground"
                     onClick={() => setOpen(false)}
                   >
-                    📚 Documentation
+                     Documentation
                   </Link>
-                  <Link
-                    href="/tutorials"
-                    className="py-2 text-sm text-muted-foreground hover:text-foreground"
-                    onClick={() => setOpen(false)}
-                  >
-                    🎥 Video Tutorials
-                  </Link>
+                 
                   <Link
                     href="/help"
                     className="py-2 text-sm text-muted-foreground hover:text-foreground"
                     onClick={() => setOpen(false)}
                   >
-                    🆘 Help Center
+                     Help Center
                   </Link>
                   <Link
                     href="/contact"
                     className="py-2 text-sm text-muted-foreground hover:text-foreground"
                     onClick={() => setOpen(false)}
                   >
-                    💬 Contact Us
+                     Contact Us
                   </Link>
                 </div>
               </AccordionContent>
