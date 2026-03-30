@@ -1,6 +1,4 @@
- // This file handles uploading NDA/agreement PDFs to Cloudinary and saving metadata in MongoDB.
-// It also provides a GET endpoint to list all uploaded agreements for the logged-in user.
-//app/api/agreements/upload/route.ts
+ // app/api/agreements/upload/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserFromRequest } from "@/lib/auth";
 import { dbPromise } from "@/app/api/lib/mongodb";
@@ -54,8 +52,6 @@ export async function GET(req: NextRequest) {
 }
 
 // POST — upload a new NDA/agreement PDF
-// app/api/agreements/upload/route.ts
-
 export async function POST(req: NextRequest) {
   let tempFilePath: string | null = null;
 
@@ -73,30 +69,25 @@ export async function POST(req: NextRequest) {
     }
 
     if (file.type !== "application/pdf") {
-      return NextResponse.json({ error: "Only PDF files are allowed" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Only PDF files are allowed" },
+        { status: 400 }
+      );
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: "File must be less than 10MB" }, { status: 400 });
+      return NextResponse.json(
+        { error: "File must be less than 10MB" },
+        { status: 400 }
+      );
     }
 
-    // ✅ CHECK 1 - Cloudinary config
-    console.log("🔍 Cloudinary config check:", {
-      cloud_name: !!process.env.CLOUDINARY_NAME,
-      api_key: !!process.env.CLOUDINARY_API_KEY,
-      api_secret: !!process.env.CLOUDINARY_SECRET_KEY,
-    })
+    console.log("📄 Uploading agreement:", file.name);
 
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_SECRET_KEY,
-    });
-
-    console.log("📄 Uploading agreement:", file.name, "size:", file.size);
-
-    // ✅ CHECK 2 - temp file writing
-    const uploadDir = path.join(process.cwd(), "public", "temp");
+    // ✅ FIX: Use /tmp instead of process.cwd()/public/temp
+    // /var/task (process.cwd()) is READ-ONLY in Vercel/serverless environments.
+    // /tmp is the only writable directory available at runtime.
+    const uploadDir = path.join("/tmp", "agreements");
     await mkdir(uploadDir, { recursive: true });
 
     const bytes = await file.arrayBuffer();
@@ -107,10 +98,9 @@ export async function POST(req: NextRequest) {
     tempFilePath = path.join(uploadDir, tempFileName);
 
     await writeFile(tempFilePath, buffer);
-    console.log("✅ Temp file written:", tempFilePath);
 
-    // ✅ CHECK 3 - Cloudinary upload
-    console.log("📤 Starting Cloudinary upload...");
+    console.log("📤 Uploading to Cloudinary...");
+
     const cloudinaryResult = await cloudinary.uploader.upload(tempFilePath, {
       folder: `agreements/${user.id}`,
       resource_type: "auto",
@@ -119,12 +109,13 @@ export async function POST(req: NextRequest) {
         .replace(/\.[^/.]+$/, "")
         .replace(/[^a-zA-Z0-9_-]/g, "_")}`,
     });
-    console.log("✅ Cloudinary upload success:", cloudinaryResult.secure_url);
 
-    // ✅ CHECK 4 - MongoDB
-    console.log("💾 Saving to MongoDB...");
+    console.log("✅ Cloudinary upload:", cloudinaryResult.secure_url);
+
     const db = await dbPromise;
-    const profile = await db.collection("profiles").findOne({ user_id: user.id });
+    const profile = await db
+      .collection("profiles")
+      .findOne({ user_id: user.id });
 
     const agreementDoc = {
       userId: user.id,
@@ -151,8 +142,10 @@ export async function POST(req: NextRequest) {
     };
 
     const result = await db.collection("agreements").insertOne(agreementDoc);
-    console.log("✅ Agreement saved to MongoDB:", result.insertedId.toString());
 
+    console.log("✅ Agreement saved:", result.insertedId.toString());
+
+    // Clean up temp file
     if (tempFilePath) {
       await unlink(tempFilePath).catch((err) =>
         console.warn("⚠️ Failed to delete temp file:", err)
@@ -171,13 +164,8 @@ export async function POST(req: NextRequest) {
       },
       message: "Agreement uploaded successfully",
     });
-
-  } catch (error: any) {
-    console.error("❌ Upload agreement error:", {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-    });
+  } catch (error) {
+    console.error("❌ Upload agreement error:", error);
 
     if (tempFilePath) {
       await unlink(tempFilePath).catch(() => {});
@@ -186,8 +174,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error: "Failed to upload agreement",
-        // ✅ Show exact error in response so you can see it in browser
-        details: error.message || "Unknown error",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

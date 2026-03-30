@@ -1,5 +1,5 @@
 // app/api/contacts/suggestions/route.ts
- import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
       .collection('viewer_identities')
       .find({
         documentId: { $in: documentIds },
-        email: { $exists: true, $ne: '' },
+        // ✅ FIX: Also exclude null emails at the DB level, not just empty strings
+        email: { $exists: true, $ne: '', $ne: null },
       })
       .project({ email: 1, lastSeen: 1, visitCount: 1, _id: 0 })
       .sort({ lastSeen: -1 })
@@ -65,8 +66,7 @@ export async function GET(request: NextRequest) {
 
     console.log(`🔗 [suggestions] Past shares: ${pastShares.length}`);
     console.log('🔗 [suggestions] Sample share:', pastShares[0]);
-    // This is the key log — does recipientName have a value?
-    console.log('🔗 [suggestions] All share names:', 
+    console.log('🔗 [suggestions] All share names:',
       pastShares.map(s => ({ email: s.recipientEmail, name: s.recipientName }))
     );
 
@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
 
     // Shares first (lowest priority — will be overwritten by contacts)
     for (const s of pastShares) {
+      // ✅ FIX: Guard against null/undefined recipientEmail before calling .toLowerCase()
       if (!s.recipientEmail) continue;
       const key = s.recipientEmail.toLowerCase();
       emailMap.set(key, {
@@ -86,6 +87,8 @@ export async function GET(request: NextRequest) {
 
     // Viewers
     for (const v of viewers) {
+      // ✅ FIX: Guard against null/undefined email before calling .toLowerCase()
+      if (!v.email) continue;
       const key = v.email.toLowerCase();
       if (!emailMap.has(key)) {
         emailMap.set(key, {
@@ -104,13 +107,13 @@ export async function GET(request: NextRequest) {
 
     // Contacts last (highest priority — overwrites everything)
     for (const c of contacts) {
-      if (c.email) {
-        emailMap.set(c.email.toLowerCase(), {
-          email: c.email,
-          name: c.name || null,
-          source: 'contact',
-        });
-      }
+      // ✅ FIX: Guard against null/undefined email before calling .toLowerCase()
+      if (!c.email) continue;
+      emailMap.set(c.email.toLowerCase(), {
+        email: c.email,
+        name: c.name || null,
+        source: 'contact',
+      });
     }
 
     // File requests
@@ -123,6 +126,7 @@ export async function GET(request: NextRequest) {
 
       for (const fr of pastFileRequests) {
         for (const r of (fr.recipients || [])) {
+          // ✅ FIX: Guard against null/undefined email before calling .toLowerCase()
           if (!r.email) continue;
           const key = r.email.toLowerCase();
           if (!emailMap.has(key)) {
@@ -147,8 +151,8 @@ export async function GET(request: NextRequest) {
       return 0;
     });
 
-    console.log(`✅ [suggestions] Total suggestions: ${suggestions.length}`);
-    console.log('✅ [suggestions] Sample final suggestions:', suggestions.slice(0, 3));
+    console.log(` [suggestions] Total suggestions: ${suggestions.length}`);
+    console.log(' [suggestions] Sample final suggestions:', suggestions.slice(0, 3));
 
     return NextResponse.json({ success: true, suggestions });
   } catch (error) {
@@ -159,4 +163,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
- 
