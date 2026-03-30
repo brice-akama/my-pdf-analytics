@@ -46,15 +46,15 @@ export async function GET(request: NextRequest) {
       .find({
         documentId: { $in: documentIds },
         // ✅ FIX: Also exclude null emails at the DB level, not just empty strings
-        email: { $exists: true, $ne: '', $ne: null },
+         email: { $exists: true, $nin: [null, ''] },
       })
       .project({ email: 1, lastSeen: 1, visitCount: 1, _id: 0 })
-      .sort({ lastSeen: -1 })
+      .sort({ lastSeen: -1 }) 
       .limit(300)
       .toArray();
 
-    console.log(`👁️ [suggestions] Viewers: ${viewers.length}`);
-    console.log('👁️ [suggestions] Sample viewer:', viewers[0]);
+    console.log(` [suggestions] Viewers: ${viewers.length}`);
+    console.log('[suggestions] Sample viewer:', viewers[0]);
 
     // ── 3. Past shares ────────────────────────────────────────────────────
     const pastShares = await db
