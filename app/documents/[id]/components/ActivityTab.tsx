@@ -817,279 +817,179 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
                         </div>
                       )}
                       {/* ── Do They Understand It — per visitor ── */}
-{documentVideos.length > 0 && (
-  <div className="mt-5 border-t border-slate-100 pt-4">
+{/* ── Do They Understand It (videos) — only when videos exist ── */}
+                      {documentVideos.length > 0 && (
+                        <div className="mt-5 border-t border-slate-100 pt-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                              Do They Understand It
+                            </p>
+                            {(() => {
+                              const pagesRead = visit.pageData.filter((p: any) => p.timeSpent > 5).length;
+                              const totalPages = visit.pageData.length;
+                              const videosForThisViewer = analytics.videoStats
+                                ? analytics.videoStats.filter((s: any) => s.uniqueViewers > 0).length
+                                : 0;
+                              const readScore = totalPages > 0 ? (pagesRead / totalPages) * 50 : 0;
+                              const videoScore = documentVideos.length > 0
+                                ? (videosForThisViewer / documentVideos.length) * 50
+                                : readScore;
+                              const score = Math.round(readScore + videoScore);
+                              const color = score >= 80 ? "#16a34a" : score >= 50 ? "#d97706" : "#dc2626";
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-slate-400">Understanding score</span>
+                                  <span className="text-sm font-black tabular-nums" style={{ color }}>{score}%</span>
+                                </div>
+                              );
+                            })()}
+                          </div>
 
-    {/* Section header */}
-    <div className="flex items-center justify-between mb-3">
-      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
-        Do They Understand It
-      </p>
+                          <div className="space-y-2">
+                            {documentVideos.map((video: any) => {
+                              const pageNum = video.pageNumber;
+                              const pageReadData = visit.pageData.find((p: any) => p.page === pageNum);
+                              const viewerVideoData = analytics.viewerVideoStats?.find((v: any) => v.email === visit.email);
+                              const viewerPageVideo = viewerVideoData?.pages?.find((p: any) => p.page === pageNum);
+                              const videoStat = analytics.videoStats?.find((s: any) => s.page === pageNum);
+                              const timeSpent = pageReadData?.timeSpent || 0;
+                              const watchCount = viewerPageVideo?.watchCount ?? (videoStat?.totalWatches || 0);
+                              const watched = watchCount > 0;
+                              const replays = viewerPageVideo?.replays ?? (videoStat?.replays || 0);
+                              const completion = viewerPageVideo?.maxCompletion ?? (videoStat?.avgCompletion || 0);
 
-      {/* Overall understanding score */}
-      {(() => {
-        const pagesRead = visit.pageData.filter(
-          (p: any) => p.timeSpent > 5
-        ).length
-        const totalPages = visit.pageData.length
-        const videosForThisViewer = analytics.videoStats
-          ? analytics.videoStats.filter((s: any) => s.uniqueViewers > 0).length
-          : 0
-        const readScore = totalPages > 0 ? (pagesRead / totalPages) * 50 : 0
-        const videoScore = documentVideos.length > 0
-          ? (videosForThisViewer / documentVideos.length) * 50
-          : readScore
-        const score = Math.round(readScore + videoScore)
-        const color = score >= 80
-          ? '#16a34a'
-          : score >= 50
-          ? '#d97706'
-          : '#dc2626'
-        return (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">Understanding score</span>
-            <span
-              className="text-sm font-black tabular-nums"
-              style={{ color }}
-            >
-              {score}%
-            </span>
-          </div>
-        )
-      })()}
-    </div>
+                              const readSignal = timeSpent > 30
+                                ? { dot: "#16a34a", label: "Read" }
+                                : timeSpent > 5
+                                ? { dot: "#d97706", label: "Skimmed" }
+                                : { dot: "#e2e8f0", label: "Skipped" };
 
-    {/* Per-page video + read combined bars */}
-    <div className="space-y-2">
-      {documentVideos.map((video: any) => {
-        const pageNum = video.pageNumber
-        const pageReadData = visit.pageData.find(
-          (p: any) => p.page === pageNum
-        )
-       // Use per-viewer stats if available — more accurate than aggregate
-const viewerVideoData = analytics.viewerVideoStats?.find(
-  (v: any) => v.email === visit.email
-)
-const viewerPageVideo = viewerVideoData?.pages?.find(
-  (p: any) => p.page === pageNum
-)
+                              const videoSignal = !watched
+                                ? { dot: "#e2e8f0", label: "Not watched" }
+                                : replays >= 3
+                                ? { dot: "#dc2626", label: `Replayed ${replays}x` }
+                                : completion >= 75
+                                ? { dot: "#16a34a", label: `${completion}% — watched` }
+                                : { dot: "#d97706", label: `${completion}% — partial` };
 
-// Fall back to aggregate if no per-viewer data
-const videoStat = analytics.videoStats?.find(
-  (s: any) => s.page === pageNum
-)
+                              return (
+                                <div key={video._id} className="flex items-center gap-3">
+                                  <div className="w-12 flex-shrink-0 text-[10px] font-semibold text-slate-400 text-right">
+                                    {pageNum === 0 ? "Intro" : `P${pageNum}`}
+                                  </div>
+                                  <div className="flex-1 flex flex-col gap-1">
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: readSignal.dot }} />
+                                      <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min((timeSpent / 120) * 100, 100)}%`, background: readSignal.dot }} />
+                                      </div>
+                                      <span className="text-[10px] text-slate-400 w-12 flex-shrink-0">{readSignal.label}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: videoSignal.dot }} />
+                                      <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full transition-all" style={{ width: watched ? `${completion}%` : "0%", background: videoSignal.dot }} />
+                                      </div>
+                                      <span className="text-[10px] text-slate-400 w-20 flex-shrink-0">
+                                        {videoSignal.label}
+                                        {watched && watchCount > 1 && (
+                                          <span className="ml-1 text-indigo-500 font-semibold">×{watchCount}</span>
+                                        )}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
 
-const timeSpent = pageReadData?.timeSpent || 0
+                          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-50">
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-1.5 w-8 rounded-full bg-slate-300" />
+                              <span className="text-[10px] text-slate-400">Top bar = page read time</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-1.5 w-8 rounded-full bg-indigo-300" />
+                              <span className="text-[10px] text-slate-400">Bottom bar = video watched %</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
-// Per-viewer data takes priority over aggregate
-const watchCount = viewerPageVideo?.watchCount ?? (videoStat?.totalWatches || 0)
-const watched = watchCount > 0
-const replays = viewerPageVideo?.replays ?? (videoStat?.replays || 0)
-const completion = viewerPageVideo?.maxCompletion ?? (videoStat?.avgCompletion || 0)
+                      {/* ── Page Clarity Feedback — ALWAYS shown, independent of videos ── */}
+                      {(() => {
+                        const visitorReactions = pageReactions.filter(
+                          (r: any) => r.email === visit.email && (r.type === "page_clarity" || !r.type)
+                        );
+                        if (visitorReactions.length === 0) return null;
+                        return (
+                          <div className="mt-5 border-t border-slate-100 pt-4">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                              Page Clarity Feedback
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {visitorReactions.map((r: any, i: number) => (
+                                <div
+                                  key={i}
+                                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${
+                                    r.reaction === "clear"
+                                      ? "bg-green-50 text-green-700 border-green-200"
+                                      : "bg-amber-50 text-amber-700 border-amber-200"
+                                  }`}
+                                >
+                                  <div className={`h-1.5 w-1.5 rounded-full ${r.reaction === "clear" ? "bg-green-500" : "bg-amber-500"}`} />
+                                  {r.reaction === "clear" ? `Page ${r.page} — Clear` : `Page ${r.page} — Has questions`}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
 
-        const readSignal = timeSpent > 30
-          ? { dot: '#16a34a', label: 'Read' }
-          : timeSpent > 5
-          ? { dot: '#d97706', label: 'Skimmed' }
-          : { dot: '#e2e8f0', label: 'Skipped' }
+                      {/* ── Deal Intent — ALWAYS shown, independent of videos ── */}
+                      {(() => {
+                        const intentResponse = pageReactions.find(
+                          (r: any) => r.email === visit.email && r.type === "deal_intent"
+                        );
+                        if (!intentResponse) return null;
 
-        const videoSignal = !watched
-  ? { dot: '#e2e8f0', label: 'Not watched' }
-  : replays >= 3
-  ? { dot: '#dc2626', label: `Replayed ${replays}x` }
-  : completion >= 75
-  ? { dot: '#16a34a', label: `${completion}% — watched` }
-  : { dot: '#d97706', label: `${completion}% — partial` }
-        return (
-          <div key={video._id} className="flex items-center gap-3">
+                        const intentLabels: Record<string, { label: string; color: string; dot: string; border: string }> = {
+                          ready_to_move_forward: { label: "Ready to move forward", color: "text-green-700", dot: "bg-green-500", border: "border-green-200 bg-green-50" },
+                          need_more_info: { label: "Need more information", color: "text-amber-700", dot: "bg-amber-500", border: "border-amber-200 bg-amber-50" },
+                          discussing_with_team: { label: "Discussing with my team", color: "text-indigo-700", dot: "bg-indigo-500", border: "border-indigo-200 bg-indigo-50" },
+                          not_interested: { label: "Not the right fit", color: "text-slate-600", dot: "bg-slate-400", border: "border-slate-200 bg-slate-50" },
+                        };
 
-            {/* Page label */}
-            <div className="w-12 flex-shrink-0 text-[10px] font-semibold text-slate-400 text-right">
-              {pageNum === 0 ? 'Intro' : `P${pageNum}`}
-            </div>
+                        const config = intentLabels[intentResponse.reaction] || {
+                          label: intentResponse.reaction,
+                          color: "text-slate-600",
+                          dot: "bg-slate-400",
+                          border: "border-slate-200 bg-slate-50",
+                        };
 
-            {/* Read bar */}
-            <div className="flex-1 flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <div
-                  className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-                  style={{ background: readSignal.dot }}
-                />
-                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${Math.min((timeSpent / 120) * 100, 100)}%`,
-                      background: readSignal.dot,
-                    }}
-                  />
-                </div>
-                <span className="text-[10px] text-slate-400 w-12 flex-shrink-0">
-                  {readSignal.label}
-                </span>
-              </div>
+                        return (
+                          <div className="mt-5 border-t border-slate-100 pt-4">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                              Deal Intent
+                            </p>
+                            <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${config.border}`}>
+                              <div className={`h-2 w-2 rounded-full flex-shrink-0 ${config.dot}`} />
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-xs font-semibold ${config.color}`}>{config.label}</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                  Responded after reviewing the full document
+                                </p>
+                              </div>
+                              <span className="text-[10px] text-slate-400 flex-shrink-0">
+                                {intentResponse.createdAt
+                                  ? new Date(intentResponse.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                                  : ""}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
-              {/* Video bar */}
-              <div className="flex items-center gap-2">
-                <div
-                  className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-                  style={{ background: videoSignal.dot }}
-                />
-                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: watched ? `${completion}%` : '0%',
-                      background: videoSignal.dot,
-                    }}
-                  />
-                </div>
-                <span className="text-[10px] text-slate-400 w-20 flex-shrink-0">
-  {videoSignal.label}
-  {watched && watchCount > 1 && (
-    <span className="ml-1 text-indigo-500 font-semibold">
-      ×{watchCount}
-    </span>
-  )}
-</span>
-              </div>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-
-    {/* Page clarity reactions for this visitor */}
-{(() => {
-  const visitorReactions = pageReactions.filter(
-    (r: any) =>
-      r.email === visit.email &&
-      (r.type === 'page_clarity' || !r.type)
-  )
-
-  if (visitorReactions.length === 0) return null
-
-  return (
-    <div className="mt-4 pt-3 border-t border-slate-50">
-      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-        Page Clarity Feedback
-      </p>
-      <div className="flex flex-wrap gap-2">
-        {visitorReactions.map((r: any, i: number) => (
-          <div
-            key={i}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border ${
-              r.reaction === 'clear'
-                ? 'bg-green-50 text-green-700 border-green-200'
-                : 'bg-amber-50 text-amber-700 border-amber-200'
-            }`}
-          >
-            <div
-              className={`h-1.5 w-1.5 rounded-full ${
-                r.reaction === 'clear' ? 'bg-green-500' : 'bg-amber-500'
-              }`}
-            />
-            {r.reaction === 'clear'
-              ? `Page ${r.page} — Clear`
-              : `Page ${r.page} — Has questions`}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-})()}
-
-{/* Deal intent response for this visitor */}
-{(() => {
-  const intentResponse = pageReactions.find(
-    (r: any) =>
-      r.email === visit.email &&
-      r.type === 'deal_intent'
-  )
-
-  if (!intentResponse) return null
-
-  const intentLabels: Record<string, {
-    label: string
-    color: string
-    dot: string
-    border: string
-  }> = {
-    ready_to_move_forward: {
-      label: 'Ready to move forward',
-      color: 'text-green-700',
-      dot: 'bg-green-500',
-      border: 'border-green-200 bg-green-50',
-    },
-    need_more_info: {
-      label: 'Need more information',
-      color: 'text-amber-700',
-      dot: 'bg-amber-500',
-      border: 'border-amber-200 bg-amber-50',
-    },
-    discussing_with_team: {
-      label: 'Discussing with my team',
-      color: 'text-indigo-700',
-      dot: 'bg-indigo-500',
-      border: 'border-indigo-200 bg-indigo-50',
-    },
-    not_interested: {
-      label: 'Not the right fit',
-      color: 'text-slate-600',
-      dot: 'bg-slate-400',
-      border: 'border-slate-200 bg-slate-50',
-    },
-  }
-
-  const config = intentLabels[intentResponse.reaction] || {
-    label: intentResponse.reaction,
-    color: 'text-slate-600',
-    dot: 'bg-slate-400',
-    border: 'border-slate-200 bg-slate-50',
-  }
-
-  return (
-    <div className="mt-4 pt-3 border-t border-slate-50">
-      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-        Deal Intent
-      </p>
-      <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${config.border}`}>
-        <div className={`h-2 w-2 rounded-full flex-shrink-0 ${config.dot}`} />
-        <div className="flex-1 min-w-0">
-          <p className={`text-xs font-semibold ${config.color}`}>
-            {config.label}
-          </p>
-          <p className="text-[10px] text-slate-400 mt-0.5">
-            Responded after reviewing the full document
-          </p>
-        </div>
-        <span className="text-[10px] text-slate-400 flex-shrink-0">
-          {intentResponse.createdAt
-            ? new Date(intentResponse.createdAt).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-              })
-            : ''}
-        </span>
-      </div>
-    </div>
-  )
-})()}
-
-    {/* Legend */}
-    <div className="flex items-center gap-4 mt-3 pt-3 border-t border-slate-50">
-      <div className="flex items-center gap-1.5">
-        <div className="h-1.5 w-8 rounded-full bg-slate-300" />
-        <span className="text-[10px] text-slate-400">Top bar = page read time</span>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="h-1.5 w-8 rounded-full bg-indigo-300" />
-        <span className="text-[10px] text-slate-400">Bottom bar = video watched %</span>
-      </div>
-    </div>
-
-  </div>
-)}
                     </div>
                   )}
                 </div>
