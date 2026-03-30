@@ -1,3 +1,4 @@
+// app/api/integrations/slack/set-channel/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserFromRequest } from "@/lib/auth";
 import { dbPromise } from "../../../lib/mongodb";

@@ -1176,14 +1176,14 @@ const handleDisconnectSlack = async () => {
     });
 
     if (res.ok) {
-      alert("✅ Slack disconnected");
+      toast.success("✅ Slack disconnected", { duration: 5000 });
       setSlackStatus({ connected: false });
     } else {
-      alert("❌ Failed to disconnect");
+      toast.error("❌ Failed to disconnect", { duration: 5000 });
     }
   } catch (error) {
     console.error("Disconnect error:", error);
-    alert("❌ Failed to disconnect");
+    toast.error("❌ Failed to disconnect", { duration: 5000 });
   }
 };
 
@@ -1197,16 +1197,20 @@ const handleBrowseSlackChannels = async () => {
       credentials: "include",
     });
     
+    const data = await res.json(); // always parse it
+    console.log("Slack channels response:", res.status, data); // 👈 see exact error
+    
     if (res.ok) {
-      const data = await res.json();
       setSlackChannels(data.channels || []);
     } else {
-      alert("❌ Failed to load channels");
+      toast.error(data.error || "Failed to load channels", {
+        description: JSON.stringify(data.debug || "") // 👈 show debug info
+      });
       setShowSlackChannelDialog(false);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to fetch channels:", error);
-    alert("❌ Failed to load channels");
+    toast.error("Network error", { description: error.message });
     setShowSlackChannelDialog(false);
   } finally {
     setLoadingSlackChannels(false);
