@@ -4674,7 +4674,7 @@ case 'dashboard':
   {slackStatus.connected && !slackStatus.channelName && (
     <div className="mt-3 p-2 bg-orange-50 rounded-lg border border-orange-200">
       <p className="text-xs text-orange-900">
-        ⚠️ No channel selected yet
+         No channel selected yet
       </p>
     </div>
   )}
