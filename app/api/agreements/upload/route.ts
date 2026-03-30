@@ -54,6 +54,8 @@ export async function GET(req: NextRequest) {
 }
 
 // POST — upload a new NDA/agreement PDF
+// app/api/agreements/upload/route.ts
+
 export async function POST(req: NextRequest) {
   let tempFilePath: string | null = null;
 
@@ -71,51 +73,58 @@ export async function POST(req: NextRequest) {
     }
 
     if (file.type !== "application/pdf") {
-      return NextResponse.json(
-        { error: "Only PDF files are allowed" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Only PDF files are allowed" }, { status: 400 });
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "File must be less than 10MB" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "File must be less than 10MB" }, { status: 400 });
     }
 
-    console.log("📄 Uploading agreement:", file.name);
+    // ✅ CHECK 1 - Cloudinary config
+    console.log("🔍 Cloudinary config check:", {
+      cloud_name: !!process.env.CLOUDINARY_NAME,
+      api_key: !!process.env.CLOUDINARY_API_KEY,
+      api_secret: !!process.env.CLOUDINARY_SECRET_KEY,
+    })
 
-    // Write to temp file for Cloudinary upload
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_SECRET_KEY,
+    });
+
+    console.log("📄 Uploading agreement:", file.name, "size:", file.size);
+
+    // ✅ CHECK 2 - temp file writing
     const uploadDir = path.join(process.cwd(), "public", "temp");
     await mkdir(uploadDir, { recursive: true });
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // ✅ Encode filename to prevent spaces/special chars causing 500 errors
     const safeOriginalName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
     const tempFileName = `temp_agreement_${Date.now()}_${safeOriginalName}`;
     tempFilePath = path.join(uploadDir, tempFileName);
 
     await writeFile(tempFilePath, buffer);
+    console.log("✅ Temp file written:", tempFilePath);
 
-    console.log("📤 Uploading to Cloudinary...");
-
+    // ✅ CHECK 3 - Cloudinary upload
+    console.log("📤 Starting Cloudinary upload...");
     const cloudinaryResult = await cloudinary.uploader.upload(tempFilePath, {
       folder: `agreements/${user.id}`,
       resource_type: "auto",
       format: "pdf",
-      // ✅ encodeURIComponent prevents 500 on filenames with spaces
-     public_id: `agreement_${Date.now()}_${file.name.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_")}`,
+      public_id: `agreement_${Date.now()}_${file.name
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[^a-zA-Z0-9_-]/g, "_")}`,
     });
+    console.log("✅ Cloudinary upload success:", cloudinaryResult.secure_url);
 
-    console.log("✅ Cloudinary upload:", cloudinaryResult.secure_url);
-
+    // ✅ CHECK 4 - MongoDB
+    console.log("💾 Saving to MongoDB...");
     const db = await dbPromise;
-    const profile = await db
-      .collection("profiles")
-      .findOne({ user_id: user.id });
+    const profile = await db.collection("profiles").findOne({ user_id: user.id });
 
     const agreementDoc = {
       userId: user.id,
@@ -142,10 +151,8 @@ export async function POST(req: NextRequest) {
     };
 
     const result = await db.collection("agreements").insertOne(agreementDoc);
+    console.log("✅ Agreement saved to MongoDB:", result.insertedId.toString());
 
-    console.log("✅ Agreement saved:", result.insertedId.toString());
-
-    // Clean up temp file
     if (tempFilePath) {
       await unlink(tempFilePath).catch((err) =>
         console.warn("⚠️ Failed to delete temp file:", err)
@@ -164,8 +171,13 @@ export async function POST(req: NextRequest) {
       },
       message: "Agreement uploaded successfully",
     });
-  } catch (error) {
-    console.error("❌ Upload agreement error:", error);
+
+  } catch (error: any) {
+    console.error("❌ Upload agreement error:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
 
     if (tempFilePath) {
       await unlink(tempFilePath).catch(() => {});
@@ -174,8 +186,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error: "Failed to upload agreement",
-        details:
-          error instanceof Error ? error.message : "Unknown error",
+        // ✅ Show exact error in response so you can see it in browser
+        details: error.message || "Unknown error",
       },
       { status: 500 }
     );
