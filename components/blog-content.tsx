@@ -1,4 +1,3 @@
-// components/blog-content.tsx
 "use client"
 
 import { useEffect, useState } from "react"
@@ -22,21 +21,26 @@ interface BlogPost {
 
 export function BlogContent() {
   const [posts, setPosts] = useState<BlogPost[]>([])
+  const [popularPosts, setPopularPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const postsPerPage = 12
+  const [totalPages, setTotalPages] = useState(1)
+  const postsPerPage = 6
   const [newsletterEmail, setNewsletterEmail] = useState("")
   const [newsletterLoading, setNewsletterLoading] = useState(false)
 
+  // Fetch paginated posts when page changes
   useEffect(() => {
     const fetchPosts = async () => {
+      setLoading(true)
       try {
-        const res = await fetch("/api/blog")
+        const res = await fetch(`/api/blog?limit=${postsPerPage}&page=${currentPage}`)
         if (!res.ok) throw new Error("Failed to fetch blog posts")
         const response = await res.json()
         if (Array.isArray(response.data)) {
           setPosts(response.data)
+          setTotalPages(Math.ceil(response.total / postsPerPage))
         } else {
           throw new Error("Unexpected API response format")
         }
@@ -48,6 +52,21 @@ export function BlogContent() {
       }
     }
     fetchPosts()
+  }, [currentPage])
+
+  // Fetch popular posts once on mount
+  useEffect(() => {
+    const fetchPopular = async () => {
+      try {
+        const res = await fetch(`/api/blog?limit=4&page=1`)
+        if (!res.ok) return
+        const response = await res.json()
+        if (Array.isArray(response.data)) {
+          setPopularPosts(response.data.slice(0, 4))
+        }
+      } catch {}
+    }
+    fetchPopular()
   }, [])
 
   const handleNewsletterSubmit = async () => {
@@ -93,14 +112,13 @@ export function BlogContent() {
     })
   }
 
-  const indexOfLastPost = currentPage * postsPerPage
-  const indexOfFirstPost = indexOfLastPost - postsPerPage
-  const currentPosts = posts.slice(indexOfFirstPost, indexOfLastPost)
-  const totalPages = Math.ceil(posts.length / postsPerPage)
+  const featuredPost = posts[0]
+  const remainingPosts = posts.slice(1)
 
-  const featuredPost = currentPosts[0]
-  const remainingPosts = currentPosts.slice(1)
-  const popularPosts = posts.slice(0, 4)
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
 
   if (loading) {
     return (
@@ -181,11 +199,7 @@ export function BlogContent() {
           {remainingPosts.length > 0 && (
             <div className="grid sm:grid-cols-2 gap-8">
               {remainingPosts.map((post) => (
-                <Link
-                  key={post._id}
-                  href={`/blog/${post.slug}`}
-                  className="group block"
-                >
+                <Link key={post._id} href={`/blog/${post.slug}`} className="group block">
                   <article className="border border-slate-200 rounded-2xl overflow-hidden hover:border-sky-200 transition-colors h-full flex flex-col">
                     <div className="relative overflow-hidden h-44">
                       <img
@@ -227,7 +241,7 @@ export function BlogContent() {
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 pt-8 border-t border-slate-100">
               <button
-                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
                 className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
@@ -236,7 +250,7 @@ export function BlogContent() {
               {[...Array(totalPages)].map((_, idx) => (
                 <button
                   key={idx + 1}
-                  onClick={() => setCurrentPage(idx + 1)}
+                  onClick={() => handlePageChange(idx + 1)}
                   className={`h-9 w-9 rounded-lg text-sm font-semibold transition-all ${
                     currentPage === idx + 1
                       ? "bg-slate-900 text-white"
@@ -247,7 +261,7 @@ export function BlogContent() {
                 </button>
               ))}
               <button
-                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
                 className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
@@ -303,8 +317,7 @@ export function BlogContent() {
               Get the latest insights in your inbox.
             </h3>
             <p className="text-sm text-slate-500 leading-relaxed mb-5">
-              New articles on document sharing, analytics, and closing deals
-              — delivered weekly.
+              New articles on document sharing, analytics, and closing deals — delivered weekly.
             </p>
             <div className="space-y-2">
               <input

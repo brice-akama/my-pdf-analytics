@@ -1,14 +1,9 @@
-"use client"
+ "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+import { toast } from "sonner"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +11,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { toast } from "sonner"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import {
   Plus,
   Inbox,
@@ -24,19 +24,19 @@ import {
   User,
   Clock,
   MoreVertical,
-  Share2,
   Eye,
   Download,
+  Share2,
   Trash2,
   FileText,
-  CheckCircle2,
   Loader2,
+  CheckCircle2,
   X,
 } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface FileRequest {
+type FileRequestType = {
   _id: string
   title: string
   description: string
@@ -49,54 +49,51 @@ interface FileRequest {
   shareToken: string
 }
 
-interface UploadedFile {
-  _id: string
-  originalName: string
-  size: number
-  uploadedAt: string
-  uploadedBy?: { name: string }
-}
-
-interface FileRequestsSectionProps {
-  fileRequests: FileRequest[]
-  onOpenCreateDialog: () => void
-  onDeleteRequest: (id: string) => void
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatTimeAgo = (dateString: string) => {
   const date = new Date(dateString)
   const now = new Date()
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
   if (seconds < 60) return "Just now"
   if (seconds < 3600) return Math.floor(seconds / 60) + " min ago"
   if (seconds < 86400) return Math.floor(seconds / 3600) + " hours ago"
   if (seconds < 604800) return Math.floor(seconds / 86400) + " days ago"
+
   return date.toLocaleDateString()
 }
 
-const formatFileSize = (bytes: number) => {
+const formatFileSizeLocal = (bytes: number) => {
   if (bytes < 1024) return bytes + " B"
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
   return (bytes / (1024 * 1024)).toFixed(1) + " MB"
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
+
+type Props = {
+  fileRequests: FileRequestType[]
+  onCreateClick: () => void
+  onDeleteRequest: (id: string) => void
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function FileRequestsSection({
   fileRequests,
-  onOpenCreateDialog,
+  onCreateClick,
   onDeleteRequest,
-}: FileRequestsSectionProps) {
-  const [copiedId, setCopiedId]               = useState<string | null>(null)
-  const [previewRequest, setPreviewRequest]   = useState<any>(null)
-  const [previewFile, setPreviewFile]         = useState<any>(null)
-  const [previewUrl, setPreviewUrl]           = useState<string | null>(null)
-  const [previewLoading, setPreviewLoading]   = useState(false)
-  const [drawerLoading, setDrawerLoading]     = useState(false)
+}: Props) {
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [previewRequest, setPreviewRequest] = useState<any>(null)
+  const [previewFile, setPreviewFile] = useState<any>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [drawerLoading, setDrawerLoading] = useState(false)
 
-  // ── Fetch full request detail (with uploaded files) ──
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
   const fetchRequestFiles = async (requestId: string) => {
     try {
       const res = await fetch(`/api/file-requests/${requestId}`, {
@@ -112,7 +109,6 @@ export default function FileRequestsSection({
     return null
   }
 
-  // ── Preview a single file ──
   const handleViewFile = async (requestId: string, file: any) => {
     setPreviewFile(file)
     setPreviewLoading(true)
@@ -136,7 +132,6 @@ export default function FileRequestsSection({
     }
   }
 
-  // ── Download a single file ──
   const handleDownloadFile = async (
     requestId: string,
     fileId: string,
@@ -165,14 +160,12 @@ export default function FileRequestsSection({
     }
   }
 
-  // ── Close inline preview ──
   const handleClosePreview = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewFile(null)
     setPreviewUrl(null)
   }
 
-  // ── Close full drawer ──
   const handleCloseDrawer = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewFile(null)
@@ -180,88 +173,25 @@ export default function FileRequestsSection({
     setPreviewRequest(null)
   }
 
-  // ── Open drawer + load files ──
-  const handleOpenDrawer = async (request: FileRequest) => {
-    setPreviewRequest({ ...request, uploadedFiles: [] })
-    setDrawerLoading(true)
-    const detail = await fetchRequestFiles(request._id)
-    if (detail) {
-      setPreviewRequest({ ...request, uploadedFiles: detail.uploadedFiles })
-    }
-    setDrawerLoading(false)
-  }
+  // ── Render ─────────────────────────────────────────────────────────────────
 
-  // ── Download all as zip ──
-  const handleDownloadAll = async (request: FileRequest) => {
-    const loadingToast = toast.loading("Preparing download...")
-    try {
-      const res = await fetch(
-        `/api/file-requests/${request._id}/files/download-all`,
-        { credentials: "include" }
-      )
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = `${request.title}.zip`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        window.URL.revokeObjectURL(url)
-        toast.success("Downloaded!", { id: loadingToast })
-      } else {
-        toast.error("Download failed", { id: loadingToast })
-      }
-    } catch {
-      toast.error("Network error", { id: loadingToast })
-    }
-  }
-
-  // ── Copy share link ──
-  const handleCopyLink = (request: FileRequest) => {
-    const link = `${window.location.origin}/public/file-request/${request.shareToken}`
-    navigator.clipboard.writeText(link)
-    setCopiedId(request._id)
-    toast.success("Link copied!")
-    setTimeout(() => setCopiedId(null), 2000)
-  }
-
-  // ── Confirm delete ──
-  const handleDeleteClick = (request: FileRequest) => {
-    toast.warning(`Delete "${request.title}"?`, {
-      description: "This cannot be undone.",
-      duration: 6000,
-      action: {
-        label: "Delete",
-        onClick: () => onDeleteRequest(request._id),
-      },
-      cancel: {
-        label: "Cancel",
-        onClick: () => {},
-      },
-    })
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div>
-      {/* ── Page header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">File Requests</h1>
           <p className="text-slate-600">Collect files from anyone securely</p>
         </div>
         <Button
-          onClick={onOpenCreateDialog}
-          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 w-full sm:w-auto"
+          onClick={onCreateClick}
+          className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
         >
           <Plus className="h-4 w-4" />
           Create Request
         </Button>
       </div>
 
-      {/* Count label */}
       {fileRequests.length > 0 && (
         <div className="mb-6 text-sm text-slate-600">
           Showing {fileRequests.length} file request
@@ -269,9 +199,9 @@ export default function FileRequestsSection({
         </div>
       )}
 
-      {/* ── Empty state ── */}
+      {/* Empty State */}
       {fileRequests.length === 0 ? (
-        <div className="shadow-sm p-8 sm:p-12 text-center rounded-xl border">
+        <div className="shadow-sm p-12 text-center">
           <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-6">
             <Inbox className="h-12 w-12 text-blue-600" />
           </div>
@@ -279,23 +209,24 @@ export default function FileRequestsSection({
             Need to receive files from someone?
           </h3>
           <p className="text-slate-600 max-w-2xl mx-auto mb-6">
-            Request files from anyone — whether they have a DocMetrics account or not.
+            Request files from anyone — whether they have a DocMetrics account
+            or not.
           </p>
           <Button
-            onClick={onOpenCreateDialog}
+            onClick={onCreateClick}
             className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
           >
             Create File Request
           </Button>
         </div>
       ) : (
-        /* ── List ── */
-        <div className="overflow-hidden rounded-xl border bg-white">
+        /* File Requests List */
+        <div className="overflow-hidden">
           {fileRequests.map((request, index) => (
             <div key={request._id}>
               {index > 0 && <div className="border-t border-slate-100 mx-5" />}
 
-              <div className="flex items-center gap-4 px-4 sm:px-5 py-4">
+              <div className="flex items-center gap-4 px-5 py-4">
                 {/* Icon */}
                 <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
                   <Inbox className="h-5 w-5 text-blue-600" />
@@ -304,7 +235,9 @@ export default function FileRequestsSection({
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-slate-900 truncate">{request.title}</h3>
+                    <h3 className="font-semibold text-slate-900 truncate">
+                      {request.title}
+                    </h3>
                     <span
                       className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
                         request.status === "active"
@@ -317,14 +250,13 @@ export default function FileRequestsSection({
                       {request.status}
                     </span>
                   </div>
-
                   <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
                     <span className="flex items-center gap-1">
                       <Upload className="h-3 w-3" />
                       {request.filesReceived}/{request.totalFiles} files
                     </span>
                     {request.recipients?.length > 0 && (
-                      <span className="flex items-center gap-1 truncate max-w-[200px]">
+                      <span className="flex items-center gap-1 truncate max-w-xs">
                         <User className="h-3 w-3 flex-shrink-0" />
                         {request.recipients.map((r) => r.email).join(", ")}
                       </span>
@@ -338,7 +270,7 @@ export default function FileRequestsSection({
                   </div>
                 </div>
 
-                {/* Dropdown menu */}
+                {/* Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -349,9 +281,8 @@ export default function FileRequestsSection({
                       <MoreVertical className="h-4 w-4 text-slate-500" />
                     </Button>
                   </DropdownMenuTrigger>
-
                   <DropdownMenuContent align="end" className="w-72 bg-white p-2">
-                    {/* Share link row */}
+                    {/* Share link */}
                     <div className="px-2 py-2 mb-1">
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
                         Upload Link
@@ -366,7 +297,15 @@ export default function FileRequestsSection({
                           size="sm"
                           variant="outline"
                           className="h-8 px-2 flex-shrink-0"
-                          onClick={() => handleCopyLink(request)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigator.clipboard.writeText(
+                              `${window.location.origin}/public/file-request/${request.shareToken}`
+                            )
+                            setCopiedId(request._id)
+                            toast.success("Link copied!")
+                            setTimeout(() => setCopiedId(null), 2000)
+                          }}
                         >
                           {copiedId === request._id ? (
                             <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
@@ -379,10 +318,21 @@ export default function FileRequestsSection({
 
                     <DropdownMenuSeparator />
 
-                    {/* View uploaded files */}
+                    {/* View files */}
                     <DropdownMenuItem
                       className="gap-2 cursor-pointer"
-                      onClick={() => handleOpenDrawer(request)}
+                      onClick={async () => {
+                        setPreviewRequest({ ...request, uploadedFiles: [] })
+                        setDrawerLoading(true)
+                        const detail = await fetchRequestFiles(request._id)
+                        if (detail) {
+                          setPreviewRequest({
+                            ...request,
+                            uploadedFiles: detail.uploadedFiles,
+                          })
+                        }
+                        setDrawerLoading(false)
+                      }}
                     >
                       <Eye className="h-4 w-4 text-purple-600" />
                       View Uploaded Files
@@ -397,7 +347,37 @@ export default function FileRequestsSection({
                     {request.filesReceived > 0 && (
                       <DropdownMenuItem
                         className="gap-2 cursor-pointer"
-                        onClick={() => handleDownloadAll(request)}
+                        onClick={async () => {
+                          const loadingToast = toast.loading(
+                            "Preparing download..."
+                          )
+                          try {
+                            const res = await fetch(
+                              `/api/file-requests/${request._id}/files/download-all`,
+                              { credentials: "include" }
+                            )
+                            if (res.ok) {
+                              const blob = await res.blob()
+                              const url = window.URL.createObjectURL(blob)
+                              const a = document.createElement("a")
+                              a.href = url
+                              a.download = `${request.title}.zip`
+                              document.body.appendChild(a)
+                              a.click()
+                              document.body.removeChild(a)
+                              window.URL.revokeObjectURL(url)
+                              toast.success("Downloaded!", {
+                                id: loadingToast,
+                              })
+                            } else {
+                              toast.error("Download failed", {
+                                id: loadingToast,
+                              })
+                            }
+                          } catch {
+                            toast.error("Network error", { id: loadingToast })
+                          }
+                        }}
                       >
                         <Download className="h-4 w-4 text-blue-600" />
                         Download All Files
@@ -406,10 +386,19 @@ export default function FileRequestsSection({
 
                     <DropdownMenuSeparator />
 
-                    {/* Delete */}
                     <DropdownMenuItem
                       className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
-                      onClick={() => handleDeleteClick(request)}
+                      onClick={() => {
+                        toast.warning(`Delete "${request.title}"?`, {
+                          description: "This cannot be undone.",
+                          duration: 6000,
+                          action: {
+                            label: "Delete",
+                            onClick: () => onDeleteRequest(request._id),
+                          },
+                          cancel: { label: "Cancel", onClick: () => {} },
+                        })
+                      }}
                     >
                       <Trash2 className="h-4 w-4 text-red-600" />
                       Delete Request
@@ -422,16 +411,18 @@ export default function FileRequestsSection({
         </div>
       )}
 
-      {/* ── Files drawer ── */}
+      {/* Files Drawer */}
       <Sheet
         open={!!previewRequest}
-        onOpenChange={(open) => { if (!open) handleCloseDrawer() }}
+        onOpenChange={(open) => {
+          if (!open) handleCloseDrawer()
+        }}
       >
         <SheetContent
           side="right"
           className="w-full sm:max-w-2xl p-0 flex flex-col bg-white"
         >
-          {/* Drawer header */}
+          {/* Drawer Header */}
           <SheetHeader className="px-6 py-4 border-b sticky top-0 bg-white z-10">
             <SheetTitle className="text-lg font-semibold truncate">
               {previewRequest?.title}
@@ -439,34 +430,30 @@ export default function FileRequestsSection({
             <p className="text-sm text-slate-500">
               {drawerLoading
                 ? "Loading files..."
-                : `${previewRequest?.uploadedFiles?.length ?? 0} file(s) uploaded`}
+                : `${previewRequest?.uploadedFiles?.length || 0} file(s) uploaded`}
             </p>
           </SheetHeader>
 
-          {/* Drawer body */}
+          {/* Drawer Body */}
           <div className="flex-1 overflow-y-auto">
-
-            {/* Loading */}
             {drawerLoading ? (
               <div className="flex flex-col items-center justify-center h-full p-12">
                 <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
                 <p className="text-sm text-slate-500">Loading files...</p>
               </div>
-
             ) : previewRequest?.uploadedFiles?.length === 0 ? (
-              /* Empty */
               <div className="flex flex-col items-center justify-center h-full p-12 text-center">
                 <Inbox className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-600 font-medium">No files uploaded yet</p>
+                <p className="text-slate-600 font-medium">
+                  No files uploaded yet
+                </p>
                 <p className="text-sm text-slate-500 mt-1">
                   Files will appear here when recipients upload them
                 </p>
               </div>
-
             ) : (
-              /* File list */
               <div className="divide-y divide-slate-100">
-                {previewRequest?.uploadedFiles?.map((file: UploadedFile) => (
+                {previewRequest?.uploadedFiles?.map((file: any) => (
                   <div
                     key={file._id}
                     className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors"
@@ -479,8 +466,9 @@ export default function FileRequestsSection({
                         {file.originalName}
                       </p>
                       <p className="text-xs text-slate-500">
-                        {formatFileSize(file.size)} · {formatTimeAgo(file.uploadedAt)}
-                        {file.uploadedBy?.name && ` · ${file.uploadedBy.name}`}
+                        {formatFileSizeLocal(file.size)} •{" "}
+                        {formatTimeAgo(file.uploadedAt)}
+                        {file.uploadedBy?.name && ` • ${file.uploadedBy.name}`}
                       </p>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
@@ -516,7 +504,7 @@ export default function FileRequestsSection({
               </div>
             )}
 
-            {/* ── Inline file preview panel ── */}
+            {/* Inline file preview */}
             {previewFile && (
               <div className="border-t bg-slate-50">
                 <div className="flex items-center justify-between px-4 py-2 border-b bg-white">
@@ -532,7 +520,6 @@ export default function FileRequestsSection({
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-
                 <div className="p-4">
                   {previewLoading ? (
                     <div className="flex items-center justify-center py-12">
@@ -540,8 +527,8 @@ export default function FileRequestsSection({
                     </div>
                   ) : previewUrl ? (
                     (() => {
-                      const name = previewFile.originalName.toLowerCase()
-                      if (name.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i)) {
+                      const fileName = previewFile.originalName.toLowerCase()
+                      if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i)) {
                         return (
                           <img
                             src={previewUrl}
@@ -550,7 +537,7 @@ export default function FileRequestsSection({
                           />
                         )
                       }
-                      if (name.match(/\.pdf$/i)) {
+                      if (fileName.match(/\.pdf$/i)) {
                         return (
                           <iframe
                             src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
@@ -589,9 +576,13 @@ export default function FileRequestsSection({
             )}
           </div>
 
-          {/* Drawer footer */}
+          {/* Drawer Footer */}
           <div className="px-6 py-4 border-t bg-white">
-            <Button variant="outline" className="w-full" onClick={handleCloseDrawer}>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleCloseDrawer}
+            >
               Close
             </Button>
           </div>

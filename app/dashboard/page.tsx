@@ -17,6 +17,8 @@ import SettingsDrawer from "@/components/dashboard/SettingsDrawer"
 import TeamDrawer from "@/components/dashboard/TeamDrawer"
 import FeedbackDrawer from "@/components/dashboard/FeedbackDrawer"
 import ContactDrawer from "@/components/dashboard/ContactDrawer"
+import AgreementsSection from "@/components/dashboard/AgreementsSection"
+import FileRequestsSection from "@/components/dashboard/FileRequestsSection"
 import {
   Dialog,
   DialogContent,
@@ -624,6 +626,25 @@ useEffect(() => {
   }
 }, [])
 
+const handleDeleteAgreement = async (id: string) => {
+  const loadingToast = toast.loading("Deleting agreement...")
+  try {
+    const res = await fetch(`/api/agreements/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+    if (res.ok) {
+      toast.success("Agreement deleted", { id: loadingToast })
+      fetchUploadedAgreements()
+    } else {
+      const data = await res.json()
+      toast.error(data.error || "Failed to delete", { id: loadingToast })
+    }
+  } catch {
+    toast.error("Network error", { id: loadingToast })
+  }
+}
+
 
 const fetchOneDriveStatus = async () => {
   try {
@@ -1215,6 +1236,7 @@ const handleBrowseSlackChannels = async () => {
 
 // Select Slack channel
 const handleSelectSlackChannel = async (channelId: string, channelName: string) => {
+  const loadingToast = toast.loading(`Setting channel to #${channelName}...`);
   try {
     const res = await fetch("/api/integrations/slack/set-channel", {
       method: "POST",
@@ -1223,19 +1245,22 @@ const handleSelectSlackChannel = async (channelId: string, channelName: string) 
       body: JSON.stringify({ channelId, channelName }),
     });
 
+    const data = await res.json();
+    
+    console.log('Set channel response:', res.status, data); // ← ADD THIS
+
     if (res.ok) {
-      alert(`✅ Notifications will be sent to #${channelName}`);
+      toast.success(`Notifications will be sent to #${channelName}`, { id: loadingToast });
       setSlackStatus(prev => ({ ...prev, channelName, channelId }));
       setShowSlackChannelDialog(false);
     } else {
-      alert("❌ Failed to set channel");
+      toast.error(data.error || 'Failed to set channel', { id: loadingToast });
     }
   } catch (error) {
     console.error("Set channel error:", error);
-    alert("❌ Failed to set channel");
+    toast.error('Network error — failed to set channel', { id: loadingToast });
   }
 };
-
 
 useEffect(() => {
   fetchSlackStatus();
@@ -2150,1030 +2175,15 @@ const handleUpdateContact = async () => {
   }
 }
 
-// Agreements Section Component
-const AgreementsSection = () => {
-   // Add this useEffect
-  useEffect(() => {
-    fetchUploadedAgreements()
-  }, [])
-  return (
-    <div>
-<div className="flex items-center justify-between mb-8">
-  <div>
-    <h1 className="text-3xl font-bold text-slate-900 mb-2">Agreements</h1>
-    <p className="text-slate-600">Manage NDAs and signature requests</p>
-  </div>
-  <Button 
-    onClick={() => setShowUploadAgreementDialog(true)}
-    className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-  >
-    <Plus className="h-4 w-4" />
-    Upload Agreement
-  </Button>
-</div>
-
-     {agreements.length === 0 && uploadedAgreementsList.length === 0 ? (
-        <div className=" shadow-sm p-12 text-center">
-          <div className="h-24 w-24 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-6">
-            <FileSignature className="h-12 w-12 text-purple-600" />
-          </div>
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">Need to protect sensitive content?</h3>
-          <p className="text-slate-600 max-w-2xl mx-auto mb-6">
-            Set up a legally-binding agreement that viewers must sign before accessing your content. 
-            You can upload an NDA or any other gating document.
-          </p>
-          <div className="flex gap-3 justify-center">
-            <Button 
-              onClick={() => setShowUploadAgreementDialog(true)}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-            >
-              Upload Agreement
-            </Button>
-            
-          </div>
-        </div>
-      ) : agreements.length === 0 && uploadedAgreementsList.length > 0 ? (
-  // Show uploaded but not sent agreements
-  <div className="space-y-4">
-    
-    
-    {uploadedAgreementsList.map((agreement, index) => (
-      <div 
-        key={agreement._id}
-        
-         onClick={() => {}}
-        className=" p-6  transition-shadow cursor-pointer"
-      >
-         {index > 0 && <hr className="border-t border-slate-200 mx-4 mb-3" />}
-       
-        <div className="flex items-start gap-4">
-          <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-            <FileSignature className="h-6 w-6 text-purple-600" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-slate-900 mb-1">{agreement.filename}</h3>
-            {/* ✅ Show uploader if not current user */}
-    {agreement.uploadedBy?.userId !== user?.email && (
-      <p className="text-xs text-slate-500">
-        Uploaded by {agreement.uploadedBy?.name || 'team member'}
-        {agreement.uploadedBy?.role === 'admin' && ' (Admin)'}
-      </p>
-    )}
-    
-            <div className="flex items-center gap-4 text-sm text-slate-500">
-              <span className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                Uploaded {formatTimeAgo(agreement.createdAt)}
-              </span>
-              
-            </div>
-          </div>
-        <Button
-  variant="ghost"
-  size="sm"
-  className="text-red-500 hover:text-red-700 hover:bg-red-50"
-  onClick={() => {
-    toast.warning('Delete this agreement?', {
-      description: 'This action cannot be undone.',
-      duration: 6000,
-      action: {
-        label: 'Delete',
-        onClick: async () => {
-          const loadingToast = toast.loading('Deleting agreement...')
-          try {
-            const res = await fetch(`/api/agreements/${agreement._id}`, {
-              method: 'DELETE',
-              credentials: 'include',
-            })
-            if (res.ok) {
-              toast.success('Agreement deleted', { id: loadingToast })
-              fetchUploadedAgreements()
-            } else {
-              const data = await res.json()
-              toast.error(data.error || 'Failed to delete', { id: loadingToast })
-            }
-          } catch (error) {
-            toast.error('Network error', { id: loadingToast })
-          }
-        },
-      },
-      cancel: {
-        label: 'Cancel',
-        onClick: () => {},
-      },
-    })
-  }}
->
-  <Trash2 className="h-4 w-4" />
-</Button>
-        </div>
-      </div>
-    ))}
-  </div>
-      ) : (
-        <div className="space-y-4">
-          {agreements.map((agreement) => (
-            <div key={agreement._id} className="bg-white rounded-lg border shadow-sm p-6 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4 flex-1">
-                  <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-                    <FileSignature className="h-6 w-6 text-purple-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-slate-900 mb-1">{agreement.title}</h3>
-                    <div className="flex items-center gap-4 text-sm text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <Users className="h-4 w-4" />
-                        {agreement.signedCount}/{agreement.totalSigners} signed
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {formatTimeAgo(agreement.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm">
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <Share2 className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 
 
-// File Requests Section Component
-const FileRequestsSection = () => {
-  const [copiedId, setCopiedId] = useState<string | null>(null)
-  const [previewRequest, setPreviewRequest] = useState<any>(null)
-  const [previewFile, setPreviewFile] = useState<any>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [drawerLoading, setDrawerLoading] = useState(false)
-
-  const fetchRequestFiles = async (requestId: string) => {
-    try {
-      const res = await fetch(`/api/file-requests/${requestId}`, {
-        credentials: 'include',
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success) return data.request
-      }
-    } catch (error) {
-      console.error('Fetch request detail error:', error)
-    }
-    return null
-  }
-
-  const handleViewFile = async (requestId: string, file: any) => {
-    setPreviewFile(file)
-    setPreviewLoading(true)
-    try {
-      const res = await fetch(`/api/file-requests/${requestId}/files/${file._id}`, {
-        credentials: 'include',
-      })
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
-        setPreviewUrl(url)
-      } else {
-        toast.error('Failed to load preview')
-        setPreviewFile(null)
-      }
-    } catch (error) {
-      toast.error('Failed to load preview')
-      setPreviewFile(null)
-    } finally {
-      setPreviewLoading(false)
-    }
-  }
-
-  const handleDownloadFile = async (requestId: string, fileId: string, filename: string) => {
-    try {
-      const res = await fetch(`/api/file-requests/${requestId}/files/${fileId}`, {
-        credentials: 'include',
-      })
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = filename
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        window.URL.revokeObjectURL(url)
-      } else {
-        toast.error('Failed to download file')
-      }
-    } catch (error) {
-      toast.error('Failed to download file')
-    }
-  }
-
-  const handleClosePreview = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setPreviewFile(null)
-    setPreviewUrl(null)
-  }
-
-  const handleCloseDrawer = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setPreviewFile(null)
-    setPreviewUrl(null)
-    setPreviewRequest(null)
-  }
-
-  const formatFileSizeLocal = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B'
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-  }
-
-  return (
-    <div>
-      {/* Page Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">File Requests</h1>
-          <p className="text-slate-600">Collect files from anyone securely</p>
-        </div>
-        <Button
-          onClick={() => setShowCreateFileRequestDialog(true)}
-          className="gap-2 . from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-        >
-          <Plus className="h-4 w-4" />
-          Create Request
-        </Button>
-      </div>
-
-      {fileRequests.length > 0 && (
-        <div className="mb-6 text-sm text-slate-600">
-          Showing {fileRequests.length} file request{fileRequests.length !== 1 ? 's' : ''}
-        </div>
-      )}
-
-      {/* Empty State */}
-      {fileRequests.length === 0 ? (
-        <div className=" shadow-sm p-12 text-center">
-          <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-6">
-            <Inbox className="h-12 w-12 text-blue-600" />
-          </div>
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">Need to receive files from someone?</h3>
-          <p className="text-slate-600 max-w-2xl mx-auto mb-6">
-            Request files from anyone — whether they have a DocMetrics account or not.
-          </p>
-          <Button
-            onClick={() => setShowCreateFileRequestDialog(true)}
-            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-          >
-            Create File Request
-          </Button>
-        </div>
-      ) : (
-        /* File Requests List - wrapped in one container with dividers */
-        <div className=" overflow-hidden">
-          {fileRequests.map((request, index) => (
-            <div key={request._id}>
-              {/* Divider between items */}
-              {index > 0 && <div className="border-t border-slate-100 mx-5" />}
-
-              <div className="flex items-center gap-4 px-5 py-4">
-                {/* Icon */}
-                <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <Inbox className="h-5 w-5 text-blue-600" />
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-slate-900 truncate">{request.title}</h3>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
-                      request.status === 'active' ? 'bg-green-100 text-green-700' :
-                      request.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                      'bg-slate-100 text-slate-700'
-                    }`}>
-                      {request.status}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <Upload className="h-3 w-3" />
-                      {request.filesReceived}/{request.totalFiles} files
-                    </span>
-                    {request.recipients?.length > 0 && (
-                      <span className="flex items-center gap-1 truncate max-w-xs">
-                        <User className="h-3 w-3 flex-shrink-0" />
-                        {request.recipients.map((r: any) => r.email).join(', ')}
-                      </span>
-                    )}
-                    {request.dueDate && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        Due {formatTimeAgo(request.dueDate)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="flex-shrink-0 h-8 w-8">
-                      <MoreVertical className="h-4 w-4 text-slate-500" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-72 bg-white p-2">
-
-                    {/* Share link */}
-                    <div className="px-2 py-2 mb-1">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Upload Link</p>
-                      <div className="flex gap-2">
-                        <Input
-                          readOnly
-                          value={`${window.location.origin}/public/file-request/${request.shareToken}`}
-                          className="flex-1 font-mono text-xs bg-slate-50 h-8"
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 px-2 flex-shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            navigator.clipboard.writeText(`${window.location.origin}/public/file-request/${request.shareToken}`)
-                            setCopiedId(request._id)
-                            toast.success('Link copied!')
-                            setTimeout(() => setCopiedId(null), 2000)
-                          }}
-                        >
-                          {copiedId === request._id
-                            ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                            : <Share2 className="h-3.5 w-3.5" />}
-                        </Button>
-                      </div>
-                    </div>
-
-                    <DropdownMenuSeparator />
-
-                    {/* View files - opens drawer AND loads immediately */}
-                    <DropdownMenuItem
-                      className="gap-2 cursor-pointer"
-                      onClick={async () => {
-                        // Open drawer right away
-                        setPreviewRequest({ ...request, uploadedFiles: [] })
-                        setDrawerLoading(true)
-                        // Fetch files in background
-                        const detail = await fetchRequestFiles(request._id)
-                        if (detail) {
-                          setPreviewRequest({ ...request, uploadedFiles: detail.uploadedFiles })
-                        }
-                        setDrawerLoading(false)
-                      }}
-                    >
-                      <Eye className="h-4 w-4 text-purple-600" />
-                      View Uploaded Files
-                      {request.filesReceived > 0 && (
-                        <span className="ml-auto text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
-                          {request.filesReceived}
-                        </span>
-                      )}
-                    </DropdownMenuItem>
-
-                    {/* Download all */}
-                    {request.filesReceived > 0 && (
-                      <DropdownMenuItem
-                        className="gap-2 cursor-pointer"
-                        onClick={async () => {
-                          const loadingToast = toast.loading('Preparing download...')
-                          try {
-                            const res = await fetch(`/api/file-requests/${request._id}/files/download-all`, {
-                              credentials: 'include',
-                            })
-                            if (res.ok) {
-                              const blob = await res.blob()
-                              const url = window.URL.createObjectURL(blob)
-                              const a = document.createElement('a')
-                              a.href = url
-                              a.download = `${request.title}.zip`
-                              document.body.appendChild(a)
-                              a.click()
-                              document.body.removeChild(a)
-                              window.URL.revokeObjectURL(url)
-                              toast.success('Downloaded!', { id: loadingToast })
-                            } else {
-                              toast.error('Download failed', { id: loadingToast })
-                            }
-                          } catch {
-                            toast.error('Network error', { id: loadingToast })
-                          }
-                        }}
-                      >
-                        <Download className="h-4 w-4 text-blue-600" />
-                        Download All Files
-                      </DropdownMenuItem>
-                    )}
-
-                    <DropdownMenuSeparator />
-
-<DropdownMenuItem
-  className="gap-2 cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
-  onClick={() => {
-    toast.warning(`Delete "${request.title}"?`, {
-      description: 'This cannot be undone.',
-      duration: 6000,
-      action: {
-        label: 'Delete',
-        onClick: () => handleDeleteFileRequest(request._id),
-      },
-      cancel: {
-        label: 'Cancel',
-        onClick: () => {},
-      },
-    })
-  }}
->
-  <Trash2 className="h-4 w-4 text-red-600" />
-  Delete Request
-</DropdownMenuItem>
-
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Files Drawer */}
-      <Sheet open={!!previewRequest} onOpenChange={(open) => { if (!open) handleCloseDrawer() }}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col bg-white">
-
-          {/* Drawer Header */}
-          <SheetHeader className="px-6 py-4 border-b sticky top-0 bg-white z-10">
-            <SheetTitle className="text-lg font-semibold truncate">
-              {previewRequest?.title}
-            </SheetTitle>
-            <p className="text-sm text-slate-500">
-              {drawerLoading ? 'Loading files...' : `${previewRequest?.uploadedFiles?.length || 0} file(s) uploaded`}
-            </p>
-          </SheetHeader>
-
-          {/* Drawer Body */}
-          <div className="flex-1 overflow-y-auto">
-
-            {/* Loading state */}
-            {drawerLoading ? (
-              <div className="flex flex-col items-center justify-center h-full p-12">
-                <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
-                <p className="text-sm text-slate-500">Loading files...</p>
-              </div>
-
-            ) : previewRequest?.uploadedFiles?.length === 0 ? (
-              /* Empty state */
-              <div className="flex flex-col items-center justify-center h-full p-12 text-center">
-                <Inbox className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-600 font-medium">No files uploaded yet</p>
-                <p className="text-sm text-slate-500 mt-1">Files will appear here when recipients upload them</p>
-              </div>
-
-            ) : (
-              /* File list with dividers */
-              <div className="divide-y divide-slate-100">
-                {previewRequest?.uploadedFiles?.map((file: any) => (
-                  <div key={file._id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors">
-                    <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                      <FileText className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900 text-sm truncate">{file.originalName}</p>
-                      <p className="text-xs text-slate-500">
-                        {formatFileSizeLocal(file.size)} • {formatTimeAgo(file.uploadedAt)}
-                        {file.uploadedBy?.name && ` • ${file.uploadedBy.name}`}
-                      </p>
-                    </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                        title="Preview"
-                        onClick={() => handleViewFile(previewRequest._id, file)}
-                      >
-                        <Eye className="h-4 w-4 text-purple-600" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                        title="Download"
-                        onClick={() => handleDownloadFile(previewRequest._id, file._id, file.originalName)}
-                      >
-                        <Download className="h-4 w-4 text-blue-600" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Inline file preview panel - slides in below file list */}
-            {previewFile && (
-              <div className="border-t bg-slate-50">
-                <div className="flex items-center justify-between px-4 py-2 border-b bg-white">
-                  <p className="text-sm font-medium text-slate-900 truncate flex-1">{previewFile.originalName}</p>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={handleClosePreview}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="p-4">
-                  {previewLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-                    </div>
-                  ) : previewUrl ? (
-                    (() => {
-                      const fileName = previewFile.originalName.toLowerCase()
-                      if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i)) {
-                        return (
-                          <img
-                            src={previewUrl}
-                            alt={previewFile.originalName}
-                            className="w-full h-auto max-h-96 object-contain rounded-lg bg-white"
-                          />
-                        )
-                      }
-                      if (fileName.match(/\.pdf$/i)) {
-  return (
-    <iframe
-      src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-      className="w-full rounded-lg border"
-      style={{ height: '500px' }}
-      title={previewFile.originalName}
-    />
-  )
-}
-                      return (
-                        <div className="text-center py-8">
-                          <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                          <p className="text-sm text-slate-600 mb-4">Preview not available for this file type</p>
-                          <Button
-                            size="sm"
-                            onClick={() => handleDownloadFile(previewRequest._id, previewFile._id, previewFile.originalName)}
-                            className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600"
-                          >
-                            <Download className="h-4 w-4" />
-                            Download to View
-                          </Button>
-                        </div>
-                      )
-                    })()
-                  ) : null}
-                </div>
-              </div>
-            )}
-
-          </div>
-
-          {/* Drawer Footer */}
-          <div className="px-6 py-4 border-t bg-white">
-            <Button variant="outline" className="w-full" onClick={handleCloseDrawer}>
-              Close
-            </Button>
-          </div>
-
-        </SheetContent>
-      </Sheet>
-
-    </div>
-  )
-}
-
-// Templates Section Component
-// Templates Section Component with BEAUTIFUL REALISTIC PREVIEWS
-const TemplatesSection = () => {
-  const router = useRouter()
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
-  const [showPreview, setShowPreview] = useState(false)
-
-  const categories = [
-    { id: 'all', name: 'All Templates', icon: Grid, count: 33 },
-    { id: 'invoices', name: 'Invoices', icon: FileText, count: 2 },
-    { id: 'contracts', name: 'Contracts', icon: FileSignature, count: 2 },
-    { id: 'proposals', name: 'Proposals', icon: FileCheck, count: 1 },
-
-  ]
-
-  // BEAUTIFUL TEMPLATES WITH REALISTIC PREVIEW DESIGNS
-  const templates = [
-  {
-    id: 'sales-invoice-001',
-    name: 'Sales Invoice',
-    description: 'Professional invoice for products and services',
-    category: 'invoices',
-    popular: true,
-    fields: ['Invoice #', 'Date', 'Items', 'Subtotal', 'Tax', 'Total'],
-    // COMPLETE DETAILED PREVIEW
-    previewComponent: (
-      <div className="w-full h-full bg-white p-8 text-[10px] overflow-auto" style={{ fontFamily: 'Arial, sans-serif' }}>
-        {/* Header with Logo and Company Info */}
-        <div className="flex justify-between items-start mb-8 pb-4 border-b-2 border-slate-800">
-          <div>
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center text-white text-2xl font-bold mb-2">
-              PD
-            </div>
-            <div className="text-sm font-bold text-slate-900">PandaDoc</div>
-            <div className="text-[8px] text-slate-600 mt-1">
-              <div>123 Business Street</div>
-              <div>San Francisco, CA 94105</div>
-              <div>contact@pandadoc.com</div>
-              <div>+1 (555) 123-4567</div>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold text-slate-800 mb-2">SALES INVOICE</div>
-            <div className="bg-slate-100 px-3 py-2 rounded mt-2">
-              <div className="text-[8px] text-slate-600">Invoice No:</div>
-              <div className="text-sm font-bold text-slate-900">[Invoice No]</div>
-            </div>
-            <div className="mt-2 text-[8px] text-slate-600">
-              <div><strong>Payment terms:</strong> [Invoice Terms]</div>
-              <div><strong>Due date:</strong> [Invoice Due Date]</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bill To Section */}
-        <div className="mb-6">
-          <div className="text-sm font-bold text-slate-800 mb-2 border-l-4 border-indigo-600 pl-2">Bill to:</div>
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <div className="font-bold text-slate-900">[Client.FirstName] [Client.LastName]</div>
-            <div className="text-[8px] text-slate-600 mt-1">
-              <div>[Client.StreetAddress] [Client.City] [Client.State]</div>
-              <div>[Client.PostalCode]</div>
-              <div className="mt-1">[Client.Email]</div>
-              <div>[Client.Phone]</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Items Table */}
-        <div className="mb-6">
-          <table className="w-full text-[8px]">
-            <thead>
-              <tr className="bg-slate-800 text-white">
-                <th className="text-left p-2 font-semibold">DESCRIPTION</th>
-                <th className="text-center p-2 font-semibold w-16">QTY</th>
-                <th className="text-right p-2 font-semibold w-20">RATE</th>
-                <th className="text-right p-2 font-semibold w-24">AMOUNT</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-slate-200">
-                <td className="p-2 text-slate-700">
-                  <div className="font-semibold">Product/Service Name</div>
-                  <div className="text-[7px] text-slate-500 mt-1">Detailed description of the product or service provided</div>
-                </td>
-                <td className="p-2 text-center text-slate-900">1</td>
-                <td className="p-2 text-right text-slate-900">$0.00</td>
-                <td className="p-2 text-right font-bold text-slate-900">$0.00</td>
-              </tr>
-              <tr className="border-b border-slate-200">
-                <td className="p-2 text-slate-700">
-                  <div className="font-semibold">Product/Service Name</div>
-                  <div className="text-[7px] text-slate-500 mt-1">Detailed description of the product or service provided</div>
-                </td>
-                <td className="p-2 text-center text-slate-900">1</td>
-                <td className="p-2 text-right text-slate-900">$0.00</td>
-                <td className="p-2 text-right font-bold text-slate-900">$0.00</td>
-              </tr>
-              <tr className="border-b border-slate-200">
-                <td className="p-2 text-slate-700">
-                  <div className="font-semibold">Product/Service Name</div>
-                  <div className="text-[7px] text-slate-500 mt-1">Detailed description of the product or service provided</div>
-                </td>
-                <td className="p-2 text-center text-slate-900">1</td>
-                <td className="p-2 text-right text-slate-900">$0.00</td>
-                <td className="p-2 text-right font-bold text-slate-900">$0.00</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Totals Section */}
-        <div className="flex justify-end mb-6">
-          <div className="w-64">
-            <div className="flex justify-between py-2 border-b border-slate-200 text-[8px]">
-              <span className="text-slate-600">Subtotal:</span>
-              <span className="font-bold text-slate-900">$0.00</span>
-            </div>
-            <div className="flex justify-between py-2 border-b border-slate-200 text-[8px]">
-              <span className="text-slate-600">Tax (0%):</span>
-              <span className="font-bold text-slate-900">$0.00</span>
-            </div>
-            <div className="flex justify-between py-3 bg-slate-800 text-white px-4 rounded-lg mt-2">
-              <span className="font-bold">TOTAL:</span>
-              <span className="text-lg font-bold">$0.00</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Terms and Signature */}
-        <div className="border-t-2 border-slate-200 pt-4 space-y-4">
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <div className="text-[8px] font-bold text-slate-800 mb-2">Payment Terms & Conditions:</div>
-            <div className="text-[7px] text-slate-600 leading-relaxed">
-              I, the undersigned <span className="bg-yellow-100 px-1">[Client.FirstName] [Client.LastName]</span>, do hereby confirm that this invoice relates to a commercial transaction and this document contains a fair, complete and accurate description of the transaction and the relevant goods and/or services provided as well as a true and realistic description of their value.
-            </div>
-          </div>
-
-          <div className="flex justify-between items-end">
-            <div>
-              <div className="text-[7px] text-slate-600 mb-1">Authorized Signature:</div>
-              <div className="border-2 border-slate-300 rounded-lg px-8 py-4 bg-slate-50">
-                <div className="text-indigo-600 text-sm">✍️ Signature</div>
-              </div>
-              <div className="text-[7px] text-slate-600 mt-2">MM / DD / YYYY</div>
-            </div>
-            <div className="text-[7px] text-slate-500 text-right">
-              <div>Thank you for your business!</div>
-              <div className="mt-1 font-semibold">Questions? Contact us at contact@pandadoc.com</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    ),
-    htmlTemplate: `<!-- Full HTML -->`
-  },
 
   
 
-  // Continue with more templates...
-]
-  const filteredTemplates = templates.filter(template => {
-    const matchesCategory = selectedCategory === 'all' || template.category === selectedCategory
-    const matchesSearch = template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         template.description.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesCategory && matchesSearch
-  })
+      
+                
 
-  return (
-    <div>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Document Templates</h1>
-        <p className="text-slate-600">Create professional documents in minutes with pre-built templates</p>
-      </div>
-
-      {/* Search and Filter Bar */}
-      <div className="bg-white rounded-xl border shadow-sm p-6 mb-8">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-            <Input
-              type="search"
-              placeholder="Search templates..."
-              className="pl-10 h-12 bg-slate-50 border-slate-200"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <Button 
-            onClick={() => router.push('/app/template')}
-            className="h-12 px-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 gap-2"
-          >
-            <Plus className="h-5 w-5" />
-            Create Document
-          </Button>
-        </div>
-      </div>
-
-      {/* Category Tabs */}
-      <div className="flex gap-3 mb-8 overflow-x-auto pb-2">
-        {categories.map((category) => (
-          <button
-            key={category.id}
-            onClick={() => setSelectedCategory(category.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-              selectedCategory === category.id
-                ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
-                : 'bg-white text-slate-700 border hover:border-purple-300 hover:shadow-md'
-            }`}
-          >
-            <category.icon className="h-4 w-4" />
-            <span>{category.name}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${
-              selectedCategory === category.id
-                ? 'bg-white/20'
-                : 'bg-slate-100 text-slate-600'
-            }`}>
-              {category.count}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Popular Templates Section */}
-      {selectedCategory === 'all' && (
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-yellow-500" />
-              Popular Templates
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {templates.filter(t => t.popular).map((template) => (
-              <div
-                key={template.id}
-                className="group bg-white rounded-xl border shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer"
-              >
-                {/* BEAUTIFUL PREVIEW CARD */}
-                <div className="h-64 border-b overflow-hidden relative">
-                  {template.previewComponent}
-                  
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-                    <div className="w-full flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedTemplate(template)
-                          setShowPreview(true)
-                        }}
-                        className="flex-1 bg-white/90 hover:bg-white"
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Preview
-                      </Button>
-                      <Button 
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/templates/editor/${template.id}`)
-                        }}
-                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
-                      >
-                        Use Template
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold text-slate-900 text-lg group-hover:text-purple-600 transition-colors">
-                      {template.name}
-                    </h3>
-                    <span className="bg-yellow-100 text-yellow-700 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 flex-shrink-0">
-                      <Sparkles className="h-3 w-3" />
-                      Popular
-                    </span>
-                  </div>
-                  <p className="text-sm text-slate-600 mb-4">{template.description}</p>
-                  <div className="text-xs text-slate-500">
-                    {template.fields.length} customizable fields
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* All Templates Grid */}
-      <div>
-        <h2 className="text-xl font-semibold text-slate-900 mb-4">
-          {selectedCategory === 'all' ? 'All Templates' : categories.find(c => c.id === selectedCategory)?.name}
-          <span className="text-slate-500 font-normal ml-2">({filteredTemplates.length})</span>
-        </h2>
-        
-        {filteredTemplates.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates.map((template) => (
-              <div
-                key={template.id}
-                className="group bg-white rounded-xl border shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden cursor-pointer"
-              >
-                {/* BEAUTIFUL MINI PREVIEW */}
-                <div className="h-48 border-b overflow-hidden relative">
-                  <div className="transform scale-75 origin-top-left w-[133%] h-[133%]">
-                    {template.previewComponent}
-                  </div>
-                  
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                    <div className="w-full flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedTemplate(template)
-                          setShowPreview(true)
-                        }}
-                        className="flex-1 h-8 text-xs bg-white/90 hover:bg-white"
-                      >
-                        <Eye className="h-3 w-3 mr-1" />
-                        View
-                      </Button>
-                      <Button 
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/templates/editor/${template.id}`)
-                        }}
-                        className="flex-1 h-8 text-xs bg-purple-600 hover:bg-purple-700"
-                      >
-                        Use
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-5">
-                  <h3 className="font-semibold text-slate-900 mb-1 group-hover:text-purple-600 transition-colors">
-                    {template.name}
-                  </h3>
-                  <p className="text-xs text-slate-600 mb-3 line-clamp-2">{template.description}</p>
-                  <div className="text-xs text-slate-500">
-                    {template.fields.length} fields
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border shadow-sm p-12 text-center">
-            <Search className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">No templates found</h3>
-            <p className="text-slate-600 mb-6">Try adjusting your search or filter</p>
-            <Button variant="outline" onClick={() => { setSearchQuery(''); setSelectedCategory('all') }}>
-              Clear Filters
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* Template Preview Dialog - Full Size */}
-      {selectedTemplate && showPreview && (
-        <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
-            <DialogHeader>
-              <DialogTitle className="text-2xl">{selectedTemplate.name}</DialogTitle>
-              <DialogDescription className="text-base">{selectedTemplate.description}</DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6">
-              {/* Full Size Preview */}
-              <div className="border-2 rounded-lg overflow-hidden bg-slate-50 p-8">
-                <div className="bg-white shadow-2xl rounded-lg overflow-hidden max-w-2xl mx-auto">
-                  <div className="aspect-[8.5/11]">
-                    {selectedTemplate.previewComponent}
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3 justify-end pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowPreview(false)}>
-                  Close
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowPreview(false)
-                    router.push(`/template/editor/${selectedTemplate.id}`)
-                  }}
-                  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 gap-2"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Use This Template
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-      </div>
-  )
-}
   const sidebarItems: Array<{ id: PageType; icon: any; label: string; badge: string | null }> = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', badge: null },
     { id: 'content-library', icon: Folder, label: 'Content library', badge: null },
@@ -3828,38 +2838,41 @@ case 'dashboard':
     </div>
   )
 
-     case 'agreements':
+   case 'agreements':
   return (
     <div>
-      {/* ✅ DIFFERENT MESSAGE FOR AGREEMENTS PAGE */}
-      <PageInfoTooltip 
+      <PageInfoTooltip
         pageId="agreements"
         message="Require viewers to sign an NDA before accessing your content. Track signatures and send reminders automatically."
         position="top"
       />
-
-      {/* Rest of agreements code */}
-      <AgreementsSection />
+      <AgreementsSection
+        agreements={agreements}
+        uploadedAgreementsList={uploadedAgreementsList}
+        user={user}
+        onUploadClick={() => setShowUploadAgreementDialog(true)}
+        onDeleteAgreement={handleDeleteAgreement}
+        fetchUploadedAgreements={fetchUploadedAgreements}
+      />
     </div>
   )
-
      
 
   case 'file-requests':
   return (
     <div>
-      {/* ✅ DIFFERENT MESSAGE FOR FILE REQUESTS PAGE */}
-      <PageInfoTooltip 
+      <PageInfoTooltip
         pageId="file-requests"
         message="Create file requests to collect documents from viewers. Set deadlines, track submissions, and manage access permissions."
         position="top"
       />
-
-      {/* Rest of agreements code */}
-      <FileRequestsSection />
+      <FileRequestsSection
+        fileRequests={fileRequests}
+        onCreateClick={() => setShowCreateFileRequestDialog(true)}
+        onDeleteRequest={handleDeleteFileRequest}
+      />
     </div>
   )
-  
 
    case 'contacts':
   return (

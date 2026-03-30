@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sparkles, Bell, Clock, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 
 const industries = [
   'Legal',
@@ -264,6 +265,16 @@ export default function OnboardingFlow() {
 
         {/* ── STEP 1: Sign Up ── */}
         {step === 1 && (
+          <div>
+            <div className="mb-6">
+      <Link
+        href="/"
+        className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to home
+      </Link>
+    </div>
           <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <div className="grid lg:grid-cols-2 min-h-[560px]">
 
@@ -441,6 +452,7 @@ export default function OnboardingFlow() {
               </div>
 
             </div>
+          </div>
           </div>
         )}
 
