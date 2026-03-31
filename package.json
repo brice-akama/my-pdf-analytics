@@ -128,7 +128,12 @@
   "optionalDependencies": {
     "@napi-rs/canvas": "^0.1.81"
   },
-  "overrides": {
-    "jsdom": "26.1.0"
-  }
+ "overrides": {
+  "jsdom": "26.1.0",
+  "afinn-165": "3.0.0",
+  "natural": "6.12.0",
+  "compromise": "14.10.0",
+  "nspell": "2.1.5",
+  "dictionary-en": "3.2.0"
+}
 }
