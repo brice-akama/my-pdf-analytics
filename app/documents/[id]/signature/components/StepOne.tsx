@@ -289,8 +289,8 @@ function CCRecipientsSection({ signatureRequest, setSignatureRequest }: Omit<Ste
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1">When to send copy</label>
                   <select value={cc.notifyWhen} onChange={(e) => updateCC(index, "notifyWhen", e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500">
-                    <option value="completed">When all signatures are completed ✅</option>
-                    <option value="immediately">Immediately after sending 📤</option>
+                    <option value="completed">When all signatures are completed </option>
+                    <option value="immediately">Immediately after sending </option>
                   </select>
                 </div>
               </div>
