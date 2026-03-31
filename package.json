@@ -127,5 +127,8 @@
   },
   "optionalDependencies": {
     "@napi-rs/canvas": "^0.1.81"
+  },
+  "overrides": {
+    "jsdom": "26.1.0"
   }
 }
