@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../../../lib/mongodb';
 import { sanitizeInput, isValidEmail } from '@/lib/security';
-import { sendPasswordResetEmail } from '@/lib/emailService';
+ import { sendPasswordResetEmail } from '@/lib/emailService.welcome';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -40,6 +40,12 @@ export async function POST(request: NextRequest) {
         message: 'If that email exists, we sent a code' 
       });
     }
+
+    if (user?.provider === 'google') {
+  return NextResponse.json({
+    error: 'This account uses Google Sign-In. Please login with Google instead.'
+  }, { status: 400 });
+}
 
     // ✅ Get user name from either collection
     let recipientName = 'User';
