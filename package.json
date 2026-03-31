@@ -129,7 +129,9 @@
     "@napi-rs/canvas": "^0.1.81"
   },
   "overrides": {
-    "jsdom": "26.1.0",
-     "afinn-165": "2.0.2"
+  "jsdom": "26.1.0",
+  "natural": {
+    "afinn-165": "1.0.4"
   }
+}
 }
