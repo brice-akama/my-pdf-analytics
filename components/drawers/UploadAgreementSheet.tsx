@@ -104,51 +104,7 @@ export default function UploadAgreementSheet({
             </button>
 
             {/* From Google Drive */}
-            {integrationStatus.google_drive?.connected ? (
-              <button
-                onClick={async () => {
-                  onClose()
-                  await onBrowseDriveFiles()
-                }}
-                className="w-full flex items-center gap-4 px-5 py-4 rounded-xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 transition-all text-left group"
-              >
-                <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 text-xl">
-                  📁
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-slate-900 group-hover:text-blue-700">
-                    From Google Drive
-                  </p>
-                  <p className="text-xs text-green-600 mt-0.5">
-                    Connected · {integrationStatus.google_drive.email}
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-blue-500 flex-shrink-0" />
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  onClose()
-                  onConnectGoogleDrive()
-                }}
-                className="w-full flex items-center gap-4 px-5 py-4 rounded-xl border-2 border-dashed border-slate-200 hover:border-blue-300 hover:bg-blue-50/30 transition-all text-left group opacity-70 hover:opacity-100"
-              >
-                <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 text-xl">
-                  📁
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-slate-700">
-                    From Google Drive
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Connect Google Drive to import
-                  </p>
-                </div>
-                <span className="text-xs text-blue-600 font-medium flex-shrink-0">
-                  Connect
-                </span>
-              </button>
-            )}
+             
           </div>
         </div>
 
