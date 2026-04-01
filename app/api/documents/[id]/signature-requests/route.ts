@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../../lib/mongodb";
 import { ObjectId } from "mongodb";
 import { verifyUserFromRequest } from '@/lib/auth';
+import { canAccessDocument } from '@/lib/teamAccess';
 
+//  REPLACE the entire GET handler body with this:
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -16,30 +18,38 @@ export async function GET(
     const { id } = await params;
     const db = await dbPromise;
 
-    // 1. Regular signature requests (direct documentId match)
-    const directRequests = await db.collection("signature_requests")
-      .find({ documentId: id, ownerId: user.id })
+    //  Verify document exists and user can access it
+    const document = await db.collection('documents').findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!document) {
+      return NextResponse.json({ success: false }, { status: 404 });
+    }
+
+    const hasAccess = await canAccessDocument(db, document, user.id);
+    if (!hasAccess) {
+      return NextResponse.json({ success: false }, { status: 403 });
+    }
+
+    //  No longer filtering by ownerId — access already verified above
+    const directRequests = await db.collection('signature_requests')
+      .find({ documentId: id })
       .sort({ createdAt: -1 })
       .toArray();
 
-    // 2. Bulk send requests (cloned docs point to originalTemplateId)
-    const bulkRequests = await db.collection("signature_requests")
-      .find({ originalTemplateId: id, ownerId: user.id })
+    const bulkRequests = await db.collection('signature_requests')
+      .find({ originalTemplateId: id })
       .sort({ createdAt: -1 })
       .toArray();
 
-    // 3. Envelope requests (live in separate collection)
-    const envelopes = await db.collection("envelopes")
-      .find({
-        "documents.documentId": new ObjectId(id),
-        ownerId: user.id,
-      })
+    const envelopes = await db.collection('envelopes')
+      .find({ 'documents.documentId': new ObjectId(id) })
       .sort({ createdAt: -1 })
       .toArray();
 
     const origin = request.nextUrl.origin;
 
-    // Map regular + bulk (same structure)
     const signatureResults = [...directRequests, ...bulkRequests].map(r => ({
       uniqueId: r.uniqueId,
       name: r.recipient?.name || '',
@@ -56,7 +66,6 @@ export async function GET(
       source: r.isBulkSend ? 'bulk' : 'signature',
     }));
 
-    // Map envelope recipients
     const envelopeResults = envelopes.flatMap(env =>
       env.recipients.map((r: any) => ({
         uniqueId: r.uniqueId,
@@ -83,7 +92,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error("Failed to fetch signature requests:", error);
+    console.error('Failed to fetch signature requests:', error);
     return NextResponse.json({ success: false }, { status: 500 });
   }
 }

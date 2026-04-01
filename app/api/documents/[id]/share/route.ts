@@ -6,6 +6,7 @@ import { ObjectId } from 'mongodb';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { createNotification } from '@/lib/notifications';
+import { canAccessDocument } from '@/lib/teamAccess';
 // import { sendShareEmailViaGmailOrResend } from '@/lib/emails/shareEmails';
 
  
@@ -509,7 +510,7 @@ export async function POST(
   }
 }
 
-// ✅ GET - List all share links for a document
+//  GET - List all share links for a document
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -539,19 +540,20 @@ export async function GET(
       return NextResponse.json({ error: 'Document not found' }, { status: 404 })
     }
 
-    if (document.userId !== user.id) {
-      return NextResponse.json({ 
-        error: 'Only the document owner can perform this action',
-        code: 'NOT_OWNER'
-      }, { status: 403 })
-    }
+    const hasAccess = await canAccessDocument(db, document, user.id);
+if (!hasAccess) {
+  return NextResponse.json({ 
+    error: 'Access denied',
+    code: 'NO_ACCESS'
+  }, { status: 403 });
+}
 
-    const shares = await db.collection('shares')
-      .find({ documentId, userId: user.id })
-      .sort({ createdAt: -1 })
-      .toArray();
+   const shares = await db.collection('shares')
+  .find({ documentId })
+  .sort({ createdAt: -1 })
+  .toArray();
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://docmetrics.io';
     const formattedShares = await Promise.all(
       shares.map(async (share) => {
         const pageLogs = await db.collection('analytics_logs').find({
