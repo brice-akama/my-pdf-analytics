@@ -517,6 +517,8 @@ export async function GET(
 ) {
   try {
     const user = await verifyUserFromRequest(request);
+    console.log('👤 User requesting shares:', user?.id, user?.email);
+
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -533,14 +535,20 @@ export async function GET(
     const documentId = new ObjectId(id);
 
     const document = await db.collection('documents').findOne({
+      
       _id: documentId,
     })
+    console.log('📋 Document found:', !!document);
+    console.log('📋 Document owner:', document?.userId);
+    console.log('📋 sharedToTeam:', document?.sharedToTeam);
+    console.log('📋 workspaceId:', document?.workspaceId);
 
     if (!document) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 })
     }
 
     const hasAccess = await canAccessDocument(db, document, user.id);
+    console.log('🔐 Has access:', hasAccess);
 if (!hasAccess) {
   return NextResponse.json({ 
     error: 'Access denied',
