@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { canAccessDocument } from '@/lib/teamAccess';
 
 export async function GET(
   request: NextRequest,
@@ -18,11 +19,16 @@ export async function GET(
     const documentId = new ObjectId(id);
 
     // Verify ownership
-    const document = await db.collection('documents').findOne({
-      _id: documentId,
-      userId: user.id,
-    });
-    if (!document) return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+      
+const document = await db.collection('documents').findOne({
+  _id: documentId,
+});
+if (!document) return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+
+ 
+
+const hasAccess = await canAccessDocument(db, document, user.id);
+if (!hasAccess) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
     // Fetch owner profile for utilization tab
 const ownerProfile = await db.collection('profiles').findOne({ 

@@ -41,9 +41,7 @@ export default function UploadAgreementSheet({
           <SheetTitle className="text-xl font-bold text-slate-900">
             Upload Agreement
           </SheetTitle>
-          <SheetDescription className="text-sm text-slate-500">
-            Choose how you'd like to upload your agreement
-          </SheetDescription>
+           
         </SheetHeader>
 
         {/* Content */}

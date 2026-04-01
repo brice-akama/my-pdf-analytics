@@ -5,43 +5,25 @@ export async function canAccessDocument(
   document: any,
   userId: string
 ): Promise<boolean> {
-    console.log(' canAccessDocument called');
-  console.log(' userId:', userId);
-  console.log(' document.userId:', document?.userId);
   // Owner always has access
-    if (document.userId === userId) {
-    console.log(' User is owner');
-    return true;
-  }
-
-   console.log('🔎 sharedToTeam:', document?.sharedToTeam);
-  console.log('🔎 workspaceId:', document?.workspaceId);
+  if (document.userId === userId) return true;
 
   // Document must be shared to a team
-  if (!document.sharedToTeam || !document.workspaceId) {
-    console.log('❌ Document not shared to team');
-    return false;
-  }
+  if (!document.sharedToTeam || !document.workspaceId) return false;
 
+  // Check if user belongs to the same organization as the document's workspace
   const profile = await db.collection('profiles').findOne({ user_id: userId });
-  console.log('👤 Team member profile:', profile?.organization_id);
-  
   const userOrgId = profile?.organization_id || userId;
-  console.log('🏢 userOrgId:', userOrgId);
-  console.log('🏢 document.workspaceId:', document.workspaceId);
 
-  if (userOrgId === document.workspaceId) {
-    console.log('✅ User is org owner');
-    return true;
-  }
+  // User is the org owner of that workspace
+  if (userOrgId === document.workspaceId) return true;
 
+  // User is an active member of that workspace's org
   const membership = await db.collection('organization_members').findOne({
     organizationId: document.workspaceId,
     userId,
     status: 'active',
   });
-  console.log('👥 Membership found:', !!membership);
-  console.log('👥 Membership data:', membership);
 
   return !!membership;
 }
