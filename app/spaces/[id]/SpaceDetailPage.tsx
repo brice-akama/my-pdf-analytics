@@ -3040,7 +3040,7 @@ const fetchFolders = async () => {
         >
           <FolderOpen className="h-4 w-4 text-white" />
         </div>
-       <span className="text-sm lg:text-base font-bold text-blue-900 tracking-tight hidden sm:block">
+       <span className="text-sm lg:text-base font-bold text-blue-600 tracking-tight hidden sm:block">
   DocMetrics
 </span>
       </div>

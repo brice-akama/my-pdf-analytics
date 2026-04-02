@@ -529,7 +529,7 @@ const handleImportSelectedOneDriveFiles = async () => {
               className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <span className="text-sm font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent hidden sm:block">
+            <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent hidden sm:block">
               DocMetrics
             </span>
           </div>

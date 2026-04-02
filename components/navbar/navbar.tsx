@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ProductMenu } from "./product-menu";
-import { SolutionsMenu } from "./solutions-menu";
-import { ResourcesMenu } from "./resources-menu";
+import { MainNav } from "@/components/main-nav";
 import { MobileNav } from "./mobile-nav";
 import { UserNav } from "./user-nav";
 
@@ -17,10 +15,10 @@ export function Navbar() {
     setIsClient(true);
 
     const handleScroll = () => {
-      setScrolled(window.scrollY > 10)
-    }
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
+      setScrolled(window.scrollY > 10);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const isLoggedIn = false;
@@ -28,10 +26,10 @@ export function Navbar() {
   return (
     <header
       className={`sticky top-0 z-[100] w-full transition-all duration-300 ${
-  scrolled
-    ? "bg-white/90 backdrop-blur-md border-b border-slate-200/60 shadow-sm"
-    : "bg-transparent"
-}`}
+        scrolled
+          ? "bg-white/90 backdrop-blur-md border-b border-slate-200/60 shadow-sm"
+          : "bg-transparent"
+      }`}
     >
       <div className="container flex h-16 items-center justify-between px-4">
         {/* Logo */}
@@ -70,9 +68,7 @@ export function Navbar() {
 
           {isClient && (
             <nav className="hidden md:flex items-center gap-4">
-              <ProductMenu />
-              <SolutionsMenu />
-              <ResourcesMenu />
+              <MainNav />
               <Link
                 href="/pricing"
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -95,8 +91,8 @@ export function Navbar() {
                 </Link>
                 <Link href="/signup">
                   <Button size="sm" className="hidden md:block bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 transition-colors">
-  Start Free Trial
-</Button>
+                    Start Free Trial
+                  </Button>
                 </Link>
               </>
             )
