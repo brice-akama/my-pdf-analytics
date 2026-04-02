@@ -3770,7 +3770,7 @@ const fetchFolders = async () => {
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="w-48 bg-white">
-  <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
+  <DropdownMenuItem onClick={() => openPdfDrawer(doc)}>
     <Eye className="mr-2 h-4 w-4" />
     View
   </DropdownMenuItem>
@@ -6142,7 +6142,6 @@ const fetchFolders = async () => {
 </Dialog>
 
 {/* ✅ Folder Permissions Dialog */}
-{/* ✅ Manage Access Drawer */}
 {showFolderPermissionsDialog && (
   <div className="fixed inset-0 z-50 flex justify-end">
     {/* Backdrop */}
@@ -6156,18 +6155,18 @@ const fetchFolders = async () => {
     />
 
     {/* Drawer */}
-    <div className="relative w-full sm:w-[680px] h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+    <div className="relative w-full sm:w-[680px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
 
       {/* Header */}
-      <div className="sticky top-0 border-b border-slate-700/50 bg-slate-900/80 backdrop-blur-xl px-6 py-4 z-10 flex-shrink-0">
+      <div className="sticky top-0 border-b border-slate-200 bg-white/90 backdrop-blur-xl px-6 py-4 z-10 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg flex-shrink-0">
               <Lock className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Manage Access</h2>
-              <p className="text-sm text-slate-400 mt-0.5">
+              <h2 className="text-xl font-bold text-slate-900">Manage Access</h2>
+              <p className="text-sm text-slate-500 mt-0.5">
                 {folders.find(f => f.id === selectedFolderForPermissions)?.name || 'Folder'}
               </p>
             </div>
@@ -6178,14 +6177,14 @@ const fetchFolders = async () => {
               setSelectedFolderForPermissions(null)
               setFolderPermissions([])
             }}
-            className="h-10 w-10 rounded-xl hover:bg-slate-700/50 flex items-center justify-center transition-all text-slate-300 hover:text-white"
+            className="h-10 w-10 rounded-xl hover:bg-slate-100 flex items-center justify-center transition-all text-slate-500 hover:text-slate-900"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mt-4 bg-slate-800/60 p-1 rounded-xl">
+        <div className="flex gap-1 mt-4 bg-slate-100 p-1 rounded-xl">
           {(['permissions', 'grant'] as const).map((tab) => (
             <button
               key={tab}
@@ -6193,7 +6192,7 @@ const fetchFolders = async () => {
                 const el = document.getElementById(`manage-access-tab-${tab}`)
                 el?.scrollIntoView({ behavior: 'smooth' })
               }}
-              className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-700/50"
+              className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-500 hover:text-slate-900 hover:bg-white"
             >
               {tab === 'permissions' ? 'Current Access' : 'Grant Access'}
             </button>
@@ -6202,7 +6201,7 @@ const fetchFolders = async () => {
       </div>
 
       {/* Scrollable Body */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8 bg-white">
 
         {/* ── SECTION: Current Access ── */}
         <div id="manage-access-tab-permissions">
@@ -6213,15 +6212,15 @@ const fetchFolders = async () => {
           {loadingPermissions ? (
             <div className="flex flex-col items-center justify-center py-16">
               <div className="h-10 w-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="text-slate-400 text-sm">Loading permissions...</p>
+              <p className="text-slate-500 text-sm">Loading permissions...</p>
             </div>
           ) : folderPermissions.length === 0 ? (
-            <div className="border border-slate-700/50 rounded-xl bg-slate-800/40 p-10 text-center">
-              <div className="h-14 w-14 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-3">
-                <Users className="h-7 w-7 text-slate-500" />
+            <div className="border border-slate-200 rounded-xl bg-slate-50 p-10 text-center">
+              <div className="h-14 w-14 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                <Users className="h-7 w-7 text-slate-400" />
               </div>
-              <p className="text-slate-300 font-medium">No specific permissions set</p>
-              <p className="text-slate-500 text-sm mt-1">
+              <p className="text-slate-700 font-medium">No specific permissions set</p>
+              <p className="text-slate-400 text-sm mt-1">
                 Space members with editor/admin roles can access this folder
               </p>
             </div>
@@ -6232,8 +6231,8 @@ const fetchFolders = async () => {
                   key={permission.id}
                   className={`rounded-xl border p-4 transition-all ${
                     permission.isExpired
-                      ? 'border-red-500/30 bg-red-900/10'
-                      : 'border-slate-700/50 bg-slate-800/40 hover:bg-slate-800/70'
+                      ? 'border-red-200 bg-red-50'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -6243,11 +6242,11 @@ const fetchFolders = async () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-2">
-                          <p className="font-semibold text-white truncate">
+                          <p className="font-semibold text-slate-900 truncate">
                             {permission.grantedTo}
                           </p>
                           {permission.isExpired && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-xs font-medium border border-red-500/30">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-500 text-xs font-medium border border-red-200">
                               <AlertCircle className="h-3 w-3" />
                               Expired
                             </span>
@@ -6256,10 +6255,10 @@ const fetchFolders = async () => {
                         <div className="flex flex-wrap gap-2">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium ${
                             permission.role === 'editor'
-                              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                              ? 'bg-green-100 text-green-700 border border-green-200'
                               : permission.role === 'viewer'
-                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                              : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                              ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                              : 'bg-orange-100 text-orange-700 border border-orange-200'
                           }`}>
                             {permission.role === 'editor' && '✏️'}
                             {permission.role === 'viewer' && '👁️'}
@@ -6268,32 +6267,32 @@ const fetchFolders = async () => {
                           </span>
 
                           {permission.canDownload ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-700/60 text-slate-300 text-xs border border-slate-600/50">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs border border-slate-200">
                               <Download className="h-3 w-3" />
                               Can Download
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-yellow-500/20 text-yellow-400 text-xs border border-yellow-500/30">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-yellow-50 text-yellow-600 text-xs border border-yellow-200">
                               <Eye className="h-3 w-3" />
                               View Only
                             </span>
                           )}
 
                           {permission.watermarkEnabled && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-400 text-xs border border-purple-500/30">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-100 text-purple-700 text-xs border border-purple-200">
                               <ShieldCheck className="h-3 w-3" />
                               Watermark
                             </span>
                           )}
 
                           {permission.expiresAt && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-700/60 text-slate-300 text-xs border border-slate-600/50">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-xs border border-slate-200">
                               <Calendar className="h-3 w-3" />
                               {new Date(permission.expiresAt).toLocaleDateString()}
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-500 mt-2">
+                        <p className="text-xs text-slate-400 mt-2">
                           Granted by {permission.grantedBy} · {new Date(permission.grantedAt).toLocaleDateString()}
                         </p>
                       </div>
@@ -6301,7 +6300,7 @@ const fetchFolders = async () => {
 
                     <button
                       onClick={() => handleRevokeFolderPermission(permission.grantedTo)}
-                      className="h-9 w-9 rounded-lg hover:bg-red-500/20 flex items-center justify-center transition-all text-slate-500 hover:text-red-400 flex-shrink-0"
+                      className="h-9 w-9 rounded-lg hover:bg-red-50 flex items-center justify-center transition-all text-slate-400 hover:text-red-500 flex-shrink-0"
                       title="Revoke access"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -6314,7 +6313,7 @@ const fetchFolders = async () => {
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-slate-700/50" />
+        <div className="h-px bg-slate-200" />
 
         {/* ── SECTION: Grant Access ── */}
         <div id="manage-access-tab-grant" className="space-y-5">
@@ -6324,7 +6323,7 @@ const fetchFolders = async () => {
 
           {/* Email Input */}
           <div>
-            <label className="text-sm font-medium text-slate-300 mb-2 block">
+            <label className="text-sm font-medium text-slate-700 mb-2 block">
               Email Address <span className="text-red-400">*</span>
             </label>
             <input
@@ -6332,20 +6331,20 @@ const fetchFolders = async () => {
               placeholder="user@example.com"
               value={newPermissionEmail}
               onChange={(e) => setNewPermissionEmail(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
+              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
             />
           </div>
 
           {/* Role Selection */}
           <div>
-            <label className="text-sm font-medium text-slate-300 mb-3 block">
+            <label className="text-sm font-medium text-slate-700 mb-3 block">
               Access Level <span className="text-red-400">*</span>
             </label>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { value: 'viewer', icon: <Eye className="h-5 w-5 text-blue-400" />, label: 'Viewer', desc: 'View & Download', color: 'border-blue-500 bg-blue-500/10' },
-                { value: 'editor', icon: <Edit className="h-5 w-5 text-green-400" />, label: 'Editor', desc: 'Upload & Edit', color: 'border-green-500 bg-green-500/10' },
-                { value: 'restricted', icon: <Lock className="h-5 w-5 text-orange-400" />, label: 'Restricted', desc: 'View Only', color: 'border-orange-500 bg-orange-500/10' },
+                { value: 'viewer', icon: <Eye className="h-5 w-5 text-blue-500" />, label: 'Viewer', desc: 'View & Download', color: 'border-blue-500 bg-blue-50' },
+                { value: 'editor', icon: <Edit className="h-5 w-5 text-green-500" />, label: 'Editor', desc: 'Upload & Edit', color: 'border-green-500 bg-green-50' },
+                { value: 'restricted', icon: <Lock className="h-5 w-5 text-orange-500" />, label: 'Restricted', desc: 'View Only', color: 'border-orange-500 bg-orange-50' },
               ].map((opt) => (
                 <button
                   key={opt.value}
@@ -6357,12 +6356,12 @@ const fetchFolders = async () => {
                   className={`p-4 border-2 rounded-xl text-left transition-all ${
                     newPermissionRole === opt.value
                       ? opt.color
-                      : 'border-slate-700/50 bg-slate-800/40 hover:border-slate-600'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
                   <div className="mb-2">{opt.icon}</div>
-                  <p className="font-semibold text-white text-sm">{opt.label}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{opt.desc}</p>
+                  <p className="font-semibold text-slate-900 text-sm">{opt.label}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{opt.desc}</p>
                 </button>
               ))}
             </div>
@@ -6370,10 +6369,10 @@ const fetchFolders = async () => {
 
           {/* Download Toggle */}
           {newPermissionRole !== 'restricted' && (
-            <div className="flex items-center justify-between p-4 rounded-xl border border-slate-700/50 bg-slate-800/40">
+            <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50">
               <div>
-                <p className="font-medium text-white text-sm">Allow Downloads</p>
-                <p className="text-xs text-slate-400 mt-0.5">User can download files from this folder</p>
+                <p className="font-medium text-slate-900 text-sm">Allow Downloads</p>
+                <p className="text-xs text-slate-500 mt-0.5">User can download files from this folder</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -6382,16 +6381,16 @@ const fetchFolders = async () => {
                   onChange={(e) => setNewPermissionCanDownload(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600" />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600" />
               </label>
             </div>
           )}
 
           {/* Watermark Toggle */}
-          <div className="flex items-center justify-between p-4 rounded-xl border border-slate-700/50 bg-slate-800/40">
+          <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50">
             <div>
-              <p className="font-medium text-white text-sm">Enable Watermark</p>
-              <p className="text-xs text-slate-400 mt-0.5">Overlay user's email on viewed documents</p>
+              <p className="font-medium text-slate-900 text-sm">Enable Watermark</p>
+              <p className="text-xs text-slate-500 mt-0.5">Overlay user's email on viewed documents</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -6400,35 +6399,35 @@ const fetchFolders = async () => {
                 onChange={(e) => setNewPermissionWatermark(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600" />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600" />
             </label>
           </div>
 
           {/* Expiry Date */}
           <div>
-            <label className="text-sm font-medium text-slate-300 mb-2 block">
-              Expiration Date <span className="text-slate-500">(Optional)</span>
+            <label className="text-sm font-medium text-slate-700 mb-2 block">
+              Expiration Date <span className="text-slate-400">(Optional)</span>
             </label>
             <input
               type="datetime-local"
               value={newPermissionExpiresAt}
               onChange={(e) => setNewPermissionExpiresAt(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all [color-scheme:dark]"
+              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all [color-scheme:light]"
             />
-            <p className="text-xs text-slate-500 mt-1.5">Access auto-expires after this date</p>
+            <p className="text-xs text-slate-400 mt-1.5">Access auto-expires after this date</p>
           </div>
 
           {/* Summary Box */}
-          <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
+          <div className="p-4 rounded-xl border border-blue-200 bg-blue-50">
             <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
-              <div className="text-xs text-blue-300 space-y-1">
-                <p className="font-semibold text-blue-200 mb-1">Access Summary</p>
-                <p>Role: <span className="font-medium text-white">{newPermissionRole}</span></p>
-                <p>Download: <span className="font-medium text-white">{newPermissionCanDownload ? 'Allowed' : 'Blocked'}</span></p>
-                <p>Watermark: <span className="font-medium text-white">{newPermissionWatermark ? 'Enabled' : 'Disabled'}</span></p>
+              <AlertCircle className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-blue-700 space-y-1">
+                <p className="font-semibold text-blue-800 mb-1">Access Summary</p>
+                <p>Role: <span className="font-medium text-slate-900">{newPermissionRole}</span></p>
+                <p>Download: <span className="font-medium text-slate-900">{newPermissionCanDownload ? 'Allowed' : 'Blocked'}</span></p>
+                <p>Watermark: <span className="font-medium text-slate-900">{newPermissionWatermark ? 'Enabled' : 'Disabled'}</span></p>
                 {newPermissionExpiresAt && (
-                  <p>Expires: <span className="font-medium text-white">{new Date(newPermissionExpiresAt).toLocaleString()}</span></p>
+                  <p>Expires: <span className="font-medium text-slate-900">{new Date(newPermissionExpiresAt).toLocaleString()}</span></p>
                 )}
               </div>
             </div>
@@ -6437,7 +6436,7 @@ const fetchFolders = async () => {
       </div>
 
       {/* Footer */}
-      <div className="flex-shrink-0 border-t border-slate-700/50 px-6 py-4 bg-slate-900/80 backdrop-blur-xl flex gap-3">
+      <div className="flex-shrink-0 border-t border-slate-200 px-6 py-4 bg-white flex gap-3">
         <button
           onClick={() => {
             setNewPermissionEmail('')
@@ -6447,7 +6446,7 @@ const fetchFolders = async () => {
             setNewPermissionWatermark(false)
           }}
           disabled={addingPermission}
-          className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700/50 text-slate-300 hover:text-white hover:bg-slate-700/50 text-sm font-medium transition-all disabled:opacity-40"
+          className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 text-sm font-medium transition-all disabled:opacity-40"
         >
           Clear
         </button>
