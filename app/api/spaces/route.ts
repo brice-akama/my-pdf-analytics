@@ -68,10 +68,33 @@ export async function GET(request: NextRequest) {
     console.log(`✅ Found ${allRawSpaces.length} spaces visible to ${user.email}`);
 
     // ── Format & split into owned vs member ───────────────────────────
-    const ownedSpaces: any[] = [];
-    const memberSpaces: any[] = [];
+     // Fetch real view counts from activityLogs for all spaces
+const spaceIds = allRawSpaces.map(s => s._id)
+const viewCounts = await db.collection('activityLogs').aggregate([
+  {
+    $match: {
+      spaceId: { $in: spaceIds },
+      event: { $in: ['document_view', 'view', 'portal_enter', 'document_open'] }
+    }
+  },
+  {
+    $group: {
+      _id: '$spaceId',
+      count: { $sum: 1 }
+    }
+  }
+]).toArray()
 
-    for (const space of allRawSpaces) {
+// Build a lookup map
+const viewCountMap: Record<string, number> = {}
+for (const vc of viewCounts) {
+  viewCountMap[vc._id.toString()] = vc.count
+}
+
+const ownedSpaces: any[] = []
+const memberSpaces: any[] = []
+
+for (const space of allRawSpaces) {
       const isCreator = space.userId === user.id;
       const member = space.members?.find((m: any) => m.email === user.email);
 
@@ -90,7 +113,7 @@ export async function GET(request: NextRequest) {
           owner: { name: user.email, email: user.email },
           documentsCount: space.documentsCount || 0,
           teamMembers: space.teamMembers || space.members?.length || 1,
-          viewsCount: space.viewsCount || 0,
+           viewsCount: viewCountMap[space._id.toString()] || 0,
           lastActivity: space.lastActivity || space.updatedAt || space.createdAt,
           createdAt: space.createdAt,
           permissions: { canView: true, canEdit: true, canShare: true, canDownload: true },
@@ -112,7 +135,7 @@ export async function GET(request: NextRequest) {
           createdBy: space.createdBy || space.userId,
           documentsCount: space.documentsCount || 0,
           teamMembers: space.teamMembers || space.members?.length || 1,
-          viewsCount: space.viewsCount || 0,
+           viewsCount: viewCountMap[space._id.toString()] || 0,
           lastActivity: space.lastActivity || space.updatedAt || space.createdAt,
           createdAt: space.createdAt,
           permissions: {
