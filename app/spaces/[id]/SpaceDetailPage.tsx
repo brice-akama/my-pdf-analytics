@@ -81,6 +81,7 @@ import { Switch } from "@radix-ui/react-switch"
 import PageInfoTooltip from "@/components/PageInfoTooltip"
 import { DiligenceTab } from "./components/DiligenceTab"
 import { RequestFilesDrawer } from "@/components/RequestFilesDrawer"
+import { PdfViewerDrawer } from "@/components/PdfViewerDrawer"
 
 // Role Badge Component
 const RoleBadge = ({ role }: { role: string }) => {
@@ -1489,6 +1490,10 @@ const [showRenameDialog, setShowRenameDialog] = useState(false)
 const [showMoveDialog, setShowMoveDialog] = useState(false)
 const [selectedFile, setSelectedFile] = useState<DocumentType | null>(null)
 const [newFilename, setNewFilename] = useState('')
+const [showPdfDrawer, setShowPdfDrawer] = useState(false)
+const [pdfDrawerDocId, setPdfDrawerDocId] = useState<string>("")
+const [pdfDrawerDocName, setShowPdfDrawerDocName] = useState<string>("")
+const [pdfDrawerUrl, setPdfDrawerUrl] = useState<string | null>(null)
 const [targetFolderId, setTargetFolderId] = useState<string | null>(null)
 const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle')
 const [uploadMessage, setUploadMessage] = useState('')
@@ -1511,8 +1516,6 @@ const ndaFileInputRef = useRef<HTMLInputElement>(null)
 const [showSignaturesDrawer, setShowSignaturesDrawer] = useState(false)
 const [showSettingsDrawer, setShowSettingsDrawer] = useState(false)
 const [searchFolderResults, setSearchFolderResults] = useState<FolderType[]>([])
-const [showDocViewer, setShowDocViewer] = useState(false)
-const [viewingDoc, setViewingDoc] = useState<DocumentType | null>(null)
 const [bulkInviteResults, setBulkInviteResults] = useState<{
   success: string[]
   failed: { email: string; reason: string }[]
@@ -1880,6 +1883,13 @@ const handleImportMultipleOneDriveFiles = async () => {
   } else {
     toast.success(`${successCount} imported, ${failCount} failed`)
   }
+}
+
+const openPdfDrawer = (doc: DocumentType) => {
+  setPdfDrawerDocId(doc.id)
+  setShowPdfDrawerDocName(doc.name)
+  setPdfDrawerUrl(doc.cloudinaryPdfUrl)
+  setShowPdfDrawer(true)
 }
 
 
@@ -3401,9 +3411,9 @@ const fetchFolders = async () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-white">
-              <DropdownMenuItem onClick={() => { setViewingDoc(doc); setShowDocViewer(true) }}>
-  <Eye className="mr-2 h-4 w-4" />View
-</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openPdfDrawer(doc)}>
+                <Eye className="mr-2 h-4 w-4" />View
+              </DropdownMenuItem>
               {doc.canDownload !== false ? (
                 <DropdownMenuItem onClick={async () => {
                   const response = await fetch(`/api/spaces/${params.id}/files/${doc.id}/download`, { credentials: 'include' })
@@ -3658,9 +3668,10 @@ const fetchFolders = async () => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48 bg-white">
-          <DropdownMenuItem onClick={() => window.open(doc.cloudinaryPdfUrl, '_blank')}>
-            <Eye className="mr-2 h-4 w-4" />View
-          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openPdfDrawer(doc)}>
+  <Eye className="mr-2 h-4 w-4" />
+  View
+</DropdownMenuItem>
           {canEdit && (
             <>
               <DropdownMenuSeparator />
@@ -4007,7 +4018,7 @@ const fetchFolders = async () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 bg-white">
-                          <DropdownMenuItem onClick={() => window.open(`/api/spaces/${params.id}/files/${doc.id}/view`, '_blank')}>
+                          <DropdownMenuItem onClick={() => openPdfDrawer(doc)}>
                             <Eye className="mr-2 h-4 w-4" />View
                           </DropdownMenuItem>
                           {doc.canDownload !== false ? (
@@ -4147,14 +4158,7 @@ const fetchFolders = async () => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-white">
               {/* ✅ FIX 3: Proper View handler */}
-              <DropdownMenuItem onClick={async () => {
-                try {
-                  window.open(`/api/spaces/${params.id}/files/${doc.id}/view`, '_blank');
-                } catch (err) {
-                  console.error('View error:', err);
-                  toast.error('Failed to open document');
-                }
-              }}>
+              <DropdownMenuItem onClick={() => openPdfDrawer(doc)}>
                 <Eye className="mr-2 h-4 w-4" />
                 View
               </DropdownMenuItem>
@@ -5135,9 +5139,7 @@ const fetchFolders = async () => {
                   variant="ghost"
                   size="sm"
                   className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                  onClick={() => {
-                    window.open(`/api/spaces/${params.id}/files/${doc.id}/view`, '_blank')
-                  }}
+                  onClick={() => openPdfDrawer(doc)}
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
@@ -6140,241 +6142,238 @@ const fetchFolders = async () => {
 </Dialog>
 
 {/* ✅ Folder Permissions Dialog */}
+{/* ✅ Manage Access Drawer */}
 {showFolderPermissionsDialog && (
   <div className="fixed inset-0 z-50 flex justify-end">
+    {/* Backdrop */}
     <div
-      className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+      className="absolute inset-0 bg-black/40 backdrop-blur-sm"
       onClick={() => {
         setShowFolderPermissionsDialog(false)
         setSelectedFolderForPermissions(null)
         setFolderPermissions([])
       }}
     />
-    <div className="relative w-full sm:w-[680px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-      <div className="flex items-center justify-between px-6 py-5 border-b flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center">
-            <Lock className="h-5 w-5 text-purple-600" />
+
+    {/* Drawer */}
+    <div className="relative w-full sm:w-[680px] h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+
+      {/* Header */}
+      <div className="sticky top-0 border-b border-slate-700/50 bg-slate-900/80 backdrop-blur-xl px-6 py-4 z-10 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg flex-shrink-0">
+              <Lock className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Manage Access</h2>
+              <p className="text-sm text-slate-400 mt-0.5">
+                {folders.find(f => f.id === selectedFolderForPermissions)?.name || 'Folder'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-bold text-slate-900 text-lg">Manage Folder Access</h2>
-            <p className="text-xs text-slate-500">
-              {folders.find(f => f.id === selectedFolderForPermissions)?.name}
-            </p>
-          </div>
+          <button
+            onClick={() => {
+              setShowFolderPermissionsDialog(false)
+              setSelectedFolderForPermissions(null)
+              setFolderPermissions([])
+            }}
+            className="h-10 w-10 rounded-xl hover:bg-slate-700/50 flex items-center justify-center transition-all text-slate-300 hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
-        <button
-          onClick={() => {
-            setShowFolderPermissionsDialog(false)
-            setSelectedFolderForPermissions(null)
-            setFolderPermissions([])
-          }}
-          className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center"
-        >
-          <X className="h-5 w-5 text-slate-500" />
-        </button>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mt-4 bg-slate-800/60 p-1 rounded-xl">
+          {(['permissions', 'grant'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => {
+                const el = document.getElementById(`manage-access-tab-${tab}`)
+                el?.scrollIntoView({ behavior: 'smooth' })
+              }}
+              className="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all text-slate-400 hover:text-white hover:bg-slate-700/50"
+            >
+              {tab === 'permissions' ? 'Current Access' : 'Grant Access'}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-6"> 
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <Lock className="h-5 w-5 text-purple-600" />
-        Manage Folder Access
-      </DialogTitle>
-      <DialogDescription>
-        Control who can access "{folders.find(f => f.id === selectedFolderForPermissions)?.name}"
-      </DialogDescription>
-    </DialogHeader>
 
-    <Tabs defaultValue="permissions" className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="permissions">Current Access</TabsTrigger>
-        <TabsTrigger value="grant">Grant Access</TabsTrigger>
-      </TabsList>
+      {/* Scrollable Body */}
+      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
 
-      {/* Current Permissions Tab */}
-      <TabsContent value="permissions" className="space-y-4 mt-4">
-        {loadingPermissions ? (
-          <div className="text-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-2" />
-            <p className="text-slate-600">Loading permissions...</p>
-          </div>
-        ) : folderPermissions.length === 0 ? (
-          <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
-            <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-600 font-medium">No specific permissions set</p>
-            <p className="text-sm text-slate-500 mt-1">
-              Space members with editor/admin roles can access this folder
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {folderPermissions.map((permission) => (
-              <div
-                key={permission.id}
-                className={`border rounded-lg p-4 ${
-                  permission.isExpired ? 'bg-red-50 border-red-200' : 'bg-white'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="h-10 w-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-semibold flex-shrink-0">
-                      {permission.grantedTo.charAt(0).toUpperCase()}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-slate-900 truncate">
-                          {permission.grantedTo}
-                        </p>
-                        {permission.isExpired && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
-                            <AlertCircle className="h-3 w-3" />
-                            Expired
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        {/* Role Badge */}
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-medium ${
-                          permission.role === 'editor' ? 'bg-green-100 text-green-700' :
-                          permission.role === 'viewer' ? 'bg-blue-100 text-blue-700' :
-                          'bg-orange-100 text-orange-700'
-                        }`}>
-                          {permission.role === 'editor' && '✏️'}
-                          {permission.role === 'viewer' && '👁️'}
-                          {permission.role === 'restricted' && '🔒'}
-                          {permission.role.charAt(0).toUpperCase() + permission.role.slice(1)}
-                        </span>
+        {/* ── SECTION: Current Access ── */}
+        <div id="manage-access-tab-permissions">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+            Current Access
+          </p>
 
-                        {/* Download Permission */}
-                        {permission.canDownload ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 text-slate-700">
-                            <Download className="h-3 w-3" />
-                            Can Download
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-yellow-100 text-yellow-700">
-                            <Eye className="h-3 w-3" />
-                            View Only
-                          </span>
-                        )}
-
-                        {/* Watermark */}
-                        {permission.watermarkEnabled && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-purple-100 text-purple-700">
-                            <ShieldCheck className="h-3 w-3" />
-                            Watermark
-                          </span>
-                        )}
-
-                        {/* Expiration */}
-                        {permission.expiresAt && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 text-slate-700">
-                            <Calendar className="h-3 w-3" />
-                            Expires {new Date(permission.expiresAt).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="text-xs text-slate-500 mt-2">
-                        Granted by {permission.grantedBy} on {new Date(permission.grantedAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRevokeFolderPermission(permission.grantedTo)}
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+          {loadingPermissions ? (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="h-10 w-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4" />
+              <p className="text-slate-400 text-sm">Loading permissions...</p>
+            </div>
+          ) : folderPermissions.length === 0 ? (
+            <div className="border border-slate-700/50 rounded-xl bg-slate-800/40 p-10 text-center">
+              <div className="h-14 w-14 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-3">
+                <Users className="h-7 w-7 text-slate-500" />
               </div>
-            ))}
-          </div>
-        )}
-      </TabsContent>
+              <p className="text-slate-300 font-medium">No specific permissions set</p>
+              <p className="text-slate-500 text-sm mt-1">
+                Space members with editor/admin roles can access this folder
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {folderPermissions.map((permission) => (
+                <div
+                  key={permission.id}
+                  className={`rounded-xl border p-4 transition-all ${
+                    permission.isExpired
+                      ? 'border-red-500/30 bg-red-900/10'
+                      : 'border-slate-700/50 bg-slate-800/40 hover:bg-slate-800/70'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center font-bold text-white flex-shrink-0">
+                        {permission.grantedTo.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <p className="font-semibold text-white truncate">
+                            {permission.grantedTo}
+                          </p>
+                          {permission.isExpired && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-xs font-medium border border-red-500/30">
+                              <AlertCircle className="h-3 w-3" />
+                              Expired
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium ${
+                            permission.role === 'editor'
+                              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                              : permission.role === 'viewer'
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                              : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                          }`}>
+                            {permission.role === 'editor' && '✏️'}
+                            {permission.role === 'viewer' && '👁️'}
+                            {permission.role === 'restricted' && '🔒'}
+                            {' '}{permission.role.charAt(0).toUpperCase() + permission.role.slice(1)}
+                          </span>
 
-      {/* Grant Access Tab */}
-      <TabsContent value="grant" className="space-y-4 mt-4">
-        <div className="space-y-4">
+                          {permission.canDownload ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-700/60 text-slate-300 text-xs border border-slate-600/50">
+                              <Download className="h-3 w-3" />
+                              Can Download
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-yellow-500/20 text-yellow-400 text-xs border border-yellow-500/30">
+                              <Eye className="h-3 w-3" />
+                              View Only
+                            </span>
+                          )}
+
+                          {permission.watermarkEnabled && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-400 text-xs border border-purple-500/30">
+                              <ShieldCheck className="h-3 w-3" />
+                              Watermark
+                            </span>
+                          )}
+
+                          {permission.expiresAt && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-700/60 text-slate-300 text-xs border border-slate-600/50">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(permission.expiresAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2">
+                          Granted by {permission.grantedBy} · {new Date(permission.grantedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleRevokeFolderPermission(permission.grantedTo)}
+                      className="h-9 w-9 rounded-lg hover:bg-red-500/20 flex items-center justify-center transition-all text-slate-500 hover:text-red-400 flex-shrink-0"
+                      title="Revoke access"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="h-px bg-slate-700/50" />
+
+        {/* ── SECTION: Grant Access ── */}
+        <div id="manage-access-tab-grant" className="space-y-5">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Grant Access
+          </p>
+
           {/* Email Input */}
           <div>
-            <Label className="text-sm font-medium text-slate-700">Email Address *</Label>
-            <Input
+            <label className="text-sm font-medium text-slate-300 mb-2 block">
+              Email Address <span className="text-red-400">*</span>
+            </label>
+            <input
               type="email"
               placeholder="user@example.com"
               value={newPermissionEmail}
               onChange={(e) => setNewPermissionEmail(e.target.value)}
-              className="mt-2"
+              className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
             />
           </div>
 
           {/* Role Selection */}
           <div>
-            <Label className="text-sm font-medium text-slate-700 mb-3 block">
-              Access Level *
-            </Label>
+            <label className="text-sm font-medium text-slate-300 mb-3 block">
+              Access Level <span className="text-red-400">*</span>
+            </label>
             <div className="grid grid-cols-3 gap-3">
-              <button
-                onClick={() => {
-                  setNewPermissionRole('viewer')
-                  setNewPermissionCanDownload(true)
-                }}
-                className={`p-4 border-2 rounded-lg text-left transition-all ${
-                  newPermissionRole === 'viewer'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-200 hover:border-blue-300'
-                }`}
-              >
-                <Eye className="h-5 w-5 text-blue-600 mb-2" />
-                <div className="font-semibold text-slate-900 text-sm">Viewer</div>
-                <div className="text-xs text-slate-600 mt-1">View & Download</div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setNewPermissionRole('editor')
-                  setNewPermissionCanDownload(true)
-                }}
-                className={`p-4 border-2 rounded-lg text-left transition-all ${
-                  newPermissionRole === 'editor'
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-slate-200 hover:border-green-300'
-                }`}
-              >
-                <Edit className="h-5 w-5 text-green-600 mb-2" />
-                <div className="font-semibold text-slate-900 text-sm">Editor</div>
-                <div className="text-xs text-slate-600 mt-1">Upload & Edit</div>
-              </button>
-
-              <button
-                onClick={() => {
-                  setNewPermissionRole('restricted')
-                  setNewPermissionCanDownload(false)
-                }}
-                className={`p-4 border-2 rounded-lg text-left transition-all ${
-                  newPermissionRole === 'restricted'
-                    ? 'border-orange-500 bg-orange-50'
-                    : 'border-slate-200 hover:border-orange-300'
-                }`}
-              >
-                <Lock className="h-5 w-5 text-orange-600 mb-2" />
-                <div className="font-semibold text-slate-900 text-sm">Restricted</div>
-                <div className="text-xs text-slate-600 mt-1">View Only (No Download)</div>
-              </button>
+              {[
+                { value: 'viewer', icon: <Eye className="h-5 w-5 text-blue-400" />, label: 'Viewer', desc: 'View & Download', color: 'border-blue-500 bg-blue-500/10' },
+                { value: 'editor', icon: <Edit className="h-5 w-5 text-green-400" />, label: 'Editor', desc: 'Upload & Edit', color: 'border-green-500 bg-green-500/10' },
+                { value: 'restricted', icon: <Lock className="h-5 w-5 text-orange-400" />, label: 'Restricted', desc: 'View Only', color: 'border-orange-500 bg-orange-500/10' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setNewPermissionRole(opt.value as any)
+                    if (opt.value === 'restricted') setNewPermissionCanDownload(false)
+                    else setNewPermissionCanDownload(true)
+                  }}
+                  className={`p-4 border-2 rounded-xl text-left transition-all ${
+                    newPermissionRole === opt.value
+                      ? opt.color
+                      : 'border-slate-700/50 bg-slate-800/40 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="mb-2">{opt.icon}</div>
+                  <p className="font-semibold text-white text-sm">{opt.label}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{opt.desc}</p>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Download Permission Toggle */}
+          {/* Download Toggle */}
           {newPermissionRole !== 'restricted' && (
-            <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50">
+            <div className="flex items-center justify-between p-4 rounded-xl border border-slate-700/50 bg-slate-800/40">
               <div>
-                <p className="font-medium text-slate-900">Allow Downloads</p>
-                <p className="text-sm text-slate-600">User can download files from this folder</p>
+                <p className="font-medium text-white text-sm">Allow Downloads</p>
+                <p className="text-xs text-slate-400 mt-0.5">User can download files from this folder</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -6383,16 +6382,16 @@ const fetchFolders = async () => {
                   onChange={(e) => setNewPermissionCanDownload(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600" />
               </label>
             </div>
           )}
 
           {/* Watermark Toggle */}
-          <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50">
+          <div className="flex items-center justify-between p-4 rounded-xl border border-slate-700/50 bg-slate-800/40">
             <div>
-              <p className="font-medium text-slate-900">Enable Watermark</p>
-              <p className="text-sm text-slate-600">Show user's email on viewed documents</p>
+              <p className="font-medium text-white text-sm">Enable Watermark</p>
+              <p className="text-xs text-slate-400 mt-0.5">Overlay user's email on viewed documents</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -6401,99 +6400,79 @@ const fetchFolders = async () => {
                 onChange={(e) => setNewPermissionWatermark(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600" />
             </label>
           </div>
 
-          {/* Expiration Date */}
+          {/* Expiry Date */}
           <div>
-            <Label className="text-sm font-medium text-slate-700">
-              Expiration Date (Optional)
-            </Label>
-            <Input
+            <label className="text-sm font-medium text-slate-300 mb-2 block">
+              Expiration Date <span className="text-slate-500">(Optional)</span>
+            </label>
+            <input
               type="datetime-local"
               value={newPermissionExpiresAt}
               onChange={(e) => setNewPermissionExpiresAt(e.target.value)}
-              className="mt-2"
+              className="w-full px-4 py-2.5 bg-slate-800/60 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all [color-scheme:dark]"
             />
-            <p className="text-xs text-slate-500 mt-1">
-              Access will automatically expire after this date
-            </p>
+            <p className="text-xs text-slate-500 mt-1.5">Access auto-expires after this date</p>
           </div>
 
-          {/* Info Box */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          {/* Summary Box */}
+          <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5">
             <div className="flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-blue-800">
-                <p className="font-semibold mb-1">Access Summary:</p>
-                <ul className="space-y-1">
-                  <li>• Role: <strong>{newPermissionRole}</strong></li>
-                  <li>• Download: <strong>{newPermissionCanDownload ? 'Allowed' : 'Blocked'}</strong></li>
-                  <li>• Watermark: <strong>{newPermissionWatermark ? 'Enabled' : 'Disabled'}</strong></li>
-                  {newPermissionExpiresAt && (
-                    <li>• Expires: <strong>{new Date(newPermissionExpiresAt).toLocaleString()}</strong></li>
-                  )}
-                </ul>
+              <AlertCircle className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-blue-300 space-y-1">
+                <p className="font-semibold text-blue-200 mb-1">Access Summary</p>
+                <p>Role: <span className="font-medium text-white">{newPermissionRole}</span></p>
+                <p>Download: <span className="font-medium text-white">{newPermissionCanDownload ? 'Allowed' : 'Blocked'}</span></p>
+                <p>Watermark: <span className="font-medium text-white">{newPermissionWatermark ? 'Enabled' : 'Disabled'}</span></p>
+                {newPermissionExpiresAt && (
+                  <p>Expires: <span className="font-medium text-white">{new Date(newPermissionExpiresAt).toLocaleString()}</span></p>
+                )}
               </div>
             </div>
           </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-2 justify-end pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setNewPermissionEmail('')
-                setNewPermissionRole('viewer')
-                setNewPermissionCanDownload(true)
-                setNewPermissionExpiresAt('')
-                setNewPermissionWatermark(false)
-              }}
-              disabled={addingPermission}
-            >
-              Clear
-            </Button>
-            <Button
-              onClick={handleGrantFolderPermission}
-              disabled={!newPermissionEmail.trim() || addingPermission}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-            >
-              {addingPermission ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Granting...
-                </>
-              ) : (
-                <>
-                  <Key className="h-4 w-4 mr-2" />
-                  Grant Access
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </TabsContent>
-    </Tabs>
-
-    <div className="flex justify-end pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setShowFolderPermissionsDialog(false)
-              setSelectedFolderForPermissions(null)
-              setFolderPermissions([])
-            }}
-          >
-            Close
-          </Button>
         </div>
       </div>
+
+      {/* Footer */}
+      <div className="flex-shrink-0 border-t border-slate-700/50 px-6 py-4 bg-slate-900/80 backdrop-blur-xl flex gap-3">
+        <button
+          onClick={() => {
+            setNewPermissionEmail('')
+            setNewPermissionRole('viewer')
+            setNewPermissionCanDownload(true)
+            setNewPermissionExpiresAt('')
+            setNewPermissionWatermark(false)
+          }}
+          disabled={addingPermission}
+          className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700/50 text-slate-300 hover:text-white hover:bg-slate-700/50 text-sm font-medium transition-all disabled:opacity-40"
+        >
+          Clear
+        </button>
+        <button
+          onClick={handleGrantFolderPermission}
+          disabled={!newPermissionEmail.trim() || addingPermission}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"
+        >
+          {addingPermission ? (
+            <>
+              <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Granting...
+            </>
+          ) : (
+            <>
+              <Key className="h-4 w-4" />
+              Grant Access
+            </>
+          )}
+        </button>
+      </div>
+
     </div>
   </div>
 )}
-
- 
 
 {/* Floating Action Bar */}
 {selectedDocs.length > 0 && (
@@ -7635,63 +7614,14 @@ const fetchFolders = async () => {
   </Dialog>
 )}
 
-{/* Document Viewer Drawer */}
-{showDocViewer && viewingDoc && (
-  <div className="fixed inset-0 z-50 flex justify-end">
-    <div
-      className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-      onClick={() => { setShowDocViewer(false); setViewingDoc(null) }}
-    />
-    <div className="relative w-full sm:w-[780px] h-full bg-slate-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-      
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 flex-shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="h-9 w-9 rounded-lg bg-red-900/50 flex items-center justify-center flex-shrink-0">
-            <FileText className="h-4 w-4 text-red-400" />
-          </div>
-          <p className="font-semibold text-white truncate">{viewingDoc.name}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {viewingDoc.canDownload !== false && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-slate-300 hover:text-white gap-2"
-              onClick={async () => {
-                const response = await fetch(`/api/spaces/${params.id}/files/${viewingDoc.id}/download`, { credentials: 'include' })
-                const blob = await response.blob()
-                const url = window.URL.createObjectURL(blob)
-                const a = document.createElement('a'); a.href = url; a.download = viewingDoc.name
-                document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url); document.body.removeChild(a)
-              }}
-            >
-              <Download className="h-4 w-4" />
-              Download
-            </Button>
-          )}
-          <button
-            onClick={() => { setShowDocViewer(false); setViewingDoc(null) }}
-            className="h-9 w-9 rounded-lg hover:bg-slate-700 flex items-center justify-center transition-colors"
-          >
-            <X className="h-5 w-5 text-slate-400" />
-          </button>
-        </div>
-      </div>
-
-      {/* PDF Viewer */}
-      <div className="flex-1 overflow-hidden">
-        <iframe
-          src={`${viewingDoc.cloudinaryPdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
-          className="w-full h-full"
-          style={{ border: 'none', background: '#1e293b' }}
-          title={viewingDoc.name}
-        />
-      </div>
-
-    </div>
-  </div>
-)}
+<PdfViewerDrawer
+  open={showPdfDrawer}
+  onClose={() => setShowPdfDrawer(false)}
+  pdfUrl={pdfDrawerUrl}
+  docName={pdfDrawerDocName}
+  spaceId={params.id as string}
+  docId={pdfDrawerDocId}
+/>
 
     </div>
   )
