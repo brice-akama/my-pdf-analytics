@@ -1511,6 +1511,8 @@ const ndaFileInputRef = useRef<HTMLInputElement>(null)
 const [showSignaturesDrawer, setShowSignaturesDrawer] = useState(false)
 const [showSettingsDrawer, setShowSettingsDrawer] = useState(false)
 const [searchFolderResults, setSearchFolderResults] = useState<FolderType[]>([])
+const [showDocViewer, setShowDocViewer] = useState(false)
+const [viewingDoc, setViewingDoc] = useState<DocumentType | null>(null)
 const [bulkInviteResults, setBulkInviteResults] = useState<{
   success: string[]
   failed: { email: string; reason: string }[]
@@ -3399,9 +3401,9 @@ const fetchFolders = async () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-white">
-              <DropdownMenuItem onClick={() => window.open(`/api/spaces/${params.id}/files/${doc.id}/view`, '_blank')}>
-                <Eye className="mr-2 h-4 w-4" />View
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => { setViewingDoc(doc); setShowDocViewer(true) }}>
+  <Eye className="mr-2 h-4 w-4" />View
+</DropdownMenuItem>
               {doc.canDownload !== false ? (
                 <DropdownMenuItem onClick={async () => {
                   const response = await fetch(`/api/spaces/${params.id}/files/${doc.id}/download`, { credentials: 'include' })
@@ -6138,8 +6140,41 @@ const fetchFolders = async () => {
 </Dialog>
 
 {/* ✅ Folder Permissions Dialog */}
-<Dialog open={showFolderPermissionsDialog} onOpenChange={setShowFolderPermissionsDialog}>
-  <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto bg-white">
+{showFolderPermissionsDialog && (
+  <div className="fixed inset-0 z-50 flex justify-end">
+    <div
+      className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+      onClick={() => {
+        setShowFolderPermissionsDialog(false)
+        setSelectedFolderForPermissions(null)
+        setFolderPermissions([])
+      }}
+    />
+    <div className="relative w-full sm:w-[680px] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      <div className="flex items-center justify-between px-6 py-5 border-b flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-purple-100 flex items-center justify-center">
+            <Lock className="h-5 w-5 text-purple-600" />
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-900 text-lg">Manage Folder Access</h2>
+            <p className="text-xs text-slate-500">
+              {folders.find(f => f.id === selectedFolderForPermissions)?.name}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            setShowFolderPermissionsDialog(false)
+            setSelectedFolderForPermissions(null)
+            setFolderPermissions([])
+          }}
+          className="h-9 w-9 rounded-lg hover:bg-slate-100 flex items-center justify-center"
+        >
+          <X className="h-5 w-5 text-slate-500" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-6"> 
     <DialogHeader>
       <DialogTitle className="flex items-center gap-2">
         <Lock className="h-5 w-5 text-purple-600" />
@@ -6442,19 +6477,21 @@ const fetchFolders = async () => {
     </Tabs>
 
     <div className="flex justify-end pt-4 border-t">
-      <Button
-        variant="outline"
-        onClick={() => {
-          setShowFolderPermissionsDialog(false)
-          setSelectedFolderForPermissions(null)
-          setFolderPermissions([])
-        }}
-      >
-        Close
-      </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowFolderPermissionsDialog(false)
+              setSelectedFolderForPermissions(null)
+              setFolderPermissions([])
+            }}
+          >
+            Close
+          </Button>
+        </div>
+      </div>
     </div>
-  </DialogContent>
-</Dialog>
+  </div>
+)}
 
  
 
@@ -7596,6 +7633,64 @@ const fetchFolders = async () => {
       </div>
     </DialogContent>
   </Dialog>
+)}
+
+{/* Document Viewer Drawer */}
+{showDocViewer && viewingDoc && (
+  <div className="fixed inset-0 z-50 flex justify-end">
+    <div
+      className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      onClick={() => { setShowDocViewer(false); setViewingDoc(null) }}
+    />
+    <div className="relative w-full sm:w-[780px] h-full bg-slate-900 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 flex-shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-9 w-9 rounded-lg bg-red-900/50 flex items-center justify-center flex-shrink-0">
+            <FileText className="h-4 w-4 text-red-400" />
+          </div>
+          <p className="font-semibold text-white truncate">{viewingDoc.name}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {viewingDoc.canDownload !== false && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-slate-300 hover:text-white gap-2"
+              onClick={async () => {
+                const response = await fetch(`/api/spaces/${params.id}/files/${viewingDoc.id}/download`, { credentials: 'include' })
+                const blob = await response.blob()
+                const url = window.URL.createObjectURL(blob)
+                const a = document.createElement('a'); a.href = url; a.download = viewingDoc.name
+                document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url); document.body.removeChild(a)
+              }}
+            >
+              <Download className="h-4 w-4" />
+              Download
+            </Button>
+          )}
+          <button
+            onClick={() => { setShowDocViewer(false); setViewingDoc(null) }}
+            className="h-9 w-9 rounded-lg hover:bg-slate-700 flex items-center justify-center transition-colors"
+          >
+            <X className="h-5 w-5 text-slate-400" />
+          </button>
+        </div>
+      </div>
+
+      {/* PDF Viewer */}
+      <div className="flex-1 overflow-hidden">
+        <iframe
+          src={`${viewingDoc.cloudinaryPdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+          className="w-full h-full"
+          style={{ border: 'none', background: '#1e293b' }}
+          title={viewingDoc.name}
+        />
+      </div>
+
+    </div>
+  </div>
 )}
 
     </div>
