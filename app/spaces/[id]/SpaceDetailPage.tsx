@@ -4943,27 +4943,34 @@ const fetchFolders = async () => {
     )}
   </div>
 
-  {/* ── Invite link — visible when invitation not yet accepted ── */}
-  {contact.invitationLink && (
-    <div className="flex items-center gap-2 mt-1.5">
-      <input
-        readOnly
-        value={contact.invitationLink}
-        className="flex-1 px-2 py-1 text-[10px] font-mono bg-slate-50 border border-slate-200 rounded text-slate-500 outline-none min-w-0"
-        onClick={e => (e.target as HTMLInputElement).select()}
-      />
-      <button
-        onClick={() => {
-          navigator.clipboard.writeText(contact.invitationLink!)
-          toast.success('Link copied!')
-        }}
-        className="flex-shrink-0 p-1 rounded hover:bg-slate-100 transition-colors"
-        title="Copy invite link"
-      >
-        <Copy className="h-3 w-3 text-slate-400 hover:text-slate-600" />
-      </button>
-    </div>
-  )}
+  {/* ── Invite link — always visible for resharing ── */}
+{contact.invitationLink && (
+  <div className={`flex items-center gap-2 mt-1.5 px-2 py-1 rounded border ${
+    contact.invitationStatus === 'pending'
+      ? 'bg-amber-50 border-amber-200'
+      : 'bg-slate-50 border-slate-200'
+  }`}>
+    <span className="text-[9px] font-medium flex-shrink-0 text-slate-400">
+      {contact.invitationStatus === 'pending' ? '⏳ INVITE' : '🔗 SPACE'}
+    </span>
+    <input
+      readOnly
+      value={contact.invitationLink}
+      className="flex-1 px-1 text-[10px] font-mono bg-transparent text-slate-500 outline-none min-w-0"
+      onClick={e => (e.target as HTMLInputElement).select()}
+    />
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(contact.invitationLink!)
+        toast.success('Link copied!')
+      }}
+      className="flex-shrink-0 p-1 rounded hover:bg-white transition-colors"
+      title="Copy link"
+    >
+      <Copy className="h-3 w-3 text-slate-400 hover:text-slate-600" />
+    </button>
+  </div>
+)}
 </div>
 
               {canManageContacts && (

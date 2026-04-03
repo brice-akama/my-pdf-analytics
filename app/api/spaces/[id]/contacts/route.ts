@@ -52,11 +52,10 @@ export async function GET(
       addedAt:           member.addedAt || space.createdAt,
       lastAccess:        member.lastAccessedAt || null,
       invitationStatus:  inviteMap[member.email?.toLowerCase()] ? 'pending' : 'accepted',
-      
-      invitationLink:    inviteMap[member.email?.toLowerCase()]
-        ? `${baseUrl}/invite/${inviteMap[member.email.toLowerCase()]}`
-        : null,
-    }))
+
+invitationLink: inviteMap[member.email?.toLowerCase()]
+  ? `${baseUrl}/invite/${inviteMap[member.email.toLowerCase()]}`
+  : `${baseUrl}/spaces/${spaceId}`,
 
     return NextResponse.json({ success: true, contacts, count: contacts.length })
 
