@@ -57,6 +57,8 @@ invitationLink: inviteMap[member.email?.toLowerCase()]
   ? `${baseUrl}/invite/${inviteMap[member.email.toLowerCase()]}`
   : `${baseUrl}/spaces/${spaceId}`,
 
+  }))
+
     return NextResponse.json({ success: true, contacts, count: contacts.length })
 
   } catch (error) {
