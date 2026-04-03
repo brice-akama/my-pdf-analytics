@@ -163,7 +163,7 @@ if (!isOwner) {
     organizationLogoUrl = ownerProfile.logo_url || ownerProfile.avatarUrl || null;
   }
 } else {
-  organizationLogoUrl = profile?.logo_url || null;
+  organizationLogoUrl = profile?.avatar_url || profile?.avatarUrl || profile?.logo_url || null;
 }
 
 // ✅ Format user data
@@ -175,15 +175,17 @@ const userData = {
   
   // Profile info
   profile: {
-    firstName: profile?.first_name || user.profile?.firstName || "",
-    lastName: profile?.last_name || user.profile?.lastName || "",
-    fullName: profile?.full_name || user.profile?.fullName || 
-      `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
-      user.name || user.email.split("@")[0],
-    companyName: organizationName, // ✅ OWNER'S COMPANY NAME
-    avatarUrl: profile?.avatarUrl || profile?.avatar_url || user.profile?.avatarUrl || "",
-     logoUrl: organizationLogoUrl,  // ✅ add this line
-  },
+  firstName: profile?.first_name || user.profile?.firstName || "",
+  lastName: profile?.last_name || user.profile?.lastName || "",
+  fullName: profile?.full_name || user.profile?.fullName || 
+    `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
+    user.name || user.email.split("@")[0],
+  companyName: organizationName,
+  avatarUrl: isOwner
+    ? (profile?.avatarUrl || profile?.avatar_url || user.profile?.avatarUrl || "")
+    : (organizationLogoUrl || ""),
+  logoUrl: organizationLogoUrl,
+},
   
   // ✅ ADD ORGANIZATION INFO
   organization: {
