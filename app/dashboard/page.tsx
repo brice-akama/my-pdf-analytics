@@ -2397,7 +2397,7 @@ useEffect(() => {
           last_name: data.user.profile.lastName,
           company_name: data.user.profile.companyName || "Company Name",
           profile_image: data.user.profile.avatarUrl || null,
-          plan: data.user.profile.plan || "Free Plan"
+          plan: data.user.profile.plan || "Free Plan",
           logo_url: data.user.profile.logoUrl || null,  
         });
       }
