@@ -1516,6 +1516,8 @@ const ndaFileInputRef = useRef<HTMLInputElement>(null)
 const [showSignaturesDrawer, setShowSignaturesDrawer] = useState(false)
 const [showSettingsDrawer, setShowSettingsDrawer] = useState(false)
 const [searchFolderResults, setSearchFolderResults] = useState<FolderType[]>([])
+const [renameFolderDialog, setRenameFolderDialog] = useState<{open: boolean, folder: FolderType | null}>({open: false, folder: null})
+const [renameFolderName, setRenameFolderName] = useState('')
 const [bulkInviteResults, setBulkInviteResults] = useState<{
   success: string[]
   failed: { email: string; reason: string }[]

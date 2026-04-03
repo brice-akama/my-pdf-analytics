@@ -9,7 +9,15 @@ import DashboardOverview from '@/components/DashboardOverview';
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { EmailAutocomplete } from '@/components/ui/EmailAutocomplete';
 import TopNav from "@/components/dashboard/TopNav"
- 
+ import EarnCreditDialog from "@/components/dialogs/EarnCreditDialog"
+import ShareDocumentDialog from "@/components/dialogs/ShareDocumentDialog"
+import SignatureLinkDialog from "@/components/dialogs/SignatureLinkDialog"
+import BulkFileRequestLinksDialog from "@/components/dialogs/BulkFileRequestLinksDialog"
+import InviteLinkDialog from "@/components/dialogs/InviteLinkDialog"
+import DeleteMemberDialog from "@/components/dialogs/DeleteMemberDialog"
+import GmailSendDialog from "@/components/dialogs/GmailSendDialog"
+import DemoDialog from "@/components/dialogs/DemoDialog"
+import ZapierSetupDialog from "@/components/dialogs/ZapierSetupDialog"
 import OneDriveFilesDrawer from "@/components/drawers/OneDriveFilesDrawer"
 import SlackChannelDrawer from "@/components/drawers/SlackChannelDrawer"
 import HubSpotContactsDrawer from "@/components/drawers/HubSpotContactsDrawer"
@@ -1310,29 +1318,17 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
-    // Check authentication on mount
-    const checkAuth = async () => {
-      try {
-        const res = await fetch('/api/auth/verify', {
-          credentials: 'include'
-        });
+  // Show the dashboard right away — don't wait
+  setIsAuthenticated(true)
+  setLoading(false)
 
-        if (res.ok) {
-          setIsAuthenticated(true);
-        } else {
-          router.push('/login');
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        router.push('/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [router]);
-
+  // Verify in background — only redirect if actually invalid
+  fetch('/api/auth/verify', { credentials: 'include' })
+    .then(res => {
+      if (!res.ok) router.push('/login')
+    })
+    .catch(() => router.push('/login'))
+}, [router])
 
   //   this useEffect   handle documents page redirect
 useEffect(() => {
@@ -3119,107 +3115,20 @@ case 'dashboard':
 />
 
 {/* Invite Link Dialog */}
-<Dialog open={showInviteLinkDialog} onOpenChange={setShowInviteLinkDialog}>
-  <DialogContent className="max-w-lg bg-white">
-    <DialogHeader>
-      <div className="flex items-center gap-3 mb-1">
-        <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-          <CheckCircle className="h-6 w-6 text-green-600" />
-        </div>
-        <div>
-          <DialogTitle className="text-xl">Invitation Sent!</DialogTitle>
-          <DialogDescription className="text-sm mt-0.5">
-            A link was emailed. Share it manually if needed.
-          </DialogDescription>
-        </div>
-      </div>
-    </DialogHeader>
-
-    <div className="space-y-4 pt-2">
-      {/* Email confirmation badge */}
-      <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-        <Mail className="h-4 w-4 text-green-600 flex-shrink-0" />
-        <p className="text-sm text-green-900">
-          Invite email sent to <span className="font-semibold">{inviteEmail || 'recipient'}</span>
-        </p>
-      </div>
-
-      {/* Link copy row */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-          Backup Invite Link
-        </p>
-        <div className="flex gap-2">
-          <Input
-            value={generatedInviteLink}
-            readOnly
-            className="flex-1 font-mono text-xs bg-slate-50 text-slate-600"
-          />
-          <Button
-            variant="outline"
-            className="shrink-0"
-            onClick={() => {
-              navigator.clipboard.writeText(generatedInviteLink)
-              toast.success('Link copied to clipboard')
-            }}
-          >
-            Copy
-          </Button>
-        </div>
-        <p className="text-xs text-slate-400">
-          Expires in 7 days · Use if the email doesn't arrive
-        </p>
-      </div>
-
-      <div className="flex justify-end pt-2 border-t">
-        <Button
-          onClick={() => setShowInviteLinkDialog(false)}
-          className="h-10 px-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-        >
-          Done
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+<InviteLinkDialog
+  open={showInviteLinkDialog}
+  onClose={() => setShowInviteLinkDialog(false)}
+  inviteLink={generatedInviteLink}
+  inviteEmail={inviteEmail}
+/>
 
 {/* Delete Member Confirmation Dialog */}
-<Dialog open={showDeleteMemberDialog} onOpenChange={setShowDeleteMemberDialog}>
-  <DialogContent className="max-w-md bg-white">
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-          <Trash2 className="h-5 w-5 text-red-600" />
-        </div>
-        Remove Team Member
-      </DialogTitle>
-      <DialogDescription className="text-base text-slate-600 pt-1">
-        Are you sure you want to remove{' '}
-        <span className="font-semibold text-slate-900">{memberToDelete?.name}</span>{' '}
-        from the team? They will lose access immediately.
-      </DialogDescription>
-    </DialogHeader>
-    <div className="flex gap-3 justify-end pt-4">
-      <Button
-        variant="outline"
-        onClick={() => {
-          setShowDeleteMemberDialog(false)
-          setMemberToDelete(null)
-        }}
-        className="h-11 px-6"
-      >
-        Cancel
-      </Button>
-      <Button
-        onClick={confirmRemoveMember}
-        className="h-11 px-6 bg-red-600 hover:bg-red-700 text-white"
-      >
-        <Trash2 className="h-4 w-4 mr-2" />
-        Remove Member
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
+<DeleteMemberDialog
+  open={showDeleteMemberDialog}
+  onClose={() => { setShowDeleteMemberDialog(false); setMemberToDelete(null) }}
+  memberName={memberToDelete?.name ?? ''}
+  onConfirm={confirmRemoveMember}
+/>
 
 {/* Resources Drawer */}
  <ResourcesDrawer
@@ -3314,141 +3223,11 @@ case 'dashboard':
 />
 
 {/* Earn Credit Dialog */}
-<Dialog open={showEarnCreditDialog} onOpenChange={setShowEarnCreditDialog}>
-  <DialogContent className="max-w-2xl bg-white">
-    <DialogHeader>
-      <DialogTitle className="text-xl font-bold text-center text-slate-900">
-        Get $15* towards any plan for every friend you invite to DocMetrics!
-      </DialogTitle>
-      <DialogDescription className="text-center text-slate-600 mt-2 text-sm">
-        For every friend who signs up for DocMetrics, we'll give you both $15* towards any DocMetrics plan when they get their first visit!
-      </DialogDescription>
-      <p className="text-center text-xs text-slate-500 mt-1">
-        *For non-USD currencies, you will receive credit equivalent to 1 month of DocSend Personal.
-      </p>
-    </DialogHeader>
-    
-    <div className="space-y-4 mt-4">
-      {/* Invite by Email Section */}
-      <div className="space-y-2">
-        <div className="flex gap-2">
-          <Input 
-            type="email"
-            placeholder="add emails (comma separated)"
-            className="flex-1 h-10 text-sm"
-            value={referralEmail}
-            onChange={(e) => setReferralEmail(e.target.value)}
-          />
-          <Button 
-            className="bg-slate-900 hover:bg-slate-800 text-white px-6 h-10 font-semibold text-sm"
-            onClick={() => {
-              if (referralEmail) {
-                toast.success(`Invitations sent to: ${referralEmail}`)
-                setReferralEmail('')
-              }
-            }}
-          >
-            INVITE
-          </Button>
-        </div>
-        
-        {/* Referral Link */}
-        <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-          <div className="flex items-center justify-between">
-            <code className="text-xs text-blue-600 font-mono">
-              docmetrics.com/invite/{user?.email?.split('@')[0] || 'user'}
-            </code>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="h-8"
-              onClick={() => {
-                navigator.clipboard.writeText(`docmetrics.com/invite/${user?.email?.split('@')[0] || 'user'}`)
-                setCopiedLink(true)
-                setTimeout(() => setCopiedLink(false), 2000)
-              }}
-            >
-              {copiedLink ? (
-                <CheckCircle className="h-4 w-4 text-green-600" />
-              ) : (
-                <span className="text-blue-600 font-medium text-sm">Copy</span>
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="relative py-2">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-200"></div>
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="px-3 bg-white text-slate-500">OR</span>
-        </div>
-      </div>
-
-      {/* Social Share Section */}
-      <div className="text-center space-y-2">
-        <h3 className="font-semibold text-slate-900 text-base">
-          Share with your friends on social media
-        </h3>
-        <p className="text-xs text-slate-500">
-          (we'll let you preview the post before it goes out)
-        </p>
-        
-        <div className="flex justify-center gap-3 pt-1">
-          <Button 
-            className="bg-[#1877F2] hover:bg-[#1565D8] text-white px-6 h-10 font-semibold gap-2 text-sm"
-            onClick={() => window.open('https://facebook.com/sharer/sharer.php?u=docmetrics.com', '_blank')}
-          >
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-            </svg>
-            Share
-          </Button>
-          
-          <Button 
-            className="bg-[#1DA1F2] hover:bg-[#1A8CD8] text-white px-6 h-10 font-semibold gap-2 text-sm"
-            onClick={() => window.open('https://twitter.com/intent/tweet?text=Check out DocMetrics!&url=docmetrics.com', '_blank')}
-          >
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
-            </svg>
-            Tweet
-          </Button>
-          
-          <Button 
-            className="bg-[#0A66C2] hover:bg-[#004182] text-white px-6 h-10 font-semibold gap-2 text-sm"
-            onClick={() => window.open('https://www.linkedin.com/sharing/share-offsite/?url=docmetrics.com', '_blank')}
-          >
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-            </svg>
-            Share
-          </Button>
-        </div>
-      </div>
-
-      {/* Check Referrals Link */}
-      <div className="text-center pt-2 border-t border-slate-200">
-        <Button 
-          variant="link" 
-          className="text-blue-600 hover:text-blue-700 font-medium text-sm h-8"
-          onClick={() => {
-            setShowEarnCreditDialog(false)
-            toast.info('Referral tracking feature - coming soon!')
-          }}
-        >
-          Check out the status of your referrals here
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
-
-
-
+<EarnCreditDialog
+  open={showEarnCreditDialog}
+  onClose={() => setShowEarnCreditDialog(false)}
+  userEmail={user?.email}
+/>
 
 <UploadAgreementSheet
   open={showUploadAgreementDialog}
@@ -3593,301 +3372,33 @@ case 'dashboard':
 </Dialog>
 
 {/* Share Document Dialog */}
-<Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-  <DialogContent className="max-w-2xl bg-white scrollbar  max-h-[80vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle>Share Document</DialogTitle>
-      <DialogDescription>
-        Share this document with others via email
-      </DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Email addresses (comma-separated)</Label>
-        <Textarea
-          placeholder="john@example.com, jane@company.com"
-          rows={3}
-          value={shareEmails}
-          onChange={(e) => setShareEmails(e.target.value)}
-        />
-        <p className="text-xs text-slate-500">
-          Recipients will receive an email with a secure link to view this document
-        </p>
-      </div>
-      
-      <div className="space-y-2">
-        <Label>Message (optional)</Label>
-        <Textarea
-          placeholder="Add a personal message..."
-          rows={3}
-          value={shareMessage}
-          onChange={(e) => setShareMessage(e.target.value)}
-        />
-      </div>
-      
-      <div className="border rounded-lg p-4 space-y-3">
-        <Label className="text-sm font-semibold">Permissions</Label>
-        
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-900">Can view</p>
-            <p className="text-xs text-slate-500">Recipients can view the document</p>
-          </div>
-          <Switch
-            checked={sharePermissions.canView}
-            onCheckedChange={(checked) =>
-              setSharePermissions({ ...sharePermissions, canView: checked })
-            }
-            disabled
-          />
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-900">Can download</p>
-            <p className="text-xs text-slate-500">Recipients can download the document</p>
-          </div>
-          <Switch
-            checked={sharePermissions.canDownload}
-            onCheckedChange={(checked) =>
-              setSharePermissions({ ...sharePermissions, canDownload: checked })
-            }
-          />
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-900">Can edit</p>
-            <p className="text-xs text-slate-500">Recipients can make changes</p>
-          </div>
-          <Switch
-            checked={sharePermissions.canEdit}
-            onCheckedChange={(checked) =>
-              setSharePermissions({ ...sharePermissions, canEdit: checked })
-            }
-          />
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-900">Can share</p>
-            <p className="text-xs text-slate-500">Recipients can share with others</p>
-          </div>
-          <Switch
-            checked={sharePermissions.canShare}
-            onCheckedChange={(checked) =>
-              setSharePermissions({ ...sharePermissions, canShare: checked })
-            }
-          />
-        </div>
-      </div>
-      
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex gap-3">
-          <Share2 className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-blue-900 mb-1">
-              Email notifications will be sent
-            </p>
-            <p className="text-xs text-blue-700">
-              Recipients will receive an email with a secure link and your optional message. 
-              You'll be notified when they view the document.
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex gap-2 justify-end pt-4">
-        <Button
-          variant="outline"
-          onClick={() => {
-            setShowShareDialog(false)
-            setShareEmails('')
-            setShareMessage('')
-          }}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={handleShareDocument}
-          className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-        >
-          <Send className="mr-2 h-4 w-4" />
-          Share Document
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+<ShareDocumentDialog
+  open={showShareDialog}
+  onClose={() => setShowShareDialog(false)}
+  emails={shareEmails}
+  message={shareMessage}
+  permissions={sharePermissions}
+  onSetEmails={setShareEmails}
+  onSetMessage={setShareMessage}
+  onSetPermissions={setSharePermissions}
+  onSubmit={handleShareDocument}
+/>
 
 {/* Signature Link Dialog */}
-<Dialog open={showSignatureLinkDialog} onOpenChange={setShowSignatureLinkDialog}>
-  <DialogContent className="max-w-2xl bg-white scrollbar  max-h-[80vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <CheckCircle className="h-6 w-6 text-green-600" />
-        Agreement Sent Successfully!
-      </DialogTitle>
-      <DialogDescription>
-        Emails have been sent to all signers. You can also copy the link below to manually test.
-      </DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-4">
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <Mail className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-green-900 mb-1">
-              📧 Emails sent to {agreementSigners.split(',').length} recipient(s)
-            </p>
-            <p className="text-xs text-green-700">
-              {agreementSigners}
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold">Signature Link (for testing)</Label>
-        <div className="flex gap-2">
-          <Input 
-            value={generatedSignatureLink}
-            readOnly
-            className="flex-1 font-mono text-xs bg-slate-50"
-          />
-          <Button
-            variant="outline"
-            onClick={() => {
-              navigator.clipboard.writeText(generatedSignatureLink)
-              alert('Link copied to clipboard!')
-            }}
-          >
-            Copy
-          </Button>
-          <Button
-            onClick={() => window.open(generatedSignatureLink, '_blank')}
-            className="bg-gradient-to-r from-purple-600 to-blue-600"
-          >
-            Open
-          </Button>
-        </div>
-        <p className="text-xs text-slate-500">
-          This is the same link that was emailed to signers. Open it to test the signing flow.
-        </p>
-      </div>
-      
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <Activity className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-semibold text-blue-900 mb-1">What happens next?</p>
-            <ul className="text-xs text-blue-700 space-y-1">
-              <li>• Signers receive an email with the link</li>
-              <li>• They click the link to view and sign the agreement</li>
-              <li>• You'll be notified when they sign</li>
-              <li>• Track progress in the Agreements section</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex gap-2 justify-end pt-4 border-t">
-        <Button 
-          variant="outline"
-          onClick={() => setShowSignatureLinkDialog(false)}
-        >
-          Close
-        </Button>
-        <Button
-          onClick={() => {
-            setShowSignatureLinkDialog(false)
-            setActivePage('agreements')
-          }}
-          className="bg-gradient-to-r from-purple-600 to-blue-600"
-        >
-          View All Agreements
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+<SignatureLinkDialog
+  open={showSignatureLinkDialog}
+  onClose={() => setShowSignatureLinkDialog(false)}
+  signatureLink={generatedSignatureLink}
+  signers={agreementSigners}
+  onViewAgreements={() => setActivePage('agreements')}
+/>
 
 {/* 🟢 BULK FILE REQUEST LINKS DIALOG */}
-<Dialog open={showBulkFileRequestLinksDialog} onOpenChange={setShowBulkFileRequestLinksDialog}>
-  <DialogContent className="max-w-3xl bg-white max-h-[80vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <CheckCircle className="h-6 w-6 text-green-600" />
-        {createdFileRequests.length} File Request(s) Created!
-      </DialogTitle>
-      <DialogDescription>
-        Each recipient has their own unique upload link
-      </DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-4">
-      {createdFileRequests.map((request, index) => (
-        <div key={index} className="border rounded-lg p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
-                {request.email.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="font-medium text-slate-900">{request.email}</p>
-                <p className="text-xs text-slate-500">Request #{index + 1}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex gap-2">
-            <Input
-              value={request.link}
-              readOnly
-              className="flex-1 font-mono text-xs bg-slate-50"
-            />
-            <Button
-              variant="outline"
-              onClick={() => {
-                navigator.clipboard.writeText(request.link)
-                alert('Link copied!')
-              }}
-            >
-              Copy
-            </Button>
-            <Button
-              onClick={() => window.open(request.link, '_blank')}
-              className="bg-gradient-to-r from-purple-600 to-blue-600"
-            >
-              Open
-            </Button>
-          </div>
-        </div>
-      ))}
-      
-      <div className="flex gap-2 justify-end pt-4 border-t">
-        <Button
-          variant="outline"
-          onClick={() => {
-            const allLinks = createdFileRequests.map(r => `${r.email}: ${r.link}`).join('\n')
-            navigator.clipboard.writeText(allLinks)
-            alert('All links copied to clipboard!')
-          }}
-        >
-          Copy All Links
-        </Button>
-        <Button
-          onClick={() => setShowBulkFileRequestLinksDialog(false)}
-          className="bg-gradient-to-r from-purple-600 to-blue-600"
-        >
-          Done
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+<BulkFileRequestLinksDialog
+  open={showBulkFileRequestLinksDialog}
+  onClose={() => setShowBulkFileRequestLinksDialog(false)}
+  requests={createdFileRequests}
+/>
 
 {/*  ADD CONTACT DRAWER */}
 <AddContactSheet
@@ -3936,164 +3447,12 @@ case 'dashboard':
 />
 
 {/* Demo Booking Dialog */}
-<Dialog open={showDemoDialog} onOpenChange={setShowDemoDialog}>
-  <DialogContent className="max-w-2xl bg-white scrollbar  max-h-[80vh] overflow-y-auto">
-    <DialogHeader>
-      <DialogTitle className="text-2xl font-bold">Schedule a Demo</DialogTitle>
-      <DialogDescription>
-        Book a personalized walkthrough of DocMetrics with our team
-      </DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-5 mt-4">
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold">Your Name</Label>
-          <Input 
-            value={`${user?.first_name} ${user?.last_name}`.trim()}
-            disabled
-            className="bg-slate-50"
-          />
-        </div>
 
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold">Email</Label>
-          <Input 
-            value={user?.email}
-            disabled
-            className="bg-slate-50"
-          />
-        </div>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold">Phone Number</Label>
-          <Input 
-            type="tel"
-            placeholder="+1 (555) 123-4567"
-            value={demoPhoneNumber}
-            onChange={(e) => setDemoPhoneNumber(e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold">Team Size</Label>
-          <select
-            value={demoTeamSize}
-            onChange={(e) => setDemoTeamSize(e.target.value)}
-            className="w-full h-11 px-4 border-2 border-slate-200 rounded-lg bg-white focus:border-brand-primary-400 focus:ring-2 focus:ring-brand-primary-400 focus:outline-none"
-          >
-            <option value="">Select team size</option>
-            <option value="1-5">1-5 people</option>
-            <option value="6-20">6-20 people</option>
-            <option value="21-50">21-50 people</option>
-            <option value="51+">51+ people</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold">Preferred Date/Time </Label>
-        <Input 
-          type="text"
-          placeholder="e.g., Next Tuesday 2pm EST, or Week of Jan 15"
-          value={demoPreferredDate}
-          onChange={(e) => setDemoPreferredDate(e.target.value)}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold">What would you like to learn about? (Optional)</Label>
-        <Textarea 
-          placeholder="Share any specific features or use cases you're interested in..."
-          rows={4}
-          value={demoMessage}
-          onChange={(e) => setDemoMessage(e.target.value)}
-          className="resize-none"
-        />
-      </div>
-
-      <div className="bg-gradient-to-br from-brand-primary-50 to-brand-secondary-50 border-2 border-brand-primary-200 rounded-xl p-5">
-        <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-lg bg-brand-primary-500 flex items-center justify-center flex-shrink-0">
-            <Sparkles className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <p className="font-semibold text-brand-primary-900 mb-1">What to expect</p>
-            <ul className="text-sm text-brand-primary-800 space-y-1">
-              <li>• 30-minute personalized demo tailored to your needs</li>
-              <li>• Live Q&A with our product experts</li>
-              <li>• Custom recommendations for your use case</li>
-              <li>• No pressure sales pitch - just genuine help</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div className="flex gap-3 justify-end pt-4 border-t mt-4">
-      <Button
-        variant="outline"
-        onClick={() => {
-          setShowDemoDialog(false)
-          setDemoPhoneNumber('')
-          setDemoTeamSize('')
-          setDemoPreferredDate('')
-          setDemoMessage('')
-        }}
-      >
-        Cancel
-      </Button>
-      <Button
-        onClick={async () => {
-          const loadingToast = toast.loading('Sending demo request...')
-          
-          try {
-            const res = await fetch('/api/demo', {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                phoneNumber: demoPhoneNumber.trim() || undefined,
-                teamSize: demoTeamSize || undefined,
-                preferredDate: demoPreferredDate.trim() || undefined,
-                message: demoMessage.trim() || undefined,
-              }),
-            })
-
-            const data = await res.json()
-
-            if (res.ok) {
-              toast.success('Demo request sent!', {
-                id: loadingToast,
-                description: "We'll contact you within 24 hours to schedule"
-              })
-              setShowDemoDialog(false)
-              setDemoPhoneNumber('')
-              setDemoTeamSize('')
-              setDemoPreferredDate('')
-              setDemoMessage('')
-            } else {
-              toast.error(data.error || 'Failed to send request', {
-                id: loadingToast
-              })
-            }
-          } catch (error) {
-            console.error('Demo request error:', error)
-            toast.error('Network error', {
-              id: loadingToast
-            })
-          }
-        }}
-        className="bg-gradient-to-r from-brand-primary-500 to-brand-secondary-500 hover:from-brand-primary-600 hover:to-brand-secondary-600"
-      >
-        <Send className="mr-2 h-4 w-4" />
-        Request Demo
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
+       <DemoDialog
+  open={showDemoDialog}
+  onClose={() => setShowDemoDialog(false)}
+  user={user}
+/>
 
 {/* Slack Channel Selection Drawer */}
 <SlackChannelDrawer
@@ -4117,85 +3476,17 @@ case 'dashboard':
 />
 
 {/* Gmail Send Email Dialog */}
-<Dialog open={showGmailSendDialog} onOpenChange={setShowGmailSendDialog}>
-  <DialogContent className="max-w-2xl bg-white">
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        <Mail className="h-5 w-5 text-red-600" />
-        Send via Gmail
-      </DialogTitle>
-      <DialogDescription>
-        Send a tracked document link via your Gmail account
-      </DialogDescription>
-    </DialogHeader>
-    
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label>Recipients *</Label>
-        <Input
-          placeholder="john@example.com, jane@company.com"
-          value={gmailRecipients}
-          onChange={(e) => setGmailRecipients(e.target.value)}
-        />
-        <p className="text-xs text-slate-500">Separate multiple emails with commas</p>
-      </div>
-      
-      <div className="space-y-2">
-        <Label>Subject *</Label>
-        <Input
-          placeholder="Check out this document"
-          value={gmailSubject}
-          onChange={(e) => setGmailSubject(e.target.value)}
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label>Message (Optional)</Label>
-        <Textarea
-          placeholder="Add a personal message..."
-          rows={4}
-          value={gmailMessage}
-          onChange={(e) => setGmailMessage(e.target.value)}
-        />
-      </div>
-      
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex gap-3">
-          <Activity className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-blue-900 mb-1">Email Tracking Enabled</p>
-            <ul className="text-xs text-blue-700 space-y-1">
-              <li>• You'll be notified when recipients open the email</li>
-              <li>• Track when they view the document</li>
-              <li>• See time spent on each page</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex gap-2 justify-end pt-4">
-        <Button
-          variant="outline"
-          onClick={() => {
-            setShowGmailSendDialog(false);
-            setGmailRecipients('');
-            setGmailSubject('');
-            setGmailMessage('');
-          }}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSendViaGmail}
-          className="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700"
-        >
-          <Send className="mr-2 h-4 w-4" />
-          Send Email
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
+<GmailSendDialog
+  open={showGmailSendDialog}
+  onClose={() => setShowGmailSendDialog(false)}
+  recipients={gmailRecipients}
+  subject={gmailSubject}
+  message={gmailMessage}
+  onSetRecipients={setGmailRecipients}
+  onSetSubject={setGmailSubject}
+  onSetMessage={setGmailMessage}
+  onSubmit={handleSendViaGmail}
+/>
 
 {/* Integration Request Drawer */}
 <AnimatePresence>
@@ -4443,177 +3734,9 @@ case 'dashboard':
 
 
 {/* Zapier Setup Dialog */}
-<Dialog open={showZapierSetupDialog} onOpenChange={setShowZapierSetupDialog}>
-  <DialogContent className="max-w-2xl bg-white scrollbar-thin scrollbar-thumb-slate-300 overflow-y-auto max-h-[80vh]">
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2 text-xl">
-        <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center">
-          <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.247l-1.768 5.44a.75.75 0 01-.712.513H8.918a.75.75 0 01-.712-.513L6.438 8.247A.75.75 0 017.15 7.2h9.7a.75.75 0 01.712 1.047z"/>
-          </svg>
-        </div>
-        Connect to Zapier
-      </DialogTitle>
-      <DialogDescription>
-        Use your API key to connect DocMetrics with 5,000+ apps via Zapier
-      </DialogDescription>
-    </DialogHeader>
-
-    <div className="space-y-6 mt-2">
-      
-      {/* Step 1 - Get API Key */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-            1
-          </div>
-          <p className="font-semibold text-slate-900">Get your API Key</p>
-        </div>
-
-        <div className="ml-8 space-y-3">
-          <p className="text-sm text-slate-600">
-            Generate your personal API key. Keep it secret — it gives access to your account.
-          </p>
-
-          {zapierApiKey ? (
-            /* Show the key */
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={zapierApiKey}
-                  readOnly
-                  className="flex-1 font-mono text-xs bg-slate-50"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    navigator.clipboard.writeText(zapierApiKey)
-                    setCopiedZapierKey(true)
-                    toast.success('API key copied!')
-                    setTimeout(() => setCopiedZapierKey(false), 2000)
-                  }}
-                >
-                  {copiedZapierKey ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : (
-                    'Copy'
-                  )}
-                </Button>
-              </div>
-              <p className="text-xs text-slate-500">
-                ⚠️ Store this somewhere safe. You won't see it again after closing this dialog.
-              </p>
-            </div>
-          ) : (
-            <Button
-              onClick={async () => {
-                setLoadingZapierKey(true)
-                try {
-                  const res = await fetch('/api/zapier/generate-key', {
-                    method: 'POST',
-                    credentials: 'include',
-                  })
-                  const data = await res.json()
-                  if (res.ok) {
-                    setZapierApiKey(data.apiKey)
-                    toast.success('API key generated!')
-                  } else {
-                    toast.error(data.error || 'Failed to generate key')
-                  }
-                } catch {
-                  toast.error('Network error')
-                } finally {
-                  setLoadingZapierKey(false)
-                }
-              }}
-              disabled={loadingZapierKey}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              {loadingZapierKey ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating...</>
-              ) : (
-                'Generate API Key'
-              )}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="border-t" />
-
-      {/* Step 2 - Go to Zapier */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-full bg-orange-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
-            2
-          </div>
-          <p className="font-semibold text-slate-900">Connect in Zapier</p>
-        </div>
-        <div className="ml-8 space-y-3">
-          <p className="text-sm text-slate-600">
-            Go to Zapier, create a new Zap, search for <strong>DocMetrics</strong>, and paste your API key when prompted.
-          </p>
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => window.open('https://zapier.com/apps/connections', '_blank')}
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0z"/>
-            </svg>
-            Open Zapier
-          </Button>
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div className="border-t" />
-
-      {/* Available Triggers */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-full bg-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center flex-shrink-0">
-            ✦
-          </div>
-          <p className="font-semibold text-slate-900">What you can automate</p>
-        </div>
-        <div className="ml-8 grid grid-cols-2 gap-2">
-          {[
-            { icon: '👁️', label: 'Document Viewed', desc: 'When someone views your doc' },
-            { icon: '⬇️', label: 'Document Downloaded', desc: 'When someone downloads' },
-            { icon: '✍️', label: 'Signature Completed', desc: 'When someone signs' },
-            { icon: '📥', label: 'File Request Received', desc: 'When files are uploaded' },
-            { icon: '📤', label: 'Send Document', desc: 'Send a doc via email' },
-            { icon: '📋', label: 'Create File Request', desc: 'Create a new request' },
-          ].map((item) => (
-            <div key={item.label} className="flex items-start gap-2 p-3 bg-slate-50 rounded-lg">
-              <span className="text-lg flex-shrink-0">{item.icon}</span>
-              <div>
-                <p className="text-xs font-semibold text-slate-900">{item.label}</p>
-                <p className="text-xs text-slate-500">{item.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Footer buttons */}
-      <div className="flex justify-end gap-3 pt-2 border-t">
-        <Button
-          variant="outline"
-          onClick={() => {
-            setShowZapierSetupDialog(false)
-            setZapierApiKey('')
-          }}
-        >
-          Close
-        </Button>
-      </div>
-    </div>
-  </DialogContent>
-</Dialog>
- 
-    </div>
+    <ZapierSetupDialog
+  open={showZapierSetupDialog}
+  onClose={() => setShowZapierSetupDialog(false)}
+/>   </div>
   )
 }
