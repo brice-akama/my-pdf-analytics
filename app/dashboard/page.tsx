@@ -132,6 +132,7 @@ type UserType = {
   company_name: string
   profile_image: string | null
   plan?: string
+   logo_url?: string | null
 
   
 }
@@ -2397,6 +2398,7 @@ useEffect(() => {
           company_name: data.user.profile.companyName || "Company Name",
           profile_image: data.user.profile.avatarUrl || null,
           plan: data.user.profile.plan || "Free Plan"
+          logo_url: data.user.profile.logoUrl || null,  
         });
       }
     } catch (error) {

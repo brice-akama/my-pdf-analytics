@@ -35,6 +35,7 @@ type UserType = {
   company_name: string
   profile_image: string | null
   plan?: string
+   logo_url?: string | null
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

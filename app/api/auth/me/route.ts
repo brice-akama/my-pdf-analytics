@@ -151,15 +151,19 @@ const isOwner = organizationId === userIdForQuery;
 let organizationName = profile?.company_name || "My CompanyName";
 let organizationRole = profile?.role || "owner";
 
+ let organizationLogoUrl: string | null = null;
+
 if (!isOwner) {
-  // ✅ FETCH OWNER'S COMPANY NAME
   const ownerProfile = await db.collection("profiles").findOne({ 
     user_id: organizationId 
   });
   
   if (ownerProfile) {
     organizationName = ownerProfile.company_name || "Team";
+    organizationLogoUrl = ownerProfile.logo_url || ownerProfile.avatarUrl || null;
   }
+} else {
+  organizationLogoUrl = profile?.logo_url || null;
 }
 
 // ✅ Format user data
@@ -178,6 +182,7 @@ const userData = {
       user.name || user.email.split("@")[0],
     companyName: organizationName, // ✅ OWNER'S COMPANY NAME
     avatarUrl: profile?.avatarUrl || profile?.avatar_url || user.profile?.avatarUrl || "",
+     logoUrl: organizationLogoUrl,  // ✅ add this line
   },
   
   // ✅ ADD ORGANIZATION INFO

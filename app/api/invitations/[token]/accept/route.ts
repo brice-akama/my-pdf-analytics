@@ -10,14 +10,37 @@ export async function POST(
 ) {
   try {
     const { token } = await params;
-    
-    console.log('🔄 Accepting invitation with token:', token);
 
-    // ✅ 1. Verify user is logged in
-    const user = await verifyUserFromRequest(request);
-    
+    // Try cookie-based auth first (already logged in)
+    let user = await verifyUserFromRequest(request);
+
+    // If not via cookie, accept userId from body (post login/signup on invite page)
+    let bodyUserId: string | null = null;
+    let body: any = {};
+
+    try {
+      body = await request.json();
+      bodyUserId = body.userId || null;
+    } catch {
+      // no body or not JSON, that's fine
+    }
+
+    // If still no user but we have a userId from body, fetch user from DB
+    if (!user && bodyUserId) {
+      const db = await dbPromise;
+      const dbUser = await db.collection('users').findOne({
+        _id: new ObjectId(bodyUserId)
+      });
+
+      if (dbUser) {
+        user = {
+          id: dbUser._id.toString(),
+          email: dbUser.email
+        };
+      }
+    }
+
     if (!user) {
-      console.log('❌ User not logged in, requires auth');
       return NextResponse.json({
         success: false,
         requiresAuth: true,
@@ -25,65 +48,47 @@ export async function POST(
       }, { status: 401 });
     }
 
-    console.log('✅ User logged in:', {
-      userId: user.id,
-      userEmail: user.email
-    });
-
     const db = await dbPromise;
 
-    // ✅ 2. Find the invitation
+    // Find the invitation
     const invitation = await db.collection('invitations').findOne({
       token,
       status: 'pending'
     });
 
     if (!invitation) {
-      console.log('❌ Invitation not found or already used');
       return NextResponse.json({
         success: false,
         error: 'Invalid or expired invitation'
       }, { status: 404 });
     }
 
-    console.log('✅ Invitation found:', {
-      invitedEmail: invitation.email,
-      invitedRole: invitation.role,
-      spaceId: invitation.spaceId.toString()
-    });
-
-    // ✅ 3. Verify user's email matches invitation
+    // Verify email matches
     if (user.email.toLowerCase() !== invitation.email.toLowerCase()) {
-      console.log('❌ Email mismatch:', {
-        userEmail: user.email,
-        invitedEmail: invitation.email
-      });
       return NextResponse.json({
         success: false,
         error: `This invitation is for ${invitation.email}. Please log in with that email.`
       }, { status: 403 });
     }
 
-    // ✅ 4. CRITICAL: Find the space and verify member exists
+    // Find the space
     const space = await db.collection('spaces').findOne({
       _id: new ObjectId(invitation.spaceId)
     });
 
     if (!space) {
-      console.log('❌ Space not found');
       return NextResponse.json({
         success: false,
         error: 'Space not found'
       }, { status: 404 });
     }
 
-    // Find this specific member in the members array
+    // Find member in space
     const memberIndex = space.members?.findIndex(
       (m: any) => m.email.toLowerCase() === invitation.email.toLowerCase()
     );
 
     if (memberIndex === -1) {
-      console.log('❌ Member not found in space');
       return NextResponse.json({
         success: false,
         error: 'Member record not found in space'
@@ -91,53 +96,22 @@ export async function POST(
     }
 
     const existingMember = space.members[memberIndex];
-    console.log('✅ Found member in space:', {
-      email: existingMember.email,
-      currentRole: existingMember.role,
-      hasUserId: !!existingMember.userId
-    });
 
-    // ✅ 5. CRITICAL: Update THIS SPECIFIC member with userId
-    const updateResult = await db.collection('spaces').updateOne(
+    // Link userId to member
+    await db.collection('spaces').updateOne(
       {
         _id: new ObjectId(invitation.spaceId),
         'members.email': invitation.email.toLowerCase()
       },
       {
         $set: {
-          'members.$.userId': user.id, // ✅ Link THIS user to THIS member
+          'members.$.userId': user.id,
           'members.$.lastAccessedAt': new Date()
         }
       }
     );
 
-    if (updateResult.modifiedCount === 0) {
-      console.log('⚠️ No changes made (member may already have userId)');
-    } else {
-      console.log('✅ Successfully linked userId to member:', {
-        userId: user.id,
-        email: invitation.email,
-        role: existingMember.role
-      });
-    }
-
-    // ✅ 6. Verify the update worked by fetching the updated space
-    const updatedSpace = await db.collection('spaces').findOne({
-      _id: new ObjectId(invitation.spaceId)
-    });
-
-    const updatedMember = updatedSpace?.members?.find(
-      (m: any) => m.email.toLowerCase() === invitation.email.toLowerCase()
-    );
-
-    console.log('✅ Member after update:', {
-      email: updatedMember?.email,
-      role: updatedMember?.role,
-      userId: updatedMember?.userId,
-      hasUserId: !!updatedMember?.userId
-    });
-
-    // ✅ 7. Mark invitation as accepted
+    // Mark invitation as accepted
     await db.collection('invitations').updateOne(
       { _id: invitation._id },
       {
@@ -149,9 +123,7 @@ export async function POST(
       }
     );
 
-    console.log('✅ Invitation accepted successfully');
-
-    // ✅ 8. Log activity
+    // Log activity
     await db.collection('space_activity_logs').insertOne({
       spaceId: invitation.spaceId.toString(),
       userId: user.id,
@@ -171,7 +143,7 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error('❌ Accept invitation error:', error);
+    console.error('Accept invitation error:', error);
     return NextResponse.json({
       success: false,
       error: 'Server error'
