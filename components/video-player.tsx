@@ -27,7 +27,7 @@ export function VideoPlayer() {
       <video
         ref={ref}
         src="/videos/demo.mp4"
-        poster="/assets/screenshots/demo-poster.png"
+        poster="/assets/feature-upload.png"
         className="w-full h-full object-cover"
         playsInline
         onEnded={() => setPlaying(false)}

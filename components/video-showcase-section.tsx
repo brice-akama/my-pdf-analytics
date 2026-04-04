@@ -26,7 +26,7 @@ const VIDEOS = [
     title: "Secure Data Rooms",
     description: "Create a branded space for investors or clients. Control access, track every view, and collect signatures — all in one place.",
     src: "/videos/dataroom-demo.mp4",
-    poster: "/assets/feature-dataroom.png",
+    poster: "/assets/feature-tracking.png",
     href: "/solutions/enterprise",
   },
 ]
