@@ -57,7 +57,7 @@ export function VideoBlock({
   return (
     <div className="mb-20">
 
-      {/* ── Text on top — full width ── */}
+      {/* Text on top */}
       <div className="mb-6">
         <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-3">
           {title}
@@ -67,28 +67,30 @@ export function VideoBlock({
         </p>
       </div>
 
-      {/* ── Video full width below text ── */}
+      {/* Video full width — same pattern as VideoShowcaseSection */}
       <div
         ref={containerRef}
-        className="relative rounded-2xl overflow-hidden shadow-xl bg-slate-900 cursor-pointer group w-full border border-slate-200"
+        className="relative bg-slate-900 aspect-[16/8] rounded-2xl overflow-hidden shadow-xl cursor-pointer group"
         onClick={toggle}
       >
         <video
           ref={ref}
           src={videoSrc}
           poster={posterSrc}
-          className="w-full h-auto block"
+          className="w-full h-full object-contain"
           playsInline
           loop
           muted
           onEnded={() => setPlaying(false)}
         />
+
+        {/* Play/pause overlay */}
         <div
-          className={`absolute inset-0 bg-slate-900/30 flex items-center justify-center transition-opacity duration-200 ${
+          className={`absolute inset-0 bg-slate-900/40 flex items-center justify-center transition-opacity duration-200 ${
             playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"
           }`}
         >
-          <div className="h-14 w-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-200">
+          <div className="h-14 w-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-200">
             {playing ? (
               <div className="flex gap-1">
                 <div className="h-4 w-1.5 bg-sky-600 rounded-full" />

@@ -21,14 +21,14 @@ export function VideoPlayer() {
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden bg-slate-900 shadow-2xl aspect-video cursor-pointer group w-full"
+      className="relative bg-slate-900 aspect-[16/8] rounded-2xl overflow-hidden shadow-2xl cursor-pointer group"
       onClick={toggle}
     >
       <video
         ref={ref}
         src="/videos/demo.mp4"
         poster="/assets/feature-upload.png"
-        className="w-full h-full object-cover"
+        className="w-full h-full object-contain"
         playsInline
         onEnded={() => setPlaying(false)}
       />
@@ -38,7 +38,7 @@ export function VideoPlayer() {
           playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"
         }`}
       >
-        <div className="h-20 w-20 rounded-full bg-white/90 flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform duration-200 mb-4">
+        <div className="h-20 w-20 rounded-full bg-white/90 flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform duration-200 mb-4">
           {playing ? (
             <div className="flex gap-1.5">
               <div className="h-5 w-1.5 bg-sky-600 rounded-full" />
