@@ -138,7 +138,7 @@ export default function DemoPage(): JSX.Element {
       </div>
 
       {/* ── CTA ── */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-20">
         <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
           <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
             Ready to try it yourself?

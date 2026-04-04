@@ -21,7 +21,7 @@ export function VideoPlayer() {
 
   return (
     <div
-      className="relative bg-slate-900 aspect-[16/8] rounded-2xl overflow-hidden shadow-2xl cursor-pointer group"
+      className="relative aspect-[16/9] rounded-2xl overflow-hidden shadow-2xl cursor-pointer group max-w-5xl mx-auto"
       onClick={toggle}
     >
       <video
@@ -34,7 +34,7 @@ export function VideoPlayer() {
       />
 
       <div
-        className={`absolute inset-0 bg-slate-900/50 flex flex-col items-center justify-center transition-opacity duration-200 ${
+        className={`absolute inset-0  flex flex-col items-center justify-center transition-opacity duration-200 ${
           playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"
         }`}
       >

@@ -64,7 +64,7 @@ function VideoModal({
     >
       {/* modal box — stop click bubbling */}
       <div
-        className="relative w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl bg-black"
+        className="relative w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* close button */}
@@ -103,7 +103,7 @@ function VideoCard({
 
       {/* Thumbnail — click opens modal */}
       <div
-        className="relative bg-slate-900 aspect-[16/8] group cursor-pointer"
+        className="relative  aspect-[16/8] group cursor-pointer"
         onClick={onPlay}
       >
         <video
@@ -115,7 +115,7 @@ function VideoCard({
         />
 
         {/* overlay with play button */}
-        <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center group-hover:bg-slate-900/50 transition-colors duration-200">
+        <div className="absolute inset-0 flex items-center justify-center group-hover:bg-slate-900/50 transition-colors duration-200">
           <div className="h-14 w-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-200">
             <Play className="h-5 w-5 text-[#0369a1] fill-[#0369a1] ml-0.5" />
           </div>

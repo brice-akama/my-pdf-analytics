@@ -70,7 +70,7 @@ export function VideoBlock({
       {/* Video full width — same pattern as VideoShowcaseSection */}
       <div
         ref={containerRef}
-        className="relative bg-slate-900 aspect-[16/8] rounded-2xl overflow-hidden shadow-xl cursor-pointer group"
+        className="relative  aspect-[16/] rounded-2xl overflow-hidden shadow-xl cursor-pointer group max-w-5xl mx-auto"
         onClick={toggle}
       >
         <video
@@ -86,7 +86,7 @@ export function VideoBlock({
 
         {/* Play/pause overlay */}
         <div
-          className={`absolute inset-0 bg-slate-900/40 flex items-center justify-center transition-opacity duration-200 ${
+          className={`absolute inset-0  flex items-center justify-center transition-opacity duration-200 ${
             playing ? "opacity-0 group-hover:opacity-100" : "opacity-100"
           }`}
         >
