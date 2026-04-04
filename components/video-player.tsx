@@ -68,7 +68,7 @@ export function VideoPlayer() {
         <img
           src="/assets/feature-upload.png"
           alt="DocMetrics walkthrough preview"
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
         />
 
         {/* Overlay */}
