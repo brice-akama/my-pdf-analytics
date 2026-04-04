@@ -21,7 +21,7 @@ export function VideoPlayer() {
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden bg-slate-900 shadow-2xl aspect-video cursor-pointer group"
+      className="relative rounded-2xl overflow-hidden bg-slate-900 shadow-2xl aspect-video cursor-pointer group w-full"
       onClick={toggle}
     >
       <video
@@ -52,7 +52,7 @@ export function VideoPlayer() {
           Watch the full walkthrough
         </p>
         <p className="text-white/60 text-sm mt-1">
-          2 minutes · No sound needed
+          4 min 27 sec · No sound needed
         </p>
       </div>
     </div>

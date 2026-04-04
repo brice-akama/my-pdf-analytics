@@ -1,24 +1,20 @@
-// app/product/demo/page.tsx
-//  Server Component — Google indexes all content
-//  VideoPlayer isolated as its own client component
 import type { Metadata } from "next";
 import { JSX } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { VideoPlayer } from "@/components/video-player";
 
-// ── METADATA ──────────────────────────────────────────────────
 export const metadata: Metadata = {
   title: "See DocMetrics in Action — Full Product Walkthrough",
   description:
-    "Watch a 2-minute walkthrough of DocMetrics — upload a document, create a share link, and see exactly how long each person spent on every page.",
+    "Watch a 4-minute walkthrough of DocMetrics — upload a document, create a share link, and see exactly how long each person spent on every page.",
   alternates: {
     canonical: "https://docmetrics.io/product/demo",
   },
   openGraph: {
     title: "See DocMetrics in Action — Full Product Walkthrough",
     description:
-      "Watch a 2-minute walkthrough of DocMetrics — upload a document, create a share link, and see exactly how long each person spent on every page.",
+      "Watch a 4-minute walkthrough of DocMetrics — upload a document, create a share link, and see exactly how long each person spent on every page.",
     url: "https://docmetrics.io/product/demo",
     siteName: "DocMetrics",
     type: "website",
@@ -34,9 +30,6 @@ export const metadata: Metadata = {
   },
 };
 
-// ── JSON-LD: VideoObject Schema ───────────────────────────────
-// Tells Google this page contains a video
-// Google can show it as a rich result with thumbnail in search
 const videoSchema = {
   "@context": "https://schema.org",
   "@type": "VideoObject",
@@ -45,7 +38,7 @@ const videoSchema = {
     "A full walkthrough of DocMetrics — from uploading a document to seeing exactly how long each person spent on every page. Covers share links, real-time tracking, and data rooms.",
   thumbnailUrl: "https://docmetrics.io/assets/screenshots/demo-poster.png",
   uploadDate: new Date().toISOString(),
-  duration: "PT2M",
+  duration: "PT4M27S",
   contentUrl: "https://docmetrics.io/videos/demo.mp4",
   embedUrl: "https://docmetrics.io/product/demo",
   publisher: {
@@ -59,7 +52,6 @@ const videoSchema = {
   },
 };
 
-// ── PAGE ──────────────────────────────────────────────────────
 export default function DemoPage(): JSX.Element {
   return (
     <div className="min-h-screen bg-white">
@@ -71,13 +63,13 @@ export default function DemoPage(): JSX.Element {
       />
 
       {/* ── Hero ── */}
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-16 pb-12 text-center">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 pb-12 text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
           See It In Action
         </p>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
           The whole product in{" "}
-          <span className="text-sky-600">two minutes.</span>
+          <span className="text-sky-600">four minutes.</span>
         </h1>
         <p className="text-base sm:text-lg text-slate-500 leading-relaxed max-w-2xl mx-auto">
           Watch a real walkthrough of DocMetrics — from uploading a
@@ -86,19 +78,26 @@ export default function DemoPage(): JSX.Element {
         </p>
       </div>
 
-      {/* ── Video ── */}
-      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 pb-16">
-        <VideoPlayer />
+      {/* ── Video — full width like analytics page ── */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
+
+        {/* Video takes full width */}
+        <div className="w-full rounded-2xl overflow-hidden shadow-2xl">
+          <VideoPlayer />
+        </div>
 
         {/* What the video covers */}
-        <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-6">
           {[
             { time: "0:00", label: "Upload a document" },
-            { time: "0:30", label: "Create a share link" },
-            { time: "0:55", label: "See who read what" },
-            { time: "1:30", label: "Spaces & data rooms" },
+            { time: "0:45", label: "Create a share link" },
+            { time: "1:30", label: "See who read what" },
+            { time: "2:45", label: "Spaces & data rooms" },
           ].map((item) => (
-            <div key={item.time} className="flex items-start gap-2.5">
+            <div
+              key={item.time}
+              className="flex items-start gap-2.5 p-4 rounded-xl bg-slate-50 border border-slate-100"
+            >
               <span className="text-xs font-mono font-semibold text-sky-500 mt-0.5 flex-shrink-0">
                 {item.time}
               </span>
@@ -108,10 +107,40 @@ export default function DemoPage(): JSX.Element {
             </div>
           ))}
         </div>
+
+        {/* What you will see section */}
+        <div className="mt-16 grid sm:grid-cols-3 gap-8">
+          {[
+            {
+              title: "Upload & Share",
+              description:
+                "See how to upload any PDF and create a secure share link in under 60 seconds.",
+            },
+            {
+              title: "Live Analytics",
+              description:
+                "Watch real-time tracking in action — who opened it, which pages they read, and how long they spent.",
+            },
+            {
+              title: "Data Rooms",
+              description:
+                "See how to create a secure data room, invite contacts, and track every interaction.",
+            },
+          ].map((item) => (
+            <div key={item.title} className="space-y-2">
+              <h3 className="text-sm font-semibold text-slate-900">
+                {item.title}
+              </h3>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                {item.description}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── CTA ── */}
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pb-20">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-20">
         <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
           <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
             Ready to try it yourself?

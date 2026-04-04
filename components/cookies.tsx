@@ -1,16 +1,50 @@
 "use client"
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 const CookieConsent = () => {
   const [showCookieConsent, setShowCookieConsent] = useState(false);
+  const pathname = usePathname();
+
+  // ── All paths where cookie banner should NOT show ──
+  const hiddenPaths = [
+    '/dashboard',
+    '/portal',
+    '/spaces',
+    '/documents',
+    '/invite',
+    '/invite-team',
+    '/sign',
+    '/signed',
+    '/view',
+    '/login',
+    '/signup',
+    '/register',
+    '/onboarding',
+    '/settings',
+    '/analytics',
+    '/billing',
+    '/profile',
+  ]
+
+  // Check if current path starts with any hidden path
+  const isHiddenPage = hiddenPaths.some(path => 
+    pathname?.startsWith(path)
+  )
 
   useEffect(() => {
-    // Check if user has already given consent
+    // Don't show on hidden pages
+    if (isHiddenPage) return
+
     const consent = localStorage.getItem('cookieConsent');
     if (!consent) {
-      setShowCookieConsent(true);
+      // Small delay so it doesn't pop instantly
+      const timer = setTimeout(() => {
+        setShowCookieConsent(true);
+      }, 1500)
+      return () => clearTimeout(timer)
     }
-  }, []);
+  }, [pathname, isHiddenPage]);
 
   const handleAcceptCookies = () => {
     setShowCookieConsent(false);
@@ -24,42 +58,54 @@ const CookieConsent = () => {
     localStorage.setItem('cookieConsentDate', new Date().toISOString());
   };
 
-  const handleManagePreferences = () => {
-    // You can redirect to a preferences page or open a modal
-    alert('Manage preferences functionality - redirect to privacy settings page');
-  };
-
-  if (!showCookieConsent) return null;
+  // Hide on app pages OR if already responded
+  if (!showCookieConsent || isHiddenPage) return null;
 
   return (
     <>
       {/* Cookie Consent Popup */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-auto lg:ml-8 lg:mb-8 lg:fixed lg:bottom-8 lg:left-8 lg:max-w-sm animate-fade-in">
-          <div className="p-8">
-            <h3 className="text-2xl font-bold text-slate-900 mb-4">
-              We value your privacy
-            </h3>
-            <p className="text-slate-600 text-sm leading-relaxed mb-6">
-              We use cookies to enhance your browsing experience, analyze document sharing analytics, and deliver personalized content. By clicking "Accept All", you consent to our use of cookies for analytics and performance tracking of your PDF documents.
+      <div className="fixed bottom-6 left-6 z-50 max-w-sm w-full animate-fade-in">
+        <div className="bg-white rounded-2xl shadow-2xl border border-slate-100">
+          <div className="p-6">
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-3">
+              
+              <h3 className="text-base font-bold text-slate-900">
+                We value your privacy
+              </h3>
+            </div>
+
+            <p className="text-slate-500 text-xs leading-relaxed mb-5">
+              We use cookies to enhance your browsing experience and analyze 
+              how our site is used. You can accept all cookies or decline 
+              non-essential ones.
             </p>
-            
-            <div className="flex flex-col sm:flex-row gap-3">
+
+            {/* Buttons */}
+            <div className="flex gap-2">
               <button
                 onClick={handleDeclineCookies}
-                className="flex-1 px-6 py-3 border-2 border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-colors"
+                className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors"
               >
                 Decline
               </button>
               <button
                 onClick={handleAcceptCookies}
-                className="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
+                className="flex-1 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors"
               >
                 Accept All
               </button>
             </div>
 
-            
+            {/* Privacy link */}
+            <p className="text-center mt-3">
+              
+             <a   href="/privacy"
+                className="text-xs text-slate-400 hover:text-slate-600 underline transition-colors"
+              >
+                Privacy Policy
+              </a>
+            </p>
           </div>
         </div>
       </div>
@@ -68,15 +114,15 @@ const CookieConsent = () => {
         @keyframes fade-in {
           from {
             opacity: 0;
-            transform: scale(0.95);
+            transform: translateY(10px);
           }
           to {
             opacity: 1;
-            transform: scale(1);
+            transform: translateY(0);
           }
         }
         .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
+          animation: fade-in 0.4s ease-out;
         }
       `}</style>
     </>
