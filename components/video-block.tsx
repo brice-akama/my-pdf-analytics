@@ -55,20 +55,22 @@ export function VideoBlock({
   }, [])
 
   return (
-    <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center mb-20">
-      <div className={reverse ? "lg:order-2" : "lg:order-1"}>
-        <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-4">
+    <div className="mb-20">
+
+      {/* ── Text on top — full width ── */}
+      <div className="mb-6">
+        <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 leading-snug mb-3">
           {title}
         </h2>
-        <p className="text-base text-slate-500 leading-relaxed">
+        <p className="text-base text-slate-500 leading-relaxed max-w-3xl">
           {description}
         </p>
       </div>
+
+      {/* ── Video full width below text ── */}
       <div
         ref={containerRef}
-        className={`${
-          reverse ? "lg:order-1" : "lg:order-2"
-        } relative rounded-2xl overflow-hidden shadow-xl bg-slate-900 cursor-pointer group`}
+        className="relative rounded-2xl overflow-hidden shadow-xl bg-slate-900 cursor-pointer group w-full border border-slate-200"
         onClick={toggle}
       >
         <video

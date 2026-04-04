@@ -62,8 +62,8 @@ export default function DemoPage(): JSX.Element {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(videoSchema) }}
       />
 
-      {/* ── Hero ── */}
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pt-16 pb-12 text-center">
+      {/* ── Hero — text centered, no side by side ── */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 pb-12 text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-sky-500 mb-4">
           See It In Action
         </p>
@@ -71,23 +71,19 @@ export default function DemoPage(): JSX.Element {
           The whole product in{" "}
           <span className="text-sky-600">four minutes.</span>
         </h1>
-        <p className="text-base sm:text-lg text-slate-500 leading-relaxed max-w-2xl mx-auto">
+        <p className="text-base sm:text-lg text-slate-500 leading-relaxed max-w-2xl mx-auto mb-10">
           Watch a real walkthrough of DocMetrics — from uploading a
           document to seeing exactly how long each person spent on every
           page.
         </p>
-      </div>
 
-      {/* ── Video — full width like analytics page ── */}
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-16">
-
-        {/* Video takes full width */}
-        <div className="w-full rounded-2xl overflow-hidden shadow-2xl">
+        {/* ── Video full width under the text ── */}
+        <div className="w-full rounded-2xl overflow-hidden shadow-2xl border border-slate-200">
           <VideoPlayer />
         </div>
 
-        {/* What the video covers */}
-        <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-6">
+        {/* Timestamp markers */}
+        <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
           {[
             { time: "0:00", label: "Upload a document" },
             { time: "0:45", label: "Create a share link" },
@@ -107,9 +103,11 @@ export default function DemoPage(): JSX.Element {
             </div>
           ))}
         </div>
+      </div>
 
-        {/* What you will see section */}
-        <div className="mt-16 grid sm:grid-cols-3 gap-8">
+      {/* ── What you will see — 3 columns below video ── */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="grid sm:grid-cols-3 gap-8 border-t border-slate-100 pt-12">
           {[
             {
               title: "Upload & Share",
@@ -140,7 +138,7 @@ export default function DemoPage(): JSX.Element {
       </div>
 
       {/* ── CTA ── */}
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 pb-20">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
         <div className="rounded-2xl bg-sky-600 px-8 py-14 sm:px-14 text-center">
           <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-4">
             Ready to try it yourself?
@@ -172,4 +170,4 @@ export default function DemoPage(): JSX.Element {
 
     </div>
   );
-}
+} 
