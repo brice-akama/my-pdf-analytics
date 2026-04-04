@@ -890,6 +890,23 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
               const isExpanded = expandedLink === link.shareLink
               const docsLabel = link.totalDocs > 0 ? `${link.docsVisited}/${link.totalDocs}` : `${link.docsVisited}`
 
+              const showConfirm = async (
+                title: string,
+                description: string,
+                onConfirm: () => Promise<void> | void
+              ) => {
+                if (typeof window === 'undefined') return
+
+                const confirmed = window.confirm(`${title}\n\n${description}`)
+                if (!confirmed) return
+
+                try {
+                  await Promise.resolve(onConfirm())
+                } catch (error) {
+                  console.error('Confirmation action failed', error)
+                }
+              }
+
               return (
                 <div key={link.shareLink} className="border rounded-xl bg-white overflow-hidden">
                   {/* Row */}
@@ -955,20 +972,25 @@ const shareLinks = data.shareLinks ?? []   // ← safe fallback
                             <Copy className="h-3 w-3" /> Copy link
                           </button>
                           <button
-                            onClick={async (e) => {
-                              e.stopPropagation()
-                              if (!confirm('Disable this link?')) return
-                              try {
-                                const res = await fetch(`/api/spaces/${spaceId}/public-access`, {
-                                  method: 'PATCH', credentials: 'include',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ shareLink: link.shareLink, updates: { enabled: false } })
-                                })
-                                const data = await res.json()
-                                if (data.success) { toast.success('Link disabled'); fetchAnalytics() }
-                                else toast.error(data.error || 'Failed')
-                              } catch { toast.error('Failed') }
-                            }}
+                           onClick={(e) => {
+  e.stopPropagation()
+  showConfirm(
+    'Disable Link',
+    'This link will no longer work for visitors. Continue?',
+    async () => {
+      try {
+        const res = await fetch(`/api/spaces/${spaceId}/public-access`, {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shareLink: link.shareLink, updates: { enabled: false } })
+        })
+        const data = await res.json()
+        if (data.success) { toast.success('Link disabled'); fetchAnalytics() }
+        else toast.error(data.error || 'Failed')
+      } catch { toast.error('Failed') }
+    }
+  )
+}}
                             disabled={link.enabled === false}
                             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition-colors ${
                               link.enabled === false
@@ -1485,6 +1507,8 @@ const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false)
 const [newFolderName, setNewFolderName] = useState("")
 const [creatingFolder, setCreatingFolder] = useState(false)
 const [isSearching, setIsSearching] = useState(false)
+const [showExpiryDialog, setShowExpiryDialog] = useState(false)
+const [expiryDateInput, setExpiryDateInput] = useState('')
 const [searchResults, setSearchResults] = useState<DocumentType[]>([])
 const [showRenameDialog, setShowRenameDialog] = useState(false)
 const [showMoveDialog, setShowMoveDialog] = useState(false)
@@ -1516,8 +1540,6 @@ const ndaFileInputRef = useRef<HTMLInputElement>(null)
 const [showSignaturesDrawer, setShowSignaturesDrawer] = useState(false)
 const [showSettingsDrawer, setShowSettingsDrawer] = useState(false)
 const [searchFolderResults, setSearchFolderResults] = useState<FolderType[]>([])
-const [renameFolderDialog, setRenameFolderDialog] = useState<{open: boolean, folder: FolderType | null}>({open: false, folder: null})
-const [renameFolderName, setRenameFolderName] = useState('')
 const [bulkInviteResults, setBulkInviteResults] = useState<{
   success: string[]
   failed: { email: string; reason: string }[]
@@ -1636,7 +1658,11 @@ const [confirmDialog, setConfirmDialog] = useState<{
   onConfirm: () => void
   variant?: 'default' | 'destructive'
 } | null>(null)
-
+const [duplicateDialog, setDuplicateDialog] = useState(false)
+const [duplicateName, setDuplicateName] = useState('')
+const [renameFolderDialog, setRenameFolderDialog] = useState(false)
+const [renameFolderTarget, setRenameFolderTarget] = useState<FolderType | null>(null)
+const [renameFolderName, setRenameFolderName] = useState('')
 
 
 useEffect(() => {
@@ -2135,7 +2161,7 @@ const handleGrantFolderPermission = async () => {
 //   Revoke folder permission
 const handleRevokeFolderPermission = async (email: string) => {
   if (!selectedFolderForPermissions) return
-  if (!confirm(`Revoke access from ${email}?`)) return
+   
 
   try {
     const res = await fetch(
@@ -3187,28 +3213,13 @@ const fetchFolders = async () => {
                 <Settings className="mr-2 h-4 w-4" />
                 Space Settings
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={async () => {
-                const newName = prompt('Name for the duplicated space:', `${space?.name} (Copy)`)
-                if (!newName) return
-                const toastId = toast.loading('Duplicating space...')
-                try {
-                  const res = await fetch(`/api/spaces/${params.id}/duplicate`, {
-                    method: 'POST', credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: newName.trim() })
-                  })
-                  const data = await res.json()
-                  if (data.success) {
-                    toast.success(`Duplicated! ${data.summary.folders} folders, ${data.summary.documents} docs copied.`, { id: toastId })
-                    router.push(`/spaces/${data.newSpaceId}`)
-                  } else {
-                    toast.error(data.error || 'Duplication failed', { id: toastId })
-                  }
-                } catch { toast.error('Duplication failed', { id: toastId }) }
-              }}>
-                <Copy className="mr-2 h-4 w-4" />
-                Duplicate Space
-              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+  setDuplicateName(`${space?.name} (Copy)`)
+  setDuplicateDialog(true)
+}}>
+  <Copy className="mr-2 h-4 w-4" />
+  Duplicate Space
+</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-red-600">
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -3869,22 +3880,12 @@ const fetchFolders = async () => {
 
       {canEdit && (
   <DropdownMenuItem onClick={() => {
-    const current = doc.expiresAt ? new Date(doc.expiresAt).toISOString().split('T')[0] : ''
-    const dateInput = prompt('Set expiry date (YYYY-MM-DD), or leave blank to remove:', current)
-    if (dateInput === null) return // cancelled
-    fetch(`/api/spaces/${params.id}/documents/${doc.id}/expiry`, {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ expiresAt: dateInput || null })
-    }).then(r => r.json()).then(data => {
-      if (data.success) { toast.success(data.message); }
-      else toast.error(data.error || 'Failed to set expiry')
-    })
-  }}>
-    <Clock className="mr-2 h-4 w-4" />
-    {doc.expiresAt ? 'Change Expiry' : 'Set Expiry'}
-  </DropdownMenuItem>
+  setSelectedFile(doc)
+  setShowExpiryDialog(true)
+}}>
+  <Clock className="mr-2 h-4 w-4" />
+  {doc.expiresAt ? 'Change Expiry' : 'Set Expiry'}
+</DropdownMenuItem>
 )}
       <DropdownMenuItem onClick={() => {
         setSelectedFile(doc)
@@ -4405,16 +4406,9 @@ const fetchFolders = async () => {
 
               <DropdownMenuItem onClick={(e) => {
                 e.stopPropagation()
-                const newName = prompt(`Rename "${folder.name}" to:`, folder.name)
-                if (!newName || newName.trim() === folder.name) return
-                fetch(`/api/spaces/${params.id}/folders/${folder.id}`, {
-                  method: 'PATCH', credentials: 'include',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ name: newName.trim() })
-                }).then(r => r.json()).then(data => {
-                  if (data.success) { toast.success(`Renamed to "${newName.trim()}"`); fetchFolders() }
-                  else toast.error(data.error || 'Rename failed')
-                })
+               setRenameFolderTarget(folder)
+setRenameFolderName(folder.name)
+setRenameFolderDialog(true)
               }}>
                 <Edit className="mr-2 h-4 w-4" />Rename
               </DropdownMenuItem>
@@ -4565,16 +4559,9 @@ const fetchFolders = async () => {
 
                     <DropdownMenuItem onClick={(e) => {
                       e.stopPropagation()
-                      const newName = prompt(`Rename "${folder.name}" to:`, folder.name)
-                      if (!newName || newName.trim() === folder.name) return
-                      fetch(`/api/spaces/${params.id}/folders/${folder.id}`, {
-                        method: 'PATCH', credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: newName.trim() })
-                      }).then(r => r.json()).then(data => {
-                        if (data.success) { toast.success(`Renamed to "${newName.trim()}"`); fetchFolders() }
-                        else toast.error(data.error || 'Rename failed')
-                      })
+                      setRenameFolderTarget(folder)
+setRenameFolderName(folder.name)
+setRenameFolderDialog(true)
                     }}>
                       <Edit className="mr-2 h-4 w-4" />Rename
                     </DropdownMenuItem>
@@ -5008,17 +4995,22 @@ const fetchFolders = async () => {
                     )}
                     <DropdownMenuItem
                       className="text-red-600"
-                      onClick={async () => {
-                        if (!confirm(`Remove ${contact.email}?`)) return
-                        try {
-                          const res = await fetch(`/api/spaces/${params.id}/members/${contact.email}`, {
-                            method: 'DELETE', credentials: 'include'
-                          })
-                          const data = await res.json()
-                          if (data.success) { toast.success('Member removed'); fetchContacts() }
-                          else toast.error(data.error || 'Failed to remove')
-                        } catch { toast.error('Failed to remove member') }
-                      }}
+                      onClick={() => {
+  showConfirm(
+    'Remove Member',
+    `Remove ${contact.email} from this space?`,
+    async () => {
+      try {
+        const res = await fetch(`/api/spaces/${params.id}/members/${contact.email}`, {
+          method: 'DELETE', credentials: 'include'
+        })
+        const data = await res.json()
+        if (data.success) { toast.success('Member removed'); fetchContacts() }
+        else toast.error(data.error || 'Failed to remove')
+      } catch { toast.error('Failed to remove member') }
+    }
+  )
+}}
                     >
                       <Trash2 className="mr-2 h-3.5 w-3.5" />
                       Remove
@@ -5994,26 +5986,25 @@ const fetchFolders = async () => {
               <Button
   variant="outline"
   className="border-red-300 text-red-700 hover:bg-red-100"
-  onClick={async () => {
-    if (!confirm(`Archive "${space?.name}"? It will be hidden from your active spaces but not deleted.`)) return
-    try {
-      const res = await fetch(`/api/spaces/${params.id}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ archived: true })
-      })
-      const data = await res.json()
-      if (data.success) {
-        toast.success('Space archived')
-        router.push('/spaces')
-      } else {
-        toast.error(data.error || 'Failed to archive space')
-      }
-    } catch {
-      toast.error('Failed to archive space')
-    }
-  }}
+  onClick={() => {
+  showConfirm(
+    'Archive Space',
+    `Archive "${space?.name}"? It will be hidden from your active spaces but not deleted.`,
+    async () => {
+      try {
+        const res = await fetch(`/api/spaces/${params.id}`, {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ archived: true })
+        })
+        const data = await res.json()
+        if (data.success) { toast.success('Space archived'); router.push('/spaces') }
+        else toast.error(data.error || 'Failed to archive space')
+      } catch { toast.error('Failed to archive space') }
+    },
+    'default'
+  )
+}}
 >
   <Archive className="h-4 w-4 mr-2" />
   Archive Space
@@ -6036,31 +6027,22 @@ const fetchFolders = async () => {
               <Button
   variant="destructive"
   className="bg-red-600 hover:bg-red-700"
-  onClick={async () => {
-    const confirmed = confirm(
-      `Permanently delete "${space?.name}"?\n\nThis will delete all ${documents.length} documents and cannot be undone.`
-    )
-    if (!confirmed) return
-
-    const doubleConfirmed = confirm(`Are you absolutely sure? Type OK to confirm deletion.`)
-    if (!doubleConfirmed) return
-
-    try {
-      const res = await fetch(`/api/spaces/${params.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      })
-      const data = await res.json()
-      if (data.success) {
-        toast.success('Space permanently deleted')
-        router.push('/spaces')
-      } else {
-        toast.error(data.error || 'Failed to delete space')
-      }
-    } catch {
-      toast.error('Failed to delete space')
+  onClick={() => {
+  showConfirm(
+    'Delete Space Permanently',
+    `This will permanently delete "${space?.name}" and all ${documents.length} documents. This cannot be undone.`,
+    async () => {
+      try {
+        const res = await fetch(`/api/spaces/${params.id}`, {
+          method: 'DELETE', credentials: 'include'
+        })
+        const data = await res.json()
+        if (data.success) { toast.success('Space permanently deleted'); router.push('/spaces') }
+        else toast.error(data.error || 'Failed to delete space')
+      } catch { toast.error('Failed to delete space') }
     }
-  }}
+  )
+}}
 >
   <Trash2 className="h-4 w-4 mr-2" />
   Delete Space Permanently
@@ -6138,11 +6120,10 @@ const fetchFolders = async () => {
       <Button 
         className="bg-blue-600 hover:bg-blue-700"
         onClick={() => {
-          // TODO: Implement send for signature
-          console.log('Send for signature:', selectedFile)
-          alert('E-signature feature coming soon!')
-          setShowSignatureDialog(false)
-        }}
+  console.log('Send for signature:', selectedFile)
+  toast.info('E-signature feature coming soon!')
+  setShowSignatureDialog(false)
+}}
       >
         Send for Signature
       </Button>
@@ -6308,7 +6289,13 @@ const fetchFolders = async () => {
                     </div>
 
                     <button
-                      onClick={() => handleRevokeFolderPermission(permission.grantedTo)}
+                      onClick={() => {
+  showConfirm(
+    'Revoke Access',
+    `Remove folder access for ${permission.grantedTo}?`,
+    () => handleRevokeFolderPermission(permission.grantedTo)
+  )
+}}
                       className="h-9 w-9 rounded-lg hover:bg-red-50 flex items-center justify-center transition-all text-slate-400 hover:text-red-500 flex-shrink-0"
                       title="Revoke access"
                     >
@@ -7113,7 +7100,7 @@ const fetchFolders = async () => {
                             onClick={() => {
                               const details = `Signer: ${signature.email}\nSigned At: ${new Date(signature.signedAt).toLocaleString()}\nIP Address: ${signature.ipAddress}\nUser Agent: ${signature.userAgent || 'N/A'}`;
                               navigator.clipboard.writeText(details);
-                              alert('✅ Signature details copied!');
+                               toast.success('Signature details copied!')
                             }}
                           >
                             <Copy className="mr-2 h-4 w-4" />
@@ -7631,6 +7618,170 @@ const fetchFolders = async () => {
   docId={pdfDrawerDocId}
 />
 
+{/* Duplicate Space Dialog */}
+<Dialog open={duplicateDialog} onOpenChange={setDuplicateDialog}>
+  <DialogContent className="max-w-sm bg-white">
+    <DialogHeader>
+      <DialogTitle>Duplicate Space</DialogTitle>
+      <DialogDescription>Enter a name for the duplicated space</DialogDescription>
+    </DialogHeader>
+    <Input
+      value={duplicateName}
+      onChange={e => setDuplicateName(e.target.value)}
+      placeholder="Space name..."
+      className="my-4"
+      autoFocus
+    />
+    <div className="flex gap-2 justify-end">
+      <Button variant="outline" onClick={() => setDuplicateDialog(false)}>
+        Cancel
+      </Button>
+      <Button
+        className="bg-slate-900 text-white hover:bg-slate-800"
+        disabled={!duplicateName.trim()}
+        onClick={async () => {
+          if (!duplicateName.trim()) return
+          setDuplicateDialog(false)
+          const toastId = toast.loading('Duplicating space...')
+          try {
+            const res = await fetch(`/api/spaces/${params.id}/duplicate`, {
+              method: 'POST', credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: duplicateName.trim() })
+            })
+            const data = await res.json()
+            if (data.success) {
+              toast.success(`Duplicated! ${data.summary.folders} folders, ${data.summary.documents} docs copied.`, { id: toastId })
+              router.push(`/spaces/${data.newSpaceId}`)
+            } else {
+              toast.error(data.error || 'Duplication failed', { id: toastId })
+            }
+          } catch { toast.error('Duplication failed', { id: toastId }) }
+        }}
+      >
+        Duplicate
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+{/* Rename Folder Dialog */}
+<Dialog open={renameFolderDialog} onOpenChange={setRenameFolderDialog}>
+  <DialogContent className="max-w-sm bg-white">
+    <DialogHeader>
+      <DialogTitle>Rename Folder</DialogTitle>
+      <DialogDescription>
+        Enter a new name for "{renameFolderTarget?.name}"
+      </DialogDescription>
+    </DialogHeader>
+    <Input
+      value={renameFolderName}
+      onChange={e => setRenameFolderName(e.target.value)}
+      placeholder="Folder name..."
+      className="my-4"
+      autoFocus
+      onKeyDown={async (e) => {
+        if (e.key === 'Enter' && renameFolderName.trim() && renameFolderTarget) {
+          setRenameFolderDialog(false)
+          const res = await fetch(`/api/spaces/${params.id}/folders/${renameFolderTarget.id}`, {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: renameFolderName.trim() })
+          })
+          const data = await res.json()
+          if (data.success) { toast.success(`Renamed to "${renameFolderName.trim()}"`); fetchFolders() }
+          else toast.error(data.error || 'Rename failed')
+        }
+      }}
+    />
+    <div className="flex gap-2 justify-end">
+      <Button variant="outline" onClick={() => setRenameFolderDialog(false)}>
+        Cancel
+      </Button>
+      <Button
+        className="bg-slate-900 text-white hover:bg-slate-800"
+        disabled={!renameFolderName.trim()}
+        onClick={async () => {
+          if (!renameFolderName.trim() || !renameFolderTarget) return
+          setRenameFolderDialog(false)
+          const res = await fetch(`/api/spaces/${params.id}/folders/${renameFolderTarget.id}`, {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: renameFolderName.trim() })
+          })
+          const data = await res.json()
+          if (data.success) { toast.success(`Renamed to "${renameFolderName.trim()}"`); fetchFolders() }
+          else toast.error(data.error || 'Rename failed')
+        }}
+      >
+        Rename
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
+<Dialog open={showExpiryDialog} onOpenChange={setShowExpiryDialog}>
+  <DialogContent className="max-w-sm bg-white">
+    <DialogHeader>
+      <DialogTitle>Set Document Expiry</DialogTitle>
+      <DialogDescription>
+        Set an expiry date for "{selectedFile?.name}" or leave blank to remove.
+      </DialogDescription>
+    </DialogHeader>
+    <Input
+      type="date"
+      value={expiryDateInput}
+      onChange={e => setExpiryDateInput(e.target.value)}
+      className="my-4"
+      autoFocus
+    />
+    <div className="flex gap-2 justify-end">
+      <Button variant="outline" onClick={() => {
+        setShowExpiryDialog(false)
+        setExpiryDateInput('')
+      }}>
+        Cancel
+      </Button>
+      <Button
+        variant="outline"
+        className="text-red-600 border-red-200"
+        onClick={async () => {
+          if (!selectedFile) return
+          setShowExpiryDialog(false)
+          const res = await fetch(`/api/spaces/${params.id}/documents/${selectedFile.id}/expiry`, {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ expiresAt: null })
+          })
+          const data = await res.json()
+          if (data.success) toast.success(data.message)
+          else toast.error(data.error || 'Failed')
+          setExpiryDateInput('')
+        }}
+      >
+        Remove Expiry
+      </Button>
+      <Button
+        className="bg-slate-900 text-white hover:bg-slate-800"
+        onClick={async () => {
+          if (!selectedFile) return
+          setShowExpiryDialog(false)
+          const res = await fetch(`/api/spaces/${params.id}/documents/${selectedFile.id}/expiry`, {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ expiresAt: expiryDateInput || null })
+          })
+          const data = await res.json()
+          if (data.success) toast.success(data.message)
+          else toast.error(data.error || 'Failed')
+          setExpiryDateInput('')
+        }}
+      >
+        Set Expiry
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   )
 }
