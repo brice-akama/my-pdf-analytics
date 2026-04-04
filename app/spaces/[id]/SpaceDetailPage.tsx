@@ -3096,9 +3096,13 @@ const fetchFolders = async () => {
           placeholder="Search documents..."
           value={searchQuery}
           onChange={(e) => {
-            setSearchQuery(e.target.value)
-            handleSearch(e.target.value)
-          }}
+  setSearchQuery(e.target.value)
+  handleSearch(e.target.value)
+  if (e.target.value.trim()) {
+    setActiveTab('home')
+    setSelectedFolder(null)
+  }
+}}
           className="pl-10 w-64"
         />
       </div>
