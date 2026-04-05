@@ -48,7 +48,7 @@ export function Footer() {
             {/* Social Links */}
             <div className="flex gap-4">
               <a 
-                href="https://twitter.com" 
+               href="https://x.com/DocMetricsIO"
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-gray-600 transition-colors hover:bg-gray-300 hover:text-gray-900"
@@ -57,7 +57,7 @@ export function Footer() {
                 <Twitter className="h-4 w-4" />
               </a>
               <a 
-                href="https://linkedin.com" 
+                  href="https://www.linkedin.com/in/brice-akama-87428b401/"
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-gray-600 transition-colors hover:bg-gray-300 hover:text-gray-900"
