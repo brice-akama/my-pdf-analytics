@@ -650,6 +650,7 @@ export default function SpaceDetailPage() {
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'folders' | 'list'>('folders')
   const [searchQuery, setSearchQuery] = useState("")
+  const [spaceName, setSpaceName] = useState(space?.name || '')
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'size' | 'views'>('date')
 const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -3828,10 +3829,11 @@ const fetchFolders = async () => {
             <div>
               <Label className="text-sm font-medium text-slate-700">Space Name</Label>
               <Input
-                defaultValue={space?.name}
-                placeholder="Enter space name"
-                className="mt-2"
-              />
+  value={spaceName}
+  onChange={(e) => setSpaceName(e.target.value)}
+  placeholder="Enter space name"
+  className="mt-2"
+/>
             </div>
 
             <div>
@@ -3857,9 +3859,22 @@ const fetchFolders = async () => {
               </div>
             </div>
 
-            <Button className="bg-purple-600 hover:bg-purple-700">
-              Save Changes
-            </Button>
+            <Button 
+  onClick={async () => {
+    const res = await fetch(`/api/spaces/${params.id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: spaceName.trim() })
+    })
+    const data = await res.json()
+    if (data.success) { toast.success('Space name updated'); fetchSpace() }
+    else toast.error(data.error || 'Failed to update')
+  }}
+  className="bg-purple-600 hover:bg-purple-700"
+>
+  Save Changes
+</Button>
           </div>
         </TabsContent>
 

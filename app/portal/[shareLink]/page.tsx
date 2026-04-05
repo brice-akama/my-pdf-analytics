@@ -233,10 +233,7 @@ function DocViewerDrawer({ doc, onClose, shareLink, enableWatermark, allowDownlo
         Download
       </button>
     )}
-    <a href={doc.cloudinaryPdfUrl} target="_blank" rel="noopener noreferrer"
-      className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-400 bg-white transition-all">
-      <ExternalLink className="h-3.5 w-3.5" /> Open in tab
-    </a>
+    
   </div>
 </div>
             {/* PDF area — watermark ONLY lives here */}
