@@ -128,26 +128,31 @@ export async function POST(
     // ══════════════════════════════════════════════════════════════════════
 // WHITELIST CHECK — before sending OTP
 // ══════════════════════════════════════════════════════════════════════
-const spaces = db.collection('spaces')
-const spaceAccess = db.collection('spacePublicAccess')
+const space = await db.collection('spaces').findOne({
+  'publicAccess.shareLink': shareLink
+})
 
-const accessRecord = await spaceAccess.findOne({ shareLink })
+if (space) {
+  const accessRecord = (space.publicAccess as any[]).find(
+    (a: any) => a.shareLink === shareLink
+  )
 
-if (accessRecord && accessRecord.securityLevel === 'whitelist') {
-  const normalizedEmail = email.toLowerCase().trim()
-  const emailDomain = normalizedEmail.split('@')[1]
+  if (accessRecord && accessRecord.securityLevel === 'whitelist') {
+    const normalizedEmail = email.toLowerCase().trim()
+    const emailDomain = normalizedEmail.split('@')[1]
 
-  const allowedEmails  = (accessRecord.allowedEmails  || []).map((e: string) => e.toLowerCase())
-  const allowedDomains = (accessRecord.allowedDomains || []).map((d: string) => d.toLowerCase())
+    const allowedEmails  = (accessRecord.allowedEmails  || []).map((e: string) => e.toLowerCase())
+    const allowedDomains = (accessRecord.allowedDomains || []).map((d: string) => d.toLowerCase())
 
-  const emailAllowed  = allowedEmails.includes(normalizedEmail)
-  const domainAllowed = allowedDomains.includes(emailDomain)
+    const emailAllowed  = allowedEmails.includes(normalizedEmail)
+    const domainAllowed = allowedDomains.includes(emailDomain)
 
-  if (!emailAllowed && !domainAllowed) {
-    return NextResponse.json(
-      { error: 'This email is not authorized to access this document.' },
-      { status: 403 }
-    )
+    if (!emailAllowed && !domainAllowed) {
+      return NextResponse.json(
+        { error: 'This email is not authorized to access this document.' },
+        { status: 403 }
+      )
+    }
   }
 }
 
