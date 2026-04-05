@@ -2890,42 +2890,7 @@ const fetchFolders = async () => {
         {/* Recent Documents */}
         <div>
           
-         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <h2 className="text-lg font-semibold text-slate-900">Recent Documents</h2>
-            <div className="flex flex-wrap gap-2">
-              {canShareSpace && (
-                <Button
-                  onClick={handleShareWithClient}
-                  variant="outline"
-                  className="gap-2 bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200 hover:text-sky-800 hover:border-sky-400 flex-1 sm:flex-none justify-center"
-                >
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
-              )}
-              <Button
-                variant={showUnfiledOnly ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setShowUnfiledOnly(!showUnfiledOnly);
-                  setSelectedFolder(null);
-                }}
-                className="gap-2 flex-1 sm:flex-none justify-center"
-              >
-                <FileText className="h-4 w-4" />
-                {showUnfiledOnly ? 'Show All' : 'Unfiled Only'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveTab('folders')}
-                className="gap-2 flex-1 sm:flex-none justify-center"
-              >
-                <Folder className="h-4 w-4" />
-                View All Folders
-              </Button>
-            </div>
-          </div>
+          
           
           <DocumentsTable
   spaceId={params.id as string}
