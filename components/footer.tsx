@@ -214,6 +214,11 @@ export function Footer() {
               <Link href="/cookies" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
                 Cookies
               </Link>
+              <li>
+                <Link href="/refund" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                  Refund Policy
+                </Link>
+              </li>
               
             </div>
           </div>
