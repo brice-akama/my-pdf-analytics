@@ -288,7 +288,7 @@ export async function POST(request: NextRequest) {
     // ── Step 7: Extract the checkout URL and return it ──────────────────────
     // Paddle returns the checkout URL in data.url.
     // The frontend will redirect to this URL immediately.
-    const checkoutUrl = paddleData?.data?.url
+     const checkoutUrl = paddleData?.data?.checkout?.url
 
     if (!checkoutUrl) {
       console.error('❌ Paddle response missing checkout URL:', JSON.stringify(paddleData, null, 2))
