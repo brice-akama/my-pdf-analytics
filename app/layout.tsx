@@ -5,6 +5,8 @@ import BackToTop from "@/components/BackToTop";
 import CookieConsent from "@/components/cookies";
 import { Toaster } from 'sonner'
 import { PublicLayout } from "@/components/public-layout"
+import PaddleInit from "@/components/PaddleInit";
+ 
 
 const inter = Inter({
   variable: "--font-sans",
@@ -38,15 +40,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable}>
+      <head>
+        {/* Paddle.js — loads the checkout form when _ptxn is in the URL */}
+        <script src="https://cdn.paddle.com/paddle/v2/paddle.js" async />
+      </head>
       <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}>
-        {/*
-          PublicLayout checks the current path:
-          - /dashboard and all sub-routes → Navbar & Footer hidden
-          - all other pages → Navbar & Footer shown normally
-        */}
         <PublicLayout>
           {children}
         </PublicLayout>
+        <PaddleInit />
         <Toaster
           position="top-right"
           richColors
