@@ -289,7 +289,7 @@ export default function TopNav({
               <div className="px-2 py-2">
                 <Button
                   onClick={() => router.push("/plan")}
-                  className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-slate-900 font-semibold"
+                  className="w-full bg-sky-blue-600 hover:bg-sky-blue-700 text-slate-900 font-semibold"
                 >
                   <Sparkles className="mr-1 h-4 w-4" />
                   Upgrade

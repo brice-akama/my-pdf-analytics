@@ -8,9 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get('token')?.value;
 
-    console.log('🔍 Auth verify called');
-    console.log('🍪 Token exists:', !!token);
-    console.log('🍪 All cookies:', request.cookies.getAll().map(c => c.name));
+   
 
     if (!token) {
       console.log('❌ No token found in cookies');
