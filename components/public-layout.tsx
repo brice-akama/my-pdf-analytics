@@ -10,6 +10,7 @@ const HIDDEN_ROUTES = [
   "/login",
   "/signup",
   "/documents-page",
+  "/upgrade/success",
   "/sign",
   "/signed",
   "/accept-invitation",

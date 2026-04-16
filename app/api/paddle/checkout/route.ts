@@ -230,6 +230,8 @@ const successUrl = `${appUrl}/upgrade/success?plan=${planId}&cycle=${billingCycl
       checkout: {
   url: successUrl,
 },
+return_url: successUrl,
+cancel_url: cancelUrl,
     }
 
     // If the user has an existing Paddle customer ID (returning customer),
