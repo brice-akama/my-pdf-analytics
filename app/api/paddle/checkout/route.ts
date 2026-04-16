@@ -227,8 +227,9 @@ export async function POST(request: NextRequest) {
         planId: planId,
         billingCycle: billingCycle,
       },
-      success_url: successUrl,
-      cancel_url: cancelUrl,
+      checkout: {
+  url: successUrl,
+},
     }
 
     // If the user has an existing Paddle customer ID (returning customer),
