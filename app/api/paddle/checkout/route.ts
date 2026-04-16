@@ -302,7 +302,7 @@ cancel_url: cancelUrl,
     }
 
     console.log(`✅ Paddle checkout created for ${user.email}, plan: ${planId}:${billingCycle}`)
-
+    console.log('✅ Checkout URL being returned to frontend:', checkoutUrl)
     return NextResponse.json({
       success: true,
       checkoutUrl,
