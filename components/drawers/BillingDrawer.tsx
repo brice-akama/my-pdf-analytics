@@ -1,354 +1,372 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { motion, AnimatePresence } from "framer-motion"
-import {
-  CreditCard,
-  CheckCircle,
-  Download,
-  Settings,
-  Sparkles,
-  BarChart3,
-  FileText,
-  X,
-} from "lucide-react"
+// components/drawers/BillingDrawer.tsx
+//
+// WHAT THIS FILE DOES:
+//   The billing drawer accessible from the dashboard top nav and mobile profile.
+//   Shows the user their current plan, subscription status, storage usage,
+//   trial countdown, and a link to manage their subscription via Paddle's
+//   billing portal.
+//
+// PHASE 5 CHANGES — what was updated and why:
+//
+//   Before Phase 5, this drawer received a `user` prop and read plan from
+//   user.profile.plan or user.plan — both stale paths that did not reflect
+//   what the webhook wrote. It showed hardcoded plan features and no real
+//   subscription lifecycle information.
+//
+//   Now it:
+//     1. Calls getUserBilling() on open to get fresh billing data
+//        (with cache: 'no-store' so it always reflects the latest webhook update)
+//     2. Shows the real plan name, status, billing cycle, and period end date
+//     3. Shows a trial countdown with days remaining
+//     4. Shows a storage progress bar with real usage vs plan limit
+//     5. Shows a "Manage billing" link to Paddle's hosted billing portal
+//        where users can update their card, view invoices, or cancel
+//     6. Shows contextual banners for canceled, past_due, and trial states
+//
+//   The `user` and `documents` props are kept for backwards compatibility
+//   with the dashboard page that passes them, but billing data now comes
+//   from its own fresh fetch rather than from those props.
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { X, CreditCard, CheckCircle, AlertCircle, Clock, ExternalLink, TrendingUp } from 'lucide-react'
+import { getUserBilling, type UserBilling } from '@/lib/getUserBilling'
+import { getPlanLimits } from '@/lib/planLimits'
 
-type UserType = {
-  email: string
-  first_name: string
-  last_name: string
-  company_name: string
-  profile_image: string | null
-  plan?: string
-}
-
-type DocumentType = {
-  _id: string
-  filename: string
-  size: number
-  numPages: number
-  createdAt: string
-}
-
-type Props = {
+// ─────────────────────────────────────────────────────────────────────────────
+// PROPS
+// ─────────────────────────────────────────────────────────────────────────────
+interface BillingDrawerProps {
   open: boolean
   onClose: () => void
-  user: UserType | null
-  documents: DocumentType[]
+  user: any         // kept for backwards compatibility — name/email display
+  documents: any[]  // kept for backwards compatibility — document count display
   onUpgrade: () => void
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 MB'
+  const gb = bytes / (1024 * 1024 * 1024)
+  if (gb >= 1) return `${gb.toFixed(1)} GB`
+  const mb = bytes / (1024 * 1024)
+  return `${Math.round(mb)} MB`
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+//   plan names and prices for display
+const PLAN_INFO: Record<string, { label: string; monthlyPrice: string; yearlyPrice: string; color: string }> = {
+  free:     { label: 'Free',     monthlyPrice: '$0',  yearlyPrice: '$0',  color: 'text-slate-600' },
+  starter:  { label: 'Starter',  monthlyPrice: '$19', yearlyPrice: '$15', color: 'text-blue-600' },
+  pro:      { label: 'Pro',      monthlyPrice: '$49', yearlyPrice: '$39', color: 'text-indigo-600' },
+  business: { label: 'Business', monthlyPrice: '$99', yearlyPrice: '$79', color: 'text-purple-600' },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 export default function BillingDrawer({
   open,
   onClose,
   user,
   documents,
   onUpgrade,
-}: Props) {
-  const isFreePlan = !user?.plan || user?.plan?.toLowerCase() === "free"
+}: BillingDrawerProps) {
+  const router = useRouter()
+
+  const [billing, setBilling] = useState<UserBilling | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  // ── Fetch fresh billing data every time the drawer opens ─────────────────
+  // We refetch on every open (not just on mount) so the drawer always shows
+  // the current state after a recent payment or cancellation.
+  useEffect(() => {
+    if (!open) return
+    setLoading(true)
+    getUserBilling()
+      .then(setBilling)
+      .finally(() => setLoading(false))
+  }, [open])
+
+  if (!open) return null
+
+  const plan = billing?.plan || 'free'
+  const planInfo = PLAN_INFO[plan] || PLAN_INFO.free
+  const limits = getPlanLimits(plan)
+  const status = billing?.subscriptionStatus || 'inactive'
+
+  // Storage from the user object — totalStorageUsedBytes is on the user doc
+  // We read it from the user prop since checkAccess/me already computed it
+  const storageUsed = user?.stats?.storageUsedBytes || 0
+  const storageLimit = limits.storageLimitBytes
+  const storagePercent = Math.min(100, Math.round((storageUsed / storageLimit) * 100))
+
+  // Price to show based on billing cycle
+  const priceDisplay = billing?.billingCycle === 'yearly'
+    ? `${planInfo.yearlyPrice}/mo (billed yearly)`
+    : `${planInfo.monthlyPrice}/mo`
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/10 backdrop-blur-sm z-50"
-          />
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50"
+        onClick={onClose}
+      />
 
-          {/* Drawer */}
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 bottom-0 w-full sm:w-[600px] lg:w-[800px] bg-white shadow-2xl z-50 flex flex-col"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">
-                  Billing & Subscription
-                </h2>
-                <p className="text-sm text-slate-600 mt-1">
-                  {isFreePlan
-                    ? "Upgrade to unlock premium features"
-                    : "Manage your subscription and billing"}
-                </p>
-              </div>
-              <button
-                onClick={onClose}
-                className="h-10 w-10 rounded-full hover:bg-white/80 transition-colors flex items-center justify-center"
-              >
-                <X className="h-5 w-5 text-slate-600" />
-              </button>
+      {/* Drawer */}
+      <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[480px] bg-white shadow-2xl z-50 flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-indigo-100 flex items-center justify-center">
+              <CreditCard className="h-5 w-5 text-indigo-600" />
             </div>
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Billing</h2>
+              <p className="text-xs text-slate-500">Manage your subscription</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors"
+          >
+            <X className="h-4 w-4 text-slate-500" />
+          </button>
+        </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {isFreePlan ? (
-                /* ── Free Plan View ────────────────────────────────────── */
-                <div className="space-y-6 max-w-3xl">
-                  <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-8 border-2 border-slate-200 text-center">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-200 mb-4">
-                      <FileText className="h-8 w-8 text-slate-600" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-slate-900 mb-2">
-                      You're on the Free Plan
-                    </h3>
-                    <p className="text-slate-600 mb-6 max-w-md mx-auto">
-                      Upgrade to unlock unlimited documents, advanced analytics,
-                      team collaboration, and more!
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+          {loading ? (
+            // Loading skeleton
+            <div className="space-y-4 animate-pulse">
+              <div className="h-24 bg-slate-100 rounded-xl" />
+              <div className="h-16 bg-slate-100 rounded-xl" />
+              <div className="h-20 bg-slate-100 rounded-xl" />
+            </div>
+          ) : (
+            <>
+              {/* ── Status banner ────────────────────────────────────────── */}
+              {billing?.isTrialActive && (
+                <div className="flex items-start gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
+                  <Clock className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-blue-800">
+                      Free trial — {billing.trialDaysRemaining} days remaining
                     </p>
-
-                    {/* Missing features */}
-                    <div className="bg-white rounded-lg p-4 mb-6 border border-slate-200">
-                      <p className="text-sm font-semibold text-slate-900 mb-3">
-                        What you're missing:
-                      </p>
-                      <div className="grid md:grid-cols-2 gap-3 text-left">
-                        {[
-                          "Unlimited documents",
-                          "Advanced analytics",
-                          "Team collaboration",
-                          "Custom branding",
-                        ].map((feature) => (
-                          <div key={feature} className="flex items-start gap-2">
-                            <div className="h-5 w-5 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <X className="h-3 w-3 text-purple-600" />
-                            </div>
-                            <span className="text-sm text-slate-600">
-                              {feature}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={() => { onClose(); onUpgrade() }}
-                      size="lg"
-                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 w-full sm:w-auto px-8"
-                    >
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Compare Plans
-                    </Button>
-                  </div>
-
-                  {/* Current Usage */}
-                  <div className="bg-white rounded-lg border-2 p-6">
-                    <h4 className="font-semibold text-slate-900 mb-4">
-                      Current Usage
-                    </h4>
-                    <div className="grid grid-cols-3 gap-4">
-                      {/* Documents */}
-                      <div>
-                        <p className="text-sm text-slate-600 mb-1">Documents</p>
-                        <div className="flex items-baseline gap-1">
-                          <p className="text-2xl font-bold text-slate-900">
-                            {documents.length}
-                          </p>
-                          <p className="text-sm text-slate-500">/ 5</p>
-                        </div>
-                        <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"
-                            style={{
-                              width: `${Math.min((documents.length / 5) * 100, 100)}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                      {/* eSignatures */}
-                      <div>
-                        <p className="text-sm text-slate-600 mb-1">eSignatures</p>
-                        <div className="flex items-baseline gap-1">
-                          <p className="text-2xl font-bold text-slate-900">0</p>
-                          <p className="text-sm text-slate-500">/ 4</p>
-                        </div>
-                        <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full w-0" />
-                        </div>
-                      </div>
-                      {/* Team Members */}
-                      <div>
-                        <p className="text-sm text-slate-600 mb-1">Team Members</p>
-                        <div className="flex items-baseline gap-1">
-                          <p className="text-2xl font-bold text-slate-900">1</p>
-                          <p className="text-sm text-slate-500">/ 1</p>
-                        </div>
-                        <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full w-full" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* ── Paid Plan View ────────────────────────────────────── */
-                <div className="space-y-6 max-w-3xl">
-                  {/* Active Subscription */}
-                  <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border-2 border-purple-200">
-                    <div className="flex items-start justify-between mb-6">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-2xl font-bold text-slate-900">
-                            {user?.plan} Plan
-                          </h3>
-                          <span className="bg-green-500 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
-                            <CheckCircle className="h-3 w-3" />
-                            Active
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-600">
-                          Billed monthly • Next billing:{" "}
-                          <span className="font-semibold">Jan 15, 2025</span>
-                        </p>
-                      </div>
-                      <Button
-                        onClick={() => { onClose(); onUpgrade() }}
-                        variant="outline"
-                        className="gap-2"
-                      >
-                        <BarChart3 className="h-4 w-4" />
-                        Compare Plans
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-6 pt-6 border-t border-purple-200">
-                      <div>
-                        <p className="text-xs text-slate-600 mb-1">Monthly Cost</p>
-                        <p className="text-3xl font-bold text-slate-900">$45</p>
-                        <p className="text-xs text-slate-500 mt-1">per user</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-600 mb-1">Documents</p>
-                        <p className="text-3xl font-bold text-slate-900">
-                          {documents.length}
-                        </p>
-                        <p className="text-xs text-green-600 mt-1">Unlimited</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-600 mb-1">Storage Used</p>
-                        <p className="text-3xl font-bold text-slate-900">2.4 GB</p>
-                        <p className="text-xs text-slate-500 mt-1">of unlimited</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Payment Method */}
-                  <div className="bg-white rounded-lg border-2 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-slate-900">
-                        Payment Method
-                      </h4>
-                      <Button variant="outline" size="sm">Update</Button>
-                    </div>
-                    <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                      <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                        <CreditCard className="h-6 w-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-slate-900">
-                          Visa ending in 4242
-                        </p>
-                        <p className="text-sm text-slate-500">Expires 12/2025</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Billing History */}
-                  <div className="bg-white rounded-lg border-2 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-slate-900">
-                        Billing History
-                      </h4>
-                      <Button variant="ghost" size="sm" className="text-purple-600">
-                        View All
-                      </Button>
-                    </div>
-                    <div className="space-y-2">
-                      {[
-                        { date: "Dec 15, 2024", amount: "$45.00", invoice: "INV-001" },
-                        { date: "Nov 15, 2024", amount: "$45.00", invoice: "INV-002" },
-                        { date: "Oct 15, 2024", amount: "$45.00", invoice: "INV-003" },
-                      ].map((inv) => (
-                        <div
-                          key={inv.invoice}
-                          className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                              <CheckCircle className="h-4 w-4 text-green-600" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-slate-900">
-                                {inv.invoice}
-                              </p>
-                              <p className="text-xs text-slate-500">{inv.date}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-slate-900">
-                              {inv.amount}
-                            </span>
-                            <Button variant="ghost" size="sm" className="h-8 text-xs">
-                              <Download className="h-3 w-3 mr-1" />
-                              PDF
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Manage Subscription */}
-                  <div className="bg-slate-50 rounded-lg p-4 border-2 border-slate-200">
-                    <div className="flex items-start gap-3">
-                      <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
-                        <Settings className="h-4 w-4 text-slate-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-900 mb-1">
-                          Need to make changes?
-                        </p>
-                        <p className="text-xs text-slate-600 mb-3">
-                          Update your payment method, cancel subscription, or
-                          change your plan.
-                        </p>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            Cancel Subscription
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => { onClose(); onUpgrade() }}
-                          >
-                            Change Plan
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                    <p className="text-xs text-blue-600 mt-0.5">
+                      Trial ends {formatDate(billing.trialEndsAt)}. Add a plan to keep access.
+                    </p>
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* Footer */}
-            <div className="px-6 py-4 border-t bg-white sticky bottom-0">
-              <Button variant="outline" onClick={onClose} className="w-full h-11">
-                Close
-              </Button>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+              {status === 'canceled' && billing?.currentPeriodEnd && (
+                <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+                  <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">
+                      Subscription canceled
+                    </p>
+                    <p className="text-xs text-amber-600 mt-0.5">
+                      Access continues until {formatDate(billing.currentPeriodEnd)}.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {status === 'past_due' && (
+                <div className="flex items-start gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+                  <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-red-800">
+                      Payment failed
+                    </p>
+                    <p className="text-xs text-red-600 mt-0.5">
+                      Please update your payment method to avoid losing access.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Current plan card ─────────────────────────────────────── */}
+              <div className="border border-slate-200 rounded-xl p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">
+                      Current plan
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <h3 className={`text-2xl font-bold ${planInfo.color}`}>
+                        {planInfo.label}
+                      </h3>
+                      {status === 'active' && (
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">
+                          Active
+                        </span>
+                      )}
+                      {billing?.isTrialActive && (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                          Trial
+                        </span>
+                      )}
+                      {status === 'canceled' && (
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">
+                          Cancels soon
+                        </span>
+                      )}
+                      {status === 'past_due' && (
+                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
+                          Past due
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {plan !== 'free' && !billing?.isTrialActive && (
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-slate-900">{priceDisplay}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Period end info */}
+                {billing?.currentPeriodEnd && status === 'active' && (
+                  <p className="text-xs text-slate-500">
+                    Next billing date: {formatDate(billing.currentPeriodEnd)}
+                  </p>
+                )}
+
+                {/* Billing cycle */}
+                {billing?.billingCycle && plan !== 'free' && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Billed {billing.billingCycle}
+                  </p>
+                )}
+              </div>
+
+              {/* ── Storage usage ─────────────────────────────────────────── */}
+              <div className="border border-slate-200 rounded-xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-semibold text-slate-700">Storage</p>
+                  <p className="text-xs text-slate-500">
+                    {formatBytes(storageUsed)} of {formatBytes(storageLimit)} used
+                  </p>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      storagePercent >= 95 ? 'bg-red-500' :
+                      storagePercent >= 80 ? 'bg-amber-500' :
+                      'bg-indigo-500'
+                    }`}
+                    style={{ width: `${storagePercent}%` }}
+                  />
+                </div>
+                <p className={`text-xs mt-2 ${
+                  storagePercent >= 95 ? 'text-red-600' :
+                  storagePercent >= 80 ? 'text-amber-600' :
+                  'text-slate-400'
+                }`}>
+                  {storagePercent >= 95
+                    ? 'Storage almost full — upgrade or delete files'
+                    : storagePercent >= 80
+                    ? 'Storage running low'
+                    : `${100 - storagePercent}% remaining`}
+                </p>
+              </div>
+
+              {/* ── Usage stats ───────────────────────────────────────────── */}
+              <div className="border border-slate-200 rounded-xl p-5">
+                <p className="text-sm font-semibold text-slate-700 mb-4">Usage</p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600">Documents</span>
+                    <span className="text-sm font-medium text-slate-900">
+                      {documents?.length ?? 0}
+                      {limits.maxDocuments !== -1 ? ` / ${limits.maxDocuments}` : ' (unlimited)'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600">Team members</span>
+                    <span className="text-sm font-medium text-slate-900">
+                      {limits.maxTeamMembers === 1 ? '1 (solo)' : `Up to ${limits.maxTeamMembers}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600">eSignatures / month</span>
+                    <span className="text-sm font-medium text-slate-900">
+                      {limits.maxESignaturesPerMonth === -1 ? 'Unlimited' : limits.maxESignaturesPerMonth}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600">Spaces</span>
+                    <span className="text-sm font-medium text-slate-900">
+                      {limits.maxSpaces === -1 ? 'Unlimited' : limits.maxSpaces}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Manage billing (Paddle portal) ────────────────────────── */}
+              {plan !== 'free' && billing?.paddleCustomerId && (
+                <div className="border border-slate-200 rounded-xl p-5">
+                  <p className="text-sm font-semibold text-slate-700 mb-3">
+                    Manage subscription
+                  </p>
+                  <p className="text-xs text-slate-500 mb-4">
+                    Update your payment method, download invoices, or cancel
+                    your subscription through Paddle's secure billing portal.
+                  </p>
+                  <a
+                    href={`https://customer.paddle.com/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open billing portal
+                  </a>
+                </div>
+              )}
+
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-white">
+          {plan === 'free' || billing?.isTrialActive || status === 'canceled' ? (
+            <button
+              onClick={() => { onClose(); onUpgrade() }}
+              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              <TrendingUp className="h-4 w-4" />
+              {status === 'canceled' ? 'Resubscribe' : 'Upgrade plan'}
+            </button>
+          ) : (
+            <button
+              onClick={onClose}
+              className="w-full py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors"
+            >
+              Close
+            </button>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
