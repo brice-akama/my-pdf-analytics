@@ -1,31 +1,26 @@
 "use client"
 
 import { useEffect } from "react"
+import { initializePaddle } from "@paddle/paddle-js"
 
 export default function PaddleInit() {
   useEffect(() => {
-    const init = () => {
-      if (!(window as any).Paddle) return
-
-      ;(window as any).Paddle.Setup({
-        token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN,
-        environment: 'sandbox',
+    const init = async () => {
+      const paddle = await initializePaddle({
+        token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN!,
+        environment: "sandbox",
       })
 
       // Only open checkout if _ptxn is in the URL
-      // This prevents it firing on every page load
-      const hasPtxn = new URLSearchParams(window.location.search).has('_ptxn')
-      if (hasPtxn) {
-        (window as any).Paddle.Checkout.open()
+      const ptxn = new URLSearchParams(window.location.search).get("_ptxn")
+      if (ptxn && paddle) {
+        paddle.Checkout.open({
+          transactionId: ptxn,
+        })
       }
     }
 
-    if ((window as any).Paddle) {
-      init()
-    } else {
-      window.addEventListener('load', init)
-      return () => window.removeEventListener('load', init)
-    }
+    init()
   }, [])
 
   return null
