@@ -210,29 +210,18 @@ const successUrl = `${appUrl}/upgrade/success?plan=${planId}&cycle=${billingCycl
     //
     // If the user has already paid before and has a paddleCustomerId, we pass
     // it so Paddle can pre-fill their saved payment method.
-    const paddlePayload: any = {
-      items: [
-        {
-          price_id: priceId,
-          quantity: 1,
-        },
-      ],
-      customer: {
-        email: user.email,
-      },
-      custom_data: {
-        // These three fields are what the webhook handler reads in Phase 4
-        // to know which user to update and which plan to assign.
-        userId: userId,
-        planId: planId,
-        billingCycle: billingCycle,
-      },
-      checkout: {
-  url: successUrl,
-},
-return_url: successUrl,
-cancel_url: cancelUrl,
-    }
+   const paddlePayload: any = {
+  items: [{ price_id: priceId, quantity: 1 }],
+  customer: { email: user.email },
+  custom_data: {
+    userId: userId,
+    planId: planId,
+    billingCycle: billingCycle,
+  },
+  checkout: {
+    url: appUrl,           // ← JUST the domain, no path
+  },
+}
 
     // If the user has an existing Paddle customer ID (returning customer),
     // attach it so Paddle can pre-fill their saved payment method.
