@@ -11,19 +11,7 @@
 //   3. Our webhook handler sets user.subscriptionStatus = "canceled"
 //      and stores the cancelAt date
 //   4. The user keeps access until currentPeriodEnd
-//   5. The BillingDrawer and TrialBanner update on next open to show the
-//      "Cancels soon" state
-//
-// WHY WE CANCEL AT PERIOD END AND NOT IMMEDIATELY:
-//   Immediate cancellation means the user loses access they already paid for.
-//   "Cancel at period end" is the industry standard — Notion, Linear, DocSend
-//   all do this. The user keeps access until the date they paid through.
-//   This generates fewer chargebacks and better reviews.
-//
-// CANCELLATION ENDPOINT:
-//   Paddle sandbox:    PATCH https://sandbox-api.paddle.com/subscriptions/{id}/cancel
-//   Paddle production: PATCH https://api.paddle.com/subscriptions/{id}/cancel
-//   Body: { "effective_from": "next_billing_period" }
+//   5. The BillingDrawer updates on next open to show the "Cancels soon" state
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -53,18 +41,26 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (user.subscriptionStatus === "canceled" || user.subscriptionStatus === "inactive") {
+  // ── Step 3: Check if already canceled ────────────────────────────────────
+  // If already canceled or inactive, tell the user clearly instead of
+  // making a pointless API call to Paddle.
+  if (user.subscriptionStatus === "canceled") {
     return NextResponse.json(
-      { error: "Your subscription is already canceled." },
+      { error: "Your plan is already canceled. You still have access until your billing period ends." },
       { status: 400 }
     )
   }
 
-  // ── Step 3: Call Paddle API to cancel the subscription ───────────────────
+  if (user.subscriptionStatus === "inactive") {
+    return NextResponse.json(
+      { error: "You do not have an active subscription to cancel." },
+      { status: 400 }
+    )
+  }
+
+  // ── Step 4: Call Paddle API to cancel the subscription ───────────────────
   // "effective_from": "next_billing_period" means the subscription stays
   // active until the end of the current billing period.
-  // This is the correct option — never use "immediately" unless the user
-  // explicitly requests an immediate refund.
   const paddleRes = await fetch(
     `${getPaddleApiBase()}/subscriptions/${user.paddleSubscriptionId}/cancel`,
     {
@@ -100,18 +96,11 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // ── Step 4: Return success ────────────────────────────────────────────────
-  // We do NOT update the database here. The Paddle webhook handler does that.
-  // The webhook fires within seconds and updates subscriptionStatus to "canceled".
-  // If we updated here AND the webhook fires, we would have a double-update.
-  // If we updated here and the webhook FAILED, the DB would be out of sync with Paddle.
-  // Always let the webhook be the source of truth.
   console.log(`✅ Subscription canceled for user ${user.email}, sub ID: ${user.paddleSubscriptionId}`)
 
   return NextResponse.json({
     success: true,
     message: "Your subscription has been canceled. You will keep access until your current billing period ends.",
-    // The cancelAt date comes back in the Paddle response if available
     cancelAt: paddleData?.data?.current_billing_period?.ends_at || null,
   })
 }
