@@ -132,6 +132,7 @@ import DriveFilesDrawer from "@/components/drawers/DriveFilesDrawer"
 import UploadAgreementSheet from "@/components/drawers/UploadAgreementSheet"
 import CreateFileRequestSheet from "@/components/drawers/CreateFileRequestSheet"
 import TeamsChannelSheet from "@/components/drawers/TeamsChannelSheet"
+import TrialBanner from "@/components/dashboard/TrialBanner"
 
 type UserType = {
   email: string
@@ -3053,6 +3054,8 @@ case 'dashboard':
   onOpenSettings={() => setShowSettingsDialog(true)}
   onLogout={handleLogout}
 />
+
+<TrialBanner />
        <div className="flex min-h-[calc(100vh-64px)]"> 
         {/* Sidebar with clickable links */}
   <Sidebar activePage={activePage} onNavigate={setActivePage} />
