@@ -29,6 +29,7 @@ const HIDDEN_ROUTES = [
   "/report",
   "/nda-records",
   "/admin",
+  "/checkout",
   "/public",
   "/portal",
   "/reports",
