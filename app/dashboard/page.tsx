@@ -488,6 +488,23 @@ const planIncludesDriveIntegrations = (userPlan: string | undefined): boolean =>
   return userPlan === 'pro' || userPlan === 'business'
 }
 
+
+const planIncludes = (feature: string): boolean => {
+  const plan = user?.plan || 'free'
+  const gatedAtPro = [
+    'googleDrive', 'oneDrive', 'slack', 'hubspot',
+  ]
+  const gatedAtStarter = ['zapier']
+ 
+  if (gatedAtPro.includes(feature)) {
+    return plan === 'pro' || plan === 'business'
+  }
+  if (gatedAtStarter.includes(feature)) {
+    return plan === 'starter' || plan === 'pro' || plan === 'business'
+  }
+  return true
+}
+
 // useEffects
 useEffect(() => {
   fetch('/api/integrations/teams/status', { credentials: 'include' })
@@ -1140,9 +1157,18 @@ const fetchHubSpotStatus = async () => {
 };
 
 // Connect to HubSpot
-const handleConnectHubSpot = async () => {
-  window.location.href = "/api/integrations/hubspot/connect";
-};
+ const handleConnectHubSpot = async () => {
+  if (!planIncludes('hubspot')) {
+    toast.error('HubSpot requires Pro or Business', {
+      description: 'Upgrade to Pro to sync contacts and track document engagement in HubSpot.',
+      duration: 6000,
+      action: { label: 'See plans', onClick: () => router.push('/plan') },
+    })
+    return
+  }
+  // Original logic unchanged
+  window.location.href = '/api/integrations/hubspot/connect'
+}
 
 // Disconnect HubSpot
 const handleDisconnectHubSpot = async () => {
@@ -1184,30 +1210,37 @@ const handleDisconnectHubSpot = async () => {
 
 // Browse HubSpot contacts
 const handleBrowseHubSpotContacts = async () => {
-  setLoadingHubSpotContacts(true);
-  setShowHubSpotContactsDialog(true);
-  
+  if (!planIncludes('hubspot')) {
+    toast.error('HubSpot requires Pro or Business', {
+      description: 'Upgrade to Pro to browse and sync HubSpot contacts.',
+      duration: 6000,
+      action: { label: 'See plans', onClick: () => router.push('/plan') },
+    })
+    return
+  }
+ 
+  // Original logic unchanged below
+  setLoadingHubSpotContacts(true)
+  setShowHubSpotContactsDialog(true)
   try {
-    const res = await fetch("/api/integrations/hubspot/contacts", {
-      credentials: "include",
-    });
-    
-    const data = await res.json();
-    
+    const res = await fetch('/api/integrations/hubspot/contacts', {
+      credentials: 'include',
+    })
+    const data = await res.json()
     if (res.ok) {
-      setHubspotContacts(data.contacts || []);
+      setHubspotContacts(data.contacts || [])
     } else {
       toast.error('Failed to load contacts', {
-        description: data.error || 'Try reconnecting HubSpot'
-      });
+        description: data.error || 'Try reconnecting HubSpot',
+      })
     }
   } catch (error) {
-    console.error('Browse contacts error:', error);
-    toast.error('Network error');
+    console.error('Browse contacts error:', error)
+    toast.error('Network error')
   } finally {
-    setLoadingHubSpotContacts(false);
+    setLoadingHubSpotContacts(false)
   }
-};
+}
 
 // Sync HubSpot contacts
 const handleSyncHubSpotContacts = async () => {
@@ -1273,10 +1306,20 @@ const fetchSlackStatus = async () => {
   }
 };
 
+
 // Connect to Slack
 const handleConnectSlack = async () => {
-  window.location.href = "/api/integrations/slack/connect";
-};
+  if (!planIncludes('slack')) {
+    toast.error('Slack requires Pro or Business', {
+      description: 'Upgrade to Pro to receive document activity notifications in Slack.',
+      duration: 6000,
+      action: { label: 'See plans', onClick: () => router.push('/plan') },
+    })
+    return
+  }
+  // Original logic unchanged
+  window.location.href = '/api/integrations/slack/connect'
+}
 
 // Disconnect Slack
 const handleDisconnectSlack = async () => {
@@ -1304,33 +1347,41 @@ const handleDisconnectSlack = async () => {
 
 // Browse Slack channels
 const handleBrowseSlackChannels = async () => {
-  setLoadingSlackChannels(true);
-  setShowSlackChannelDialog(true);
-  
+  if (!planIncludes('slack')) {
+    toast.error('Slack requires Pro or Business', {
+      description: 'Upgrade to Pro to connect a Slack channel.',
+      duration: 6000,
+      action: { label: 'See plans', onClick: () => router.push('/plan') },
+    })
+    return
+  }
+ 
+  // Original logic unchanged below
+  setLoadingSlackChannels(true)
+  setShowSlackChannelDialog(true)
   try {
-    const res = await fetch("/api/integrations/slack/channels", {
-      credentials: "include",
-    });
-    
-    const data = await res.json(); // always parse it
-    console.log("Slack channels response:", res.status, data); // 👈 see exact error
-    
+    const res = await fetch('/api/integrations/slack/channels', {
+      credentials: 'include',
+    })
+    const data = await res.json()
+    console.log('Slack channels response:', res.status, data)
     if (res.ok) {
-      setSlackChannels(data.channels || []);
+      setSlackChannels(data.channels || [])
     } else {
-      toast.error(data.error || "Failed to load channels", {
-        description: JSON.stringify(data.debug || "") // 👈 show debug info
-      });
-      setShowSlackChannelDialog(false);
+      toast.error(data.error || 'Failed to load channels', {
+        description: JSON.stringify(data.debug || ''),
+      })
+      setShowSlackChannelDialog(false)
     }
   } catch (error: any) {
-    console.error("Failed to fetch channels:", error);
-    toast.error("Network error", { description: error.message });
-    setShowSlackChannelDialog(false);
+    console.error('Failed to fetch channels:', error)
+    toast.error('Network error', { description: error.message })
+    setShowSlackChannelDialog(false)
   } finally {
-    setLoadingSlackChannels(false);
+    setLoadingSlackChannels(false)
   }
-};
+}
+
 
 // Select Slack channel
 const handleSelectSlackChannel = async (channelId: string, channelName: string) => {
@@ -2710,6 +2761,7 @@ case 'dashboard':
   {/* Header - Responsive Layout */}
   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
     {/* Title and Breadcrumb */}
+    <TrialBanner />
     <div>
       <h1 className="text-3xl font-bold text-slate-900 mb-3">Content library</h1>
       {/* Breadcrumb - Stack on mobile, inline on desktop */}
@@ -3080,8 +3132,12 @@ case 'dashboard':
   }
 
   if (loading) {
-    return <div>Loading...</div>;
-  }
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="h-10 w-10 rounded-full border-4 border-slate-200 border-t-indigo-600 animate-spin" />
+    </div>
+  )
+}
 
   if (!isAuthenticated) {
     return null;
@@ -3121,7 +3177,7 @@ case 'dashboard':
   onLogout={handleLogout}
 />
 
-<TrialBanner />
+ 
        <div className="flex min-h-[calc(100vh-64px)]"> 
         {/* Sidebar with clickable links */}
   <Sidebar activePage={activePage} onNavigate={setActivePage} />

@@ -101,6 +101,11 @@ export interface PlanLimit {
     googleDriveIntegration: boolean
     oneDriveIntegration: boolean
 
+    // Communication & automation integrations
+    slackIntegration: boolean       // Pro+ only — team notification workflow
+    hubspotIntegration: boolean     // Pro+ only — CRM sales workflow
+    zapierIntegration: boolean      // Starter+ — automation power feature
+
     // ── Team & admin ─────────────────────────────────────────────────────
     advancedDataRooms: boolean      // investor/M&A grade data rooms — business only
     advancedTeamManagement: boolean // roles, permissions, SSO prep — business only
@@ -149,6 +154,10 @@ export const PLAN_LIMITS: Record<PlanName, PlanLimit> = {
       googleDriveIntegration:     false,
       oneDriveIntegration:        false,
 
+      slackIntegration:           false,  // team feature — no value solo
+      hubspotIntegration:         false,  // sales feature — no scale at free
+      zapierIntegration:          false,  // upgrade incentive to Starter
+
       advancedDataRooms:          false,
       advancedTeamManagement:     false,
       customDocsDomain:           false,
@@ -191,6 +200,10 @@ export const PLAN_LIMITS: Record<PlanName, PlanLimit> = {
       googleDriveIntegration:     false,
       oneDriveIntegration:        false,
 
+      slackIntegration:           false,  // team feature — no value solo
+      hubspotIntegration:         false,  // sales feature — no scale at free
+      zapierIntegration:          true,  // upgrade incentive to Starter
+
       advancedDataRooms:          false,
       advancedTeamManagement:     false,
       customDocsDomain:           false,
@@ -231,6 +244,10 @@ export const PLAN_LIMITS: Record<PlanName, PlanLimit> = {
 
       googleDriveIntegration:      true,
       oneDriveIntegration:         true,
+
+      slackIntegration:           true,  // team feature — no value solo
+      hubspotIntegration:         true,  // sales feature — no scale at free
+      zapierIntegration:          true,  // upgrade incentive to Starter
 
       advancedDataRooms:          false,  // business-only
       advancedTeamManagement:     false,  // business-only
@@ -273,6 +290,10 @@ export const PLAN_LIMITS: Record<PlanName, PlanLimit> = {
 
       googleDriveIntegration:      true,
       oneDriveIntegration:         true,
+
+      slackIntegration:           true,  // team feature — no value solo
+      hubspotIntegration:         true,  // sales feature — no scale at free
+      zapierIntegration:          true,  // upgrade incentive to Starter
 
       advancedDataRooms:           true,
       advancedTeamManagement:      true,
