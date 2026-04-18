@@ -1,7 +1,6 @@
 // app/api/upload/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../lib/mongodb';
-import { verifyUserFromRequest } from '@/lib/auth';
 import {
   convertToPdf,
   extractTextFromPdf,
@@ -10,6 +9,12 @@ import {
 import cloudinary from 'cloudinary';
 import streamifier from 'streamifier';
 import { preExtractAllPages } from '@/lib/preExtractPages';
+import { checkAccess } from '@/lib/checkAccess'
+import {
+  getPlanLimits,
+  isStorageAvailable,
+  isFileSizeAllowed,
+} from '@/lib/planLimits'
 
 // ✅ Increase to 300s (Vercel Pro allows up to 300s, Hobby is 60s)
 // If on Hobby plan keep at 60 but the other optimizations still help
@@ -119,29 +124,95 @@ function generateSummary(text: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyUserFromRequest(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // ── Step 1: Authenticate and get effective plan ───────────────────────────
+// checkAccess reads the JWT cookie, fetches the user from MongoDB, and
+// computes the EFFECTIVE plan — meaning if their trial expired, they get
+// free limits even if user.plan still says "pro" in the DB.
+const access = await checkAccess(request)
+if (!access.ok) return access.response
 
-    const db = await dbPromise;
-    const profile = await db.collection('profiles').findOne({ user_id: user.id });
-    const organizationId = profile?.organization_id || null;
+const { user, plan, limits } = access
+const db = await dbPromise
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+const profile = await db.collection('profiles').findOne({ user_id: user._id.toString() })
+const organizationId = profile?.organization_id || null
 
-    const fileType = SUPPORTED_FORMATS[file.type as keyof typeof SUPPORTED_FORMATS];
-    if (!fileType) return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 });
+// ── Step 2: Read the file from the request ────────────────────────────────
+const formData = await request.formData()
+const file = formData.get('file') as File
+if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+const fileType = SUPPORTED_FORMATS[file.type as keyof typeof SUPPORTED_FORMATS]
+if (!fileType) return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 })
 
-    const maxSize = user.plan === 'premium' ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
-    if (buffer.length > maxSize) {
-      return NextResponse.json({ error: 'File too large' }, { status: 400 });
-    }
+const bytes = await file.arrayBuffer()
+const buffer = Buffer.from(bytes)
 
-    // ✅ STEP 1: Convert to PDF + Extract Metadata in PARALLEL
+// ── Step 3: Enforce per-file size limit ───────────────────────────────────
+// Each plan has a different ceiling. Free = 10MB, Starter = 100MB, etc.
+// isFileSizeAllowed() reads from planLimits.ts — one source of truth.
+// We check this BEFORE the document count so the error message is specific.
+if (!isFileSizeAllowed(plan, buffer.length)) {
+  const limitMB = Math.round(limits.maxFileSizeBytes / (1024 * 1024))
+  return NextResponse.json(
+    {
+      error: `File too large for your ${plan} plan. Maximum file size is ${limitMB}MB. Upgrade your plan to upload larger files.`,
+      code: 'FILE_TOO_LARGE',
+      limitBytes: limits.maxFileSizeBytes,
+      plan,
+    },
+    { status: 413 }
+  )
+}
+
+// ── Step 4: Enforce document count limit ──────────────────────────────────
+// Free plan allows 5 documents. -1 means unlimited (Starter/Pro/Business).
+// We count existing non-archived documents for this user before allowing
+// the upload. This prevents free users from bypassing the limit by uploading
+// quickly in parallel — the count check happens server-side every time.
+if (limits.maxDocuments !== -1) {
+  const existingCount = await db.collection('documents').countDocuments({
+    userId: user._id.toString(),
+    archived: { $ne: true },
+  })
+
+  if (existingCount >= limits.maxDocuments) {
+    return NextResponse.json(
+      {
+        error: `You've reached the ${limits.maxDocuments} document limit on the free plan. Upgrade to Starter or higher for unlimited documents.`,
+        code: 'DOCUMENT_LIMIT_REACHED',
+        limit: limits.maxDocuments,
+        used: existingCount,
+        plan,
+      },
+      { status: 403 }
+    )
+  }
+}
+
+// ── Step 5: Enforce total storage limit ───────────────────────────────────
+// totalStorageUsedBytes is a running total maintained by the upload and
+// delete routes using MongoDB $inc. We read it once here and check if
+// adding this file would push them over their plan's storage ceiling.
+// isStorageAvailable() handles the math — we just pass the values.
+const storageUsedBytes: number = user.totalStorageUsedBytes ?? 0
+
+if (!isStorageAvailable(plan, storageUsedBytes, buffer.length)) {
+  const usedMB = Math.round(storageUsedBytes / (1024 * 1024))
+  const limitMB = Math.round(limits.storageLimitBytes / (1024 * 1024))
+  return NextResponse.json(
+    {
+      error: `Storage full. You are using ${usedMB}MB of your ${limitMB}MB limit. Delete some files or upgrade your plan.`,
+      code: 'STORAGE_LIMIT_REACHED',
+      usedBytes: storageUsedBytes,
+      limitBytes: limits.storageLimitBytes,
+      plan,
+    },
+    { status: 403 }
+  )
+}
+
+    //  STEP 1: Convert to PDF + Extract Metadata in PARALLEL
     const [pdfBuffer, metadata] = await Promise.all([
       fileType !== 'pdf'
         ? convertToPdf(buffer, fileType, file.name)
@@ -151,7 +222,7 @@ export async function POST(request: NextRequest) {
 
     // ✅ STEP 2: Extract text + Upload BOTH files to Cloudinary in PARALLEL
     // No need to wait for text before starting uploads — they're independent
-    const folder = `users/${user.id}/documents`;
+   const folder = `users/${user._id.toString()}/documents`;
     const pdfFilename = file.name.replace(/\.[^/.]+$/, '.pdf');
 
     const [extractedText, originalUrl, pdfUrl] = await Promise.all([
@@ -180,11 +251,11 @@ export async function POST(request: NextRequest) {
 
     // ✅ STEP 3: Check existing doc + DB write
     const existingDoc = await db.collection('documents').findOne({
-      originalFilename: file.name,
-      userId: user.id,
-      organizationId,
-      archived: { $ne: true },
-    });
+  originalFilename: file.name,
+  userId: user._id.toString(),
+  organizationId,
+  archived: { $ne: true },
+});
 
     if (existingDoc) {
       console.log('📦 Existing document found - creating new version');
@@ -237,7 +308,7 @@ export async function POST(request: NextRequest) {
         db.collection('analytics_logs').insertOne({
           documentId: existingDoc._id.toString(),
           action: 'version_created',
-          userId: user.id,
+           userId: user._id.toString(),
           newVersion: (existingDoc.version || 1) + 1,
           previousVersion: existingDoc.version || 1,
           timestamp: new Date(),
@@ -245,7 +316,7 @@ export async function POST(request: NextRequest) {
       ]);
 
       // ✅ Fire-and-forget — never await these
-      runBackgroundAnalysis(existingDoc._id.toString(), extractedText, user.plan, db).catch(console.error);
+      runBackgroundAnalysis(existingDoc._id.toString(), extractedText, plan, db).catch(console.error);
       preExtractAllPages(pdfUrl, existingDoc._id.toString()).catch(err =>
         console.error('Pre-extraction error:', err)
       );
@@ -276,8 +347,8 @@ export async function POST(request: NextRequest) {
 
     // ✅ New document insert
     const doc = {
-      userId: user.id,
-      plan: user.plan,
+      userId: user._id.toString(),
+plan: plan,
       organizationId,
       version: 1,
       originalFilename: file.name,
@@ -318,8 +389,16 @@ export async function POST(request: NextRequest) {
 
     const result = await db.collection('documents').insertOne(doc);
 
+    // After insertOne succeeds, increment the user's storage counter.
+// This keeps totalStorageUsedBytes accurate so future storage checks work.
+// We use $inc so concurrent uploads don't race and overwrite each other.
+await db.collection('users').updateOne(
+  { _id: user._id },
+  { $inc: { totalStorageUsedBytes: buffer.length } }
+)
+
     // ✅ Fire-and-forget — never await these
-    runBackgroundAnalysis(result.insertedId.toString(), extractedText, user.plan, db).catch(console.error);
+    runBackgroundAnalysis(result.insertedId.toString(), extractedText, plan, db).catch(console.error);
     preExtractAllPages(pdfUrl, result.insertedId.toString()).catch(err =>
       console.error('Pre-extraction error:', err)
     );
