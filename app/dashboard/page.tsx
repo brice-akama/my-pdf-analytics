@@ -492,7 +492,7 @@ const planIncludesDriveIntegrations = (userPlan: string | undefined): boolean =>
 const planIncludes = (feature: string): boolean => {
   const plan = user?.plan || 'free'
   const gatedAtPro = [
-    'googleDrive', 'oneDrive', 'slack', 'hubspot',
+    'googleDrive', 'oneDrive', 'slack', 'teams', 'hubspot',
   ]
   const gatedAtStarter = ['zapier']
  
@@ -538,6 +538,15 @@ const fetchTeamsChannels = async () => {
 }
 
 const handleConnectTeams = () => {
+  if (!planIncludes('teams')) {
+    toast.error('Microsoft Teams requires Pro or Business', {
+      description: 'Upgrade to Pro to send document notifications to Microsoft Teams.',
+      duration: 6000,
+      action: { label: 'See plans', onClick: () => router.push('/plan') },
+    })
+    return
+  }
+  // Original logic unchanged
   window.location.href = '/api/integrations/teams/connect'
 }
 

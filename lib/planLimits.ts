@@ -105,6 +105,7 @@ export interface PlanLimit {
     slackIntegration: boolean       // Pro+ only — team notification workflow
     hubspotIntegration: boolean     // Pro+ only — CRM sales workflow
     zapierIntegration: boolean      // Starter+ — automation power feature
+    teamsIntegration: boolean       // Microsoft Teams integration for document sharing and notifications
 
     // ── Team & admin ─────────────────────────────────────────────────────
     advancedDataRooms: boolean      // investor/M&A grade data rooms — business only
@@ -157,6 +158,7 @@ export const PLAN_LIMITS: Record<PlanName, PlanLimit> = {
       slackIntegration:           false,  // team feature — no value solo
       hubspotIntegration:         false,  // sales feature — no scale at free
       zapierIntegration:          false,  // upgrade incentive to Starter
+      teamsIntegration:           false,  // Pro+ — team comms, no value solo
 
       advancedDataRooms:          false,
       advancedTeamManagement:     false,
@@ -203,6 +205,7 @@ export const PLAN_LIMITS: Record<PlanName, PlanLimit> = {
       slackIntegration:           false,  // team feature — no value solo
       hubspotIntegration:         false,  // sales feature — no scale at free
       zapierIntegration:          true,  // upgrade incentive to Starter
+      teamsIntegration:           false,  // Pro+ — team comms, no value solo
 
       advancedDataRooms:          false,
       advancedTeamManagement:     false,
@@ -248,6 +251,7 @@ export const PLAN_LIMITS: Record<PlanName, PlanLimit> = {
       slackIntegration:           true,  // team feature — no value solo
       hubspotIntegration:         true,  // sales feature — no scale at free
       zapierIntegration:          true,  // upgrade incentive to Starter
+      teamsIntegration:           true,  // Pro+ — team comms, no value solo
 
       advancedDataRooms:          false,  // business-only
       advancedTeamManagement:     false,  // business-only
@@ -294,6 +298,7 @@ export const PLAN_LIMITS: Record<PlanName, PlanLimit> = {
       slackIntegration:           true,  // team feature — no value solo
       hubspotIntegration:         true,  // sales feature — no scale at free
       zapierIntegration:          true,  // upgrade incentive to Starter
+      teamsIntegration:           true,  // Pro+ — team comms, no value solo
 
       advancedDataRooms:           true,
       advancedTeamManagement:      true,
