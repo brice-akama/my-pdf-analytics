@@ -438,6 +438,7 @@ const [showIntegrationRequestDialog, setShowIntegrationRequestDialog] = useState
 const [requestedIntegration, setRequestedIntegration] = useState('')
 const [integrationUseCase, setIntegrationUseCase] = useState('')
 const [selectedSlackChannel, setSelectedSlackChannel] = useState<string | null>(null);
+const [currentUserIsOwner, setCurrentUserIsOwner] = useState(true)
 const [createdFileRequests, setCreatedFileRequests] = useState<Array<{
   email: string
   requestId: string
@@ -1507,6 +1508,7 @@ const fetchTeamMembers = async () => {
       const data = await res.json()
       if (data.success) {
         setTeamMembers(data.members)
+        setCurrentUserIsOwner(data.currentUserIsOwner ?? true)
       }
     }
   } catch (error) {
@@ -1550,10 +1552,21 @@ const handleInviteMember = async () => {
       setInviteEmail('')
       setInviteRole('member')
       fetchTeamMembers()
+   } else if (data.error === 'TEAM_LIMIT_REACHED') {
+      const PLAN_NEXT: Record<string, string> = {
+        free: 'Starter', starter: 'Pro', pro: 'Business', business: 'Business',
+      }
+      const nextPlan = PLAN_NEXT[data.plan] ?? 'a higher plan'
+      toast.error(
+        `Your ${data.plan} plan allows up to ${data.limit} seat${data.limit === 1 ? '' : 's'}. Upgrade to ${nextPlan} to add more team members.`,
+        {
+          id: loadingToast,
+          duration: 7000,
+          description: 'Go to Settings → Billing to upgrade.',
+        }
+      )
     } else {
-      toast.error(data.error || 'Failed to send invitation', {
-        id: loadingToast
-      })
+      toast.error(data.error || 'Failed to send invitation', { id: loadingToast })
     }
   } catch (error) {
     console.error('Invite error:', error)
@@ -3243,6 +3256,8 @@ case 'dashboard':
   onSetShowDeleteMemberDialog={setShowDeleteMemberDialog}
   onSetMemberToDelete={setMemberToDelete}
   onSetGeneratedInviteLink={setGeneratedInviteLink}
+    currentUserIsOwner={currentUserIsOwner}
+  
 />
 
 {/* Invite Link Dialog */}

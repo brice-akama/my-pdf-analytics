@@ -26,9 +26,8 @@ import {
   Sparkles,
   CheckCircle,
   Send,
-  Eye,
   Users as UsersIcon,
-  X,
+  Lock,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -77,6 +76,7 @@ interface TeamDrawerProps {
   onSetShowDeleteMemberDialog: (v: boolean) => void
   onSetMemberToDelete: (v: { id: string; name: string } | null) => void
   onSetGeneratedInviteLink: (v: string) => void
+  currentUserIsOwner: boolean  // ← tells us if the logged-in user is the owner
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -105,6 +105,21 @@ const getAvatarColor = (email: string) => {
   return colors[email.charCodeAt(0) % colors.length]
 }
 
+// ─── Plan seat limits (mirrors planLimits.ts — for UI display only) ──────────
+const PLAN_SEAT_LIMITS: Record<string, number> = {
+  free: 1,
+  starter: 1,
+  pro: 3,
+  business: 10,
+}
+
+const PLAN_NEXT_UPGRADE: Record<string, string> = {
+  free: "Starter",
+  starter: "Pro",
+  pro: "Business",
+  business: "Business",
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function TeamDrawer({
@@ -129,8 +144,34 @@ export default function TeamDrawer({
   onSetShowDeleteMemberDialog,
   onSetMemberToDelete,
   onSetGeneratedInviteLink,
+  currentUserIsOwner,
 }: TeamDrawerProps) {
   const router = useRouter()
+
+  // ── Derived state ─────────────────────────────────────────────────────────
+  const currentPlan = user?.plan || "free"
+  const seatLimit = PLAN_SEAT_LIMITS[currentPlan] ?? 1
+  const activeMembers = teamMembers.filter((m) => m.status === "active").length
+  const hasReachedSeatLimit = seatLimit !== -1 && teamMembers.length >= seatLimit
+  const nextPlan = PLAN_NEXT_UPGRADE[currentPlan] ?? "Pro"
+
+  // ── What an invited member sees instead of the invite form ────────────────
+  const MemberReadOnlyNotice = () => (
+    <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-5 flex items-start gap-4">
+      <div className="h-10 w-10 rounded-lg bg-slate-200 flex items-center justify-center flex-shrink-0">
+        <Lock className="h-5 w-5 text-slate-500" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-slate-700">
+          Team management is restricted
+        </p>
+        <p className="text-xs text-slate-500 mt-1">
+          Only the account owner can invite, remove, or change the role of
+          team members. Contact your team owner if you need changes made.
+        </p>
+      </div>
+    </div>
+  )
 
   return (
     <>
@@ -142,9 +183,13 @@ export default function TeamDrawer({
         >
           {/* Header */}
           <SheetHeader className="px-8 py-5 border-b bg-gradient-to-r from-purple-50 to-blue-50 sticky top-0 z-10">
-            <SheetTitle className="text-2xl font-bold text-slate-900">Team Members</SheetTitle>
+            <SheetTitle className="text-2xl font-bold text-slate-900">
+              Team Members
+            </SheetTitle>
             <SheetDescription className="text-sm text-slate-600 mt-1">
-              Invite colleagues and manage team permissions
+              {currentUserIsOwner
+                ? "Invite colleagues and manage team permissions"
+                : "View your team members"}
             </SheetDescription>
           </SheetHeader>
 
@@ -152,84 +197,179 @@ export default function TeamDrawer({
           <div className="flex-1 overflow-y-auto">
             <div className="px-8 py-6 space-y-6">
 
-              {/* ── Invite section ── */}
-              <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6 space-y-4">
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="h-10 w-10 rounded-lg bg-purple-600 flex items-center justify-center flex-shrink-0">
-                    <Mail className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <Label className="text-lg font-bold text-slate-900 block mb-1">
-                      Invite Team Member
-                    </Label>
-                    <p className="text-sm text-slate-600">
-                      Enter their email address and select a role to send an invitation
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="flex-1 space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
-                        Email Address <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        type="email"
-                        placeholder="colleague@company.com"
-                        value={inviteEmail}
-                        onChange={(e) => onSetInviteEmail(e.target.value)}
-                        className="h-12 text-base bg-white"
-                      />
+              {/* ── Invite section — OWNER ONLY ── */}
+              {currentUserIsOwner ? (
+                <>
+                  {/* Seat usage bar */}
+                  {seatLimit !== -1 && (
+                    <div className="bg-white border border-slate-200 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-slate-700">
+                          Team seats used
+                        </p>
+                        <p className="text-sm font-bold text-slate-900">
+                          {teamMembers.length} / {seatLimit}
+                        </p>
+                      </div>
+                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-2 rounded-full transition-all ${
+                            hasReachedSeatLimit
+                              ? "bg-red-500"
+                              : teamMembers.length / seatLimit >= 0.8
+                              ? "bg-yellow-500"
+                              : "bg-green-500"
+                          }`}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              (teamMembers.length / seatLimit) * 100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      {hasReachedSeatLimit && (
+                        <p className="text-xs text-red-600 font-medium mt-2">
+                          Seat limit reached — upgrade to {nextPlan} to invite
+                          more members
+                        </p>
+                      )}
                     </div>
-                    <div className="w-full sm:w-48 space-y-2">
-                      <Label className="text-sm font-medium text-slate-700">
-                        Role <span className="text-red-500">*</span>
-                      </Label>
-                      <select
-                        value={inviteRole}
-                        onChange={(e) => onSetInviteRole(e.target.value)}
-                        className="w-full h-12 px-4 border border-slate-300 rounded-lg text-base bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                      >
-                        <option value="member">Member</option>
-                        <option value="admin">Admin</option>
-                        <option value="viewer">Viewer</option>
-                      </select>
-                    </div>
-                  </div>
+                  )}
 
-                  <Button
-                    onClick={onInviteMember}
-                    disabled={!inviteEmail.trim()}
-                    className="w-full h-12 text-base font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg"
-                  >
-                    <Send className="h-5 w-5 mr-2" />
-                    Send Invitation
-                  </Button>
-                </div>
-
-                {/* Role descriptions */}
-                <div className="bg-white/80 border border-purple-200 rounded-lg p-4 space-y-2">
-                  <p className="text-xs font-semibold text-slate-900 mb-2">Role Permissions:</p>
-                  <div className="grid sm:grid-cols-3 gap-3 text-xs text-slate-700">
-                    {[
-                      { label: "Admin",  desc: "Full access + team management",   icon: "✅" },
-                      { label: "Member", desc: "Create, edit, share documents",   icon: "✅" },
-                      { label: "Viewer", desc: "View documents only",             icon: "👁️" },
-                    ].map((r) => (
-                      <div key={r.label} className="flex items-start gap-2">
-                        <span>{r.icon}</span>
+                  {/* Invite form — shown only when seats available */}
+                  {!hasReachedSeatLimit ? (
+                    <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl p-6 space-y-4">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="h-10 w-10 rounded-lg bg-purple-600 flex items-center justify-center flex-shrink-0">
+                          <Mail className="h-5 w-5 text-white" />
+                        </div>
                         <div>
-                          <p className="font-semibold">{r.label}</p>
-                          <p className="text-slate-600">{r.desc}</p>
+                          <Label className="text-lg font-bold text-slate-900 block mb-1">
+                            Invite Team Member
+                          </Label>
+                          <p className="text-sm text-slate-600">
+                            Enter their email address and select a role to send
+                            an invitation
+                          </p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
 
-              {/* ── Member list ── */}
+                      <div className="space-y-3">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <div className="flex-1 space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">
+                              Email Address{" "}
+                              <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              type="email"
+                              placeholder="colleague@company.com"
+                              value={inviteEmail}
+                              onChange={(e) => onSetInviteEmail(e.target.value)}
+                              className="h-12 text-base bg-white"
+                            />
+                          </div>
+                          <div className="w-full sm:w-48 space-y-2">
+                            <Label className="text-sm font-medium text-slate-700">
+                              Role <span className="text-red-500">*</span>
+                            </Label>
+                            <select
+                              value={inviteRole}
+                              onChange={(e) => onSetInviteRole(e.target.value)}
+                              className="w-full h-12 px-4 border border-slate-300 rounded-lg text-base bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                            >
+                              <option value="member">Member</option>
+                              <option value="admin">Admin</option>
+                              <option value="viewer">Viewer</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={onInviteMember}
+                          disabled={!inviteEmail.trim()}
+                          className="w-full h-12 text-base font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg"
+                        >
+                          <Send className="h-5 w-5 mr-2" />
+                          Send Invitation
+                        </Button>
+                      </div>
+
+                      {/* Role descriptions */}
+                      <div className="bg-white/80 border border-purple-200 rounded-lg p-4 space-y-2">
+                        <p className="text-xs font-semibold text-slate-900 mb-2">
+                          Role Permissions:
+                        </p>
+                        <div className="grid sm:grid-cols-3 gap-3 text-xs text-slate-700">
+                          {[
+                            {
+                              label: "Admin",
+                              desc: "Full access + team management",
+                              icon: "✅",
+                            },
+                            {
+                              label: "Member",
+                              desc: "Create, edit, share documents",
+                              icon: "✅",
+                            },
+                            {
+                              label: "Viewer",
+                              desc: "View documents only",
+                              icon: "👁️",
+                            },
+                          ].map((r) => (
+                            <div key={r.label} className="flex items-start gap-2">
+                              <span>{r.icon}</span>
+                              <div>
+                                <p className="font-semibold">{r.label}</p>
+                                <p className="text-slate-600">{r.desc}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Seat limit reached — show upgrade prompt instead of form */
+                    <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="h-12 w-12 rounded-xl bg-yellow-500 flex items-center justify-center flex-shrink-0">
+                          <Sparkles className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-base font-bold text-yellow-900 mb-1">
+                            You've used all {seatLimit} seat
+                            {seatLimit === 1 ? "" : "s"} on the{" "}
+                            {currentPlan.charAt(0).toUpperCase() +
+                              currentPlan.slice(1)}{" "}
+                            plan
+                          </p>
+                          <p className="text-sm text-yellow-800 mb-4">
+                            Upgrade to {nextPlan} to invite more team members
+                            and unlock additional seats.
+                          </p>
+                          <Button
+                            size="lg"
+                            onClick={() => {
+                              onClose()
+                              router.push("/plan")
+                            }}
+                            className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold shadow-md"
+                          >
+                            ⚡ Upgrade to {nextPlan}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Invited member sees a read-only notice instead of the invite form */
+                <MemberReadOnlyNotice />
+              )}
+
+              {/* ── Member list — visible to everyone ── */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="text-lg font-bold text-slate-900">
@@ -237,7 +377,8 @@ export default function TeamDrawer({
                   </Label>
                   {teamMembers.some((m) => m.status === "invited") && (
                     <span className="text-xs text-orange-600 font-medium bg-orange-50 px-3 py-1 rounded-full">
-                      {teamMembers.filter((m) => m.status === "invited").length} pending
+                      {teamMembers.filter((m) => m.status === "invited").length}{" "}
+                      pending
                     </span>
                   )}
                 </div>
@@ -245,7 +386,9 @@ export default function TeamDrawer({
                 {loadingTeam ? (
                   <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
                     <Loader2 className="h-10 w-10 animate-spin text-purple-600 mx-auto mb-3" />
-                    <p className="text-sm text-slate-600">Loading team members...</p>
+                    <p className="text-sm text-slate-600">
+                      Loading team members...
+                    </p>
                   </div>
                 ) : teamMembers.length > 0 ? (
                   <div className="border-2 border-slate-200 rounded-xl divide-y divide-slate-200 overflow-hidden">
@@ -257,7 +400,9 @@ export default function TeamDrawer({
                         {/* Avatar + info */}
                         <div className="flex items-center gap-4 flex-1 min-w-0">
                           <div
-                            className={`h-12 w-12 rounded-full bg-gradient-to-br ${getAvatarColor(member.email)} flex items-center justify-center text-white font-bold text-lg flex-shrink-0 shadow-md overflow-hidden`}
+                            className={`h-12 w-12 rounded-full bg-gradient-to-br ${getAvatarColor(
+                              member.email
+                            )} flex items-center justify-center text-white font-bold text-lg flex-shrink-0 shadow-md overflow-hidden`}
                           >
                             {member.avatarUrl ? (
                               <Image
@@ -272,31 +417,44 @@ export default function TeamDrawer({
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-slate-900 truncate">{member.name}</p>
-                            <p className="text-sm text-slate-500 truncate">{member.email}</p>
+                            <p className="font-semibold text-slate-900 truncate">
+                              {member.name}
+                            </p>
+                            <p className="text-sm text-slate-500 truncate">
+                              {member.email}
+                            </p>
                             {member.status === "invited" && (
                               <div className="flex items-center gap-1 mt-1">
                                 <Clock className="h-3 w-3 text-orange-500" />
                                 <p className="text-xs text-orange-600 font-medium">
                                   Pending · Sent{" "}
-                                  {member.invitedAt ? formatTimeAgo(member.invitedAt) : ""}
+                                  {member.invitedAt
+                                    ? formatTimeAgo(member.invitedAt)
+                                    : ""}
                                 </p>
                               </div>
                             )}
                           </div>
                         </div>
 
-                        {/* Actions */}
+                        {/* Actions — three cases:
+                            1. member.role === "owner"  → show Owner badge, no actions
+                            2. currentUserIsOwner       → show role dropdown + remove button
+                            3. invited member viewing   → show role as read-only badge only  */}
                         <div className="flex items-center gap-3 flex-shrink-0 flex-wrap">
                           {member.role === "owner" ? (
+                            /* Case 1: This row IS the owner — badge only */
                             <span className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md">
                               Owner
                             </span>
-                          ) : (
+                          ) : currentUserIsOwner ? (
+                            /* Case 2: Logged-in user IS the owner — full controls */
                             <>
                               <select
                                 value={member.role}
-                                onChange={(e) => onUpdateRole(member.id, e.target.value)}
+                                onChange={(e) =>
+                                  onUpdateRole(member.id, e.target.value)
+                                }
                                 className="px-3 py-2 border-2 border-slate-300 rounded-lg text-sm font-medium bg-white hover:border-purple-400 focus:border-purple-500 focus:outline-none transition-colors"
                                 disabled={member.status === "invited"}
                               >
@@ -310,20 +468,32 @@ export default function TeamDrawer({
                                   variant="outline"
                                   size="sm"
                                   onClick={async () => {
-                                    const loadingToast = toast.loading("Resending invitation...")
-                                    const res = await fetch("/api/team/resend-invite", {
-                                      method: "POST",
-                                      credentials: "include",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ memberId: member.id }),
-                                    })
+                                    const loadingToast =
+                                      toast.loading("Resending invitation...")
+                                    const res = await fetch(
+                                      "/api/team/resend-invite",
+                                      {
+                                        method: "POST",
+                                        credentials: "include",
+                                        headers: {
+                                          "Content-Type": "application/json",
+                                        },
+                                        body: JSON.stringify({
+                                          memberId: member.id,
+                                        }),
+                                      }
+                                    )
                                     if (res.ok) {
                                       const data = await res.json()
-                                      toast.success("Invitation resent!", { id: loadingToast })
+                                      toast.success("Invitation resent!", {
+                                        id: loadingToast,
+                                      })
                                       onSetGeneratedInviteLink(data.inviteLink)
                                       onSetShowInviteLinkDialog(true)
                                     } else {
-                                      toast.error("Failed to resend", { id: loadingToast })
+                                      toast.error("Failed to resend", {
+                                        id: loadingToast,
+                                      })
                                     }
                                   }}
                                   className="gap-2"
@@ -336,13 +506,21 @@ export default function TeamDrawer({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => onRemoveMember(member.id, member.name)}
+                                onClick={() =>
+                                  onRemoveMember(member.id, member.name)
+                                }
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
                               >
                                 <Trash2 className="h-4 w-4" />
                                 Remove
                               </Button>
                             </>
+                          ) : (
+                            /* Case 3: Logged-in user is an invited member —
+                               show role as a plain read-only badge, no controls */
+                            <span className="text-sm font-medium text-slate-600 capitalize px-3 py-1.5 bg-slate-100 rounded-lg">
+                              {member.role}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -351,44 +529,27 @@ export default function TeamDrawer({
                 ) : (
                   <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
                     <UsersIcon className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-                    <p className="text-base font-medium text-slate-900 mb-1">No team members yet</p>
-                    <p className="text-sm text-slate-500">Invite your first team member above</p>
+                    <p className="text-base font-medium text-slate-900 mb-1">
+                      No team members yet
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {currentUserIsOwner
+                        ? "Invite your first team member above"
+                        : "Your team owner hasn't added any members yet"}
+                    </p>
                   </div>
                 )}
               </div>
-
-              {/* Upgrade prompt when on free plan */}
-              {teamMembers.length >= 3 && user?.plan === "free" && (
-                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-xl p-6 shadow-lg">
-                  <div className="flex items-start gap-4">
-                    <div className="h-12 w-12 rounded-xl bg-yellow-500 flex items-center justify-center flex-shrink-0">
-                      <Sparkles className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-lg font-bold text-yellow-900 mb-1">
-                        🎯 Reached Free Plan Limit
-                      </p>
-                      <p className="text-sm text-yellow-800 mb-4">
-                        Upgrade to Pro for unlimited team members, advanced analytics, and priority
-                        support
-                      </p>
-                      <Button
-                        size="lg"
-                        onClick={() => { onClose(); router.push("/plan") }}
-                        className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold shadow-md"
-                      >
-                        ⚡ Upgrade Now
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Footer */}
           <div className="px-8 py-4 border-t bg-slate-50 sticky bottom-0 shadow-lg">
-            <Button variant="outline" onClick={onClose} className="w-full h-12 text-base font-semibold">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="w-full h-12 text-base font-semibold"
+            >
               Close
             </Button>
           </div>
@@ -396,7 +557,10 @@ export default function TeamDrawer({
       </Sheet>
 
       {/* ── Invite link dialog ── */}
-      <Dialog open={showInviteLinkDialog} onOpenChange={onSetShowInviteLinkDialog}>
+      <Dialog
+        open={showInviteLinkDialog}
+        onOpenChange={onSetShowInviteLinkDialog}
+      >
         <DialogContent className="max-w-lg bg-white">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-1">
@@ -456,7 +620,10 @@ export default function TeamDrawer({
       </Dialog>
 
       {/* ── Delete member confirm dialog ── */}
-      <Dialog open={showDeleteMemberDialog} onOpenChange={onSetShowDeleteMemberDialog}>
+      <Dialog
+        open={showDeleteMemberDialog}
+        onOpenChange={onSetShowDeleteMemberDialog}
+      >
         <DialogContent className="max-w-md bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
@@ -467,8 +634,10 @@ export default function TeamDrawer({
             </DialogTitle>
             <DialogDescription className="text-base text-slate-600 pt-1">
               Are you sure you want to remove{" "}
-              <span className="font-semibold text-slate-900">{memberToDelete?.name}</span> from the
-              team? They will lose access immediately.
+              <span className="font-semibold text-slate-900">
+                {memberToDelete?.name}
+              </span>{" "}
+              from the team? They will lose access immediately.
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-3 justify-end pt-4">

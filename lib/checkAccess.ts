@@ -61,6 +61,7 @@ export type AccessResult =
       plan: string
       limits: PlanLimit
       hasActiveSubscription: boolean
+      isTeamMember: boolean
     }
   | {
       ok: false
@@ -307,17 +308,73 @@ export async function checkAccess(request: NextRequest): Promise<AccessResult> {
   }
 
   // ── Step 4: Compute effective plan ───────────────────────────────────────
-  const effectivePlan = getEffectivePlan(user)
+   // ── Step 4: Resolve effective plan ───────────────────────────────────────
+  // If this user is an invited team member, they inherit the owner's plan.
+  // They never pay themselves — their access is entirely tied to the owner.
+  //
+  // How we detect an invited member:
+  //   Their profile has organization_id set to someone else's userId.
+  //   If organization_id === their own userId → they are the owner.
+  //   If organization_id !== their own userId → they are a member.
+  //
+  // We fetch the owner's user document and run getEffectivePlan on THAT,
+  // so if the owner's trial expires, members lose access too. Automatically.
+
+  const profile = await db
+    .collection('profiles')
+    .findOne({ user_id: user._id.toString() })
+    .catch(() => null)
+
+  const organizationId = profile?.organization_id || user._id.toString()
+  const isTeamMember = organizationId !== user._id.toString()
+
+  let planUser = user          // the user whose plan fields we read
+  let isOwnerAccount = true
+
+  if (isTeamMember) {
+    // Fetch the owner's user document to inherit their plan
+    try {
+      const { ObjectId } = await import('mongodb')
+      const ownerUser = await db.collection('users').findOne(
+        { _id: new ObjectId(organizationId) },
+        { projection: { passwordHash: 0, password: 0 } }
+      )
+      if (ownerUser) {
+        planUser = ownerUser
+        isOwnerAccount = false
+      }
+    } catch {
+      // organizationId might be a string ID, try that
+      const ownerUser = await db.collection('users').findOne(
+        { id: organizationId },
+        { projection: { passwordHash: 0, password: 0 } }
+      )
+      if (ownerUser) {
+        planUser = ownerUser
+        isOwnerAccount = false
+      }
+    }
+  }
+
+  // getEffectivePlan runs on the OWNER's document (or self if owner)
+  // This means expired owner trial = members also lose paid features
+  const effectivePlan = getEffectivePlan(planUser)
   const limits = getPlanLimits(effectivePlan)
-  const hasActiveSubscription = hasValidSubscription(user)
+  const hasActiveSubscription = hasValidSubscription(planUser)
 
   // ── Step 5: Lazy auto-downgrade (fire and forget, non-blocking) ──────────
   // If the user's trial or canceled period has expired, update MongoDB now.
   // We do NOT await this — it runs in the background after we return.
   // The response uses effectivePlan which is already correct regardless
   // of whether the DB write succeeds or not.
-  if (!hasActiveSubscription && (user.plan !== 'free' || user.subscriptionStatus !== 'inactive')) {
-    syncPlanIfExpired(db, user, effectivePlan).catch(() => {
+   // Only auto-downgrade the owner's account, never the member's
+  // The member has no subscription to downgrade
+  if (
+    isOwnerAccount &&
+    !hasActiveSubscription &&
+    (planUser.plan !== 'free' || planUser.subscriptionStatus !== 'inactive')
+  ) {
+    syncPlanIfExpired(db, planUser, effectivePlan).catch(() => {
       // Already logged inside syncPlanIfExpired — swallow here so the
       // unhandled promise rejection does not crash the serverless function
     })
@@ -331,5 +388,6 @@ export async function checkAccess(request: NextRequest): Promise<AccessResult> {
     plan: effectivePlan,     // ← always the correct plan, even for expired users
     limits,
     hasActiveSubscription,
+     isTeamMember, 
   }
 }

@@ -7,6 +7,7 @@ import { dbPromise } from '../lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { getTeamMemberIds } from '../lib/teamHelpers'
+import { checkAccess } from '@/lib/checkAccess'
 
 
 
@@ -180,6 +181,9 @@ for (const space of allRawSpaces) {
 
 export async function POST(request: NextRequest) {
   try {
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
+
     const user = await verifyUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -213,9 +217,26 @@ export async function POST(request: NextRequest) {
     const profile = await db.collection('profiles').findOne({ user_id: user.id });
     const userOrgId = profile?.organization_id;
 
-    console.log(`📍 User ${user.email} creating space`);
-    console.log(`📍 Organization: ${userOrgId || 'PERSONAL'}`);
-    console.log(`📍 Role: ${profile?.role}`);
+     
+
+    // ── Plan limit: max spaces ────────────────────────────────────────
+    const { limits } = access
+    if (limits.maxSpaces !== -1) {
+      const currentSpaceCount = await db.collection('spaces').countDocuments({
+        userId: user.id,
+        status: { $ne: 'deleted' },
+      })
+      if (currentSpaceCount >= limits.maxSpaces) {
+        return NextResponse.json(
+          {
+            error: 'SPACE_LIMIT_REACHED',
+            limit: limits.maxSpaces,
+            plan: access.plan,
+          },
+          { status: 403 }
+        )
+      }
+    }
 
     // ─────────────────────────────────────────────────────────────────
     // Only the creator is added to members on creation.

@@ -65,11 +65,16 @@ export async function POST(request: NextRequest) {
     );
 
     // Update new member's profile
+    // Update new member's profile
+    // organization_id MUST be the owner's userId — this is what checkAccess
+    // and /api/auth/me use to detect team members and look up the owner's plan.
+    // organizationId in the invitation IS the owner's userId (set at space creation).
     await db.collection("profiles").updateOne(
       { user_id: userId },
       {
         $set: {
-          organization_id: organizationId,
+          organization_id: organizationId,  // owner's userId — DO NOT change this
+          role: role,                        // member's role within the team
           company_name: organizationName,
           updated_at: new Date(),
         },
@@ -77,6 +82,33 @@ export async function POST(request: NextRequest) {
       { upsert: true }
     );
 
+    // Also write organizationOwnerId to the user document itself
+    // as a redundant reference — so checkAccess never has to guess
+    try {
+      const { ObjectId } = await import("mongodb");
+      await db.collection("users").updateOne(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            organizationOwnerId: organizationId,
+            teamRole: role,
+            updated_at: new Date(),
+          },
+        }
+      );
+    } catch {
+      await db.collection("users").updateOne(
+        { id: userId },
+        {
+          $set: {
+            organizationOwnerId: organizationId,
+            teamRole: role,
+            updated_at: new Date(),
+          },
+        }
+      );
+    }
+    
     // Update user document
     try {
       await db.collection("users").updateOne(

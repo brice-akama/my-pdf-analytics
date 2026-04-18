@@ -253,6 +253,20 @@ export default function SpacesView() {
     } catch { toast.error('Failed to duplicate', { id: toastId }) }
   }
 
+  const PLAN_SPACE_LIMITS: Record<string, number> = {
+    free: 1,
+    starter: 3,
+    pro: -1,
+    business: -1,
+  }
+
+  const PLAN_UPGRADE_LABELS: Record<string, string> = {
+    free: 'Starter',
+    starter: 'Pro',
+    pro: 'Business',
+    business: 'Business',
+  }
+
   const handleCreateSpace = async () => {
     if (!newSpace.name.trim()) { toast.error('Please enter a space name'); return }
     setCreating(true)
@@ -268,7 +282,20 @@ export default function SpacesView() {
         toast.success('Space created!', { id: toastId })
         setShowCreateDrawer(false); setShowTemplatesDrawer(false)
         router.push(`/spaces/${data.space._id}`)
-      } else toast.error(data.error || 'Failed to create space', { id: toastId })
+      } else if (data.error === 'SPACE_LIMIT_REACHED') {
+        const limit = data.limit ?? PLAN_SPACE_LIMITS[data.plan] ?? '?'
+        const nextPlan = PLAN_UPGRADE_LABELS[data.plan] ?? 'a higher plan'
+        toast.error(
+          `You've reached the ${limit}-space limit on your ${data.plan ?? 'current'} plan. Upgrade to ${nextPlan} to create unlimited spaces.`,
+          {
+            id: toastId,
+            duration: 6000,
+            description: 'Go to Settings → Billing to upgrade your plan.',
+          }
+        )
+      } else {
+        toast.error(data.error || 'Failed to create space', { id: toastId })
+      }
     } catch { toast.error('Failed to create space', { id: toastId }) }
     finally { setCreating(false) }
   }

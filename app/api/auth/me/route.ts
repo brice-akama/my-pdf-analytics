@@ -168,14 +168,41 @@ export async function GET(req: NextRequest) {
     // We cast to PlanName so TypeScript knows it is one of our 4 valid values.
     // getPlanLimits() handles unknown strings by falling back to free.
     // ─────────────────────────────────────────────────────────────────────────
-    const userPlan = (user.plan || profile?.plan || 'free') as PlanName
+     // ── Inherit owner's plan if this user is an invited team member ─────────
+    // Invited members never subscribe themselves. Their plan is always
+    // whatever the owner currently has — including trial state.
+    const organizationId = profile?.organization_id || userIdForQuery
+    const isTeamMember = organizationId !== userIdForQuery
+
+    let planSourceUser = user   // the user whose plan fields we read
+
+    if (isTeamMember) {
+      try {
+        const { ObjectId } = await import('mongodb')
+        const ownerUser = await db.collection('users').findOne(
+          { _id: new ObjectId(organizationId) },
+          { projection: { passwordHash: 0, password: 0 } }
+        )
+        if (ownerUser) planSourceUser = ownerUser
+      } catch {
+        const ownerUser = await db.collection('users').findOne(
+          { id: organizationId },
+          { projection: { passwordHash: 0, password: 0 } }
+        )
+        if (ownerUser) planSourceUser = ownerUser
+      }
+    }
+
+    const userPlan = (
+      planSourceUser.plan || profile?.plan || 'free'
+    ) as PlanName
     const limits = getPlanLimits(userPlan)
 
     // ─────────────────────────────────────────────────────────────────────────
     // ORGANIZATION INFO — unchanged from before
     // ─────────────────────────────────────────────────────────────────────────
-    const organizationId = profile?.organization_id || userIdForQuery
-    const isOwner = organizationId === userIdForQuery
+    const isOwner = !isTeamMember
+     
 
     let organizationName = profile?.company_name || 'My Company'
     let organizationRole = profile?.role || 'owner'
@@ -207,13 +234,16 @@ export async function GET(req: NextRequest) {
     //   not yet expired. Both conditions must be true. A user who is "trialing"
     //   but whose trialEndsAt is in the past is effectively expired.
     // ─────────────────────────────────────────────────────────────────────────
-    const now = new Date()
-    const trialEndsAt: Date | null = user.trialEndsAt ? new Date(user.trialEndsAt) : null
+     const now = new Date()
+    // For members, read trial dates from the owner's document
+    const trialEndsAt: Date | null = planSourceUser.trialEndsAt
+      ? new Date(planSourceUser.trialEndsAt)
+      : null
     const trialDaysRemaining = trialEndsAt
       ? Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
       : 0
-    const isTrialActive =
-      user.subscriptionStatus === 'trialing' && trialDaysRemaining > 0
+     const isTrialActive =
+      planSourceUser.subscriptionStatus === 'trialing' && trialDaysRemaining > 0
 
     // ─────────────────────────────────────────────────────────────────────────
     // ASSEMBLE THE FULL RESPONSE OBJECT
@@ -266,15 +296,16 @@ export async function GET(req: NextRequest) {
       // paddleCustomerId: used by the billing portal and cancellation flow
       billing: {
         plan: userPlan,
-        subscriptionStatus: user.subscriptionStatus || 'inactive',
+        subscriptionStatus: planSourceUser.subscriptionStatus || 'inactive',
         trialEndsAt: trialEndsAt?.toISOString() || null,
         trialDaysRemaining,
         isTrialActive,
-        currentPeriodEnd: user.currentPeriodEnd
-          ? new Date(user.currentPeriodEnd).toISOString()
+        currentPeriodEnd: planSourceUser.currentPeriodEnd
+          ? new Date(planSourceUser.currentPeriodEnd).toISOString()
           : null,
-        billingCycle: user.billingCycle || null,
-        paddleCustomerId: user.paddleCustomerId || null,
+        billingCycle: planSourceUser.billingCycle || null,
+        paddleCustomerId: isOwner ? planSourceUser.paddleCustomerId || null : null,
+        isTeamMember,   // ← frontend needs this to hide billing management UI
       },
 
       // ── Statistics ─────────────────────────────────────────────────────────
