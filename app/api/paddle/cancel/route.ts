@@ -87,14 +87,24 @@ export async function POST(request: NextRequest) {
       { status: 502 }
     )
   }
+if (!paddleRes.ok) {
+  console.error("❌ Paddle cancel error:", JSON.stringify(paddleData, null, 2))
 
-  if (!paddleRes.ok) {
-    console.error("❌ Paddle cancel error:", JSON.stringify(paddleData, null, 2))
-    return NextResponse.json(
-      { error: "Failed to cancel subscription. Please try again or contact support." },
-      { status: 502 }
-    )
+  // subscription_locked_pending_changes means it's already scheduled to cancel
+  // This is not really an error — treat it as success
+  if (paddleData?.error?.code === "subscription_locked_pending_changes") {
+    return NextResponse.json({
+      success: true,
+      message: "Your subscription is already scheduled to cancel at the end of your billing period.",
+      cancelAt: null,
+    })
   }
+
+  return NextResponse.json(
+    { error: "Failed to cancel subscription. Please try again or contact support." },
+    { status: 502 }
+  )
+}
 
   console.log(`✅ Subscription canceled for user ${user.email}, sub ID: ${user.paddleSubscriptionId}`)
 

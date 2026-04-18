@@ -481,6 +481,13 @@ const [zapierApiKey, setZapierApiKey] = useState('')
 const [loadingZapierKey, setLoadingZapierKey] = useState(false)
 const [copiedZapierKey, setCopiedZapierKey] = useState(false)
 
+
+// Returns true if the user's current plan includes the given integration.
+// We check against the user state that is already loaded on dashboard mount.
+const planIncludesDriveIntegrations = (userPlan: string | undefined): boolean => {
+  return userPlan === 'pro' || userPlan === 'business'
+}
+
 // useEffects
 useEffect(() => {
   fetch('/api/integrations/teams/status', { credentials: 'include' })
@@ -689,6 +696,20 @@ const fetchOneDriveStatus = async () => {
 }
 
 const handleConnectOneDrive = () => {
+  // PLAN GATE: OneDrive is Pro/Business only
+  if (!planIncludesDriveIntegrations(user?.plan)) {
+    toast.error('OneDrive requires Pro or Business', {
+      description: 'Upgrade your plan to connect OneDrive and import files directly.',
+      duration: 6000,
+      action: {
+        label: 'See plans',
+        onClick: () => router.push('/plan'),
+      },
+    })
+    return
+  }
+ 
+  // Original behaviour — start the OneDrive OAuth flow
   window.location.href = '/api/integrations/onedrive/connect'
 }
 
@@ -721,18 +742,34 @@ const handleDisconnectOneDrive = async () => {
 }
 
 const handleBrowseOneDriveFiles = async () => {
+  // PLAN GATE: Same check as connect
+  if (!planIncludesDriveIntegrations(user?.plan)) {
+    toast.error('OneDrive requires Pro or Business', {
+      description: 'Upgrade your plan to import files from OneDrive.',
+      duration: 6000,
+      action: {
+        label: 'See plans',
+        onClick: () => router.push('/plan'),
+      },
+    })
+    return
+  }
+ 
+  // Original behaviour unchanged below this line
   setLoadingOneDriveFiles(true)
+ 
   try {
     const res = await fetch('/api/integrations/onedrive/files', {
       credentials: 'include',
     })
     const data = await res.json()
+ 
     if (res.ok) {
       setOneDriveFiles(data.files || [])
       setShowOneDriveFilesDialog(true)
     } else {
       toast.error('Failed to load files', {
-        description: data.error || 'Try reconnecting OneDrive'
+        description: data.error || 'Try reconnecting OneDrive',
       })
     }
   } catch (error) {
@@ -842,6 +879,21 @@ const handleDeleteFileRequest = async (id: string) => {
 
 // Add function to connect Google Drive
 const handleConnectGoogleDrive = async () => {
+  // PLAN GATE: Google Drive is Pro/Business only
+  // Free and Starter users see an upgrade prompt instead of the OAuth flow
+  if (!planIncludesDriveIntegrations(user?.plan)) {
+    toast.error('Google Drive requires Pro or Business', {
+      description: 'Upgrade your plan to connect Google Drive and import files directly.',
+      duration: 6000,
+      action: {
+        label: 'See plans',
+        onClick: () => router.push('/plan'),
+      },
+    })
+    return
+  }
+ 
+  // Original behaviour — start the Google OAuth flow
   window.location.href = '/api/integrations/google-drive/connect'
 }
 
@@ -890,33 +942,47 @@ const handleDisconnectGoogleDrive = async () => {
 // Add function to browse files
 // Add function to browse files
 const handleBrowseDriveFiles = async () => {
+  // PLAN GATE: Same check as connect — if they somehow have a connected Drive
+  // but downgraded their plan, we still block browsing
+  if (!planIncludesDriveIntegrations(user?.plan)) {
+    toast.error('Google Drive requires Pro or Business', {
+      description: 'Upgrade your plan to import files from Google Drive.',
+      duration: 6000,
+      action: {
+        label: 'See plans',
+        onClick: () => router.push('/plan'),
+      },
+    })
+    return
+  }
+ 
+  // Original behaviour unchanged below this line
   setLoadingDriveFiles(true)
-  
+ 
   try {
     const res = await fetch('/api/integrations/google-drive/files', {
-      credentials: 'include'
+      credentials: 'include',
     })
-    
+ 
     const data = await res.json()
-    
+ 
     if (res.ok) {
       setDriveFiles(data.files || [])
-      setShowDriveFilesDialog(true) // NOW open dialog with files loaded
+      setShowDriveFilesDialog(true)
     } else if (res.status === 401) {
-      // ✅ TOKEN EXPIRED - PROMPT TO RECONNECT
       toast.error('Session expired', {
         description: 'Please reconnect Google Drive',
         action: {
           label: 'Reconnect',
           onClick: () => {
-            handleDisconnectGoogleDrive() // Clear old connection
-            setTimeout(() => handleConnectGoogleDrive(), 500) // Reconnect
-          }
-        }
+            handleDisconnectGoogleDrive()
+            setTimeout(() => handleConnectGoogleDrive(), 500)
+          },
+        },
       })
     } else {
       toast.error('Failed to load files', {
-        description: data.error || 'Try reconnecting Google Drive'
+        description: data.error || 'Try reconnecting Google Drive',
       })
     }
   } catch (error) {

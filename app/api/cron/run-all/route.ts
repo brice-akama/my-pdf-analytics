@@ -11,17 +11,19 @@ export async function GET() {
       Authorization: `Bearer ${CRON_SECRET}`
     };
 
-    const [reminders, expiration, expiry, digest] = await Promise.allSettled([
+    const [reminders, expiration, expiry, digest, expirePlans] = await Promise.allSettled([
       fetch(`${base}/api/cron/send-reminders`, { headers }),
       fetch(`${base}/api/cron/send-expiration-warnings`, { headers }),
       fetch(`${base}/api/cron/check-expiry`, { headers }),
       fetch(`${base}/api/cron/weekly-digest`, { headers }),
+      fetch(`${base}/api/cron/expire-plans`, { headers }),  // ← ADD THIS
     ]);
 
-    results.reminders   = reminders.status;
-    results.expiration  = expiration.status;
-    results.expiry      = expiry.status;
-    results.digest      = digest.status;
+    results.reminders     = reminders.status;
+    results.expiration    = expiration.status;
+    results.expiry        = expiry.status;
+    results.digest        = digest.status;
+    results.expirePlans   = expirePlans.status;  // ← ADD THIS
 
   } catch (error) {
     console.error('Cron run-all error:', error);

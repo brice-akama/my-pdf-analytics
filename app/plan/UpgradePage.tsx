@@ -2,48 +2,39 @@
 
 // app/plan/page.tsx
 //
-// WHAT THIS FILE DOES:
-//   The upgrade / plan selection page. Shows all four plans, the billing
-//   toggle, and the correct current plan highlighted. When a user clicks
-//   Upgrade it calls the Paddle checkout route from Phase 3.
+// FIXES IN THIS VERSION:
 //
-// PHASE 4 CHANGES — what was updated and why:
+//   1. "Downgrade to free" now triggers the proper cancellation flow.
+//      Before this, clicking "Downgrade to free" just called router.push('/dashboard')
+//      which did nothing to the subscription — the user stayed on their paid plan.
 //
-//   1. Replaced the inline /api/auth/me fetch with getUserBilling() helper.
-//      Before this, the page read plan from data.user.profile.plan which was
-//      a stale path. After Phase 4 the webhook writes to user.plan and the
-//      /api/auth/me response returns it in data.user.billing.plan. The old
-//      path still worked as a fallback but was unreliable. getUserBilling()
-//      reads the correct path with full fallback coverage.
+//      The correct behaviour: downgrading to free = canceling the Paddle subscription.
+//      We call POST /api/paddle/cancel, Paddle marks it as canceling at period end,
+//      the webhook fires subscription.canceled, the user keeps access until
+//      currentPeriodEnd, and checkAccess lazy-downgrades them to free when that
+//      date passes. This is identical to clicking "Cancel plan" in the BillingDrawer.
 //
-//   2. Added cache: 'no-store' (inside getUserBilling) so the plan page
-//      always fetches fresh data. Without this, the browser cached the old
-//      plan and showed the wrong plan even after the webhook updated it.
+//      Why not immediately set them to free?
+//      Same reason as cancellation — they paid for the period. Industry standard
+//      is access until period end. Cutting off immediately generates chargebacks.
 //
-//   3. Added status banners:
-//      - Trial banner: "Your Pro trial ends in X days — upgrade to keep access"
-//      - Canceled banner: "Your plan cancels on [date] — resubscribe to keep access"
-//      - Past due banner: "Your last payment failed — please update your card"
-//      These banners are driven entirely by the billing state the webhook writes.
+//   2. Added a downgrade confirmation step before calling the cancel API.
+//      A user clicking "Downgrade to free" accidentally should not immediately
+//      lose their plan. A brief confirmation modal prevents that.
 //
-//   4. Added a loading skeleton so the page does not flash "Free" for a
-//      fraction of a second while the billing fetch resolves.
+//   3. Free plan button is now hidden entirely for users who are already on free
+//      or inactive — there is nothing to downgrade to.
 //
-//   5. The current plan badge now shows context-aware labels:
-//      "Trial Active", "Cancels Soon", "Payment Failed" instead of always
-//      showing "Current Plan" regardless of state.
+// EVERYTHING ELSE IS UNCHANGED from the Phase 4 version.
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Check, ArrowLeft, Loader2, AlertCircle, Clock, XCircle } from "lucide-react"
+import { Check, ArrowLeft, Loader2, AlertCircle, Clock, XCircle, ChevronDown } from "lucide-react"
 import Link from "next/link"
 import { getUserBilling, type UserBilling } from "@/lib/getUserBilling"
 
 type PlanType = "monthly" | "yearly"
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PLAN DATA — unchanged from original
-// ─────────────────────────────────────────────────────────────────────────────
 const plans = [
   {
     id: "free",
@@ -121,10 +112,14 @@ const plans = [
   },
 ]
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FORMAT DATE HELPER
-// Converts an ISO date string to a readable format: "May 15, 2025"
-// ─────────────────────────────────────────────────────────────────────────────
+// Plan hierarchy for determining upgrade vs downgrade direction
+const PLAN_RANK: Record<string, number> = {
+  free: 0,
+  starter: 1,
+  pro: 2,
+  business: 3,
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-US', {
@@ -134,40 +129,120 @@ function formatDate(iso: string | null): string {
   })
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DOWNGRADE CONFIRMATION MODAL
+//
+// Shown when a paid user clicks "Downgrade to free". Explains what happens
+// before any API call is made so the user cannot do it accidentally.
+// ─────────────────────────────────────────────────────────────────────────────
+function DowngradeConfirmModal({
+  currentPlanName,
+  accessUntil,
+  onConfirm,
+  onCancel,
+  loading,
+  error,
+}: {
+  currentPlanName: string
+  accessUntil: string | null
+  onConfirm: () => void
+  onCancel: () => void
+  loading: boolean
+  error: string | null
+}) {
+  return (
+    // Backdrop
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <h2 className="text-lg font-semibold text-slate-900 mb-2">
+          Downgrade to Free?
+        </h2>
+        <p className="text-sm text-slate-500 mb-5 leading-relaxed">
+          This will cancel your {currentPlanName} subscription. Here is what happens:
+        </p>
+
+        <ul className="space-y-2.5 mb-6">
+          {[
+            accessUntil
+              ? `You keep ${currentPlanName} access until ${accessUntil}`
+              : `You keep ${currentPlanName} access until your billing period ends`,
+            "After that your account moves to the Free plan",
+            "Documents, spaces, and contacts are never deleted",
+            "You can resubscribe anytime and everything is restored",
+          ].map((item, i) => (
+            <li key={i} className="flex items-start gap-2.5 text-sm text-slate-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-[7px] flex-shrink-0" />
+              {item}
+            </li>
+          ))}
+        </ul>
+
+        {error && (
+          <div className="flex items-start gap-2 px-3 py-2.5 bg-red-50 border border-red-200 rounded-lg mb-4">
+            <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors disabled:opacity-50"
+          >
+            Keep my plan
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Canceling...
+              </>
+            ) : (
+              "Yes, downgrade"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN PAGE
+// ─────────────────────────────────────────────────────────────────────────────
 export default function UpgradePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
   const [billing, setBilling] = useState<PlanType>("monthly")
-
-  // billingData holds the full billing state from /api/auth/me.
-  // Null means it has not loaded yet — we show a skeleton in that state
-  // so the page never flashes the wrong plan while fetching.
   const [billingData, setBillingData] = useState<UserBilling | null>(null)
   const [billingLoading, setBillingLoading] = useState(true)
 
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
-  // currentPlan defaults to "free" while loading — safe because free
-  // never grants more than was paid for
-  const currentPlan = billingData?.plan || 'free'
+  // ── Downgrade to free state ───────────────────────────────────────────────
+  const [showDowngradeModal, setShowDowngradeModal] = useState(false)
+  const [downgradeLoading, setDowngradeLoading] = useState(false)
+  const [downgradeError, setDowngradeError] = useState<string | null>(null)
 
-  // ── Fetch billing state on mount ─────────────────────────────────────────
-  // getUserBilling() calls /api/auth/me with cache: 'no-store' so we always
-  // get the plan the webhook most recently wrote, never a stale cached version.
+  const currentPlan = billingData?.plan || 'free'
+  const currentPlanName = plans.find(p => p.id === currentPlan)?.name || 'Current'
+
   useEffect(() => {
     getUserBilling()
       .then((data) => {
         setBillingData(data)
-        // Pre-select the billing cycle toggle to match their current subscription
         if (data.billingCycle === 'yearly') setBilling('yearly')
       })
       .finally(() => setBillingLoading(false))
   }, [])
 
-  // ── Handle ?cancelled=true param from Paddle ─────────────────────────────
-  // Paddle appends this when the user closes the checkout without paying
   useEffect(() => {
     if (searchParams?.get("cancelled") === "true") {
       setCheckoutError(
@@ -177,12 +252,35 @@ export default function UpgradePage() {
     }
   }, [searchParams])
 
-  // ── handleSelectPlan ─────────────────────────────────────────────────────
+  // ── handleSelectPlan ──────────────────────────────────────────────────────
   const handleSelectPlan = async (planId: string) => {
+
+    // ── FIXED: Downgrade to free = cancel the Paddle subscription ────────
+    // Before this fix, clicking "Downgrade to free" just called
+    // router.push('/dashboard') — the subscription was never canceled.
+    // Now we show a confirmation modal. If the user confirms, we call
+    // POST /api/paddle/cancel exactly like the BillingDrawer cancel flow.
+    // The user keeps access until currentPeriodEnd, then drops to free.
     if (planId === "free") {
-      router.push("/dashboard")
+      // Only show the cancel flow if they actually have a paid subscription.
+      // If they are already on free or inactive, just go to dashboard.
+      const hasPaidSub =
+        billingData?.subscriptionStatus === 'active' ||
+        billingData?.subscriptionStatus === 'past_due' ||
+        (billingData?.subscriptionStatus === 'trialing' && !billingData?.isTrialActive)
+
+      if (!hasPaidSub || currentPlan === 'free') {
+        router.push("/dashboard")
+        return
+      }
+
+      // Show confirmation modal — do not call the API until user confirms
+      setDowngradeError(null)
+      setShowDowngradeModal(true)
       return
     }
+
+    // Already on this plan and not canceled — nothing to do
     if (planId === currentPlan && billingData?.subscriptionStatus !== 'canceled') return
 
     setCheckoutError(null)
@@ -205,8 +303,6 @@ export default function UpgradePage() {
         return
       }
 
-      // Full browser redirect to Paddle's hosted checkout page.
-      // router.push does not work for external URLs.
       window.location.href = data.checkoutUrl
 
     } catch {
@@ -216,10 +312,106 @@ export default function UpgradePage() {
     }
   }
 
+  // ── handleConfirmDowngrade ────────────────────────────────────────────────
+  // Called when the user confirms the downgrade modal.
+  // Calls the same cancel API as the BillingDrawer — no duplication.
+  const handleConfirmDowngrade = async () => {
+    setDowngradeLoading(true)
+    setDowngradeError(null)
+
+    try {
+      const res = await fetch("/api/paddle/cancel", {
+        method: "POST",
+        credentials: "include",
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setDowngradeError(data.error || "Something went wrong. Please try again.")
+        return
+      }
+
+      // Success — close modal and show a success banner then go to dashboard
+      setShowDowngradeModal(false)
+
+      // Refresh billing data so the page reflects the new "canceled" state
+      const refreshed = await getUserBilling()
+      setBillingData(refreshed)
+
+      // Show the canceled banner (billing state is now "canceled")
+      // The user sees: "Your plan is canceled. You have access until [date]."
+
+    } catch {
+      setDowngradeError("Network error. Please check your connection and try again.")
+    } finally {
+      setDowngradeLoading(false)
+    }
+  }
+
+  // ── Determine button label and visibility for each plan ──────────────────
+  function getButtonConfig(plan: typeof plans[0]) {
+    const isCurrent = currentPlan === plan.id
+    const isCanceled = billingData?.subscriptionStatus === 'canceled'
+    const isInactive = billingData?.subscriptionStatus === 'inactive'
+    const currentRank = PLAN_RANK[currentPlan] ?? 0
+    const targetRank = PLAN_RANK[plan.id] ?? 0
+
+    // Free plan button — only show for paid users who can downgrade
+    if (plan.id === 'free') {
+      const canDowngrade =
+        currentPlan !== 'free' &&
+        !isInactive &&
+        billingData?.subscriptionStatus !== 'canceled'
+
+      if (!canDowngrade) return null // hide the button entirely
+
+      return {
+        label: 'Downgrade to free',
+        style: 'downgrade' as const,
+        disabled: false,
+      }
+    }
+
+    if (isCurrent && isCanceled) {
+      return { label: 'Resubscribe', style: 'primary' as const, disabled: false }
+    }
+
+    if (isCurrent) {
+      return { label: 'Current plan', style: 'current' as const, disabled: true }
+    }
+
+    if (targetRank > currentRank) {
+      return { label: 'Upgrade', style: plan.popular ? 'popular' as const : 'secondary' as const, disabled: false }
+    }
+
+    // Downgrade to a lower paid plan (e.g. Business → Pro)
+    return { label: 'Downgrade', style: 'secondary' as const, disabled: false }
+  }
+
+  const buttonStyleClasses = {
+    primary:   'bg-indigo-600 text-white hover:bg-indigo-700',
+    popular:   'bg-indigo-600 text-white hover:bg-indigo-700',
+    secondary: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200',
+    current:   'bg-slate-100 text-slate-500 cursor-not-allowed',
+    downgrade: 'bg-white text-slate-500 border border-slate-200 hover:border-red-200 hover:text-red-600',
+  }
+
   return (
     <div className="min-h-screen bg-white">
 
-      {/* ── Header ── */}
+      {/* Downgrade confirmation modal */}
+      {showDowngradeModal && (
+        <DowngradeConfirmModal
+          currentPlanName={currentPlanName}
+          accessUntil={billingData?.currentPeriodEnd ? formatDate(billingData.currentPeriodEnd) : null}
+          onConfirm={handleConfirmDowngrade}
+          onCancel={() => setShowDowngradeModal(false)}
+          loading={downgradeLoading}
+          error={downgradeError}
+        />
+      )}
+
+      {/* Header */}
       <div className="border-b border-slate-100 bg-white sticky top-0 z-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
@@ -236,10 +428,10 @@ export default function UpgradePage() {
         </div>
       </div>
 
-      {/* ── Hero ── */}
+      {/* Hero */}
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 pt-12 pb-10 text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500 mb-4">
-          Upgrade your plan
+          Plans
         </p>
         <h1 className="text-3xl sm:text-4xl font-semibold text-slate-900 leading-tight mb-4">
           Choose the plan that fits{" "}
@@ -278,27 +470,21 @@ export default function UpgradePage() {
         </div>
       </div>
 
-      {/* ── PHASE 4: Status banners ──────────────────────────────────────────
-          Driven entirely by what the webhook wrote to MongoDB.
-          A fully active paid user sees none of these. ── */}
+      {/* Status banners */}
       {!billingLoading && billingData && (
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-4 space-y-3">
-
-          {/* Trial banner */}
           {billingData.isTrialActive && (
             <div className="flex items-start gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
               <Clock className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-blue-700">
                 Your free trial ends on{" "}
                 <span className="font-semibold">{formatDate(billingData.trialEndsAt)}</span>
-                {" "}— that is{" "}
+                {" "}— {" "}
                 <span className="font-semibold">{billingData.trialDaysRemaining} days</span>
                 {" "}from now. Choose a plan below to keep your access.
               </p>
             </div>
           )}
-
-          {/* Canceled banner */}
           {billingData.subscriptionStatus === 'canceled' && billingData.currentPeriodEnd && (
             <div className="flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
               <XCircle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
@@ -309,18 +495,15 @@ export default function UpgradePage() {
               </p>
             </div>
           )}
-
-          {/* Past due banner */}
           {billingData.subscriptionStatus === 'past_due' && (
             <div className="flex items-start gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
               <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-red-700">
-                Your last payment failed. Paddle will retry automatically. If this keeps
-                happening, please update your payment method to avoid losing access.
+                Your last payment failed. Paddle will retry automatically.
+                If this keeps happening, please update your payment method.
               </p>
             </div>
           )}
-
         </div>
       )}
 
@@ -334,10 +517,8 @@ export default function UpgradePage() {
         </div>
       )}
 
-      {/* ── Plans ── */}
+      {/* Plans grid */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-20">
-
-        {/* Loading skeleton — prevents flashing wrong plan while fetch resolves */}
         {billingLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[1, 2, 3, 4].map((i) => (
@@ -357,10 +538,7 @@ export default function UpgradePage() {
               const isCurrent = currentPlan === plan.id
               const isLoading = loadingPlanId === plan.id
               const price = billing === "monthly" ? plan.monthlyPrice : plan.yearlyPrice
-
-              // A canceled user CAN click their current plan to resubscribe
-              const isClickable = !isCurrent ||
-                billingData?.subscriptionStatus === 'canceled'
+              const btnConfig = getButtonConfig(plan)
 
               return (
                 <div
@@ -379,7 +557,6 @@ export default function UpgradePage() {
                     </div>
                   )}
 
-                  {/* PHASE 4: Badge label is context-aware based on subscription status */}
                   {isCurrent && !plan.popular && (
                     <div className={`text-white text-xs font-semibold text-center py-2 tracking-wide ${
                       billingData?.subscriptionStatus === 'canceled' ? 'bg-amber-600' :
@@ -396,9 +573,7 @@ export default function UpgradePage() {
 
                   <div className="p-7 flex flex-col flex-1">
                     <div className="mb-6">
-                      <h3 className="text-lg font-semibold text-slate-900 mb-1">
-                        {plan.name}
-                      </h3>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-1">{plan.name}</h3>
                       <p className="text-sm text-slate-500">{plan.description}</p>
                     </div>
 
@@ -417,34 +592,25 @@ export default function UpgradePage() {
                       )}
                     </div>
 
-                    <button
-                      onClick={() => handleSelectPlan(plan.id)}
-                      disabled={!isClickable || isLoading || loadingPlanId !== null}
-                      className={`w-full py-3 px-4 rounded-xl font-semibold text-sm text-center transition-all mb-8 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
-                        isCurrent && billingData?.subscriptionStatus !== 'canceled'
-                          ? "bg-slate-100 text-slate-500 cursor-not-allowed"
-                          : plan.popular
-                          ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                          : plan.monthlyPrice === 0
-                          ? "bg-slate-900 text-white hover:bg-slate-800"
-                          : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200"
-                      }`}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Redirecting to checkout...
-                        </>
-                      ) : isCurrent && billingData?.subscriptionStatus === 'canceled' ? (
-                        'Resubscribe'
-                      ) : isCurrent ? (
-                        'Current plan'
-                      ) : plan.monthlyPrice === 0 ? (
-                        'Downgrade to free'
-                      ) : (
-                        'Upgrade'
-                      )}
-                    </button>
+                    {/* Button — hidden if btnConfig is null (e.g. free plan for free users) */}
+                    {btnConfig !== null && (
+                      <button
+                        onClick={() => handleSelectPlan(plan.id)}
+                        disabled={btnConfig.disabled || isLoading || loadingPlanId !== null}
+                        className={`w-full py-3 px-4 rounded-xl font-semibold text-sm text-center transition-all mb-8 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+                          buttonStyleClasses[btnConfig.style]
+                        }`}
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Redirecting to checkout...
+                          </>
+                        ) : (
+                          btnConfig.label
+                        )}
+                      </button>
+                    )}
 
                     <div className="space-y-3 flex-1">
                       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">

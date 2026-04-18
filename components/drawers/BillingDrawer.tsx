@@ -86,26 +86,32 @@ export default function BillingDrawer({ open, onClose, user, documents, onUpgrad
   const canOpenPortal = !!billing?.paddleCustomerId && plan !== "free"
 
   const handleOpenPortal = async () => {
-    setPortalLoading(true)
-    setPortalError(null)
-    try {
-      const res = await fetch("/api/paddle/portal", {
-        method: "POST",
-        credentials: "include",
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setPortalError(data.error || "Could not open billing portal.")
-        return
-      }
-      // Open portal in a new tab
-      window.open(data.portalUrl, "_blank")
-    } catch {
-      setPortalError("Network error. Please try again.")
-    } finally {
-      setPortalLoading(false)
-    }
+  // Customer Portal is not available in Paddle sandbox
+  // It works automatically in production
+  if (process.env.NEXT_PUBLIC_PADDLE_ENVIRONMENT !== 'production') {
+    setPortalError("Payment portal is only available in production. In sandbox, card updates are handled directly through Paddle.")
+    return
   }
+
+  setPortalLoading(true)
+  setPortalError(null)
+  try {
+    const res = await fetch("/api/paddle/portal", {
+      method: "POST",
+      credentials: "include",
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      setPortalError(data.error || "Could not open billing portal.")
+      return
+    }
+    window.open(data.portalUrl, "_blank")
+  } catch {
+    setPortalError("Network error. Please try again.")
+  } finally {
+    setPortalLoading(false)
+  }
+}
 
   const handleCancelConfirm = async () => {
     setCanceling(true)

@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
     // We append ?session_id={checkout.id} to the success URL so the success
     // page can display a personalised message if needed in the future.
    const appUrl =
-  process.env.NEXT_PUBLIC_PADDLE_URL || 'https://staging.docmetrics.io'
+  process.env.NEXT_PUBLIC_PADDLE_URL || 'https://docmetrics.io'
 
 const successUrl = `${appUrl}/upgrade/success?plan=${planId}&cycle=${billingCycle}`
     const cancelUrl = `${appUrl}/plan?cancelled=true`
