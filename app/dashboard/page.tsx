@@ -2767,18 +2767,15 @@ case 'dashboard':
             
               
             <div className="mb-8">
+            <TrialBanner />
   {/* Header - Responsive Layout */}
   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
     {/* Title and Breadcrumb */}
-    <TrialBanner />
+    
     <div>
       <h1 className="text-3xl font-bold text-slate-900 mb-3">Content library</h1>
       {/* Breadcrumb - Stack on mobile, inline on desktop */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 text-sm text-slate-600">
-        <span className="font-medium">Team Folders</span>
-        <ChevronRight className="h-4 w-4 hidden sm:block" />
-        <span className="font-medium sm:font-normal">My Company Content</span>
-      </div>
+       
     </div>
 
     {/* Upload Button Only - No Share Button */}
