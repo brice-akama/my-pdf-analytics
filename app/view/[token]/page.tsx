@@ -274,6 +274,133 @@ if (currentPage === shareData.document!.numPages && !endQuestionSubmitted) {
     return () => ['mousemove', 'keydown', 'scroll', 'click'].forEach(e => window.removeEventListener(e, h));
   }, []);
 
+
+  // ── Heatmap event collectors ──────────────────────────────────
+  // These fire only after the document is loaded and verified.
+  // They write to heatmap_events collection via the track route,
+  // which is what DocumentHeatmap reads to render click/move/scroll data.
+  useEffect(() => {
+    if (!shareData?.document) return
+
+    // ── Click collector ───────────────────────────────────────────
+    const handleClick = (e: MouseEvent) => {
+      // Convert absolute pixel position to percentage of viewport
+      // so it works at any screen size and zoom level
+      const x = parseFloat(((e.clientX / window.innerWidth) * 100).toFixed(2))
+      const y = parseFloat(((e.clientY / window.innerHeight) * 100).toFixed(2))
+
+      fetch(`/api/view/${token}/track`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'heatmap_click',
+          x,
+          y,
+          pageNum: currentPageRef.current,
+          sessionId,
+          email: emailRef.current || null,
+        }),
+      }).catch(() => {})
+    }
+
+    // ── Mouse movement collector ──────────────────────────────────
+    // Batches points every 2 seconds to avoid flooding the DB.
+    // Converts to % coordinates so heatmap renders correctly
+    // regardless of the viewer's screen resolution.
+    let moveBuffer: { x: number; y: number }[] = []
+    let moveFlushTimer: NodeJS.Timeout
+
+    const handleMouseMove = (e: MouseEvent) => {
+      moveBuffer.push({
+        x: parseFloat(((e.clientX / window.innerWidth) * 100).toFixed(2)),
+        y: parseFloat(((e.clientY / window.innerHeight) * 100).toFixed(2)),
+      })
+
+      // Flush every 2 seconds or when buffer hits 50 points
+      clearTimeout(moveFlushTimer)
+      moveFlushTimer = setTimeout(() => {
+        if (moveBuffer.length === 0) return
+        const points = moveBuffer.splice(0)
+        fetch(`/api/view/${token}/track`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'heatmap_move',
+            points,
+            pageNum: currentPageRef.current,
+            sessionId,
+            email: emailRef.current || null,
+          }),
+        }).catch(() => {})
+      }, 2000)
+    }
+
+    // ── Scroll stop collector ─────────────────────────────────────
+    // Detects when the user stops scrolling for 1.5 seconds —
+    // that pause indicates they are actually reading that section.
+    // Records the Y position as a % so it maps onto the heatmap overlay.
+    let scrollStopTimer: NodeJS.Timeout
+    let lastScrollY = window.scrollY
+    let scrollStopStart = Date.now()
+
+    const handleScrollStop = () => {
+      clearTimeout(scrollStopTimer)
+      scrollStopTimer = setTimeout(() => {
+        const y = parseFloat(
+          ((window.scrollY / document.documentElement.scrollHeight) * 100).toFixed(2)
+        )
+        const dwellTime = Date.now() - scrollStopStart
+
+        // Only record meaningful stops — at least 1 second of reading
+        if (dwellTime > 1000) {
+          fetch(`/api/view/${token}/track`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'heatmap_scroll_position',
+              y,
+              pageNum: currentPageRef.current,
+              dwellTime,
+              sessionId,
+              email: emailRef.current || null,
+            }),
+          }).catch(() => {})
+        }
+
+        // Reset for next stop
+        lastScrollY = window.scrollY
+        scrollStopStart = Date.now()
+      }, 1500)
+    }
+
+    window.addEventListener('click', handleClick)
+    window.addEventListener('mousemove', handleMouseMove, { passive: true })
+    window.addEventListener('scroll', handleScrollStop, { passive: true })
+
+    return () => {
+      window.removeEventListener('click', handleClick)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('scroll', handleScrollStop)
+      clearTimeout(moveFlushTimer)
+      clearTimeout(scrollStopTimer)
+
+      // Flush any remaining movement points on unmount
+      if (moveBuffer.length > 0) {
+        fetch(`/api/view/${token}/track`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'heatmap_move',
+            points: moveBuffer,
+            pageNum: currentPageRef.current,
+            sessionId,
+            email: emailRef.current || null,
+          }),
+        }).catch(() => {})
+      }
+    }
+  }, [shareData?.document, token, sessionId])
+
   const trackEvent = async (event: string, data: any) => {
     try {
       const payload: any = { event, sessionId, email: email || null };

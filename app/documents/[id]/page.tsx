@@ -637,13 +637,23 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
   </Button>
 
   <Button
-    onClick={() => setShowVideoDrawer(true)}
-    variant="outline"
-    className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-  >
-    <Video className="h-4 w-4" />
-    Add video walkthrough
-  </Button>
+  onClick={() => {
+    if (analyticsLevel === 'basic') {
+      toast.error('Video walkthroughs require Starter plan or above', {
+        description: 'Upgrade to add video walkthroughs to your documents.',
+        duration: 5000,
+        action: { label: 'Upgrade', onClick: () => router.push('/plan') },
+      })
+      return
+    }
+    setShowVideoDrawer(true)
+  }}
+  variant="outline"
+  className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+>
+  <Video className="h-4 w-4" />
+  Add video walkthrough
+</Button>
 </div>
                 </div>
               </div>
@@ -657,14 +667,31 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
     {/* Video walkthrough button — always visible when doc has activity */}
     <div className="flex justify-end mb-2">
       <Button
-        onClick={() => setShowVideoDrawer(true)}
-        variant="outline"
-        size="sm"
-        className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-      >
-        <Video className="h-4 w-4" />
-        Manage video walkthroughs
-      </Button>
+  onClick={() => {
+    if (analyticsLevel === 'basic') {
+      toast.error('Video walkthroughs require Starter plan or above', {
+        description: 'Upgrade to add video walkthroughs to your documents.',
+        duration: 5000,
+        action: { label: 'Upgrade', onClick: () => router.push('/plan') },
+      })
+      return
+    }
+    setShowVideoDrawer(true)
+  }}
+  variant="outline"
+  size="sm"
+  className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+>
+  <Video className="h-4 w-4" />
+  {analyticsLevel === 'basic' ? (
+    <span className="flex items-center gap-1">
+      Manage video walkthroughs
+      <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-semibold ml-1">
+        Starter+
+      </span>
+    </span>
+  ) : 'Manage video walkthroughs'}
+</Button>
     </div>
               <ActivityTab
                 analytics={analytics}
