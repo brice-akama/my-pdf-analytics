@@ -367,7 +367,9 @@ export default function ActivityTab({
   onEditLink,
   onOpenShareDrawer,
   onConfirm,
+  analyticsLevel = 'full',
 }: {
+  analyticsLevel?: string;
   analytics: any;
   doc: any;
   token: string;
@@ -632,7 +634,26 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
           </span>
         </div>
 
-        {allVisits.length === 0 ? (
+        {analyticsLevel === 'basic' ? (
+          <div className="py-10 text-center border-b border-slate-100">
+            <div className="h-12 w-12 rounded-xl bg-purple-100 flex items-center justify-center mx-auto mb-3">
+              <BarChart2 className="h-6 w-6 text-purple-500" />
+            </div>
+            <p className="text-sm font-semibold text-slate-900 mb-1">
+              Per-viewer activity is a paid feature
+            </p>
+            <p className="text-xs text-slate-500 mb-4 max-w-xs mx-auto">
+              Upgrade to see who viewed your document, how long they spent on each page,
+              and their exact reading path.
+            </p>
+            
+            <a  href="/plan"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs font-semibold hover:from-purple-700 hover:to-blue-700 transition-all"
+            >
+              ⚡ Upgrade to Starter
+            </a>
+          </div>
+        ) : allVisits.length === 0 ? (
           <div className="py-12 text-center border-b border-slate-100">
             <p className="text-sm text-slate-400">
               No visits yet. Once someone opens your link, they'll appear here.

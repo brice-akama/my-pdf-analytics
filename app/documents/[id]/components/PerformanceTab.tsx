@@ -19,7 +19,32 @@ type Props = {
   setHeatmapPage: (page: number) => void;
   doc: { _id: string; numPages: number };
   onCreateLink: () => void;
+  analyticsLevel?: string;   
 };
+
+
+function AnalyticsUpgradeBanner() {
+  return (
+    <div className="rounded-2xl border-2 border-dashed border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 p-10 text-center my-6">
+      <div className="h-14 w-14 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-4">
+        <BarChart3 className="h-7 w-7 text-purple-600" />
+      </div>
+      <h3 className="text-lg font-bold text-slate-900 mb-2">
+        Advanced Analytics — Starter Plan & Above
+      </h3>
+      <p className="text-sm text-slate-500 max-w-md mx-auto mb-5 leading-relaxed">
+        Upgrade to unlock per-viewer breakdowns, time-per-page charts, location data,
+        heatmaps, dead deal detection, and real-time viewer tracking.
+      </p>
+      
+      <a  href="/plan"
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-semibold hover:from-purple-700 hover:to-blue-700 transition-all shadow-md"
+      >
+        ⚡ Upgrade to Starter
+      </a>
+    </div>
+  )
+}
 
 export default function PerformanceTab({
   analytics,
@@ -30,6 +55,7 @@ export default function PerformanceTab({
   setHeatmapPage,
   doc,
   onCreateLink,
+  analyticsLevel = 'full', 
 }: Props) {
   if (analyticsLoading) {
     return (
@@ -41,6 +67,8 @@ export default function PerformanceTab({
       </div>
     );
   }
+
+  
 
   if (
     !analytics ||
@@ -62,6 +90,68 @@ export default function PerformanceTab({
         </button>
       </div>
     );
+  }
+
+  // Free plan — show KPI numbers only, gate everything else
+  if (analyticsLevel === 'basic') {
+    return (
+      <>
+        {/* Show the 3 basic KPIs */}
+        <div className="py-5 border-b border-slate-100">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Overview</p>
+          <div className="grid grid-cols-3 gap-0 divide-x divide-slate-100 overflow-hidden">
+            {[
+              { label: 'Total Views', value: analytics.totalViews, icon: Eye, color: 'text-sky-500' },
+              { label: 'Unique Viewers', value: analytics.uniqueViewers, icon: Users, color: 'text-violet-500' },
+              { label: 'Completion', value: `${analytics.completionRate}%`, icon: TrendingUp, color: 'text-green-500' },
+            ].map((stat) => (
+              <div key={stat.label} className="px-2 sm:px-6 first:pl-0 last:pr-0">
+                <stat.icon className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${stat.color} mb-1.5 sm:mb-2`} />
+                <div className="text-xl sm:text-3xl font-black text-slate-900 tabular-nums leading-none">{stat.value}</div>
+                <div className="text-[10px] sm:text-[11px] text-slate-400 mt-1 sm:mt-1.5 font-medium leading-tight">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Views by date chart — still shown on basic */}
+        <div className="py-5 border-b border-slate-100">
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Views — Last 7 Days</p>
+            <BarChart2 className="h-3.5 w-3.5 text-slate-300" />
+          </div>
+          <div className="flex items-end justify-between gap-1.5" style={{ height: '120px' }}>
+            {analytics.viewsByDate.map((day: any, index: number) => {
+              const maxViews = Math.max(...analytics.viewsByDate.map((d: any) => d.views), 1);
+              const height = (day.views / maxViews) * 100;
+              return (
+                <div key={index} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
+                  <div className="relative w-full flex flex-col justify-end" style={{ height: '96px' }}>
+                    {day.views > 0 && (
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-white px-1">
+                        {day.views}
+                      </div>
+                    )}
+                    <div
+                      className="w-full rounded-sm transition-all group-hover:opacity-80"
+                      style={{
+                        height: `${height}%`,
+                        minHeight: day.views > 0 ? '3px' : '0',
+                        background: day.views > 0 ? 'linear-gradient(180deg, #a855f7 0%, #0ea5e9 100%)' : '#f1f5f9',
+                      }}
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-300 font-medium">{day.date}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Upgrade banner — gates all the rich analytics below */}
+        <AnalyticsUpgradeBanner />
+      </>
+    )
   }
 
   return (

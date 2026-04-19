@@ -128,6 +128,7 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [analyticsLevel, setAnalyticsLevel] = useState<string>('full');
 
   // Signature
   const [signatureRequest, setSignatureRequest] = useState<SignatureRequestType>({
@@ -159,7 +160,10 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
       const res = await fetch(`/api/documents/${params.id}/analytics`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
-        if (data.success) setAnalytics(data.analytics);
+        if (data.success) {
+  setAnalytics(data.analytics)
+  setAnalyticsLevel(data.analyticsLevel || 'full')
+}
       } else if (res.status === 401) {
         router.push("/login");
       }
@@ -671,8 +675,10 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
                 onOpenShareDrawer={(link, mode, settings) => {
                   setEditingLink(link); setEditMode(mode);
                   setShareSettings(settings); setShowCreateLinkDialog(true);
+
                 }}
                 onConfirm={(opts) => setConfirmDialog({ open: true, ...opts })}
+                analyticsLevel={analyticsLevel}
               />
                 </>
             )}
@@ -685,6 +691,7 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
             liveViewerCount={liveViewerCount} liveViewers={liveViewers}
             heatmapPage={heatmapPage} setHeatmapPage={setHeatmapPage}
             doc={doc} onCreateLink={handleCreateLink}
+            analyticsLevel={analyticsLevel}
           />
         )}
 
