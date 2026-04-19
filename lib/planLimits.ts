@@ -133,7 +133,7 @@ export const PLAN_LIMITS: Record<PlanName, PlanLimit> = {
     maxShareLinks:                    3,
     maxSpaces:                        1,
     maxESignaturesPerMonth:           2,
-    maxTeamMembers:                   1,  // solo only — no invites on free
+    maxTeamMembers:                   2,  // solo only — no invites on free
 
     features: {
       analyticsLevel:            'basic',
@@ -180,7 +180,7 @@ export const PLAN_LIMITS: Record<PlanName, PlanLimit> = {
     maxShareLinks:                   -1,  // unlimited
     maxSpaces:                        3,
     maxESignaturesPerMonth:          10,
-    maxTeamMembers:                   2,  // still solo — team is a Pro feature
+    maxTeamMembers:                   3,  // still solo — team is a Pro feature
 
     features: {
       analyticsLevel:             'full',

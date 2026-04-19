@@ -88,6 +88,7 @@ export async function GET(request: NextRequest) {
       },
       // expose to frontend so TeamDrawer knows if current user is owner
       currentUserIsOwner: organizationId === access.userId,
+      seatLimit: access.limits.maxTeamMembers,   
     })
   } catch (error: any) {
     console.error("GET team error:", error)

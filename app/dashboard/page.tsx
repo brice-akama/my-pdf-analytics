@@ -439,6 +439,7 @@ const [requestedIntegration, setRequestedIntegration] = useState('')
 const [integrationUseCase, setIntegrationUseCase] = useState('')
 const [selectedSlackChannel, setSelectedSlackChannel] = useState<string | null>(null);
 const [currentUserIsOwner, setCurrentUserIsOwner] = useState(true)
+const [teamSeatLimit, setTeamSeatLimit] = useState(-1)
 const [createdFileRequests, setCreatedFileRequests] = useState<Array<{
   email: string
   requestId: string
@@ -1509,6 +1510,7 @@ const fetchTeamMembers = async () => {
       if (data.success) {
         setTeamMembers(data.members)
         setCurrentUserIsOwner(data.currentUserIsOwner ?? true)
+        setTeamSeatLimit(data.seatLimit ?? -1)
       }
     }
   } catch (error) {
@@ -3257,6 +3259,7 @@ case 'dashboard':
   onSetMemberToDelete={setMemberToDelete}
   onSetGeneratedInviteLink={setGeneratedInviteLink}
     currentUserIsOwner={currentUserIsOwner}
+    seatLimit={teamSeatLimit} 
   
 />
 

@@ -77,6 +77,7 @@ interface TeamDrawerProps {
   onSetMemberToDelete: (v: { id: string; name: string } | null) => void
   onSetGeneratedInviteLink: (v: string) => void
   currentUserIsOwner: boolean  // ← tells us if the logged-in user is the owner
+   seatLimit: number
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -106,19 +107,6 @@ const getAvatarColor = (email: string) => {
 }
 
 // ─── Plan seat limits (mirrors planLimits.ts — for UI display only) ──────────
-const PLAN_SEAT_LIMITS: Record<string, number> = {
-  free: 1,
-  starter: 1,
-  pro: 3,
-  business: 10,
-}
-
-const PLAN_NEXT_UPGRADE: Record<string, string> = {
-  free: "Starter",
-  starter: "Pro",
-  pro: "Business",
-  business: "Business",
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -145,15 +133,25 @@ export default function TeamDrawer({
   onSetMemberToDelete,
   onSetGeneratedInviteLink,
   currentUserIsOwner,
+  seatLimit, 
 }: TeamDrawerProps) {
   const router = useRouter()
 
   // ── Derived state ─────────────────────────────────────────────────────────
-  const currentPlan = user?.plan || "free"
-  const seatLimit = PLAN_SEAT_LIMITS[currentPlan] ?? 1
-  const activeMembers = teamMembers.filter((m) => m.status === "active").length
-  const hasReachedSeatLimit = seatLimit !== -1 && teamMembers.length >= seatLimit
-  const nextPlan = PLAN_NEXT_UPGRADE[currentPlan] ?? "Pro"
+ // seatLimit comes from props — it is read directly from planLimits.ts
+// via checkAccess on the server, so changing planLimits.ts always reflects here
+const nonOwnerMembers = teamMembers.filter((m) => m.role !== "owner")
+const hasReachedSeatLimit = seatLimit !== -1 && nonOwnerMembers.length >= seatLimit
+
+// Next plan label for upgrade prompt
+const PLAN_NEXT_UPGRADE: Record<string, string> = {
+  free: "Starter",
+  starter: "Pro",
+  pro: "Business",
+  business: "Business",
+}
+const currentPlan = user?.plan || "free"
+const nextPlan = PLAN_NEXT_UPGRADE[currentPlan] ?? "Pro"
 
   // ── What an invited member sees instead of the invite form ────────────────
   const MemberReadOnlyNotice = () => (
@@ -208,7 +206,7 @@ export default function TeamDrawer({
                           Team seats used
                         </p>
                         <p className="text-sm font-bold text-slate-900">
-                          {teamMembers.length} / {seatLimit}
+                          {nonOwnerMembers.length} / {seatLimit === -1 ? "∞" : seatLimit}
                         </p>
                       </div>
                       <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -216,16 +214,16 @@ export default function TeamDrawer({
                           className={`h-2 rounded-full transition-all ${
                             hasReachedSeatLimit
                               ? "bg-red-500"
-                              : teamMembers.length / seatLimit >= 0.8
+                              : seatLimit !== -1 && nonOwnerMembers.length / seatLimit >= 0.8
                               ? "bg-yellow-500"
                               : "bg-green-500"
                           }`}
                           style={{
-                            width: `${Math.min(
-                              100,
-                              (teamMembers.length / seatLimit) * 100
-                            )}%`,
-                          }}
+  width: seatLimit === -1
+    ? "10%"
+    : `${Math.min(100, (nonOwnerMembers.length / seatLimit) * 100)}%`,
+}}
+                          
                         />
                       </div>
                       {hasReachedSeatLimit && (
