@@ -23,6 +23,7 @@ import {
   Menu,
   Sparkles,
   HelpCircle,
+  Lock,
 } from "lucide-react"
 import GlobalSearch from "@/components/GlobalSearch"
 
@@ -35,7 +36,7 @@ type UserType = {
   company_name: string
   profile_image: string | null
   plan?: string
-   logo_url?: string | null
+  logo_url?: string | null
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -73,6 +74,53 @@ interface TopNavProps {
   onOpenContact: () => void
   onOpenMobileProfile: () => void
   onLogout: () => void
+  currentUserIsOwner: boolean  // ← controls which items are restricted
+}
+
+// ─── Small helper: a dropdown item that is locked for non-owners ──────────────
+//
+// When isOwner is true  → behaves exactly like a normal DropdownMenuItem
+// When isOwner is false → greyed out, not clickable, shows "Owner only" label
+//                         and a lock icon, title tooltip on hover explains why
+
+function RestrictedMenuItem({
+  isOwner,
+  onClick,
+  icon: Icon,
+  label,
+  tooltipText,
+  className = "",
+}: {
+  isOwner: boolean
+  onClick: () => void
+  icon: React.ElementType
+  label: string
+  tooltipText: string
+  className?: string
+}) {
+  if (isOwner) {
+    return (
+      <DropdownMenuItem onClick={onClick} className={className}>
+        <Icon className="mr-2 h-4 w-4" />
+        {label}
+      </DropdownMenuItem>
+    )
+  }
+
+  return (
+    <DropdownMenuItem
+      disabled
+      title={tooltipText}
+      className="opacity-50 cursor-not-allowed focus:bg-transparent data-[disabled]:opacity-50 data-[disabled]:pointer-events-auto data-[disabled]:cursor-not-allowed"
+    >
+      <Icon className="mr-2 h-4 w-4" />
+      {label}
+      <span className="ml-auto flex items-center gap-1 text-xs text-slate-400">
+        <Lock className="h-3 w-3" />
+        Owner only
+      </span>
+    </DropdownMenuItem>
+  )
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -93,6 +141,7 @@ export default function TopNav({
   onOpenContact,
   onOpenMobileProfile,
   onLogout,
+  currentUserIsOwner,
 }: TopNavProps) {
   const router = useRouter()
 
@@ -162,15 +211,17 @@ export default function TopNav({
         {/* ── Desktop: right-side actions ── */}
         <div className="hidden md:flex items-center gap-3 ml-auto flex-shrink-0">
 
-          {/* Upgrade button */}
-          <Button
-            onClick={() => router.push("/plan")}
-            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold px-4"
-          >
-            ⬆ Upgrade
-          </Button>
+          {/* Upgrade button — hidden for invited members, they cannot upgrade */}
+          {currentUserIsOwner && (
+            <Button
+              onClick={() => router.push("/plan")}
+              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold px-4"
+            >
+              ⬆ Upgrade
+            </Button>
+          )}
 
-          {/* Notifications bell */}
+          {/* Notifications bell — available to everyone */}
           <Button
             variant="ghost"
             size="icon"
@@ -191,13 +242,17 @@ export default function TopNav({
               <button className="flex items-center gap-3 hover:bg-slate-50 rounded-lg p-2 transition-colors">
                 {/* Company + email (large screens) */}
                 <div className="text-right hidden lg:block">
-                  <div className="text-sm font-semibold text-slate-900">{user?.company_name}</div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    {user?.company_name}
+                  </div>
                   <div className="text-xs text-slate-600">{user?.email}</div>
                 </div>
 
                 {/* Avatar */}
                 <div
-                  className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(user?.email ?? "")} flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden relative`}
+                  className={`h-10 w-10 rounded-full bg-gradient-to-br ${getAvatarColor(
+                    user?.email ?? ""
+                  )} flex items-center justify-center text-white font-semibold text-lg shadow-md overflow-hidden relative`}
                 >
                   {user?.profile_image ? (
                     <>
@@ -211,7 +266,9 @@ export default function TopNav({
                         height={40}
                         className="rounded-full object-cover w-full h-full relative z-10"
                         key={user.profile_image}
-                        onError={(e) => { e.currentTarget.style.display = "none" }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none"
+                        }}
                       />
                     </>
                   ) : (
@@ -221,79 +278,126 @@ export default function TopNav({
               </button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-72 z-90 bg-white rounded-lg border shadow-md p-1">
+            <DropdownMenuContent
+              align="end"
+              className="w-72 z-90 bg-white rounded-lg border shadow-md p-1"
+            >
               {/* Header block */}
               <div className="px-4 py-3 bg-slate-50">
                 <div className="font-semibold text-slate-900 text-base">
                   {user?.company_name ?? "My Company"}
                 </div>
-                <div className="text-sm text-slate-600 mt-0.5">Advanced Data Rooms</div>
+                <div className="text-sm text-slate-600 mt-0.5">
+                  Advanced Data Rooms
+                </div>
               </div>
               <DropdownMenuSeparator className="my-0" />
+
+              {/* User info block */}
               <div className="px-4 py-3 bg-white">
                 <div className="font-medium text-slate-900">
                   {user?.first_name} {user?.last_name}
                 </div>
                 <div className="text-sm text-slate-600">{user?.email}</div>
+                {/* Show role badge for invited members so they know their status */}
+                {!currentUserIsOwner && (
+                  <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-medium text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full">
+                    <UsersIcon className="h-3 w-3" />
+                    Team Member
+                  </span>
+                )}
               </div>
               <DropdownMenuSeparator />
 
-              <DropdownMenuItem onClick={onOpenSettings}>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
+              {/* ── Settings — owner only ── */}
+              <RestrictedMenuItem
+                isOwner={currentUserIsOwner}
+                onClick={onOpenSettings}
+                icon={Settings}
+                label="Settings"
+                tooltipText="Only the account owner can change account settings"
+              />
 
-              <DropdownMenuItem onClick={onLogout} className="text-red-600">
+              {/* ── Logout — available to everyone ── */}
+              <DropdownMenuItem
+                onClick={onLogout}
+                className="text-red-600 focus:text-red-600 focus:bg-red-50"
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 Log out
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
 
+              {/* ── Team — available to everyone (members can VIEW the team) ── */}
               <DropdownMenuItem onClick={onOpenTeam}>
                 <UsersIcon className="mr-2 h-4 w-4" />
                 Team
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={onOpenBilling}>
-                <CreditCard className="mr-2 h-4 w-4" />
-                Billing
-              </DropdownMenuItem>
+              {/* ── Billing — owner only ── */}
+              <RestrictedMenuItem
+                isOwner={currentUserIsOwner}
+                onClick={onOpenBilling}
+                icon={CreditCard}
+                label="Billing"
+                tooltipText="Only the account owner can manage billing and subscription"
+              />
 
+              {/* ── Resources — available to everyone ── */}
               <DropdownMenuItem onClick={onOpenResources}>
                 <Book className="mr-2 h-4 w-4" />
                 Resources
               </DropdownMenuItem>
 
+              {/* ── Help — available to everyone ── */}
               <DropdownMenuItem onClick={onOpenHelp}>
                 <HelpCircle className="mr-2 h-4 w-4" />
                 Help
               </DropdownMenuItem>
 
+              {/* ── Feedback — available to everyone ── */}
               <DropdownMenuItem onClick={onOpenFeedback}>
                 <Mail className="mr-2 h-4 w-4" />
                 Feedback
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={onOpenIntegrations}>
-                <Puzzle className="mr-2 h-4 w-4" />
-                Integrations
-              </DropdownMenuItem>
+              {/* ── Integrations — owner only ── */}
+              <RestrictedMenuItem
+                isOwner={currentUserIsOwner}
+                onClick={onOpenIntegrations}
+                icon={Puzzle}
+                label="Integrations"
+                tooltipText="Only the account owner can manage integrations"
+              />
 
+              {/* ── Contact Us — available to everyone ── */}
               <DropdownMenuItem onClick={onOpenContact}>
                 <Mail className="mr-2 h-4 w-4" />
                 Contact Us
               </DropdownMenuItem>
 
               <DropdownMenuSeparator />
+
+              {/* ── Upgrade button — owner only ── */}
               <div className="px-2 py-2">
-                <Button
-                  onClick={() => router.push("/plan")}
-                  className="w-full bg-sky-blue-600 hover:bg-sky-blue-700 text-slate-900 font-semibold"
-                >
-                  <Sparkles className="mr-1 h-4 w-4" />
-                  Upgrade
-                </Button>
+                {currentUserIsOwner ? (
+                  <Button
+                    onClick={() => router.push("/plan")}
+                    className="w-full bg-sky-blue-600 hover:bg-sky-blue-700 text-slate-900 font-semibold"
+                  >
+                    <Sparkles className="mr-1 h-4 w-4" />
+                    Upgrade
+                  </Button>
+                ) : (
+                  <div
+                    title="Only the account owner can upgrade the plan"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-slate-100 text-slate-400 text-sm font-medium cursor-not-allowed select-none"
+                  >
+                    <Lock className="h-4 w-4" />
+                    Upgrade (Owner only)
+                  </div>
+                )}
               </div>
             </DropdownMenuContent>
           </DropdownMenu>

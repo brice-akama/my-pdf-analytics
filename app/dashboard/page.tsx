@@ -3184,6 +3184,7 @@ case 'dashboard':
   onOpenContact={() => setShowContactDialog(true)}
   onOpenMobileProfile={() => setShowMobileProfileDrawer(true)}
   onLogout={handleLogout}
+  currentUserIsOwner={currentUserIsOwner}
 />
 
      <MobileSidebar
