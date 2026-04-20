@@ -15,7 +15,7 @@ const plans = [
     href: "/signup",
     popular: false,
     features: [
-      { text: "1 user" },
+      { text: "2 user" },
       { text: "5 documents" },
       { text: "3 share links" },
       { text: "Basic analytics" },
@@ -33,7 +33,7 @@ const plans = [
     href: "/signup",
     popular: false,
     features: [
-      { text: "1 user" },
+      { text: "3 user" },
       { text: "Unlimited documents" },
       { text: "Unlimited share links" },
       { text: "Full document analytics" },
@@ -53,7 +53,7 @@ const plans = [
     href: "/signup",
     popular: true,
     features: [
-      { text: "3 users included" },
+      { text: "4 users included" },
       { text: "Everything in Starter" },
       { text: "Unlimited Spaces" },
       { text: "Unlimited eSignatures" },

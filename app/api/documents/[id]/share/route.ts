@@ -126,10 +126,15 @@ export async function POST(
     const { limits, plan } = access
 
     if (limits.maxShareLinks !== -1) {
-      const existingLinkCount = await db.collection('shares').countDocuments({
-        userId: user.id,
-        active: true,
-      })
+      // With this — count only links created THIS calendar month:
+const startOfMonth = new Date()
+startOfMonth.setDate(1)
+startOfMonth.setHours(0, 0, 0, 0)
+
+const existingLinkCount = await db.collection('shares').countDocuments({
+  userId: user.id,
+  createdAt: { $gte: startOfMonth },
+})
 
       // How many are being created right now
       const linksBeingCreated = emailWhitelist.length > 0 ? emailWhitelist.length : 1

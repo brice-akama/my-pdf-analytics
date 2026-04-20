@@ -515,6 +515,7 @@ export default function PerformanceTab({
           <DocumentHeatmap
             pageNumber={heatmapPage}
             totalPages={doc.numPages}
+            documentId={doc._id} 
             heatmapByPage={analytics.heatmapByPage}
             onPageChange={setHeatmapPage}
           />

@@ -44,7 +44,7 @@ const plans = [
     yearlyPrice: 0,
     period: "forever",
     features: [
-      "1 user",
+      "2 user",
       "5 documents",
       "3 share links",
       "Basic analytics",
@@ -60,7 +60,7 @@ const plans = [
     yearlyPrice: 15,
     period: "per month",
     features: [
-      "1 user",
+      "3 user",
       "Unlimited documents",
       "Unlimited share links",
       "Full document analytics",
@@ -79,7 +79,7 @@ const plans = [
     period: "per month",
     popular: true,
     features: [
-      "3 users included",
+      "4 users included",
       "Everything in Starter",
       "Unlimited Spaces",
       "Unlimited eSignatures",
