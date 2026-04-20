@@ -4,6 +4,8 @@ import { dbPromise } from "@/app/api/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { verifyUserFromRequest } from "@/lib/auth";
 import { sendSignatureRequestEmail, sendCCBulkSummaryEmail } from "@/lib/emailService";
+import { checkAccess } from "@/lib/checkAccess";
+import { hasFeature } from "@/lib/planLimits";
 
 interface BulkRecipient {
   name: string;
@@ -19,13 +21,25 @@ export async function POST(
   try {
     const { id } = await params;
 
-    const user = await verifyUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+   const access = await checkAccess(request);
+if (!access.ok) return access.response;
+
+const { user, plan } = access;
+
+// bulkSend is a Pro+ feature — gate it before any DB work
+if (!hasFeature(plan, "bulkSend")) {
+  return NextResponse.json(
+    {
+      success: false,
+      message: `Bulk send is not available on the ${plan} plan. Upgrade to Pro or higher to send documents to multiple recipients at once.`,
+      code: "FEATURE_NOT_AVAILABLE",
+      feature: "bulkSend",
+      requiredPlan: "pro",
+      currentPlan: plan,
+    },
+    { status: 403 }
+  );
+}
 
     const db = await dbPromise;
     const { 
@@ -53,7 +67,7 @@ export async function POST(
 
     const document = await db.collection("documents").findOne({
       _id: new ObjectId(id),
-      userId: user.id,
+       userId: user._id.toString(),
     });
 
     if (!document) {
@@ -74,7 +88,7 @@ export async function POST(
     }
 
     const userDoc = await db.collection("users").findOne({
-      _id: new ObjectId(user.id),
+       _id: user._id,
     });
     const ownerName = userDoc?.profile?.fullName || userDoc?.email || user.email;
 
@@ -119,7 +133,7 @@ export async function POST(
     const bulkSendRecord = {
       batchId,
       documentId: id,
-      ownerId: user.id,
+      ownerId: user._id.toString(),
       ownerEmail: user.email,
       ownerName,
       totalRecipients: recipients.length,

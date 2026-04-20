@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 
 import {
@@ -644,10 +645,18 @@ useEffect(() => {
       // Start polling for status
       pollSendStatus(data.batchId);
     } else {
-      alert(data.message || "Failed to initiate bulk send");
-      setIsSending(false);
-      setStep(2);
-    }
+  // Plan gate — show a clear upgrade message instead of a generic alert
+  if (data.code === "FEATURE_NOT_AVAILABLE" && data.feature === "bulkSend") {
+    toast.error(
+      `Bulk send requires the Pro plan. You're on the ${data.currentPlan ?? "free"} plan. Upgrade to send to multiple recipients.`,
+      { duration: 8000 }
+    )
+  } else {
+    toast.error(data.message || "Failed to initiate bulk send")
+  }
+  setIsSending(false);
+  setStep(2);
+}
   } catch (error) {
     console.error("Bulk send error:", error);
     alert("Failed to initiate bulk send");
