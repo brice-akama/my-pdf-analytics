@@ -5,6 +5,8 @@ import { ObjectId, Db } from "mongodb";
 import { sendCCNotificationEmail, sendSignatureRequestEmail } from "@/lib/emailService";
 import { verifyUserFromRequest } from '@/lib/auth';
 import { hashAccessCode } from "@/lib/accessCodeConfig";
+import { checkAccess } from '@/lib/checkAccess'
+import { getPlanLimits } from '@/lib/planLimits'
 
 // ─── Helper: save recipients to contacts collection ───────────────────────────
 //
@@ -68,13 +70,11 @@ async function saveRecipientsAsContacts(
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+   // ── Step 1: Authenticate and get effective plan ───────────────────────────
+const access = await checkAccess(request)
+if (!access.ok) return access.response
+
+const { user, plan, limits } = access
 
     const {
       documentId, recipients, signatureFields, message, dueDate,
@@ -85,7 +85,42 @@ export async function POST(request: NextRequest) {
 
     const db = await dbPromise;
 
-    const ownerId   = user.id;
+    // ── Step 2: Enforce monthly eSignature limit ──────────────────────────────
+// Count how many signature requests this user has sent this calendar month.
+// -1 means unlimited (Pro/Business). Free = 2, Starter = 10.
+// We count by createdAt within the current month so the limit resets
+// automatically on the 1st of each month without any cron job needed.
+if (limits.maxESignaturesPerMonth !== -1) {
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+  const usedThisMonth = await db.collection('signature_requests').countDocuments({
+    ownerId: user._id.toString(),
+    createdAt: { $gte: startOfMonth },
+  })
+
+  // Each send creates one request per recipient — check if adding
+  // this batch would push them over the limit
+  const incomingCount = (await request.clone().json()).recipients?.length || 1
+  
+  if (usedThisMonth + incomingCount > limits.maxESignaturesPerMonth) {
+    const remaining = Math.max(0, limits.maxESignaturesPerMonth - usedThisMonth)
+    return NextResponse.json(
+      {
+        success: false,
+        message: `You have used ${usedThisMonth} of your ${limits.maxESignaturesPerMonth} eSignatures this month. You have ${remaining} remaining. Upgrade your plan for more.`,
+        code: 'ESIGNATURE_LIMIT_REACHED',
+        used: usedThisMonth,
+        limit: limits.maxESignaturesPerMonth,
+        remaining,
+        plan,
+      },
+      { status: 403 }
+    )
+  }
+}
+
+     const ownerId    = user._id.toString();
     const ownerEmail = user.email;
 
     const userDoc = await db.collection('users').findOne({

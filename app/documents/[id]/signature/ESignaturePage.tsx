@@ -548,9 +548,21 @@ export default function ESignaturePage() {
 
           setShowSuccessDialog(true);
         } else {
-          toast.error("Failed to send request", {
-            description: data.message || "Something went wrong. Please try again.",
-          });
+          // Show upgrade prompt if limit reached, generic error otherwise
+if (data.code === 'ESIGNATURE_LIMIT_REACHED') {
+  toast.error("eSignature limit reached", {
+    description: data.message,
+    duration: 8000,
+    action: {
+      label: "Upgrade plan",
+      onClick: () => router.push("/plan"),
+    },
+  })
+} else {
+  toast.error("Failed to send request", {
+    description: data.message || "Something went wrong. Please try again.",
+  })
+}
         }
       }
     } catch (error) {
