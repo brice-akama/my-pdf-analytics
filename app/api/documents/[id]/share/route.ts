@@ -1,4 +1,5 @@
 // app/api/documents/[id]/share/route.ts
+// app/api/documents/[id]/share/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
@@ -7,9 +8,9 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { createNotification } from '@/lib/notifications';
 import { canAccessDocument } from '@/lib/teamAccess';
-// import { sendShareEmailViaGmailOrResend } from '@/lib/emails/shareEmails';
+import { checkAccess } from '@/lib/checkAccess';
+import { hasFeature } from '@/lib/planLimits';
 
- 
 interface ShareSettings {
   requireEmail: boolean;
   allowDownload: boolean;
@@ -38,14 +39,18 @@ interface ShareSettings {
   sendEmailNotification: boolean;
 }
 
-// ✅ POST - Create new share link with advanced settings
+// ── POST - Create new share link ─────────────────────────────────
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   console.log('\n🟢 ===== CREATE SHARE API =====');
-    
+
   try {
+    // ── Step 1: Auth via checkAccess (gives us plan + limits) ─────
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
+
     const user = await verifyUserFromRequest(request);
     console.log('👤 User:', user?.email);
     if (!user) {
@@ -61,25 +66,22 @@ export async function POST(
     const db = await dbPromise;
     const documentId = new ObjectId(id);
 
-    const document = await db.collection('documents').findOne({
-      _id: documentId,
-    })
-
+    const document = await db.collection('documents').findOne({ _id: documentId })
     if (!document) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 })
     }
 
     if (document.userId !== user.id) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Only the document owner can perform this action',
         code: 'NOT_OWNER'
       }, { status: 403 })
     }
 
-    
-
+    // ── Step 2: Parse body ────────────────────────────────────────
     const body = await request.json();
     console.log('📨 Request body:', body);
+
     const {
       requireEmail = false,
       recipientNames = [],
@@ -88,18 +90,18 @@ export async function POST(
       notifyOnView = true,
       password = null,
       expiresIn = 'never',
-      ndaAgreementId = null,   
-      ndaUrl = null,  
+      ndaAgreementId = null,
+      ndaUrl = null,
       maxViews = null,
       allowedEmails = [],
       customMessage = null,
       trackDetailedAnalytics = true,
-      enableWatermark = false,  
+      enableWatermark = false,
       recipientEmails = [],
       watermarkText = null,
       watermarkPosition = 'bottom',
-      requireNDA = false,  
-      ndaText = null, 
+      requireNDA = false,
+      ndaText = null,
       ndaTemplateId = null,
       customNdaText = null,
       allowForwarding = true,
@@ -115,22 +117,94 @@ export async function POST(
       logoUrl = null,
     } = body;
 
-    const emailWhitelist = allowedEmails.length > 0 ? allowedEmails : recipientEmails;
+    const emailWhitelist: string[] =
+      allowedEmails.length > 0 ? allowedEmails : recipientEmails;
 
+    // ── Step 3: Plan limit — maxShareLinks ────────────────────────
+    // Count ALL active links this user has created across all documents.
+    // Free plan: 3 total. -1 means unlimited.
+    const { limits, plan } = access
+
+    if (limits.maxShareLinks !== -1) {
+      const existingLinkCount = await db.collection('shares').countDocuments({
+        userId: user.id,
+        active: true,
+      })
+
+      // How many are being created right now
+      const linksBeingCreated = emailWhitelist.length > 0 ? emailWhitelist.length : 1
+
+      if (existingLinkCount + linksBeingCreated > limits.maxShareLinks) {
+        return NextResponse.json(
+          {
+            error: 'SHARE_LIMIT_REACHED',
+            limit: limits.maxShareLinks,
+            used: existingLinkCount,
+            plan,
+          },
+          { status: 403 }
+        )
+      }
+    }
+
+    // ── Step 4: Feature gates ─────────────────────────────────────
+    // Each premium feature is silently stripped if the plan does not
+    // support it. We do NOT block the request — we just ignore the
+    // setting so the link still gets created without the feature.
+    // The UI already shows locked states for these, so this is a
+    // server-side safety net against direct API calls.
+
+    // Watermark — Pro and Business only
+    const watermarkAllowed = hasFeature(plan, 'dynamicWatermarking')
+    const effectiveEnableWatermark = watermarkAllowed ? enableWatermark : false
+    const effectiveWatermarkText = watermarkAllowed ? watermarkText : null
+
+    // NDA — Pro and Business only
+    const ndaAllowed = hasFeature(plan, 'ndaAndAgreements')
+    const effectiveRequireNDA = ndaAllowed ? requireNDA : false
+    const effectiveNdaAgreementId = ndaAllowed ? ndaAgreementId : null
+    const effectiveNdaUrl = ndaAllowed ? ndaUrl : null
+    const effectiveNdaText = ndaAllowed ? ndaText : null
+
+    // Custom branding (logo + sharedByName) — Starter and above
+    const brandingAllowed = hasFeature(plan, 'customBranding')
+    const effectiveLogoUrl = brandingAllowed ? logoUrl : null
+    const effectiveSharedByName = brandingAllowed ? sharedByName : null
+
+    // Email whitelist / domain restriction — Pro and above
+    // Free and Starter can only create public links
+    const bulkSendAllowed = hasFeature(plan, 'bulkSend')
+    const effectiveLinkType = bulkSendAllowed ? linkType : 'public'
+    const effectiveAllowedDomain = bulkSendAllowed ? allowedDomain : null
+
+    // If not on Pro+, strip recipient email list down to max 1
+    // (Free/Starter can still create a single email-gated link
+    //  but cannot bulk-create links for multiple recipients)
+    const effectiveEmailWhitelist = bulkSendAllowed
+      ? emailWhitelist
+      : emailWhitelist.slice(0, 1)
+
+    // Log what was stripped so we can debug if needed
+    if (!watermarkAllowed && enableWatermark) {
+      console.log(`⚠️ Watermark stripped — plan ${plan} does not include dynamicWatermarking`)
+    }
+    if (!ndaAllowed && requireNDA) {
+      console.log(`⚠️ NDA stripped — plan ${plan} does not include ndaAndAgreements`)
+    }
+    if (!brandingAllowed && (logoUrl || sharedByName)) {
+      console.log(`⚠️ Branding stripped — plan ${plan} does not include customBranding`)
+    }
+
+    // ── Step 5: Build NDA template (unchanged logic) ──────────────
     let ndaTemplate = null;
-
-    if (requireNDA) {
+    if (effectiveRequireNDA) {
       if (customNdaText) {
         ndaTemplate = customNdaText;
       } else if (ndaTemplateId && ObjectId.isValid(ndaTemplateId)) {
         const template = await db.collection('nda_templates').findOne({
           _id: new ObjectId(ndaTemplateId),
-          $or: [
-            { userId: user.id },
-            { isSystemDefault: true }
-          ]
+          $or: [{ userId: user.id }, { isSystemDefault: true }]
         });
-        
         if (template) {
           ndaTemplate = template.template;
           await db.collection('nda_templates').updateOne(
@@ -142,30 +216,26 @@ export async function POST(
         const systemDefault = await db.collection('nda_templates').findOne({
           isSystemDefault: true,
         });
-        
-        if (systemDefault) {
-          ndaTemplate = systemDefault.template;
-        }
+        if (systemDefault) ndaTemplate = systemDefault.template;
       }
     }
 
+    // ── Step 6: Build share records ───────────────────────────────
     const shareRecords = [];
     const shareLinks = [];
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
-    if (emailWhitelist.length > 0) {
-      console.log(`📧 Creating ${emailWhitelist.length} unique share links...`);
-      
-      for (let i = 0; i < emailWhitelist.length; i++) {
-        const recipientEmail = emailWhitelist[i];
+    if (effectiveEmailWhitelist.length > 0) {
+      console.log(`📧 Creating ${effectiveEmailWhitelist.length} unique share links...`);
+
+      for (let i = 0; i < effectiveEmailWhitelist.length; i++) {
+        const recipientEmail = effectiveEmailWhitelist[i];
         const recipientName = recipientNames[i] || recipientEmail.split('@')[0];
         const shareToken = crypto.randomBytes(32).toString('base64url');
-        
+
         let hashedPassword = null;
-        if (password) {
-          hashedPassword = await bcrypt.hash(password, 10);
-        }
-        
+        if (password) hashedPassword = await bcrypt.hash(password, 10);
+
         let expiresAt = null;
         if (expiresIn !== 'never') {
           const days = parseInt(expiresIn);
@@ -175,7 +245,7 @@ export async function POST(
           expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + days);
         }
-        
+
         const shareRecord = {
           documentId,
           userId: user.id,
@@ -193,13 +263,13 @@ export async function POST(
             recipientNames: [recipientName],
             customMessage,
             trackDetailedAnalytics,
-            enableWatermark,
-            watermarkText,
-            ndaAgreementId: ndaAgreementId || null,   
-            ndaUrl: ndaUrl || null, 
+            enableWatermark: effectiveEnableWatermark,
+            watermarkText: effectiveWatermarkText,
+            ndaAgreementId: effectiveNdaAgreementId,
+            ndaUrl: effectiveNdaUrl,
             watermarkPosition,
-            requireNDA,
-            ndaText,
+            requireNDA: effectiveRequireNDA,
+            ndaText: effectiveNdaText,
             ndaTemplate,
             ndaTemplateId,
             allowForwarding,
@@ -209,10 +279,10 @@ export async function POST(
             selfDestruct,
             availableFrom: availableFrom ? new Date(availableFrom) : null,
             linkType: 'email-gated',
-            sharedByName,
-            allowedDomain: allowedDomain || null,
-            logoUrl,
-            sendEmailNotification: false, // emails are sent manually by the user
+            sharedByName: effectiveSharedByName,
+            allowedDomain: effectiveAllowedDomain,
+            logoUrl: effectiveLogoUrl,
+            sendEmailNotification: false,
           },
           password: hashedPassword,
           expiresAt,
@@ -250,7 +320,7 @@ export async function POST(
           createdBy: {
             userId: user.id,
             email: user.email,
-            plan: user.plan,
+            plan,
           },
           documentSnapshot: {
             filename: document.originalFilename,
@@ -259,7 +329,7 @@ export async function POST(
             size: document.size,
           },
         };
-        
+
         shareRecords.push(shareRecord);
         shareLinks.push({
           recipientEmail,
@@ -270,11 +340,11 @@ export async function POST(
       }
     } else {
       console.log('📧 Creating 1 public share link...');
-      
+
       const shareToken = crypto.randomBytes(32).toString('base64url');
       let hashedPassword = null;
       if (password) hashedPassword = await bcrypt.hash(password, 10);
-      
+
       let expiresAt = null;
       if (expiresIn !== 'never') {
         const days = parseInt(expiresIn);
@@ -284,7 +354,7 @@ export async function POST(
         expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + days);
       }
-      
+
       const shareRecord = {
         documentId,
         userId: user.id,
@@ -302,25 +372,25 @@ export async function POST(
           recipientNames: null,
           customMessage,
           trackDetailedAnalytics,
-          enableWatermark,
-          watermarkText,
+          enableWatermark: effectiveEnableWatermark,
+          watermarkText: effectiveWatermarkText,
           watermarkPosition,
-          requireNDA,
-          ndaText,
+          requireNDA: effectiveRequireNDA,
+          ndaText: effectiveNdaText,
           ndaTemplate,
           ndaTemplateId,
-          ndaAgreementId: ndaAgreementId || null,
-          ndaUrl: ndaUrl || null,
+          ndaAgreementId: effectiveNdaAgreementId,
+          ndaUrl: effectiveNdaUrl,
           allowForwarding,
           notifyOnDownload,
           downloadLimit,
           viewLimit,
           selfDestruct,
           availableFrom: availableFrom ? new Date(availableFrom) : null,
-          linkType,
-          sharedByName,
-          allowedDomain: allowedDomain || null,
-          logoUrl,
+          linkType: effectiveLinkType,
+          sharedByName: effectiveSharedByName,
+          allowedDomain: effectiveAllowedDomain,
+          logoUrl: effectiveLogoUrl,
           sendEmailNotification: false,
         },
         password: hashedPassword,
@@ -359,7 +429,7 @@ export async function POST(
         createdBy: {
           userId: user.id,
           email: user.email,
-          plan: user.plan,
+          plan,
         },
         documentSnapshot: {
           filename: document.originalFilename,
@@ -368,7 +438,7 @@ export async function POST(
           size: document.size,
         },
       };
-      
+
       shareRecords.push(shareRecord);
       shareLinks.push({
         recipientEmail: null,
@@ -378,17 +448,15 @@ export async function POST(
       });
     }
 
+    // ── Step 7: Insert to DB ──────────────────────────────────────
     const result = await db.collection('shares').insertMany(shareRecords);
     const insertedIds = Object.values(result.insertedIds).map(id => id.toString());
-
     console.log(`✅ Created ${shareRecords.length} share link(s)`);
 
-    // ── Notifications only — email sending removed, users send links manually ──
     const profile = await db.collection('profiles').findOne({ user_id: user.id });
 
     for (let i = 0; i < shareRecords.length; i++) {
       const share = shareRecords[i];
-
       createNotification({
         userId: user.id,
         type: 'share',
@@ -404,38 +472,6 @@ export async function POST(
       }).catch((err: unknown) =>
         console.error('⚠️ Notification error (non-fatal):', err)
       );
-
-      // ── Email sending is intentionally disabled ────────────────────────────
-      // Users copy the generated link and send it manually via their own email.
-      // This avoids spam filter issues entirely.
-      //
-      // To re-enable in future:
-      //
-      // if (sendEmailNotification && share.recipientEmail) {
-      //   try {
-      //     await Promise.race([
-      //       sendShareEmailViaGmailOrResend({
-      //         userId: user.id,
-      //         recipientEmail: share.recipientEmail,
-      //         senderName: profile?.full_name || user.email.split('@')[0],
-      //         senderEmail: user.email,
-      //         documentName: document.originalFilename,
-      //         shareLink: shareLinks[i].shareLink,
-      //         customMessage,
-      //         expiresAt: share.expiresAt,
-      //         sharedByName,
-      //         logoUrl,
-      //       }),
-      //       new Promise<never>((_, reject) =>
-      //         setTimeout(() => reject(new Error('Email timeout after 8s')), 8000)
-      //       ),
-      //     ]);
-      //     console.log(`✅ Email sent to: ${share.recipientEmail}`);
-      //   } catch (emailError: unknown) {
-      //     const msg = emailError instanceof Error ? emailError.message : 'Unknown error';
-      //     console.error(`⚠️ Email failed for ${share.recipientEmail} (non-fatal): ${msg}`);
-      //   }
-      // }
     }
 
     await db.collection('documents').updateOne(
@@ -467,6 +503,7 @@ export async function POST(
       }).catch(err => console.error('Failed to log share creation:', err));
     }
 
+    // ── Step 8: Return response ───────────────────────────────────
     if (shareLinks.length === 1 && !shareLinks[0].recipientEmail) {
       return NextResponse.json({
         success: true,
@@ -487,6 +524,13 @@ export async function POST(
           createdAt: shareRecords[0].createdAt,
         },
         message: 'Share link created successfully',
+        // Tell the frontend what was stripped so it can show info toasts
+        strippedFeatures: [
+          ...(enableWatermark && !watermarkAllowed ? ['watermark'] : []),
+          ...(requireNDA && !ndaAllowed ? ['nda'] : []),
+          ...((logoUrl || sharedByName) && !brandingAllowed ? ['branding'] : []),
+          ...(emailWhitelist.length > 1 && !bulkSendAllowed ? ['bulkRecipients'] : []),
+        ],
       }, { status: 201 });
     } else {
       return NextResponse.json({
@@ -500,6 +544,12 @@ export async function POST(
         })),
         totalLinks: shareLinks.length,
         message: `${shareLinks.length} share link${shareLinks.length > 1 ? 's' : ''} created successfully`,
+        strippedFeatures: [
+          ...(enableWatermark && !watermarkAllowed ? ['watermark'] : []),
+          ...(requireNDA && !ndaAllowed ? ['nda'] : []),
+          ...((logoUrl || sharedByName) && !brandingAllowed ? ['branding'] : []),
+          ...(emailWhitelist.length > 1 && !bulkSendAllowed ? ['bulkRecipients'] : []),
+        ],
       }, { status: 201 });
     }
 
@@ -512,6 +562,7 @@ export async function POST(
   }
 }
 
+ 
 //  GET - List all share links for a document
 export async function GET(
   request: NextRequest,

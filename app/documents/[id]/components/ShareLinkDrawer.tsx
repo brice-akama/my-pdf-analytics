@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Drawer } from '@/components/ui/drawer';
 import { EmailAutocomplete } from '@/components/ui/EmailAutocomplete';
-import NdaAgreementSelector from './NdaAgreementSelector'; // ✅ replaces NdaSelector
+import NdaAgreementSelector from './NdaAgreementSelector';
 import { toast } from 'sonner';
 import {
   Share2, Users, Shield, Mail, ImageIcon, FileSignature,
@@ -32,7 +32,6 @@ type ShareSettings = {
   ndaTemplateId: string;
   customNdaText: string;
   useCustomNda: boolean;
-  // ✅ NEW NDA fields
   ndaAgreementId: string;
   ndaUrl: string;
   allowPrint: boolean;
@@ -83,6 +82,14 @@ type Props = {
   onSuccess: () => void;
 };
 
+// ── Human-readable labels for stripped features ───────────────────
+const STRIPPED_FEATURE_LABELS: Record<string, string> = {
+  watermark:      'Dynamic watermark (Pro+)',
+  nda:            'NDA requirement (Pro+)',
+  branding:       'Custom branding (Starter+)',
+  bulkRecipients: 'Multiple recipients (Pro+)',
+}
+
 export default function ShareLinkDrawer({
   open, onOpenChange, doc, docId, editMode, editingLink,
   shareSettings, setShareSettings,
@@ -110,13 +117,14 @@ export default function ShareLinkDrawer({
       }
     }
 
-    // Validate NDA — must select an agreement if requireNDA is on
+    // Validate NDA
     if (shareSettings.requireNDA && !shareSettings.ndaAgreementId) {
       toast.error('Please select or upload an NDA agreement PDF');
       return;
     }
 
     try {
+      // ── EDIT mode ─────────────────────────────────────────────────
       if (editMode === 'edit' && editingLink?.shareId) {
         const res = await fetch(`/api/documents/${docId}/share`, {
           method: 'PATCH',
@@ -134,8 +142,8 @@ export default function ShareLinkDrawer({
             watermarkText: shareSettings.watermarkText || null,
             watermarkPosition: shareSettings.watermarkPosition,
             requireNDA: shareSettings.requireNDA,
-            ndaAgreementId: shareSettings.ndaAgreementId || null,  // ✅
-            ndaUrl: shareSettings.ndaUrl || null,                   // ✅
+            ndaAgreementId: shareSettings.ndaAgreementId || null,
+            ndaUrl: shareSettings.ndaUrl || null,
             allowForwarding: shareSettings.allowForwarding,
             notifyOnDownload: shareSettings.notifyOnDownload,
             downloadLimit: shareSettings.downloadLimit || null,
@@ -145,7 +153,9 @@ export default function ShareLinkDrawer({
             sharedByName: shareSettings.sharedByName || null,
             logoUrl: shareSettings.logoUrl || null,
             linkType: shareSettings.linkType,
-            allowedDomain: shareSettings.linkType === 'domain-restricted' ? (shareSettings as any).allowedDomain : null,
+            allowedDomain: shareSettings.linkType === 'domain-restricted'
+              ? (shareSettings as any).allowedDomain
+              : null,
           }),
         });
 
@@ -160,6 +170,7 @@ export default function ShareLinkDrawer({
         return;
       }
 
+      // ── CREATE / DUPLICATE mode ───────────────────────────────────
       const res = await fetch(`/api/documents/${docId}/share`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -181,8 +192,8 @@ export default function ShareLinkDrawer({
           watermarkText: shareSettings.watermarkText || null,
           watermarkPosition: shareSettings.watermarkPosition,
           requireNDA: shareSettings.requireNDA,
-          ndaAgreementId: shareSettings.ndaAgreementId || null,  // ✅
-          ndaUrl: shareSettings.ndaUrl || null,                   // ✅
+          ndaAgreementId: shareSettings.ndaAgreementId || null,
+          ndaUrl: shareSettings.ndaUrl || null,
           allowForwarding: shareSettings.allowForwarding,
           notifyOnDownload: shareSettings.notifyOnDownload,
           downloadLimit: shareSettings.downloadLimit || null,
@@ -191,104 +202,149 @@ export default function ShareLinkDrawer({
           availableFrom: shareSettings.availableFrom || null,
           linkType: shareSettings.linkType,
           sharedByName: shareSettings.sharedByName || null,
-          allowedDomain: shareSettings.linkType === 'domain-restricted' ? (shareSettings as any).allowedDomain : null,
+          allowedDomain: shareSettings.linkType === 'domain-restricted'
+            ? (shareSettings as any).allowedDomain
+            : null,
           logoUrl: shareSettings.logoUrl || null,
         }),
       });
 
-      if (res.ok) {
-  const data = await res.json();
-  if (data.success) {
-    let shareLink = '';
-    let recipientCount = 0;
+      // ── Parse response ONCE — branch on status ────────────────────
+      const data = await res.json()
 
-    if (data.shareLink) {
-      shareLink = data.shareLink;
-    } else if (data.shareLinks?.length > 0) {
-      shareLink = data.shareLinks[0].shareLink;
-      recipientCount = data.shareLinks.length;
-    }
-
-    onClose();
-    navigator.clipboard.writeText(shareLink).catch(() => {});
-
-    // ✅ Check if any emails failed (non-fatal — link was still created)
-    const emailResults: { email: string; sent: boolean; error?: string }[] =
-      data.emailResults || [];
-    const failedEmails = emailResults.filter((r) => !r.sent);
-    const sentEmails = emailResults.filter((r) => r.sent);
-
-    // ── Always show the success toast with the link ───────────────────────
-    toast.success(
-      sentEmails.length > 0
-        ? `Link created & sent to ${sentEmails.length} recipient${sentEmails.length > 1 ? 's' : ''}!`
-        : editMode === 'duplicate'
-        ? 'Link duplicated!'
-        : 'Share link created!',
-      {
-        description: (
-          <div className="space-y-2 mt-1">
-            <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
-              <code className="text-xs text-slate-600 truncate flex-1 max-w-[200px]">
-                {shareLink}
-              </code>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(shareLink);
-                  toast.success('Copied!', { duration: 1500 });
-                }}
-                className="text-xs font-semibold text-purple-600 hover:text-purple-700"
-              >
-                Copy
-              </button>
-            </div>
-            <button
-              onClick={() => window.open(shareLink, '_blank')}
-              className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-            >
-              Open Link
-            </button>
-          </div>
-        ),
-        duration: 8000,
-        icon: '🔗',
-      }
-    );
-
-    // ── If some emails failed, show a separate warning toast ─────────────
-    if (failedEmails.length > 0) {
-      toast.warning(
-        `${failedEmails.length} email${failedEmails.length > 1 ? 's' : ''} couldn't be sent`,
-        {
-          description: (
-            <div className="space-y-1 mt-1">
-              <p className="text-xs text-slate-600">
-                Your link was created. These recipients didn't receive an email:
-              </p>
-              <div className="max-h-24 overflow-y-auto space-y-0.5">
-                {failedEmails.map((f) => (
-                  <p key={f.email} className="text-xs text-slate-500 truncate">
-                    · {f.email}
-                  </p>
-                ))}
-              </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Share the link manually to reach them.
-              </p>
-            </div>
-          ),
-          duration: 12000,
-          icon: '⚠️',
+      if (!res.ok) {
+        // ── Share limit reached ──────────────────────────────────────
+        if (res.status === 403 && data.error === 'SHARE_LIMIT_REACHED') {
+          const PLAN_NEXT: Record<string, string> = {
+            free:     'Starter',
+            starter:  'Pro',
+            pro:      'Business',
+            business: 'Business',
+          }
+          const nextPlan = PLAN_NEXT[data.plan] ?? 'a higher plan'
+          toast.error(
+            `You've used all ${data.limit} share link${data.limit === 1 ? '' : 's'} on your ${data.plan} plan.`,
+            {
+              duration: 7000,
+              description: `Upgrade to ${nextPlan} for unlimited share links.`,
+              action: {
+                label: `Upgrade to ${nextPlan}`,
+                onClick: () => { window.location.href = '/plan' },
+              },
+            }
+          )
+          return
         }
-      );
-    }
 
-    onSuccess();
-  }
-} else {
-  const data = await res.json();
-  toast.error(data.error || 'Failed to create share link');
-}
+        // ── All other errors ─────────────────────────────────────────
+        toast.error(data.error || 'Failed to create share link')
+        return
+      }
+
+      // ── Success path ──────────────────────────────────────────────
+      if (data.success) {
+        let shareLink = '';
+
+        if (data.shareLink) {
+          shareLink = data.shareLink;
+        } else if (data.shareLinks?.length > 0) {
+          shareLink = data.shareLinks[0].shareLink;
+        }
+
+        onClose();
+        navigator.clipboard.writeText(shareLink).catch(() => {});
+
+        const emailResults: { email: string; sent: boolean; error?: string }[] =
+          data.emailResults || [];
+        const failedEmails = emailResults.filter((r) => !r.sent);
+        const sentEmails = emailResults.filter((r) => r.sent);
+
+        // ── Main success toast ──────────────────────────────────────
+        toast.success(
+          sentEmails.length > 0
+            ? `Link created & sent to ${sentEmails.length} recipient${sentEmails.length > 1 ? 's' : ''}!`
+            : editMode === 'duplicate'
+            ? 'Link duplicated!'
+            : 'Share link created!',
+          {
+            description: (
+              <div className="space-y-2 mt-1">
+                <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                  <code className="text-xs text-slate-600 truncate flex-1 max-w-[200px]">
+                    {shareLink}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareLink);
+                      toast.success('Copied!', { duration: 1500 });
+                    }}
+                    className="text-xs font-semibold text-purple-600 hover:text-purple-700"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <button
+                  onClick={() => window.open(shareLink, '_blank')}
+                  className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Open Link
+                </button>
+              </div>
+            ),
+            duration: 8000,
+            icon: '🔗',
+          }
+        );
+
+        // ── Email failures toast ────────────────────────────────────
+        if (failedEmails.length > 0) {
+          toast.warning(
+            `${failedEmails.length} email${failedEmails.length > 1 ? 's' : ''} couldn't be sent`,
+            {
+              description: (
+                <div className="space-y-1 mt-1">
+                  <p className="text-xs text-slate-600">
+                    Your link was created. These recipients didn't receive an email:
+                  </p>
+                  <div className="max-h-24 overflow-y-auto space-y-0.5">
+                    {failedEmails.map((f) => (
+                      <p key={f.email} className="text-xs text-slate-500 truncate">
+                        · {f.email}
+                      </p>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Share the link manually to reach them.
+                  </p>
+                </div>
+              ),
+              duration: 12000,
+              icon: '⚠️',
+            }
+          );
+        }
+
+        // ── Stripped features toast ─────────────────────────────────
+        // The backend strips premium features silently when the plan
+        // does not support them. We surface that here so the user
+        // knows their link was created but without those features.
+        const stripped: string[] = data.strippedFeatures || []
+        if (stripped.length > 0) {
+          const featureNames = stripped
+            .map((f) => STRIPPED_FEATURE_LABELS[f] || f)
+            .join(', ')
+          toast.info('Some features were not applied', {
+            duration: 8000,
+            description: `Your plan does not include: ${featureNames}. Your link was still created without them.`,
+            action: {
+              label: 'Upgrade',
+              onClick: () => { window.location.href = '/plan' },
+            },
+          })
+        }
+
+        onSuccess();
+      }
 
     } catch {
       toast.error('Failed. Please try again.');
@@ -581,7 +637,6 @@ export default function ShareLinkDrawer({
                     onCheckedChange={(c) => setShareSettings({ ...shareSettings, allowDownload: c })}
                   />
                 </label>
-                
                 <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
                   <div>
                     <div className="text-sm font-medium text-slate-800">Allow printing</div>
@@ -680,45 +735,42 @@ export default function ShareLinkDrawer({
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
                 <Shield className="h-4 w-4 text-slate-400" />
-                 
               </div>
               <div className="divide-y divide-slate-100">
-                
                 <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
-  <div>
-    <div className="text-sm font-medium text-slate-800">Restrict to company domain</div>
-    <div className="text-xs text-slate-400 mt-0.5">Only emails from a specific domain can open this link</div>
-  </div>
-  <Switch
-    checked={shareSettings.linkType === 'domain-restricted'}
-    onCheckedChange={(c) => setShareSettings({
-      ...shareSettings,
-      linkType: c ? 'domain-restricted' : 'public',
-      requireEmail: c ? true : shareSettings.requireEmail,
-    })}
-  />
-</label>
-{shareSettings.linkType === 'domain-restricted' && (
-  <div className="px-5 pb-3.5 space-y-2">
-    <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
-      <span className="text-sm font-semibold text-slate-500">@</span>
-      <input
-        type="text"
-        placeholder="docmetrics.io"
-        value={(shareSettings as any).allowedDomain || ''}
-        onChange={(e) => setShareSettings({
-          ...shareSettings,
-          allowedDomain: e.target.value.toLowerCase().replace('@', ''),
-        } as any)}
-        className="flex-1 bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
-      />
-    </div>
-    <p className="text-xs text-slate-400">
-      Only <strong>@{(shareSettings as any).allowedDomain || 'yourdomain.com'}</strong> emails can open this link. Personal emails (Gmail, Outlook, etc.) are blocked.
-    </p>
-  </div>
-)}
-
+                  <div>
+                    <div className="text-sm font-medium text-slate-800">Restrict to company domain</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Only emails from a specific domain can open this link</div>
+                  </div>
+                  <Switch
+                    checked={shareSettings.linkType === 'domain-restricted'}
+                    onCheckedChange={(c) => setShareSettings({
+                      ...shareSettings,
+                      linkType: c ? 'domain-restricted' : 'public',
+                      requireEmail: c ? true : shareSettings.requireEmail,
+                    })}
+                  />
+                </label>
+                {shareSettings.linkType === 'domain-restricted' && (
+                  <div className="px-5 pb-3.5 space-y-2">
+                    <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                      <span className="text-sm font-semibold text-slate-500">@</span>
+                      <input
+                        type="text"
+                        placeholder="docmetrics.io"
+                        value={(shareSettings as any).allowedDomain || ''}
+                        onChange={(e) => setShareSettings({
+                          ...shareSettings,
+                          allowedDomain: e.target.value.toLowerCase().replace('@', ''),
+                        } as any)}
+                        className="flex-1 bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Only <strong>@{(shareSettings as any).allowedDomain || 'yourdomain.com'}</strong> emails can open this link.
+                    </p>
+                  </div>
+                )}
                 <div className="px-5 py-3.5">
                   <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide block mb-1.5">Password protect</label>
                   <Input
@@ -786,8 +838,6 @@ export default function ShareLinkDrawer({
                 <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">Premium</span>
               </div>
               <div className="divide-y divide-slate-100">
-
-                {/* ✅ NDA — now uses PDF upload + dropdown selector */}
                 <div className="px-5 py-4 space-y-3">
                   <label className="flex items-center justify-between cursor-pointer">
                     <div>
@@ -808,8 +858,6 @@ export default function ShareLinkDrawer({
                     </div>
                   )}
                 </div>
-
-                {/* Watermark */}
                 <div className="px-5 py-4 space-y-3">
                   <label className="flex items-center justify-between cursor-pointer">
                     <div>
