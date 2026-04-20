@@ -114,6 +114,14 @@ function StepDots({ current, steps }: { current: Step; steps: Step[] }) {
 }
 
 // ─── Document Viewer Drawer ─────────────────────────────────────────────────────
+// ─── Document Viewer Drawer ─────────────────────────────────────────────────────
+import { Document, Page, pdfjs } from 'react-pdf'
+import 'react-pdf/dist/Page/AnnotationLayer.css'
+import 'react-pdf/dist/Page/TextLayer.css'
+
+// Put this once at the top of your file, outside any component:
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+
 function DocViewerDrawer({ doc, onClose, shareLink, enableWatermark, allowDownloads, onDownload, downloadingId, visitorEmail }: {
   doc: Doc | null
   onClose: () => void
@@ -124,14 +132,30 @@ function DocViewerDrawer({ doc, onClose, shareLink, enableWatermark, allowDownlo
   visitorEmail: string
   enableWatermark: boolean
 }) {
+  const [numPages, setNumPages]         = useState<number>(0)
+  const [pdfBlobUrl, setPdfBlobUrl]     = useState<string | null>(null)
   const [loadError, setLoadError]       = useState(false)
-  const [iframeLoading, setIframeLoading] = useState(true)
-  const [blobUrl, setBlobUrl]           = useState<string | null>(null)
+  const [loading, setLoading]           = useState(true)
+  const [containerWidth, setContainerWidth] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  const sessionIdRef      = useRef<string | null>(null)
-  const totalSecondsRef   = useRef(0)
-  const heartbeatRef      = useRef<NodeJS.Timeout | null>(null)
+  const sessionIdRef    = useRef<string | null>(null)
+  const totalSecondsRef = useRef(0)
+  const heartbeatRef    = useRef<NodeJS.Timeout | null>(null)
   const HEARTBEAT_INTERVAL = 10
+
+  // Measure container width for responsive page rendering
+  useEffect(() => {
+    const measure = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth)
+      }
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (containerRef.current) ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [doc?.id])
 
   // Heartbeat tracking
   useEffect(() => {
@@ -173,17 +197,25 @@ function DocViewerDrawer({ doc, onClose, shareLink, enableWatermark, allowDownlo
     }
   }, [doc?.id])
 
-  // Blob URL loading
+  // Fetch PDF as blob
   useEffect(() => {
     if (!doc) return
-    setLoadError(false); setIframeLoading(true); setBlobUrl(null)
+    setLoadError(false)
+    setLoading(true)
+    setPdfBlobUrl(null)
+    setNumPages(0)
+
     fetch(`/api/portal/${shareLink}/documents/${doc.id}`)
       .then(res => { if (!res.ok) throw new Error(); return res.blob() })
-      .then(blob => setBlobUrl(URL.createObjectURL(blob)))
-      .catch(() => { setLoadError(true); setIframeLoading(false) })
-    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
+      .then(blob => setPdfBlobUrl(URL.createObjectURL(blob)))
+      .catch(() => { setLoadError(true); setLoading(false) })
+
+    return () => {
+      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl)
+    }
   }, [doc?.id])
 
+  // Escape key
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
@@ -197,50 +229,68 @@ function DocViewerDrawer({ doc, onClose, shareLink, enableWatermark, allowDownlo
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/40 z-40" onClick={onClose}
+            className="fixed inset-0 bg-black/40 z-40"
+            onClick={onClose}
           />
           <motion.div
-  initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-  transition={{ type: 'spring', damping: 30, stiffness: 300 }}
- className="fixed right-0 top-0 h-full z-50 flex flex-col bg-white shadow-2xl w-full md:w-[min(780px,92vw)]"
- >
+            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="fixed right-0 top-0 h-full z-50 flex flex-col bg-white shadow-2xl w-full md:w-[min(780px,92vw)]"
+          >
             {/* Header */}
-           <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0 gap-2">
-  {/* Top row: icon + name + close */}
-  <div className="flex items-center gap-3 min-w-0">
-    <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-all flex-shrink-0 sm:hidden">
-      <ArrowLeft className="h-5 w-5" />
-    </button>
-    <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-      <FileText className="h-4 w-4 text-red-500" />
-    </div>
-    <div className="min-w-0 flex-1">
-      <p className="text-base font-semibold text-gray-900 truncate">{doc.name}</p>
-<p className="text-xs md:text-sm text-gray-400 uppercase tracking-wide">{doc.type} · {doc.size}</p>
-    </div>
-    <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-all flex-shrink-0 hidden sm:flex">
-      <X className="h-5 w-5" />
-    </button>
-  </div>
-  {/* Action buttons row */}
-  <div className="flex items-center gap-2 sm:flex-shrink-0">
-    {allowDownloads && (
-      <button
-        onClick={() => onDownload(doc)}
-        disabled={downloadingId === doc.id}
-      className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-400 bg-white transition-all disabled:opacity-40">
-        {downloadingId === doc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-        Download
-      </button>
-    )}
-    
-  </div>
-</div>
-            {/* PDF area — watermark ONLY lives here */}
-            <div className="flex-1 relative bg-gray-100 overflow-hidden">
-              {enableWatermark && <Watermark email={visitorEmail} />}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0 gap-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-all flex-shrink-0 sm:hidden">
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <div className="h-8 w-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                  <FileText className="h-4 w-4 text-red-500" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-semibold text-gray-900 truncate">{doc.name}</p>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">{doc.type} · {doc.size}</p>
+                </div>
+                <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-all flex-shrink-0 hidden sm:flex">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {allowDownloads && (
+                  <button
+                    onClick={() => onDownload(doc)}
+                    disabled={downloadingId === doc.id}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:border-gray-400 bg-white transition-all disabled:opacity-40"
+                  >
+                    {downloadingId === doc.id
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Download className="h-3.5 w-3.5" />}
+                    Download
+                  </button>
+                )}
+              </div>
+            </div>
 
-              {iframeLoading && !loadError && (
+            {/* PDF canvas area */}
+            <div
+              ref={containerRef}
+              className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-100 relative"
+            >
+              {/* Watermark overlay — sits above all pages */}
+              {enableWatermark && (
+                <div className="pointer-events-none select-none fixed inset-0 z-20 flex items-center justify-center overflow-hidden" aria-hidden="true">
+                  <div style={{ transform: 'rotate(-35deg)', opacity: 0.10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '20px', fontWeight: 700, color: '#000', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                      {visitorEmail}
+                    </span>
+                    <span style={{ fontSize: '13px', fontWeight: 500, color: '#000', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                      {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Loading spinner */}
+              {loading && !loadError && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
                   <div className="text-center">
                     <div className="h-9 w-9 border-2 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -249,7 +299,8 @@ function DocViewerDrawer({ doc, onClose, shareLink, enableWatermark, allowDownlo
                 </div>
               )}
 
-              {loadError ? (
+              {/* Error state */}
+              {loadError && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
                     <AlertCircle className="h-10 w-10 text-red-400 mx-auto mb-3" />
@@ -260,14 +311,46 @@ function DocViewerDrawer({ doc, onClose, shareLink, enableWatermark, allowDownlo
                     </a>
                   </div>
                 </div>
-              ) : (
-                <iframe
-                  key={doc.id}
-                  src={blobUrl ? `${blobUrl}#toolbar=0&navpanes=0&scrollbar=0&zoom=${typeof window !== 'undefined' && window.innerWidth < 768 ? 60 : 100}` : undefined}
-                  className="w-full h-full border-0" title={doc.name}
-                  onLoad={() => { if (blobUrl) setIframeLoading(false) }}
-                  onError={() => { setLoadError(true); setIframeLoading(false) }}
-                />
+              )}
+
+              {/* react-pdf canvas renderer */}
+              {pdfBlobUrl && containerWidth > 0 && (
+                <Document
+                  file={pdfBlobUrl}
+                  onLoadSuccess={({ numPages }) => {
+                    setNumPages(numPages)
+                    setLoading(false)
+                  }}
+                  onLoadError={() => {
+                    setLoadError(true)
+                    setLoading(false)
+                  }}
+                  loading={null}
+                  className="flex flex-col items-center py-4 gap-4"
+                >
+                  {Array.from({ length: numPages }, (_, i) => i + 1).map(pageNum => (
+                    <div
+                      key={pageNum}
+                      className="bg-white shadow-md rounded-sm overflow-hidden"
+                      style={{ width: containerWidth - 32, maxWidth: 800 }}
+                    >
+                      <Page
+                        pageNumber={pageNum}
+                        width={Math.min(containerWidth - 32, 800)}
+                        renderTextLayer={false}
+                        renderAnnotationLayer={false}
+                        loading={
+                          <div
+                            className="flex items-center justify-center bg-gray-50 animate-pulse"
+                            style={{ height: Math.min(containerWidth - 32, 800) * 1.414 }}
+                          >
+                            <p className="text-xs text-gray-400">Page {pageNum}</p>
+                          </div>
+                        }
+                      />
+                    </div>
+                  ))}
+                </Document>
               )}
             </div>
           </motion.div>

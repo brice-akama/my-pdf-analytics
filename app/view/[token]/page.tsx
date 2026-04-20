@@ -1088,13 +1088,7 @@ const handleEndQuestion = async (answer: string) => {
                     <ZoomIn className="h-4 w-4 text-white/70" />
                   </button>
                   <div className="h-5 w-px bg-white/10 mx-1" />
-                  {shareData?.settings?.allowDownload && (
-                    <button onClick={handleDownload}
-                      className="h-8 px-3 rounded-lg flex items-center gap-1.5 hover:bg-white/10 transition-colors">
-                      <Download className="h-4 w-4 text-white/70" />
-                      <span className="text-sm text-white/70">Download</span>
-                    </button>
-                  )}
+                  
                   <div className="h-5 w-px bg-white/10 mx-1" />
                   {/* Contact */}
                   <div className="relative">
@@ -1579,9 +1573,10 @@ const handleEndQuestion = async (answer: string) => {
 
     {/* Reaction bar — below the page, outside PDF content */}
     <div
+     className="hidden sm:flex"
       style={{
         width: `${Math.min(containerWidth, 850) * zoomScale}px`,
-        display: 'flex',
+         
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '8px 16px',
