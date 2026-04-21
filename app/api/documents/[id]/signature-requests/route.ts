@@ -3,24 +3,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../../lib/mongodb";
 import { ObjectId } from "mongodb";
-import { verifyUserFromRequest } from '@/lib/auth';
+import { checkAccess } from '@/lib/checkAccess';
 import { canAccessDocument } from '@/lib/teamAccess';
 
-//  REPLACE the entire GET handler body with this:
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await verifyUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ success: false }, { status: 401 });
-    }
+    // ── Auth + plan ───────────────────────────────────────────────
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
 
     const { id } = await params;
     const db = await dbPromise;
 
-    //  Verify document exists and user can access it
     const document = await db.collection('documents').findOne({
       _id: new ObjectId(id),
     });
@@ -29,12 +26,11 @@ export async function GET(
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
-    const hasAccess = await canAccessDocument(db, document, user.id);
+    const hasAccess = await canAccessDocument(db, document, access.userId);
     if (!hasAccess) {
       return NextResponse.json({ success: false }, { status: 403 });
     }
 
-    //  No longer filtering by ownerId — access already verified above
     const directRequests = await db.collection('signature_requests')
       .find({ documentId: id })
       .sort({ createdAt: -1 })
@@ -53,38 +49,38 @@ export async function GET(
     const origin = request.nextUrl.origin;
 
     const signatureResults = [...directRequests, ...bulkRequests].map(r => ({
-      uniqueId: r.uniqueId,
-      name: r.recipient?.name || '',
-      email: r.recipient?.email || '',
-      status: r.status,
-      createdAt: r.createdAt,
-      viewedAt: r.viewedAt || null,
-      signedAt: r.signedAt || null,
-      viewCount: r.viewCount || 0,
+      uniqueId:              r.uniqueId,
+      name:                  r.recipient?.name  || '',
+      email:                 r.recipient?.email || '',
+      status:                r.status,
+      createdAt:             r.createdAt,
+      viewedAt:              r.viewedAt         || null,
+      signedAt:              r.signedAt         || null,
+      viewCount:             r.viewCount        || 0,
       totalTimeSpentSeconds: r.totalTimeSpentSeconds || 0,
-      pageData: r.pageData || [],
-      signingLink: `${origin}/sign/${r.uniqueId}`,
-      linkType: 'signature',
-      source: r.isBulkSend ? 'bulk' : 'signature',
+      pageData:              r.pageData         || [],
+      signingLink:           `${origin}/sign/${r.uniqueId}`,
+      linkType:              'signature',
+      source:                r.isBulkSend ? 'bulk' : 'signature',
     }));
 
     const envelopeResults = envelopes.flatMap(env =>
       env.recipients.map((r: any) => ({
-        uniqueId: r.uniqueId,
-        name: r.name || '',
-        email: r.email || '',
-        status: r.status,
-        createdAt: env.createdAt,
-        viewedAt: r.viewedAt || null,
-        signedAt: r.completedAt || null,
-        viewCount: r.viewCount || 0,
+        uniqueId:              r.uniqueId,
+        name:                  r.name  || '',
+        email:                 r.email || '',
+        status:                r.status,
+        createdAt:             env.createdAt,
+        viewedAt:              r.viewedAt     || null,
+        signedAt:              r.completedAt  || null,
+        viewCount:             r.viewCount    || 0,
         totalTimeSpentSeconds: r.totalTimeSpentSeconds || 0,
-        pageData: r.pageData || [],
-        signingLink: `${origin}/envelope/${r.uniqueId}`,
-        linkType: 'envelope',
-        source: 'envelope',
-        envelopeId: env.envelopeId,
-        documentCount: env.documents.length,
+        pageData:              r.pageData     || [],
+        signingLink:           `${origin}/envelope/${r.uniqueId}`,
+        linkType:              'envelope',
+        source:                'envelope',
+        envelopeId:            env.envelopeId,
+        documentCount:         env.documents.length,
       }))
     );
 

@@ -1,8 +1,9 @@
-// app/api/documents/[id]/signature-analytics/route.ts
+// Route: GET /api/documents/[id]/signature-analytics
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
-import { verifyUserFromRequest } from '@/lib/auth';
+import { checkAccess } from '@/lib/checkAccess';
+import { getAnalyticsLevel } from '@/lib/planLimits';
 
 export async function GET(
   req: NextRequest,
@@ -11,291 +12,265 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const user = await verifyUserFromRequest(req);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // ── Auth + plan ───────────────────────────────────────────────
+    const access = await checkAccess(req)
+    if (!access.ok) return access.response
+
+    const analyticsLevel = getAnalyticsLevel(access.plan)
 
     const db = await dbPromise;
 
-    // DEBUG — remove after confirming
-    console.log('🔍 Fetching sig analytics for documentId:', id);
-    const sampleDoc = await db.collection('signature_requests').findOne({});
-    console.log('🔍 Sample signature_request keys:', sampleDoc ? Object.keys(sampleDoc) : 'collection empty');
-    console.log('🔍 Sample documentId field:', sampleDoc?.documentId, '| docId field:', sampleDoc?.docId);
-
-    // Fetch all signature requests — try documentId first, fallback to docId
+    // ── Fetch requests ────────────────────────────────────────────
     let requests = await db
       .collection('signature_requests')
       .find({ documentId: id })
       .toArray();
 
     if (requests.length === 0) {
-      console.log('🔍 No results for documentId, trying docId fallback...');
       requests = await db
         .collection('signature_requests')
         .find({ docId: id })
         .toArray();
     }
 
-    // Also try ObjectId variant if id is a valid ObjectId
     if (requests.length === 0) {
       try {
         const objectId = new ObjectId(id);
-        console.log('🔍 Trying ObjectId fallback...');
         requests = await db
           .collection('signature_requests')
           .find({ $or: [{ documentId: objectId }, { docId: objectId }] })
           .toArray();
-      } catch {
-        // id is not a valid ObjectId, skip
-      }
+      } catch { }
     }
 
     if (requests.length === 0) {
       return NextResponse.json({ success: true, analytics: null });
     }
 
-    const now = Date.now();
+    // ── Summary counts — always computed, shown on all plans ──────
+    const total = requests.length;
+    const viewed = requests.filter(r => r.viewedAt).length;
+    const signed = requests.filter(r => r.status === 'signed' || r.signedAt).length;
+    const declined = requests.filter(r => r.status === 'declined').length;
+    const pending = requests.filter(r => !r.signedAt && r.status !== 'declined').length;
+    const completionRate = total > 0 ? Math.round((signed / total) * 100) : 0;
 
-    const recipients = requests.map((r) => {
-      const sentAt = r.createdAt ? new Date(r.createdAt).getTime() : null;
-      const viewedAt = r.viewedAt ? new Date(r.viewedAt).getTime() : null;
-      const signedAt = r.signedAt ? new Date(r.signedAt).getTime() : null;
+    const funnel = [
+      { label: 'Sent',   count: total,  pct: 100 },
+      { label: 'Opened', count: viewed, pct: total > 0 ? Math.round((viewed / total) * 100) : 0 },
+      { label: 'Signed', count: signed, pct: total > 0 ? Math.round((signed / total) * 100) : 0 },
+    ];
+
+    const allSigned = signed === total && total > 0;
+
+    // ── BASIC plan — return counts only, no per-recipient data ────
+    if (analyticsLevel === 'basic') {
+      return NextResponse.json({
+        success: true,
+        analyticsLevel: 'basic',
+        analytics: {
+          summary: {
+            total,
+            viewed,
+            signed,
+            declined,
+            pending,
+            completionRate,
+            avgTimeToOpenSeconds: null,
+            avgTimeSpentSeconds: null,
+            totalTimeSpentSeconds: 0,
+          },
+          funnel,
+          allSigned,
+          // Strip everything that requires full plan
+          recipients: [],
+          pageEngagement: [],
+          totalDocPages: 1,
+          signerVideoStats: [],
+        },
+      });
+    }
+
+    // ── FULL / ADVANCED — compute everything ──────────────────────
+    const recipients = requests.map(r => {
+      const sentAt    = r.createdAt ? new Date(r.createdAt).getTime() : null;
+      const viewedAt  = r.viewedAt  ? new Date(r.viewedAt).getTime()  : null;
+      const signedAt  = r.signedAt  ? new Date(r.signedAt).getTime()  : null;
 
       const timeToOpenMs = sentAt && viewedAt ? viewedAt - sentAt : null;
       const timeToSignMs = viewedAt && signedAt ? signedAt - viewedAt : null;
 
-      const numPages = r.pagesViewed?.length || 0;
-      const totalDocPages = r.totalPages || 1;
+      const numPages       = r.pagesViewed?.length || 0;
+      const totalDocPages  = r.totalPages || 1;
       const completionRate = totalDocPages > 0
         ? Math.round((numPages / totalDocPages) * 100)
         : 0;
 
       return {
-        id: r._id?.toString(),
-        name: r.recipient?.name || r.recipientName || 'Unknown',
-        email: r.recipient?.email || r.recipientEmail || '',
-        role: r.recipient?.role || '',
-        color: r.recipient?.color || '#9333ea',
-        status: r.status || 'pending',
-        sentAt: r.createdAt || null,
-        viewedAt: r.viewedAt || null,
-        lastViewedAt: r.lastViewedAt || null,
-        signedAt: r.signedAt || null,
-        declinedAt: r.declinedAt || null,
-        uniqueId: r.uniqueId || null,
-        declineReason: r.declineReason || null,
-        delegatedTo: r.delegatedTo || null,
-        viewCount: r.viewCount || 0,
+        id:                    r._id?.toString(),
+        name:                  r.recipient?.name     || r.recipientName  || 'Unknown',
+        email:                 r.recipient?.email    || r.recipientEmail || '',
+        role:                  r.recipient?.role     || '',
+        color:                 r.recipient?.color    || '#9333ea',
+        status:                r.status              || 'pending',
+        sentAt:                r.createdAt           || null,
+        viewedAt:              r.viewedAt            || null,
+        lastViewedAt:          r.lastViewedAt        || null,
+        signedAt:              r.signedAt            || null,
+        declinedAt:            r.declinedAt          || null,
+        uniqueId:              r.uniqueId            || null,
+        declineReason:         r.declineReason       || null,
+        delegatedTo:           r.delegatedTo         || null,
+        viewCount:             r.viewCount           || 0,
         totalTimeSpentSeconds: r.totalTimeSpentSeconds || 0,
-        pagesViewed: r.pagesViewed || [],
+        pagesViewed:           r.pagesViewed         || [],
         completionRate,
-        lastActivePage: r.lastActivePage || null,
-        timeToOpenSeconds: timeToOpenMs ? Math.floor(timeToOpenMs / 1000) : null,
-        timeToSignSeconds: timeToSignMs ? Math.floor(timeToSignMs / 1000) : null,
-        device: r.device || null,
-        location: r.location || null,
-        accessCodeVerified: !!r.accessCodeVerifiedAt,
-        selfieVerified: !!r.selfieVerifiedAt,
-        intentVideoUrl: r.intentVideoUrl || null,
-        viewHistory: r.viewHistory || [],
-        pageData: (r.pageData || []).sort((a: any, b: any) => a.page - b.page),
+        lastActivePage:        r.lastActivePage      || null,
+        timeToOpenSeconds:     timeToOpenMs ? Math.floor(timeToOpenMs / 1000) : null,
+        timeToSignSeconds:     timeToSignMs ? Math.floor(timeToSignMs / 1000) : null,
+        device:                r.device              || null,
+        location:              r.location            || null,
+        accessCodeVerified:    !!r.accessCodeVerifiedAt,
+        selfieVerified:        !!r.selfieVerifiedAt,
+        intentVideoUrl:        r.intentVideoUrl      || null,
+        viewHistory:           r.viewHistory         || [],
+        pageData:              (r.pageData || []).sort((a: any, b: any) => a.page - b.page),
       };
     });
 
-    // Summary stats
-    const total = recipients.length;
-    const viewed = recipients.filter((r) => r.viewedAt).length;
-    const signed = recipients.filter((r) => r.status === 'signed' || r.signedAt).length;
-    const declined = recipients.filter((r) => r.status === 'declined').length;
-    const pending = recipients.filter(
-      (r) => !r.signedAt && r.status !== 'declined'
-    ).length;
-
     const avgTimeToOpen = (() => {
       const vals = recipients
-        .filter((r) => r.timeToOpenSeconds !== null)
-        .map((r) => r.timeToOpenSeconds as number);
+        .filter(r => r.timeToOpenSeconds !== null)
+        .map(r => r.timeToOpenSeconds as number);
       return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
     })();
 
     const avgTimeSpent = (() => {
       const vals = recipients
-        .filter((r) => r.totalTimeSpentSeconds > 0)
-        .map((r) => r.totalTimeSpentSeconds);
+        .filter(r => r.totalTimeSpentSeconds > 0)
+        .map(r => r.totalTimeSpentSeconds);
       return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
     })();
 
-    const completionRate = total > 0 ? Math.round((signed / total) * 100) : 0;
+    const totalTimeSpentSeconds = requests.reduce(
+      (sum, r) => sum + (r.totalTimeSpentSeconds || 0), 0
+    );
 
-    // Funnel: sent → viewed → signed
-    const funnel = [
-      { label: 'Sent', count: total, pct: 100 },
-      { label: 'Opened', count: viewed, pct: total > 0 ? Math.round((viewed / total) * 100) : 0 },
-      { label: 'Signed', count: signed, pct: total > 0 ? Math.round((signed / total) * 100) : 0 },
-    ];
-
-
-    // ── PAGE ENGAGEMENT from pagesViewed arrays ──────────────────────
-const documentRef = requests[0]?.documentId || requests[0]?.docId;
-let totalDocPages = 1;
-if (documentRef) {
-  try {
-    const docRecord = await db.collection('documents').findOne({
-      $or: [
-        { _id: new ObjectId(documentRef.toString()) },
-        { _id: documentRef },
-      ]
-    });
-    totalDocPages = docRecord?.numPages || 1;
-  } catch { /* best-effort */ }
-}
-
-const pageMap: Record<number, { views: number; totalTime: number }> = {};
-for (let p = 1; p <= totalDocPages; p++) pageMap[p] = { views: 0, totalTime: 0 };
-
-for (const r of requests) {
-  const viewed: number[] = r.pagesViewed || [];
-  const timePerPage = viewed.length > 0
-    ? Math.round((r.totalTimeSpentSeconds || 0) / viewed.length)
-    : 0;
-  for (const p of viewed) {
-    if (!pageMap[p]) pageMap[p] = { views: 0, totalTime: 0 };
-    pageMap[p].views += 1;
-    pageMap[p].totalTime += timePerPage;
-  }
-}
-
-const pageEngagement = Object.entries(pageMap)
-  .sort(([a], [b]) => Number(a) - Number(b))
-  .map(([page, data]) => ({
-    page: Number(page),
-    totalViews: data.views,
-    views: data.views,
-    avgTime: data.views > 0 ? Math.round(data.totalTime / data.views) : 0,
-    totalTime: data.totalTime,
-  }));
-
-const totalTimeSpentSeconds = requests.reduce(
-  (sum, r) => sum + (r.totalTimeSpentSeconds || 0), 0
-);
-
-// ── Per-signer video stats ────────────────────────────────────
-// Fetches video watch data from analytics_logs for each signer
-// so owner knows if confusion about a specific clause caused hesitation
-const signerEmails = recipients
-  .map(r => r.email)
-  .filter(Boolean)
-
-const signerVideoLogs = signerEmails.length > 0
-  ? await db.collection('analytics_logs').find({
-      documentId: id,
-      action: { $in: ['video_watched', 'video_progress', 'video_replayed'] },
-      email: { $in: signerEmails }
-    }).toArray()
-  : []
-
-// Group by signer email
-const signerVideoMap: Record<string, {
-  email: string
-  pages: Record<number, {
-    page: number
-    watchCount: number
-    replays: number
-    maxCompletion: number
-    replayedAt: number[]
-    lastWatchedAt: Date | null
-  }>
-}> = {}
-
-signerVideoLogs.forEach((log: any) => {
-  const email = log.email
-  if (!email) return
-
-  if (!signerVideoMap[email]) {
-    signerVideoMap[email] = { email, pages: {} }
-  }
-
-  const page = log.pageNumber
-  if (!signerVideoMap[email].pages[page]) {
-    signerVideoMap[email].pages[page] = {
-      page,
-      watchCount: 0,
-      replays: 0,
-      maxCompletion: 0,
-      replayedAt: [],
-      lastWatchedAt: null,
+    // ── Page engagement ───────────────────────────────────────────
+    const documentRef = requests[0]?.documentId || requests[0]?.docId;
+    let totalDocPages = 1;
+    if (documentRef) {
+      try {
+        const docRecord = await db.collection('documents').findOne({
+          $or: [
+            { _id: new ObjectId(documentRef.toString()) },
+            { _id: documentRef },
+          ]
+        });
+        totalDocPages = docRecord?.numPages || 1;
+      } catch { }
     }
-  }
 
-  const p = signerVideoMap[email].pages[page]
+    const pageMap: Record<number, { views: number; totalTime: number }> = {};
+    for (let p = 1; p <= totalDocPages; p++) pageMap[p] = { views: 0, totalTime: 0 };
 
-  if (log.action === 'video_watched') {
-    p.watchCount++
-    p.lastWatchedAt = log.timestamp || null
-  }
-  if (log.action === 'video_replayed') {
-    p.replays++
-    if (log.replayedAt) p.replayedAt.push(log.replayedAt)
-  }
-  if (log.action === 'video_progress' && log.watchPercent) {
-    p.maxCompletion = Math.max(p.maxCompletion, log.watchPercent)
-  }
-})
+    for (const r of requests) {
+      const viewed: number[] = r.pagesViewed || [];
+      const timePerPage = viewed.length > 0
+        ? Math.round((r.totalTimeSpentSeconds || 0) / viewed.length)
+        : 0;
+      for (const p of viewed) {
+        if (!pageMap[p]) pageMap[p] = { views: 0, totalTime: 0 };
+        pageMap[p].views += 1;
+        pageMap[p].totalTime += timePerPage;
+      }
+    }
 
-// Convert to array — one entry per signer
-const signerVideoStats = Object.values(signerVideoMap).map(signer => ({
-  email: signer.email,
-  pages: Object.values(signer.pages).map(p => ({
-    page: p.page,
-    watchCount: p.watchCount,
-    replays: p.replays,
-    maxCompletion: p.maxCompletion,
-    replayedAt: p.replayedAt,
-    lastWatchedAt: p.lastWatchedAt,
-    signal: p.replays >= 3
-      ? 'needs_clarification'
-      : p.maxCompletion >= 75
-      ? 'understood'
-      : p.watchCount > 0
-      ? 'partial'
-      : 'not_watched'
-  })).sort((a, b) => a.page - b.page),
-  overallSignal: (() => {
-    const pages = Object.values(signer.pages)
-    if (pages.length === 0) return 'not_watched'
-    const totalReplays = pages.reduce((sum, p) => sum + p.replays, 0)
-    const avgCompletion = pages.length > 0
-      ? pages.reduce((sum, p) => sum + p.maxCompletion, 0) / pages.length
-      : 0
-    if (totalReplays >= 3) return 'needs_clarification'
-    if (avgCompletion >= 75) return 'understood'
-    if (pages.some(p => p.watchCount > 0)) return 'partial'
-    return 'not_watched'
-  })()
-}))
+    const pageEngagement = Object.entries(pageMap)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([page, data]) => ({
+        page: Number(page),
+        totalViews: data.views,
+        views: data.views,
+        avgTime: data.views > 0 ? Math.round(data.totalTime / data.views) : 0,
+        totalTime: data.totalTime,
+      }));
+
+    // ── Per-signer video stats ────────────────────────────────────
+    const signerEmails = recipients.map(r => r.email).filter(Boolean)
+
+    const signerVideoLogs = signerEmails.length > 0
+      ? await db.collection('analytics_logs').find({
+          documentId: id,
+          action: { $in: ['video_watched', 'video_progress', 'video_replayed'] },
+          email: { $in: signerEmails }
+        }).toArray()
+      : []
+
+    const signerVideoMap: Record<string, any> = {}
+
+    signerVideoLogs.forEach((log: any) => {
+      const email = log.email
+      if (!email) return
+      if (!signerVideoMap[email]) signerVideoMap[email] = { email, pages: {} }
+      const page = log.pageNumber
+      if (!signerVideoMap[email].pages[page]) {
+        signerVideoMap[email].pages[page] = {
+          page, watchCount: 0, replays: 0, maxCompletion: 0,
+          replayedAt: [], lastWatchedAt: null,
+        }
+      }
+      const p = signerVideoMap[email].pages[page]
+      if (log.action === 'video_watched') { p.watchCount++; p.lastWatchedAt = log.timestamp || null }
+      if (log.action === 'video_replayed') { p.replays++; if (log.replayedAt) p.replayedAt.push(log.replayedAt) }
+      if (log.action === 'video_progress' && log.watchPercent) p.maxCompletion = Math.max(p.maxCompletion, log.watchPercent)
+    })
+
+    const signerVideoStats = Object.values(signerVideoMap).map((signer: any) => ({
+      email: signer.email,
+      pages: Object.values(signer.pages).map((p: any) => ({
+        page: p.page,
+        watchCount: p.watchCount,
+        replays: p.replays,
+        maxCompletion: p.maxCompletion,
+        replayedAt: p.replayedAt,
+        lastWatchedAt: p.lastWatchedAt,
+        signal: p.replays >= 3 ? 'needs_clarification'
+          : p.maxCompletion >= 75 ? 'understood'
+          : p.watchCount > 0 ? 'partial'
+          : 'not_watched',
+      })).sort((a: any, b: any) => a.page - b.page),
+      overallSignal: (() => {
+        const pages = Object.values(signer.pages) as any[]
+        if (!pages.length) return 'not_watched'
+        const totalReplays = pages.reduce((s, p) => s + p.replays, 0)
+        const avgCompletion = pages.reduce((s, p) => s + p.maxCompletion, 0) / pages.length
+        if (totalReplays >= 3) return 'needs_clarification'
+        if (avgCompletion >= 75) return 'understood'
+        if (pages.some(p => p.watchCount > 0)) return 'partial'
+        return 'not_watched'
+      })(),
+    }))
 
     return NextResponse.json({
       success: true,
+      analyticsLevel,
       analytics: {
         recipients,
         summary: {
-          total,
-          viewed,
-          signed,
-          declined,
-          pending,
-          completionRate,
+          total, viewed, signed, declined, pending, completionRate,
           avgTimeToOpenSeconds: avgTimeToOpen,
           avgTimeSpentSeconds: avgTimeSpent,
-          totalTimeSpentSeconds,  
+          totalTimeSpentSeconds,
         },
         funnel,
-        allSigned: signed === total && total > 0,
-        pageEngagement,                 // ← ADD
-    totalDocPages,  
-    signerVideoStats,
+        allSigned,
+        pageEngagement,
+        totalDocPages,
+        signerVideoStats,
       },
     });
+
   } catch (err) {
     console.error('Signature analytics error:', err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });

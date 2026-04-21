@@ -6,13 +6,30 @@ import { dbPromise } from "../../lib/mongodb";
 import { ObjectId } from "mongodb";
 import { sendEnvelopeEmail } from "@/lib/emailService";
 import { v4 as uuidv4 } from 'uuid';
+import { checkAccess } from "@/lib/checkAccess";
+import { hasFeature } from "@/lib/planLimits";
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    
+const access = await checkAccess(request);
+if (!access.ok) return access.response;
+
+const { user, plan } = access;
+
+if (!hasFeature(plan, "bulkSend")) {
+  return NextResponse.json(
+    {
+      success: false,
+      message: `Envelopes are not available on the ${plan} plan. Upgrade to Pro or higher to send multi-document envelopes.`,
+      code: "FEATURE_NOT_AVAILABLE",
+      feature: "bulkSend",
+      requiredPlan: "pro",
+      currentPlan: plan,
+    },
+    { status: 403 }
+  );
+}
 
     const { 
       documentIds, // Array of document IDs to include
@@ -44,7 +61,7 @@ export async function POST(request: NextRequest) {
     // Get all documents
     const documents = await db.collection("documents").find({
       _id: { $in: documentIds.map((id: string) => new ObjectId(id)) },
-      userId: user.id,
+       userId: user._id.toString(),
     }).toArray();
 
     if (documents.length !== documentIds.length) {
@@ -72,7 +89,7 @@ export async function POST(request: NextRequest) {
     // Create envelope
     const envelope = {
       envelopeId,
-      ownerId: user.id,
+       ownerId: user._id.toString(),
       ownerEmail: user.email,
       documents: orderedDocuments,
       recipients: recipients.map((r: any, index: number) => ({

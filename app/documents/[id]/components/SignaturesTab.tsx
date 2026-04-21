@@ -50,9 +50,11 @@ const statusConfig: Record<
 export default function SignaturesTab({
   analytics,
   docId,
+  analyticsLevel = 'full',
 }: {
   analytics: any;
   docId: string;
+    analyticsLevel?: string;
 }) {
   const [expandedRecipient, setExpandedRecipient] = useState<string | null>(
     null
@@ -194,7 +196,6 @@ export default function SignaturesTab({
         </div>
       </div>
 
-      
       {/* ── PER-RECIPIENT ROWS ── */}
       <div>
         <div className="flex items-center justify-between py-4 border-b border-slate-200">
@@ -206,161 +207,189 @@ export default function SignaturesTab({
           </span>
         </div>
 
-        {recipients.map((r: any) => {
-          const isExpanded = expandedRecipient === r.id;
-          const cfg = statusConfig[r.status] || statusConfig["pending"];
-
-          return (
-            <div
-              key={r.id}
-              className="border-b border-slate-100 last:border-b-0"
+        {/* ── FREE PLAN GATE ──────────────────────────────────────────────────
+            The Summary KPIs and Funnel above are aggregate numbers — fine for
+            free. The per-recipient breakdown (who opened, time on page, which
+            pages, when signed) is a paid feature. Gate it here so free users
+            still see that data exists, just not the individual breakdowns.
+        ─────────────────────────────────────────────────────────────────── */}
+        {analyticsLevel === 'basic' ? (
+          <div className="py-10 text-center">
+            <div className="h-12 w-12 rounded-xl bg-violet-100 flex items-center justify-center mx-auto mb-3">
+              <FileSignature className="h-6 w-6 text-violet-600" />
+            </div>
+            <p className="text-sm font-semibold text-slate-900 mb-1">
+              Per-recipient breakdown is a paid feature
+            </p>
+            <p className="text-xs text-slate-500 mb-4 max-w-xs mx-auto">
+              Upgrade to see who opened your document, how long they spent reading,
+              which pages they viewed, and when they signed.
+            </p>
+            <a
+              href="/plan"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 text-white text-xs font-semibold hover:from-violet-700 hover:to-blue-700 transition-all"
             >
-              <div className="py-4 flex items-center gap-2 sm:gap-4">
-                
+              ⚡ Upgrade to Starter
+            </a>
+          </div>
+        ) : (
+          /* ── PAID: full per-recipient breakdown ── */
+          <>
+            {recipients.map((r: any) => {
+              const isExpanded = expandedRecipient === r.id;
+              const cfg = statusConfig[r.status] || statusConfig["pending"];
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-slate-900">
-                      {r.name}
-                    </span>
-                    {r.role && (
-                      <span className="text-xs text-slate-400">
-                        · {r.role}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-400">{r.email}</p>
-                </div>
-
-                <span
-                  className={`text-xs font-semibold px-2 py-1 rounded-full ${cfg.bg} ${cfg.color}`}
+              return (
+                <div
+                  key={r.id}
+                  className="border-b border-slate-100 last:border-b-0"
                 >
-                  {cfg.label}
-                </span>
+                  <div className="py-4 flex items-center gap-2 sm:gap-4">
+                    
 
-                <div className="text-right hidden md:block">
-                  <p className="text-sm font-bold text-slate-900 tabular-nums">
-                    {formatTimeSig(r.totalTimeSpentSeconds)}
-                  </p>
-                  <p className="text-[11px] text-slate-400">reading</p>
-                </div>
-
-                <button
-                  onClick={() =>
-                    setExpandedRecipient(isExpanded ? null : r.id)
-                  }
-                  className="h-7 w-7 flex items-center justify-center text-slate-300 hover:text-slate-600 transition-colors"
-                >
-                  {isExpanded ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-
-              {isExpanded && (
-                <div className="pb-6 space-y-5">
-                  {/* Timeline */}
-                  <div className="flex items-center gap-0">
-                    {[
-                      { label: "Sent", time: r.sentAt, done: true },
-                      {
-                        label: "Opened",
-                        time: r.viewedAt,
-                        done: !!r.viewedAt,
-                      },
-                      {
-                        label: "Signed",
-                        time: r.signedAt,
-                        done: !!r.signedAt,
-                      },
-                    ].map((step, i, arr) => (
-                      <div key={i} className="flex items-center flex-1">
-                        <div className="flex flex-col items-center">
-                          <div
-                            className={`h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                              step.done ? "bg-violet-500" : "bg-slate-200"
-                            }`}
-                          >
-                            {step.done ? "✓" : i + 1}
-                          </div>
-                          <p className="text-[10px] text-slate-500 mt-1 font-semibold">
-                            {step.label}
-                          </p>
-                          <p className="text-[10px] text-slate-400">
-                            {formatAgoSig(step.time)}
-                          </p>
-                        </div>
-                        {i < arr.length - 1 && (
-                          <div
-                            className={`flex-1 h-0.5 mb-5 ${
-                              step.done ? "bg-violet-300" : "bg-slate-200"
-                            }`}
-                          />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-slate-900">
+                          {r.name}
+                        </span>
+                        {r.role && (
+                          <span className="text-xs text-slate-400">
+                            · {r.role}
+                          </span>
                         )}
                       </div>
-                    ))}
+                      <p className="text-xs text-slate-400">{r.email}</p>
+                    </div>
+
+                    <span
+                      className={`text-xs font-semibold px-2 py-1 rounded-full ${cfg.bg} ${cfg.color}`}
+                    >
+                      {cfg.label}
+                    </span>
+
+                    <div className="text-right hidden md:block">
+                      <p className="text-sm font-bold text-slate-900 tabular-nums">
+                        {formatTimeSig(r.totalTimeSpentSeconds)}
+                      </p>
+                      <p className="text-[11px] text-slate-400">reading</p>
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        setExpandedRecipient(isExpanded ? null : r.id)
+                      }
+                      className="h-7 w-7 flex items-center justify-center text-slate-300 hover:text-slate-600 transition-colors"
+                    >
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
 
-                  {r.status === "declined" && r.declineReason && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <p className="text-xs font-semibold text-red-800 mb-1">
-                        Decline Reason:
-                      </p>
-                      <p className="text-sm text-red-700 italic">
-                        "{r.declineReason}"
-                      </p>
-                      <p className="text-[11px] text-red-500 mt-1">
-                        {formatAgoSig(r.declinedAt)}
-                      </p>
-                    </div>
-                  )}
-
-                  {r.delegatedTo && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                      <p className="text-xs font-semibold text-purple-800 mb-1">
-                        Delegated To:
-                      </p>
-                      <p className="text-sm text-purple-700">
-                        {r.delegatedTo.name} ({r.delegatedTo.email})
-                      </p>
-                    </div>
-                  )}
-
-                  {r.pageData && r.pageData.length > 0 && (
-                    <RecipientPageChart
-                      pageData={r.pageData}
-                      docId={docId}
-                    />
-                  )}
-
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { label: "Views", value: r.viewCount || 0 },
-                      {
-                        label: "Time to Open",
-                        value: formatTimeSig(r.timeToOpenSeconds),
-                      },
-                      {
-                        label: "Time to Sign",
-                        value: formatTimeSig(r.timeToSignSeconds),
-                      },
-                    ].map((s) => (
-                      <div
-                        key={s.label}
-                        className="bg-slate-50 rounded-lg p-3 text-center"
-                      >
-                        <p className="text-lg font-black text-slate-900">
-                          {s.value}
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          {s.label}
-                        </p>
+                  {isExpanded && (
+                    <div className="pb-6 space-y-5">
+                      {/* Timeline */}
+                      <div className="flex items-center gap-0">
+                        {[
+                          { label: "Sent", time: r.sentAt, done: true },
+                          {
+                            label: "Opened",
+                            time: r.viewedAt,
+                            done: !!r.viewedAt,
+                          },
+                          {
+                            label: "Signed",
+                            time: r.signedAt,
+                            done: !!r.signedAt,
+                          },
+                        ].map((step, i, arr) => (
+                          <div key={i} className="flex items-center flex-1">
+                            <div className="flex flex-col items-center">
+                              <div
+                                className={`h-7 w-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${
+                                  step.done ? "bg-violet-500" : "bg-slate-200"
+                                }`}
+                              >
+                                {step.done ? "✓" : i + 1}
+                              </div>
+                              <p className="text-[10px] text-slate-500 mt-1 font-semibold">
+                                {step.label}
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                {formatAgoSig(step.time)}
+                              </p>
+                            </div>
+                            {i < arr.length - 1 && (
+                              <div
+                                className={`flex-1 h-0.5 mb-5 ${
+                                  step.done ? "bg-violet-300" : "bg-slate-200"
+                                }`}
+                              />
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  {/* ── Do They Understand It — per signer ── */}
+
+                      {r.status === "declined" && r.declineReason && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <p className="text-xs font-semibold text-red-800 mb-1">
+                            Decline Reason:
+                          </p>
+                          <p className="text-sm text-red-700 italic">
+                            "{r.declineReason}"
+                          </p>
+                          <p className="text-[11px] text-red-500 mt-1">
+                            {formatAgoSig(r.declinedAt)}
+                          </p>
+                        </div>
+                      )}
+
+                      {r.delegatedTo && (
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                          <p className="text-xs font-semibold text-purple-800 mb-1">
+                            Delegated To:
+                          </p>
+                          <p className="text-sm text-purple-700">
+                            {r.delegatedTo.name} ({r.delegatedTo.email})
+                          </p>
+                        </div>
+                      )}
+
+                      {r.pageData && r.pageData.length > 0 && (
+                        <RecipientPageChart
+                          pageData={r.pageData}
+                          docId={docId}
+                        />
+                      )}
+
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { label: "Views", value: r.viewCount || 0 },
+                          {
+                            label: "Time to Open",
+                            value: formatTimeSig(r.timeToOpenSeconds),
+                          },
+                          {
+                            label: "Time to Sign",
+                            value: formatTimeSig(r.timeToSignSeconds),
+                          },
+                        ].map((s) => (
+                          <div
+                            key={s.label}
+                            className="bg-slate-50 rounded-lg p-3 text-center"
+                          >
+                            <p className="text-lg font-black text-slate-900">
+                              {s.value}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {s.label}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      {/* ── Do They Understand It — per signer ── */}
 {analytics?.videoStats && analytics.videoStats.length > 0 && (
   <div className="mt-4 border-t border-slate-100 pt-4">
      
@@ -440,7 +469,9 @@ export default function SignaturesTab({
             </div>
           </div>
         )
+        
       })}
+      
     </div>
 
     {/* Legend */}
@@ -456,11 +487,13 @@ export default function SignaturesTab({
     </div>
   </div>
 )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+          </>
+        )}
       </div>
     </div>
   );

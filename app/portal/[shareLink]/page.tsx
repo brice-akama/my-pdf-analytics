@@ -1276,8 +1276,7 @@ export default function PortalPage() {
       </button>
     )}
   </div>
-
-  <button onClick={() => setSelectedFolderId(null)}
+ <button onClick={() => { setSelectedFolderId(null); if (window.innerWidth < 768) setSidebarOpen(false) }}
     className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-all mb-1 ${selectedFolderId === null ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}>
     <FolderOpen className="h-4 w-4 flex-shrink-0 text-blue-400" /> <span>Home</span>
   </button>
@@ -1285,7 +1284,7 @@ export default function PortalPage() {
               {rootFolders.map(folder => (
                 <FolderTreeItem key={folder.id} folder={folder} allFolders={spaceData.folders}
                   depth={0} selectedFolderId={selectedFolderId}
-                  onSelect={setSelectedFolderId} getDocCount={getDocCount} />
+                   onSelect={(id) => { setSelectedFolderId(id); if (window.innerWidth < 768) setSidebarOpen(false) }} getDocCount={getDocCount} />
               ))}
             </div>
           </div>

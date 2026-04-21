@@ -14,6 +14,7 @@ import {
   Info, AlertCircle,
 } from "lucide-react";
 import { EmailAutocomplete } from "@/components/ui/EmailAutocomplete";
+import { toast } from "sonner";
 
 const PDF_NATURAL_W = 794;
 const PAGE_H_PX     = 297 * 3.78; // 1122px — must match editor + sign page
@@ -364,7 +365,13 @@ useEffect(() => { fetchDocuments(); }, []);
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.message || "Failed to send envelope");
+        
+if (!res.ok || !data.success) {
+  const err: any = new Error(data.message || "Failed to send envelope");
+  err.code        = data.code;
+  err.currentPlan = data.currentPlan;
+  throw err;
+}
       setGeneratedLinks(data.recipients.map((r: any) => ({
         recipient: r.name,
         email: r.email,
@@ -373,9 +380,17 @@ useEffect(() => { fetchDocuments(); }, []);
       })));
       setShowReviewDrawer(false);
       setShowSuccessDialog(true);
-    } catch (err: any) {
-      alert(err.message || "Failed to send envelope");
-    } finally {
+   } catch (err: any) {
+  // Plan gate — structured error from backend
+  if (err.code === "FEATURE_NOT_AVAILABLE") {
+    toast.error(
+      `Envelopes require the Pro plan. You're on the ${err.currentPlan ?? "free"} plan. Upgrade to send multi-document envelopes.`,
+      { duration: 8000 }
+    )
+  } else {
+    toast.error(err.message || "Failed to send envelope")
+  }
+} finally {
       setSending(false);
     }
   };

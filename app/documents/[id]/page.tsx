@@ -593,6 +593,13 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
                       Edit Template
                     </Button>
                     <Button
+    onClick={() => router.push(`/documents/${doc._id}/signature?mode=bulk-send`)}
+    variant="outline"
+    className="gap-2"
+  >
+    Bulk Send
+  </Button>
+                    <Button
                       onClick={() => setConfirmDialog({
                         open: true, title: "Remove Template",
                         message: "Remove template configuration? This cannot be undone.",
@@ -729,7 +736,11 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
                 <div className="animate-spin h-8 w-8 border-2 border-violet-500 border-t-transparent rounded-full" />
               </div>
             ) : (
-              <SignaturesTab analytics={sigAnalytics} docId={String(params.id)} />
+               <SignaturesTab
+        analytics={sigAnalytics}
+        docId={String(params.id)}
+        analyticsLevel={analyticsLevel}   
+      />
             )}
           </div>
         )}
