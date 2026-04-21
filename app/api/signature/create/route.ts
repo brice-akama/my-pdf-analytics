@@ -101,7 +101,7 @@ if (limits.maxESignaturesPerMonth !== -1) {
 
   // Each send creates one request per recipient — check if adding
   // this batch would push them over the limit
-  const incomingCount = (await request.clone().json()).recipients?.length || 1
+  const incomingCount = recipients?.length || 1
   
   if (usedThisMonth + incomingCount > limits.maxESignaturesPerMonth) {
     const remaining = Math.max(0, limits.maxESignaturesPerMonth - usedThisMonth)
