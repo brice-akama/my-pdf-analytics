@@ -3,16 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "../../lib/mongodb";
 import { ObjectId, Db } from "mongodb";
 import { sendCCNotificationEmail, sendSignatureRequestEmail } from "@/lib/emailService";
-import { verifyUserFromRequest } from '@/lib/auth';
+import { checkAccess } from '@/lib/checkAccess';
 import { hashAccessCode } from "@/lib/accessCodeConfig";
-import { checkAccess } from '@/lib/checkAccess'
-import { getPlanLimits } from '@/lib/planLimits'
 
 // ─── Helper: save recipients to contacts collection ───────────────────────────
-//
-// Called after a successful signature send.
-// Uses upsert so existing contacts are updated (name refreshed) but not duplicated.
-//
 async function saveRecipientsAsContacts(
   db: Db,
   userId: string,
@@ -29,23 +23,15 @@ async function saveRecipientsAsContacts(
     .filter((p) => p.email && p.email.trim())
     .map((p) => ({
       updateOne: {
-        filter: {
-          userId,
-          email: p.email.toLowerCase().trim(),
-        },
+        filter: { userId, email: p.email.toLowerCase().trim() },
         update: {
           $set: {
-            email:          p.email.toLowerCase().trim(),
+            email:     p.email.toLowerCase().trim(),
             userId,
-            updatedAt:      now,
-            // Only overwrite name if we actually have one
+            updatedAt: now,
             ...(p.name?.trim() ? { name: p.name.trim() } : {}),
           },
-          $setOnInsert: {
-            createdAt:  now,
-            source:     'signature_request',
-          },
-          // Increment times sent to — useful for sorting suggestions later
+          $setOnInsert: { createdAt: now, source: 'signature_request' },
           $inc: { signatureCount: 1 },
         },
         upsert: true,
@@ -61,7 +47,6 @@ async function saveRecipientsAsContacts(
       `${result.upsertedCount} new, ${result.modifiedCount} updated`
     );
   } catch (err) {
-    // Never let contact saving break the signature flow
     console.warn('⚠️ [contacts] bulkWrite failed (non-fatal):', err);
   }
 }
@@ -70,11 +55,9 @@ async function saveRecipientsAsContacts(
 
 export async function POST(request: NextRequest) {
   try {
-   // ── Step 1: Authenticate and get effective plan ───────────────────────────
-const access = await checkAccess(request)
-if (!access.ok) return access.response
-
-const { user, plan, limits } = access
+    // ── Step 1: Auth + plan via checkAccess ───────────────────────
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
 
     const {
       documentId, recipients, signatureFields, message, dueDate,
@@ -85,85 +68,94 @@ const { user, plan, limits } = access
 
     const db = await dbPromise;
 
-    // ── Step 2: Enforce monthly eSignature limit ──────────────────────────────
-// Count how many signature requests this user has sent this calendar month.
-// -1 means unlimited (Pro/Business). Free = 2, Starter = 10.
-// We count by createdAt within the current month so the limit resets
-// automatically on the 1st of each month without any cron job needed.
-if (limits.maxESignaturesPerMonth !== -1) {
-  const now = new Date()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
-  const usedThisMonth = await db.collection('signature_requests').countDocuments({
-    ownerId: user._id.toString(),
-    createdAt: { $gte: startOfMonth },
-  })
-
-  // Each send creates one request per recipient — check if adding
-  // this batch would push them over the limit
-  const incomingCount = recipients?.length || 1
-  
-  if (usedThisMonth + incomingCount > limits.maxESignaturesPerMonth) {
-    const remaining = Math.max(0, limits.maxESignaturesPerMonth - usedThisMonth)
-    return NextResponse.json(
-      {
-        success: false,
-        message: `You have used ${usedThisMonth} of your ${limits.maxESignaturesPerMonth} eSignatures this month. You have ${remaining} remaining. Upgrade your plan for more.`,
-        code: 'ESIGNATURE_LIMIT_REACHED',
-        used: usedThisMonth,
-        limit: limits.maxESignaturesPerMonth,
-        remaining,
-        plan,
-      },
-      { status: 403 }
-    )
-  }
-}
-
-     const ownerId    = user._id.toString();
-    const ownerEmail = user.email;
+    const ownerId    = access.userId
+    const ownerEmail = access.user.email
 
     const userDoc = await db.collection('users').findOne({
       _id: new ObjectId(ownerId),
     });
-    const ownerName = userDoc?.profile?.fullName || userDoc?.email || user.email;
+    const ownerName = userDoc?.profile?.fullName || userDoc?.email || ownerEmail;
 
-    // Hash access code if provided
+    // ── Step 2: eSignature monthly limit ─────────────────────────
+    // Count ALL signature requests this user has created this
+    // calendar month — across all documents.
+    // Free: 2/month  Starter: 10/month  Pro+: unlimited (-1)
+    const { limits, plan } = access
+
+    if (limits.maxESignaturesPerMonth !== -1) {
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+
+      const signaturesThisMonth = await db
+        .collection('signature_requests')
+        .countDocuments({
+          ownerId,
+          createdAt: { $gte: startOfMonth },
+        })
+
+      // How many are being created right now
+      const recipientCount = Array.isArray(recipients) ? recipients.length : 1
+
+      if (signaturesThisMonth + recipientCount > limits.maxESignaturesPerMonth) {
+        const remaining = Math.max(0, limits.maxESignaturesPerMonth - signaturesThisMonth)
+
+        const PLAN_NEXT: Record<string, string> = {
+          free:     'Starter',
+          starter:  'Pro',
+          pro:      'Business',
+          business: 'Business',
+        }
+
+        return NextResponse.json(
+          {
+            error:     'ESIGNATURE_LIMIT_REACHED',
+            limit:     limits.maxESignaturesPerMonth,
+            used:      signaturesThisMonth,
+            remaining,
+            plan,
+            nextPlan:  PLAN_NEXT[plan] ?? 'a higher plan',
+          },
+          { status: 403 }
+        )
+      }
+    }
+
+    // ── Step 3: Hash access code if provided ──────────────────────
     let accessCodeHash = null;
     if (accessCodeRequired && accessCode) {
       accessCodeHash = await hashAccessCode(accessCode);
       console.log(`🔒 Access code hashed for document ${documentId}`);
     }
 
-    // Verify document belongs to user
-      
-const document = await db.collection("documents").findOne({
-  _id: new ObjectId(documentId),
-})
+    // ── Step 4: Verify document ownership ────────────────────────
+    const document = await db.collection("documents").findOne({
+      _id: new ObjectId(documentId),
+    })
 
-if (!document) {
-  return NextResponse.json(
-    { success: false, message: "Document not found" },
-    { status: 404 }
-  )
-}
+    if (!document) {
+      return NextResponse.json(
+        { success: false, message: "Document not found" },
+        { status: 404 }
+      )
+    }
 
-// Then check ownership separately — gives Team a clear message
-if (document.userId !== ownerId) {
-  return NextResponse.json(
-    { 
-      success: false, 
-      message: "Only the document owner can perform this action",
-      code: "NOT_OWNER"
-    },
-    { status: 403 }
-  )
-}
+    if (document.userId !== ownerId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Only the document owner can perform this action",
+          code:    "NOT_OWNER"
+        },
+        { status: 403 }
+      )
+    }
 
+    // ── Step 5: Create signature requests (unchanged logic) ───────
     const signatureRequests = [];
-const emailPromises    = [];
-const ccRecipientLinks = [];
-const batchId = `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const emailPromises     = [];
+    const ccRecipientLinks  = [];
+    const batchId = `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     for (let i = 0; i < recipients.length; i++) {
       const recipient = recipients[i];
@@ -225,19 +217,19 @@ const batchId = `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         completedAt:      null,
         signedFields:     null,
         ipAddress:        null,
-        accessCodeRequired:      accessCodeRequired || false,
+        accessCodeRequired:       accessCodeRequired || false,
         accessCodeHash,
         accessCodeType,
         accessCodeHint,
         accessCodeFailedAttempts: 0,
         accessCodeLockoutUntil:   null,
         selfieVerificationRequired: accessCodeRequired || false,
-        scheduledSendDate: scheduledDate,
-        sendStatus:        shouldSendNow ? 'sent'      : 'scheduled',
-        sendAt:            shouldSendNow ? new Date()  : null,
-        notifiedAt:        shouldSendNow ? new Date()  : null,
-        intentVideoRequired:  intentVideoRequired || false,
-        intentVideoUrl:       null,
+        scheduledSendDate:  scheduledDate,
+        sendStatus:         shouldSendNow ? 'sent'     : 'scheduled',
+        sendAt:             shouldSendNow ? new Date() : null,
+        notifiedAt:         shouldSendNow ? new Date() : null,
+        intentVideoRequired:   intentVideoRequired || false,
+        intentVideoUrl:        null,
         intentVideoRecordedAt: null,
       };
 
@@ -279,7 +271,7 @@ const batchId = `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       );
     }
 
-    // ── CC recipients ──────────────────────────────────────────────────────
+    // ── CC recipients ─────────────────────────────────────────────
     if (ccRecipients && ccRecipients.length > 0) {
       console.log('📧 Processing', ccRecipients.length, 'CC recipients');
 
@@ -291,7 +283,7 @@ const batchId = `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
           uniqueId:   ccUniqueId,
           documentId,
           ownerId,
-          batchId,   
+          batchId,
           ownerEmail,
           name:       cc.name,
           email:      cc.email,
@@ -332,24 +324,24 @@ const batchId = `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     await Promise.all(emailPromises);
     console.log('✅ All emails sent');
 
-    // ── Update document status ─────────────────────────────────────────────
+    // ── Update document status ────────────────────────────────────
     await db.collection("documents").updateOne(
       { _id: new ObjectId(documentId) },
       {
         $set: {
-          status:               'pending_signature',
-          sentForSignature:     true,
-          sentAt:               new Date(),
-          totalRecipients:      recipients.length,
-          signedCount:          0,
-          scheduledSendDate:    scheduledSendDate ? new Date(scheduledSendDate) : null,
-          signatureRequestId:   signatureRequests[0].id.toString(),
-          signatureStatus:      'pending',
+          status:             'pending_signature',
+          sentForSignature:   true,
+          sentAt:             new Date(),
+          totalRecipients:    recipients.length,
+          signedCount:        0,
+          scheduledSendDate:  scheduledSendDate ? new Date(scheduledSendDate) : null,
+          signatureRequestId: signatureRequests[0].id.toString(),
+          signatureStatus:    'pending',
         },
       }
     );
 
-    // ── Delete draft ───────────────────────────────────────────────────────
+    // ── Delete draft ──────────────────────────────────────────────
     try {
       await db.collection('signature_request_drafts').deleteOne({
         documentId: new ObjectId(documentId),
@@ -360,19 +352,16 @@ const batchId = `batch-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       console.warn('⚠️ Failed to delete draft after send:', err);
     }
 
-    // ── ⭐ Save recipients & CC to contacts collection ─────────────────────
-    //
-    // Runs AFTER everything else so it never blocks or breaks the send flow.
-    // Fire-and-forget — we await it but errors are swallowed inside the helper.
-    //
+    // ── Save recipients to contacts ───────────────────────────────
     await saveRecipientsAsContacts(db, ownerId, recipients, ccRecipients);
 
     return NextResponse.json({
-      success:        true,
+      success:      true,
       signatureRequests,
-      ccRecipients:   ccRecipientLinks,
-      message:        `Signature requests created and sent to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
+      ccRecipients: ccRecipientLinks,
+      message:      `Signature requests created and sent to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
     });
+
   } catch (error) {
     console.error("❌ Error creating signature requests:", error);
     return NextResponse.json(
