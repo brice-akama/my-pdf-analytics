@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       const signaturesThisMonth = await db
         .collection('signature_requests')
         .countDocuments({
-          ownerId,
+           userId: ownerId,
           createdAt: { $gte: startOfMonth },
         })
 

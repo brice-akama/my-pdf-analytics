@@ -216,6 +216,24 @@ export async function POST(
         $push: { viewHistory: { viewedAt: now, ip, userAgent } },
       };
       if (isFirstView) update.$set.viewedAt = now;
+      // Geo-lookup — only on first view to avoid redundant API calls
+if (isFirstView && ip && ip !== "Unknown") {
+  try {
+    const clientIp = ip.split(",")[0].trim()
+    const geoRes = await fetch(
+      `http://ip-api.com/json/${clientIp}?fields=status,country,city,regionName`,
+      { signal: AbortSignal.timeout(2000) } // 2s timeout — never slow down the response
+    )
+    if (geoRes.ok) {
+      const geo = await geoRes.json()
+      if (geo.status === "success" && geo.country) {
+        update.$set["location.country"] = geo.country
+        update.$set["location.city"]    = geo.city       || ""
+        update.$set["location.region"]  = geo.regionName || ""
+      }
+    }
+  } catch { /* geo lookup is non-critical — swallow all errors */ }
+}
 
       await db.collection("signature_requests").updateOne({ uniqueId: signatureId }, update);
 

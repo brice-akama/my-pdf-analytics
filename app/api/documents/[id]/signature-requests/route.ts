@@ -62,6 +62,9 @@ export async function GET(
       signingLink:           `${origin}/sign/${r.uniqueId}`,
       linkType:              'signature',
       source:                r.isBulkSend ? 'bulk' : 'signature',
+      location:              r.location || null,
+city:                  r.location?.city    || '',
+country:               r.location?.country || '',
     }));
 
     const envelopeResults = envelopes.flatMap(env =>
@@ -81,7 +84,9 @@ export async function GET(
         source:                'envelope',
         envelopeId:            env.envelopeId,
         documentCount:         env.documents.length,
-      }))
+        location:              r.location || null,
+city:                  r.location?.city    || '',
+country:               r.location?.country || '',}))
     );
 
     return NextResponse.json({

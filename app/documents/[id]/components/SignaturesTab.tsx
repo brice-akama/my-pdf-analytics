@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, ChevronDown, ChevronUp, FileSignature } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, FileSignature, Shield } from "lucide-react";
 import RecipientPageChart from "./RecipientPageChart";
+import EvidenceDrawer from "./EvidenceDrawer";
  
 
 function formatTimeSig(seconds: number | null): string {
@@ -59,6 +60,7 @@ export default function SignaturesTab({
   const [expandedRecipient, setExpandedRecipient] = useState<string | null>(
     null
   );
+  const [evidenceRecipient, setEvidenceRecipient] = useState<any>(null);
 
   if (!analytics) {
     return (
@@ -389,6 +391,21 @@ export default function SignaturesTab({
                           </div>
                         ))}
                       </div>
+                      {/* Evidence button — only shows if signer has selfie or video */}
+                  {(r.selfieVerifiedAt || r.intentVideoUrl) && (
+                    <button
+                      onClick={() => setEvidenceRecipient(r)}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-xl hover:bg-violet-100 transition-colors"
+                    >
+                      <Shield className="h-3.5 w-3.5" />
+                      View Verification Evidence
+                      {r.selfieVerifiedAt && r.intentVideoUrl
+                        ? " (Selfie + Video)"
+                        : r.selfieVerifiedAt
+                        ? " (Selfie)"
+                        : " (Video)"}
+                    </button>
+                  )}
                       {/* ── Do They Understand It — per signer ── */}
 {analytics?.videoStats && analytics.videoStats.length > 0 && (
   <div className="mt-4 border-t border-slate-100 pt-4">
@@ -495,6 +512,18 @@ export default function SignaturesTab({
           </>
         )}
       </div>
+      <EvidenceDrawer
+        open={!!evidenceRecipient}
+        onClose={() => setEvidenceRecipient(null)}
+        recipient={evidenceRecipient ? {
+          name:                    evidenceRecipient.name,
+          email:                   evidenceRecipient.email,
+          signedAt:                evidenceRecipient.signedAt,
+          selfieVerification:      evidenceRecipient.selfieVerification || null,
+          intentVideoUrl:          evidenceRecipient.intentVideoUrl     || null,
+          intentVideoRecordedAt:   evidenceRecipient.intentVideoRecordedAt || null,
+        } : null}
+      />
     </div>
   );
 }
