@@ -1351,7 +1351,7 @@ const handleEndQuestion = async (answer: string) => {
 
           {/* PDF viewer */}
           {/* ── Video Walkthrough Floating Bubble ── */}
-{Object.keys(pageVideos).length > 0 && !videoDismissed && (
+ {Object.keys(pageVideos).length > 0 && (
   <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
 
     {/* Expanded video player */}
@@ -1478,7 +1478,7 @@ const handleEndQuestion = async (answer: string) => {
         </span>
       )}
 
-      {/* Dismiss button */}
+     {/* Dismiss button */}
       <button
         onClick={(e) => { e.stopPropagation(); setActiveVideo(null); setVideoDismissed(true) }}
         className="absolute -top-2 -left-2 h-5 w-5 rounded-full flex items-center justify-center"
@@ -1488,6 +1488,24 @@ const handleEndQuestion = async (answer: string) => {
         <X className="h-2.5 w-2.5 text-white/60" />
       </button>
     </div>
+
+    {/* Restore button — only shown when dismissed */}
+    {videoDismissed && (
+      <button
+        onClick={() => setVideoDismissed(false)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white shadow-lg transition-all hover:opacity-90"
+        style={{
+          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+          border: '1px solid rgba(255,255,255,0.2)',
+        }}
+      >
+        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Watch walkthrough
+      </button>
+    )}
   </div>
 )}
 

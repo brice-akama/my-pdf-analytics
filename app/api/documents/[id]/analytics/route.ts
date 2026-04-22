@@ -708,37 +708,7 @@ export async function GET(
       ? await db.collection('nda_acceptances').find({ documentId: id }).sort({ timestamp: -1 }).toArray()
       : []
 
-    // ── Merge signature page engagement into normal pageEngagement ──
-    // This ensures DocSendStyleCharts sees combined view counts from
-    // both share links AND signature requests on the same pages.
-    const sigPageMap: Record<number, { views: number; totalTime: number }> = {};
-    for (let p = 1; p <= document.numPages; p++) sigPageMap[p] = { views: 0, totalTime: 0 };
-
-    for (const r of signatureRequests) {
-      const viewed: number[] = r.pagesViewed || [];
-      const timePerPage = viewed.length > 0
-        ? Math.round((r.totalTimeSpentSeconds || 0) / viewed.length)
-        : 0;
-      for (const p of viewed) {
-        if (!sigPageMap[p]) sigPageMap[p] = { views: 0, totalTime: 0 };
-        sigPageMap[p].views += 1;
-        sigPageMap[p].totalTime += timePerPage;
-      }
-    }
-
-    const mergedPageEngagement = pageEngagement.map(p => {
-      const sig = sigPageMap[p.page] || { views: 0, totalTime: 0 };
-      const combinedViews = p.totalViews + sig.views;
-      const combinedTime = p.totalTime + sig.totalTime;
-      return {
-        ...p,
-        totalViews: combinedViews,
-        views: combinedViews,
-        totalTime: combinedTime,
-        avgTime: combinedViews > 0 ? Math.round(combinedTime / combinedViews) : p.avgTime,
-      };
-    });
-
+    
     return NextResponse.json({
       success: true,
       analyticsLevel,
