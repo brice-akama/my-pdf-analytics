@@ -199,7 +199,10 @@ export async function POST(
     const recipientEmail = signatureRequest.recipientEmail || signatureRequest.recipient?.email || "";
 
     const now = new Date();
-    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "Unknown";
+     const ip = request.headers.get("x-forwarded-for") 
+  || request.headers.get("x-real-ip") 
+  || body.clientIp   // ← fallback to client-sent IP
+  || "Unknown";
     const userAgent = bodyUserAgent || request.headers.get("user-agent") || "";
 
     console.log("🔍 SIG TRACK:", { action, documentName, ownerEmail, ownerId, recipientEmail });

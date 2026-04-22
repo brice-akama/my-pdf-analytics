@@ -732,11 +732,26 @@ useEffect(() => {
   if (!signatureId || !pdfUrl) return;
 
   // 1. Track initial view
+  // 1. Track initial view — fetch client IP first so geo lookup works
+(async () => {
+  let clientIp = null
+  try {
+    const ipRes = await fetch('https://api.ipify.org?format=json')
+    const ipData = await ipRes.json()
+    clientIp = ipData.ip
+  } catch { /* non-critical */ }
+
   fetch(`/api/signature/${signatureId}/track`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'viewed', timestamp: new Date().toISOString() }),
-  }).catch(() => {});
+    body: JSON.stringify({
+      action:    'viewed',
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      clientIp,              // ← send IP from client
+    }),
+  }).catch(() => {})
+})()
 
   // 2. Track time on unload
   const startTime = Date.now();
