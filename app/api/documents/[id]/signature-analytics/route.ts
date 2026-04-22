@@ -131,8 +131,10 @@ export async function GET(
         device:                r.device              || null,
         location:              r.location            || null,
         accessCodeVerified:    !!r.accessCodeVerifiedAt,
-        selfieVerified:        !!r.selfieVerifiedAt,
+        selfieVerifiedAt:      r.selfieVerifiedAt    || null,
+        selfieVerification:    r.selfieVerification  || null,
         intentVideoUrl:        r.intentVideoUrl      || null,
+        intentVideoRecordedAt: r.intentVideoRecordedAt || null,
         viewHistory:           r.viewHistory         || [],
         pageData:              (r.pageData || []).sort((a: any, b: any) => a.page - b.page),
       };
