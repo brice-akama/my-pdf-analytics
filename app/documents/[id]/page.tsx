@@ -726,6 +726,7 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
             heatmapPage={heatmapPage} setHeatmapPage={setHeatmapPage}
             doc={doc} onCreateLink={handleCreateLink}
             analyticsLevel={analyticsLevel}
+            sigAnalytics={sigAnalytics}
           />
         )}
 

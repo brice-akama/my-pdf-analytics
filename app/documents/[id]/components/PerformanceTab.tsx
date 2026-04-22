@@ -19,7 +19,8 @@ type Props = {
   setHeatmapPage: (page: number) => void;
   doc: { _id: string; numPages: number };
   onCreateLink: () => void;
-  analyticsLevel?: string;   
+  analyticsLevel?: string;  
+   sigAnalytics?: any; 
 };
 
 
@@ -56,6 +57,7 @@ export default function PerformanceTab({
   doc,
   onCreateLink,
   analyticsLevel = 'full', 
+  sigAnalytics,
 }: Props) {
   if (analyticsLoading) {
     return (
@@ -259,7 +261,26 @@ export default function PerformanceTab({
       <div className="py-5">
         <DocSendStyleCharts
           documentId={doc._id}
-          pageEngagement={analytics.pageEngagement}
+          pageEngagement={(() => {
+            const base: any[] = analytics.pageEngagement || []
+            const sigPages: any[] = sigAnalytics?.pageEngagement || []
+            if (!sigPages.length) return base
+            return base.map(p => {
+              const sig = sigPages.find((s: any) => s.page === p.page)
+              if (!sig) return p
+              const combinedViews = p.totalViews + sig.totalViews
+              const combinedTime  = (p.totalTime || 0) + (sig.totalTime || 0)
+              return {
+                ...p,
+                totalViews: combinedViews,
+                views:      combinedViews,
+                totalTime:  combinedTime,
+                avgTime:    combinedViews > 0
+                  ? Math.round(combinedTime / combinedViews)
+                  : p.avgTime,
+              }
+            })
+          })()}
           totalPages={doc.numPages}
           locations={analytics.locations || []}
         />
