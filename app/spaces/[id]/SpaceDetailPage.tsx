@@ -2970,6 +2970,7 @@ const fetchFolders = async () => {
   canShareSpace={canShareSpace}
   selectAll={selectAll}
   selectedDocs={selectedDocs}
+  userPlan={userPlan}
   onSelectAll={handleSelectAll}
   onSelectDoc={handleSelectDoc}
   onOpenPdf={openPdfDrawer}

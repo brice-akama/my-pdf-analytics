@@ -83,6 +83,7 @@ export function DocumentsTable({
   onViewFolders,
   onUpload,
   onFolderClick,
+  userPlan,
 }: {
   spaceId: string
   documents: DocumentType[]
@@ -96,6 +97,7 @@ export function DocumentsTable({
   canShareSpace: boolean
   selectAll: boolean
   selectedDocs: string[]
+  userPlan: string
   onSelectAll: () => void
   onSelectDoc: (docId: string) => void
   onOpenPdf: (doc: DocumentType) => void
@@ -352,9 +354,23 @@ export function DocumentsTable({
                         </>
                       )}
                       {canManageContacts && (
-                        <DropdownMenuItem onClick={() => onManageAccess(doc)}>
-                          <Lock className="mr-2 h-4 w-4" />Manage Access
-                        </DropdownMenuItem>
+                        userPlan === 'free' ? (
+                          <DropdownMenuItem
+                            disabled
+                            className="text-slate-300 cursor-not-allowed"
+                            title="Folder permissions require Starter plan"
+                          >
+                            <Lock className="mr-2 h-4 w-4" />
+                            Manage Access
+                            <span className="ml-auto text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded">
+                              Starter+
+                            </span>
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => onManageAccess(doc)}>
+                            <Lock className="mr-2 h-4 w-4" />Manage Access
+                          </DropdownMenuItem>
+                        )
                       )}
                       {canEdit && (
                         <>
