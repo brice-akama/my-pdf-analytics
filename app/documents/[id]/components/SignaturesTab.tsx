@@ -77,6 +77,7 @@ export default function SignaturesTab({
   }
 
   const { recipients, summary, funnel, allSigned } = analytics;
+  console.log('recipients[0]:', JSON.stringify(recipients[0], null, 2));
 
   return (
     <div className="space-y-0">
@@ -87,7 +88,11 @@ export default function SignaturesTab({
             All recipients have signed! Document is complete.
           </p>
           <a
-             href={`/signed/${recipients[0]?.uniqueId || recipients[0]?.id}`}
+             href={`/signed/${
+        recipients.find((r: any) => r.status === 'signed')?.uniqueId
+        ?? recipients[0]?.uniqueId
+      }`}
+
             className="ml-auto text-xs font-semibold text-green-700 underline"
           >
             Download signed PDF
