@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { checkAccess } from '@/lib/checkAccess';
+import { getAnalyticsLevel } from '@/lib/planLimits';
 
 export async function GET(
   request: NextRequest,
@@ -15,14 +17,14 @@ export async function GET(
 
     const spaceId = params.id;
 
-    const user = await verifyUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
+
+    const { user, plan } = access
+    const analyticsLevel = getAnalyticsLevel(plan)
 
     const db = await dbPromise;
 
-    // Verify user has access to this space
     const space = await db.collection('spaces').findOne({
       _id: new ObjectId(spaceId)
     });
@@ -31,13 +33,55 @@ export async function GET(
       return NextResponse.json({ error: 'Space not found' }, { status: 404 });
     }
 
-    const isOwner = space.userId === user.id;
+    const isOwner = space.userId === user._id.toString();
     const isMember = space.members?.some((m: any) =>
-      m.email === user.email || m.userId === user.id
+      m.email === user.email || m.userId === user._id.toString()
     );
 
     if (!isOwner && !isMember) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // Free plan gets basic analytics only — return summary counts, no per-visitor data
+    if (analyticsLevel === 'basic') {
+      // Still fetch logs to compute the overview numbers
+      const logsBasic = await db.collection('activityLogs')
+        .find({ spaceId: new ObjectId(spaceId) })
+        .sort({ timestamp: -1 })
+        .toArray()
+
+      const basicViews     = logsBasic.filter(l => l.event === 'document_view' || l.event === 'view').length
+      const basicDownloads = logsBasic.filter(l => l.event === 'download').length
+      const basicVisitors  = new Set(logsBasic.map(l => l.visitorEmail).filter(Boolean)).size
+      const basicLast24h   = logsBasic.filter(l => new Date(l.timestamp) >= new Date(Date.now() - 86400000))
+      const basicLast7d    = logsBasic.filter(l => new Date(l.timestamp) >= new Date(Date.now() - 7 * 86400000))
+      const basicHeat      = Math.round(
+        Math.min(40, basicLast24h.length * 8) +
+        Math.min(30, basicLast7d.length * 3) +
+        Math.min(20, basicVisitors * 5) +
+        Math.min(10, basicDownloads * 5)
+      )
+
+      return NextResponse.json({
+        success: true,
+        analyticsLevel: 'basic',
+        analytics: {
+          overview: {
+            totalViews:      basicViews,
+            totalDownloads:  basicDownloads,
+            uniqueVisitors:  basicVisitors,
+            totalEvents:     logsBasic.length,
+            lastActivity:    logsBasic[0]?.timestamp || null,
+            dealHeatScore:   basicHeat,
+            totalShareLinks: Array.isArray(space.publicAccess) ? space.publicAccess.length : (space.publicAccess ? 1 : 0),
+          },
+          shareLinks:  [],
+          visitors:    [],
+          documents:   [],
+          timeline:    [],
+          dailyVisits: [],
+        }
+      })
     }
 
     // ─── Fetch all activity logs for this space ───────────────────────────

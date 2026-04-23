@@ -14,6 +14,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { checkAccess } from '@/lib/checkAccess';
+import { getAnalyticsLevel } from '@/lib/planLimits';
 
 function formatSeconds(s: number): string {
   if (s < 60) return `${s}s`;
@@ -33,18 +35,30 @@ export async function GET(
     const params  = context.params instanceof Promise ? await context.params : context.params;
     const spaceId = params.id;
 
-    const user = await verifyUserFromRequest(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
+
+    const { user, plan } = access
+
+    if (getAnalyticsLevel(plan) === 'basic') {
+      return NextResponse.json({
+        error: 'Diligence tracking requires Starter plan or higher.',
+        code: 'FEATURE_NOT_AVAILABLE',
+        feature: 'diligenceTracking',
+        requiredPlan: 'starter',
+        currentPlan: plan,
+      }, { status: 403 })
+    }
 
     const db = await dbPromise;
 
     const space = await db.collection('spaces').findOne({ _id: new ObjectId(spaceId) });
     if (!space) return NextResponse.json({ error: 'Space not found' }, { status: 404 });
 
-    const isOwner  = space.userId === user.id;
-    const isMember = space.members?.some((m: any) => m.email === user.email || m.userId === user.id);
+    const isOwner  = space.userId === user._id.toString();
+    const isMember = space.members?.some((m: any) => m.email === user.email || m.userId === user._id.toString());
     if (!isOwner && !isMember) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-
+    
     // ── Fetch sessions sorted oldest-first so firstSeen is accurate ─────────
     const sessions = await db.collection('diligenceLogs')
       .find({ spaceId: new ObjectId(spaceId) })

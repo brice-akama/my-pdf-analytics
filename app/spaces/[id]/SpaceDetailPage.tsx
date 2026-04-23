@@ -459,6 +459,7 @@ function SidebarContent({
   setShowCreateFolderDialog,
   setShowSettingsDialog,
   params,
+  plan,
 }: {
   activeTab: string
   setActiveTab: (tab: any) => void
@@ -474,6 +475,7 @@ function SidebarContent({
   setShowCreateFolderDialog: (v: boolean) => void
   setShowSettingsDialog: (v: boolean) => void
   params: any
+  plan?: string
 }) {
   return (
     <>
@@ -491,29 +493,57 @@ function SidebarContent({
           <span>Home</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('analytics')}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'analytics'
-              ? 'bg-purple-50 text-purple-700'
-              : 'text-slate-700 hover:bg-slate-50'
-          }`}
-        >
-          <BarChart3 className="h-4 w-4" />
-          <span>Analytics</span>
-        </button>
+        {/* Analytics */}
+        {plan === 'free' ? (
+          <div className="relative group/nav">
+            <button disabled className="w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-slate-300 cursor-not-allowed select-none">
+              <BarChart3 className="h-4 w-4" />
+              <span>Analytics</span>
+              <Lock className="h-3 w-3 ml-auto" />
+            </button>
+            <div className="absolute left-full top-0 ml-2 z-[999] hidden group-hover/nav:block w-56 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-2xl pointer-events-none">
+              <p className="font-semibold text-white mb-1">Starter+ feature</p>
+              <p className="text-slate-300 leading-relaxed">Full visitor analytics, page heatmaps, and engagement scores require a paid plan.</p>
+              <a href="/plan" className="mt-2 flex items-center gap-1 text-sky-400 font-semibold">⚡ Upgrade to Starter</a>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'analytics' ? 'bg-purple-50 text-purple-700' : 'text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Analytics</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('diligence')}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'diligence'
-              ? 'bg-purple-50 text-purple-700'
-              : 'text-slate-700 hover:bg-slate-50'
-          }`}
-        >
-          <Target className="h-4 w-4" />
-          <span>Diligence</span>
-        </button>
+        {/* Diligence */}
+        {plan === 'free' ? (
+          <div className="relative group/nav">
+            <button disabled className="w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-slate-300 cursor-not-allowed select-none">
+              <Target className="h-4 w-4" />
+              <span>Diligence</span>
+              <Lock className="h-3 w-3 ml-auto" />
+            </button>
+            <div className="absolute left-full top-0 ml-2 z-[999] hidden group-hover/nav:block w-56 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-2xl pointer-events-none">
+              <p className="font-semibold text-white mb-1">Starter+ feature</p>
+              <p className="text-slate-300 leading-relaxed">Track exactly how long each investor spends on every document. Requires a paid plan.</p>
+              <a href="/plan" className="mt-2 flex items-center gap-1 text-sky-400 font-semibold">⚡ Upgrade to Starter</a>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setActiveTab('diligence')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'diligence' ? 'bg-purple-50 text-purple-700' : 'text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Target className="h-4 w-4" />
+            <span>Diligence</span>
+          </button>
+        )}
 
         <button
           onClick={() => { setActiveTab('qa'); fetchQAComments() }}
@@ -532,17 +562,31 @@ function SidebarContent({
           )}
         </button>
 
-        <button
-          onClick={() => setActiveTab('audit')}
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === 'audit'
-              ? 'bg-purple-50 text-purple-700'
-              : 'text-slate-700 hover:bg-slate-50'
-          }`}
-        >
-          <FileText className="h-4 w-4" />
-          <span>Audit Log</span>
-        </button>
+        {/* Audit Log */}
+        {(plan === 'free' || plan === 'starter') ? (
+          <div className="relative group/nav">
+            <button disabled className="w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-slate-300 cursor-not-allowed select-none">
+              <FileText className="h-4 w-4" />
+              <span>Audit Log</span>
+              <Lock className="h-3 w-3 ml-auto" />
+            </button>
+            <div className="absolute left-full top-0 ml-2 z-[999] hidden group-hover/nav:block w-56 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-2xl pointer-events-none">
+              <p className="font-semibold text-white mb-1">Pro+ feature</p>
+              <p className="text-slate-300 leading-relaxed">Full audit logs with complete activity history require Pro or Business plan.</p>
+              <a href="/plan" className="mt-2 flex items-center gap-1 text-sky-400 font-semibold">⚡ Upgrade to Pro</a>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setActiveTab('audit')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'audit' ? 'bg-purple-50 text-purple-700' : 'text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            <span>Audit Log</span>
+          </button>
+        )}
         <button
   onClick={() => setActiveTab('permissions')}
   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors ${
@@ -718,6 +762,9 @@ const [uploadProgress, setUploadProgress] = useState<
   }>
 >([])
 const [user, setUser] = useState<{ email: string } | null>(null)
+const [userPlan, setUserPlan] = useState<string>('free')
+
+
 const [isOwner, setIsOwner] = useState(false)
 const [userRole, setUserRole] = useState<string>(''); // ← Initialize as empty
 const canUpload = ['owner', 'admin', 'editor'].includes(userRole);
@@ -1921,9 +1968,10 @@ const fetchCurrentUser = async () => {
     const res = await fetch('/api/auth/me', {
       credentials: 'include',
     });
-    if (res.ok) {
+   if (res.ok) {
       const data = await res.json();
       setUser(data.user);
+      setUserPlan(data.user?.billing?.plan || data.user?.plan || 'free');
     }
   } catch (error) {
     console.error('Failed to fetch user:', error);
@@ -2444,6 +2492,7 @@ const fetchFolders = async () => {
           setShowCreateFolderDialog={setShowCreateFolderDialog}
           setShowSettingsDialog={setShowSettingsDialog}
           params={params}
+          plan={userPlan}
         />
       </div>
 
@@ -2485,6 +2534,7 @@ const fetchFolders = async () => {
     setShowCreateFolderDialog={setShowCreateFolderDialog}
     setShowSettingsDialog={setShowSettingsDialog}
     params={params}
+    plan={userPlan}
   />
 </aside>
 

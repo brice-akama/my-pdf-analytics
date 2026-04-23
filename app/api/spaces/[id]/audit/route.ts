@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { checkAccess } from '@/lib/checkAccess';
+import { hasFeature } from '@/lib/planLimits';
 
 export async function GET(
   request: NextRequest,
@@ -15,17 +17,29 @@ export async function GET(
     const category = searchParams.get('category') || 'all';
     const limit = parseInt(searchParams.get('limit') || '200');
 
-    const user = await verifyUserFromRequest(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   const access = await checkAccess(request)
+    if (!access.ok) return access.response
+
+    const { user, plan, limits } = access
+
+    if (!hasFeature(plan, 'fullAuditLogs')) {
+      return NextResponse.json({
+        error: 'Audit logs require Pro or Business plan.',
+        code: 'FEATURE_NOT_AVAILABLE',
+        feature: 'fullAuditLogs',
+        requiredPlan: 'pro',
+        currentPlan: plan,
+      }, { status: 403 })
+    }
 
     const db = await dbPromise;
 
     const space = await db.collection('spaces').findOne({ _id: new ObjectId(spaceId) });
     if (!space) return NextResponse.json({ error: 'Space not found' }, { status: 404 });
 
-    const isOwner = space.userId === user.id;
+    const isOwner = space.userId === user._id.toString();
     const isMember = space.members?.some(
-      (m: any) => m.email === user.email || m.userId === user.id
+      (m: any) => m.email === user.email || m.userId === user._id.toString()
     );
     if (!isOwner && !isMember) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
