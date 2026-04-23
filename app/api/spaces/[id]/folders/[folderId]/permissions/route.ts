@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import { checkAccess } from '@/lib/checkAccess';
 
 // ✅ HELPER: Check space permission
 async function checkSpacePermission(
@@ -46,22 +47,28 @@ export async function POST(
   try {
     const { id: spaceId, folderId } = await params;
     
-    const user = await verifyUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ 
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
+    const { user, plan } = access
+
+    if (plan === 'free') {
+      return NextResponse.json({
         success: false,
-        error: 'Unauthorized' 
-      }, { status: 401 });
+        error: 'Folder-level permissions require a Starter plan or higher.',
+        code: 'FEATURE_NOT_AVAILABLE',
+        feature: 'folderPermissions',
+        requiredPlan: 'starter',
+        currentPlan: plan,
+      }, { status: 403 })
     }
 
     const db = await dbPromise;
 
-    // Check if user has admin/owner permissions
     const { allowed, userRole } = await checkSpacePermission(
-      db, 
-      spaceId, 
-      user.id, 
-      user.email, 
+      db,
+      spaceId,
+      user._id.toString(),
+      user.email,
       'admin'
     );
 
@@ -220,22 +227,28 @@ export async function GET(
   try {
     const { id: spaceId, folderId } = await params;
     
-    const user = await verifyUserFromRequest(request);
-    if (!user) {
-      return NextResponse.json({ 
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
+    const { user, plan } = access
+
+    if (plan === 'free') {
+      return NextResponse.json({
         success: false,
-        error: 'Unauthorized' 
-      }, { status: 401 });
+        error: 'Folder-level permissions require a Starter plan or higher.',
+        code: 'FEATURE_NOT_AVAILABLE',
+        feature: 'folderPermissions',
+        requiredPlan: 'starter',
+        currentPlan: plan,
+      }, { status: 403 })
     }
 
     const db = await dbPromise;
 
-    // Check if user has admin/owner permissions
     const { allowed } = await checkSpacePermission(
-      db, 
-      spaceId, 
-      user.id, 
-      user.email, 
+      db,
+      spaceId,
+      user._id.toString(),
+      user.email,
       'admin'
     );
 

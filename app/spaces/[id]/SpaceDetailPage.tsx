@@ -2846,24 +2846,38 @@ const fetchFolders = async () => {
   )}
 
                {/* ✅ NEW: Manage Access */}
-  {canManageContacts && (
-    <DropdownMenuItem
-      onClick={(e) => {
-        e.stopPropagation()
-        setSelectedFile(doc);
-        const folder = folders.find(f => f.id === doc.folder);
-        if (folder) {
-          setSelectedFolderForPermissions(folder.id);
-          fetchFolderPermissions(folder.id)
-        }
-        setShowFolderPermissionsDialog(true)
-      }}
-    >
-      <Lock className="mr-2 h-4 w-4" />
-      Manage Access
-    </DropdownMenuItem>
+ {canManageContacts && (
+    userPlan === 'free' ? (
+      <DropdownMenuItem
+        disabled
+        className="text-slate-300 cursor-not-allowed"
+        title="Folder permissions require Starter plan"
+      >
+        <Lock className="mr-2 h-4 w-4" />
+        Manage Access
+        <span className="ml-auto text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded">
+          Starter+
+        </span>
+      </DropdownMenuItem>
+    ) : (
+      <DropdownMenuItem
+        onClick={(e) => {
+          e.stopPropagation()
+          setSelectedFile(doc);
+          const folder = folders.find(f => f.id === doc.folder);
+          if (folder) {
+            setSelectedFolderForPermissions(folder.id);
+            fetchFolderPermissions(folder.id)
+          }
+          setShowFolderPermissionsDialog(true)
+        }}
+      >
+        <Lock className="mr-2 h-4 w-4" />
+        Manage Access
+      </DropdownMenuItem>
+    )
   )}
-
+  
   {/* ✅ NEW: Send for Signature */}
   {canEdit && (
     <>
