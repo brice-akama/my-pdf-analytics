@@ -88,10 +88,11 @@ export default function SignaturesTab({
             All recipients have signed! Document is complete.
           </p>
           <a
-             href={`/signed/${
-        recipients.find((r: any) => r.status === 'signed')?.uniqueId
-        ?? recipients[0]?.uniqueId
-      }`}
+          href={`/signed/${
+  recipients.find((r: any) => r.status === 'signed' && r.uniqueId)?.uniqueId
+  ?? recipients.find((r: any) => r.uniqueId)?.uniqueId
+  ?? recipients[0]?.uniqueId
+}`}
 
             className="ml-auto text-xs font-semibold text-green-700 underline"
           >
