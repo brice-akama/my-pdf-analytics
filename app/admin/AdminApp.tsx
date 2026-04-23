@@ -4,17 +4,14 @@ export const fetchCache = 'force-no-store';
 
 // app/admin/AdminApp.tsx
 //
-// CHANGES FROM PREVIOUS VERSION:
-//   Added two new custom pages:
-//     1. UsersPage — User Management (list + detail)
-//     2. DocumentsPage — Document Analytics
+// FINAL VERSION — registers all four admin pages:
+//   / (dashboard)       → DashboardPage    (overview metrics)
+//   /users              → UsersPage        (user management)
+//   /documents-analytics → DocumentsPage   (document analytics)
+//   /billing            → BillingPage      (revenue & Paddle subscriptions)
 //
-//   These are registered as custom routes using React Admin's <CustomRoutes>
-//   because they talk to /api/admin/* directly rather than going through
-//   your dataProvider (which is scoped to user-facing resources like blog).
-//
-//   Everything else — authProvider, dataProvider, layout, CustomLogin,
-//   the blog Resource, DashboardPage — is completely untouched.
+// All custom routes fetch /api/admin/* directly — they do NOT go through
+// the dataProvider. The dataProvider is only used by the blog Resource.
 
 import { Admin, Resource, CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
@@ -31,9 +28,9 @@ import { authProvider } from './authProvider'
 import CustomLayout from './CustomLayout'
 import DashboardPage from './DashboardPage'
 
-// ── New admin pages ────────────────────────────────────────────
 import UsersPage from './users/UsersPage'
 import DocumentsPage from './documents/DocumentsPage'
+import BillingPageWrapper from './billing/BillingPageWrapper'
 
 const AdminApp = () => {
   return (
@@ -44,7 +41,6 @@ const AdminApp = () => {
       dataProvider={customDataProvider}
       layout={CustomLayout}
     >
-      {/* Existing resource — untouched */}
       <Resource
         name="blog"
         list={BlogPostList}
@@ -54,11 +50,10 @@ const AdminApp = () => {
         icon={() => <ArticleIcon sx={{ color: 'red' }} />}
       />
 
-      {/* New admin-only custom routes */}
-      {/* These don't go through dataProvider — they fetch /api/admin/* directly */}
       <CustomRoutes>
-        <Route path="/users" element={<UsersPage />} />
-        <Route path="/documents-analytics" element={<DocumentsPage />} />
+        <Route path="/users"                element={<UsersPage />} />
+        <Route path="/documents-analytics"  element={<DocumentsPage />} />
+        <Route path="/billing"              element={<BillingPageWrapper />} />
       </CustomRoutes>
     </Admin>
   )

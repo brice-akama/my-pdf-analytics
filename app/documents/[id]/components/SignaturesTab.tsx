@@ -81,26 +81,7 @@ export default function SignaturesTab({
 
   return (
     <div className="space-y-0">
-      {allSigned && (
-        <div className="py-4 px-4 mb-2 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
-          <Check className="h-5 w-5 text-green-600 flex-shrink-0" />
-          <p className="text-sm font-semibold text-green-900">
-            All recipients have signed! Document is complete.
-          </p>
-          <a
-          href={`/signed/${
-  recipients.find((r: any) => r.status === 'signed' && r.uniqueId)?.uniqueId
-  ?? recipients.find((r: any) => r.uniqueId)?.uniqueId
-  ?? recipients[0]?.uniqueId
-}`}
-
-            className="ml-auto text-xs font-semibold text-green-700 underline"
-          >
-            Download signed PDF
-          </a>
-        </div>
-      )}
-
+      
       {/* ── SUMMARY KPIs ── */}
       <div className="py-5 border-b border-slate-100">
         <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-4">
