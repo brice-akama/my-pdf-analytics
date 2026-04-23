@@ -1,8 +1,7 @@
-//app/api/documents/[id]/versions/note/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
-import { verifyUserFromRequest } from '@/lib/auth';
+import { checkAccess } from '@/lib/checkAccess';
+import { hasFeature } from '@/lib/planLimits';
 import { ObjectId } from 'mongodb';
 
 export async function PATCH(
@@ -11,10 +10,21 @@ export async function PATCH(
 ) {
   try {
     const { id } = await context.params;
-    const user = await verifyUserFromRequest(request);
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // ── Auth + plan ───────────────────────────────────────────────
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
+
+    // ── Version history requires Pro or Business ──────────────────
+    if (!hasFeature(access.plan, 'versionHistory')) {
+      return NextResponse.json(
+        {
+          error:   'VERSION_HISTORY_UNAVAILABLE',
+          message: 'Version history is available on Pro and Business plans.',
+          plan:    access.plan,
+        },
+        { status: 403 }
+      )
     }
 
     const body = await request.json();
@@ -25,37 +35,32 @@ export async function PATCH(
     }
 
     const db = await dbPromise;
-    const documentId = new ObjectId(id);
+    const documentId      = new ObjectId(id);
     const versionObjectId = new ObjectId(versionId);
 
-    // ✅ Verify document access
-    const document = await db.collection('documents').findOne({
-      _id: documentId,
-    });
-
+    const document = await db.collection('documents').findOne({ _id: documentId });
     if (!document) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    const profile = await db.collection('profiles').findOne({ user_id: user.id });
-    const organizationId = profile?.organization_id || user.id;
+    const profile        = await db.collection('profiles').findOne({ user_id: access.userId });
+    const organizationId = profile?.organization_id || access.userId;
 
-    const hasAccess = 
-      document.userId === user.id || 
+    const hasAccess =
+      document.userId === access.userId ||
       document.organizationId === organizationId;
 
     if (!hasAccess) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // ✅ Update the note
     const result = await db.collection('documentVersions').updateOne(
-      { _id: versionObjectId, documentId: documentId },
+      { _id: versionObjectId, documentId },
       {
         $set: {
-          changeLog: changeLog || null,
+          changeLog:     changeLog || null,
           noteUpdatedAt: new Date(),
-          noteUpdatedBy: user.id
+          noteUpdatedBy: access.userId,
         }
       }
     );
@@ -64,16 +69,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Version not found' }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Note updated successfully'
-    });
+    return NextResponse.json({ success: true, message: 'Note updated successfully' });
 
   } catch (error) {
     console.error('❌ Update note error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update note' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update note' }, { status: 500 });
   }
 }

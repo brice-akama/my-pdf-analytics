@@ -1,21 +1,35 @@
 //app/api/documents/[id]/versions/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
-import { verifyUserFromRequest } from '@/lib/auth';
+import { checkAccess } from '@/lib/checkAccess';
+import { hasFeature } from '@/lib/planLimits';
 import { ObjectId } from 'mongodb';
 
-// ✅ GET - Fetch all versions of a document
+// ── Shared plan gate response ─────────────────────────────────────
+function versionHistoryGated(plan: string) {
+  return NextResponse.json(
+    {
+      error:   'VERSION_HISTORY_UNAVAILABLE',
+      message: 'Version history is available on Pro and Business plans.',
+      plan,
+    },
+    { status: 403 }
+  )
+}
+
+// ── GET - Fetch all versions ──────────────────────────────────────
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await context.params;
-    const user = await verifyUserFromRequest(request);
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
+
+    if (!hasFeature(access.plan, 'versionHistory')) {
+      return versionHistoryGated(access.plan)
     }
 
     if (!ObjectId.isValid(id)) {
@@ -25,129 +39,113 @@ export async function GET(
     const db = await dbPromise;
     const documentId = new ObjectId(id);
 
-    // ✅ Get current document
-    const document = await db.collection('documents').findOne({
-      _id: documentId,
-    });
-
+    const document = await db.collection('documents').findOne({ _id: documentId });
     if (!document) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    // ✅ Verify access (owner or team member)
-    const profile = await db.collection('profiles').findOne({ user_id: user.id });
-    const organizationId = profile?.organization_id || user.id;
+    const profile        = await db.collection('profiles').findOne({ user_id: access.userId });
+    const organizationId = profile?.organization_id || access.userId;
 
-    const hasAccess = 
-      document.userId === user.id || 
+    const hasAccess =
+      document.userId === access.userId ||
       document.organizationId === organizationId;
 
     if (!hasAccess) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // ✅ Get all versions from history
     const versions = await db
       .collection('documentVersions')
-      .find({ documentId: documentId })
+      .find({ documentId })
       .sort({ createdAt: -1 })
       .toArray();
 
-    // ✅ Get uploader info for each version
     const versionsWithUsers = await Promise.all(
       versions.map(async (version) => {
-        const uploader = await db.collection('profiles').findOne({
-          user_id: version.uploadedBy
-        });
-
-        // ✅ Check ALL possible avatar fields
-    const avatarUrl = uploader?.avatarUrl || uploader?.avatar_url || uploader?.profile_image || null;
-    
-
+        const uploader  = await db.collection('profiles').findOne({ user_id: version.uploadedBy });
+        const avatarUrl = uploader?.avatarUrl || uploader?.avatar_url || uploader?.profile_image || null;
 
         return {
-          _id: version._id.toString(),
-          version: version.version,
-          filename: version.filename,
-          size: version.size,
-          numPages: version.numPages,
-          cloudinaryPdfUrl: version.cloudinaryPdfUrl,
+          _id:                  version._id.toString(),
+          version:              version.version,
+          filename:             version.filename,
+          size:                 version.size,
+          numPages:             version.numPages,
+          cloudinaryPdfUrl:     version.cloudinaryPdfUrl,
           cloudinaryOriginalUrl: version.cloudinaryOriginalUrl,
-          createdAt: version.createdAt,
-          uploadedBy: version.uploadedBy,
-          uploaderName: uploader?.full_name || uploader?.name || 'Unknown',
-          uploaderEmail: uploader?.email || version.uploadedBy,
-           uploaderAvatar: avatarUrl,
-          changeLog: version.changeLog || null,
+          createdAt:            version.createdAt,
+          uploadedBy:           version.uploadedBy,
+          uploaderName:         uploader?.full_name || uploader?.name || 'Unknown',
+          uploaderEmail:        uploader?.email || version.uploadedBy,
+          uploaderAvatar:       avatarUrl,
+          changeLog:            version.changeLog || null,
+          expiryDate:           version.expiryDate || null,
+          expiryReason:         version.expiryReason || null,
           analytics: {
-            views: version.tracking?.views || 0,
+            views:     version.tracking?.views     || 0,
             downloads: version.tracking?.downloads || 0,
-          }
+          },
         };
       })
     );
 
-    // ✅ Get current uploader info
-const currentUploader = await db.collection('profiles').findOne({
-  user_id: document.userId
-});
+    const currentUploader  = await db.collection('profiles').findOne({ user_id: document.userId });
+    const currentAvatarUrl = currentUploader?.avatarUrl || currentUploader?.avatar_url || currentUploader?.profile_image || null;
 
-const currentAvatarUrl = currentUploader?.avatarUrl || currentUploader?.avatar_url || currentUploader?.profile_image || null;
-
-
-// ✅ Current version info
-const currentVersion = {
-  _id: document._id.toString(),
-  version: document.version || versions.length + 1,
-  filename: document.originalFilename || document.filename,
-  size: document.size,
-  numPages: document.numPages,
-  cloudinaryPdfUrl: document.cloudinaryPdfUrl,
-  cloudinaryOriginalUrl: document.cloudinaryOriginalUrl,
-  createdAt: document.updatedAt || document.createdAt,
-  uploadedBy: document.userId,
-  uploaderName: currentUploader?.full_name || currentUploader?.name || 'Unknown',
-  uploaderEmail: currentUploader?.email || document.userId,
-    uploaderAvatar: currentAvatarUrl,
-  isCurrent: true,
-  analytics: {
-    views: document.tracking?.views || 0,
-    downloads: document.tracking?.downloads || 0,
-  }
-};
+    const currentVersion = {
+      _id:                  document._id.toString(),
+      version:              document.version || versions.length + 1,
+      filename:             document.originalFilename || document.filename,
+      size:                 document.size,
+      numPages:             document.numPages,
+      cloudinaryPdfUrl:     document.cloudinaryPdfUrl,
+      cloudinaryOriginalUrl: document.cloudinaryOriginalUrl,
+      createdAt:            document.updatedAt || document.createdAt,
+      uploadedBy:           document.userId,
+      uploaderName:         currentUploader?.full_name || currentUploader?.name || 'Unknown',
+      uploaderEmail:        currentUploader?.email || document.userId,
+      uploaderAvatar:       currentAvatarUrl,
+      isCurrent:            true,
+      expiryDate:           document.expiryDate  || null,
+      expiryReason:         document.expiryReason || null,
+      analytics: {
+        views:     document.tracking?.views     || 0,
+        downloads: document.tracking?.downloads || 0,
+      },
+    };
 
     return NextResponse.json({
       success: true,
       currentVersion,
       versions: versionsWithUsers,
-      totalVersions: versions.length + 1, // Include current
+      totalVersions: versions.length + 1,
       document: {
-        _id: document._id.toString(),
-        filename: document.originalFilename || document.filename,
+        _id:            document._id.toString(),
+        filename:       document.originalFilename || document.filename,
         organizationId: document.organizationId,
-      }
+      },
     });
 
   } catch (error) {
     console.error('❌ Fetch versions error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch versions' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch versions' }, { status: 500 });
   }
 }
 
-// ✅ POST - Restore a specific version as current
+// ── POST - Restore a specific version ────────────────────────────
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await context.params;
-    const user = await verifyUserFromRequest(request);
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
+
+    if (!hasFeature(access.plan, 'versionHistory')) {
+      return versionHistoryGated(access.plan)
     }
 
     const body = await request.json();
@@ -158,123 +156,112 @@ export async function POST(
     }
 
     const db = await dbPromise;
-    const documentId = new ObjectId(id);
+    const documentId      = new ObjectId(id);
     const versionObjectId = new ObjectId(versionId);
 
-    // ✅ Get current document
-    const currentDocument = await db.collection('documents').findOne({
-      _id: documentId,
-    });
-
+    const currentDocument = await db.collection('documents').findOne({ _id: documentId });
     if (!currentDocument) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    // ✅ Verify access
-    const profile = await db.collection('profiles').findOne({ user_id: user.id });
-    const organizationId = profile?.organization_id || user.id;
+    const profile        = await db.collection('profiles').findOne({ user_id: access.userId });
+    const organizationId = profile?.organization_id || access.userId;
 
-    const hasAccess = 
-      currentDocument.userId === user.id || 
+    const hasAccess =
+      currentDocument.userId === access.userId ||
       currentDocument.organizationId === organizationId;
 
     if (!hasAccess) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // ✅ Get the version to restore
     const versionToRestore = await db.collection('documentVersions').findOne({
       _id: versionObjectId,
-      documentId: documentId
+      documentId,
     });
 
     if (!versionToRestore) {
       return NextResponse.json({ error: 'Version not found' }, { status: 404 });
     }
 
-    // ✅ Save current document as a version BEFORE restoring
-    const currentVersionSnapshot = {
-      documentId: documentId,
-      version: currentDocument.version || 1,
-      filename: currentDocument.originalFilename || currentDocument.filename,
-      originalFormat: currentDocument.originalFormat,
-      mimeType: currentDocument.mimeType,
-      size: currentDocument.size,
-      pdfSize: currentDocument.pdfSize,
-      numPages: currentDocument.numPages,
-      cloudinaryPdfUrl: currentDocument.cloudinaryPdfUrl,
+    // Save current as snapshot before restoring
+    await db.collection('documentVersions').insertOne({
+      documentId,
+      version:              currentDocument.version || 1,
+      filename:             currentDocument.originalFilename || currentDocument.filename,
+      originalFormat:       currentDocument.originalFormat,
+      mimeType:             currentDocument.mimeType,
+      size:                 currentDocument.size,
+      pdfSize:              currentDocument.pdfSize,
+      numPages:             currentDocument.numPages,
+      cloudinaryPdfUrl:     currentDocument.cloudinaryPdfUrl,
       cloudinaryOriginalUrl: currentDocument.cloudinaryOriginalUrl,
-      extractedText: currentDocument.extractedText,
-      analytics: currentDocument.analytics,
-      tracking: currentDocument.tracking,
-      uploadedBy: currentDocument.userId,
-      createdAt: new Date(),
-      changeLog: `Auto-saved before restoring version ${versionToRestore.version}`
-    };
+      extractedText:        currentDocument.extractedText,
+      analytics:            currentDocument.analytics,
+      tracking:             currentDocument.tracking,
+      uploadedBy:           currentDocument.userId,
+      createdAt:            new Date(),
+      changeLog:            `Auto-saved before restoring version ${versionToRestore.version}`,
+    });
 
-    await db.collection('documentVersions').insertOne(currentVersionSnapshot);
-
-    // ✅ Restore the selected version as current document
     await db.collection('documents').updateOne(
       { _id: documentId },
       {
         $set: {
-          version: (currentDocument.version || 1) + 1, // Increment version
-          originalFilename: versionToRestore.filename,
-          originalFormat: versionToRestore.originalFormat,
-          mimeType: versionToRestore.mimeType,
-          size: versionToRestore.size,
-          pdfSize: versionToRestore.pdfSize,
-          numPages: versionToRestore.numPages,
-          cloudinaryPdfUrl: versionToRestore.cloudinaryPdfUrl,
+          version:              (currentDocument.version || 1) + 1,
+          originalFilename:     versionToRestore.filename,
+          originalFormat:       versionToRestore.originalFormat,
+          mimeType:             versionToRestore.mimeType,
+          size:                 versionToRestore.size,
+          pdfSize:              versionToRestore.pdfSize,
+          numPages:             versionToRestore.numPages,
+          cloudinaryPdfUrl:     versionToRestore.cloudinaryPdfUrl,
           cloudinaryOriginalUrl: versionToRestore.cloudinaryOriginalUrl,
-          extractedText: versionToRestore.extractedText,
-          analytics: versionToRestore.analytics,
-          updatedAt: new Date(),
-          lastRestoredFrom: versionToRestore.version,
-          lastRestoredBy: user.id,
-          lastRestoredAt: new Date()
+          extractedText:        versionToRestore.extractedText,
+          analytics:            versionToRestore.analytics,
+          updatedAt:            new Date(),
+          lastRestoredFrom:     versionToRestore.version,
+          lastRestoredBy:       access.userId,
+          lastRestoredAt:       new Date(),
         }
       }
     );
 
-    // ✅ Log the restore action
     await db.collection('analytics_logs').insertOne({
       documentId: id,
-      action: 'version_restored',
-      userId: user.id,
+      action:          'version_restored',
+      userId:          access.userId,
       restoredVersion: versionToRestore.version,
-      changeLog: changeLog || `Restored version ${versionToRestore.version}`,
-      timestamp: new Date(),
+      changeLog:       changeLog || `Restored version ${versionToRestore.version}`,
+      timestamp:       new Date(),
     });
 
     return NextResponse.json({
-      success: true,
-      message: `Version ${versionToRestore.version} restored successfully`,
-      newVersion: (currentDocument.version || 1) + 1,
-      restoredFrom: versionToRestore.version
+      success:       true,
+      message:       `Version ${versionToRestore.version} restored successfully`,
+      newVersion:    (currentDocument.version || 1) + 1,
+      restoredFrom:  versionToRestore.version,
     });
 
   } catch (error) {
     console.error('❌ Restore version error:', error);
-    return NextResponse.json(
-      { error: 'Failed to restore version' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to restore version' }, { status: 500 });
   }
 }
 
-// ✅ DELETE - Delete a specific version (optional cleanup)
+// ── DELETE - Delete a specific version ───────────────────────────
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await context.params;
-    const user = await verifyUserFromRequest(request);
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const access = await checkAccess(request)
+    if (!access.ok) return access.response
+
+    if (!hasFeature(access.plan, 'versionHistory')) {
+      return versionHistoryGated(access.plan)
     }
 
     const { searchParams } = new URL(request.url);
@@ -285,58 +272,46 @@ export async function DELETE(
     }
 
     const db = await dbPromise;
-    const documentId = new ObjectId(id);
+    const documentId      = new ObjectId(id);
     const versionObjectId = new ObjectId(versionId);
 
-    // ✅ Verify document access
-    const document = await db.collection('documents').findOne({
-      _id: documentId,
-    });
-
+    const document = await db.collection('documents').findOne({ _id: documentId });
     if (!document) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    const profile = await db.collection('profiles').findOne({ user_id: user.id });
-    const organizationId = profile?.organization_id || user.id;
+    const profile        = await db.collection('profiles').findOne({ user_id: access.userId });
+    const organizationId = profile?.organization_id || access.userId;
 
-    const hasAccess = 
-      document.userId === user.id || 
+    const hasAccess =
+      document.userId === access.userId ||
       document.organizationId === organizationId;
 
     if (!hasAccess) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // ✅ Delete the version
     const result = await db.collection('documentVersions').deleteOne({
       _id: versionObjectId,
-      documentId: documentId
+      documentId,
     });
 
     if (result.deletedCount === 0) {
       return NextResponse.json({ error: 'Version not found' }, { status: 404 });
     }
 
-    // ✅ Log deletion
     await db.collection('analytics_logs').insertOne({
       documentId: id,
-      action: 'version_deleted',
-      userId: user.id,
+      action:           'version_deleted',
+      userId:           access.userId,
       deletedVersionId: versionId,
-      timestamp: new Date(),
+      timestamp:        new Date(),
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Version deleted successfully'
-    });
+    return NextResponse.json({ success: true, message: 'Version deleted successfully' });
 
   } catch (error) {
     console.error('❌ Delete version error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete version' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete version' }, { status: 500 });
   }
 }

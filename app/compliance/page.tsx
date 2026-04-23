@@ -53,28 +53,36 @@ export default function CompliancePage() {
   }, []);
 
   const fetchComplianceData = async () => {
-    try {
-      const res = await fetch('/api/compliance/expired-documents', {
-        credentials: 'include',
-      });
+  try {
+    const res = await fetch('/api/compliance/expired-documents', {
+      credentials: 'include',
+    });
 
-      if (res.ok) {
-        const data = await res.json();
-        setSummary(data.summary);
-        setExpired(data.expired);
-        setExpiringSoon(data.expiringSoon);
-        setActive(data.active);
-        setComplianceLogs(data.complianceLogs);
-      } else if (res.status === 401) {
-        router.push('/login');
+    if (res.status === 403) {
+      const data = await res.json()
+      if (data.error === 'COMPLIANCE_REPORTS_UNAVAILABLE') {
+        router.push('/plan?feature=complianceReports')
+        return
       }
-    } catch (error) {
-      console.error('Failed to fetch compliance data:', error);
-      toast.error('Failed to load compliance report');
-    } finally {
-      setLoading(false);
     }
-  };
+
+    if (res.ok) {
+      const data = await res.json();
+      setSummary(data.summary);
+      setExpired(data.expired);
+      setExpiringSoon(data.expiringSoon);
+      setActive(data.active);
+      setComplianceLogs(data.complianceLogs);
+    } else if (res.status === 401) {
+      router.push('/login');
+    }
+  } catch (error) {
+    console.error('Failed to fetch compliance data:', error);
+    toast.error('Failed to load compliance report');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

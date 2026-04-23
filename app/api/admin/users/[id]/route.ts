@@ -9,6 +9,12 @@
 //   GET    /api/admin/users/[id]  — fetch user detail
 //   PATCH  /api/admin/users/[id]  — update plan, subscriptionStatus, or ban
 //   DELETE /api/admin/users/[id]  — delete account and all their documents
+//
+// NEXT.JS 15 COMPLIANCE:
+//   params is now a Promise — must be awaited before accessing any property.
+//   Every handler uses: const { id } = await params
+//   The old getUserId(params) helper is removed — it was accessing params.id
+//   synchronously which throws in Next.js 15.
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,21 +37,19 @@ async function verifyAdminToken(token: string) {
   }
 }
 
-function getUserId(params: { id: string }) {
-  return params.id
-}
-
-// ── GET — full user detail ─────────────────────────────────────
+// ── GET — full user detail ─────────────────────────────────────────────────
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const adminToken = request.cookies.get('auth_token')?.value
     if (!adminToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (!await verifyAdminToken(adminToken)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const userId = getUserId(params)
+    // ✅ Next.js 15: params is a Promise — must be awaited
+    const { id: userId } = await params
+
     const db = await dbPromise
 
     // Try ObjectId first, fallback to string id
@@ -68,7 +72,7 @@ export async function GET(
 
     const userIdStr = user._id.toString()
 
-    // ── Fetch related data in parallel ────────────────────────
+    // ── Fetch related data in parallel ─────────────────────────────────────
     const [
       documents,
       totalDocs,
@@ -180,17 +184,19 @@ export async function GET(
   }
 }
 
-// ── PATCH — update plan / status / ban ────────────────────────
+// ── PATCH — update plan / status / ban ────────────────────────────────────
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const adminToken = request.cookies.get('auth_token')?.value
     if (!adminToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (!await verifyAdminToken(adminToken)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const userId = getUserId(params)
+    // ✅ Next.js 15: params is a Promise — must be awaited
+    const { id: userId } = await params
+
     const body = await request.json().catch(() => null)
     if (!body) return NextResponse.json({ error: 'Invalid body' }, { status: 400 })
 
@@ -207,7 +213,7 @@ export async function PATCH(
       }
     }
 
-    let userObjectId
+    let userObjectId: ObjectId
     try {
       userObjectId = new ObjectId(userId)
     } catch {
@@ -252,20 +258,22 @@ export async function PATCH(
   }
 }
 
-// ── DELETE — remove account ────────────────────────────────────
+// ── DELETE — remove account ────────────────────────────────────────────────
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const adminToken = request.cookies.get('auth_token')?.value
     if (!adminToken) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (!await verifyAdminToken(adminToken)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const userId = getUserId(params)
+    // ✅ Next.js 15: params is a Promise — must be awaited
+    const { id: userId } = await params
+
     const db = await dbPromise
 
-    let userObjectId
+    let userObjectId: ObjectId
     try {
       userObjectId = new ObjectId(userId)
     } catch {

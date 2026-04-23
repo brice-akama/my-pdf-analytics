@@ -97,25 +97,35 @@ export default function VersionHistoryPage() {
   }, [showPreviewDrawer, previewVersion]);
 
   const fetchVersions = async () => {
-    try {
-      const res = await fetch(`/api/documents/${params.id}/versions`, {
-        credentials: 'include',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCurrentVersion(data.currentVersion);
-        setVersions(data.versions);
-        setDocument(data.document);
-      } else if (res.status === 401) {
-        router.push('/login');
+  try {
+    const res = await fetch(`/api/documents/${params.id}/versions`, {
+      credentials: 'include',
+    });
+
+    if (res.status === 403) {
+      const data = await res.json()
+      if (data.error === 'VERSION_HISTORY_UNAVAILABLE') {
+        // Redirect to plan page with context
+        router.push('/plan?feature=versionHistory')
+        return
       }
-    } catch (error) {
-      console.error('Failed to fetch versions:', error);
-      toast.error('Failed to load version history');
-    } finally {
-      setLoading(false);
     }
-  };
+
+    if (res.ok) {
+      const data = await res.json();
+      setCurrentVersion(data.currentVersion);
+      setVersions(data.versions);
+      setDocument(data.document);
+    } else if (res.status === 401) {
+      router.push('/login');
+    }
+  } catch (error) {
+    console.error('Failed to fetch versions:', error);
+    toast.error('Failed to load version history');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSetExpiry = async () => {
     if (!selectedVersion) return;

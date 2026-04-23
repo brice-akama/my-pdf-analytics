@@ -597,11 +597,14 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
   );
 
   const sigVisits: any[] = shareLinks
-    .filter(
-      (lnk) =>
-        (lnk.linkType === "signature" || lnk.linkType === "cc" || lnk.linkType === "envelope") &&
-        lnk.visits > 0
-    )
+   .filter(
+    (lnk) =>
+      lnk.linkType === "signature" ||
+      lnk.linkType === "cc" ||
+      lnk.linkType === "envelope"
+    // ← removed lnk.visits > 0 — show ALL signature recipients
+    // even if they haven't opened yet, so the sender knows who was sent to
+  )
     .map((lnk) => ({
       key: `sig-${lnk.shareId}`,
       email: lnk.recipientEmail || "Unknown",
@@ -618,6 +621,7 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
        visitType: lnk.isCC ? "cc" : lnk.isEnvelope ? "envelope" : "signature",
       signatureStatus: lnk.signatureStatus,
       isCC: lnk.isCC || false,
+      notOpened:          lnk.visits === 0, 
     }));
 
   const allVisits: any[] = [...shareVisits, ...sigVisits];
@@ -725,6 +729,11 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
                         <span className="text-xs font-medium text-red-500">
                           Bounced
                         </span>
+                        ) : visit.notOpened ? (
+   
+  <span className="text-xs font-medium text-slate-400">
+    Not opened
+  </span>
                       ) : (
                         <div className="flex items-center gap-1.5">
                           <svg
@@ -817,26 +826,28 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
                         </span>
                       </div>
 
-                      {/* ⭐ PageBarChart handles both hover and tap internally */}
+                      {/*  PageBarChart handles both hover and tap internally */}
                       {visit.pageData && visit.pageData.length > 0 ? (
                         <PageBarChart visit={visit} docId={doc._id} />
                       ) : (
-                        <div className="flex items-center justify-center py-6 text-center">
-                          <div>
-                            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-2">
-                              <BarChart2 className="h-5 w-5 text-slate-300" />
-                            </div>
-                            <p className="text-xs text-slate-400">
-                              No page data yet
-                            </p>
-                            <p className="text-[11px] text-slate-300 mt-0.5">
-                              {visit.visitType === "signature"
-                                ? "Recipient hasn't opened yet"
-                                : "Waiting for first view"}
-                            </p>
-                          </div>
-                        </div>
-                      )}
+  <div className="flex items-center justify-center py-6 text-center">
+    <div>
+      <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-2">
+        <BarChart2 className="h-5 w-5 text-slate-300" />
+      </div>
+      <p className="text-xs text-slate-400">
+        {visit.notOpened ? "Waiting for recipient to open" : "No page data yet"}
+      </p>
+      <p className="text-[11px] text-slate-300 mt-0.5">
+        {visit.visitType === "signature" && visit.notOpened
+          ? "Signature request sent — page analytics appear once they open"
+          : visit.visitType === "cc"
+          ? "CC recipient hasn't viewed yet"
+          : "Waiting for first view"}
+      </p>
+    </div>
+  </div>
+)}
                       {/* ── Do They Understand It — per visitor ── */}
 {/* ── Do They Understand It (videos) — only when videos exist ── */}
                       {documentVideos.length > 0 && (
