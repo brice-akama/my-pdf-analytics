@@ -378,11 +378,17 @@ export async function sendAllSignaturesCompleteEmail({
     <p class="section-label">Signatories</p>
     <div class="signers">${signersHtml}</div>
  
-    <div class="cta"><a href="${downloadLink}">Download signed document</a></div>
-    <p class="fallback">
-      If the button does not work, copy this link into your browser:<br>
-      <a href="${downloadLink}">${downloadLink}</a>
-    </p>
+    <div class="cta" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+  <a href="${downloadLink}" style="display:inline-block;padding:12px 24px;background:#0f172a;color:#ffffff!important;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">
+    Download signed PDF
+  </a>
+  <a href="${downloadLink.replace('/api/signature/', '/signed/').replace('/download', '')}" style="display:inline-block;padding:12px 24px;background:#ffffff;color:#0f172a!important;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;border:1px solid #e2e8f0;">
+    View signed document
+  </a>
+</div>
+<p class="fallback">
+  Download: <a href="${downloadLink}">${downloadLink}</a>
+</p>
   `
  
   const { error } = await resend.emails.send({

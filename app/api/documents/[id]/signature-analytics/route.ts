@@ -118,7 +118,7 @@ export async function GET(
         lastViewedAt:          r.lastViewedAt        || null,
         signedAt:              r.signedAt            || null,
         declinedAt:            r.declinedAt          || null,
-         uniqueId: r.uniqueId || r._id?.toString() || null,
+        uniqueId:              r.uniqueId            || null,
         declineReason:         r.declineReason       || null,
         delegatedTo:           r.delegatedTo         || null,
         viewCount:             r.viewCount           || 0,
