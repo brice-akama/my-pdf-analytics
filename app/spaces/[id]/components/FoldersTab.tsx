@@ -41,6 +41,7 @@ export function FoldersTab({
   onManageAccess,
   onRequestFiles,
   onCreateFolder,
+  userPlan,
 }: {
   folders: FolderType[]
   canCreateFolders: boolean
@@ -52,6 +53,7 @@ export function FoldersTab({
   onManageAccess: (folderId: string) => void
   onRequestFiles: (folder: { id: string; name: string }) => void
   onCreateFolder: () => void
+  userPlan: string
 }) {
   return (
     <div>
@@ -142,10 +144,24 @@ export function FoldersTab({
                       <Inbox className="mr-2 h-4 w-4" />Request Files
                     </DropdownMenuItem>
                     {canManageContacts && (
-                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onManageAccess(folder.id) }}>
-                        <Lock className="mr-2 h-4 w-4" />Manage Access
-                      </DropdownMenuItem>
-                    )}
+  userPlan === 'free' ? (
+    <DropdownMenuItem
+      disabled
+      className="text-slate-300 cursor-not-allowed"
+      title="Folder permissions require Starter plan"
+    >
+      <Lock className="mr-2 h-4 w-4" />
+      Manage Access
+      <span className="ml-auto text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded">
+        Starter+
+      </span>
+    </DropdownMenuItem>
+  ) : (
+    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onManageAccess(folder.id) }}>
+      <Lock className="mr-2 h-4 w-4" />Manage Access
+    </DropdownMenuItem>
+  )
+)}
                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onRenameFolder(folder) }}>
                       <Edit className="mr-2 h-4 w-4" />Rename
                     </DropdownMenuItem>

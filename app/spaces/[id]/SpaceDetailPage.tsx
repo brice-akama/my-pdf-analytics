@@ -3041,6 +3041,7 @@ const fetchFolders = async () => {
     folders={folders}
     canCreateFolders={canCreateFolders}
     canManageContacts={canManageContacts}
+    userPlan={userPlan}
     onOpenFolder={(folderId) => {
       setSelectedFolder(folderId)
       setActiveTab('home')
