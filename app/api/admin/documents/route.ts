@@ -90,8 +90,8 @@ export async function GET(request: NextRequest) {
       db.collection('viewer_identities').countDocuments(),
       db.collection('viewer_identities').countDocuments({ createdAt: { $gte: thisMonthStart } }),
 
-      db.collection('signature_requests').countDocuments({ status: 'completed' }),
-      db.collection('signature_requests').countDocuments({ status: { $in: ['pending', 'sent'] } }),
+      db.collection('signature_requests').countDocuments({ status: 'signed' }),
+db.collection('signature_requests').countDocuments({ status: { $in: ['pending', 'awaiting_turn', 'delegated'] } }),
 
       // FIX: $unset heavy field → $addFields for computed values → pure $project
       db.collection('documents').aggregate([
