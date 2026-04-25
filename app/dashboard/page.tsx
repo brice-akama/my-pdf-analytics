@@ -637,7 +637,13 @@ useEffect(() => {
   fetchIntegrationStatus()
 }, [showIntegrationsDialog])
 
-
+// Add this as a standalone useEffect near your other useEffects
+useEffect(() => {
+  fetch('/api/announcements/active')
+    .then(r => r.json())
+    .then(data => setActiveBanners(data.banners || []))
+    .catch(() => {})
+}, [])
 
 useEffect(() => {
   const params = new URLSearchParams(window.location.search)
