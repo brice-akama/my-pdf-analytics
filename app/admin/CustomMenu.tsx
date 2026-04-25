@@ -1,15 +1,11 @@
 'use client';
 
-// app/admin/CustomMenu.tsx
-//
-// FINAL VERSION — sidebar navigation with all four pages.
-
 import { Menu } from 'react-admin';
-import DashboardIcon from '@mui/icons-material/Dashboard';
 import ArticleIcon from '@mui/icons-material/Article';
 import PeopleIcon from '@mui/icons-material/People';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
+import CampaignIcon from '@mui/icons-material/Campaign';
 
 const CustomMenu = () => (
   <Menu>
@@ -37,6 +33,12 @@ const CustomMenu = () => (
       to="/billing"
       primaryText="Billing"
       leftIcon={<CreditCardIcon />}
+    />
+
+    <Menu.Item
+      to="/announcements"
+      primaryText="Announcements"
+      leftIcon={<CampaignIcon />}
     />
   </Menu>
 );

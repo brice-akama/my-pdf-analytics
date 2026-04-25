@@ -473,6 +473,7 @@ const [teamsStatus, setTeamsStatus] = useState<{
 const [showTeamsChannelPicker, setShowTeamsChannelPicker] = useState(false)
 const [teamsChannels, setTeamsChannels] = useState<any[]>([])
 const [loadingTeamsChannels, setLoadingTeamsChannels] = useState(false)
+const [activeBanners, setActiveBanners] = useState<any[]>([])
 const [selectedTeamId, setSelectedTeamId] = useState('')
 const [selectedChannelId, setSelectedChannelId] = useState('')
 const [selectedTeamName, setSelectedTeamName] = useState('')
@@ -2545,6 +2546,10 @@ useEffect(() => {
   };
 
   fetchUser();
+  fetch('/api/announcements/active')
+    .then(r => r.json())
+    .then(data => setActiveBanners(data.banners || []))
+    .catch(() => {})
 }, []);
 
 // Fetch documents
@@ -2783,6 +2788,33 @@ case 'dashboard':
               
             <div className="mb-8">
             <TrialBanner />
+            {/* Announcement banners */}
+{activeBanners.map(banner => {
+  const styles: Record<string, { bg: string; border: string; color: string; icon: string }> = {
+    info:        { bg: '#EFF6FF', border: '#BFDBFE', color: '#1D4ED8', icon: 'ℹ' },
+    warning:     { bg: '#FFFBEB', border: '#FDE68A', color: '#92400E', icon: '⚠' },
+    success:     { bg: '#F0FDF4', border: '#BBF7D0', color: '#166534', icon: '✓' },
+    maintenance: { bg: '#FDF4FF', border: '#E9D5FF', color: '#7E22CE', icon: '🔧' },
+  }
+  const st = styles[banner.type] || styles.info
+  return (
+    <div key={banner.id} style={{
+      background: st.bg, border: `1px solid ${st.border}`,
+      borderRadius: 8, padding: '12px 16px', marginBottom: 12,
+      display: 'flex', alignItems: 'flex-start', gap: 10,
+    }}>
+      <span style={{ fontSize: 16, flexShrink: 0 }}>{st.icon}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: st.color }}>{banner.title}</div>
+        <div style={{ fontSize: 12, color: st.color, opacity: 0.85, marginTop: 2, lineHeight: 1.5 }}>{banner.message}</div>
+      </div>
+      <button onClick={() => setActiveBanners(prev => prev.filter(b => b.id !== banner.id))}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: st.color, fontSize: 16, lineHeight: 1, padding: 0, flexShrink: 0 }}>
+        ✕
+      </button>
+    </div>
+  )
+})}
   {/* Header - Responsive Layout */}
   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
     {/* Title and Breadcrumb */}

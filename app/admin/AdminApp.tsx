@@ -2,17 +2,6 @@
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
-// app/admin/AdminApp.tsx
-//
-// FINAL VERSION — registers all four admin pages:
-//   / (dashboard)       → DashboardPage    (overview metrics)
-//   /users              → UsersPage        (user management)
-//   /documents-analytics → DocumentsPage   (document analytics)
-//   /billing            → BillingPage      (revenue & Paddle subscriptions)
-//
-// All custom routes fetch /api/admin/* directly — they do NOT go through
-// the dataProvider. The dataProvider is only used by the blog Resource.
-
 import { Admin, Resource, CustomRoutes } from 'react-admin'
 import { Route } from 'react-router-dom'
 import customDataProvider from '../../lib/dataProvider'
@@ -31,6 +20,7 @@ import DashboardPage from './DashboardPage'
 import UsersPage from './users/UsersPage'
 import DocumentsPage from './documents/DocumentsPage'
 import BillingPageWrapper from './billing/BillingPageWrapper'
+import AnnouncementsPage from './announcements/AnnouncementsPage'
 
 const AdminApp = () => {
   return (
@@ -51,9 +41,10 @@ const AdminApp = () => {
       />
 
       <CustomRoutes>
-        <Route path="/users"                element={<UsersPage />} />
-        <Route path="/documents-analytics"  element={<DocumentsPage />} />
-        <Route path="/billing"              element={<BillingPageWrapper />} />
+        <Route path="/users"                 element={<UsersPage />} />
+        <Route path="/documents-analytics"   element={<DocumentsPage />} />
+        <Route path="/billing"               element={<BillingPageWrapper />} />
+        <Route path="/announcements"         element={<AnnouncementsPage />} />
       </CustomRoutes>
     </Admin>
   )
