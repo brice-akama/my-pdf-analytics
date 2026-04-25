@@ -1,5 +1,8 @@
 
-//app/api/file-requests/[id]/route.ts
+// app/api/file-requests/[id]/route.ts
+// FIXED: Removed broken organization query that was preventing owners
+// from seeing their own uploaded files. Now uses strict userId ownership.
+
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "../../lib/mongodb"
 import { ObjectId } from "mongodb"
@@ -7,7 +10,7 @@ import { verifyUserFromRequest } from "@/lib/auth"
 
 export const dynamic = 'force-dynamic'
 
-// GET - Fetch single file request
+// GET - Fetch single file request with uploaded files
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -18,40 +21,24 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // ✅ Next.js 15: await params
     const { id } = await context.params
 
     console.log('🔍 Fetching file request:', id, 'for user:', user.id)
 
     const db = await dbPromise
-    // ✅ Resolve organization
- 
 
-const profile = await db.collection('profiles').findOne({
-  user_id: user.id,
-})
-
-const organizationId = profile?.organization_id || user.id
-const isOrgOwner = organizationId === user.id
-    // ✅ ROLE-BASED QUERY
-let query: any = {
-  _id: new ObjectId(id),
-  organizationId
-}
-
-if (!isOrgOwner) {
-  // Members can only access their own requests
-  query.userId = new ObjectId(user.id)
-}
-
-const request = await db.collection("fileRequests").findOne(query)
+    // ── FIXED: strict userId ownership — removed broken org logic ────────
+    const request = await db.collection("fileRequests").findOne({
+      _id: new ObjectId(id),
+      userId: new ObjectId(user.id),
+    })
 
     if (!request) {
       console.log('❌ Request not found or unauthorized')
       return NextResponse.json({ error: "Request not found" }, { status: 404 })
     }
 
-    console.log('✅ Found request:', request.title)
+    console.log('✅ Found request:', request.title, '| Files:', request.uploadedFiles?.length || 0)
 
     return NextResponse.json({
       success: true,
@@ -94,14 +81,14 @@ export async function PATCH(
     const result = await db.collection("fileRequests").updateOne(
       {
         _id: new ObjectId(id),
-        userId: new ObjectId(user.id)
+        userId: new ObjectId(user.id),
       },
       {
         $set: {
           ...(title && { title: title.trim() }),
           ...(description !== undefined && { description: description.trim() }),
           ...(status && { status }),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         }
       }
     )
@@ -133,7 +120,7 @@ export async function DELETE(
     const db = await dbPromise
     const result = await db.collection("fileRequests").deleteOne({
       _id: new ObjectId(id),
-      userId: new ObjectId(user.id)
+      userId: new ObjectId(user.id),
     })
 
     if (result.deletedCount === 0) {

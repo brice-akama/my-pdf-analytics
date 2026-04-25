@@ -1,15 +1,15 @@
+// app/api/file-requests/[id]/files/download-all/route.ts
+// FIXED: Files are now stored on Cloudinary (not disk).
+// We fetch each file from file.fileUrl and zip them in memory.
+
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "@/app/api/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { verifyUserFromRequest } from "@/lib/auth"
-import { readFile } from "fs/promises"
-import path from "path"
 import archiver from "archiver"
-import { Readable } from "stream"
 
 export const dynamic = 'force-dynamic'
 
-// GET - Download all files as ZIP
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -24,26 +24,13 @@ export async function GET(
 
     console.log('📦 [DOWNLOAD-ALL] Request ID:', id)
 
-    // ✅ Resolve organization
-const db = await dbPromise
+    const db = await dbPromise
 
-const profile = await db.collection('profiles').findOne({
-  user_id: user.id,
-})
-
-const organizationId = profile?.organization_id || user.id
-const isOrgOwner = organizationId === user.id
-    // ✅ ROLE-BASED QUERY
-let query: any = {
-  _id: new ObjectId(id),
-  organizationId
-}
-
-if (!isOrgOwner) {
-  query.userId = new ObjectId(user.id)
-}
-
-const request = await db.collection("fileRequests").findOne(query)
+    // ── Find request — strict ownership ───────────────────────────────────
+    const request = await db.collection("fileRequests").findOne({
+      _id: new ObjectId(id),
+      userId: new ObjectId(user.id),
+    })
 
     if (!request) {
       return NextResponse.json({ error: "Request not found" }, { status: 404 })
@@ -55,33 +42,32 @@ const request = await db.collection("fileRequests").findOne(query)
 
     console.log('✅ [DOWNLOAD-ALL] Found', request.uploadedFiles.length, 'files')
 
-    // Create ZIP archive
+    // ── FIXED: Fetch each file from Cloudinary and zip in memory ─────────
     const archive = archiver('zip', { zlib: { level: 9 } })
-    
-    // Add files to archive
-    const uploadDir = path.join(
-      process.cwd(),
-      'uploads',
-      'file-requests',
-      request.shareToken
-    )
 
     for (const file of request.uploadedFiles) {
+      if (!file.fileUrl) {
+        console.warn('⚠️ [DOWNLOAD-ALL] Skipping file with no fileUrl:', file.originalName)
+        continue
+      }
       try {
-        const filePath = path.join(uploadDir, file.filename)
-        const fileBuffer = await readFile(filePath)
-        archive.append(fileBuffer, { name: file.originalName })
+        console.log('☁️ [DOWNLOAD-ALL] Fetching:', file.originalName)
+        const res = await fetch(file.fileUrl)
+        if (!res.ok) {
+          console.warn('⚠️ [DOWNLOAD-ALL] Failed to fetch:', file.originalName, res.status)
+          continue
+        }
+        const buffer = Buffer.from(await res.arrayBuffer())
+        archive.append(buffer, { name: file.originalName })
         console.log('📎 [DOWNLOAD-ALL] Added:', file.originalName)
       } catch (fileError) {
-        console.error('⚠️ [DOWNLOAD-ALL] Skipped missing file:', file.originalName)
+        console.error('⚠️ [DOWNLOAD-ALL] Skipped file error:', file.originalName, fileError)
       }
     }
 
     await archive.finalize()
 
-    console.log('✅ [DOWNLOAD-ALL] ZIP created')
-
-    // Convert archive stream to Response
+    // Collect zip chunks
     const chunks: Buffer[] = []
     for await (const chunk of archive) {
       chunks.push(Buffer.from(chunk))
@@ -90,6 +76,8 @@ const request = await db.collection("fileRequests").findOne(query)
 
     const zipFilename = `${request.title.replace(/[^a-z0-9]/gi, '_')}.zip`
 
+    console.log('✅ [DOWNLOAD-ALL] ZIP ready, size:', zipBuffer.length)
+
     return new NextResponse(zipBuffer, {
       headers: {
         'Content-Type': 'application/zip',
@@ -97,10 +85,9 @@ const request = await db.collection("fileRequests").findOne(query)
         'Content-Length': zipBuffer.length.toString(),
       },
     })
+
   } catch (error) {
     console.error("❌ [DOWNLOAD-ALL] Error:", error)
-    return NextResponse.json({ 
-      error: "Failed to create ZIP archive" 
-    }, { status: 500 })
+    return NextResponse.json({ error: "Failed to create ZIP archive" }, { status: 500 })
   }
 }

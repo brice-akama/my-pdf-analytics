@@ -21,6 +21,7 @@ import UsersPage from './users/UsersPage'
 import DocumentsPage from './documents/DocumentsPage'
 import BillingPageWrapper from './billing/BillingPageWrapper'
 import AnnouncementsPage from './announcements/AnnouncementsPage'
+import FeedbackPage from './feedback/FeedbackPage';
 
 const AdminApp = () => {
   return (
@@ -46,6 +47,7 @@ const AdminApp = () => {
         <Route path="/billing"               element={<BillingPageWrapper />} />
         <Route path="/announcements"         element={<AnnouncementsPage />} />
         <Route path="/support" element={<SupportPage />} />
+        <Route path="/feedback" element={<FeedbackPage />} />
       </CustomRoutes>
     </Admin>
   )
