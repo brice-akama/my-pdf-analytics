@@ -118,14 +118,7 @@ export async function POST(
     }
 
     // Check if already uploaded
-    const hasAlreadyUploaded = request.uploadedFiles?.some(
-      (f: any) => f.uploadedBy?.email.toLowerCase() === uploaderEmail.toLowerCase()
-    )
-    if (hasAlreadyUploaded) {
-      return NextResponse.json({
-        error: "You have already uploaded files to this request."
-      }, { status: 400 })
-    }
+  
 
     const isSpaceLinked = !!(request.spaceId && request.spaceId !== null)
 
