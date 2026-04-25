@@ -6,6 +6,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import CampaignIcon from '@mui/icons-material/Campaign';
+import SupportAgentIcon from '@mui/icons-material/SupportAgent'
 
 const CustomMenu = () => (
   <Menu>
@@ -40,6 +41,11 @@ const CustomMenu = () => (
       primaryText="Announcements"
       leftIcon={<CampaignIcon />}
     />
+    <Menu.Item
+  to="/support"
+  primaryText="Support"
+  leftIcon={<SupportAgentIcon />}
+/>
   </Menu>
 );
 

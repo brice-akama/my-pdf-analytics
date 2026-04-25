@@ -1,12 +1,9 @@
 // app/api/public/file-request/[token]/upload/route.ts
-// REPLACE your entire existing file with this
-// Key change: if the file request has spaceId, uploaded files also
-// land in the space folder (documents + space_files collections)
+// FIXED: Removed all disk writes (writeFile/mkdir) — Vercel filesystem is read-only.
+// All files now go to Cloudinary regardless of whether space-linked or not.
 
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "@/app/api/lib/mongodb"
-import { writeFile, mkdir } from "fs/promises"
-import path from "path"
 import { ObjectId } from "mongodb"
 import cloudinary from 'cloudinary'
 import streamifier from 'streamifier'
@@ -38,7 +35,6 @@ async function uploadToCloudinary(buffer: Buffer, filename: string, folder: stri
   })
 }
 
-// Detect MIME type from filename extension
 function getMimeType(filename: string): string {
   const ext = filename.toLowerCase().split('.').pop()
   const map: Record<string, string> = {
@@ -126,46 +122,45 @@ export async function POST(
       }, { status: 400 })
     }
 
-    // ── Save files to disk (same as before) ─────────────────────────────────
-    const uploadDir = path.join(process.cwd(), 'uploads', 'file-requests', token)
-    await mkdir(uploadDir, { recursive: true })
-
     const isSpaceLinked = !!(request.spaceId && request.spaceId !== null)
 
     const uploadedFiles = await Promise.all(
       files.map(async (file) => {
         const buffer = Buffer.from(await file.arrayBuffer())
         const filename = `${Date.now()}-${file.name}`
-        const filepath = path.join(uploadDir, filename)
 
-        // Always save to disk
-        await writeFile(filepath, buffer)
-        console.log('💾 [UPLOAD] Saved to disk:', filename)
+        // ── FIXED: Always upload to Cloudinary (Vercel has no writable filesystem) ──
+        const cloudinaryFolder = isSpaceLinked
+          ? `spaces/${request.spaceId}/documents`
+          : `file-requests/${token}`
+
+        let fileUrl = ''
+        try {
+          fileUrl = await uploadToCloudinary(buffer, file.name, cloudinaryFolder)
+          console.log('☁️ [UPLOAD] Cloudinary URL:', fileUrl)
+        } catch (cloudErr) {
+          console.error('❌ [UPLOAD] Cloudinary upload failed:', cloudErr)
+          throw new Error('File upload failed. Please try again.')
+        }
 
         let spaceDocumentId: string | null = null
 
-        // ── If space-linked: also save to Cloudinary + insert into space ────
+        // ── If space-linked: insert into documents + space collections ────
         if (isSpaceLinked) {
           try {
-            console.log('🔗 [UPLOAD] Space-linked — uploading to Cloudinary...')
-
-            const cloudinaryFolder = `spaces/${request.spaceId}/documents`
-            const cloudinaryUrl = await uploadToCloudinary(buffer, file.name, cloudinaryFolder)
-
-            console.log('☁️ [UPLOAD] Cloudinary URL:', cloudinaryUrl)
+            console.log('🔗 [UPLOAD] Space-linked — syncing to space...')
 
             const mimeType = getMimeType(file.name)
             const ext = file.name.toLowerCase().split('.').pop() || 'file'
 
-            // Insert into documents collection (same structure as space upload route)
             const documentRecord = {
               userId: request.userId.toString(),
               originalFilename: file.name,
               originalFormat: ext,
               mimeType,
               size: buffer.length,
-              cloudinaryOriginalUrl: cloudinaryUrl,
-              cloudinaryPdfUrl: cloudinaryUrl, // same URL — no PDF conversion for file requests
+              cloudinaryOriginalUrl: fileUrl,
+              cloudinaryPdfUrl: fileUrl,
               extractedText: '',
               numPages: 1,
               wordCount: 0,
@@ -175,7 +170,6 @@ export async function POST(
               belongsToSpace: true,
               spaceId: request.spaceId,
               folder: request.folderId || null,
-              // Source info — helps distinguish file-request uploads from owner uploads
               source: 'file_request',
               fileRequestId: request._id.toString(),
               uploadedByVisitor: {
@@ -218,7 +212,6 @@ export async function POST(
             const docResult = await db.collection('documents').insertOne(documentRecord)
             spaceDocumentId = docResult.insertedId.toString()
 
-            // Insert into space_files collection
             await db.collection('space_files').insertOne({
               spaceId: request.spaceId,
               folderId: request.folderId || null,
@@ -241,7 +234,6 @@ export async function POST(
               order: 0,
             })
 
-            // Increment space document count
             await db.collection('spaces').updateOne(
               { _id: new ObjectId(request.spaceId) },
               {
@@ -250,7 +242,6 @@ export async function POST(
               }
             )
 
-            // Activity log so space analytics picks it up
             await db.collection('activityLogs').insertOne({
               spaceId: new ObjectId(request.spaceId),
               shareLink: null,
@@ -275,8 +266,7 @@ export async function POST(
             console.log(`✅ [UPLOAD] File added to space ${request.spaceId}, folder ${request.folderId}, docId: ${spaceDocumentId}`)
 
           } catch (spaceError) {
-            // Don't fail the whole upload if space sync fails — file is still on disk
-            console.error('⚠️ [UPLOAD] Failed to sync to space (file saved to disk):', spaceError)
+            console.error('⚠️ [UPLOAD] Failed to sync to space (file still saved to Cloudinary):', spaceError)
           }
         }
 
@@ -284,19 +274,18 @@ export async function POST(
           _id: new ObjectId(),
           filename,
           originalName: file.name,
+          fileUrl,
           size: file.size,
           uploadedAt: new Date(),
           uploadedBy: {
             name: uploaderName.trim(),
             email: uploaderEmail.trim()
           },
-          // Space doc reference (null for general requests)
           spaceDocumentId,
         }
       })
     )
 
-    // Update fileRequests collection
     await db.collection("fileRequests").updateOne(
       { _id: request._id },
       {

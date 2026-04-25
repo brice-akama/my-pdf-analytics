@@ -1,3 +1,4 @@
+//app/api/public/file-request/[token]/route.ts
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "@/app/api/lib/mongodb"
 

@@ -11,7 +11,7 @@ import BlogPostShow from './BlogPostShow'
 import BlogPostCreate from './BlogPostCreate'
 import BlogPostEdit from './BlogPostEdit'
 import ArticleIcon from '@mui/icons-material/Article'
-
+import SupportPage from './support/SupportPage'
 import CustomLogin from './CustomLogin'
 import { authProvider } from './authProvider'
 import CustomLayout from './CustomLayout'
@@ -45,6 +45,7 @@ const AdminApp = () => {
         <Route path="/documents-analytics"   element={<DocumentsPage />} />
         <Route path="/billing"               element={<BillingPageWrapper />} />
         <Route path="/announcements"         element={<AnnouncementsPage />} />
+        <Route path="/support" element={<SupportPage />} />
       </CustomRoutes>
     </Admin>
   )
