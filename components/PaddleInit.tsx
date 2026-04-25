@@ -8,7 +8,7 @@ export default function PaddleInit() {
     const init = async () => {
       const paddle = await initializePaddle({
         token: process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN!,
-        environment: "sandbox",
+        environment: "production",
         checkout: {
           settings: {
             successUrl: `${process.env.NEXT_PUBLIC_PADDLE_URL}/upgrade/success`,

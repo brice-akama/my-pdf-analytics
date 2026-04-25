@@ -41,8 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <head>
-        {/* Paddle.js — loads the checkout form when _ptxn is in the URL */}
-        <script src="https://cdn.paddle.com/paddle/v2/paddle.js" async />
+        
       </head>
       <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}>
         <PublicLayout>

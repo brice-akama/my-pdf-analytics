@@ -218,7 +218,9 @@ const successUrl = `${appUrl}/upgrade/success?plan=${planId}&cycle=${billingCycl
     planId: planId,
     billingCycle: billingCycle,
   },
-   
+  checkout: {
+     url: `${appUrl}/checkout`,          // ← JUST the domain, no path
+  },
   return_url: successUrl,
 }
 
