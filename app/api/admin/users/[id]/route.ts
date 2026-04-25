@@ -104,11 +104,18 @@ export async function GET(
         .toArray(),
 
       // Their signature requests
-      db.collection('signature_requests')
-        .find({ createdBy: userIdStr })
-        .sort({ createdAt: -1 })
-        .limit(10)
-        .toArray(),
+      // Their signature requests — match by ownerEmail or userId
+db.collection('signature_requests')
+  .find({
+    $or: [
+      { createdBy: userIdStr },
+      { userId: userIdStr },
+      { ownerEmail: user.email },
+    ]
+  })
+  .sort({ createdAt: -1 })
+  .limit(10)
+  .toArray(),
 
       // Their spaces
       db.collection('spaces')
@@ -146,11 +153,17 @@ export async function GET(
         updatedAt: user.updated_at,
         lastLoginAt: user.lastLoginAt || null,
       },
-      stats: {
-        totalDocuments: totalDocs,
-        totalSignatures: signatureRequests.length,
-        totalSpaces: spaces.length,
-      },
+     stats: {
+  totalDocuments: totalDocs,
+  totalSignatures: await db.collection('signature_requests').countDocuments({
+    $or: [
+      { createdBy: userIdStr },
+      { userId: userIdStr },
+      { ownerEmail: user.email },
+    ]
+  }),
+  totalSpaces: spaces.length,
+},
       documents: documents.map(doc => ({
         id: doc._id.toString(),
         name: doc.originalFilename || doc.filename || 'Untitled',
