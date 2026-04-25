@@ -75,13 +75,13 @@ function getPaddleApiBase(): string {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
-    // ── Step 1: Authenticate the user ──────────────────────────────────────
-    // We read the JWT from the cookie — same pattern as every other route.
-    // If there is no valid token, we reject immediately. An anonymous user
-    // must never be able to create a checkout session.
+    console.log('🔵 Checkout route hit')
+
     const token =
       request.cookies.get('auth-token')?.value ||
       request.cookies.get('token')?.value
+
+    console.log('🔵 Token found:', !!token)
 
     if (!token) {
       return NextResponse.json(
@@ -93,7 +93,9 @@ export async function POST(request: NextRequest) {
     let decoded: any
     try {
       decoded = jwt.verify(token, JWT_SECRET)
+      console.log('🔵 JWT decoded successfully')
     } catch {
+      console.log('🔴 JWT verification failed')
       return NextResponse.json(
         { error: 'Invalid or expired session — please log in again' },
         { status: 401 }
@@ -101,18 +103,11 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = decoded.userId || decoded.id
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Invalid token payload' },
-        { status: 401 }
-      )
-    }
+    console.log('🔵 userId:', userId)
 
-    // ── Step 2: Parse and validate the request body ─────────────────────────
-    // The frontend sends { planId, billingCycle }.
-    // planId is one of: "starter" | "pro" | "business"
-    // billingCycle is one of: "monthly" | "yearly"
     const body = await request.json().catch(() => null)
+    console.log('🔵 Request body:', JSON.stringify(body))
+
     if (!body) {
       return NextResponse.json(
         { error: 'Invalid request body' },
@@ -121,38 +116,15 @@ export async function POST(request: NextRequest) {
     }
 
     const { planId, billingCycle } = body
-
-    if (!planId || !billingCycle) {
-      return NextResponse.json(
-        { error: 'planId and billingCycle are required' },
-        { status: 400 }
-      )
-    }
-
-    const validPlans = ['starter', 'pro', 'business']
-    const validCycles = ['monthly', 'yearly']
-
-    if (!validPlans.includes(planId)) {
-      return NextResponse.json(
-        { error: `Invalid plan. Must be one of: ${validPlans.join(', ')}` },
-        { status: 400 }
-      )
-    }
-
-    if (!validCycles.includes(billingCycle)) {
-      return NextResponse.json(
-        { error: `Invalid billing cycle. Must be "monthly" or "yearly"` },
-        { status: 400 }
-      )
-    }
-
-    // ── Step 3: Look up the Paddle price ID ─────────────────────────────────
-    // The map key combines planId and billingCycle: "pro:monthly"
-    // If the price ID is missing from .env, we catch it here rather than
-    // sending a malformed request to Paddle and getting a confusing error back.
     const priceKey = `${planId}:${billingCycle}`
     const priceId = PRICE_ID_MAP[priceKey]
 
+    console.log('🔵 priceKey:', priceKey)
+    console.log('🔵 priceId found:', priceId)
+    console.log('🔵 API Base URL:', getPaddleApiBase())
+    console.log('🔵 PADDLE_ENVIRONMENT env:', process.env.PADDLE_ENVIRONMENT)
+    console.log('🔵 PADDLE_API_KEY set:', !!process.env.PADDLE_API_KEY)
+    
     if (!priceId) {
       console.error(`❌ Missing Paddle price ID for key: ${priceKey}`)
       console.error('Check that PADDLE_' + priceKey.toUpperCase().replace(':', '_') + '_PRICE_ID is set in .env')
