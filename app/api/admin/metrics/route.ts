@@ -208,19 +208,19 @@ db.collection('signature_requests').countDocuments({
 
       // ── Feedback ──────────────────────────────────────────────
       db.collection('feedback').find(
-        {},
-        { projection: { message: 1, email: 1, createdAt: 1, type: 1, userId: 1 } }
-      ).sort({ createdAt: -1 }).limit(8).toArray(),
+  {},
+  { projection: { feedback: 1, email: 1, createdAt: 1, type: 1 } }
+).sort({ createdAt: -1 }).limit(8).toArray(),
 
-      db.collection('feedback').countDocuments(),
+db.collection('feedback').countDocuments(),
 
       // ── Support ───────────────────────────────────────────────
-      db.collection('support').find(
-        {},
-        { projection: { subject: 1, email: 1, createdAt: 1, status: 1, message: 1 } }
-      ).sort({ createdAt: -1 }).limit(8).toArray(),
+      db.collection('support_tickets').find(
+  {},
+  { projection: { subject: 1, email: 1, createdAt: 1, status: 1, message: 1 } }
+).sort({ createdAt: -1 }).limit(8).toArray(),
 
-      db.collection('support').countDocuments(),
+db.collection('support_tickets').countDocuments(),
 
       // ── Integrations — count users with each connected ────────
       // Your signup route stores integration tokens on the user doc.

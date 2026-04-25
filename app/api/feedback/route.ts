@@ -1,6 +1,8 @@
+// app/api/feedback/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { sendFeedbackEmail } from "@/lib/emailService";
 import { verifyUserFromRequest } from "@/lib/auth";
+import { dbPromise } from '../lib/mongodb';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,10 +27,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Send feedback email - JUST email and feedback
+    // ✅ Send feedback email
     await sendFeedbackEmail({
       userEmail: user.email,
       feedback: feedback.trim(),
+    });
+
+    // ✅ Save to MongoDB so it shows in the owner dashboard
+    const db = await dbPromise;
+    await db.collection('feedback').insertOne({
+      userId: user.id,
+      email: user.email,
+      feedback: feedback.trim(),
+      type: body.type || 'general',
+      status: 'new',
+      createdAt: new Date(),
     });
 
     return NextResponse.json({

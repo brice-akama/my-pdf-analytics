@@ -1,4 +1,4 @@
-// ✅ FIXED: app/api/support/route.ts
+// app/api/support/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { sendSupportRequestEmail } from "@/lib/emailService";
 import { verifyUserFromRequest } from "@/lib/auth";
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ CHANGE: Query profiles collection instead of users
+    // ✅ Query profiles collection for user details
     const db = await dbPromise;
     const userProfile = await db.collection("profiles").findOne({ email: user.email });
 
@@ -35,17 +35,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ NOW these fields exist at the top level
     const firstName = userProfile.first_name || "User";
     const lastName = userProfile.last_name || "";
     const companyName = userProfile.company_name || undefined;
 
+    // ✅ Send email to your support inbox
     await sendSupportRequestEmail({
       userName: `${firstName} ${lastName}`.trim(),
       userEmail: user.email,
       userCompany: companyName,
       subject: subject.trim(),
       message: message.trim(),
+    });
+
+    // ✅ Save to MongoDB so it shows in the owner dashboard
+    await db.collection('support_tickets').insertOne({
+      userId: user.id,
+      email: user.email,
+      name: `${firstName} ${lastName}`.trim(),
+      companyName: companyName || null,
+      subject: subject.trim(),
+      message: message.trim(),
+      status: 'open',
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     return NextResponse.json({
