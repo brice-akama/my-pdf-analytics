@@ -65,7 +65,6 @@ const request = await db.collection("fileRequests").findOne(query)
         expectedFiles: request.expectedFiles,
         uploadedFiles: request.uploadedFiles || [],
         status: request.status,
-        shareToken: request.shareToken,
         createdAt: request.createdAt,
         updatedAt: request.updatedAt,
       }

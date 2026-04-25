@@ -194,14 +194,14 @@ export async function GET(request: NextRequest) {
       }),
 
       // ── Signatures ────────────────────────────────────────────
-      db.collection('signature_requests').countDocuments({ status: 'completed' }),
-      db.collection('signature_requests').countDocuments({
-        status: 'completed',
-        completedAt: { $gte: thisMonthStart },
-      }),
+      db.collection('signature_requests').countDocuments({ status: 'signed' }),
+db.collection('signature_requests').countDocuments({
+  status: 'signed',
+  signedAt: { $gte: thisMonthStart },
+}),
 
       // ── File requests ─────────────────────────────────────────
-      db.collection('file_requests').countDocuments(),
+      db.collection('fileRequests').countDocuments(),
 
       // ── Spaces ────────────────────────────────────────────────
       db.collection('spaces').countDocuments(),
@@ -225,12 +225,13 @@ export async function GET(request: NextRequest) {
       // ── Integrations — count users with each connected ────────
       // Your signup route stores integration tokens on the user doc.
       // We look for a non-null field that indicates connection.
-      db.collection('users').countDocuments({ 'integrations.slack.accessToken': { $exists: true, $ne: null } }),
-      db.collection('users').countDocuments({ 'integrations.hubspot.accessToken': { $exists: true, $ne: null } }),
-      db.collection('users').countDocuments({ 'integrations.googleDrive.accessToken': { $exists: true, $ne: null } }),
-      db.collection('users').countDocuments({ zapierApiKey: { $exists: true, $ne: null } }),
-      db.collection('users').countDocuments({ 'integrations.gmail.accessToken': { $exists: true, $ne: null } }),
-      db.collection('users').countDocuments({ 'integrations.onedrive.accessToken': { $exists: true, $ne: null } }),
+     // ── Integrations — query the integrations collection directly ──
+db.collection('integrations').countDocuments({ provider: 'slack',        isActive: true }),
+db.collection('integrations').countDocuments({ provider: 'hubspot',      isActive: true }),
+db.collection('integrations').countDocuments({ provider: 'google-drive', isActive: true }),
+db.collection('integrations').countDocuments({ provider: 'zapier',       isActive: true }),
+db.collection('integrations').countDocuments({ provider: 'gmail',        isActive: true }),
+db.collection('integrations').countDocuments({ provider: 'onedrive',     isActive: true }),
 
       // ── Revenue — active Paddle subscriptions ─────────────────
       db.collection('users').countDocuments({ subscriptionStatus: 'active' }),
