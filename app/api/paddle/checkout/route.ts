@@ -266,6 +266,11 @@ const successUrl = `${appUrl}/upgrade/success?plan=${planId}&cycle=${billingCycl
     if (!paddleRes.ok) {
       // Paddle returns error details in paddleData.error
       console.error('❌ Paddle API error:', JSON.stringify(paddleData, null, 2))
+      console.error('PADDLE STATUS:', paddleRes.status)
+      console.error('PADDLE ERROR FULL:', JSON.stringify(paddleData, null, 2))
+      console.error('PAYLOAD SENT:', JSON.stringify(paddlePayload, null, 2))
+      console.error('API BASE:', getPaddleApiBase())
+      console.error('PRICE ID USED:', priceId)
       return NextResponse.json(
         {
           error: 'Failed to create checkout session.',
