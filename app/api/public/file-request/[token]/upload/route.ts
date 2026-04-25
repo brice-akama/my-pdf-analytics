@@ -18,11 +18,16 @@ cloudinary.v2.config({
 
 async function uploadToCloudinary(buffer: Buffer, filename: string, folder: string): Promise<string> {
   return new Promise((resolve, reject) => {
+    // Detect if it's an image or a raw file
+    const ext = filename.toLowerCase().split('.').pop()
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp']
+    const resourceType = imageExts.includes(ext || '') ? 'image' : 'raw'
+
     const uploadStream = cloudinary.v2.uploader.upload_stream(
       {
         folder,
         public_id: filename.replace(/\.[^/.]+$/, ""),
-        resource_type: "auto",
+        resource_type: resourceType,  // ← 'raw' for PDFs/docs, 'image' for images
         type: 'upload',
         access_mode: 'public',
       },

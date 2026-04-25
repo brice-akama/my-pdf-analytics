@@ -1,6 +1,6 @@
 // app/api/file-requests/[id]/files/[fileId]/route.ts
 // FIXED: Files are now stored on Cloudinary (not disk).
-// We fetch from file.fileUrl (Cloudinary) instead of reading from /uploads.
+// FIXED: PDFs uploaded under image/upload → retried as raw/upload to avoid 401.
 
 import { NextRequest, NextResponse } from "next/server"
 import { dbPromise } from "@/app/api/lib/mongodb"
@@ -31,6 +31,33 @@ function getContentType(filename: string): string {
   return mimeTypes[ext || ''] || 'application/octet-stream'
 }
 
+// Helper: try fetching a Cloudinary URL, automatically retrying with
+// raw/upload if the file was mistakenly stored under image/upload (401).
+async function fetchFromCloudinary(fileUrl: string): Promise<Response | null> {
+  // First attempt — use the stored URL as-is
+  const firstRes = await fetch(fileUrl)
+  if (firstRes.ok) return firstRes
+
+  console.log(`⚠️ [DOWNLOAD] First attempt failed (${firstRes.status}), trying raw/upload URL...`)
+
+  // Second attempt — swap image/upload → raw/upload
+  // Fixes PDFs/docs stored under wrong resource type by Cloudinary auto-detect
+  const rawUrl = fileUrl.replace('/image/upload/', '/raw/upload/')
+  if (rawUrl === fileUrl) {
+    // URL didn't contain /image/upload/ — no point retrying
+    return null
+  }
+
+  const secondRes = await fetch(rawUrl)
+  if (secondRes.ok) {
+    console.log('✅ [DOWNLOAD] raw/upload URL worked')
+    return secondRes
+  }
+
+  console.error(`❌ [DOWNLOAD] Both URLs failed. image: ${firstRes.status}, raw: ${secondRes.status}`)
+  return null
+}
+
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string; fileId: string }> }
@@ -47,7 +74,7 @@ export async function GET(
 
     const db = await dbPromise
 
-    // ── Find request — strict ownership, no org logic ─────────────────────
+    // ── Find request — strict ownership ───────────────────────────────────
     const request = await db.collection("fileRequests").findOne({
       _id: new ObjectId(id),
       userId: new ObjectId(user.id),
@@ -70,20 +97,20 @@ export async function GET(
 
     console.log('✅ [DOWNLOAD] Found file:', file.originalName)
 
-    // ── FIXED: Fetch from Cloudinary URL instead of disk ─────────────────
     if (!file.fileUrl) {
-      console.error('❌ [DOWNLOAD] No fileUrl on file record — old upload before Cloudinary fix')
+      console.error('❌ [DOWNLOAD] No fileUrl — uploaded before Cloudinary migration')
       return NextResponse.json({
-        error: "File is not available. It may have been uploaded before the storage migration."
+        error: "File is not available. It was uploaded before the storage migration. Please re-upload."
       }, { status: 404 })
     }
 
     console.log('☁️ [DOWNLOAD] Fetching from Cloudinary:', file.fileUrl)
 
-    const cloudinaryRes = await fetch(file.fileUrl)
-    if (!cloudinaryRes.ok) {
-      console.error('❌ [DOWNLOAD] Cloudinary fetch failed:', cloudinaryRes.status)
-      return NextResponse.json({ error: "Could not retrieve file." }, { status: 502 })
+    // ── Fetch with automatic raw/upload fallback ──────────────────────────
+    const cloudinaryRes = await fetchFromCloudinary(file.fileUrl)
+
+    if (!cloudinaryRes) {
+      return NextResponse.json({ error: "Could not retrieve file from storage." }, { status: 502 })
     }
 
     const fileBuffer = Buffer.from(await cloudinaryRes.arrayBuffer())
