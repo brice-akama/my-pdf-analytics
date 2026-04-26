@@ -853,12 +853,14 @@ notOpened: lnk.isCC
         {visit.notOpened ? "Waiting for recipient to open" : "No page data yet"}
       </p>
       <p className="text-[11px] text-slate-300 mt-0.5">
-        {visit.visitType === "signature" && visit.notOpened
-          ? "Signature request sent — page analytics appear once they open"
-          : visit.visitType === "cc"
-          ? "CC recipient hasn't viewed yet"
-          : "Waiting for first view"}
-      </p>
+  {visit.visitType === "signature" && visit.notOpened
+    ? "Signature request sent — page analytics appear once they open"
+    : visit.visitType === "cc" && visit.notOpened
+    ? "CC recipient hasn't viewed yet"
+    : visit.visitType === "cc" && !visit.notOpened
+    ? "CC recipient viewed the document — no per-page breakdown available"
+    : "Waiting for first view"}
+</p>
     </div>
   </div>
 )}
@@ -876,6 +878,7 @@ notOpened: lnk.isCC
     Not opened yet
   </span>
 )}
+
                       {/* ── Do They Understand It — per visitor ── */}
 {/* ── Do They Understand It (videos) — only when videos exist ── */}
                       {documentVideos.length > 0 && (
