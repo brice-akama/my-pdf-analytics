@@ -219,6 +219,27 @@ export function AuditLogTab({ spaceId }: { spaceId: string }) {
             <Download className="h-3.5 w-3.5" />
             Export CSV
           </Button>
+          {/* ADD THIS — Audit PDF */}
+<Button
+  variant="outline"
+  size="sm"
+  onClick={() => window.open(`/api/spaces/${spaceId}/audit/export`, '_blank')}
+  className="gap-2 text-xs"
+>
+  <Download className="h-3.5 w-3.5" />
+  Export PDF
+</Button>
+
+{/* ADD THIS — Compliance Report */}
+<Button
+  variant="outline"
+  size="sm"
+  onClick={() => window.open(`/api/spaces/${spaceId}/compliance-report`, '_blank')}
+  className="gap-2 text-xs bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+>
+  <Download className="h-3.5 w-3.5" />
+  Compliance Report
+</Button>
           <button
             onClick={() => fetchAudit(category)}
             className="p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-all"

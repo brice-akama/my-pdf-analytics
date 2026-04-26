@@ -5094,25 +5094,7 @@ const fetchFolders = async () => {
             <Download className="h-4 w-4" />
             Export CSV
           </Button>
-         <Button
-  variant="outline"
-  size="sm"
-  onClick={() => window.open(`/api/spaces/${space?.id}/audit/export`, '_blank')}
-  className="gap-2 text-xs"
->
-  <Download className="h-3.5 w-3.5" />
-  Export PDF
-</Button>
-
-<Button
-  variant="outline"
-  size="sm"
-  onClick={() => window.open(`/api/spaces/${space?.id}/compliance-report`, '_blank')}
-  className="gap-2 text-xs bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
->
-  <Download className="h-3.5 w-3.5" />
-  Compliance Report
-</Button>
+         
         </div>
 
         {/* Signatures Table */}
