@@ -242,7 +242,7 @@ export const PLAN_LIMITS: Record<PlanName, PlanLimit> = {
       emailOtpVerification:        true,
 
       complianceReports:           true,
-      fullAuditLogs:              false,  // business-only
+      fullAuditLogs:              true,  // full audit logs is business-only, but Pro gets a taste of it with compliance reports
       folderLevelPermissions:     false,  // business-only
 
       googleDriveIntegration:      true,

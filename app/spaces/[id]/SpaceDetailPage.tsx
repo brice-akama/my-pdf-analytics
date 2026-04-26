@@ -1881,6 +1881,14 @@ const applySorting = (sortType: 'name' | 'date' | 'size' | 'views') => {
 
 
 const handleBrowseDriveFiles = async () => {
+  if (userPlan === 'free' || userPlan === 'starter') {
+    toast.error('Google Drive requires Pro or Business', {
+      description: 'Upgrade your plan to import files from Google Drive.',
+      duration: 6000,
+      action: { label: 'See plans', onClick: () => router.push('/plan') },
+    })
+    return
+  }
   setLoadingDriveFiles(true)
   try {
     const res  = await fetch('/api/integrations/google-drive/files', { credentials: 'include' })
@@ -1923,6 +1931,14 @@ const handleImportDriveFile = async (fileId: string, fileName: string) => {
 }
 
 const handleBrowseOneDriveFiles = async () => {
+  if (userPlan === 'free' || userPlan === 'starter') {
+    toast.error('OneDrive requires Pro or Business', {
+      description: 'Upgrade your plan to import files from OneDrive.',
+      duration: 6000,
+      action: { label: 'See plans', onClick: () => router.push('/plan') },
+    })
+    return
+  }
   setLoadingOneDriveFiles(true)
   try {
     const res  = await fetch('/api/integrations/onedrive/files', { credentials: 'include' })
@@ -3500,12 +3516,18 @@ const fetchFolders = async () => {
 
               {/* Google Drive */}
               <button
-                onClick={() => {
-                  setShowUploadDialog(false)
-                  integrationStatus.google_drive?.connected
-                    ? handleBrowseDriveFiles()
-                    : (window.location.href = '/api/integrations/google-drive/connect')
-                }}
+               onClick={() => {
+    setShowUploadDialog(false)
+    if (userPlan === 'free' || userPlan === 'starter') {
+      toast.error('Google Drive requires Pro or Business', {
+        action: { label: 'Upgrade', onClick: () => router.push('/plan') }
+      })
+      return
+    }
+    integrationStatus.google_drive?.connected
+      ? handleBrowseDriveFiles()
+      : (window.location.href = '/api/integrations/google-drive/connect')
+  }}
                 disabled={loadingDriveFiles}
                 className="flex items-center gap-3 px-4 py-4 rounded-xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 transition-all text-left group disabled:opacity-60"
               >
@@ -3531,11 +3553,17 @@ const fetchFolders = async () => {
               {/* OneDrive */}
               <button
                 onClick={() => {
-                  setShowUploadDialog(false)
-                  oneDriveStatus.connected
-                    ? handleBrowseOneDriveFiles()
-                    : (window.location.href = '/api/integrations/onedrive/connect')
-                }}
+    setShowUploadDialog(false)
+    if (userPlan === 'free' || userPlan === 'starter') {
+      toast.error('OneDrive requires Pro or Business', {
+        action: { label: 'Upgrade', onClick: () => router.push('/plan') }
+      })
+      return
+    }
+    oneDriveStatus.connected
+      ? handleBrowseOneDriveFiles()
+      : (window.location.href = '/api/integrations/onedrive/connect')
+  }}
                 disabled={loadingOneDriveFiles}
                 className="flex items-center gap-3 px-4 py-4 rounded-xl border-2 border-slate-200 hover:border-sky-400 hover:bg-sky-50/40 transition-all text-left group disabled:opacity-60"
               >
