@@ -2384,3 +2384,99 @@ export async function sendNewsletterNotificationEmail({
     `,
   });
 }
+
+
+// ════════════════════════════════════════════════════════════════
+// sendCCOpenedNotificationEmail
+// Sent to the document owner the FIRST TIME a CC recipient opens
+// the document. Not sent on subsequent opens — only the first.
+//
+// Triggered by: app/api/cc/[uniqueId]/track/route.ts
+// Condition:    event === 'opened' && isFirstOpen === true
+//
+// Matches the same pattern as sendDocumentSignedNotification —
+// owner gets one email per notable CC activity event.
+// ════════════════════════════════════════════════════════════════
+
+export async function sendCCOpenedNotificationEmail({
+  ownerEmail,
+  ownerName,
+  ccName,
+  ccEmail,
+  documentName,
+  device,
+  analyticsLink,
+}: {
+  ownerEmail: string
+  ownerName: string
+  ccName: string
+  ccEmail: string
+  documentName: string
+  device?: string | null
+  analyticsLink: string
+}) {
+  const openedAt = new Date().toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+
+  const subject = `${ccName || ccEmail} viewed "${documentName}"`
+  const previewText = `Your CC recipient ${ccName || ccEmail} just opened the document`
+
+  const deviceRow = device
+    ? `<tr>
+        <td class="lbl">Device</td>
+        <td class="val">${device.charAt(0).toUpperCase() + device.slice(1)}</td>
+      </tr>`
+    : ''
+
+  const content = `
+    <p class="title">CC recipient viewed your document</p>
+    <p class="meta">${ccName || ccEmail} opened "${documentName}" for the first time.</p>
+
+    <table class="table">
+      <tr>
+        <td class="lbl">Document</td>
+        <td class="val">${documentName}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Viewed by</td>
+        <td class="val">${ccName || ccEmail}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Email</td>
+        <td class="val">${ccEmail}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Opened at</td>
+        <td class="val">${openedAt}</td>
+      </tr>
+      ${deviceRow}
+      <tr>
+        <td class="lbl">Role</td>
+        <td class="val">CC recipient — view only</td>
+      </tr>
+    </table>
+
+    <div class="cta"><a href="${analyticsLink}">View CC analytics</a></div>
+    <p class="fallback">
+      If the button does not work, copy this link into your browser:<br>
+      <a href="${analyticsLink}">${analyticsLink}</a>
+    </p>
+  `
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [ownerEmail],
+    subject,
+    html: shell(content, previewText),
+  })
+
+  if (error) {
+    console.error('sendCCOpenedNotificationEmail error:', error)
+    throw error
+  }
+
+  console.log('CC opened notification sent to:', ownerEmail)
+  return { success: true }
+}

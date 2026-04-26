@@ -1,3 +1,5 @@
+
+//app/documents/[id]/components/ActivityTab.tsx
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -510,33 +512,42 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
           });
         }
 
-        if (ccData.success && ccData.recipients) {
-          ccData.recipients.forEach((cc: any) => {
-            const ccViewLink = `${window.location.origin}/cc/${cc.uniqueId}?email=${cc.email}`;
-            links.push({
-              shareId: cc.uniqueId,
-              recipientEmail: cc.email,
-              recipientName: cc.name,
-              createdAgo: cc.createdAt
-                ? formatAgo(new Date(cc.createdAt))
-                : "—",
-              link: ccViewLink,
-              visits: cc.viewCount || 0,
-              totalTime: formatTime(cc.totalTimeSpentSeconds || 0),
-              lastViewed: cc.viewedAt
-                ? formatAgo(new Date(cc.viewedAt))
-                : null,
-              completion: cc.viewedAt ? "Viewed" : "—",
-              enabled: cc.status === "active",
-              linkType: "cc",
-              isCC: true,
-              notifyWhen: cc.notifyWhen,
-              pageData: cc.pageData || [],
-              settings: {},
-            });
-          });
-        }
-
+       if (ccData.success && ccData.recipients) {
+  ccData.recipients.forEach((cc: any) => {
+    const ccViewLink = `${window.location.origin}/cc/${cc.uniqueId}?email=${cc.email}`;
+    links.push({
+      shareId: cc.uniqueId,
+      recipientEmail: cc.email,
+      recipientName: cc.name,
+      createdAgo: cc.createdAt
+        ? formatAgo(new Date(cc.createdAt))
+        : "—",
+      link: ccViewLink,
+      visits: cc.viewCount || 0,
+      totalTime: formatTime(cc.totalTimeSpentSeconds || 0),
+      // ✅ track route writes firstOpenedAt/lastOpenedAt, not viewedAt
+      lastViewed: cc.lastOpenedAt
+        ? formatAgo(new Date(cc.lastOpenedAt))
+        : null,
+      // ✅ richer completion: shows download state too
+      completion: cc.downloaded
+        ? "Viewed + Downloaded"
+        : cc.firstOpenedAt
+        ? "Viewed"
+        : "—",
+      enabled: cc.status === "active",
+      linkType: "cc",
+      isCC: true,
+      notifyWhen: cc.notifyWhen,
+      pageData: cc.pageData || [],
+      settings: {},
+      // ✅ pass through new tracking fields so the visit row can use them
+      firstOpenedAt: cc.firstOpenedAt || null,
+      downloaded: cc.downloaded || false,
+      downloadCount: cc.downloadCount || 0,
+    });
+  });
+}
         // ── Envelopes ─────────────────────────────────────────────────────
         // Each envelope recipient gets their own row — same pattern as
         // signature requests. Shows in both All Links and All Visits.
@@ -621,7 +632,10 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
        visitType: lnk.isCC ? "cc" : lnk.isEnvelope ? "envelope" : "signature",
       signatureStatus: lnk.signatureStatus,
       isCC: lnk.isCC || false,
-      notOpened:          lnk.visits === 0, 
+        
+notOpened: lnk.isCC
+  ? !lnk.firstOpenedAt
+  : lnk.visits === 0,
     }));
 
   const allVisits: any[] = [...shareVisits, ...sigVisits];
@@ -847,6 +861,20 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
       </p>
     </div>
   </div>
+)}
+
+{/* ✅ CC download badge */}
+{visit.visitType === "cc" && visit.downloaded && (
+  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+    ↓ Downloaded
+  </span>
+)}
+
+{/* ✅ CC not opened badge */}
+{visit.visitType === "cc" && visit.notOpened && (
+  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+    Not opened yet
+  </span>
 )}
                       {/* ── Do They Understand It — per visitor ── */}
 {/* ── Do They Understand It (videos) — only when videos exist ── */}

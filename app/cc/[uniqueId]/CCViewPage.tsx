@@ -1,3 +1,5 @@
+
+//app/cc/[uniqueId]/CCViewPage.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -55,6 +57,12 @@ export default function CCViewPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setCCData(data);
+         
+await fetch(`/api/cc/${params.uniqueId}/track`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, event: 'opened' }),
+});
       } else {
         setError(data.message || "Failed to load document");
       }
@@ -122,6 +130,23 @@ export default function CCViewPage() {
     renderPDF().catch(console.error);
   }, [pdfUrl]);
 
+
+  useEffect(() => {
+  if (!ccData) return;
+  const startTime = Date.now();
+
+  const handleUnload = () => {
+    const secondsSpent = Math.round((Date.now() - startTime) / 1000);
+    navigator.sendBeacon(
+      `/api/cc/${params.uniqueId}/track`,
+      JSON.stringify({ email, event: 'time_spent', secondsSpent })
+    );
+  };
+
+  window.addEventListener('beforeunload', handleUnload);
+  return () => window.removeEventListener('beforeunload', handleUnload);
+}, [ccData]);
+
   // ── Scale: fit PDF to container width, never upscale ─────────────────────
   useEffect(() => {
     const recalc = () => {
@@ -150,6 +175,12 @@ export default function CCViewPage() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+         
+await fetch(`/api/cc/${params.uniqueId}/track`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, event: 'downloaded' }),
+});
       } else {
         alert("Failed to download document");
       }
