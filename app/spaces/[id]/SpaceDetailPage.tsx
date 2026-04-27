@@ -501,10 +501,10 @@ function SidebarContent({
               <span>Analytics</span>
               <Lock className="h-3 w-3 ml-auto" />
             </button>
-            <div className="absolute left-full top-0 ml-2 z-[999] hidden group-hover/nav:block w-56 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-2xl pointer-events-none">
-              <p className="font-semibold text-white mb-1">Starter+ feature</p>
-              <p className="text-slate-300 leading-relaxed">Full visitor analytics, page heatmaps, and engagement scores require a paid plan.</p>
-              <a href="/plan" className="mt-2 flex items-center gap-1 text-sky-400 font-semibold">⚡ Upgrade to Starter</a>
+            <div className="absolute left-full z-90 top-0 ml-2 z-[999] hidden group-hover/nav:block w-56 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-2xl pointer-events-none">
+              <p className="font-semibold text-white mb-1 z-90">Starter+ feature</p>
+              <p className="text-slate-300 leading-relaxed z-90">Full visitor analytics, page heatmaps, and engagement scores require a paid plan.</p>
+              <a href="/plan" className="mt-2 flex items-center z-90 gap-1 text-sky-400 font-semibold">⚡ Upgrade to Starter</a>
             </div>
           </div>
         ) : (
@@ -527,10 +527,10 @@ function SidebarContent({
               <span>Diligence</span>
               <Lock className="h-3 w-3 ml-auto" />
             </button>
-            <div className="absolute left-full top-0 ml-2 z-[999] hidden group-hover/nav:block w-56 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-2xl pointer-events-none">
-              <p className="font-semibold text-white mb-1">Starter+ feature</p>
-              <p className="text-slate-300 leading-relaxed">Track exactly how long each investor spends on every document. Requires a paid plan.</p>
-              <a href="/plan" className="mt-2 flex items-center gap-1 text-sky-400 font-semibold">⚡ Upgrade to Starter</a>
+            <div className="absolute left-full top-0 ml-2 z-90 hidden group-hover/nav:block w-56 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-2xl pointer-events-none">
+              <p className="font-semibold text-white mb-1 z-90">Starter+ feature</p>
+              <p className="text-slate-300 leading-relaxed z-90">Track exactly how long each investor spends on every document. Requires a paid plan.</p>
+              <a href="/plan" className="mt-2 flex items-center z-90 gap-1 text-sky-400 font-semibold">⚡ Upgrade to Starter</a>
             </div>
           </div>
         ) : (
@@ -570,10 +570,10 @@ function SidebarContent({
               <span>Audit Log</span>
               <Lock className="h-3 w-3 ml-auto" />
             </button>
-            <div className="absolute left-full top-0 ml-2 z-[999] hidden group-hover/nav:block w-56 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-2xl pointer-events-none">
-              <p className="font-semibold text-white mb-1">Pro+ feature</p>
-              <p className="text-slate-300 leading-relaxed">Full audit logs with complete activity history require Pro or Business plan.</p>
-              <a href="/plan" className="mt-2 flex items-center gap-1 text-sky-400 font-semibold">⚡ Upgrade to Pro</a>
+            <div className="absolute left-full top-0 ml-2 z-90 hidden group-hover/nav:block w-56 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-2xl pointer-events-none">
+              <p className="font-semibold text-white mb-1 z-90">Pro+ feature</p>
+              <p className="text-slate-300 leading-relaxed z-90">Full audit logs with complete activity history require Pro or Business plan.</p>
+              <a href="/plan" className="mt-2 flex items-center z-90 gap-1 text-sky-400 font-semibold">⚡ Upgrade to Pro</a>
             </div>
           </div>
         ) : (
