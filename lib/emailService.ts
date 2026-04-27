@@ -565,10 +565,10 @@ export async function sendCCNotificationEmail({
   viewLink: string
 }) {
   const subject = `${senderName} copied you on a document`
-  const previewText = `You have been copied on "${documentName}" sent by ${senderName}`
+  const previewText = `You have been given CC rights on "${documentName}" sent by ${senderName}`
  
   const content = `
-    <p class="title">You have been copied</p>
+    <p class="title">CC Notification</p>
     <p class="meta">${senderName} copied you on a signature request. No action is required from you.</p>
  
     <table class="table">
