@@ -192,7 +192,7 @@ export default function DocumentCard({
         {/* Analytics */}
         <Button variant="ghost" size="sm"
           onClick={() => router.push(`/documents/${doc._id}`)}
-          className="h-8 w-8 p-0" title="Analytics"
+          className="h-8 w-8 p-0 hidden md:flex" title="Analytics"
         >
           <BarChart3 className="h-4 w-4" />
         </Button>
