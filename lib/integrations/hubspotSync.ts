@@ -366,3 +366,70 @@ export async function isHubSpotConnected(userId: string): Promise<boolean> {
     return false;
   }
 }
+
+
+// ════════════════════════════════════════════════════════════════
+// SYNC 5 — Deal Insight
+// ════════════════════════════════════════════════════════════════
+export async function syncDealInsightToHubSpot({
+  userId,
+  viewerEmail,
+  documentName,
+  documentId,
+  slowestPage,
+  slowestPageTime,
+  avgPageTime,
+  skippedPages,
+  totalPages,
+  trigger,
+  daysSilent,
+}: {
+  userId: string;
+  viewerEmail: string;
+  documentName: string;
+  documentId: string;
+  slowestPage: number;
+  slowestPageTime: number;
+  avgPageTime: number;
+  skippedPages: number[];
+  totalPages: number;
+  trigger: 'session_end' | 'gone_silent';
+  daysSilent?: number;
+}) {
+  if (!viewerEmail) return { success: false, reason: 'no_email' };
+
+  try {
+    const token = await getValidHubSpotToken(userId);
+    const contactId = await findHubSpotContact(token, viewerEmail);
+    if (!contactId) return { success: false, reason: 'contact_not_in_hubspot' };
+
+    const skippedText = skippedPages.length > 0
+      ? `Pages skipped: ${skippedPages.join(', ')}`
+      : 'All pages opened';
+
+    const noteBody = [
+      `DocMetrics — ${trigger === 'gone_silent' ? 'Deal Going Cold' : 'Deal Insight'}`,
+      '',
+      `Document: ${documentName}`,
+      `Viewer: ${viewerEmail}`,
+      `Slowest page: Page ${slowestPage} (${formatTime(slowestPageTime)})`,
+      `Avg per page: ${formatTime(avgPageTime)}`,
+      skippedText,
+      `Total pages: ${totalPages}`,
+      trigger === 'gone_silent' ? `Days silent: ${daysSilent}` : null,
+      '',
+      `Analytics: ${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}?tab=analytics`,
+    ].filter(Boolean).join('\n');
+
+    await createContactNote(token, contactId, noteBody, new Date());
+    await updateContactProperties(token, contactId, {
+      docmetrics_last_document: documentName,
+      docmetrics_deal_status: trigger === 'gone_silent' ? 'Going Cold' : 'Active',
+    });
+
+    return { success: true, contactId };
+  } catch (err) {
+    console.error('HubSpot deal insight sync error:', err);
+    return { success: false, error: err };
+  }
+}

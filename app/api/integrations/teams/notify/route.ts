@@ -13,6 +13,7 @@ export type TeamsNotifyPayload = {
     | 'document_completed'
     | 'document_revisited'
     | 'session_summary'
+    | 'deal_insight'
     // legacy — handled for backwards compat
     | 'portal_enter'
   documentName: string
@@ -93,6 +94,12 @@ const EVENT_CONFIG: Record<string, {
     badge:       'SUMMARY',
     badgeColor:  'default',
   },
+  deal_insight: {
+  title:       'Deal Insight',
+  accentColor: '#e53e3e',
+  badge:       'INSIGHT',
+  badgeColor:  'warning',
+},
 }
 
 function formatTime(seconds: number): string {

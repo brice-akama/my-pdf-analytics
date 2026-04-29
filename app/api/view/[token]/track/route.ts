@@ -1,24 +1,34 @@
-// app/api/view/[token]/track/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { notifyDocumentView } from '@/lib/notifications';
+import {
+  detectSignals,
+  shouldFireBehavioral,
+  buildNarrative,
+  fireToAllChannels,
+  checkSilentDeals,
+} from '@/lib/checkSilentDeals';
 import {
   sendDocumentOpenedEmail,
   sendDocumentCompletedEmail,
   sendDocumentRevisitedEmail,
   hasNotificationBeenSent,
   markNotificationSent,
+  sendDealInsightEmail,
 } from '@/lib/documentNotifications';
 import {
   notifyDocumentViewed,
   notifyDocumentCompleted,
   notifySessionSummary,
   sendSlackNotification,
+  notifyDealInsight,
+  isSlackConnected,
 } from '@/lib/integrations/slack';
 import {
   syncDocumentOpenedToHubSpot,
   syncDocumentCompletedToHubSpot,
   syncEngagementSummaryToHubSpot,
+  syncDealInsightToHubSpot,
   isHubSpotConnected,
 } from '@/lib/integrations/hubspotSync';
 import { sendTeamsNotification } from '@/app/api/integrations/teams/notify/route';
@@ -931,6 +941,9 @@ if (share.userId) {
               : undefined,
           }).catch(err => console.error('Teams revisit error:', err));
         }
+
+        // ── BACKGROUND: check for silent deals while someone else is active ──
+        checkSilentDeals(db).catch(() => {});
         break;
       }
 
@@ -944,6 +957,85 @@ if (share.userId) {
           { sessionId: currentSessionId },
           { $set: { endedAt: now, duration } }
         );
+
+        // ── DEAL INSIGHT: behavioral triggers fire immediately ────────────
+        if (duration > 30 && share.userId) {
+          // Wrapped entirely — never crashes session_end
+          ;(async () => {
+            try {
+              const insightDoc = await db.collection('documents')
+                .findOne({ _id: share.documentId });
+
+              const viewerEmail = email ||
+                (await db.collection('viewer_identities')
+                  .findOne({ viewerId, documentId }))?.email;
+
+              if (!insightDoc || !viewerEmail) return;
+
+              const signals = await detectSignals(db, {
+                documentId,
+                sessionId: currentSessionId,
+                viewerId,
+                numPages: insightDoc.numPages,
+              });
+
+              if (!signals) return;
+
+              // Check never forwarded
+              const uniqueViewers = await db.collection('analytics_sessions')
+                .distinct('viewerId', { documentId });
+              const neverForwarded = uniqueViewers.length <= 1;
+
+              const shouldFire = shouldFireBehavioral({
+                reReadPages: signals.reReadPages,
+                backNavigations: signals.backNavigations,
+                engagementDropping: signals.engagementDropping,
+                neverForwarded,
+                videoReplays: signals.videoReplays,
+              });
+
+              // Also fire if slowest page is 2x avg — original signal
+              const slowPageSignal = signals.slowestPageTime >= signals.avgPageTime * 2;
+
+              if (!shouldFire && !slowPageSignal) return;
+
+              const narrative = buildNarrative({
+                reReadPages: signals.reReadPages,
+                videoReplays: signals.videoReplays,
+                backNavigations: signals.backNavigations,
+                engagementDropping: signals.engagementDropping,
+                neverForwarded,
+                trigger: 'session_end',
+              });
+
+              const ownerProfile = await db.collection('profiles')
+                .findOne({ user_id: share.userId });
+
+              await fireToAllChannels({
+                db,
+                userId: share.userId,
+                ownerProfile,
+                payload: {
+                  documentName: insightDoc.originalFilename || 'Your document',
+                  documentId,
+                  viewerEmail,
+                  slowestPage: signals.slowestPage,
+                  slowestPageTime: signals.slowestPageTime,
+                  avgPageTime: signals.avgPageTime,
+                  skippedPages: signals.skippedPages,
+                  totalPages: insightDoc.numPages,
+                  trigger: 'session_end' as const,
+                },
+                narrative,
+              });
+
+            } catch (err) {
+              // Silent failure — shows in Vercel logs only
+              console.error('[DealInsight session_end] error:', err);
+            }
+          })();
+        }
+
 
         // Update document_views with final time spent
         await db.collection('document_views').updateOne(
