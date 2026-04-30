@@ -14,8 +14,8 @@ export function HeroSection() {
         <div className="mx-auto max-w-4xl">
 
           {/* Main Heading */}
-          <h1 className="mb-6 text-2xl sm:text-3xl md:text-4xl lg:text-4xl xl:text-6xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
-  Deal Dying?{" "}
+          <h1 className="mb-6 text-2xl sm:text-3xl md:text-3xl lg:text-3xl xl:text-6xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
+  Deal Dying{" "}
   <span className="text-sky-600">
     Know Before They Ghost You.
   </span>
