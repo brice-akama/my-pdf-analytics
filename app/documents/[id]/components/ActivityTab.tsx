@@ -916,10 +916,10 @@ notOpened: lnk.isCC
                               const viewerPageVideo = viewerVideoData?.pages?.find((p: any) => p.page === pageNum);
                               const videoStat = analytics.videoStats?.find((s: any) => s.page === pageNum);
                               const timeSpent = pageReadData?.timeSpent || 0;
-                              const watchCount = viewerPageVideo?.watchCount ?? (videoStat?.totalWatches || 0);
-                              const watched = watchCount > 0;
-                              const replays = viewerPageVideo?.replays ?? (videoStat?.replays || 0);
-                              const completion = viewerPageVideo?.maxCompletion ?? (videoStat?.avgCompletion || 0);
+                              const watchCount = viewerPageVideo?.watchCount || 0;
+const watched = watchCount > 0;
+const replays = viewerPageVideo?.replays || 0;
+const completion = viewerPageVideo?.maxCompletion || 0;
 
                               const readSignal = timeSpent > 30
                                 ? { dot: "#16a34a", label: "Read" }
