@@ -485,27 +485,64 @@ export default function DashboardOverview() {
         </div>
       </div>
 
-      {/* ── Expanded bar chart ── */}
-      {isExpanded && contact.pageData?.length > 0 && (
-        <div className="px-4 py-4 bg-slate-50/60 border-t border-slate-100">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-              Page engagement · {contact.topDocName || "document"}
-            </span>
-            <span className="ml-auto text-[10px] text-slate-400">
-              {formatMMSS(contact.totalTime)} total
-            </span>
+     {/* ── Expanded bar chart + Deal Insight ── */}
+{isExpanded && contact.pageData?.length > 0 && (
+  <div className="px-4 py-4 bg-slate-50/60 border-t border-slate-100">
+
+    {/* Deal Insight narrative — shown if signals exist */}
+    {contact.dealInsight && (
+      <div className="mb-4 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="h-5 w-5 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-[10px]">🎯</span>
           </div>
-          <PageBarChart
-            visit={{
-              pageData: contact.pageData,
-              visitType: "share",
-            }}
-            docId={contact.topDocId}
-          />
+          <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider">
+            Deal Insight
+          </span>
         </div>
-      )}
+        <p className="text-xs text-slate-700 leading-relaxed mb-2">
+          {contact.dealInsight.narrative}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {contact.dealInsight.reReadPages?.map((r: any) => (
+            <span
+              key={`${r.docId}-${r.page}`}
+              className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"
+            >
+              Page {r.page} re-read {r.count}× — {r.docName}
+            </span>
+          ))}
+          {contact.dealInsight.videoReplays?.map((v: any) => (
+            <span
+              key={`${v.docId}-${v.page}`}
+              className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700"
+            >
+              Page {v.page} video replayed {v.count}× — {v.docName}
+            </span>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Page bar chart */}
+    <div className="flex items-center gap-2 mb-3">
+      <div className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+        Page engagement · {contact.topDocName || "document"}
+      </span>
+      <span className="ml-auto text-[10px] text-slate-400">
+        {formatMMSS(contact.totalTime)} total
+      </span>
+    </div>
+    <PageBarChart
+      visit={{
+        pageData: contact.pageData,
+        visitType: "share",
+      }}
+      docId={contact.topDocId}
+    />
+  </div>
+)}
     </div>
   );
 })}

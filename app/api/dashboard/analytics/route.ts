@@ -301,7 +301,7 @@ recentContactSessions.forEach((s: any) => {
     topDocId: s.documentId,
     viewedMyDocIds: new Set<string>(),
     viewedTeamDocIds: new Set<string>(),
-    pageTimeMap: new Map<number, number>(), // docId -> time spent
+    pageTimeMap: new Map<number, number>(),
   }
   e.visits++
   e.docs.add(s.documentId)
@@ -310,7 +310,6 @@ recentContactSessions.forEach((s: any) => {
     e.topDocName = docNameMap.get(s.documentId) || e.topDocName
     e.topDocId = s.documentId || e.topDocId
   }
-  // Tag which bucket this session falls into
   if (myDocumentIds.includes(s.documentId)) {
     e.viewedMyDocIds.add(s.documentId)
   }
@@ -324,8 +323,8 @@ recentContactSessions.forEach((s: any) => {
 recentPageLogs.forEach((log: any) => {
   if (!log.email) return
   const e = contactMap2.get(log.email)
-  const pageNum = Number(log.pageNumber || log.page)  // ← check both fields
-  if (!pageNum) return  // skip if still 0/NaN
+  const pageNum = Number(log.pageNumber || log.page)
+  if (!pageNum) return
   if (e) {
     e.totalTime += log.viewTime || 0
     const existing = e.pageTimeMap.get(pageNum) || 0
@@ -352,32 +351,125 @@ recentPageLogs.forEach((log: any) => {
   }
 })
 
-const mostEngagedContacts = Array.from(contactMap2.values())
-  .sort((a, b) => b.visits - a.visits)
-  .slice(0, 50)
-  .map(c => ({
-    email: c.email,
-    visits: c.visits,
-    docs: c.docs.size,
-    totalTime: c.totalTime,
-    lastSeen: c.lastSeen,
-    topDocId: c.topDocId,
-    topDocName: c.topDocName,
-   pageData: (Array.from(c.pageTimeMap.entries()) as [number, number][])
-  .sort(([a], [b]) => a - b)
-  .map(([page, timeSpent]) => ({
-    page,
-    timeSpent,
-    visits: 1,
-    skipped: timeSpent === 0,
-  })),
-    
-    source: c.viewedMyDocIds.size > 0 && c.viewedTeamDocIds.size > 0
-      ? 'both'
-      : c.viewedTeamDocIds.size > 0
-      ? 'team'
-      : 'my',
-  }))
+const mostEngagedContacts = await Promise.all(
+      Array.from(contactMap2.values())
+        .sort((a, b) => b.visits - a.visits)
+        .slice(0, 50)
+        .map(async c => {
+
+          // ── Cross-session re-read detection per email ──────────────
+          // Same logic as document analytics fix — count distinct
+          // sessions per page for this viewer across ALL their docs
+          const allViewerPageLogs = await db.collection('analytics_logs').find({
+            documentId: { $in: documentIds },
+            action: 'page_view',
+            email: c.email,
+          }).toArray();
+
+          // Group by documentId+page, count distinct sessions
+          const pageSessionMap = new Map<string, Set<string>>();
+          allViewerPageLogs.forEach((log: any) => {
+            const key = `${log.documentId}::${log.pageNumber}`;
+            if (!pageSessionMap.has(key)) pageSessionMap.set(key, new Set());
+            if (log.sessionId) pageSessionMap.get(key)!.add(log.sessionId);
+          });
+
+          // Build re-read pages — only pages visited in 2+ distinct sessions
+          const reReadPages: { page: number; docId: string; docName: string; count: number }[] = [];
+          pageSessionMap.forEach((sessions, key) => {
+            if (sessions.size >= 2) {
+              const [docId, pageStr] = key.split('::');
+              reReadPages.push({
+                page: parseInt(pageStr),
+                docId,
+                docName: docNameMap.get(docId) || 'Unknown',
+                count: sessions.size,
+              });
+            }
+          });
+          reReadPages.sort((a, b) => b.count - a.count);
+
+          // ── Video replays for this viewer across all docs ──────────
+          const viewerVideoLogs = await db.collection('analytics_logs').find({
+            documentId: { $in: documentIds },
+            action: 'video_replayed',
+            email: c.email,
+          }).toArray();
+
+          const videoPageMap = new Map<string, number>();
+          viewerVideoLogs.forEach((log: any) => {
+            const key = `${log.documentId}::${log.pageNumber}`;
+            videoPageMap.set(key, (videoPageMap.get(key) || 0) + 1);
+          });
+          const videoReplays = Array.from(videoPageMap.entries())
+            .filter(([, count]) => count >= 1)
+            .map(([key, count]) => {
+              const [docId, pageStr] = key.split('::');
+              return {
+                page: parseInt(pageStr),
+                docId,
+                docName: docNameMap.get(docId) || 'Unknown',
+                count,
+              };
+            })
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 3);
+
+          // ── Build narrative if signals exist ───────────────────────
+          let dealInsight: {
+            narrative: string;
+            reReadPages: typeof reReadPages;
+            videoReplays: typeof videoReplays;
+          } | null = null;
+
+          if (reReadPages.length > 0 || videoReplays.length > 0) {
+            const parts: string[] = [];
+            if (reReadPages.length > 0) {
+              const top = reReadPages[0];
+              parts.push(
+                `Page ${top.page} of "${top.docName}" was re-read ${top.count} time${top.count > 1 ? 's' : ''}`
+              );
+            }
+            if (videoReplays.length > 0) {
+              const top = videoReplays[0];
+              parts.push(
+                `the page ${top.page} video in "${top.docName}" was replayed ${top.count} time${top.count > 1 ? 's' : ''}`
+              );
+            }
+            const narrative = parts.join(' and ') + '. They may need help justifying this internally.';
+            dealInsight = {
+              narrative,
+              reReadPages: reReadPages.slice(0, 3),
+              videoReplays,
+            };
+          }
+
+          return {
+            email: c.email,
+            visits: c.visits,
+            docs: c.docs.size,
+            totalTime: c.totalTime,
+            lastSeen: c.lastSeen,
+            topDocId: c.topDocId,
+            topDocName: c.topDocName,
+            pageData: (Array.from(c.pageTimeMap.entries()) as [number, number][]) 
+              .sort(([a], [b]) => a - b)
+              .map(([page, timeSpent]) => ({
+                page,
+                timeSpent,
+                // Now correctly counts distinct sessions for this page
+                visits: pageSessionMap.get(`${c.topDocId}::${page}`)?.size || 1,
+                skipped: timeSpent === 0,
+              })),
+            dealInsight,
+            source: c.viewedMyDocIds.size > 0 && c.viewedTeamDocIds.size > 0
+              ? 'both'
+              : c.viewedTeamDocIds.size > 0
+              ? 'team'
+              : 'my',
+          };
+        })
+    );
 
     return NextResponse.json({
       success: true,
