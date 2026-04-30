@@ -270,81 +270,129 @@ export async function GET(
         pageEngagement,
         totalDocPages,
        signerVideoStats,
-        signerDealInsight: (() => {
-          // Build re-read signals from pageData across all recipients
-          const reReadPages: { page: number; count: number }[] = []
-          const backNavigations: number[] = []
+        signerDealInsight: await (async () => {
+  // Build per-signer, per-session re-read signals
+  // A "re-read" = same signer visited same page across 2+ distinct sessions
+  // This mirrors exactly the fix applied to document analytics
+  const allSignerInsights: any[] = []
 
-          for (const r of recipients) {
-            const pageVisitCounts = new Map<number, number>()
-            ;(r.pageData || []).forEach((p: any) => {
-              pageVisitCounts.set(p.page, (pageVisitCounts.get(p.page) || 0) + 1)
-            })
-            pageVisitCounts.forEach((count, page) => {
-              if (count > 1) {
-                const existing = reReadPages.find(x => x.page === page)
-                if (existing) existing.count = Math.max(existing.count, count)
-                else reReadPages.push({ page, count })
-              }
-            })
-          }
+  for (const r of recipients) {
+    if (!r.email) continue
 
-          const videoReplays: { page: number; count: number }[] = []
-          signerVideoStats.forEach((s: any) => {
-            s.pages?.forEach((p: any) => {
-              if (p.replays >= 2) {
-                const existing = videoReplays.find(x => x.page === p.page)
-                if (existing) existing.count = Math.max(existing.count, p.replays)
-                else videoReplays.push({ page: p.page, count: p.replays })
-              }
-            })
-          })
+    // Query ALL analytics_logs for this signer across all sessions
+    // This is the key fix — pageData in signature_requests only has
+    // the latest session data, not cross-session re-reads
+    const signerPageLogs = await db.collection('analytics_logs').find({
+      documentId: id,
+      action: 'page_view',
+      email: r.email,
+    }).toArray()
 
-          const hasSignals = reReadPages.length > 0 || videoReplays.length > 0
-          if (!hasSignals) return null
+    // Also check signature_requests pageData for page visits
+    // since signing page tracking writes there too
+    const pageDataEntries = r.pageData || []
 
-          const parts: string[] = []
-          if (reReadPages.length > 0) {
-            const top = reReadPages.sort((a, b) => b.count - a.count)[0]
-            parts.push(
-              `Page ${top.page} was re-read ${top.count} time${top.count > 1 ? 's' : ''}`
-            )
-          }
-          if (videoReplays.length > 0) {
-            const top = videoReplays.sort((a, b) => b.count - a.count)[0]
-            parts.push(
-              `the page ${top.page} video was replayed ${top.count} time${top.count > 1 ? 's' : ''}`
-            )
-          }
+    // Group analytics_logs by page, count distinct sessions
+    const pageSessionMap = new Map<number, Set<string>>()
+    signerPageLogs.forEach((log: any) => {
+      const p = log.pageNumber
+      if (!pageSessionMap.has(p)) pageSessionMap.set(p, new Set())
+      if (log.sessionId) pageSessionMap.get(p)!.add(log.sessionId)
+    })
 
-          const pendingSigners = recipients.filter(
-            r => r.status === 'pending' && r.viewedAt
-          ).length
+    // Also count from pageData — multiple entries for same page = re-read
+    // This handles the signature-specific tracking path
+    const pageDataVisitCounts = new Map<number, number>()
+    pageDataEntries.forEach((p: any) => {
+      pageDataVisitCounts.set(
+        p.page,
+        (pageDataVisitCounts.get(p.page) || 0) + 1
+      )
+    })
 
-          if (pendingSigners > 0) {
-            parts.push(
-              `${pendingSigners} signer${pendingSigners > 1 ? 's' : ''} opened but haven't signed yet`
-            )
-          }
+    // Merge both sources — take the higher count
+    const reReadPages: { page: number; count: number }[] = []
 
-          const narrative = parts.length > 0
-            ? parts.join(' and ') + '. They may need help justifying this internally.'
-            : null
+    // From analytics_logs sessions
+    pageSessionMap.forEach((sessions, pageNum) => {
+      if (sessions.size >= 2) {
+        reReadPages.push({ page: pageNum, count: sessions.size })
+      }
+    })
 
-         return narrative ? {
-            narrative,
-            viewerEmail: recipients
-              .filter((r: any) => r.viewedAt && r.status === 'pending')
-              .sort((a: any, b: any) => b.totalTimeSeconds - a.totalTimeSeconds)
-              [0]?.email || null,
-            reReadPages: reReadPages.sort((a, b) => b.count - a.count),
-            videoReplays: videoReplays.sort((a, b) => b.count - a.count),
-            backNavigations: [],
-            engagementDropping: false,
-            neverForwarded: false,
-            documentId: id,
-          } : null
-        })(),
+    // From pageData multiple entries — catches single-prospect case
+    pageDataVisitCounts.forEach((count, pageNum) => {
+      if (count >= 2) {
+        const existing = reReadPages.find(x => x.page === pageNum)
+        if (existing) {
+          existing.count = Math.max(existing.count, count)
+        } else {
+          reReadPages.push({ page: pageNum, count })
+        }
+      }
+    })
+
+    reReadPages.sort((a, b) => b.count - a.count)
+
+    // Video replays for this specific signer
+    const signerVideo = signerVideoStats.find((s: any) => s.email === r.email)
+    const videoReplays: { page: number; count: number }[] = []
+    signerVideo?.pages?.forEach((p: any) => {
+      if (p.replays >= 1) {
+        videoReplays.push({ page: p.page, count: p.replays })
+      }
+    })
+    videoReplays.sort((a, b) => b.count - a.count)
+
+    if (reReadPages.length === 0 && videoReplays.length === 0) continue
+
+    // Build narrative for this specific signer
+    const parts: string[] = []
+    if (reReadPages.length > 0) {
+      const top = reReadPages[0]
+      parts.push(
+        `Page ${top.page} was re-read ${top.count} time${top.count > 1 ? 's' : ''}`
+      )
+    }
+    if (videoReplays.length > 0) {
+      const top = videoReplays[0]
+      parts.push(
+        `the page ${top.page} video was replayed ${top.count} time${top.count > 1 ? 's' : ''}`
+      )
+    }
+    if (r.status === 'pending' && r.viewedAt) {
+      parts.push('opened but has not signed yet')
+    }
+
+    const narrative =
+      parts.join(' and ') + '. They may need help justifying this internally.'
+
+    allSignerInsights.push({
+      viewerEmail: r.email,
+      narrative,
+      reReadPages: reReadPages.slice(0, 3),
+      videoReplays: videoReplays.slice(0, 3),
+      backNavigations: [],
+      engagementDropping: false,
+      neverForwarded: false,
+      documentId: id,
+      totalTimeSpentSeconds: r.totalTimeSpentSeconds || 0,
+    })
+  }
+
+  if (allSignerInsights.length === 0) return null
+
+  // Sort by most time spent first
+  allSignerInsights.sort(
+    (a, b) => b.totalTimeSpentSeconds - a.totalTimeSpentSeconds
+  )
+
+  // Return all signer insights — same shape as document analytics fix
+  return {
+    viewers: allSignerInsights,
+    ...allSignerInsights[0],
+  }
+})(),
       },
     });
 

@@ -268,9 +268,23 @@ export default function SignaturesTab({
       </div>
 
       {/* ── SIGNER DEAL INSIGHT ── */}
-      {analytics?.signerDealInsight && (
-        <SignerDealInsightCard insight={analytics.signerDealInsight} />
-      )}
+{analytics?.signerDealInsight && (
+  <>
+    {analytics.signerDealInsight.viewers &&
+    analytics.signerDealInsight.viewers.length > 1 ? (
+      analytics.signerDealInsight.viewers.map(
+        (signerInsight: any, idx: number) => (
+          <SignerDealInsightCard
+            key={signerInsight.viewerEmail || idx}
+            insight={signerInsight}
+          />
+        )
+      )
+    ) : (
+      <SignerDealInsightCard insight={analytics.signerDealInsight} />
+    )}
+  </>
+)}
 
        
 
