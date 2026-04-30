@@ -46,6 +46,118 @@ function AnalyticsUpgradeBanner() {
   )
 }
 
+// ── Deal Insight Card with Refresh ───────────────────────────────
+function DealInsightCard({
+  dealInsight: initialInsight,
+  documentId,
+}: {
+  dealInsight: any;
+  documentId: string;
+}) {
+  const [insight, setInsight] = React.useState(initialInsight);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [lastRefreshed, setLastRefreshed] = React.useState<Date>(new Date());
+
+  const refresh = async () => {
+    try {
+      setRefreshing(true);
+      const res = await fetch(`/api/documents/${documentId}/analytics`, {
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (data.success && data.analytics.dealInsight) {
+        setInsight(data.analytics.dealInsight);
+        setLastRefreshed(new Date());
+      }
+    } catch (err) {
+      console.error('[DealInsight] refresh failed:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  return (
+    <div className="py-5 border-b border-slate-100 bg-amber-50/40">
+      <div className="flex items-start gap-3">
+        <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <Target className="h-4 w-4 text-amber-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+
+          {/* Header row */}
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+              Deal Insight
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400">
+                {lastRefreshed.toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+              <button
+                onClick={refresh}
+                disabled={refreshing}
+                className="flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:text-amber-900 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`}
+                />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+
+          {/* Narrative */}
+          <p className="text-sm text-slate-700 leading-relaxed">
+            {insight.narrative}
+          </p>
+
+          {/* Signal tags */}
+          <div className="flex flex-wrap gap-3 mt-3">
+            {insight.reReadPages?.map((r: any) => (
+              <span
+                key={r.page}
+                className="text-[11px] font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700"
+              >
+                Page {r.page} re-read {r.count}×
+              </span>
+            ))}
+            {insight.videoReplays?.map((v: any) => (
+              <span
+                key={v.page}
+                className="text-[11px] font-semibold px-2 py-1 rounded-full bg-indigo-100 text-indigo-700"
+              >
+                Page {v.page} video replayed {v.count}×
+              </span>
+            ))}
+            {insight.backNavigations?.map((p: number) => (
+              <span
+                key={p}
+                className="text-[11px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-600"
+              >
+                Jumped back to page {p}
+              </span>
+            ))}
+            {insight.engagementDropping && (
+              <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-red-100 text-red-600">
+                Engagement dropping
+              </span>
+            )}
+            {insight.neverForwarded && (
+              <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-500">
+                Never forwarded
+              </span>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PerformanceTab({
   analytics,
   analyticsLoading,
@@ -198,6 +310,15 @@ export default function PerformanceTab({
             </div>
           </div>
         </div>
+      )}
+
+      {/* SECTION 1B — DEAL INSIGHT*/}
+       
+      {analytics.dealInsight && (
+        <DealInsightCard
+          dealInsight={analytics.dealInsight}
+          documentId={doc._id}
+        />
       )}
 
       {/* SECTION 2 — LIVE VIEWERS */}

@@ -15,15 +15,15 @@ export function HeroSection() {
 
           {/* Main Heading */}
           <h1 className="mb-6 text-2xl sm:text-3xl md:text-4xl lg:text-4xl xl:text-6xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
-  Know Where Your Deal Died{" "}
+  Deal Dying?{" "}
   <span className="text-sky-600">
-    Before They Ghost You.
+    Know Before They Ghost You.
   </span>
 </h1>
 
           {/* Subtitle */}
           <p className="mb-10 text-lg sm:text-xl md:text-2xl text-slate-600 max-w-2xl text-left md:text-center md:mx-auto">
-           DocMetrics tells you which pages your prospect re-read, where they hesitated, whether they watched your walkthrough video — and alerts you the moment a deal starts going cold. Not just who opened it. What it meant.
+            Not just who opened it — what it meant. See every re-read, every hesitation, and know the moment your deal goes cold.
           </p>
 
           {/* CTA Buttons */}

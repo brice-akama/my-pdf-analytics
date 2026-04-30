@@ -725,7 +725,48 @@ export async function GET(
         liveViewerCount: realTimeViewers.length, devices, locations,
         eSignature: eSignatureAnalytics, signatureFriction,
         declineReasons, declinePatterns, intentData, reminderEffectiveness,
-        deadDeal, ndaAcceptances, videoStats, viewerVideoStats,
+        deadDeal,
+        dealInsight: (() => {
+          // Build signals from existing data
+          const reReadPages = pageEngagement
+            .filter((p: any) => p.totalViews > 1)
+            .map((p: any) => ({ page: p.page, count: p.totalViews }))
+            .sort((a: any, b: any) => b.count - a.count)
+            .slice(0, 3);
+
+          const videoReplays = (analyticsData.viewerVideoStats || [])
+            .flatMap((v: any) => v.pages || [])
+            .filter((p: any) => p.replays >= 2)
+            .map((p: any) => ({ page: p.page, count: p.replays }))
+            .slice(0, 3);
+
+          const hasSignals = reReadPages.length > 0 || videoReplays.length > 0;
+          if (!hasSignals) return null;
+
+          const parts: string[] = [];
+          if (reReadPages.length > 0) {
+            const top = reReadPages[0];
+            parts.push(`Page ${top.page} was re-read ${top.count} time${top.count > 1 ? 's' : ''}`);
+          }
+          if (videoReplays.length > 0) {
+            const top = videoReplays[0];
+            parts.push(`the page ${top.page} video was replayed ${top.count} time${top.count > 1 ? 's' : ''}`);
+          }
+
+          const narrative = parts.length > 0
+            ? parts.join(' and ') + '. They may need help justifying this internally.'
+            : null;
+
+          return narrative ? {
+            narrative,
+            reReadPages,
+            videoReplays,
+            backNavigations: [],
+            engagementDropping: false,
+            neverForwarded: false,
+          } : null;
+        })(),
+        ndaAcceptances, videoStats, viewerVideoStats,
         clarityByPage, dealIntentResponses, intentSummary, heatmapByPage,
         contentQuality: {
           healthScore: analyticsData.healthScore || 0,
