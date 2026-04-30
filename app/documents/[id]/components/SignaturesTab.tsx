@@ -51,6 +51,111 @@ const statusConfig: Record<
   },
 };
 
+// ── Signer Deal Insight Card ──────────────────────────────────────
+function SignerDealInsightCard({ insight }: { insight: any }) {
+  const [refreshing, setRefreshing] = React.useState(false)
+  const [current, setCurrent] = React.useState(insight)
+  const [lastRefreshed, setLastRefreshed] = React.useState(new Date())
+
+  // We need docId to refresh — pass it via insight object
+  const refresh = async () => {
+    try {
+      setRefreshing(true)
+      const res = await fetch(
+        `/api/documents/${insight.documentId}/signature-analytics`,
+        { credentials: 'include' }
+      )
+      const data = await res.json()
+      if (data.success && data.analytics?.signerDealInsight) {
+        setCurrent(data.analytics.signerDealInsight)
+        setLastRefreshed(new Date())
+      }
+    } catch (err) {
+      console.error('[SignerDealInsight] refresh failed:', err)
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  return (
+    <div className="py-5 border-b border-slate-100 bg-violet-50/40">
+      <div className="flex items-start gap-3">
+        <div className="h-8 w-8 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <FileSignature className="h-4 w-4 text-violet-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+
+          {/* Header */}
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-bold text-violet-900 uppercase tracking-wider">
+              Signer Insight
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400">
+                {lastRefreshed.toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+              <button
+                onClick={refresh}
+                disabled={refreshing}
+                className="flex items-center gap-1 text-[11px] font-semibold text-violet-700 hover:text-violet-900 transition-colors disabled:opacity-50"
+              >
+                <svg
+                  className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+
+          {/* Narrative */}
+          <p className="text-sm text-slate-700 leading-relaxed">
+            {current.narrative}
+          </p>
+
+          {/* Signal tags */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            {current.reReadPages?.map((r: any) => (
+              <span
+                key={r.page}
+                className="text-[11px] font-semibold px-2 py-1 rounded-full bg-violet-100 text-violet-700"
+              >
+                Page {r.page} re-read {r.count}×
+              </span>
+            ))}
+            {current.videoReplays?.map((v: any) => (
+              <span
+                key={v.page}
+                className="text-[11px] font-semibold px-2 py-1 rounded-full bg-indigo-100 text-indigo-700"
+              >
+                Page {v.page} video replayed {v.count}×
+              </span>
+            ))}
+            {current.pendingSigners > 0 && (
+              <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700">
+                {current.pendingSigners} opened but not signed
+              </span>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SignaturesTab({
   analytics,
   docId,
@@ -161,6 +266,13 @@ export default function SignaturesTab({
           </div>
         </div>
       </div>
+
+      {/* ── SIGNER DEAL INSIGHT ── */}
+      {analytics?.signerDealInsight && (
+        <SignerDealInsightCard insight={analytics.signerDealInsight} />
+      )}
+
+       
 
       {/* ── FUNNEL ── */}
       <div className="py-5 border-b border-slate-100">

@@ -401,7 +401,7 @@ export async function notifyPortalEvent({
 
   const title = titleMap[normalised] || 'Space Event';
 
-  const fields: any[] = [
+  const fields: { type: 'mrkdwn'; text: string }[] = [
     { type: 'mrkdwn', text: `*Visitor*\n${visitorEmail}` },
     { type: 'mrkdwn', text: `*Space*\n${spaceName}` },
     { type: 'mrkdwn', text: `*Time*\n${ts()}` },
@@ -450,6 +450,7 @@ export async function notifyDealInsight({
   totalPages,
   trigger, // 'session_end' | 'gone_silent'
   daysSilent,
+  narrative: narrativeOverride,
 }: {
   userId: string;
   documentName: string;
@@ -462,6 +463,7 @@ export async function notifyDealInsight({
   totalPages: number;
   trigger: 'session_end' | 'gone_silent';
   daysSilent?: number;
+  narrative?: string;
 }) {
   const multiplier = avgPageTime > 0
     ? (slowestPageTime / avgPageTime).toFixed(1)
@@ -479,11 +481,13 @@ export async function notifyDealInsight({
     ? `*${viewerEmail}* opened your proposal ${daysSilent} days ago and hasn't returned. Last thing they saw was page ${slowestPage}.`
     : `*${viewerEmail}* just finished a session. They spent ${multiplier}x longer than average on page ${slowestPage}.`;
 
+  const narrative = narrativeOverride || insight;
+
   return sendSlackNotification({
     userId,
     message: `Deal insight for ${viewerEmail} on "${documentName}"`,
     blocks: [
-      {
+     {
         type: 'section',
         text: { type: 'mrkdwn', text: `*${title}*` },
         accessory: analyticsButton(documentId, 'View Analytics'),
@@ -491,7 +495,10 @@ export async function notifyDealInsight({
       divider(),
       {
         type: 'section',
-        text: { type: 'mrkdwn', text: insight },
+        text: {
+          type: 'mrkdwn',
+          text: ` *Prospect:* ${viewerEmail}\n\n${narrative}`,
+        },
       },
       divider(),
       {

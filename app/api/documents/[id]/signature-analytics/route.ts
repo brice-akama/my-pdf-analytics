@@ -269,7 +269,82 @@ export async function GET(
         allSigned,
         pageEngagement,
         totalDocPages,
-        signerVideoStats,
+       signerVideoStats,
+        signerDealInsight: (() => {
+          // Build re-read signals from pageData across all recipients
+          const reReadPages: { page: number; count: number }[] = []
+          const backNavigations: number[] = []
+
+          for (const r of recipients) {
+            const pageVisitCounts = new Map<number, number>()
+            ;(r.pageData || []).forEach((p: any) => {
+              pageVisitCounts.set(p.page, (pageVisitCounts.get(p.page) || 0) + 1)
+            })
+            pageVisitCounts.forEach((count, page) => {
+              if (count > 1) {
+                const existing = reReadPages.find(x => x.page === page)
+                if (existing) existing.count = Math.max(existing.count, count)
+                else reReadPages.push({ page, count })
+              }
+            })
+          }
+
+          const videoReplays: { page: number; count: number }[] = []
+          signerVideoStats.forEach((s: any) => {
+            s.pages?.forEach((p: any) => {
+              if (p.replays >= 2) {
+                const existing = videoReplays.find(x => x.page === p.page)
+                if (existing) existing.count = Math.max(existing.count, p.replays)
+                else videoReplays.push({ page: p.page, count: p.replays })
+              }
+            })
+          })
+
+          const hasSignals = reReadPages.length > 0 || videoReplays.length > 0
+          if (!hasSignals) return null
+
+          const parts: string[] = []
+          if (reReadPages.length > 0) {
+            const top = reReadPages.sort((a, b) => b.count - a.count)[0]
+            parts.push(
+              `Page ${top.page} was re-read ${top.count} time${top.count > 1 ? 's' : ''}`
+            )
+          }
+          if (videoReplays.length > 0) {
+            const top = videoReplays.sort((a, b) => b.count - a.count)[0]
+            parts.push(
+              `the page ${top.page} video was replayed ${top.count} time${top.count > 1 ? 's' : ''}`
+            )
+          }
+
+          const pendingSigners = recipients.filter(
+            r => r.status === 'pending' && r.viewedAt
+          ).length
+
+          if (pendingSigners > 0) {
+            parts.push(
+              `${pendingSigners} signer${pendingSigners > 1 ? 's' : ''} opened but haven't signed yet`
+            )
+          }
+
+          const narrative = parts.length > 0
+            ? parts.join(' and ') + '. They may need help justifying this internally.'
+            : null
+
+         return narrative ? {
+            narrative,
+            viewerEmail: recipients
+              .filter((r: any) => r.viewedAt && r.status === 'pending')
+              .sort((a: any, b: any) => b.totalTimeSeconds - a.totalTimeSeconds)
+              [0]?.email || null,
+            reReadPages: reReadPages.sort((a, b) => b.count - a.count),
+            videoReplays: videoReplays.sort((a, b) => b.count - a.count),
+            backNavigations: [],
+            engagementDropping: false,
+            neverForwarded: false,
+            documentId: id,
+          } : null
+        })(),
       },
     });
 

@@ -2,6 +2,7 @@ import { notifyDealInsight, isSlackConnected } from './integrations/slack';
 import { syncDealInsightToHubSpot, isHubSpotConnected } from './integrations/hubspotSync';
 import { sendDealInsightEmail } from './documentNotifications';
 import { sendTeamsNotification } from '@/app/api/integrations/teams/notify/route';
+import { ObjectId } from 'mongodb';
 
 const SILENT_DAYS = 3;
 
@@ -245,7 +246,6 @@ export async function fireToAllChannels({
       ? sendDealInsightEmail({
           ownerEmail: ownerProfile.email,
           ownerName: ownerProfile.full_name || ownerProfile.first_name || null,
-          narrative,
           ...payload,
         }).catch(err => console.error('[DealInsight] Email failed:', err))
       : Promise.resolve(),
@@ -283,7 +283,7 @@ export async function fireToAllChannels({
       documentName: payload.documentName,
       documentId: payload.documentId,
       viewerEmail: payload.viewerEmail,
-      extraInfo: narrative,
+      extraInfo: `Prospect: ${payload.viewerEmail}\n\n${narrative}`,
     }).catch(err => console.error('[DealInsight] Teams failed:', err)),
 
   ]);
@@ -299,9 +299,9 @@ export async function fireToAllChannels({
 
 // ── MAIN: check for silent deals (piggybacks on real traffic) ─────
 export async function checkSilentDeals(db: any) {
-  try {
-    const cutoff = new Date(Date.now() - SILENT_DAYS * 24 * 60 * 60 * 1000);
+  const cutoff = new Date(Date.now() - SILENT_DAYS * 24 * 60 * 60 * 1000);
 
+  try {
     const staleSessions = await db.collection('analytics_sessions').find({
       endedAt: { $lte: cutoff },
       silentAlertSent: { $ne: true },
@@ -409,4 +409,129 @@ export async function checkSilentDeals(db: any) {
     // Entire function fails silently — never crashes the app
     console.error('[checkSilentDeals] outer error:', err);
   }
+  // ── Also check signature requests for silence ─────────────────
+    try {
+      const silentSigners = await db.collection('signature_requests').find({
+        status: 'pending',
+        viewedAt: { $lte: cutoff },
+        signedAt: null,
+        signerSilentAlertSent: { $ne: true },
+        totalTimeSpentSeconds: { $gt: 30 },
+      }).limit(5).toArray()
+
+      for (const signer of silentSigners) {
+        try {
+          const daysSilent = Math.floor(
+            (Date.now() - new Date(signer.viewedAt).getTime()) /
+            (1000 * 60 * 60 * 24)
+          )
+
+          const recipientName = signer.recipientName ||
+            signer.recipient?.name || 'Signer'
+          const recipientEmail = signer.recipientEmail ||
+            signer.recipient?.email || ''
+
+          const doc = await db.collection('documents').findOne({
+            _id: new ObjectId(signer.documentId?.toString()),
+          })
+
+          const owner = await db.collection('profiles').findOne({
+            user_id: signer.ownerId?.toString() ||
+              signer.createdBy?.toString(),
+          })
+
+          if (!doc || !owner?.email) continue
+
+          const pageData = signer.pageData || []
+          const pageTimeMap = new Map<number, number>()
+          pageData.forEach((p: any) => {
+            pageTimeMap.set(
+              p.page,
+              (pageTimeMap.get(p.page) || 0) + (p.timeSpent || 0)
+            )
+          })
+
+          const pageTimes = Array.from(pageTimeMap.entries())
+          if (pageTimes.length === 0) continue
+
+          const totalTime = pageTimes.reduce((sum, [, t]) => sum + t, 0)
+          const avgPageTime = Math.round(totalTime / pageTimes.length)
+          const [slowestPage, slowestPageTime] = pageTimes
+            .sort((a, b) => b[1] - a[1])[0]
+
+          const narrative = `${recipientName} opened the signing document ${daysSilent} days ago, spent ${formatTime(totalTime)} reading it, but hasn't signed yet. They spent the most time on page ${slowestPage} (${formatTime(slowestPageTime)} vs avg ${formatTime(avgPageTime)}). They may need a nudge or clarification before signing.`
+
+          const documentId = doc._id.toString()
+          const userId = signer.ownerId?.toString() ||
+            signer.createdBy?.toString() || ''
+
+          await Promise.allSettled([
+            // Email
+            sendDealInsightEmail({
+              ownerEmail: owner.email,
+              ownerName: owner.full_name || owner.first_name || null,
+              viewerEmail: recipientEmail,
+              documentName: doc.originalFilename || 'Your document',
+              documentId,
+              slowestPage,
+              slowestPageTime,
+              avgPageTime,
+              skippedPages: [],
+              totalPages: doc.numPages,
+              trigger: 'gone_silent',
+              daysSilent,
+            }).catch(err =>
+              console.error('[SignerSilent] Email failed:', err)
+            ),
+
+            // Slack
+            isSlackConnected(userId).then(connected =>
+              connected
+                ? notifyDealInsight({
+                    userId,
+                    documentName: doc.originalFilename || 'Your document',
+                    documentId,
+                    viewerEmail: recipientEmail,
+                    slowestPage,
+                    slowestPageTime,
+                    avgPageTime,
+                    skippedPages: [],
+                    totalPages: doc.numPages,
+                    trigger: 'gone_silent',
+                    daysSilent,
+                    narrative,
+                  }).catch(err =>
+                    console.error('[SignerSilent] Slack failed:', err)
+                  )
+                : Promise.resolve()
+            ).catch(err =>
+              console.error('[SignerSilent] Slack check failed:', err)
+            ),
+
+            // Teams
+            sendTeamsNotification({
+              userId,
+              event: 'deal_insight',
+              documentName: doc.originalFilename || 'Your document',
+              documentId,
+              viewerEmail: recipientEmail,
+              extraInfo: `Prospect: ${recipientEmail}\n\n${narrative}`,
+            }).catch(err =>
+              console.error('[SignerSilent] Teams failed:', err)
+            ),
+          ])
+
+          await db.collection('signature_requests').updateOne(
+            { _id: signer._id },
+            { $set: { signerSilentAlertSent: true } }
+          )
+
+        } catch (innerErr) {
+          console.error('[SignerSilent] inner error:', innerErr)
+          continue
+        }
+      }
+    } catch (signerErr) {
+      console.error('[SignerSilent] outer error:', signerErr)
+    }
 }

@@ -383,6 +383,7 @@ export async function syncDealInsightToHubSpot({
   totalPages,
   trigger,
   daysSilent,
+   narrative: narrativeOverride,
 }: {
   userId: string;
   viewerEmail: string;
@@ -395,6 +396,7 @@ export async function syncDealInsightToHubSpot({
   totalPages: number;
   trigger: 'session_end' | 'gone_silent';
   daysSilent?: number;
+  narrative?: string;
 }) {
   if (!viewerEmail) return { success: false, reason: 'no_email' };
 
@@ -407,11 +409,14 @@ export async function syncDealInsightToHubSpot({
       ? `Pages skipped: ${skippedPages.join(', ')}`
       : 'All pages opened';
 
-    const noteBody = [
+     const noteBody = [
       `DocMetrics — ${trigger === 'gone_silent' ? 'Deal Going Cold' : 'Deal Insight'}`,
       '',
+      `Prospect: ${viewerEmail}`,
       `Document: ${documentName}`,
-      `Viewer: ${viewerEmail}`,
+      narrativeOverride ? `\nInsight: ${narrativeOverride}` : null,
+      '',
+      `Slowest page: Page ${slowestPage} (${formatTime(slowestPageTime)})`,
       `Slowest page: Page ${slowestPage} (${formatTime(slowestPageTime)})`,
       `Avg per page: ${formatTime(avgPageTime)}`,
       skippedText,

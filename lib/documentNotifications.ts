@@ -505,6 +505,7 @@ export async function sendDealInsightEmail({
   totalPages,
   trigger,
   daysSilent,
+  narrative: narrativeOverride,
 }: {
   ownerEmail: string;
   ownerName?: string | null;
@@ -518,6 +519,7 @@ export async function sendDealInsightEmail({
   totalPages: number;
   trigger: 'session_end' | 'gone_silent';
   daysSilent?: number;
+  narrative?: string;
 }) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const analyticsUrl = `${appUrl}/documents/${documentId}?tab=analytics`;
@@ -539,15 +541,28 @@ export async function sendDealInsightEmail({
     ? `Deal going cold — ${viewerEmail} hasn't returned in ${daysSilent} days`
     : `Deal insight — ${viewerEmail} just finished reading`;
 
-  const insight = trigger === 'gone_silent'
+  const defaultInsight = trigger === 'gone_silent'
     ? `${viewerEmail} opened your proposal ${daysSilent} days ago and hasn't come back. The last page they spent real time on was page ${slowestPage}.`
     : `${viewerEmail} just finished a session. They spent ${multiplier}x longer than average on page ${slowestPage} (${formatTime(slowestPageTime)} vs avg ${formatTime(avgPageTime)}).`;
+
+  const insight = narrativeOverride || defaultInsight;
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #111;">
       <h2 style="color: ${trigger === 'gone_silent' ? '#e53e3e' : '#0078D4'};">
         ${trigger === 'gone_silent' ? '🧊 Deal Going Cold' : '📊 Deal Insight'}
       </h2>
+
+      <p style="
+        display: inline-block;
+        background: #f1f5f9;
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #475569;
+        margin-bottom: 12px;
+      "> ${viewerEmail}</p>
 
       <p>${insight}</p>
       <p style="color: #555;">${skippedText}</p>

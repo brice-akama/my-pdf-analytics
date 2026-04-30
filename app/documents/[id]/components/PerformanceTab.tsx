@@ -110,6 +110,11 @@ function DealInsightCard({
           </div>
 
           {/* Narrative */}
+         {insight.viewerEmail && (
+            <p className="text-xs font-semibold text-amber-700 mb-1">
+              {insight.viewerEmail}
+            </p>
+          )}
           <p className="text-sm text-slate-700 leading-relaxed">
             {insight.narrative}
           </p>

@@ -391,20 +391,117 @@ if (ownerId) {
     // ════════════════════════════════════════
     // ACTION: page_time
     // ════════════════════════════════════════
-    else if (action === "page_time") {
+   else if (action === "page_time") {
       if (typeof page === "number" && typeof timeSpent === "number" && timeSpent > 0) {
-        const existing = signatureRequest.pageData?.find((p: any) => p.page === page);
+        const existing = signatureRequest.pageData?.find((p: any) => p.page === page)
         if (existing) {
           await db.collection("signature_requests").updateOne(
             { uniqueId: signatureId, "pageData.page": page },
             { $inc: { "pageData.$.timeSpent": timeSpent } }
-          );
+          )
         } else {
           await db.collection("signature_requests").updateOne(
             { uniqueId: signatureId },
             { $push: { pageData: { page, timeSpent, skipped: false } as any } }
-          );
+          )
         }
+
+        // ── Deal insight: detect hesitation on a page ─────────────
+        // Only fire if this page has been visited more than once
+        // meaning the signer came back to re-read it
+        ;(async () => {
+          try {
+            const updated = await db.collection("signature_requests").findOne({
+              uniqueId: signatureId,
+            })
+            const pageData = updated?.pageData || []
+            const thisPage = pageData.find((p: any) => p.page === page)
+
+            // Count how many times this page appears — multiple entries = re-read
+            const pageVisits = pageData.filter((p: any) => p.page === page).length
+
+            if (pageVisits < 2) return // not a re-read yet
+
+            // Build avg time across all pages
+            const totalTime = pageData.reduce(
+              (sum: number, p: any) => sum + (p.timeSpent || 0), 0
+            )
+            const avgTime = pageData.length > 0
+              ? Math.round(totalTime / pageData.length)
+              : 0
+
+            const pageTotal = thisPage?.timeSpent || 0
+
+            // Only fire if this page is taking 2x longer than average
+            if (pageTotal < avgTime * 2) return
+
+            const narrative = `${recipientName} has re-read page ${page} ${pageVisits} times during signing and spent ${Math.round(pageTotal / 60)}m ${pageTotal % 60}s there — ${pageTotal >= avgTime * 3 ? 'strong hesitation signal, they may need clarification before signing.' : 'possible uncertainty at this point in the document.'}`
+
+            // Email
+            if (ownerEmail) {
+              sendGmailNotification(
+                ownerEmail,
+                `⚠️ ${recipientName} is hesitating on page ${page} of "${documentName}"`,
+                buildSignatureEmailHtml({
+                  title: 'Signer Hesitation Detected',
+                  subtitle: narrative,
+                  stats: [
+                    { label: 'Signer', value: recipientName },
+                    { label: 'Page', value: String(page) },
+                    { label: 'Re-reads', value: String(pageVisits) },
+                    { label: 'Time on page', value: formatDuration(pageTotal) },
+                  ],
+                  color: '#f59e0b',
+                })
+              ).catch(() => {})
+            }
+
+            // Slack
+            if (ownerId) {
+              sendSlackNotification({
+                userId: ownerId,
+                message: `⚠️ ${recipientName} is re-reading page ${page} of "${documentName}"`,
+                blocks: [
+                  {
+                    type: 'section',
+                    text: {
+                      type: 'mrkdwn',
+                      text: `⚠️ *Signer Hesitation*\n${narrative}`,
+                    },
+                  },
+                ],
+              }).catch(() => {})
+            }
+
+            // Teams
+            if (ownerId) {
+              sendTeamsNotification({
+                userId: ownerId,
+                event: 'document_viewed',
+                documentName,
+                documentId: signatureRequest.documentId?.toString() || '',
+                viewerName: recipientName,
+                viewerEmail: recipientEmail,
+                extraInfo: narrative,
+              }).catch(() => {})
+            }
+
+            // In-app
+            if (ownerId) {
+              createNotification({
+                userId: ownerId,
+                type: 'view',
+                title: 'Signer Hesitation Detected',
+                message: narrative,
+                documentId: signatureRequest.documentId?.toString(),
+                metadata: { recipientEmail, recipientName, page, pageVisits, pageTotal },
+              }).catch(() => {})
+            }
+
+          } catch (err) {
+            console.error('[SignerHesitation] error:', err)
+          }
+        })()
       }
     }
 
