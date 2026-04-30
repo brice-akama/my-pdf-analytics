@@ -90,19 +90,22 @@ export async function detectSignals(db: any, {
   sessionId,
   viewerId,
   numPages,
+  email,
 }: {
   documentId: string;
   sessionId: string;
   viewerId: string;
   numPages: number;
+  email?: string | null;
 }) {
   try {
-    // All page logs for this session
+    // All page logs for this viewer across page views
+    // Query ALL sessions for this viewer, not just current session
     const pageLogs = await db.collection('analytics_logs').find({
       documentId,
-      sessionId,
       action: 'page_view',
-    }).sort({ timestamp: 1 }).toArray();
+      ...(email ? { email } : { viewerId }),
+    }).toArray();
 
     // Page time map
     const pageTimeMap = new Map<number, number>();
@@ -140,7 +143,7 @@ export async function detectSignals(db: any, {
     const pageSequence = pageLogs.map((l: any) => l.pageNumber);
     const backNavigations: number[] = [];
     for (let i = 1; i < pageSequence.length; i++) {
-      if (pageSequence[i] < pageSequence[i - 1] - 1) {
+      if (pageSequence[i] < pageSequence[i - 1]) {
         if (!backNavigations.includes(pageSequence[i])) {
           backNavigations.push(pageSequence[i]);
         }
@@ -348,6 +351,7 @@ export async function checkSilentDeals(db: any) {
           sessionId: session.sessionId,
           viewerId: session.viewerId,
           numPages: doc.numPages,
+          email: viewerEmail || null,
         });
 
         if (!signals) continue;

@@ -1,3 +1,5 @@
+//app/api/view/[token]/track/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { notifyDocumentView } from '@/lib/notifications';
@@ -972,12 +974,14 @@ if (share.userId) {
 
               if (!insightDoc || !viewerEmail) return;
 
-              const signals = await detectSignals(db, {
-                documentId,
-                sessionId: currentSessionId,
-                viewerId,
-                numPages: insightDoc.numPages,
-              });
+               const signals = await detectSignals(db, {
+  documentId,
+  sessionId: currentSessionId,
+  viewerId,
+  numPages: insightDoc.numPages,
+  // Pass email so detectSignals can query by email across sessions
+  email: viewerEmail || null,
+});
 
               if (!signals) return;
 
@@ -999,14 +1003,34 @@ if (share.userId) {
 
               if (!shouldFire && !slowPageSignal) return;
 
-              const narrative = buildNarrative({
-                reReadPages: signals.reReadPages,
-                videoReplays: signals.videoReplays,
-                backNavigations: signals.backNavigations,
-                engagementDropping: signals.engagementDropping,
-                neverForwarded,
-                trigger: 'session_end',
-              });
+             // Re-compute reReadPages cross-session for this specific viewer
+const allViewerPageLogs = await db.collection('analytics_logs').find({
+  documentId,
+  action: 'page_view',
+  ...(viewerEmail ? { email: viewerEmail } : { viewerId }),
+}).toArray();
+
+const crossSessionPageMap = new Map<number, Set<string>>();
+allViewerPageLogs.forEach((log: any) => {
+  if (!crossSessionPageMap.has(log.pageNumber)) {
+    crossSessionPageMap.set(log.pageNumber, new Set());
+  }
+  if (log.sessionId) crossSessionPageMap.get(log.pageNumber)!.add(log.sessionId);
+});
+
+const crossSessionReReads = Array.from(crossSessionPageMap.entries())
+  .filter(([, sessions]) => sessions.size >= 2)
+  .map(([page, sessions]) => ({ page, count: sessions.size }))
+  .sort((a, b) => b.count - a.count);
+
+const narrative = buildNarrative({
+  reReadPages: crossSessionReReads.length > 0 ? crossSessionReReads : signals.reReadPages,
+  videoReplays: signals.videoReplays,
+  backNavigations: signals.backNavigations,
+  engagementDropping: signals.engagementDropping,
+  neverForwarded,
+  trigger: 'session_end',
+});
 
               const ownerProfile = await db.collection('profiles')
                 .findOne({ user_id: share.userId });

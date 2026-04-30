@@ -320,11 +320,25 @@ export default function PerformanceTab({
       {/* SECTION 1B — DEAL INSIGHT*/}
        
       {analytics.dealInsight && (
+  <>
+    {analytics.dealInsight.viewers && analytics.dealInsight.viewers.length > 1 ? (
+      // Multiple viewers — show each one
+      analytics.dealInsight.viewers.map((viewerInsight: any, idx: number) => (
         <DealInsightCard
-          dealInsight={analytics.dealInsight}
+          key={viewerInsight.viewerEmail || idx}
+          dealInsight={viewerInsight}
           documentId={doc._id}
         />
-      )}
+      ))
+    ) : (
+      // Single viewer or legacy shape
+      <DealInsightCard
+        dealInsight={analytics.dealInsight}
+        documentId={doc._id}
+      />
+    )}
+  </>
+)}
 
       {/* SECTION 2 — LIVE VIEWERS */}
       {liveViewerCount > 0 && (

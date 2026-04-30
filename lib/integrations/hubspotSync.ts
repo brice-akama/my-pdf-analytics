@@ -416,8 +416,8 @@ export async function syncDealInsightToHubSpot({
       `Document: ${documentName}`,
       narrativeOverride ? `\nInsight: ${narrativeOverride}` : null,
       '',
-      `Slowest page: Page ${slowestPage} (${formatTime(slowestPageTime)})`,
-      `Slowest page: Page ${slowestPage} (${formatTime(slowestPageTime)})`,
+       `Slowest page: Page ${slowestPage} (${formatTime(slowestPageTime)})`,
+ 
       `Avg per page: ${formatTime(avgPageTime)}`,
       skippedText,
       `Total pages: ${totalPages}`,

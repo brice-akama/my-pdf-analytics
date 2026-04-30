@@ -726,53 +726,100 @@ export async function GET(
         eSignature: eSignatureAnalytics, signatureFriction,
         declineReasons, declinePatterns, intentData, reminderEffectiveness,
         deadDeal,
-        dealInsight: (() => {
-          // Build signals from existing data
-          const reReadPages = pageEngagement
-            .filter((p: any) => p.totalViews > 1)
-            .map((p: any) => ({ page: p.page, count: p.totalViews }))
-            .sort((a: any, b: any) => b.count - a.count)
-            .slice(0, 3);
+        
+       dealInsight: await (async () => {
+  // Build per-viewer, per-session re-read signals
+  // A "re-read" = same viewer visited same page across 2+ distinct sessions
+  const allViewerInsights: any[] = [];
 
-          const videoReplays = (analyticsData.viewerVideoStats || [])
-            .flatMap((v: any) => v.pages || [])
-            .filter((p: any) => p.replays >= 2)
-            .map((p: any) => ({ page: p.page, count: p.replays }))
-            .slice(0, 3);
+  for (const recipient of recipientPageTracking) {
+    if (recipient.neverOpened) continue;
+    const isAnon = recipient.recipientEmail.startsWith('Anonymous');
+    const emailKey = isAnon ? null : recipient.recipientEmail;
+    const viewerIdKey = isAnon
+      ? recipient.recipientEmail.match(/Anonymous \(([^)]+)\)/)?.[1] || null
+      : null;
 
-          const hasSignals = reReadPages.length > 0 || videoReplays.length > 0;
-          if (!hasSignals) return null;
+    // Count page visits per page across ALL sessions for this viewer
+    const viewerPageLogs = await db.collection('analytics_logs').find({
+      documentId: id,
+      action: 'page_view',
+      ...(emailKey ? { email: emailKey } : { viewerId: { $regex: viewerIdKey ? `^${viewerIdKey}` : 'NOMATCH' } }),
+    }).toArray();
 
-          const parts: string[] = [];
-          if (reReadPages.length > 0) {
-            const top = reReadPages[0];
-            parts.push(`Page ${top.page} was re-read ${top.count} time${top.count > 1 ? 's' : ''}`);
-          }
-          if (videoReplays.length > 0) {
-            const top = videoReplays[0];
-            parts.push(`the page ${top.page} video was replayed ${top.count} time${top.count > 1 ? 's' : ''}`);
-          }
+    // Group by page, count distinct sessions
+    const pageSessionMap = new Map<number, Set<string>>();
+    viewerPageLogs.forEach((log: any) => {
+      const p = log.pageNumber;
+      if (!pageSessionMap.has(p)) pageSessionMap.set(p, new Set());
+      if (log.sessionId) pageSessionMap.get(p)!.add(log.sessionId);
+    });
 
-          
+    const reReadPages: { page: number; count: number }[] = [];
+    pageSessionMap.forEach((sessions, pageNum) => {
+      if (sessions.size >= 2) {
+        reReadPages.push({ page: pageNum, count: sessions.size });
+      }
+    });
+    reReadPages.sort((a, b) => b.count - a.count);
 
-          const narrative = parts.length > 0
-            ? parts.join(' and ') + '. They may need help justifying this internally.'
-            : null;
-            
+    // Video replays for this viewer
+    const viewerVideoLogs = await db.collection('analytics_logs').find({
+      documentId: id,
+      action: 'video_replayed',
+      ...(emailKey ? { email: emailKey } : {}),
+    }).toArray();
 
-           return narrative ? {
-            narrative,
-            reReadPages,
-            videoReplays,
-            backNavigations: [],
-            engagementDropping: false,
-            neverForwarded: false,
-            viewerEmail: recipientPageTracking
-              .filter((r: any) => !r.bounced && !r.neverOpened && r.recipientEmail && !r.recipientEmail.startsWith('Anonymous'))
-              .sort((a: any, b: any) => b.totalTimeSeconds - a.totalTimeSeconds)
-              [0]?.recipientEmail || null,
-          } : null;
-        })(),
+    const videoPageMap = new Map<number, number>();
+    viewerVideoLogs.forEach((log: any) => {
+      videoPageMap.set(log.pageNumber, (videoPageMap.get(log.pageNumber) || 0) + 1);
+    });
+    const videoReplays = Array.from(videoPageMap.entries())
+      .filter(([, count]) => count >= 1)
+      .map(([page, count]) => ({ page, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+
+    if (reReadPages.length === 0 && videoReplays.length === 0) continue;
+
+    // Build narrative for this specific viewer
+    const parts: string[] = [];
+    if (reReadPages.length > 0) {
+      const top = reReadPages[0];
+      parts.push(`Page ${top.page} was re-read ${top.count} time${top.count > 1 ? 's' : ''}`);
+    }
+    if (videoReplays.length > 0) {
+      const top = videoReplays[0];
+      parts.push(`the page ${top.page} video was replayed ${top.count} time${top.count > 1 ? 's' : ''}`);
+    }
+
+    const narrative = parts.join(' and ') + '. They may need help justifying this internally.';
+
+    allViewerInsights.push({
+      viewerEmail: recipient.recipientEmail,
+      narrative,
+      reReadPages: reReadPages.slice(0, 3),
+      videoReplays,
+      backNavigations: [],
+      engagementDropping: false,
+      neverForwarded: false,
+      totalTimeSeconds: recipient.totalTimeSeconds,
+    });
+  }
+
+  if (allViewerInsights.length === 0) return null;
+
+  // Sort by most engaged viewer first
+  allViewerInsights.sort((a, b) => b.totalTimeSeconds - a.totalTimeSeconds);
+
+  // Return ALL viewer insights so frontend can show each one
+  return {
+    viewers: allViewerInsights,
+    
+    // Keep top-level fields for backward compat with single-viewer display
+    ...allViewerInsights[0],
+  };
+})(),
         ndaAcceptances, videoStats, viewerVideoStats,
         clarityByPage, dealIntentResponses, intentSummary, heatmapByPage,
         contentQuality: {
