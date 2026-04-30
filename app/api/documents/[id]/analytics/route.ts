@@ -753,17 +753,24 @@ export async function GET(
             parts.push(`the page ${top.page} video was replayed ${top.count} time${top.count > 1 ? 's' : ''}`);
           }
 
+          
+
           const narrative = parts.length > 0
             ? parts.join(' and ') + '. They may need help justifying this internally.'
             : null;
+            
 
-          return narrative ? {
+           return narrative ? {
             narrative,
             reReadPages,
             videoReplays,
             backNavigations: [],
             engagementDropping: false,
             neverForwarded: false,
+            viewerEmail: recipientPageTracking
+              .filter((r: any) => !r.bounced && !r.neverOpened && r.recipientEmail && !r.recipientEmail.startsWith('Anonymous'))
+              .sort((a: any, b: any) => b.totalTimeSeconds - a.totalTimeSeconds)
+              [0]?.recipientEmail || null,
           } : null;
         })(),
         ndaAcceptances, videoStats, viewerVideoStats,

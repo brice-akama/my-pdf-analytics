@@ -131,9 +131,13 @@ useEffect(() => {
 
   useEffect(() => { loadSharedDocument(); }, [token]);
 
-  useEffect(() => {
+   useEffect(() => {
     if (shareData?.document) {
-      setTimeout(() => { trackEvent('session_start', {}); }, 100);
+      // Wait for email ref to be populated before starting session
+      const delay = email ? 50 : 100;
+      setTimeout(() => {
+        trackEvent('session_start', { email: email || null });
+      }, delay);
       return () => {
         const duration = Math.floor((Date.now() - sessionStartTime) / 1000);
         trackEvent('session_end', { timeSpent: duration });
@@ -401,9 +405,9 @@ if (currentPage === shareData.document!.numPages && !endQuestionSubmitted) {
     }
   }, [shareData?.document, token, sessionId])
 
-  const trackEvent = async (event: string, data: any) => {
+   const trackEvent = async (event: string, data: any) => {
     try {
-      const payload: any = { event, sessionId, email: email || null };
+      const payload: any = { event, sessionId, email: emailRef.current || null };
       if (currentPage && !isNaN(currentPage)) payload.page = currentPage;
       if (shareData?.document?.numPages) payload.totalPages = shareData.document.numPages;
       if (event === 'time_spent' && data.timeSpent) {
