@@ -221,9 +221,7 @@ export default function SalesTeamsPage(): JSX.Element {
               <span className="text-sky-600">is paying attention.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
-              DocMetrics gives sales teams real-time visibility into how
-              prospects engage with proposals, pitch decks, and pricing
-              documents. Stop guessing. Start closing.
+              DocMetrics gives sales teams real-time visibility into how prospects engage with proposals — not just who opened it, but where they hesitated, what they re-read, and when a deal starts going cold before the prospect goes quiet.
             </p>
             <Button
               size="lg"
@@ -338,8 +336,25 @@ export default function SalesTeamsPage(): JSX.Element {
         reverse
       />
 
+       <FeatureBlock
+  step="3"
+  label="Deal Intelligence"
+  title="Know where your deal got uncertain before they go quiet."
+  description="DocMetrics detects hesitation signals inside your document — pages re-read multiple times, pricing sections revisited, video walkthroughs replayed. When a prospect goes silent, you already know where they got stuck and what to address in your follow-up."
+  bullets={[
+    "See which pages were re-read — hesitation always leaves a signal",
+    "Know when a prospect revisited your pricing section multiple times",
+    "Video replay detection — if they rewatched it, they needed more clarity",
+    "Dead deal scoring tells you when a deal is going cold before they ghost you",
+    "Push alerts tell you what happened and exactly when to follow up",
+  ]}
+  imageSrc="/assets/illustrations/deal-intelligence.png"
+  imageAlt="Deal intelligence hesitation signals and uncertainty detection"
+/>
+
+
       <FeatureBlock
-        step="3"
+        step="4"
         label="Lead Scoring"
         title="Prioritize the prospects most likely to close."
         description="DocMetrics automatically scores every prospect based on their engagement — time spent reading, number of visits, pages reviewed, downloads, and whether they shared the document with others. Hot leads rise to the top so you always know where to focus first."
@@ -355,7 +370,7 @@ export default function SalesTeamsPage(): JSX.Element {
       />
 
       <FeatureBlock
-        step="4"
+        step="5"
         label="Secure Sharing"
         title="Full control over who sees your proposals and for how long."
         description="Every link you create has its own settings. Require an email address, add a password, restrict to specific domains, set an expiry date, or block downloads — all before you send. Every link is unique and every view is tracked individually."
@@ -372,7 +387,7 @@ export default function SalesTeamsPage(): JSX.Element {
       />
 
       <FeatureBlock
-        step="5"
+        step="6"
         label="Bulk Send"
         title="Send personalised proposals to hundreds of prospects at once."
         description="Upload your CSV, map your custom fields, and DocMetrics generates a unique tracked link for every recipient. Each person gets their own document and you track each one individually — opens, pages read, time spent, and engagement score."
@@ -388,7 +403,7 @@ export default function SalesTeamsPage(): JSX.Element {
       />
 
       <FeatureBlock
-        step="6"
+        step="7"
         label="E-Signatures"
         title="Request signatures and track every step of the signing process."
         description="Send documents for e-signature directly from DocMetrics. Place signature fields, set a signing order, and track exactly how long each recipient took to open, read, and sign. All signature data appears in the same analytics dashboard."
@@ -404,6 +419,7 @@ export default function SalesTeamsPage(): JSX.Element {
         reverse
       />
 
+     
       {/* ── FAQ ── */}
       <section className="py-16 sm:py-20">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">

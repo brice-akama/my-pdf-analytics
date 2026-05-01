@@ -138,9 +138,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
               <span className="text-sky-600">after you send.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
-              Every document you share becomes a live data source. See who
-              read it, how long they spent on each page, whether they
-              understood it, and where they dropped off.
+               Every document you share becomes a live data source. See who read it, where they hesitated, when a deal starts going cold — and exactly what to do next.
             </p>
             <Link
               href="/signup"
@@ -198,6 +196,16 @@ export default function DocumentAnalyticsPage(): JSX.Element {
           imageSrc="/assets/understanding-bars.png"
           imageAlt="Document understanding analytics with video walkthrough completion"
         />
+
+        <SectionLabel>Deal intelligence</SectionLabel>
+
+<ScreenshotBlock
+  title="Know where your deal got uncertain before they go quiet."
+  description="When a prospect re-reads the same page multiple times, jumps back to your pricing section, or returns to your document days later without responding — something is making them hesitate. DocMetrics surfaces these signals automatically. You see a dead deal score, the specific pages that caused uncertainty, and a recommended action so you know exactly when to follow up and what to say."
+  imageSrc="/assets/illustrations/deal-intelligence.png"
+  imageAlt="Deal intelligence showing hesitation signals re-reads and dead deal scoring"
+  reverse
+/>
 
         <SectionLabel>Real time notifications</SectionLabel>
 

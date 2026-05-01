@@ -327,7 +327,7 @@ export default function ClientPortalsPage(): JSX.Element {
         step="2"
         label="Document Tracking"
         title="Know exactly what your client read and when."
-        description="The moment a client opens a document, DocMetrics notifies you. A page-by-page breakdown shows exactly how long they spent on each section, which pages they skipped, and whether they came back for a second look. You always know where they are in the process."
+        description="The moment a client opens a document, DocMetrics notifies you. A page-by-page breakdown shows exactly how long they spent on each section, which pages they skipped, and whether they came back for a second look. You always know where they are in the process — and where they got stuck."
         bullets={[
           "Instant notification the moment a client opens any document",
           "Per-page reading time so you know which sections held their attention",
@@ -341,7 +341,24 @@ export default function ClientPortalsPage(): JSX.Element {
       />
 
       <FeatureBlock
-        step="3"
+  step="3"
+  label="Engagement Intelligence"
+  title="Know when a client is stuck before they tell you."
+  description="When a client re-reads the same section multiple times or keeps returning to a specific page without moving forward, something is blocking them. DocMetrics surfaces these signals automatically so you can reach out at exactly the right moment with exactly the right answer."
+  bullets={[
+    "Re-read detection shows which sections caused hesitation",
+    "Return visit alerts tell you when a client comes back days later",
+    "Dead deal scoring flags client relationships that have gone cold",
+    "Push alerts tell you when to follow up and what to address",
+    "Know before your client has to ask — remove blockers before they become problems",
+  ]}
+  imageSrc="/assets/illustrations/deal-intelligence.png"
+  imageAlt="Client engagement intelligence showing hesitation signals and re-reads"
+  reverse
+/>
+
+      <FeatureBlock
+        step="4"
         label="E-Signatures"
         title="Get contracts signed without leaving the portal."
         description="Send signature requests directly from DocMetrics. Place signature fields, date fields, and text inputs anywhere on any document. Clients sign inside the portal in one seamless flow. You track exactly how long they spent reading before they signed."
@@ -357,7 +374,7 @@ export default function ClientPortalsPage(): JSX.Element {
       />
 
       <FeatureBlock
-        step="4"
+        step="5"
         label="File Requests"
         title="Collect documents from clients without the back and forth."
         description="Create a file request inside any Space. Specify what you need, set a due date, and send your client a secure upload link. Their files land directly in the folder you specify. No email attachments, no chasing, no confusion about what was received."
@@ -374,7 +391,7 @@ export default function ClientPortalsPage(): JSX.Element {
       />
 
       <FeatureBlock
-        step="5"
+        step="6"
         label="NDA and Security"
         title="Protect confidential materials before clients can view anything."
         description="For sensitive proposals, financial models, or confidential briefs, require clients to sign an NDA before they can access your Space. DocMetrics collects the signature digitally, timestamps it, and stores it automatically. No separate tool required."
@@ -390,7 +407,7 @@ export default function ClientPortalsPage(): JSX.Element {
       />
 
       <FeatureBlock
-        step="6"
+        step="7"
         label="Q&A"
         title="Handle client questions inside the portal, not in your inbox."
         description="Every Space has a Q&A tab where clients can ask questions directly about any document. You receive a notification and reply from your dashboard. All questions and answers stay organized inside the Space so nothing gets lost in email threads."

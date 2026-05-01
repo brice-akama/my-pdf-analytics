@@ -140,10 +140,7 @@ export default function AboutPage(): JSX.Element {
             after you send them.
           </h1>
           <p className="text-base sm:text-lg text-slate-500 leading-relaxed max-w-2xl">
-            DocMetrics is a document intelligence platform that gives sales
-            teams, founders, recruiters, and professionals real-time
-            visibility into how their documents are read, shared, and acted
-            upon.
+            DocMetrics is a document intelligence platform that gives sales teams, founders, recruiters, and professionals real-time visibility into how their documents are read, shared, and acted upon — not just who opened it, but where they hesitated, what needed explanation, and when a deal is going cold.
           </p>
         </div>
       </div>
@@ -165,9 +162,7 @@ export default function AboutPage(): JSX.Element {
               pages held their attention, and exactly when to follow up.
             </p>
             <p className="text-base text-slate-600 leading-relaxed">
-              We believe that the intelligence gap between sending a document
-              and closing a deal is one of the most solvable problems in
-              business. DocMetrics closes that gap.
+               We believe the silence after sending a document is one of the most expensive problems in business. DocMetrics replaces that silence with clear signals — where they hesitated, what they needed, and exactly when to act.
             </p>
           </div>
 
@@ -205,6 +200,11 @@ export default function AboutPage(): JSX.Element {
                   description:
                     "Know the instant someone opens your document. See their name, location, device, and time of visit. Track every return visit and get notified when a prospect is reading right now.",
                 },
+                {
+  title: "Deal Intelligence",
+  description:
+    "See where prospects hesitated, which pages they re-read, and when a deal starts going cold before they go quiet. Not just engagement data — a signal for what to do next.",
+},
                 {
                   title: "Page-by-Page Analytics",
                   description:

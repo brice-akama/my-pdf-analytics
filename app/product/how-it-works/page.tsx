@@ -178,9 +178,7 @@ export default function HowItWorksPage(): JSX.Element {
               <span className="text-sky-600">in minutes.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
-              DocMetrics turns every document you share into a live data
-              source. See who read it, how long they stayed on each page,
-              and exactly when to follow up.
+             DocMetrics turns every document you share into a live data source. See who read it, where they hesitated, when a deal starts going cold — and exactly when to follow up.
             </p>
             <Button
               size="lg"
@@ -261,7 +259,23 @@ export default function HowItWorksPage(): JSX.Element {
       />
 
       <StepBlock
-        step="4"
+  step="4"
+  label="Deal Intelligence"
+  title="Know where your deal got uncertain before they go quiet."
+  description="DocMetrics detects hesitation signals automatically — pages re-read multiple times, pricing sections revisited, engagement dropping across return visits. When a prospect goes silent you already know where they got stuck and what to address."
+  bullets={[
+    "Re-read detection flags pages that caused hesitation or doubt",
+    "Dead deal scoring tells you when a deal is going cold before they ghost you",
+    "Return visit patterns show when a prospect is still evaluating vs moved on",
+    "Push alerts tell you exactly when to follow up and what to address",
+    "Not just what happened — what it means for your deal",
+  ]}
+  imageSrc="/assets/illustrations/deal-intelligence.png"
+  imageAlt="Deal intelligence showing hesitation signals and uncertainty detection"
+/>
+
+      <StepBlock
+        step="5"
         label="Understand"
         title="Know if they actually understood what they read."
         description="Reading time tells you how long they stayed. DocMetrics goes further — record a short video walkthrough for any page. Prospects watch your explanation without leaving the document and you see exactly how much they understood."
@@ -277,7 +291,7 @@ export default function HowItWorksPage(): JSX.Element {
       />
 
       <StepBlock
-        step="5"
+        step="6"
         label="Sign"
         title="Send for signature and track every step of the signing process."
         description="Send documents for e-signature directly from DocMetrics. The signer reads, watches your walkthroughs, and signs in one seamless flow. You see how long they read before signing and which page they were on when they declined."
@@ -293,7 +307,7 @@ export default function HowItWorksPage(): JSX.Element {
       />
 
       <StepBlock
-        step="6"
+        step="7"
         label="Data Rooms"
         title="Organize everything for one deal in a secure data room."
         description="A Space is a private branded environment for one client, investor, or deal. Invite people with one link, assign roles, and track every view across every document inside."

@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "DocMetrics Fundraising — Know Which Investors Are Serious About Your Deal",
     description:
-      "Real-time visibility into how investors engage with pitch decks, financial models, and due diligence materials. Stop guessing. Start closing.",
+      "Real-time visibility into how investors engage with pitch decks, financial models, and due diligence materials. Stop guessing who is serious. Know where they hesitated, what made them uncertain, and exactly when to follow up before they go quiet.",
     url: "https://docmetrics.io/solutions/fundraising",
     siteName: "DocMetrics",
     type: "website",
@@ -224,7 +224,7 @@ export default function FundraisingPage(): JSX.Element {
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
               DocMetrics gives founders and finance professionals real-time
               visibility into how investors engage with pitch decks, financial
-              models, and due diligence materials. Stop guessing. Start closing.
+              models, and due diligence materials. Stop guessing who is serious. Know where they hesitated, what made them uncertain, and exactly when to follow up before they go quiet.
             </p>
             <Button
               size="lg"
@@ -335,7 +335,24 @@ export default function FundraisingPage(): JSX.Element {
       />
 
       <FeatureBlock
-        step="3"
+  step="3"
+  label="Investor Intelligence"
+  title="Know when an investor is uncertain before they go cold."
+  description="When an investor re-reads your financials three times, jumps back to your traction slide, or returns to your deck days later without responding — something is making them hesitate. DocMetrics surfaces these signals automatically so you can address the real objection before they pass."
+  bullets={[
+    "Re-read detection shows which slides caused hesitation or doubt",
+    "Return visit alerts tell you when an investor comes back days later",
+    "Pricing and traction page revisits are the strongest buying signals",
+    "Dead deal scoring flags investors who have likely moved on",
+    "Know the right moment to follow up — and exactly what to say",
+  ]}
+  imageSrc="/assets/illustrations/investor-intelligence.png"
+  imageAlt="Investor hesitation signals and re-read detection for pitch decks"
+  reverse
+/>
+
+      <FeatureBlock
+        step="4"
         label="Engagement Scoring"
         title="Prioritize the investors most likely to write a check."
         description="DocMetrics automatically scores every investor based on their engagement — time spent reading, number of visits, pages reviewed, and whether they shared the deck with others. The most engaged investors rise to the top so you always know where to focus your limited time."
@@ -351,7 +368,7 @@ export default function FundraisingPage(): JSX.Element {
       />
 
       <FeatureBlock
-        step="4"
+        step="5"
         label="Secure Sharing"
         title="Full control over who accesses your confidential materials."
         description="Your pitch deck contains sensitive financial projections, strategic plans, and proprietary information. DocMetrics gives you complete control over every document you share. Password protect, require email verification, restrict to specific domains, set expiry dates, and block downloads — all before you send."
@@ -368,7 +385,7 @@ export default function FundraisingPage(): JSX.Element {
       />
 
       <FeatureBlock
-        step="5"
+        step="6"
         label="Data Rooms"
         title="Organize your entire deal in one secure branded space."
         description="When investors move to due diligence, create a Space — a secure branded data room with folders for financials, legal, pitch materials, and cap table. Invite investors with role-based access, require an NDA before entry, and track every document view across your entire deal room."
@@ -384,7 +401,7 @@ export default function FundraisingPage(): JSX.Element {
       />
 
       <FeatureBlock
-        step="6"
+        step="7"
         label="NDA and Agreements"
         title="Gate your most sensitive materials behind a signed agreement."
         description="For confidential information memorandums, financial models, and legal documents, DocMetrics lets you require investors to sign an NDA before they can view anything. The signature is collected digitally, timestamped, and stored automatically — no separate tool required."
