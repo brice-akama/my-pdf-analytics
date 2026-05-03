@@ -273,7 +273,11 @@ export async function GET(
     if (country) countryCount.set(country, (countryCount.get(country) || 0) + 1);
   });
   const topCountry = countryCount.size > 0
-    ? [...countryCount.entries()].sort((a, b) => b[1] - a[1])[0][0]
+    ? [...countryCount.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([country]) => country)
+        .join(', ')
     : null;
 
   // Total time spent that day across all sessions
