@@ -280,9 +280,14 @@ export async function GET(
         .join(', ')
     : null;
 
-  // Total time spent that day across all sessions
-  const totalTimeSeconds = daySessions.reduce(
-    (sum: number, s: any) => sum + (s.duration || 0), 0
+ // Total time spent that day — use analytics_logs page_view viewTime
+  // because session.duration is often 0 when session_end does not fire
+  const dayPageLogs = analyticsLogs.filter((l: any) => {
+    const logTime = new Date(l.timestamp);
+    return logTime >= start && logTime <= end && l.action === 'page_view';
+  });
+  const totalTimeSeconds = dayPageLogs.reduce(
+    (sum: number, l: any) => sum + (l.viewTime || 0), 0
   );
 
   return {
