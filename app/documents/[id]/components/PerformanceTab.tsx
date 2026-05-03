@@ -232,39 +232,106 @@ export default function PerformanceTab({
         </div>
 
         {/* Views by date chart — still shown on basic */}
-        <div className="py-5 border-b border-slate-100">
-          <div className="flex items-center justify-between mb-5">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Views — Last 7 Days</p>
-            <BarChart2 className="h-3.5 w-3.5 text-slate-300" />
-          </div>
-          <div className="flex items-end justify-between gap-1.5" style={{ height: '120px' }}>
-            {analytics.viewsByDate.map((day: any, index: number) => {
-              const maxViews = Math.max(...analytics.viewsByDate.map((d: any) => d.views), 1);
-              const height = (day.views / maxViews) * 100;
-              return (
-                <div key={index} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                  <div className="relative w-full flex flex-col justify-end" style={{ height: '96px' }}>
-                    {day.views > 0 && (
-                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-white px-1">
-                        {day.views}
-                      </div>
-                    )}
-                    <div
-                      className="w-full rounded-sm transition-all group-hover:opacity-80"
-                      style={{
-                        height: `${height}%`,
-                        minHeight: day.views > 0 ? '3px' : '0',
-                        background: day.views > 0 ? 'linear-gradient(180deg, #a855f7 0%, #0ea5e9 100%)' : '#f1f5f9',
-                      }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-slate-300 font-medium">{day.date}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {/* Views by date chart — shown on basic */}
+        {(() => {
+          const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
+          const maxViews = Math.max(...analytics.viewsByDate.map((d: any) => d.views), 1);
+          const totalPeriodViews = analytics.viewsByDate.reduce((sum: number, d: any) => sum + d.views, 0);
+          const hoveredDay = hoveredIndex !== null ? analytics.viewsByDate[hoveredIndex] : null;
 
+          const formatFullDate = (dateStr: string) => {
+            const [month, day] = dateStr.split('/');
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            return `${months[parseInt(month) - 1]} ${day}`;
+          };
+
+          return (
+            <div className="py-5 border-b border-slate-100">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                  Project Views
+                </p>
+                <BarChart2 className="h-3.5 w-3.5 text-slate-300" />
+              </div>
+              <p className="text-[10px] text-slate-300 mb-5">
+                Project views by date (last 30 days)
+              </p>
+
+              <div className="flex items-end gap-[3px]" style={{ height: '100px' }}>
+                {analytics.viewsByDate.map((day: any, index: number) => {
+                  const height = (day.views / maxViews) * 100;
+                  const isHovered = hoveredIndex === index;
+                  return (
+                    <div
+                      key={index}
+                      className="flex-1 flex flex-col justify-end cursor-pointer"
+                      style={{ height: '100px' }}
+                      onMouseEnter={() => setHoveredIndex(index)}
+                      onMouseLeave={() => setHoveredIndex(null)}
+                    >
+                      <div
+                        className="w-full rounded-t-sm transition-all duration-150"
+                        style={{
+                          height: `${Math.max(height, day.views > 0 ? 4 : 0)}%`,
+                          minHeight: day.views > 0 ? '4px' : '0',
+                          background: isHovered
+                            ? '#0ea5e9'
+                            : day.views > 0
+                            ? 'linear-gradient(180deg, #a855f7 0%, #0ea5e9 100%)'
+                            : '#f1f5f9',
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex gap-[3px] mt-1.5 mb-5">
+                {analytics.viewsByDate.map((day: any, index: number) => (
+                  <div key={index} className="flex-1 text-center">
+                    {index % 5 === 0 && (
+                      <span className="text-[9px] text-slate-300 font-medium">
+                        {day.date}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {hoveredDay ? (
+                <div className="border-t border-slate-100 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-medium mb-0.5">Date</p>
+                      <p className="text-xs font-semibold text-slate-900">
+                        {formatFullDate(hoveredDay.date)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-medium mb-0.5">Views</p>
+                      <p className="text-xs font-semibold text-slate-900">
+                        {hoveredDay.views} {hoveredDay.views === 1 ? 'view' : 'views'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="border-t border-slate-100 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-medium mb-0.5">Period</p>
+                      <p className="text-xs font-semibold text-slate-900">Last 30 days</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-medium mb-0.5">Total Views</p>
+                      <p className="text-xs font-semibold text-slate-900">{totalPeriodViews}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {/* Upgrade banner — gates all the rich analytics below */}
         <AnalyticsUpgradeBanner />
       </>
@@ -417,38 +484,153 @@ export default function PerformanceTab({
       )}
 
       {/* SECTION 4 — VIEWS CHART */}
-      <div className="py-5 border-b border-slate-100">
-        <div className="flex items-center justify-between mb-5">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Views — Last 7 Days</p>
-          <BarChart2 className="h-3.5 w-3.5 text-slate-300" />
-        </div>
-        <div className="flex items-end justify-between gap-1.5" style={{ height: '120px' }}>
-          {analytics.viewsByDate.map((day: any, index: number) => {
-            const maxViews = Math.max(...analytics.viewsByDate.map((d: any) => d.views), 1);
-            const height = (day.views / maxViews) * 100;
-            return (
-              <div key={index} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                <div className="relative w-full flex flex-col justify-end" style={{ height: '96px' }}>
-                  {day.views > 0 && (
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-white px-1">
-                      {day.views}
-                    </div>
-                  )}
+      {/* SECTION 4 — VIEWS CHART */}
+      {(() => {
+        const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
+        const maxViews = Math.max(...analytics.viewsByDate.map((d: any) => d.views), 1);
+        const totalPeriodViews = analytics.viewsByDate.reduce((sum: number, d: any) => sum + d.views, 0);
+        const hoveredDay = hoveredIndex !== null ? analytics.viewsByDate[hoveredIndex] : null;
+
+        // Find the top page for a given day from recipientPageTracking
+        // We use viewsByDate topViewers if available, otherwise blank
+        const formatFullDate = (dateStr: string) => {
+          const [month, day] = dateStr.split('/');
+          const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+          return `${months[parseInt(month) - 1]} ${day}`;
+        };
+
+        const formatDuration = (seconds: number) => {
+          if (!seconds || seconds <= 0) return '0m 0s';
+          const m = Math.floor(seconds / 60);
+          const s = seconds % 60;
+          return `${m}m ${s}s`;
+        };
+
+        return (
+          <div className="py-5 border-b border-slate-100">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                Project Views
+              </p>
+              <BarChart2 className="h-3.5 w-3.5 text-slate-300" />
+            </div>
+            <p className="text-[10px] text-slate-300 mb-5">
+              Project views by date (last 30 days)
+            </p>
+
+            {/* Bar chart */}
+            <div
+              className="flex items-end gap-[3px]"
+              style={{ height: '100px' }}
+            >
+              {analytics.viewsByDate.map((day: any, index: number) => {
+                const height = (day.views / maxViews) * 100;
+                const isHovered = hoveredIndex === index;
+                return (
                   <div
-                    className="w-full rounded-sm transition-all group-hover:opacity-80"
-                    style={{
-                      height: `${height}%`,
-                      minHeight: day.views > 0 ? '3px' : '0',
-                      background: day.views > 0 ? 'linear-gradient(180deg, #a855f7 0%, #0ea5e9 100%)' : '#f1f5f9',
-                    }}
-                  />
+                    key={index}
+                    className="flex-1 flex flex-col justify-end cursor-pointer"
+                    style={{ height: '100px' }}
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                  >
+                    <div
+                      className="w-full rounded-t-sm transition-all duration-150"
+                      style={{
+                        height: `${Math.max(height, day.views > 0 ? 4 : 0)}%`,
+                        minHeight: day.views > 0 ? '4px' : '0',
+                        background: isHovered
+                          ? '#0ea5e9'
+                          : day.views > 0
+                          ? 'linear-gradient(180deg, #a855f7 0%, #0ea5e9 100%)'
+                          : '#f1f5f9',
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* X axis labels — show every 5th */}
+            <div className="flex gap-[3px] mt-1.5 mb-5">
+              {analytics.viewsByDate.map((day: any, index: number) => (
+                <div key={index} className="flex-1 text-center">
+                  {index % 5 === 0 && (
+                    <span className="text-[9px] text-slate-300 font-medium">
+                      {day.date}
+                    </span>
+                  )}
                 </div>
-                <span className="text-[10px] text-slate-300 font-medium">{day.date}</span>
+              ))}
+            </div>
+
+            {/* Hover detail row — shows when bar is hovered */}
+            {hoveredDay ? (
+              <div className="border-t border-slate-100 pt-4">
+                <div className="grid grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Date</p>
+                    <p className="text-xs font-semibold text-slate-900">
+                      {formatFullDate(hoveredDay.date)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Views</p>
+                    <p className="text-xs font-semibold text-slate-900">
+                      {hoveredDay.views} {hoveredDay.views === 1 ? 'view' : 'views'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Duration</p>
+                    <p className="text-xs font-semibold text-slate-900">
+                      {hoveredDay.views > 0 && analytics.avgTimePerSession
+                        ? analytics.avgTimePerSession
+                        : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Top Page</p>
+                    <p className="text-xs font-semibold text-slate-900">
+                      {hoveredDay.views > 0 && analytics.pageEngagement?.length > 0
+                        ? `Page ${analytics.pageEngagement.sort((a: any, b: any) => b.totalViews - a.totalViews)[0]?.page}`
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
+            ) : (
+              /* Default summary row — shown when nothing is hovered */
+              <div className="border-t border-slate-100 pt-4">
+                <div className="grid grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Period</p>
+                    <p className="text-xs font-semibold text-slate-900">Last 30 days</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Total Views</p>
+                    <p className="text-xs font-semibold text-slate-900">{totalPeriodViews}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Avg / Visit</p>
+                    <p className="text-xs font-semibold text-slate-900">
+                      {analytics.avgTimePerSession || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Top Page</p>
+                    <p className="text-xs font-semibold text-slate-900">
+                      {analytics.pageEngagement?.length > 0
+                        ? `Page ${[...analytics.pageEngagement].sort((a: any, b: any) => b.totalViews - a.totalViews)[0]?.page}`
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* SECTION 5 — PAGE ENGAGEMENT */}
       {analytics.pageEngagement?.length > 0 && (

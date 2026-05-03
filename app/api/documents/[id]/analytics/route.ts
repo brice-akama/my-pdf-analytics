@@ -106,9 +106,9 @@ export async function GET(
         : 0;
 
       const today = new Date();
-      const viewsByDate = Array.from({ length: 7 }, (_, i) => {
+      const viewsByDate = Array.from({ length: 30 }, (_, i) => {
         const date = new Date(today);
-        date.setDate(today.getDate() - (6 - i));
+        date.setDate(today.getDate() - (29 - i));
         const start = new Date(date.setHours(0, 0, 0, 0));
         const end = new Date(date.setHours(23, 59, 59, 999));
         const count = oldViews.filter((v: any) => {
