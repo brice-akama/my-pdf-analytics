@@ -244,24 +244,50 @@ export async function GET(
       : 0;
 
     const today = new Date();
-    const viewsByDate = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() - (6 - i));
-      const start = new Date(date.setHours(0, 0, 0, 0));
-      const end = new Date(date.setHours(23, 59, 59, 999));
-      const oldViewsCount = oldViews.filter((v: any) => {
-        const viewedAt = new Date(v.viewedAt);
-        return viewedAt >= start && viewedAt <= end;
-      }).length;
-      const newLogsCount = analyticsLogs.filter((l: any) => {
-        const logTime = new Date(l.timestamp);
-        return logTime >= start && logTime <= end && l.action === 'document_viewed';
-      }).length;
-      return {
-        date: `${date.getMonth() + 1}/${date.getDate()}`,
-        views: Math.max(oldViewsCount, newLogsCount),
-      };
-    });
+    const viewsByDate = Array.from({ length: 30 }, (_, i) => {
+  const date = new Date(today);
+  date.setDate(today.getDate() - (29 - i));
+  const start = new Date(date.setHours(0, 0, 0, 0));
+  const end = new Date(date.setHours(23, 59, 59, 999));
+
+  const oldViewsCount = oldViews.filter((v: any) => {
+    const viewedAt = new Date(v.viewedAt);
+    return viewedAt >= start && viewedAt <= end;
+  }).length;
+
+  const newLogsCount = analyticsLogs.filter((l: any) => {
+    const logTime = new Date(l.timestamp);
+    return logTime >= start && logTime <= end && l.action === 'document_viewed';
+  }).length;
+
+  // Get sessions for this day to extract country and total time
+  const daySessions = allSessions.filter((s: any) => {
+    const startedAt = new Date(s.startedAt);
+    return startedAt >= start && startedAt <= end;
+  });
+
+  // Top country for this day
+  const countryCount = new Map<string, number>();
+  daySessions.forEach((s: any) => {
+    const country = s.location?.country || null;
+    if (country) countryCount.set(country, (countryCount.get(country) || 0) + 1);
+  });
+  const topCountry = countryCount.size > 0
+    ? [...countryCount.entries()].sort((a, b) => b[1] - a[1])[0][0]
+    : null;
+
+  // Total time spent that day across all sessions
+  const totalTimeSeconds = daySessions.reduce(
+    (sum: number, s: any) => sum + (s.duration || 0), 0
+  );
+
+  return {
+    date: `${date.getMonth() + 1}/${date.getDate()}`,
+    views: Math.max(oldViewsCount, newLogsCount),
+    topCountry,
+    totalTimeSeconds,
+  };
+});
 
     const pageEngagement = await Promise.all(
       Array.from({ length: document.numPages }, async (_, i) => {
