@@ -566,9 +566,11 @@ export default function PerformanceTab({
             </div>
 
             {/* Hover detail row — shows when bar is hovered */}
-            {hoveredDay ? (
-              <div className="border-t border-slate-100 pt-4">
-                <div className="grid grid-cols-4 gap-4">
+  {/* Detail row — always visible, updates on hover */}
+            <div className="border-t border-slate-100 pt-4">
+              {hoveredDay ? (
+                // Hovered state — show that specific day
+                <div className="grid grid-cols-5 gap-3">
                   <div>
                     <p className="text-[10px] text-slate-400 font-medium mb-0.5">Date</p>
                     <p className="text-xs font-semibold text-slate-900">
@@ -584,25 +586,29 @@ export default function PerformanceTab({
                   <div>
                     <p className="text-[10px] text-slate-400 font-medium mb-0.5">Duration</p>
                     <p className="text-xs font-semibold text-slate-900">
-                      {hoveredDay.views > 0 && analytics.avgTimePerSession
-                        ? analytics.avgTimePerSession
+                      {hoveredDay.totalTimeSeconds > 0
+                        ? formatDuration(hoveredDay.totalTimeSeconds)
                         : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Location</p>
+                    <p className="text-xs font-semibold text-slate-900">
+                      {hoveredDay.topCountry || '—'}
                     </p>
                   </div>
                   <div>
                     <p className="text-[10px] text-slate-400 font-medium mb-0.5">Top Page</p>
                     <p className="text-xs font-semibold text-slate-900">
                       {hoveredDay.views > 0 && analytics.pageEngagement?.length > 0
-                        ? `Page ${analytics.pageEngagement.sort((a: any, b: any) => b.totalViews - a.totalViews)[0]?.page}`
+                        ? `Page ${[...analytics.pageEngagement].sort((a: any, b: any) => b.totalViews - a.totalViews)[0]?.page}`
                         : '—'}
                     </p>
                   </div>
                 </div>
-              </div>
-            ) : (
-              /* Default summary row — shown when nothing is hovered */
-              <div className="border-t border-slate-100 pt-4">
-                <div className="grid grid-cols-4 gap-4">
+              ) : (
+                // Default state — always visible summary
+                <div className="grid grid-cols-5 gap-3">
                   <div>
                     <p className="text-[10px] text-slate-400 font-medium mb-0.5">Period</p>
                     <p className="text-xs font-semibold text-slate-900">Last 30 days</p>
@@ -612,9 +618,23 @@ export default function PerformanceTab({
                     <p className="text-xs font-semibold text-slate-900">{totalPeriodViews}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Avg / Visit</p>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Total Time</p>
                     <p className="text-xs font-semibold text-slate-900">
-                      {analytics.avgTimePerSession || '—'}
+                      {(() => {
+                        const total = analytics.viewsByDate.reduce(
+                          (sum: number, d: any) => sum + (d.totalTimeSeconds || 0), 0
+                        );
+                        if (!total || total <= 0) return analytics.avgTimePerSession || '—';
+                        const m = Math.floor(total / 60);
+                        const s = total % 60;
+                        return `${m}m ${s}s`;
+                      })()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-medium mb-0.5">Top Location</p>
+                    <p className="text-xs font-semibold text-slate-900">
+                      {analytics.locations?.[0]?.country || '—'}
                     </p>
                   </div>
                   <div>
@@ -626,8 +646,8 @@ export default function PerformanceTab({
                     </p>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         );
       })()}
