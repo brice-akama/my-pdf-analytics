@@ -6,6 +6,7 @@ import { Check, TrendingUp, Users, Flame, Target, AlertTriangle, Wifi, MousePoin
 import { Eye, FileText, BarChart3, Link as LinkIcon, Clock, ChevronRight } from "lucide-react";
 import DocSendStyleCharts from '@/components/DocSendStyleCharts';
 import dynamic from 'next/dynamic';
+import DealIntelligenceSummary from './DealIntelligenceSummary';
 
 const DocumentHeatmap = dynamic(() => import('@/components/DocumentHeatmap'), { ssr: false });
 const ViewerMap = dynamic(() => import('@/components/ViewerMap'), { ssr: false });
@@ -340,6 +341,11 @@ export default function PerformanceTab({
 
   return (
     <>
+    {/* SECTION 0 — DEAL INTELLIGENCE SUMMARY */}
+      <DealIntelligenceSummary
+        documentId={doc._id}
+        analytics={analytics}
+      />
       {/* SECTION 1 — DEAD DEAL ALERT */}
       {analytics.deadDeal?.score >= 60 && (
         <div className={`py-5 border-b ${analytics.deadDeal.score >= 80 ? 'border-red-200 bg-red-50/40' : 'border-orange-200 bg-orange-50/40'}`}>

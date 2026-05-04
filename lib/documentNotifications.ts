@@ -567,6 +567,18 @@ export async function sendDealInsightEmail({
       <p>${insight}</p>
       <p style="color: #555;">${skippedText}</p>
 
+      ${narrativeOverride ? `
+      <table style="width:100%; border-collapse:collapse; margin: 24px 0;">
+        <tr style="background:#f7f7f7;">
+          <td style="padding:8px 12px; font-weight:bold;">Document</td>
+          <td style="padding:8px 12px;">${documentName}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px; font-weight:bold;">Prospect</td>
+          <td style="padding:8px 12px;">${viewerEmail}</td>
+        </tr>
+      </table>
+      ` : `
       <table style="width:100%; border-collapse:collapse; margin: 24px 0;">
         <tr style="background:#f7f7f7;">
           <td style="padding:8px 12px; font-weight:bold;">Document</td>
@@ -598,7 +610,7 @@ export async function sendDealInsightEmail({
           <td style="padding:8px 12px;">${daysSilent} days</td>
         </tr>` : ''}
       </table>
-
+      `}
       <a href="${analyticsUrl}" style="
         display: inline-block;
         background: #0078D4;
