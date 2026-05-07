@@ -107,9 +107,30 @@ export default function DealIntelligenceSummary({ documentId, analytics }: Props
           intentLevel: analytics.intentScores?.find(
             (v: any) => v.email === r.recipientEmail
           )?.intentLevel || 'low',
-          pageWithMostTime: sortedPages[0]?.page || null,
+         pageWithMostTime: sortedPages[0]?.page || null,
           pageWithLeastTime: sortedPages[sortedPages.length - 1]?.page || null,
           totalPages: analytics.pageEngagement?.length || 1,
+          // Progressive return pattern from revisit data
+          progressionPattern: (() => {
+            const sessions = analytics.revisitData?.totalSessions || 1;
+            if (sessions < 2) return 'single';
+            // Use engagementDropping as falling signal
+            if (analytics.revisitData?.engagementDropping) return 'falling';
+            // Use completion rate trend as progressive signal
+            if (r.completionRate >= 80 && sessions >= 2) return 'progressive';
+            // Default to stuck if multiple sessions but low completion
+            if (sessions >= 2 && r.completionRate < 50) return 'stuck';
+            return 'single';
+          })(),
+          progressionDetails: {
+            sessionDepths: [],
+            stuckOnPages: r.pageData
+              ?.filter((p: any) => p.visits >= 2)
+              .map((p: any) => p.page) || [],
+            deepestPageReached: r.pageData
+              ? Math.max(...r.pageData.map((p: any) => p.page), 0)
+              : 0,
+          },
         };
       });
   };

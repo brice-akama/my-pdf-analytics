@@ -177,13 +177,90 @@ export async function detectSignals(db: any, {
     const allSessions = await db.collection('analytics_sessions').find({
       documentId,
       viewerId,
-    }).sort({ startedAt: -1 }).limit(3).toArray();
+    }).sort({ startedAt: -1 }).limit(5).toArray();
 
     let engagementDropping = false;
     if (allSessions.length >= 3) {
       const durations = allSessions.map((s: any) => s.duration || 0);
-      // Each visit shorter than the previous = dropping
       engagementDropping = durations[0] < durations[1] && durations[1] < durations[2];
+    }
+
+    // ── Progressive return pattern ────────────────────────────────
+    // Compare the deepest page reached in each session chronologically
+    // Rising = momentum building (hot signal)
+    // Flat   = stuck on same section (hesitation signal)
+    // Falling = losing interest (cooling signal)
+    let progressionPattern: 'progressive' | 'stuck' | 'falling' | 'single' = 'single';
+    let progressionDetails: {
+      sessionDepths: number[];
+      stuckOnPages: number[];
+      deepestPageReached: number;
+    } = {
+      sessionDepths: [],
+      stuckOnPages: [],
+      deepestPageReached: 0,
+    };
+
+    if (allSessions.length >= 2) {
+      // Sort chronologically oldest first for comparison
+      const chronologicalSessions = [...allSessions].reverse();
+
+      // Get deepest page reached per session
+      const sessionDepths = chronologicalSessions.map((s: any) => {
+        const pages = s.pagesViewed || [];
+        return pages.length > 0 ? Math.max(...pages) : 0;
+      }).filter((d: number) => d > 0);
+
+      progressionDetails.sessionDepths = sessionDepths;
+      progressionDetails.deepestPageReached = sessionDepths.length > 0
+        ? Math.max(...sessionDepths)
+        : 0;
+
+      if (sessionDepths.length >= 2) {
+        // Check if depths are consistently rising
+        const isRising = sessionDepths.every(
+          (depth: number, i: number) => i === 0 || depth >= sessionDepths[i - 1]
+        );
+
+        // Check if depths are consistently falling
+        const isFalling = sessionDepths.every(
+          (depth: number, i: number) => i === 0 || depth <= sessionDepths[i - 1]
+        ) && sessionDepths[sessionDepths.length - 1] < sessionDepths[0];
+
+        // Check if depths are flat — same max page each session
+        const isFlat = sessionDepths.every(
+          (depth: number) => Math.abs(depth - sessionDepths[0]) <= 1
+        );
+
+        if (isRising && !isFlat) {
+          progressionPattern = 'progressive';
+        } else if (isFalling) {
+          progressionPattern = 'falling';
+        } else if (isFlat) {
+          progressionPattern = 'stuck';
+
+          // Find which pages they keep returning to
+          // These are the pages where they are stuck
+          const stuckDepth = sessionDepths[0];
+          const allPagesAcrossSessions = chronologicalSessions.flatMap(
+            (s: any) => s.pagesViewed || []
+          );
+          const pageFrequency = new Map<number, number>();
+          allPagesAcrossSessions.forEach((p: number) => {
+            if (p <= stuckDepth + 1) {
+              pageFrequency.set(p, (pageFrequency.get(p) || 0) + 1);
+            }
+          });
+          progressionDetails.stuckOnPages = Array.from(pageFrequency.entries())
+            .filter(([, count]) => count >= 2)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([page]) => page);
+        } else {
+          // Mixed pattern — use engagement dropping as tiebreaker
+          progressionPattern = engagementDropping ? 'falling' : 'stuck';
+        }
+      }
     }
 
     return {
@@ -196,6 +273,8 @@ export async function detectSignals(db: any, {
       skippedPages,
       videoReplays,
       engagementDropping,
+      progressionPattern,
+      progressionDetails,
     };
   } catch (err) {
     console.error('[detectSignals] error:', err);

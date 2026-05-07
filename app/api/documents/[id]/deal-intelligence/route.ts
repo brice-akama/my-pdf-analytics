@@ -87,6 +87,13 @@ export async function POST(
         pageWithMostTime: viewer.pageWithMostTime || null,
         pageWithLeastTime: viewer.pageWithLeastTime || null,
         totalPages: viewer.totalPages || 1,
+        // Progressive return pattern — new signal
+        progressionPattern: viewer.progressionPattern || 'single',
+        progressionDetails: viewer.progressionDetails || {
+          sessionDepths: [],
+          stuckOnPages: [],
+          deepestPageReached: 0,
+        },
       };
 
       // ── Call Anthropic API ────────────────────────────────────
@@ -139,6 +146,37 @@ export async function POST(
           dealStatus = 'cold';
           summary = `${email} opened the document but left almost immediately without reading it. This could mean the timing was wrong, the subject line did not match their expectations, or they were simply distracted when they opened it.`;
           recommendation = `Do not follow up yet. Wait 48 hours then resend with a brief personal note explaining specifically why this document is relevant to them right now.`;
+
+         
+       // ── HOT — progressive reader + multiple sessions ──────────
+        } else if (signals.progressionPattern === 'progressive' && hasMultipleSessions && recentlyActive) {
+          dealStatus = 'hot';
+          const depths = signals.progressionDetails.sessionDepths;
+          const depthNote = depths.length >= 2
+            ? ` Each time they return they read deeper into the document — from page ${depths[0]} in their first visit to page ${depths[depths.length - 1]} most recently.`
+            : '';
+          summary = `${email} has returned to this document ${signals.uniqueSessions} times and is progressing further through it with each visit.${depthNote} This pattern of deepening engagement across sessions is one of the strongest buying signals a proposal can generate.`;
+          recommendation = `Reach out today. This prospect is building toward a decision and your timing is excellent. Ask if they have any questions and whether there is anyone else involved in the evaluation.`;
+
+        // ── WARM/NEEDS HELP — stuck reader ────────────────────────
+        } else if (signals.progressionPattern === 'stuck' && hasMultipleSessions) {
+          dealStatus = 'warm';
+          const stuckPages = signals.progressionDetails.stuckOnPages;
+          const stuckNote = stuckPages.length > 0
+            ? ` They keep returning to page${stuckPages.length > 1 ? 's' : ''} ${stuckPages.join(' and ')} without moving past that section.`
+            : '';
+          summary = `${email} has opened this document ${signals.uniqueSessions} times but keeps returning to the same section each visit without progressing further.${stuckNote} This pattern almost always means something on those pages is raising a question or objection they cannot resolve on their own.`;
+          recommendation = `Do not send a generic follow up. Reach out and directly offer to walk them through that section of the document. Removing that specific blocker is what moves this deal forward.`;
+
+        // ── COLD — falling engagement ─────────────────────────────
+        } else if (signals.progressionPattern === 'falling' && hasMultipleSessions) {
+          dealStatus = 'cold';
+          const depths = signals.progressionDetails.sessionDepths;
+          const fallingNote = depths.length >= 2
+            ? ` Their first visit reached page ${depths[0]} but their most recent visit only reached page ${depths[depths.length - 1]}.`
+            : '';
+          summary = `${email} has returned to this document multiple times but is reading less of it with each visit.${fallingNote} Declining depth across sessions is a clear signal that initial interest is fading and without a new angle this deal is likely to go cold.`;
+          recommendation = `Do not follow up with the same message. Either approach them with a completely different angle that reframes the value, or consider whether the timing is simply wrong and park this deal for 30 days before trying again.`;
 
         // ── HOT — re-reads + multiple sessions + recent ───────────
         } else if (topReRead && hasMultipleSessions && recentlyActive) {
