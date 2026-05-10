@@ -62,6 +62,7 @@ export async function POST(
           summary: cached.summary,
           recommendation: cached.recommendation,
           dealStatus: cached.dealStatus,
+          momentumState: cached.momentumState || 'holding',
           cached: true,
         });
         continue;
@@ -94,12 +95,50 @@ export async function POST(
           stuckOnPages: [],
           deepestPageReached: 0,
         },
+        // Momentum state — computed from all signals combined
+        momentumState: (() => {
+          const deadScore = viewer.deadDealScore || 0;
+          const daysSince = viewer.daysSinceLastView || 0;
+          const sessions = viewer.totalSessions || 1;
+          const progression = viewer.progressionPattern || 'single';
+          const completion = viewer.completionRate || 0;
+          const bounced = viewer.bounced || false;
+
+          // Stalled — no real engagement or dead deal
+          if (bounced || deadScore >= 80 || (daysSince >= 14 && sessions <= 1)) {
+            return 'stalled';
+          }
+
+          // Accelerating — progression building + recent activity
+          if (
+            progression === 'progressive' &&
+            daysSince <= 3 &&
+            sessions >= 2
+          ) {
+            return 'accelerating';
+          }
+
+          // Fading — engagement dropping or long silence after good start
+          if (
+            progression === 'falling' ||
+            (daysSince >= 7 && completion >= 50) ||
+            deadScore >= 50
+          ) {
+            return 'fading';
+          }
+
+          // Holding — active but not clearly accelerating or fading
+          return 'holding';
+        })(),
       };
 
       // ── Call Anthropic API ────────────────────────────────────
       let summary = '';
       let recommendation = '';
       let dealStatus: 'hot' | 'warm' | 'cold' | 'dead' = 'cold';
+
+      // AI call placeholder — currently using smart fallback only
+      // When Anthropic API key is available uncomment and add call here
 
       try {} catch (aiErr) {
         console.error('[DealIntelligence] AI call failed, using smart fallback:', aiErr);
@@ -259,6 +298,7 @@ export async function POST(
             summary,
             recommendation,
             dealStatus,
+            momentumState: signals.momentumState || 'holding',
             sessionCountAtGeneration: lastSessionCount,
             generatedAt: new Date(),
           },
@@ -271,6 +311,7 @@ export async function POST(
         summary,
         recommendation,
         dealStatus,
+        momentumState: signals.momentumState || 'holding',
         cached: false,
       });
 

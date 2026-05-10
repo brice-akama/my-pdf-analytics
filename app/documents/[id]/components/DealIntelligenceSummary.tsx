@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { RefreshCw, Zap, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { RefreshCw, Zap, TrendingUp, TrendingDown, Minus ,  ArrowUpRight, ArrowRight, ArrowDownRight, OctagonX } from 'lucide-react';
 
 type DealStatus = 'hot' | 'warm' | 'cold' | 'dead';
 
@@ -10,6 +10,7 @@ type ViewerSummary = {
   summary: string;
   recommendation: string;
   dealStatus: DealStatus;
+   momentumState?: MomentumState;
   cached: boolean;
 };
 
@@ -54,6 +55,127 @@ const STATUS_CONFIG: Record<DealStatus, {
     icon: <TrendingDown className="h-4 w-4 text-slate-400" />,
   },
 };
+
+
+// ── Momentum Indicator Config ─────────────────────────────────
+type MomentumState = 'accelerating' | 'holding' | 'fading' | 'stalled';
+
+const MOMENTUM_CONFIG: Record<MomentumState, {
+  label: string;
+  sublabel: string;
+  icon: React.ReactNode;
+  barColor: string;
+  bgColor: string;
+  textColor: string;
+  borderColor: string;
+  barWidth: string;
+  pulse: boolean;
+}> = {
+  accelerating: {
+    label: 'Accelerating',
+    sublabel: 'Engagement is building — act now',
+    icon: <ArrowUpRight className="h-5 w-5" />,
+    barColor: 'bg-emerald-500',
+    bgColor: 'bg-emerald-50',
+    textColor: 'text-emerald-700',
+    borderColor: 'border-emerald-200',
+    barWidth: 'w-full',
+    pulse: true,
+  },
+  holding: {
+    label: 'Holding Steady',
+    sublabel: 'Deal is alive — a nudge will help',
+    icon: <ArrowRight className="h-5 w-5" />,
+    barColor: 'bg-amber-400',
+    bgColor: 'bg-amber-50',
+    textColor: 'text-amber-700',
+    borderColor: 'border-amber-200',
+    barWidth: 'w-2/3',
+    pulse: false,
+  },
+  fading: {
+    label: 'Fading',
+    sublabel: 'Window is narrowing — act urgently',
+    icon: <ArrowDownRight className="h-5 w-5" />,
+    barColor: 'bg-orange-500',
+    bgColor: 'bg-orange-50',
+    textColor: 'text-orange-700',
+    borderColor: 'border-orange-200',
+    barWidth: 'w-1/3',
+    pulse: false,
+  },
+  stalled: {
+    label: 'Stalled',
+    sublabel: 'Engagement has stopped — different approach needed',
+    icon: <OctagonX className="h-5 w-5" />,
+    barColor: 'bg-slate-400',
+    bgColor: 'bg-slate-50',
+    textColor: 'text-slate-500',
+    borderColor: 'border-slate-200',
+    barWidth: 'w-1/6',
+    pulse: false,
+  },
+};
+
+// ── Momentum Indicator Component ──────────────────────────────
+function MomentumIndicator({ state }: { state: MomentumState }) {
+  const config = MOMENTUM_CONFIG[state];
+
+  return (
+    <div className={`rounded-xl border ${config.borderColor} ${config.bgColor} px-4 py-3 mb-3`}>
+      {/* Top row — icon + label + sublabel */}
+      <div className="flex items-center gap-3 mb-2.5">
+        {/* Animated icon container */}
+        <div
+          className={`
+            h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0
+            ${config.bgColor} border ${config.borderColor} ${config.textColor}
+            ${config.pulse ? 'animate-pulse' : ''}
+          `}
+        >
+          {config.icon}
+        </div>
+
+        {/* Label stack */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className={`text-sm font-bold ${config.textColor}`}>
+              {config.label}
+            </p>
+            {config.pulse && (
+              <span className="flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+            )}
+          </div>
+          <p className={`text-[11px] ${config.textColor} opacity-80 leading-tight`}>
+            {config.sublabel}
+          </p>
+        </div>
+      </div>
+
+      {/* Momentum bar */}
+      <div className="h-1.5 w-full bg-white/60 rounded-full overflow-hidden border border-white/40">
+        <div
+          className={`h-full rounded-full transition-all duration-700 ${config.barColor} ${config.pulse ? 'animate-pulse' : ''}`}
+          style={{
+            width: state === 'accelerating' ? '100%'
+              : state === 'holding' ? '65%'
+              : state === 'fading' ? '30%'
+              : '10%',
+          }}
+        />
+      </div>
+
+      {/* Bar labels */}
+      <div className="flex justify-between mt-1">
+        <span className="text-[9px] text-slate-400 font-medium">Stalled</span>
+        <span className="text-[9px] text-slate-400 font-medium">Accelerating</span>
+      </div>
+    </div>
+  );
+}
 
 type Props = {
   documentId: string;
@@ -239,6 +361,10 @@ export default function DealIntelligenceSummary({ documentId, analytics }: Props
               key={s.viewerEmail || i}
               className={`rounded-xl border p-4 ${config.bg} ${config.border}`}
             >
+                {/* Momentum Indicator — sits at very top of each card */}
+              <MomentumIndicator
+                state={(s.momentumState as MomentumState) || 'holding'}
+              />
               {/* Viewer email + status badge */}
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-slate-800 truncate flex-1 mr-3">

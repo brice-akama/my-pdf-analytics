@@ -263,6 +263,20 @@ export async function detectSignals(db: any, {
       }
     }
 
+    // ── Momentum state — combines all signals into one direction ──
+    let momentumState: 'accelerating' | 'holding' | 'fading' | 'stalled' = 'holding';
+
+    if (progressionPattern === 'progressive' && !engagementDropping) {
+      momentumState = 'accelerating';
+    } else if (progressionPattern === 'falling' || engagementDropping) {
+      momentumState = 'fading';
+    } else if (allSessions.length === 0) {
+      momentumState = 'stalled';
+    } else {
+      momentumState = 'holding';
+    }
+
+
     return {
       pageTimes,
       avgPageTime,
@@ -275,6 +289,7 @@ export async function detectSignals(db: any, {
       engagementDropping,
       progressionPattern,
       progressionDetails,
+      momentumState,
     };
   } catch (err) {
     console.error('[detectSignals] error:', err);
