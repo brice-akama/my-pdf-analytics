@@ -14,7 +14,7 @@ export function HeroSection() {
         <div className="mx-auto max-w-4xl">
 
           {/* Main Heading */}
-          <h1 className="mb-6 text-2xl sm:text-3xl md:text-3xl lg:text-3xl xl:text-5xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
+          <h1 className="mb-6 text-2xl sm:text-3xl md:text-3xl lg:text-3xl xl:text-4xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
   Understand buyer{" "}
   <span className="text-sky-600">
     intent beyond open tracking
