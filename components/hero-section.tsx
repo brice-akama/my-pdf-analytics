@@ -14,12 +14,12 @@ export function HeroSection() {
         <div className="mx-auto max-w-4xl">
 
           {/* Main Heading */}
-          <h1 className="mb-6 text-2xl sm:text-3xl md:text-3xl lg:text-3xl xl:text-4xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
-  Deal Dying{" "}
+          <h1 className="mb-6 text-2xl sm:text-3xl md:text-3xl lg:text-3xl xl:text-5xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
+  Understand buyer{" "}
   <span className="text-sky-600">
-    Know Before They Ghost You.
+    intent beyond open tracking
   </span>
-</h1>
+</h1>   
 
           {/* Subtitle */}
           <p className="mb-10 text-lg sm:text-xl md:text-2xl text-slate-600 max-w-2xl text-left md:text-center md:mx-auto">
