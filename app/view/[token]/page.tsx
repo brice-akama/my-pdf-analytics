@@ -1253,7 +1253,7 @@ const handleEndQuestion = async (answer: string) => {
                   </div>
 
                  {/* Actions */}
-{/* {shareData?.settings?.allowDownload && (
+ {shareData?.settings?.allowDownload && (
   <div>
     <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>Actions</p>
     <button onClick={() => { handleDownload(); setSidebarOpen(false); }}
@@ -1263,7 +1263,7 @@ const handleEndQuestion = async (answer: string) => {
       <span className="text-sm text-white/80">Download document</span>
     </button>
   </div>
-)} */}
+)} 
 
                   {/* Contact sender */}
                   <div>
@@ -1862,6 +1862,17 @@ function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, water
                   doc.head?.appendChild(s);
                 }
               } catch (_) {}
+            }}
+          />
+
+          {/* Blocks native PDF toolbar on mobile — invisible overlay at top of page */}
+          <div
+            className="absolute top-0 left-0 right-0"
+            style={{
+              height: '44px',
+              zIndex: 20,
+              background: 'transparent',
+              pointerEvents: 'all',
             }}
           />
           {/* Watermark overlay */}
