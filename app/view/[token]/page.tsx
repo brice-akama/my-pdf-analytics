@@ -1252,18 +1252,18 @@ const handleEndQuestion = async (answer: string) => {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  {shareData?.settings?.allowDownload && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>Actions</p>
-                      <button onClick={() => { handleDownload(); setSidebarOpen(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors"
-                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        <Download className="h-4 w-4 text-white/60" />
-                        <span className="text-sm text-white/80">Download document</span>
-                      </button>
-                    </div>
-                  )}
+                 {/* Actions */}
+{/* {shareData?.settings?.allowDownload && (
+  <div>
+    <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(255,255,255,0.35)' }}>Actions</p>
+    <button onClick={() => { handleDownload(); setSidebarOpen(false); }}
+      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors"
+      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <Download className="h-4 w-4 text-white/60" />
+      <span className="text-sm text-white/80">Download document</span>
+    </button>
+  </div>
+)} */}
 
                   {/* Contact sender */}
                   <div>
