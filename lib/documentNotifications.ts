@@ -522,7 +522,7 @@ export async function sendDealInsightEmail({
   narrative?: string;
 }) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const analyticsUrl = `${appUrl}/documents/${documentId}?tab=analytics`;
+   const analyticsUrl = `${appUrl}/documents/${documentId}`;
 
   const multiplier = avgPageTime > 0
     ? (slowestPageTime / avgPageTime).toFixed(1)
