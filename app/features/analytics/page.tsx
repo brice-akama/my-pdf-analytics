@@ -175,7 +175,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
           title="See how long each person spent on every page."
           description="When someone opens your document a bar chart builds in real time showing their reading time per page. Tall bars mean they read carefully. Short bars mean they skimmed or skipped. Hover over any bar to see a thumbnail of that page and the exact time spent. You see this for every visitor individually — not averaged across everyone."
           videoSrc="/videos/analytics-demo.mp4"
-          posterSrc="/assets/screenshots/page-bar-chart-poster.png"
+          posterSrc="/assets/doc2-tracking.png"
         />
 
         <SectionLabel>Visitor identity and history</SectionLabel>
@@ -213,7 +213,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
           title="Know the moment someone opens your document."
           description="The instant a recipient opens your share link you receive a notification — in your dashboard, by email, and in Slack if connected. The notification includes their email, which document they opened, and what time. If they are viewing right now a live indicator appears on your dashboard. You always know when to follow up and you never have to guess whether they have seen it yet."
           videoSrc="/videos/tracking-demo.mp4"
-          posterSrc="/assets/screenshots/notifications-poster.png"
+          posterSrc="/assets/doc2-tracking.png"
           reverse
         />
 
