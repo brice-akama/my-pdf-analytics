@@ -7,11 +7,10 @@ import { BarChart2, Database, Users } from "lucide-react"
 const CARDS = [
   {
     id: "analytics",
-    tag: "Document Analytics",
+    tag: "Deal Movement Intelligence",
     icon: BarChart2,
-    heading: "Know exactly how your documents perform.",
-    description:
-      "See who opened your document, how long they spent on each page, and which sections captured the most attention — all in real time.",
+    heading: "Know whether your deal is moving or going cold.",
+    description: "See every re-read, every hesitation, and whether your prospect is progressing deeper into your proposal or getting stuck — all in real time.",
     // sky blue family — brand.primary
     cardBg:   "bg-[#e0f2fe]",
     iconBg:   "bg-[#bae6fd]",

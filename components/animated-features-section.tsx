@@ -38,9 +38,9 @@ export function AnimatedFeaturesSection() {
           <h2 className="mb-4 text-2xl font-normal tracking-tight text-slate-900 sm:text-4xl lg:text-4xl">
             Full visibility across every deal
           </h2>
-         <p className="text-base text-slate-600 sm:text-lg">
-  From the first pitch deck to the final signature — DocMetrics gives you 
-  full visibility into every document, every reader, and every next step.
+     <p className="text-base text-slate-600 sm:text-lg">
+  From the first proposal to the final signature — DocMetrics tells you 
+  whether your deal is moving, who is really involved, and what to do next.
 </p>
         </div>
 

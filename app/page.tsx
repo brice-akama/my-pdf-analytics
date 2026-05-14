@@ -10,14 +10,14 @@ import { FAQSection } from "@/components/faq-section";
 export const metadata: Metadata = {
   title: "Stop Guessing. Know Exactly When Deals Move",
   description:
-    "Document sharing with analytics — see who opened, read, and spent time on your docs. Track every view and follow up at the perfect moment.",
+    "Not just who opened it — what it meant. See every re-read, every hesitation, and know the moment your deal goes cold.",
   alternates: {
     canonical: "https://docmetrics.io",
   },
   openGraph: {
     title: "DocMetrics — Know Exactly When Deals Move",
     description:
-      "Document sharing with analytics — see who opened, read, and spent time on your docs. Track every view and follow up at the perfect moment.",
+      " Not just who opened it — what it meant. See every re-read, every hesitation, and know the moment your deal goes cold.",
     url: "https://docmetrics.io",
     siteName: "DocMetrics",
     type: "website",
@@ -55,7 +55,7 @@ const softwareSchema = {
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
   description:
-    "Document sharing with analytics — see who opened, read, and spent time on your docs. Track every view and follow up at the perfect moment.",
+    "Not just who opened it — what it meant. See every re-read, every hesitation, and know the moment your deal goes cold.",
   offers: {
     "@type": "Offer",
     price: "0",

@@ -7,16 +7,16 @@ import Link from "next/link"
 const VIDEOS = [
   {
     id: "tracking",
-    title: "Know Exactly Who Read What",
-    description: "See every page your prospect spent time on, how long they stayed, and where they dropped off — all in real time.",
+    title: "Know Whether Your Deal Is Moving",
+description: "See every re-read per prospect across sessions, whether engagement is accelerating or fading, and what the silence after sending probably means.",
     src: "/videos/tracking-demo.mp4",
     poster: "/assets/doc-tracking.png",
     href: "/features/analytics",
   },
   {
     id: "analytics",
-    title: "Analytics That Drive Action",
-    description: "Time spent per page, completion rates, and engagement scores — everything you need to follow up with confidence.",
+   title: "Turn Silence Into A Signal",
+description: "Know the difference between a prospect who is gone and one who is quietly building an internal case. Follow up with the right message at the right moment.",
     src: "/videos/analytics-demo.mp4",
     poster: "/assets/doc2-tracking.png",
     href: "/features/analytics",

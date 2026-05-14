@@ -6,8 +6,7 @@ import { Plus, Minus } from "lucide-react"
 const FAQS = [
   {
     question: "How is this different from DocuSign or PandaDoc?",
-    answer:
-      "DocuSign and PandaDoc handle signatures. We handle everything that happens before the signature — who read your document, which pages they spent time on, and whether they actually understood it. We do signatures too, but the intelligence layer is what sets us apart. You know exactly why someone signed or declined.",
+answer: "DocuSign and PandaDoc handle signatures. DocMetrics handles everything that happens before the signature — whether the deal is gaining momentum, who is really involved, what the silence after sending means, and what to do next. We do signatures too, but the intelligence layer is what sets us apart. You know exactly why someone signed, stalled, or declined.",
   },
   {
     question: "Do my recipients need to create an account to view documents?",
