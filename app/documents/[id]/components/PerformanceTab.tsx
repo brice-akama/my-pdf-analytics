@@ -345,6 +345,7 @@ export default function PerformanceTab({
       <DealIntelligenceSummary
         documentId={doc._id}
         analytics={analytics}
+        totalPages={doc.numPages}
       />
       {/* SECTION 1 — DEAD DEAL ALERT */}
       {analytics.deadDeal?.score >= 60 && (

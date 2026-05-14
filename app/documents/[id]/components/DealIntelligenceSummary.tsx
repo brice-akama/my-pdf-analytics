@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, Zap, TrendingUp, TrendingDown, Minus ,  ArrowUpRight, ArrowRight, ArrowDownRight, OctagonX } from 'lucide-react';
+import { SecondaryViewerInsight } from './SecondaryViewerInsight';
 
 type DealStatus = 'hot' | 'warm' | 'cold' | 'dead';
 
@@ -180,9 +181,10 @@ function MomentumIndicator({ state }: { state: MomentumState }) {
 type Props = {
   documentId: string;
   analytics: any;
+   totalPages?: number;
 };
 
-export default function DealIntelligenceSummary({ documentId, analytics }: Props) {
+export default function DealIntelligenceSummary({ documentId, analytics, totalPages = 1 }: Props) {
   const [summaries, setSummaries] = useState<ViewerSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -392,6 +394,14 @@ export default function DealIntelligenceSummary({ documentId, analytics }: Props
             </div>
           );
         })}
+
+        {/* Secondary viewer insight — only shows when internal sharing detected */}
+        {analytics?.recipientPageTracking?.length >= 2 && (
+          <SecondaryViewerInsight
+            viewers={analytics.recipientPageTracking}
+            totalPages={totalPages}
+          />
+        )}
       </div>
     </div>
   );
