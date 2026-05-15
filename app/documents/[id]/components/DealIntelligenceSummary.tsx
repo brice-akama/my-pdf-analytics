@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, Zap, TrendingUp, TrendingDown, Minus ,  ArrowUpRight, ArrowRight, ArrowDownRight, OctagonX } from 'lucide-react';
 import { SecondaryViewerInsight } from './SecondaryViewerInsight';
+import { EarlySignalCard } from './EarlySignalCard';
 
 type DealStatus = 'hot' | 'warm' | 'cold' | 'dead';
 
@@ -394,6 +395,16 @@ export default function DealIntelligenceSummary({ documentId, analytics, totalPa
             </div>
           );
         })}
+
+        {/* Early signal card — only shows in first 72 hours */}
+        {analytics?.recipientPageTracking?.length > 0 && (
+          <EarlySignalCard
+            recipientPageTracking={analytics.recipientPageTracking}
+            revisitData={analytics.revisitData}
+            totalPages={totalPages}
+            lastViewed={analytics.lastViewed}
+          />
+        )}
 
         {/* Secondary viewer insight — only shows when internal sharing detected */}
         {analytics?.recipientPageTracking?.length >= 2 && (
