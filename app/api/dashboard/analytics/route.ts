@@ -471,6 +471,165 @@ const mostEngagedContacts = await Promise.all(
         })
     );
 
+     // ── Pipeline Momentum Score ───────────────────────────────
+    // Ranks all active shared documents by deal momentum
+    // Uses existing signals — no new queries needed
+    const thirtyDaysAgoP = new Date();
+    thirtyDaysAgoP.setDate(thirtyDaysAgoP.getDate() - 30);
+
+    const activeShares = await db.collection('shares').find({
+      documentId: { $in: documents.map((d: any) => d._id) },
+      active: true,
+      createdAt: { $gte: thirtyDaysAgoP },
+    }).sort({ createdAt: -1 }).limit(20).toArray();
+
+    const pipelineDeals = await Promise.all(
+      activeShares.map(async (share: any) => {
+        const docId = share.documentId.toString();
+        const docName = docNameMap.get(docId) || 'Untitled';
+
+        // Get sessions for this share
+        const shareSessions = await db.collection('analytics_sessions').find({
+          documentId: docId,
+          shareToken: share.shareToken,
+        }).sort({ startedAt: -1 }).limit(10).toArray();
+
+        if (shareSessions.length === 0) {
+          return {
+            documentId: docId,
+            documentName: docName,
+            shareToken: share.shareToken,
+            topViewerEmail: share.recipientEmail || null,
+            totalSessions: 0,
+            daysSinceLastActivity: 999,
+            momentumScore: 0,
+            momentumState: 'stalled' as const,
+            recommendation: 'No activity yet. Consider sending a personal note to your prospect to let them know the document is ready.',
+          };
+        }
+
+        const lastSession = shareSessions[0];
+        const firstSession = shareSessions[shareSessions.length - 1];
+        const daysSinceLastActivity = Math.floor(
+          (Date.now() - new Date(lastSession.startedAt).getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const daysSinceFirst = Math.floor(
+          (Date.now() - new Date(firstSession.startedAt).getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        // Get unique viewers
+        const uniqueViewers = new Set(shareSessions.map((s: any) => s.viewerId || s.email)).size;
+
+        // Get page depth from most recent session
+        const recentPagesViewed = lastSession.pagesViewed || [];
+        const deepestPage = recentPagesViewed.length > 0
+          ? Math.max(...recentPagesViewed)
+          : 0;
+
+        const doc = documents.find((d: any) => d._id.toString() === docId);
+        const totalPages = doc?.numPages || 1;
+        const depthPercent = Math.round((deepestPage / totalPages) * 100);
+
+        // Check for re-reads
+        const viewerEmail = lastSession.email || share.recipientEmail || null;
+        let hasReReads = false;
+        if (viewerEmail) {
+          const pageSessionMap = new Map<number, Set<string>>();
+          shareSessions.forEach((s: any) => {
+            (s.pagesViewed || []).forEach((p: number) => {
+              if (!pageSessionMap.has(p)) pageSessionMap.set(p, new Set());
+              if (s.sessionId) pageSessionMap.get(p)!.add(s.sessionId);
+            });
+          });
+          hasReReads = Array.from(pageSessionMap.values()).some(sessions => sessions.size >= 2);
+        }
+
+        // ── Compute momentum score 0-100 ──────────────────────
+        let score = 0;
+
+        // Recency — most important signal
+        if (daysSinceLastActivity === 0) score += 30;
+        else if (daysSinceLastActivity <= 2) score += 25;
+        else if (daysSinceLastActivity <= 5) score += 15;
+        else if (daysSinceLastActivity <= 10) score += 5;
+
+        // Multiple sessions
+        if (shareSessions.length >= 4) score += 20;
+        else if (shareSessions.length >= 2) score += 12;
+        else if (shareSessions.length === 1) score += 5;
+
+        // Multiple viewers from same company
+        if (uniqueViewers >= 2) score += 20;
+
+        // Depth
+        if (depthPercent >= 80) score += 15;
+        else if (depthPercent >= 50) score += 8;
+
+        // Re-reads
+        if (hasReReads) score += 15;
+
+        // Penalise long silence
+        if (daysSinceLastActivity > 14) score = Math.max(0, score - 20);
+        if (daysSinceLastActivity > 21) score = Math.max(0, score - 20);
+
+        score = Math.min(100, score);
+
+        // ── Momentum state ────────────────────────────────────
+        let momentumState: 'accelerating' | 'holding' | 'fading' | 'stalled';
+        if (score >= 70) momentumState = 'accelerating';
+        else if (score >= 45) momentumState = 'holding';
+        else if (score >= 20) momentumState = 'fading';
+        else momentumState = 'stalled';
+
+        // ── Plain English recommendation ──────────────────────
+        let recommendation = '';
+        if (momentumState === 'accelerating') {
+          if (uniqueViewers >= 2) {
+            recommendation = 'A second person from this organisation has opened your document. Reach out to your original contact today and ask directly who else is involved in the decision.';
+          } else if (hasReReads) {
+            recommendation = 'Your prospect keeps returning to specific sections. Follow up today and offer to walk them through whatever is raising questions. Do not wait.';
+          } else {
+            recommendation = 'Strong engagement in the last 48 hours. Follow up now while their attention is high. Reference something specific rather than asking if they read it.';
+          }
+        } else if (momentumState === 'holding') {
+          if (daysSinceLastActivity >= 3) {
+            recommendation = `It has been ${daysSinceLastActivity} days since their last visit. Send a short value add today — a relevant insight or a one line answer to a likely question. Then ask one direct question about their timeline.`;
+          } else {
+            recommendation = 'Engagement is steady. Give it another day or two before following up. When you do, ask a specific question about timing rather than checking if they read it.';
+          }
+        } else if (momentumState === 'fading') {
+          recommendation = `Engagement is dropping. Send one direct question today — is this still a priority right now or should we revisit this at a better time. A direct question almost always gets a response even if it is not the one you hoped for.`;
+        } else {
+          if (daysSinceLastActivity > 21) {
+            recommendation = 'Two weeks of silence. Send one final short message acknowledging the gap without guilt. If there is no reply within three days, archive this deal and set a six week reminder.';
+          } else {
+            recommendation = 'No engagement yet. Consider sending a personal note explaining specifically why this document is relevant to their situation right now.';
+          }
+        }
+
+        return {
+          documentId: docId,
+          documentName: docName,
+          shareToken: share.shareToken,
+          topViewerEmail: viewerEmail,
+          totalSessions: shareSessions.length,
+          uniqueViewers,
+          daysSinceLastActivity,
+          depthPercent,
+          hasReReads,
+          momentumScore: score,
+          momentumState,
+          recommendation,
+          lastActivityAt: lastSession.startedAt,
+        };
+      })
+    );
+
+    // Sort by momentum score descending, filter out never-opened with no score
+    const pipelineMomentum = pipelineDeals
+      .sort((a, b) => b.momentumScore - a.momentumScore)
+      .slice(0, 10);
+
     return NextResponse.json({
       success: true,
       analytics: {
@@ -485,6 +644,7 @@ const mostEngagedContacts = await Promise.all(
         recentVisits,
         hotVisitors,
         recentNDAs: recentNDAsMapped,
+        pipelineMomentum,
       }
     });
 

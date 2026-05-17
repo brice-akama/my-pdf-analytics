@@ -946,6 +946,28 @@ if (share.userId) {
 
         // ── BACKGROUND: check for silent deals while someone else is active ──
         checkSilentDeals(db).catch(() => {});
+
+        // ── Create follow up cadence for this viewer ──────────
+        // Only on first session — revisits do not create a new cadence
+        if (!isRevisit && email) {
+          const doc = await db.collection('documents').findOne({ _id: share.documentId });
+          fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/documents/${documentId}/follow-up-cadence`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              viewerEmail: email,
+              shareToken: token,
+              documentName: doc?.originalFilename || 'Your document',
+            }),
+          }).catch(() => {});
+        }
+
+        // Check follow up cadences lazily on every session start
+        // This fires pending cadence steps without needing a cron job
+        import('@/lib/followUpCadenceJob').then(({ runFollowUpCadenceJob }) => {
+          runFollowUpCadenceJob().catch(() => {});
+        }).catch(() => {});
+
         break;
       }
 

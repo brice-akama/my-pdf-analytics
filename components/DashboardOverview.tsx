@@ -357,12 +357,110 @@ export default function DashboardOverview() {
     recentVisits = [],
     hotVisitors = [],
     recentNDAs = [],
+    pipelineMomentum = [],
   } = analytics;
 
   const tickFormatter = (val: string, idx: number) => (idx % 5 === 0 ? val : "");
 
   return (
     <div className="space-y-0 bg-white border border-slate-200 rounded-lg overflow-hidden">
+
+       {/* ── Pipeline Momentum Score — shown at very top ──────────── */}
+      {pipelineMomentum.length > 0 && (
+        <div className="border-b border-slate-100 px-6 py-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">
+                Active Deal Pipeline
+              </h2>
+              <p className="text-xs text-slate-400">Ranked by momentum score · last 30 days</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {pipelineMomentum.map((deal: any, i: number) => {
+              const _stateConfigMap = {
+                accelerating: { label: 'Accelerating', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100', dot: 'bg-emerald-500' },
+                holding: { label: 'Holding', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-100', dot: 'bg-amber-400' },
+                fading: { label: 'Fading', color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-100', dot: 'bg-orange-500' },
+                stalled: { label: 'Stalled', color: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200', dot: 'bg-slate-400' },
+              } as const;
+
+              const defaultState = { label: 'Unknown', color: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200', dot: 'bg-slate-400' };
+
+              const stateConfig = (_stateConfigMap as Record<string, typeof defaultState>)[deal.momentumState] || defaultState;
+
+              return (
+                <div
+                  key={i}
+                  className={`rounded-xl border ${stateConfig.border} ${stateConfig.bg} px-4 py-3`}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Score circle */}
+                    <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                      <div className={`h-10 w-10 rounded-full border-2 flex items-center justify-center ${stateConfig.border}`}
+                        style={{ background: 'white' }}>
+                        <span className={`text-sm font-black tabular-nums ${stateConfig.color}`}>
+                          {deal.momentumScore}
+                        </span>
+                      </div>
+                      <span className={`text-[9px] font-bold uppercase tracking-wide ${stateConfig.color}`}>
+                        score
+                      </span>
+                    </div>
+
+                    {/* Deal info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <button
+                          onClick={() => router.push(`/documents/${deal.documentId}`)}
+                          className="text-xs font-semibold text-slate-900 hover:text-violet-700 transition-colors truncate"
+                        >
+                          {deal.documentName}
+                        </button>
+                        <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${stateConfig.bg} ${stateConfig.color}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${stateConfig.dot} ${deal.momentumState === 'accelerating' ? 'animate-pulse' : ''}`} />
+                          {stateConfig.label}
+                        </span>
+                      </div>
+                      {deal.topViewerEmail && (
+                        <p className="text-[11px] text-slate-400 mb-1.5 truncate">
+                          {deal.topViewerEmail}
+                          {deal.uniqueViewers > 1 && (
+                            <span className="ml-1 text-indigo-500 font-semibold">
+                              +{deal.uniqueViewers - 1} more viewer{deal.uniqueViewers > 2 ? 's' : ''}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      {/* Recommendation */}
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {deal.recommendation}
+                      </p>
+                    </div>
+
+                    {/* Days since activity */}
+                    <div className="flex-shrink-0 text-right">
+                      <p className="text-[10px] text-slate-400">
+                        {deal.daysSinceLastActivity === 999
+                          ? 'Not opened'
+                          : deal.daysSinceLastActivity === 0
+                          ? 'Active today'
+                          : `${deal.daysSinceLastActivity}d ago`}
+                      </p>
+                      {deal.totalSessions > 0 && (
+                        <p className="text-[10px] text-slate-400">
+                          {deal.totalSessions} session{deal.totalSessions > 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Most engaged contacts — shown first ─────────────────── */}
       <div className="border-b border-slate-100 px-6 py-5">
