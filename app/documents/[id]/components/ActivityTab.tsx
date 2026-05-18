@@ -1148,7 +1148,7 @@ const completion = viewerPageVideo?.maxCompletion || 0;
                     </button>
 
                     {copiedLinkId === lnk.shareId && (
-                      <div className="absolute right-0 top-6 z-50 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+                      <div className="absolute right-0 bottom-6 z-50 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-96 overflow-y-auto">
                         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center">
