@@ -251,6 +251,41 @@ if (email && notifyEvents.includes(event)) {
   }
 }
 
+   // ── Follow up cadence trigger ─────────────────────────────────────
+    // Only fires on portal_enter (first open of the space)
+    // Same lazy evaluation pattern as single documents — no cron needed
+    if (event === 'document_open' && email && space) {
+      const existingCadence = await db.collection('follow_up_cadences').findOne({
+        spaceId: space._id.toString(),
+        viewerEmail: email,
+        completed: { $ne: true },
+      }).catch(() => null);
+
+      if (!existingCadence) {
+        const now = new Date();
+        db.collection('follow_up_cadences').insertOne({
+          spaceId: space._id.toString(),
+          documentId: space._id.toString(),
+          userId: space.userId || space.createdBy,
+          viewerEmail: email,
+          shareToken: shareLink,
+          documentName: space.name || 'Your space',
+          createdAt: now,
+          sharedAt: now,
+          completed: false,
+          stepsFired: [],
+          nextFireAt: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000),
+          currentStep: 1,
+          type: 'space',
+        }).catch(() => {});
+      }
+
+      // Run cadence job lazily on every portal open
+      import('@/lib/followUpCadenceJob').then(({ runFollowUpCadenceJob }) => {
+        runFollowUpCadenceJob().catch(() => {});
+      }).catch(() => {});
+    }
+
     return NextResponse.json({ success: true });
 
   } catch (error) {

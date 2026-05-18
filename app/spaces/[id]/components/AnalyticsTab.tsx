@@ -1,3 +1,7 @@
+
+// ── File: app/spaces/[id]/components/AnalyticsTab.tsx ───────────────────────────────
+
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -35,6 +39,22 @@ type ShareLinkStat = {
   heatScore: number
   status: 'hot' | 'warm' | 'cold' | 'never'
   publicUrl: string
+}
+
+type VisitorIntelligence = {
+  email: string
+  engagementScore: number
+  status: string
+  momentumState: 'accelerating' | 'holding' | 'fading' | 'stalled'
+  progressionPattern: 'progressive' | 'stuck' | 'falling' | 'single'
+  docsOpened: number
+  coveragePercent: number
+  reReadDocs: { docId: string; docName: string; sessionCount: number }[]
+  hasInternalSharing: boolean
+  secondaryViewers: string[]
+  daysSinceLastActivity: number
+  narrative: string
+  recommendation: string
 }
 
 type AnalyticsData = {
@@ -80,6 +100,7 @@ type AnalyticsData = {
     date: string
     count: number
   }>
+  visitorIntelligence?: VisitorIntelligence[]
 }
 
 function timeAgo(dateStr: string | null): string {
@@ -442,9 +463,80 @@ export function AnalyticsTab({ spaceId, spaceName }: { spaceId: string; spaceNam
         </div>
       )}
 
-      {/* VISITORS */}
+    {/* VISITORS */}
       {activeSection === 'visitors' && (
-        <div className="space-y-2">
+        <div className="space-y-4">
+
+          {/* Deal Intelligence Cards — shown when visitorIntelligence exists */}
+          {data.visitorIntelligence && data.visitorIntelligence.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Deal Intelligence
+              </p>
+              {data.visitorIntelligence.map((intel) => {
+                const stateConfig = {
+                  accelerating: { label: 'Accelerating', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100', dot: 'bg-emerald-500 animate-pulse' },
+                  holding:      { label: 'Holding',      color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-100',   dot: 'bg-amber-400' },
+                  fading:       { label: 'Fading',       color: 'text-orange-700',  bg: 'bg-orange-50',  border: 'border-orange-100',  dot: 'bg-orange-500' },
+                  stalled:      { label: 'Stalled',      color: 'text-slate-500',   bg: 'bg-slate-50',   border: 'border-slate-200',   dot: 'bg-slate-400' },
+                }[intel.momentumState] || { label: 'Unknown', color: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200', dot: 'bg-slate-400' };
+
+                return (
+                  <div key={intel.email} className={`rounded-xl border ${stateConfig.border} ${stateConfig.bg} p-4`}>
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 ${stateConfig.bg}`}>
+                          <span className={`h-2 w-2 rounded-full ${stateConfig.dot}`} />
+                        </div>
+                        <p className="text-xs font-semibold text-slate-900 truncate">{intel.email}</p>
+                      </div>
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${stateConfig.bg} ${stateConfig.color}`}>
+                        {stateConfig.label}
+                      </span>
+                    </div>
+
+                    {/* Plain English Narrative */}
+                    <p className="text-xs text-slate-700 leading-relaxed mb-3">
+                      {intel.narrative}
+                    </p>
+
+                    {/* Recommendation */}
+                    <div className="flex items-start gap-2 bg-white/70 rounded-lg px-3 py-2 mb-3">
+                      <p className="text-xs font-semibold text-slate-700 leading-snug">
+                        {intel.recommendation}
+                      </p>
+                    </div>
+
+                    {/* Signal tags */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {intel.reReadDocs.slice(0, 2).map(doc => (
+                        <span key={doc.docId} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/80 text-slate-600">
+                          "{doc.docName}" re-read {doc.sessionCount}×
+                        </span>
+                      ))}
+                      {intel.hasInternalSharing && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                          Internal sharing detected
+                        </span>
+                      )}
+                      {intel.coveragePercent >= 70 && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/80 text-slate-600">
+                          {intel.coveragePercent}% of documents reviewed
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Standard visitor list */}
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            All Visitors
+          </p>
+          <div className="space-y-2">
           {visitors.length === 0 ? (
             <div className="py-16 text-center border rounded-xl bg-white">
               <Users className="h-6 w-6 text-slate-300 mx-auto mb-2" />
@@ -494,6 +586,7 @@ export function AnalyticsTab({ spaceId, spaceName }: { spaceId: string; spaceNam
               </div>
             </div>
           ))}
+        </div>
         </div>
       )}
 

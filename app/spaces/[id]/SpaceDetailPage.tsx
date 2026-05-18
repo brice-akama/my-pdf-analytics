@@ -1,3 +1,5 @@
+// ── File: app/spaces/[id]/SpaceDetailPage.tsx ───────────────────────────────
+
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"

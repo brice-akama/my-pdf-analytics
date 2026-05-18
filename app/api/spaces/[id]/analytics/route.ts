@@ -139,23 +139,81 @@ export async function GET(
       if (new Date(log.timestamp) < new Date(v.firstSeen)) v.firstSeen = log.timestamp;
     }
 
-    const visitors = Object.values(visitorMap).map(v => {
+   const visitors = Object.values(visitorMap).map(v => {
       const hoursSinceLastSeen = (now - new Date(v.lastSeen).getTime()) / (1000 * 60 * 60);
-      const recencyScore   = Math.max(0, 100 - hoursSinceLastSeen * 2);
-      const frequencyScore = Math.min(100, v.totalEvents * 10);
-      const depthScore     = Math.min(100, v.docsViewed.size * 15);
-      const downloadBonus  = v.downloads * 20;
+      const daysSinceLastSeen = hoursSinceLastSeen / 24;
 
-      const engagementScore = Math.min(
-        100,
-        Math.round((recencyScore * 0.4) + (frequencyScore * 0.3) + (depthScore * 0.2) + (downloadBonus * 0.1))
-      );
+      // ── Veteran framework signals ─────────────────────────────────────
+      // Based on 20 years enterprise sales experience
+      // Signal 1: Recency — most important, decays fast
+      const recencyScore = hoursSinceLastSeen <= 24  ? 30 :
+                           hoursSinceLastSeen <= 72  ? 22 :
+                           hoursSinceLastSeen <= 168 ? 12 :
+                           hoursSinceLastSeen <= 336 ? 5  : 0;
 
+      // Signal 2: Multiple sessions — return visits are buying signals
+      const sessionScore = v.totalEvents >= 5 ? 20 :
+                           v.totalEvents >= 3 ? 14 :
+                           v.totalEvents >= 2 ? 8  :
+                           v.totalEvents === 1 ? 3 : 0;
+
+      // Signal 3: Document depth — how many docs did they open
+      const totalSpaceDocs = documents.length || 1;
+      const coveragePct = (v.docsViewed.size / totalSpaceDocs) * 100;
+      const depthScore = coveragePct >= 80 ? 20 :
+                         coveragePct >= 50 ? 14 :
+                         coveragePct >= 25 ? 8  :
+                         coveragePct > 0   ? 4  : 0;
+
+      // Signal 4: Downloads — highest cost action a prospect takes
+      const downloadScore = v.downloads >= 3 ? 15 :
+                            v.downloads >= 1 ? 10 : 0;
+
+      // Signal 5: Multiple viewers from same domain — internal sharing
+      // This is the veteran's most important signal
+      const visitorDomain = v.email.includes('@')
+        ? v.email.split('@')[1].toLowerCase()
+        : null;
+      const sameCompanyViewers = visitorDomain
+        ? Object.values(visitorMap).filter(other =>
+            other.email !== v.email &&
+            other.email.includes('@') &&
+            other.email.split('@')[1].toLowerCase() === visitorDomain
+          ).length
+        : 0;
+      const internalSharingScore = sameCompanyViewers >= 2 ? 15 :
+                                   sameCompanyViewers >= 1 ? 10 : 0;
+
+      // ── Dead deal penalty ─────────────────────────────────────────────
+      // Progressive penalty for silence — veteran says 3+ weeks is dead
+      const silencePenalty = daysSinceLastSeen > 21 ? -25 :
+                             daysSinceLastSeen > 14 ? -15 :
+                             daysSinceLastSeen > 10 ? -8  : 0;
+
+      const engagementScore = Math.min(100, Math.max(0,
+        recencyScore + sessionScore + depthScore + downloadScore + internalSharingScore + silencePenalty
+      ));
+
+      // ── Dead deal detection — veteran signals ─────────────────────────
+      const isLikelyDead = daysSinceLastSeen > 21 && v.totalEvents <= 1;
+      const isInternalFriction = sameCompanyViewers >= 1;
+      const isDisengaging = daysSinceLastSeen > 7 && v.totalEvents <= 2 && v.docsViewed.size <= 1;
+
+      // ── Status ────────────────────────────────────────────────────────
       let status: 'hot' | 'warm' | 'cold' | 'new';
-      if (engagementScore >= 70) status = 'hot';
-      else if (engagementScore >= 40) status = 'warm';
-      else if (hoursSinceLastSeen < 24) status = 'new';
+      if (isLikelyDead)            status = 'cold';
+      else if (engagementScore >= 65) status = 'hot';
+      else if (engagementScore >= 35) status = 'warm';
+      else if (hoursSinceLastSeen < 48) status = 'new';
       else status = 'cold';
+
+      // ── Dead deal verdict ─────────────────────────────────────────────
+      let deadDealVerdict: string | null = null;
+      if (isLikelyDead) {
+        deadDealVerdict = `${v.email} opened this space ${Math.round(daysSinceLastSeen)} days ago and has not returned. The engagement pattern suggests genuine disengagement rather than internal review. Send one final message acknowledging the silence without guilt. If there is no reply within three days close this deal and set a six week reminder.`;
+      } else if (isDisengaging) {
+        deadDealVerdict = `${v.email} visited briefly and has not returned in ${Math.round(daysSinceLastSeen)} days. Low engagement across documents suggests they may be evaluating alternatives. Send one direct question about whether this is still a priority before this goes completely cold.`;
+      }
 
       return {
         email: v.email,
@@ -165,10 +223,23 @@ export async function GET(
         firstSeen: v.firstSeen,
         lastSeen: v.lastSeen,
         engagementScore,
-        status
+        status,
+        internalSharing: sameCompanyViewers > 0,
+        sameCompanyViewerCount: sameCompanyViewers,
+        coveragePct: Math.round(coveragePct),
+        daysSinceLastSeen: Math.round(daysSinceLastSeen),
+        isLikelyDead,
+        deadDealVerdict,
+        signals: {
+          recency: recencyScore,
+          sessions: sessionScore,
+          depth: depthScore,
+          downloads: downloadScore,
+          internalSharing: internalSharingScore,
+        }
       };
     }).sort((a, b) => b.engagementScore - a.engagementScore);
-
+    
     // ─── 3. DOCUMENT PERFORMANCE ──────────────────────────────────────────
     const docMap: Record<string, {
       documentId: string
@@ -342,6 +413,148 @@ export async function GET(
       return b.heatScore - a.heatScore;
     });
 
+
+    // ── Deal Intelligence per visitor ─────────────────────────────────────
+    // Same interpretation logic as single document analytics
+    // but applied across all documents in the space per visitor
+
+    const spaceVisitorIntelligence = await Promise.all(
+      visitors.slice(0, 20).map(async (visitor) => {
+
+        // Get all activity logs for this visitor in this space
+        const visitorLogs = logs.filter(l =>
+          l.visitorEmail === visitor.email
+        );
+
+        // Sessions grouped by document
+        const docSessionMap = new Map<string, Set<string>>();
+        visitorLogs.forEach((log: any) => {
+          if (!log.documentId) return;
+          const docId = log.documentId.toString();
+          if (!docSessionMap.has(docId)) docSessionMap.set(docId, new Set());
+          if (log.sessionId) docSessionMap.get(docId)!.add(log.sessionId);
+        });
+
+        // Re-read detection — documents opened in 2+ distinct sessions
+        const reReadDocs: { docId: string; docName: string; sessionCount: number }[] = [];
+        docSessionMap.forEach((sessions, docId) => {
+          if (sessions.size >= 2) {
+            reReadDocs.push({
+              docId,
+              docName: documents.find((d: any) => d.documentId === docId)?.documentName || 'Document',
+              sessionCount: sessions.size,
+            });
+          }
+        });
+        reReadDocs.sort((a, b) => b.sessionCount - a.sessionCount);
+
+        // Days since last activity
+        const daysSinceLastActivity = visitor.lastSeen
+          ? Math.floor((Date.now() - new Date(visitor.lastSeen).getTime()) / (1000 * 60 * 60 * 24))
+          : 999;
+
+        // Secondary viewer detection — another person from same company domain
+        const visitorDomain = visitor.email.includes('@')
+          ? visitor.email.split('@')[1].toLowerCase()
+          : null;
+        const secondaryViewers = visitorDomain
+          ? visitors.filter(v =>
+              v.email !== visitor.email &&
+              v.email.includes('@') &&
+              v.email.split('@')[1].toLowerCase() === visitorDomain
+            )
+          : [];
+        const hasInternalSharing = secondaryViewers.length > 0;
+
+        // Document coverage — what percentage of space docs did they open
+        const docsOpened = new Set(
+          visitorLogs.filter((l: any) => l.documentId).map((l: any) => l.documentId.toString())
+        ).size;
+        const coveragePercent = documents.length > 0
+          ? Math.round((docsOpened / documents.length) * 100)
+          : 0;
+
+        // Progressive return pattern — are they going deeper each visit
+        const visitorSessions = visitorLogs
+          .filter((l: any) => l.event === 'document_view' || l.event === 'portal_enter')
+          .sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+        const sessionDocCounts: number[] = [];
+        const sessionDateMap = new Map<string, Set<string>>();
+        visitorSessions.forEach((log: any) => {
+          const dateKey = new Date(log.timestamp).toISOString().split('T')[0];
+          if (!sessionDateMap.has(dateKey)) sessionDateMap.set(dateKey, new Set());
+          if (log.documentId) sessionDateMap.get(dateKey)!.add(log.documentId.toString());
+        });
+        sessionDateMap.forEach(docs => sessionDocCounts.push(docs.size));
+
+        let progressionPattern: 'progressive' | 'stuck' | 'falling' | 'single' = 'single';
+        if (sessionDocCounts.length >= 2) {
+          const first = sessionDocCounts[0];
+          const last = sessionDocCounts[sessionDocCounts.length - 1];
+          if (last > first) progressionPattern = 'progressive';
+          else if (last < first) progressionPattern = 'falling';
+          else progressionPattern = 'stuck';
+        }
+
+        // Momentum state
+        let momentumState: 'accelerating' | 'holding' | 'fading' | 'stalled';
+        if (visitor.engagementScore >= 70 && daysSinceLastActivity <= 3) momentumState = 'accelerating';
+        else if (visitor.engagementScore >= 40 && daysSinceLastActivity <= 7) momentumState = 'holding';
+        else if (daysSinceLastActivity <= 14) momentumState = 'fading';
+        else momentumState = 'stalled';
+
+        // Plain English narrative
+        let narrative = '';
+        if (momentumState === 'accelerating') {
+          if (hasInternalSharing) {
+            narrative = `${visitor.email} has opened this space and a second person from ${visitorDomain} has also accessed it. Your proposal has moved beyond your original contact and is being reviewed internally. Reach out today and ask directly who else is involved in the decision.`;
+          } else if (reReadDocs.length > 0) {
+            narrative = `${visitor.email} has returned to this space ${reReadDocs[0].sessionCount} times and keeps coming back to ${reReadDocs[0].docName}. Something in that document is making them think carefully. Follow up today and offer to walk them through it directly.`;
+          } else {
+            narrative = `${visitor.email} is actively engaging with this space and has opened ${docsOpened} of ${documents.length} documents. Engagement is strong. Follow up now while their attention is high.`;
+          }
+        } else if (momentumState === 'holding') {
+          narrative = `${visitor.email} opened ${docsOpened} document${docsOpened !== 1 ? 's' : ''} in this space ${daysSinceLastActivity} day${daysSinceLastActivity !== 1 ? 's' : ''} ago. Engagement is steady but not accelerating. Send a short value add today rather than a generic check in.`;
+        } else if (momentumState === 'fading') {
+          narrative = `${visitor.email} last visited this space ${daysSinceLastActivity} days ago and engagement is dropping. Send one direct question about their timeline before this goes completely cold.`;
+        } else {
+          narrative = `${visitor.email} has not visited this space in ${daysSinceLastActivity} days. Send a final short message acknowledging the silence without guilt, or archive this deal and set a reminder for six weeks.`;
+        }
+
+        // Recommended action
+        let recommendation = '';
+        if (momentumState === 'accelerating' && hasInternalSharing) {
+          recommendation = `Contact ${visitor.email} today. Ask directly who else on their side should be part of the conversation. Do not mention that you can see the space has been shared internally — just ask naturally.`;
+        } else if (momentumState === 'accelerating') {
+          recommendation = `Follow up today. Lead with something specific about what they have been reviewing rather than asking if they had a chance to look at it. They clearly did.`;
+        } else if (momentumState === 'holding') {
+          recommendation = `Send a value add today. A relevant case study or a one line answer to a likely question. Then ask one direct question about their timeline. Do not ask if they read it.`;
+        } else if (momentumState === 'fading') {
+          recommendation = `Send one direct question today — is moving forward still a priority right now or should we revisit this at a better time. Direct questions get responses even when engagement is dropping.`;
+        } else {
+          recommendation = `Send one final short message. If there is no reply within three days close this deal and set a six week reminder. Some deals are not dead, they are just waiting for an external trigger.`;
+        }
+
+        return {
+          email: visitor.email,
+          engagementScore: visitor.engagementScore,
+          status: visitor.status,
+          momentumState,
+          progressionPattern,
+          docsOpened,
+          coveragePercent,
+          reReadDocs,
+          hasInternalSharing,
+          secondaryViewers: secondaryViewers.map(v => v.email),
+          daysSinceLastActivity,
+          narrative,
+          recommendation,
+        };
+      })
+    );
+
+
     // ─── RESPONSE ─────────────────────────────────────────────────────────
     return NextResponse.json({
       success: true,
@@ -359,7 +572,8 @@ export async function GET(
         visitors,
         documents,
         timeline,
-        dailyVisits
+        dailyVisits,
+        visitorIntelligence: spaceVisitorIntelligence,
       }
     });
 
