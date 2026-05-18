@@ -391,6 +391,7 @@ export default function ActivityTab({
 }) {
   const [expandedVisit, setExpandedVisit] = useState<string | null>(null);
   const [shareLinks, setShareLinks] = useState<any[]>([]);
+   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [reassignLink, setReassignLink] = useState<any | null>(null);
   const [videoStats, setVideoStats] = useState<any[]>([])
 const [documentVideos, setDocumentVideos] = useState<any[]>([])
@@ -1133,16 +1134,92 @@ const completion = viewerPageVideo?.maxCompletion || 0;
                   <span className="text-xs text-slate-600 font-mono truncate flex-1">
                     {lnk.link.replace("https://", "").replace("http://", "")}
                   </span>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(lnk.link);
-                      toast.success("Copied!", { duration: 2000 });
-                    }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-slate-400 hover:text-violet-600"
-                    title="Copy link"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
+                <div className="relative">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(lnk.link);
+                        setCopiedLinkId(lnk.shareId);
+                        setTimeout(() => setCopiedLinkId(null), 4000);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-slate-400 hover:text-violet-600"
+                      title="Copy link"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+
+                    {copiedLinkId === lnk.shareId && (
+                      <div className="absolute right-0 top-6 z-50 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center">
+                              <Check className="h-3 w-3 text-green-600" />
+                            </div>
+                            <p className="text-xs font-semibold text-slate-900">Link copied</p>
+                          </div>
+                          <button
+                            onClick={() => setCopiedLinkId(null)}
+                            className="text-slate-300 hover:text-slate-500"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="px-4 py-3">
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                            Suggested opening message
+                          </p>
+                          <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+                            The message you send with your proposal matters as much as the proposal itself.
+                          </p>
+                          <div className="space-y-2">
+                           {[
+                              {
+                                label: 'Flag decisions worth discussing',
+                                message: `I wanted to flag three specific decisions in here before you go through it — they tend to be the ones worth a quick conversation rather than leaving to email. Happy to walk you through them or answer anything in writing if that works better.`,
+                              },
+                              {
+                                label: 'Reference something specific',
+                                message: `I put this together based on what you mentioned. The section on pricing is probably most relevant to where you are right now. Let me know if anything raises questions — happy to go deeper on any part of it.`,
+                              },
+                              {
+                                label: 'Invite a direct response',
+                                message: `Rather than a general review, I would love to know one thing after you look through it — does the approach make sense for where you are right now, or is there something that feels off. That answer is more useful to me than a general yes or no.`,
+                              },
+                              {
+                                label: 'Keep it short and warm',
+                                message: `Sending this over as promised. Page three is probably the most relevant to your situation right now. No rush on a response — but if anything raises a question just reply here and I will get back to you the same day.`,
+                              },
+                              {
+                                label: 'Ask about their timeline',
+                                message: `I have put together everything we discussed in here. Once you have had a chance to go through it I would love to know one thing — is the timing right for you to move forward this quarter or would a different window make more sense. Either answer helps me make sure I am not following up at the wrong moment.`,
+                              },
+                            ].map((template, i) => (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(template.message);
+                                  toast.success('Message copied — paste it alongside your link', { duration: 3000 });
+                                  setCopiedLinkId(null);
+                                }}
+                                className="w-full text-left px-3 py-2 rounded-xl border border-slate-200 hover:border-violet-300 hover:bg-violet-50 transition-all group/template"
+                              >
+                                <p className="text-[11px] font-semibold text-slate-700 group-hover/template:text-violet-700 mb-0.5">
+                                  {template.label}
+                                </p>
+                                <p className="text-[10px] text-slate-400 leading-relaxed line-clamp-2">
+                                  {template.message}
+                                </p>
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-3 text-center">
+                            Click any message to copy it
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex justify-center">
@@ -1413,10 +1490,11 @@ const completion = viewerPageVideo?.maxCompletion || 0;
                       <span className="text-xs text-slate-500 font-mono truncate flex-1">
                         {lnk.link.replace("https://", "").replace("http://", "")}
                       </span>
-                      <button
+                     <button
                         onClick={() => {
                           navigator.clipboard.writeText(lnk.link);
-                          toast.success("Copied!", { duration: 2000 });
+                          setCopiedLinkId(lnk.shareId);
+                          setTimeout(() => setCopiedLinkId(null), 4000);
                         }}
                         className="text-slate-400 hover:text-violet-600 flex-shrink-0"
                       >
