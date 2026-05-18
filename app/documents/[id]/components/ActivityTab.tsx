@@ -1136,9 +1136,10 @@ const completion = viewerPageVideo?.maxCompletion || 0;
                   </span>
                 <div className="relative">
                     <button
-                      onClick={() => {
+                     onClick={() => {
                         navigator.clipboard.writeText(lnk.link);
                         setCopiedLinkId(lnk.shareId);
+                        toast.success('Link copied to clipboard', { duration: 2000 });
                         setTimeout(() => setCopiedLinkId(null), 4000);
                       }}
                       className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-slate-400 hover:text-violet-600"
