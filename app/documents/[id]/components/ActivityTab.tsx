@@ -1169,8 +1169,8 @@ const completion = viewerPageVideo?.maxCompletion || 0;
                           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
                             Suggested opening message
                           </p>
-                          <p className="text-xs text-slate-400 mb-3 leading-relaxed">
-                            The message you send with your proposal matters as much as the proposal itself.
+                         <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+                            Your link is copied. Now choose a message to send alongside it, or write your own.
                           </p>
                           <div className="space-y-2">
                            {[
