@@ -181,8 +181,8 @@ export async function GET(
             other.email.split('@')[1].toLowerCase() === visitorDomain
           ).length
         : 0;
-      const internalSharingScore = sameCompanyViewers >= 2 ? 15 :
-                                   sameCompanyViewers >= 1 ? 10 : 0;
+      const internalSharingScore = sameCompanyViewers >= 2 ? 25 :
+                                   sameCompanyViewers >= 1 ? 18 : 0;
 
       // ── Dead deal penalty ─────────────────────────────────────────────
       // Progressive penalty for silence — veteran says 3+ weeks is dead
@@ -239,7 +239,7 @@ export async function GET(
         }
       };
     }).sort((a, b) => b.engagementScore - a.engagementScore);
-    
+
     // ─── 3. DOCUMENT PERFORMANCE ──────────────────────────────────────────
     const docMap: Record<string, {
       documentId: string

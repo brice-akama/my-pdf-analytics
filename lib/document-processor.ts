@@ -157,7 +157,7 @@ export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
 // 📊 Analyze document content (Grammarly-style)
 export async function analyzeDocument(text: string, plan: string) {
   const tokenizer = new natural.WordTokenizer();
-  const words = tokenizer.tokenize(text.toLowerCase());
+   const words = tokenizer.tokenize(text.toLowerCase()) || [];
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
   
   // Basic NLP analysis

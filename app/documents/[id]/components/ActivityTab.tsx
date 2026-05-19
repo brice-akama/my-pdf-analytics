@@ -1183,8 +1183,8 @@ const completion = viewerPageVideo?.maxCompletion || 0;
                                 message: `I put this together based on what you mentioned. The section on pricing is probably most relevant to where you are right now. Let me know if anything raises questions — happy to go deeper on any part of it.`,
                               },
                               {
-                                label: 'Invite a direct response',
-                                message: `Rather than a general review, I would love to know one thing after you look through it — does the approach make sense for where you are right now, or is there something that feels off. That answer is more useful to me than a general yes or no.`,
+                                label: 'Ask what would make it easy',
+                                message: `After you have had a chance to look through this, I would love to know one thing — what would make moving forward on this feel straightforward for you. That question is more useful to me than a general yes or no, and it is easier to answer honestly.`,
                               },
                               {
                                 label: 'Keep it short and warm',

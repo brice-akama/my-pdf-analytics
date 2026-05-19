@@ -559,7 +559,9 @@ const mostEngagedContacts = await Promise.all(
         else if (shareSessions.length === 1) score += 5;
 
         // Multiple viewers from same company
-        if (uniqueViewers >= 2) score += 20;
+         // Veteran signal: internal sharing is the highest cost action
+        // a prospect takes — weighted above all other signals
+        if (uniqueViewers >= 2) score += 28;
 
         // Depth
         if (depthPercent >= 80) score += 15;
