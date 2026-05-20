@@ -49,7 +49,7 @@ function formatTimeAgo(dateStr: string | Date): string {
 }
 
 function formatMMSS(seconds: number): string {
-  if (!seconds || seconds <= 0) return "00:00";
+  if (!seconds || seconds <= 0) return "—";
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;

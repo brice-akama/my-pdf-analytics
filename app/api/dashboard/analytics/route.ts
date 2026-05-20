@@ -319,7 +319,7 @@ recentContactSessions.forEach((s: any) => {
   if (teamDocumentIds.includes(s.documentId)) {
     e.viewedTeamDocIds.add(s.documentId)
   }
-  contactMap2.set(s.email, e)
+  contactMap2.set(contactKey, e)
 })
 
 // Add time from page_view logs
@@ -336,7 +336,9 @@ recentPageLogs.forEach((log: any) => {
   } else {
     const pageTimeMap = new Map<number, number>()
     pageTimeMap.set(pageNum, log.viewTime || 0)
-    contactMap2.set(log.email, {
+    const logKey = log.email || (log.viewerId ? `anon:${log.viewerId.substring(0, 8)}` : null)
+if (!logKey) return
+contactMap2.set(logKey, {
       email: log.email,
       visits: 1,
       docs: new Set([log.documentId]),
