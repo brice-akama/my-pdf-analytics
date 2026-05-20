@@ -282,7 +282,7 @@ const recentPageLogs = await db.collection('analytics_logs')
     documentId: { $in: documentIds },
     action: 'page_view',
     timestamp: { $gte: thirtyDaysAgoC },
-    email: { $exists: true, $ne: null },
+    
   })
   .toArray()
 
