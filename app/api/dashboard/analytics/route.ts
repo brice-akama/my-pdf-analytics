@@ -272,7 +272,7 @@ const recentContactSessions = await db.collection('analytics_sessions')
   .find({
     documentId: { $in: documentIds },
     startedAt: { $gte: thirtyDaysAgoC },
-    email: { $exists: true, $ne: null },
+     
   })
   .toArray()
 
@@ -290,9 +290,12 @@ const contactMap2 = new Map<string, any>()
 
 // Build visit/doc counts from sessions — and tag source
 recentContactSessions.forEach((s: any) => {
-  if (!s.email) return
-  const e = contactMap2.get(s.email) || {
-    email: s.email,
+  const contactKey = s.email || (s.viewerId ? `anon:${s.viewerId.substring(0, 8)}` : null)
+  if (!contactKey) return
+  const displayEmail = s.email || `Anonymous (${s.viewerId?.substring(0, 8)})`
+  const e = contactMap2.get(contactKey) || {
+    email: displayEmail,
+     
     visits: 0,
     docs: new Set<string>(),
     totalTime: 0,
@@ -321,8 +324,9 @@ recentContactSessions.forEach((s: any) => {
 
 // Add time from page_view logs
 recentPageLogs.forEach((log: any) => {
-  if (!log.email) return
-  const e = contactMap2.get(log.email)
+  const logKey = log.email || (log.viewerId ? `anon:${log.viewerId.substring(0, 8)}` : null)
+  if (!logKey) return
+  const e = contactMap2.get(logKey)
   const pageNum = Number(log.pageNumber || log.page)
   if (!pageNum) return
   if (e) {

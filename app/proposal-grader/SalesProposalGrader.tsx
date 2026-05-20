@@ -148,6 +148,40 @@ function QuizScreen({ current, answers, onSelect, onNext, onBack }: QuizScreenPr
 
   return (
     <div style={{ maxWidth: 580, margin: "0 auto", padding: "2rem 1rem", fontFamily: "system-ui, sans-serif" }}>
+        {/* Show context only on first question */}
+    {current === 0 && (
+      <div style={{
+        padding: 18,
+        borderRadius: 12,
+        border: "0.5px solid #e5e7eb",
+        background: "#ffffff",
+        marginBottom: "1.5rem",
+      }}>
+        <p style={{ fontSize: 15, fontWeight: 500, color: "#111827", marginBottom: ".8rem" }}>
+          What this grader measures
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", gap: 10 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7F77DD", marginTop: 6, flexShrink: 0 }} />
+            <p style={{ margin: 0, fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
+              Proposal length affects completion rates. Long proposals usually lose attention before pricing or next steps are reached.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7F77DD", marginTop: 6, flexShrink: 0 }} />
+            <p style={{ margin: 0, fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
+              Follow-up timing changes outcomes. Most proposals fail because the sender follows up too late or without context.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7F77DD", marginTop: 6, flexShrink: 0 }} />
+            <p style={{ margin: 0, fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
+              Engagement tracking helps you understand when buyers revisit pricing, hesitate on certain pages, or quietly lose interest.
+            </p>
+          </div>
+        </div>
+      </div>
+    )}
       <div style={{ height: 3, background: "#e5e7eb", borderRadius: 2, marginBottom: "2rem", overflow: "hidden" }}>
         <div style={{
           height: "100%", background: "#7F77DD", borderRadius: 2,
@@ -317,87 +351,7 @@ function ResultsScreen({ answers, score, onRestart }: ResultsScreenProps) {
         ))}
       </div>
 
-      <div style={{
-  padding: 18,
-  borderRadius: 12,
-  border: "0.5px solid #e5e7eb",
-  background: "#ffffff",
-  marginBottom: "1rem",
-}}>
-  <p style={{
-    fontSize: 15,
-    fontWeight: 500,
-    color: "#111827",
-    marginBottom: ".8rem",
-  }}>
-    What this score actually means
-  </p>
-
-  <div style={{
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-  }}>
-
-    <div style={{ display: "flex", gap: 10 }}>
-      <span style={{
-        width: 8,
-        height: 8,
-        borderRadius: "50%",
-        background: "#7F77DD",
-        marginTop: 6,
-        flexShrink: 0,
-      }} />
-      <p style={{
-        margin: 0,
-        fontSize: 13,
-        color: "#6b7280",
-        lineHeight: 1.6,
-      }}>
-        Proposal length affects completion rates. Long proposals usually lose attention before pricing or next steps are reached.
-      </p>
-    </div>
-
-    <div style={{ display: "flex", gap: 10 }}>
-      <span style={{
-        width: 8,
-        height: 8,
-        borderRadius: "50%",
-        background: "#7F77DD",
-        marginTop: 6,
-        flexShrink: 0,
-      }} />
-      <p style={{
-        margin: 0,
-        fontSize: 13,
-        color: "#6b7280",
-        lineHeight: 1.6,
-      }}>
-        Follow-up timing changes outcomes. Most proposals fail because the sender follows up too late or without context.
-      </p>
-    </div>
-
-    <div style={{ display: "flex", gap: 10 }}>
-      <span style={{
-        width: 8,
-        height: 8,
-        borderRadius: "50%",
-        background: "#7F77DD",
-        marginTop: 6,
-        flexShrink: 0,
-      }} />
-      <p style={{
-        margin: 0,
-        fontSize: 13,
-        color: "#6b7280",
-        lineHeight: 1.6,
-      }}>
-        Engagement tracking helps you understand when buyers revisit pricing, hesitate on certain pages, or quietly lose interest.
-      </p>
-    </div>
-
-  </div>
-</div>
+      
 
       <div style={{
         padding: 20, borderRadius: 12,

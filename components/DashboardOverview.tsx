@@ -425,7 +425,7 @@ export default function DashboardOverview() {
                       </div>
                       {deal.topViewerEmail && (
                         <p className="text-[11px] text-slate-400 mb-1.5 truncate">
-                          {deal.topViewerEmail}
+  {deal.topViewerEmail || 'Anonymous viewer'}
                           {deal.uniqueViewers > 1 && (
                             <span className="ml-1 text-indigo-500 font-semibold">
                               +{deal.uniqueViewers - 1} more viewer{deal.uniqueViewers > 2 ? 's' : ''}
