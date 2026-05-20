@@ -71,6 +71,7 @@ export async function GET(
       if (v.viewerEmail) uniqueViewerEmails.add(v.viewerEmail);
       else if (v.viewerId) uniqueViewerEmails.add(v.viewerId);
     });
+    
     analyticsLogs.forEach((l: any) => {
       if (l.email) uniqueViewerEmails.add(l.email);
       else if (l.viewerId) uniqueViewerEmails.add(l.viewerId);
@@ -79,6 +80,45 @@ export async function GET(
       if (s.email) uniqueViewerEmails.add(s.email);
       else if (s.viewerId) uniqueViewerEmails.add(s.viewerId);
     });
+
+    // ── Anonymous fingerprint grouping ───────────────────────────────
+// Group sessions that share the same viewerId — same device across
+// sessions — so anonymous viewers appear as one person, not many.
+const anonFingerprintMap = new Map<string, {
+  viewerId: string
+  sessionCount: number
+  firstSeen: Date
+  lastSeen: Date
+  pagesViewed: Set<number>
+  totalTime: number
+}>();
+
+for (const session of allSessions) {
+  if (session.email) continue; // identified — skip
+  const vid = session.viewerId;
+  if (!vid) continue;
+
+  const existing = anonFingerprintMap.get(vid);
+  const sessionStart = new Date(session.startedAt);
+  const sessionEnd = session.endedAt ? new Date(session.endedAt) : sessionStart;
+
+  if (!existing) {
+    anonFingerprintMap.set(vid, {
+      viewerId: vid,
+      sessionCount: 1,
+      firstSeen: sessionStart,
+      lastSeen: sessionEnd,
+      pagesViewed: new Set(session.pagesViewed || []),
+      totalTime: session.duration || 0,
+    });
+  } else {
+    existing.sessionCount++;
+    existing.totalTime += session.duration || 0;
+    (session.pagesViewed || []).forEach((p: number) => existing.pagesViewed.add(p));
+    if (sessionStart < existing.firstSeen) existing.firstSeen = sessionStart;
+    if (sessionEnd > existing.lastSeen) existing.lastSeen = sessionEnd;
+  }
+}
 
     const uniqueViewers = Math.max(
       tracking.uniqueVisitors?.length || 0,
@@ -511,7 +551,11 @@ export async function GET(
       if (viewerEmails.length === 0) {
         const uniqueIds = share.tracking?.uniqueViewers || [];
         for (const viewerId of uniqueIds) {
-          const anonKey = `Anonymous (${viewerId.substring(0, 8)})`;
+           const fingerprintData = anonFingerprintMap.get(viewerId);
+const sessionLabel = fingerprintData && fingerprintData.sessionCount > 1
+  ? `${fingerprintData.sessionCount} sessions`
+  : '1 session';
+const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
           const timeSpent = share.tracking?.timeSpentByViewer?.[viewerId] || 0;
           if (!viewerEmailMap.has(anonKey)) {
             viewerEmailMap.set(anonKey, { email: anonKey, views: 1, lastViewed: share.tracking?.lastViewedAt || new Date(), totalTime: timeSpent, shares: [share.shareToken] });
@@ -880,6 +924,27 @@ export async function GET(
           ownerEmail: ownerProfile?.email || null,
           ownerName: ownerProfile?.full_name || ownerProfile?.first_name || null,
         },
+        anonymousFingerprints: Array.from(anonFingerprintMap.values()).map(f => ({
+          viewerId: f.viewerId,
+          label: `Anonymous viewer (${f.viewerId.substring(0, 8)})`,
+          sessionCount: f.sessionCount,
+          pagesViewed: f.pagesViewed.size,
+          totalTime: formatTime(f.totalTime),
+          totalTimeSeconds: f.totalTime,
+          firstSeen: f.firstSeen,
+          lastSeen: f.lastSeen,
+        })).sort((a, b) => b.sessionCount - a.sessionCount),
+
+        shareLinks: shares.map((s: any) => ({
+          shareToken: s.shareToken,
+          requiresEmail: s.settings?.requireEmail ?? true,
+          hasAnonymousViewers: !s.settings?.requireEmail &&
+            (s.tracking?.uniqueViewers || []).some((vid: string) =>
+              anonFingerprintMap.has(vid)
+            ),
+        })),
+
+        
         sharingInfo: {
           isPublic: document.isPublic || false,
           sharedWith: document.sharedWith?.length || 0,

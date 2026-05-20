@@ -25,6 +25,7 @@ const CookieConsent = () => {
     '/analytics',
     '/billing',
     '/profile',
+    '/proposal-grader',
   ]
 
   // Check if current path starts with any hidden path

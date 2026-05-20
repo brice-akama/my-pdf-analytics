@@ -39,7 +39,8 @@ const HIDDEN_ROUTES = [
   "/zapier-login",
   "/organization",
   "/reset-password",
-  "/documents"
+  "/documents",
+  "/proposal-grader",
 ]
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {

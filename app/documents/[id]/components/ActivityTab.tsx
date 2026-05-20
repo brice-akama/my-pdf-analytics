@@ -653,6 +653,32 @@ notOpened: lnk.isCC
           </span>
         </div>
 
+        <div className="flex items-center justify-between py-4 border-b border-slate-200">
+          <h3 className="text-base font-semibold text-slate-900">All Visits</h3>
+          <span className="text-sm text-slate-400">
+            {allVisits.length} {allVisits.length === 1 ? "visit" : "visits"}
+          </span>
+        </div>
+
+        {/* ── Email-gating warning — shows on all plans ── */}
+        {(analytics.shareLinks || []).some((sl: any) => !sl.requiresEmail) && (
+          <div className="flex items-start gap-3 px-4 py-3 mb-2 bg-amber-50 border border-amber-200 rounded-xl">
+            <span className="text-amber-500 text-base flex-shrink-0">⚠️</span>
+            <div>
+              <p className="text-xs font-semibold text-amber-900">
+                {(analytics.shareLinks || []).filter((sl: any) => !sl.requiresEmail).length} of your share{' '}
+                {(analytics.shareLinks || []).filter((sl: any) => !sl.requiresEmail).length === 1 ? 'link does' : 'links do'}{' '}
+                not require email — some viewers appear anonymous.
+              </p>
+              <p className="text-[11px] text-amber-700 mt-0.5">
+                Edit those links and enable "Require email" to identify future viewers.
+              </p>
+            </div>
+          </div>
+        )}
+
+          
+
         {analyticsLevel === 'basic' ? (
           <div className="py-10 text-center border-b border-slate-100">
             <div className="h-12 w-12 rounded-xl bg-purple-100 flex items-center justify-center mx-auto mb-3">
@@ -1059,13 +1085,47 @@ const completion = viewerPageVideo?.maxCompletion || 0;
                 </div>
               );
             })}
+         </div>
+        )}
+
+        {/* ── Anonymous fingerprint rows ── */}
+        {(analytics.anonymousFingerprints || []).length > 0 && (
+          <div className="border-t border-slate-100 pt-4 pb-2">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3 px-1">
+              Anonymous Viewers (no email collected)
+            </p>
+            {(analytics.anonymousFingerprints || []).map((fp: any) => (
+              <div key={fp.viewerId} className="flex items-center gap-3 py-3 border-b border-slate-50 last:border-b-0">
+                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                  <span className="text-slate-400 text-xs font-bold">?</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-600">{fp.label}</p>
+                  <p className="text-[11px] text-slate-400">
+                    {fp.sessionCount} {fp.sessionCount === 1 ? 'session' : 'sessions'} ·{' '}
+                    {fp.pagesViewed} pages · {fp.totalTime}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-[11px] text-slate-400">
+                    Last seen {formatAgo(new Date(fp.lastSeen))}
+                  </p>
+                  {fp.sessionCount >= 2 && (
+                    <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                      Returned {fp.sessionCount}×
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
+
       </div>
 
-      <div className="pt-8" />
+      <div className="pt-8" />  
 
-      {/* ══ ALL LINKS SECTION ══ */}
+      {/* ══ ALL LINKS SECTION ══ */}   
       <div>
         <div className="flex items-center justify-between py-4 border-b border-slate-200">
           <h3 className="text-base font-semibold text-slate-900">All Links</h3>

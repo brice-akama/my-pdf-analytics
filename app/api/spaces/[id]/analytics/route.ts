@@ -536,11 +536,65 @@ export async function GET(
           recommendation = `Send one final short message. If there is no reply within three days close this deal and set a six week reminder. Some deals are not dead, they are just waiting for an external trigger.`;
         }
 
+        // ── Return after silence plus question detection ───────────────────
+        // If a visitor went silent for 3+ days then came back AND asked
+        // a question within 24 hours of returning — that combination is
+        // one of the strongest buying signals in the dataset
+        const visitorComments = await db.collection('portal_comments').find({
+          spaceId: new ObjectId(spaceId),
+          email: visitor.email,
+        }).sort({ createdAt: -1 }).limit(5).toArray();
+
+        let returnWithQuestion = false;
+        let returnQuestionText: string | null = null;
+
+        if (visitorComments.length > 0 && visitorLogs.length >= 2) {
+          const sortedLogs = [...visitorLogs].sort(
+            (a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+
+          for (let i = 1; i < sortedLogs.length; i++) {
+            const prevLog = sortedLogs[i - 1];
+            const currentLog = sortedLogs[i];
+            const gapDays = (new Date(currentLog.timestamp).getTime() - new Date(prevLog.timestamp).getTime()) / (1000 * 60 * 60 * 24);
+
+            if (gapDays >= 3) {
+              const returnTime = new Date(currentLog.timestamp).getTime();
+              const questionAfterReturn = visitorComments.find((c: any) => {
+                const commentTime = new Date(c.createdAt).getTime();
+                return commentTime >= returnTime && commentTime <= returnTime + (24 * 60 * 60 * 1000);
+              });
+
+              if (questionAfterReturn) {
+                returnWithQuestion = true;
+                returnQuestionText = questionAfterReturn.message;
+                break;
+              }
+            }
+          }
+        }
+
+        // Boost momentum score when return plus question detected
+        if (returnWithQuestion) {
+          if (momentumState === 'fading') momentumState = 'holding';
+          if (momentumState === 'holding') momentumState = 'accelerating';
+        }
+
+        // Update narrative if return plus question detected
+        let finalNarrative = narrative;
+        if (returnWithQuestion && returnQuestionText) {
+          finalNarrative = `${visitor.email} went quiet then came back and asked a specific question — "${returnQuestionText.slice(0, 80)}${returnQuestionText.length > 80 ? '...' : ''}". This combination is one of the strongest buying signals in your pipeline. They were not gone. They were thinking. Follow up today and answer their question directly.`;
+        }
+
+
         return {
           email: visitor.email,
           engagementScore: visitor.engagementScore,
           status: visitor.status,
           momentumState,
+          returnWithQuestion,
+          returnQuestionText,
+          narrative: finalNarrative,
           progressionPattern,
           docsOpened,
           coveragePercent,
@@ -548,7 +602,7 @@ export async function GET(
           hasInternalSharing,
           secondaryViewers: secondaryViewers.map(v => v.email),
           daysSinceLastActivity,
-          narrative,
+         
           recommendation,
         };
       })

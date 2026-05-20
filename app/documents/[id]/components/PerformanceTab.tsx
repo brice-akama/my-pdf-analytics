@@ -1,3 +1,5 @@
+//app/documents/[id]/components/PerformanceTab.tsx
+
 "use client";
 
 import React from 'react';
@@ -412,6 +414,104 @@ export default function PerformanceTab({
       />
     )}
   </>
+)}
+
+{/* ── Anonymous Signals Section ────────────────────────────────── */}
+{(analytics.anonymousFingerprints || []).length > 0 && (
+  <div className="py-5 border-b border-slate-100">
+    <div className="flex items-center gap-2 mb-4">
+      <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+        <Users className="h-4 w-4 text-slate-400" />
+      </div>
+      <div>
+        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+          Anonymous Signals
+        </p>
+        <p className="text-[11px] text-slate-400">
+          Unidentified viewers — same device fingerprint grouped together
+        </p>
+      </div>
+    </div>
+
+    {(analytics.anonymousFingerprints || []).map((fp: any) => {
+      // Build a momentum state from what we know without email
+      const hoursSinceLastSeen = (Date.now() - new Date(fp.lastSeen).getTime()) / (1000 * 60 * 60);
+      const daysSince = Math.round(hoursSinceLastSeen / 24);
+
+      const momentum =
+        hoursSinceLastSeen <= 24 && fp.sessionCount >= 2 ? 'accelerating' :
+        hoursSinceLastSeen <= 72 && fp.sessionCount >= 2 ? 'holding' :
+        hoursSinceLastSeen <= 168 ? 'fading' : 'stalled';
+
+      const momentumColor =
+        momentum === 'accelerating' ? 'text-green-600 bg-green-50 border-green-200' :
+        momentum === 'holding'      ? 'text-amber-600 bg-amber-50 border-amber-200' :
+        momentum === 'fading'       ? 'text-orange-500 bg-orange-50 border-orange-200' :
+                                      'text-slate-400 bg-slate-50 border-slate-200';
+
+      const narrative =
+        momentum === 'accelerating'
+          ? `An unidentified viewer has returned ${fp.sessionCount} times in the last ${daysSince === 0 ? 'day' : `${daysSince} days`} and opened ${fp.pagesViewed} pages. The return pattern is a buying signal even without an email. Enable email gating on this link to identify them.`
+        : momentum === 'holding'
+          ? `An anonymous viewer visited ${fp.sessionCount} times over ${daysSince} days and reviewed ${fp.pagesViewed} pages. Engagement is steady. You cannot follow up without their email — consider enabling email gating.`
+        : momentum === 'fading'
+          ? `An anonymous viewer last visited ${daysSince} days ago across ${fp.sessionCount} session${fp.sessionCount > 1 ? 's' : ''}. Engagement is dropping and you have no way to reach them. Enable email gating on this link to capture future visitors.`
+        : `An anonymous viewer visited ${fp.sessionCount} time${fp.sessionCount > 1 ? 's' : ''} but has not returned in ${daysSince} days. Without an email you cannot re-engage. This signal is lost.`;
+
+      return (
+        <div key={fp.viewerId} className="py-4 border-b border-slate-50 last:border-b-0">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                <span className="text-slate-500 text-xs font-bold">?</span>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-600">{fp.label}</p>
+                <p className="text-[11px] text-slate-400">
+                  {fp.sessionCount} {fp.sessionCount === 1 ? 'session' : 'sessions'} · {fp.pagesViewed} pages · {fp.totalTime}
+                </p>
+              </div>
+            </div>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex-shrink-0 ${momentumColor}`}>
+              {momentum}
+            </span>
+          </div>
+
+          <p className="text-sm text-slate-600 leading-relaxed mb-3">{narrative}</p>
+
+          {/* Signal tags */}
+          <div className="flex flex-wrap gap-2">
+            {fp.sessionCount >= 2 && (
+              <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-amber-100 text-amber-700">
+                Returned {fp.sessionCount}×
+              </span>
+            )}
+            {fp.pagesViewed >= 3 && (
+              <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-sky-100 text-sky-700">
+                {fp.pagesViewed} pages reviewed
+              </span>
+            )}
+            {hoursSinceLastSeen <= 24 && (
+              <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">
+                Active today
+              </span>
+            )}
+            <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-500">
+              Last seen {daysSince === 0 ? 'today' : `${daysSince}d ago`}
+            </span>
+          </div>
+
+          {/* CTA to fix the root cause */}
+          <div className="mt-3 flex items-center gap-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <span>⚠️</span>
+            <span>
+              Enable email gating on this link to identify future viewers like this one.
+            </span>
+          </div>
+        </div>
+      );
+    })}
+  </div>
 )}
 
       {/* SECTION 2 — LIVE VIEWERS */}
