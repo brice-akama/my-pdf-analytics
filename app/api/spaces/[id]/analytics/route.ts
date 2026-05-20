@@ -139,108 +139,7 @@ export async function GET(
       if (new Date(log.timestamp) < new Date(v.firstSeen)) v.firstSeen = log.timestamp;
     }
 
-   const visitors = Object.values(visitorMap).map(v => {
-      const hoursSinceLastSeen = (now - new Date(v.lastSeen).getTime()) / (1000 * 60 * 60);
-      const daysSinceLastSeen = hoursSinceLastSeen / 24;
-
-      // ── Veteran framework signals ─────────────────────────────────────
-      // Based on 20 years enterprise sales experience
-      // Signal 1: Recency — most important, decays fast
-      const recencyScore = hoursSinceLastSeen <= 24  ? 30 :
-                           hoursSinceLastSeen <= 72  ? 22 :
-                           hoursSinceLastSeen <= 168 ? 12 :
-                           hoursSinceLastSeen <= 336 ? 5  : 0;
-
-      // Signal 2: Multiple sessions — return visits are buying signals
-      const sessionScore = v.totalEvents >= 5 ? 20 :
-                           v.totalEvents >= 3 ? 14 :
-                           v.totalEvents >= 2 ? 8  :
-                           v.totalEvents === 1 ? 3 : 0;
-
-      // Signal 3: Document depth — how many docs did they open
-      const totalSpaceDocs = documents.length || 1;
-      const coveragePct = (v.docsViewed.size / totalSpaceDocs) * 100;
-      const depthScore = coveragePct >= 80 ? 20 :
-                         coveragePct >= 50 ? 14 :
-                         coveragePct >= 25 ? 8  :
-                         coveragePct > 0   ? 4  : 0;
-
-      // Signal 4: Downloads — highest cost action a prospect takes
-      const downloadScore = v.downloads >= 3 ? 15 :
-                            v.downloads >= 1 ? 10 : 0;
-
-      // Signal 5: Multiple viewers from same domain — internal sharing
-      // This is the veteran's most important signal
-      const visitorDomain = v.email.includes('@')
-        ? v.email.split('@')[1].toLowerCase()
-        : null;
-      const sameCompanyViewers = visitorDomain
-        ? Object.values(visitorMap).filter(other =>
-            other.email !== v.email &&
-            other.email.includes('@') &&
-            other.email.split('@')[1].toLowerCase() === visitorDomain
-          ).length
-        : 0;
-      const internalSharingScore = sameCompanyViewers >= 2 ? 25 :
-                                   sameCompanyViewers >= 1 ? 18 : 0;
-
-      // ── Dead deal penalty ─────────────────────────────────────────────
-      // Progressive penalty for silence — veteran says 3+ weeks is dead
-      const silencePenalty = daysSinceLastSeen > 21 ? -25 :
-                             daysSinceLastSeen > 14 ? -15 :
-                             daysSinceLastSeen > 10 ? -8  : 0;
-
-      const engagementScore = Math.min(100, Math.max(0,
-        recencyScore + sessionScore + depthScore + downloadScore + internalSharingScore + silencePenalty
-      ));
-
-      // ── Dead deal detection — veteran signals ─────────────────────────
-      const isLikelyDead = daysSinceLastSeen > 21 && v.totalEvents <= 1;
-      const isInternalFriction = sameCompanyViewers >= 1;
-      const isDisengaging = daysSinceLastSeen > 7 && v.totalEvents <= 2 && v.docsViewed.size <= 1;
-
-      // ── Status ────────────────────────────────────────────────────────
-      let status: 'hot' | 'warm' | 'cold' | 'new';
-      if (isLikelyDead)            status = 'cold';
-      else if (engagementScore >= 65) status = 'hot';
-      else if (engagementScore >= 35) status = 'warm';
-      else if (hoursSinceLastSeen < 48) status = 'new';
-      else status = 'cold';
-
-      // ── Dead deal verdict ─────────────────────────────────────────────
-      let deadDealVerdict: string | null = null;
-      if (isLikelyDead) {
-        deadDealVerdict = `${v.email} opened this space ${Math.round(daysSinceLastSeen)} days ago and has not returned. The engagement pattern suggests genuine disengagement rather than internal review. Send one final message acknowledging the silence without guilt. If there is no reply within three days close this deal and set a six week reminder.`;
-      } else if (isDisengaging) {
-        deadDealVerdict = `${v.email} visited briefly and has not returned in ${Math.round(daysSinceLastSeen)} days. Low engagement across documents suggests they may be evaluating alternatives. Send one direct question about whether this is still a priority before this goes completely cold.`;
-      }
-
-      return {
-        email: v.email,
-        totalEvents: v.totalEvents,
-        docsViewed: v.docsViewed.size,
-        downloads: v.downloads,
-        firstSeen: v.firstSeen,
-        lastSeen: v.lastSeen,
-        engagementScore,
-        status,
-        internalSharing: sameCompanyViewers > 0,
-        sameCompanyViewerCount: sameCompanyViewers,
-        coveragePct: Math.round(coveragePct),
-        daysSinceLastSeen: Math.round(daysSinceLastSeen),
-        isLikelyDead,
-        deadDealVerdict,
-        signals: {
-          recency: recencyScore,
-          sessions: sessionScore,
-          depth: depthScore,
-          downloads: downloadScore,
-          internalSharing: internalSharingScore,
-        }
-      };
-    }).sort((a, b) => b.engagementScore - a.engagementScore);
-
-    // ─── 3. DOCUMENT PERFORMANCE ──────────────────────────────────────────
+   // ─── 3. DOCUMENT PERFORMANCE ──────────────────────────────────────────
     const docMap: Record<string, {
       documentId: string
       documentName: string
@@ -286,6 +185,103 @@ export async function GET(
       lastViewed: d.lastViewed
     })).sort((a, b) => b.views - a.views);
 
+    // ─── 2. VISITOR ENGAGEMENT TABLE ─────────────────────────────────────
+    const visitors = Object.values(visitorMap).map(v => {
+      const hoursSinceLastSeen = (now - new Date(v.lastSeen).getTime()) / (1000 * 60 * 60);
+      const daysSinceLastSeen = hoursSinceLastSeen / 24;
+
+      // Signal 1: Recency
+      const recencyScore = hoursSinceLastSeen <= 24  ? 30 :
+                           hoursSinceLastSeen <= 72  ? 22 :
+                           hoursSinceLastSeen <= 168 ? 12 :
+                           hoursSinceLastSeen <= 336 ? 5  : 0;
+
+      // Signal 2: Multiple sessions
+      const sessionScore = v.totalEvents >= 5 ? 20 :
+                           v.totalEvents >= 3 ? 14 :
+                           v.totalEvents >= 2 ? 8  :
+                           v.totalEvents === 1 ? 3 : 0;
+
+      // Signal 3: Document depth
+      const totalSpaceDocs = documents.length || 1;
+      const coveragePct = (v.docsViewed.size / totalSpaceDocs) * 100;
+      const depthScore = coveragePct >= 80 ? 20 :
+                         coveragePct >= 50 ? 14 :
+                         coveragePct >= 25 ? 8  :
+                         coveragePct > 0   ? 4  : 0;
+
+      // Signal 4: Downloads
+      const downloadScore = v.downloads >= 3 ? 15 :
+                            v.downloads >= 1 ? 10 : 0;
+
+      // Signal 5: Internal sharing
+      const visitorDomain = v.email.includes('@')
+        ? v.email.split('@')[1].toLowerCase()
+        : null;
+      const sameCompanyViewers = visitorDomain
+        ? Object.values(visitorMap).filter(other =>
+            other.email !== v.email &&
+            other.email.includes('@') &&
+            other.email.split('@')[1].toLowerCase() === visitorDomain
+          ).length
+        : 0;
+      const internalSharingScore = sameCompanyViewers >= 2 ? 25 :
+                                   sameCompanyViewers >= 1 ? 18 : 0;
+
+      // Dead deal penalty
+      const silencePenalty = daysSinceLastSeen > 21 ? -25 :
+                             daysSinceLastSeen > 14 ? -15 :
+                             daysSinceLastSeen > 10 ? -8  : 0;
+
+      const engagementScore = Math.min(100, Math.max(0,
+        recencyScore + sessionScore + depthScore + downloadScore + internalSharingScore + silencePenalty
+      ));
+
+      const isLikelyDead = daysSinceLastSeen > 21 && v.totalEvents <= 1;
+      const isDisengaging = daysSinceLastSeen > 7 && v.totalEvents <= 2 && v.docsViewed.size <= 1;
+
+      let status: 'hot' | 'warm' | 'cold' | 'new';
+      if (isLikelyDead)               status = 'cold';
+      else if (engagementScore >= 65) status = 'hot';
+      else if (engagementScore >= 35) status = 'warm';
+      else if (hoursSinceLastSeen < 48) status = 'new';
+      else status = 'cold';
+
+      let deadDealVerdict: string | null = null;
+      if (isLikelyDead) {
+        deadDealVerdict = `${v.email} opened this space ${Math.round(daysSinceLastSeen)} days ago and has not returned. Send one final message acknowledging the silence without guilt. If there is no reply within three days close this deal and set a six week reminder.`;
+      } else if (isDisengaging) {
+        deadDealVerdict = `${v.email} visited briefly and has not returned in ${Math.round(daysSinceLastSeen)} days. Send one direct question about whether this is still a priority before this goes completely cold.`;
+      }
+
+      return {
+        email: v.email,
+        totalEvents: v.totalEvents,
+        docsViewed: v.docsViewed.size,
+        downloads: v.downloads,
+        firstSeen: v.firstSeen,
+        lastSeen: v.lastSeen,
+        engagementScore,
+        status,
+        internalSharing: sameCompanyViewers > 0,
+        sameCompanyViewerCount: sameCompanyViewers,
+        coveragePct: Math.round(coveragePct),
+        daysSinceLastSeen: Math.round(daysSinceLastSeen),
+        isLikelyDead,
+        deadDealVerdict,
+        signals: {
+          recency: recencyScore,
+          sessions: sessionScore,
+          depth: depthScore,
+          downloads: downloadScore,
+          internalSharing: internalSharingScore,
+        }
+      };
+    }).sort((a, b) => b.engagementScore - a.engagementScore);
+
+    // ─── 4. ACTIVITY TIMELINE ────────────────────────────────────────────
+
+    
     // ─── 4. ACTIVITY TIMELINE ────────────────────────────────────────────
     const timeline = logs.slice(0, 50).map(log => ({
       id: log._id.toString(),
