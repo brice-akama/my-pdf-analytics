@@ -45,19 +45,10 @@ export async function GET(request: NextRequest) {
     const db = await dbPromise;
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
 
-    // If we already have this integration saved, just redirect — don't reprocess
-    const existing = await db.collection("integrations").findOne({
-      userId: state,
-      provider: "hubspot",
-      isActive: true,
-    });
-    if (existing) {
-      const url = new URL("/dashboard", request.url);
-      url.searchParams.set("integration", "hubspot");
-      url.searchParams.set("status", "connected");
-      return NextResponse.redirect(url);
-    }
-
+    // Always update the token — this handles both first connection and
+    // reconnections after new scopes are added. Never skip the update
+    // on an existing connection because the new token carries new scopes
+    // that the old token did not have.
     await db.collection("integrations").updateOne(
       { userId: state, provider: "hubspot" },
       {
@@ -74,6 +65,9 @@ export async function GET(request: NextRequest) {
           },
           isActive: true,
           updatedAt: new Date(),
+          // Track when scopes were last updated so you can audit
+          // which users have the latest scope set
+          scopesUpdatedAt: new Date(),
         },
         $setOnInsert: {
           createdAt: new Date(),

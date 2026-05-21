@@ -14,12 +14,25 @@ function formatTime(seconds: number): string {
 async function safeFetch(
   url: string,
   options: RequestInit
-): Promise<{ ok: boolean; data: any }> {
+): Promise<{ ok: boolean; data: any; scopeError?: boolean }> {
   try {
     const res = await fetch(url, options);
     let data: any = {};
     try { data = await res.json(); } catch {}
-    return { ok: res.ok, data };
+
+    // Detect scope errors specifically so the app can prompt
+    // the user to reconnect rather than failing silently forever
+    const scopeError = res.status === 403 && (
+      data?.message?.includes('scope') ||
+      data?.message?.includes('permission') ||
+      data?.category === 'MISSING_SCOPES'
+    );
+
+    if (scopeError) {
+      console.warn('⚠️ HubSpot scope error — user needs to reconnect:', data?.message);
+    }
+
+    return { ok: res.ok, data, scopeError };
   } catch {
     return { ok: false, data: {} };
   }
@@ -587,8 +600,8 @@ export async function syncDealIntelligenceToHubSpot({
     if (!dealId) return { success: false, reason: 'deal_not_found_or_created' };
 
     const analyticsUrl = isSpace && spaceId
-      ? `${process.env.NEXT_PUBLIC_APP_URL}/spaces/${spaceId}?tab=analytics`
-      : `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}?tab=analytics`;
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/spaces/${spaceId}`
+      : `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`;
 
     const stateEmoji = {
       accelerating: '🟢',
