@@ -280,10 +280,38 @@ if (email && notifyEvents.includes(event)) {
         }).catch(() => {});
       }
 
-      // Run cadence job lazily on every portal open
+     // Run cadence job lazily on every portal open
       import('@/lib/followUpCadenceJob').then(({ runFollowUpCadenceJob }) => {
         runFollowUpCadenceJob().catch(() => {});
       }).catch(() => {});
+
+      // ── Fire deal intelligence to HubSpot silently ──────────────
+      // On first open we send a baseline intelligence record.
+      // The score updates automatically on subsequent analytics calls.
+      const ownerId = space.userId || space.createdBy;
+      if (ownerId) {
+        import('@/lib/integrations/hubspotSync').then(
+          ({ syncDealIntelligenceToHubSpot, isHubSpotConnected }) => {
+            isHubSpotConnected(ownerId).then(connected => {
+              if (!connected) return;
+              syncDealIntelligenceToHubSpot({
+                userId:            ownerId,
+                viewerEmail:       email,
+                documentName:      space.name || 'Space',
+                documentId:        space._id.toString(),
+                spaceId:           space._id.toString(),
+                momentumScore:     50,
+                engagementState:   'holding',
+                lastSignal:        `First open of space "${space.name}"`,
+                recommendedAction: `Send a value add message within 48 hours while attention is high`,
+                internalSharing:   false,
+                daysSinceLastActivity: 0,
+                isSpace:           true,
+              }).catch(() => {});
+            }).catch(() => {});
+          }
+        ).catch(() => {});
+      }
     }
 
     return NextResponse.json({ success: true });

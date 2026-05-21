@@ -12,10 +12,13 @@
         "https://docmetrics.io/api/integrations/hubspot/callback"
       ],
       "requiredScopes": [
+        "oauth",
         "crm.objects.contacts.read",
         "crm.objects.contacts.write",
         "crm.objects.deals.read",
         "crm.objects.deals.write",
+        "crm.schemas.deals.write",
+        "crm.schemas.deals.read",
         "timeline"
       ],
       "optionalScopes": [],
@@ -30,9 +33,9 @@
     },
     "support": {
       "supportEmail": "support@docmetrics.io",
-      "documentationUrl": "https://docmetrics.io/docs",
+      "documentationUrl": "https://docmetrics-documentation.gitbook.io/docs",
       "supportUrl": "https://docmetrics.io/support",
-      "supportPhone": "+18005555555"
+      "supportPhone": "+237681152712"
     }
   }
 }

@@ -1,4 +1,5 @@
 // lib/integrations/hubspotSync.ts
+// lib/integrations/hubspotSync.ts
 import { getValidHubSpotToken } from './hubspot';
 import { dbPromise } from '@/app/api/lib/mongodb';
 
@@ -9,13 +10,28 @@ function formatTime(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
+// ── Safe fetch wrapper — never throws, never crashes the app ──────
+async function safeFetch(
+  url: string,
+  options: RequestInit
+): Promise<{ ok: boolean; data: any }> {
+  try {
+    const res = await fetch(url, options);
+    let data: any = {};
+    try { data = await res.json(); } catch {}
+    return { ok: res.ok, data };
+  } catch {
+    return { ok: false, data: {} };
+  }
+}
+
 // ── Find HubSpot contact by email ─────────────────────────────────
 async function findHubSpotContact(
   token: string,
   email: string
 ): Promise<string | null> {
   try {
-    const res = await fetch(
+    const { ok, data } = await safeFetch(
       'https://api.hubapi.com/crm/v3/objects/contacts/search',
       {
         method: 'POST',
@@ -36,7 +52,7 @@ async function findHubSpotContact(
         }),
       }
     );
-    const data = await res.json();
+    if (!ok) return null;
     return data.results?.[0]?.id || null;
   } catch {
     return null;
@@ -49,14 +65,105 @@ async function updateContactProperties(
   contactId: string,
   properties: Record<string, string>
 ) {
-  await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${contactId}`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ properties }),
-  });
+  await safeFetch(
+    `https://api.hubapi.com/crm/v3/objects/contacts/${contactId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ properties }),
+    }
+  );
+}
+
+// ── Find or create HubSpot deal for a contact ─────────────────────
+async function findOrCreateDeal(
+  token: string,
+  contactId: string,
+  dealName: string
+): Promise<string | null> {
+  try {
+    // Search for existing deal associated with this contact
+    const { ok, data } = await safeFetch(
+      'https://api.hubapi.com/crm/v3/objects/deals/search',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filterGroups: [{
+            filters: [{
+              propertyName: 'associations.contact',
+              operator: 'EQ',
+              value: contactId,
+            }],
+          }],
+          properties: ['dealname', 'dealstage', 'docmetrics_momentum_score'],
+          sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }],
+          limit: 1,
+        }),
+      }
+    );
+
+    if (ok && data.results?.[0]?.id) {
+      return data.results[0].id;
+    }
+
+    // No deal found — create one
+    const createRes = await safeFetch(
+      'https://api.hubapi.com/crm/v3/objects/deals',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          properties: {
+            dealname: dealName,
+            dealstage: 'appointmentscheduled',
+            pipeline: 'default',
+          },
+          associations: [{
+            to: { id: contactId },
+            types: [{
+              associationCategory: 'HUBSPOT_DEFINED',
+              associationTypeId: 3, // contact to deal
+            }],
+          }],
+        }),
+      }
+    );
+
+    if (!createRes.ok) return null;
+    return createRes.data?.id || null;
+
+  } catch {
+    return null;
+  }
+}
+
+// ── Update deal properties ────────────────────────────────────────
+async function updateDealProperties(
+  token: string,
+  dealId: string,
+  properties: Record<string, string>
+) {
+  await safeFetch(
+    `https://api.hubapi.com/crm/v3/objects/deals/${dealId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ properties }),
+    }
+  );
 }
 
 // ── Create a note on a contact ────────────────────────────────────
@@ -67,32 +174,32 @@ async function createContactNote(
   timestamp: Date
 ) {
   try {
-    const noteRes = await fetch('https://api.hubapi.com/crm/v3/objects/notes', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        properties: {
-          hs_note_body: noteBody,
-          hs_timestamp: timestamp.getTime().toString(),
+    const { ok, data: noteData } = await safeFetch(
+      'https://api.hubapi.com/crm/v3/objects/notes',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-      }),
-    });
+        body: JSON.stringify({
+          properties: {
+            hs_note_body: noteBody,
+            hs_timestamp: timestamp.getTime().toString(),
+          },
+        }),
+      }
+    );
 
-    if (!noteRes.ok) return null;
-    const noteData = await noteRes.json();
-    const noteId = noteData.id;
+    if (!ok || !noteData?.id) return null;
 
-    await fetch(
-      `https://api.hubapi.com/crm/v3/objects/notes/${noteId}/associations/contacts/${contactId}/note_to_contact`,
+    await safeFetch(
+      `https://api.hubapi.com/crm/v3/objects/notes/${noteData.id}/associations/contacts/${contactId}/note_to_contact`,
       { method: 'PUT', headers: { Authorization: `Bearer ${token}` } }
     );
 
-    return noteId;
-  } catch (err) {
-    console.error('HubSpot note error:', err);
+    return noteData.id;
+  } catch {
     return null;
   }
 }
@@ -149,9 +256,8 @@ export async function syncDocumentOpenedToHubSpot({
     });
 
     return { success: true, contactId };
-  } catch (err) {
-    console.error('HubSpot sync error (opened):', err);
-    return { success: false, error: err };
+  } catch {
+    return { success: false, error: 'silent_failure' };
   }
 }
 
@@ -219,9 +325,8 @@ export async function syncDocumentCompletedToHubSpot({
     });
 
     return { success: true, contactId };
-  } catch (err) {
-    console.error('HubSpot sync error (completed):', err);
-    return { success: false, error: err };
+  } catch {
+    return { success: false, error: 'silent_failure' };
   }
 }
 
@@ -284,9 +389,8 @@ export async function syncEngagementSummaryToHubSpot({
     });
 
     return { success: true, contactId };
-  } catch (err) {
-    console.error('HubSpot sync error (session end):', err);
-    return { success: false, error: err };
+  } catch {
+    return { success: false, error: 'silent_failure' };
   }
 }
 
@@ -344,29 +448,10 @@ export async function syncPortalEventToHubSpot({
     });
 
     return { success: true, contactId };
-  } catch (err) {
-    console.error('HubSpot sync error (portal event):', err);
-    return { success: false, error: err };
-  }
-}
-
-// ════════════════════════════════════════════════════════════════
-// HELPER — Check if HubSpot is connected
-// ════════════════════════════════════════════════════════════════
-export async function isHubSpotConnected(userId: string): Promise<boolean> {
-  try {
-    const db = await dbPromise;
-    const integration = await db.collection('integrations').findOne({
-      userId,
-      provider: 'hubspot',
-      isActive: true,
-    });
-    return !!integration;
   } catch {
-    return false;
+    return { success: false, error: 'silent_failure' };
   }
 }
-
 
 // ════════════════════════════════════════════════════════════════
 // SYNC 5 — Deal Insight
@@ -383,7 +468,7 @@ export async function syncDealInsightToHubSpot({
   totalPages,
   trigger,
   daysSilent,
-   narrative: narrativeOverride,
+  narrative: narrativeOverride,
 }: {
   userId: string;
   viewerEmail: string;
@@ -409,15 +494,14 @@ export async function syncDealInsightToHubSpot({
       ? `Pages skipped: ${skippedPages.join(', ')}`
       : 'All pages opened';
 
-     const noteBody = [
+    const noteBody = [
       `DocMetrics — ${trigger === 'gone_silent' ? 'Deal Going Cold' : 'Deal Insight'}`,
       '',
       `Prospect: ${viewerEmail}`,
       `Document: ${documentName}`,
       narrativeOverride ? `\nInsight: ${narrativeOverride}` : null,
       '',
-       `Slowest page: Page ${slowestPage} (${formatTime(slowestPageTime)})`,
- 
+      `Slowest page: Page ${slowestPage} (${formatTime(slowestPageTime)})`,
       `Avg per page: ${formatTime(avgPageTime)}`,
       skippedText,
       `Total pages: ${totalPages}`,
@@ -429,12 +513,164 @@ export async function syncDealInsightToHubSpot({
     await createContactNote(token, contactId, noteBody, new Date());
     await updateContactProperties(token, contactId, {
       docmetrics_last_document: documentName,
-      docmetrics_deal_status: trigger === 'gone_silent' ? 'Going Cold' : 'Active',
+      docmetrics_deal_status:   trigger === 'gone_silent' ? 'Going Cold' : 'Active',
     });
 
     return { success: true, contactId };
+  } catch {
+    return { success: false, error: 'silent_failure' };
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// SYNC 6 — Deal Intelligence Write-Back ← NEW
+//
+// This is the feature no other document tool has built.
+// Instead of just sending a notification it writes the full
+// DocMetrics intelligence directly onto the HubSpot deal record.
+//
+// A salesperson opens their HubSpot deal and sees:
+//   - Momentum score: 78/100
+//   - Engagement state: Accelerating
+//   - Last signal: Internal sharing detected
+//   - Recommended action: Follow up today, ask who else is involved
+//   - Internal sharing: Yes
+//
+// This works silently. If anything fails the app never knows.
+// ════════════════════════════════════════════════════════════════
+export async function syncDealIntelligenceToHubSpot({
+  userId,
+  viewerEmail,
+  documentName,
+  documentId,
+  spaceId,
+  momentumScore,
+  engagementState,
+  lastSignal,
+  recommendedAction,
+  internalSharing,
+  secondaryViewerCount,
+  daysSinceLastActivity,
+  reReadCount,
+  coveragePercent,
+  isSpace,
+}: {
+  userId: string;
+  viewerEmail: string;
+  documentName: string;
+  documentId: string;
+  spaceId?: string;
+  momentumScore: number;
+  engagementState: 'accelerating' | 'holding' | 'fading' | 'stalled';
+  lastSignal: string;
+  recommendedAction: string;
+  internalSharing: boolean;
+  secondaryViewerCount?: number;
+  daysSinceLastActivity: number;
+  reReadCount?: number;
+  coveragePercent?: number;
+  isSpace?: boolean;
+}): Promise<{ success: boolean; dealId?: string; reason?: string }> {
+
+  // Silent failure wrapper — this function must never crash anything
+  try {
+    if (!viewerEmail) return { success: false, reason: 'no_email' };
+
+    const token = await getValidHubSpotToken(userId).catch(() => null);
+    if (!token) return { success: false, reason: 'no_token' };
+
+    const contactId = await findHubSpotContact(token, viewerEmail);
+    if (!contactId) return { success: false, reason: 'contact_not_in_hubspot' };
+
+    // Find or create the deal for this contact
+    const dealId = await findOrCreateDeal(token, contactId, documentName);
+    if (!dealId) return { success: false, reason: 'deal_not_found_or_created' };
+
+    const analyticsUrl = isSpace && spaceId
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/spaces/${spaceId}?tab=analytics`
+      : `${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}?tab=analytics`;
+
+    const stateEmoji = {
+      accelerating: '🟢',
+      holding:      '🟡',
+      fading:       '🟠',
+      stalled:      '🔴',
+    }[engagementState] || '⚪';
+
+    const now = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+
+    // ── Write intelligence properties onto the deal record ────────
+    // These seven properties appear in the HubSpot deal panel
+    // so the salesperson sees DocMetrics intelligence without
+    // leaving HubSpot
+    await updateDealProperties(token, dealId, {
+      docmetrics_momentum_score:    String(momentumScore),
+      docmetrics_engagement_state:  engagementState,
+      docmetrics_last_signal:       lastSignal,
+      docmetrics_recommended_action: recommendedAction,
+      docmetrics_internal_sharing:  internalSharing ? 'Yes' : 'No',
+      docmetrics_viewer_email:      viewerEmail,
+      docmetrics_last_activity:     new Date().toISOString(),
+    });
+
+    // ── Also write a note so the activity timeline shows context ──
+    const noteLines = [
+      `DocMetrics — Deal Intelligence Update`,
+      '',
+      `${stateEmoji} Engagement state: ${engagementState.charAt(0).toUpperCase() + engagementState.slice(1)}`,
+      `Momentum score: ${momentumScore}/100`,
+      `Last signal: ${lastSignal}`,
+      '',
+      `Recommended action: ${recommendedAction}`,
+      '',
+      internalSharing
+        ? `⚠️ Internal sharing detected — ${secondaryViewerCount || 1} additional viewer${(secondaryViewerCount || 1) > 1 ? 's' : ''} from same company`
+        : null,
+      reReadCount && reReadCount >= 2
+        ? `Document re-read ${reReadCount} times across sessions`
+        : null,
+      coveragePercent !== undefined
+        ? `Document coverage: ${coveragePercent}% of pages reviewed`
+        : null,
+      `Days since last activity: ${daysSinceLastActivity}`,
+      '',
+      `Updated: ${now}`,
+      `View full analytics: ${analyticsUrl}`,
+    ].filter(Boolean).join('\n');
+
+    await createContactNote(token, contactId, noteLines, new Date());
+
+    // ── Also update the contact with summary properties ───────────
+    await updateContactProperties(token, contactId, {
+      docmetrics_last_document: documentName,
+      docmetrics_last_viewed:   new Date().toISOString(),
+      docmetrics_deal_status:   engagementState === 'stalled' ? 'Going Cold' : 'Active',
+      docmetrics_intent_level:  momentumScore >= 65 ? 'High' : momentumScore >= 35 ? 'Medium' : 'Low',
+    });
+
+    console.log(`✅ HubSpot deal intelligence synced — deal ${dealId} | ${viewerEmail} | ${engagementState} | score ${momentumScore}`);
+    return { success: true, dealId };
+
   } catch (err) {
-    console.error('HubSpot deal insight sync error:', err);
-    return { success: false, error: err };
+    // Silent failure — log but never throw
+    console.error('HubSpot deal intelligence sync failed silently:', err);
+    return { success: false, reason: 'silent_failure' };
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+// HELPER — Check if HubSpot is connected
+// ════════════════════════════════════════════════════════════════
+export async function isHubSpotConnected(userId: string): Promise<boolean> {
+  try {
+    const db = await dbPromise;
+    const integration = await db.collection('integrations').findOne({
+      userId,
+      provider: 'hubspot',
+      isActive: true,
+    });
+    return !!integration;
+  } catch {
+    return false;
   }
 }

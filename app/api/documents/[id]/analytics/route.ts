@@ -889,14 +889,61 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
   if (allViewerInsights.length === 0) return null;
 
   // Sort by most engaged viewer first
+  // Sort by most engaged viewer first
   allViewerInsights.sort((a, b) => b.totalTimeSeconds - a.totalTimeSeconds);
+
+  const topInsight = allViewerInsights[0];
+
+  // ── Fire deal intelligence to HubSpot silently ────────────────
+  if (topInsight) {
+    const { syncDealIntelligenceToHubSpot, isHubSpotConnected } = await import('@/lib/integrations/hubspotSync');
+    const hubspotConnected = await isHubSpotConnected(document.userId).catch(() => false);
+
+    if (hubspotConnected && topInsight.viewerEmail && !topInsight.viewerEmail.startsWith('Anonymous')) {
+      const reReadCount = topInsight.reReadPages?.reduce(
+        (sum: number, p: any) => sum + (p.count || 0), 0
+      ) || 0;
+
+      const lastSignal = topInsight.reReadPages?.length > 0
+        ? `Page ${topInsight.reReadPages[0].page} re-read ${topInsight.reReadPages[0].count} times`
+        : topInsight.videoReplays?.length > 0
+        ? `Video on page ${topInsight.videoReplays[0].page} replayed`
+        : 'Engaged viewer detected';
+
+      const momentumScore = Math.min(100,
+        (reReadCount * 15) +
+        (topInsight.videoReplays?.length > 0 ? 20 : 0) +
+        (topInsight.totalTimeSeconds > 300 ? 30 : topInsight.totalTimeSeconds > 120 ? 15 : 5)
+      );
+
+      const engagementState = momentumScore >= 65 ? 'accelerating'
+        : momentumScore >= 35 ? 'holding'
+        : momentumScore >= 15 ? 'fading'
+        : 'stalled';
+
+      syncDealIntelligenceToHubSpot({
+        userId: document.userId,
+        viewerEmail: topInsight.viewerEmail,
+        documentName: document.originalFilename || 'Document',
+        documentId: document._id.toString(),
+        momentumScore,
+        engagementState,
+        lastSignal,
+        recommendedAction: topInsight.narrative || 'Follow up based on engagement signals.',
+        internalSharing: false,
+        daysSinceLastActivity: 0,
+        reReadCount,
+        isSpace: false,
+      }).catch(() => {});
+    }
+  }
 
   // Return ALL viewer insights so frontend can show each one
   return {
     viewers: allViewerInsights,
     
     // Keep top-level fields for backward compat with single-viewer display
-    ...allViewerInsights[0],
+    ...topInsight,
   };
 })(),
         ndaAcceptances, videoStats, viewerVideoStats,

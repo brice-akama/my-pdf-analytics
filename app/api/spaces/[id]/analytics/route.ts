@@ -605,6 +605,45 @@ export async function GET(
     );
 
 
+   // ── Fire deal intelligence to HubSpot for top visitors ───────────────
+    // Runs silently — never blocks or crashes the response
+    if (spaceVisitorIntelligence.length > 0 && space.userId) {
+      import('@/lib/integrations/hubspotSync').then(
+        ({ syncDealIntelligenceToHubSpot, isHubSpotConnected }) => {
+          isHubSpotConnected(space.userId).then(connected => {
+            if (!connected) return;
+
+            // Fire for top 3 visitors only to avoid rate limits
+            spaceVisitorIntelligence.slice(0, 3).forEach(intel => {
+              if (!intel.email || intel.email === 'Anonymous') return;
+
+              syncDealIntelligenceToHubSpot({
+                userId:               space.userId,
+                viewerEmail:          intel.email,
+                documentName:         space.name || 'Space',
+                documentId:           spaceId,
+                spaceId:              spaceId,
+                momentumScore:        intel.engagementScore,
+                engagementState:      intel.momentumState,
+                lastSignal:           intel.reReadDocs?.length > 0
+                  ? `Returned to "${intel.reReadDocs[0].docName}" ${intel.reReadDocs[0].sessionCount} times`
+                  : intel.hasInternalSharing
+                  ? `Internal sharing detected from ${intel.secondaryViewers?.[0] || 'same company'}`
+                  : intel.returnWithQuestion
+                  ? `Returned after silence and asked: "${intel.returnQuestionText?.slice(0, 60)}"`
+                  : `${intel.docsOpened} of ${documents.length} documents reviewed`,
+                recommendedAction:    intel.recommendation,
+                internalSharing:      intel.hasInternalSharing,
+                secondaryViewerCount: intel.secondaryViewers?.length,
+                daysSinceLastActivity: intel.daysSinceLastActivity,
+                isSpace:              true,
+              }).catch(() => {});
+            });
+          }).catch(() => {});
+        }
+      ).catch(() => {});
+    }
+
     // ─── RESPONSE ─────────────────────────────────────────────────────────
     return NextResponse.json({
       success: true,

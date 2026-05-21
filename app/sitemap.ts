@@ -36,6 +36,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      url:  "https://docmetrics.io/proposal-grader",
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.9,
+    },
+    {
       url: "https://docmetrics.io/pricing",
       lastModified: new Date(),
       changeFrequency: "monthly",
