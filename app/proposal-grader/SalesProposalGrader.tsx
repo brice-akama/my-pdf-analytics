@@ -2,85 +2,97 @@
 
 import { useState } from "react";
 
+// ── Questions ─────────────────────────────────────────────────────────────────
 const questions = [
   {
     text: "How many pages is your typical sales proposal?",
     options: [
-      { label: "Under 5 pages", score: 20 },
-      { label: "5 to 10 pages", score: 20 },
-      { label: "10 to 20 pages", score: 10 },
-      { label: "Over 20 pages", score: 0 },
+      { label: "Under 5 pages" },
+      { label: "5 to 10 pages" },
+      { label: "10 to 20 pages" },
+      { label: "Over 20 pages" },
     ],
   },
   {
     text: "Where does your pricing appear in the proposal?",
     options: [
-      { label: "First two pages", score: 15 },
-      { label: "Middle section", score: 20 },
-      { label: "Last two pages", score: 15 },
-      { label: "I don't include pricing", score: 0 },
+      { label: "First two pages" },
+      { label: "Middle section — after value is established" },
+      { label: "Last two pages" },
+      { label: "I do not include pricing in proposals" },
     ],
   },
   {
     text: "How do you follow up after sending a proposal?",
     options: [
-      { label: "I wait for them to reply", score: 0 },
-      { label: "I follow up after 3 days with a check-in", score: 10 },
-      { label: "I follow up based on whether they opened it", score: 20 },
-      { label: "I have no follow-up system", score: 0 },
+      { label: "I wait for the prospect to reply" },
+      { label: "I follow up after 3 days with a check-in" },
+      { label: "I follow up when I know they have opened or re-read it" },
+      { label: "I have no consistent follow-up system" },
     ],
   },
   {
-    text: "How do you know if a prospect read your proposal?",
+    text: "How do you know if a prospect actually read your proposal?",
     options: [
-      { label: "I get a notification when they open it", score: 20 },
-      { label: "I ask them directly", score: 5 },
-      { label: "I have no way to know", score: 0 },
-      { label: "I track page-by-page engagement", score: 20 },
+      { label: "I get a notification when they open it" },
+      { label: "I ask them directly if they had a chance to review it" },
+      { label: "I have no way of knowing" },
+      { label: "I track page-by-page engagement and re-reads" },
     ],
   },
   {
-    text: "What happens most often after you send a proposal?",
+    text: "What happens most often in the 72 hours after you send a proposal?",
     options: [
-      { label: "I hear back within a week", score: 20 },
-      { label: "I get a reply after following up", score: 10 },
-      { label: "I go silent and wonder what happened", score: 0 },
-      { label: "I close it within two weeks", score: 20 },
+      { label: "I hear back with feedback or a next step" },
+      { label: "I get a reply only after I follow up first" },
+      { label: "Silence — I wait and wonder what is happening" },
+      { label: "I close the deal within two weeks" },
     ],
   },
 ];
 
-const insightText: string[][] = [
-  [
-    "Your proposal length is working in your favour. Short proposals get read fully.",
-    "Proposals over 10 pages are rarely read in full. Trim ruthlessly — every section must move the decision forward.",
-  ],
-  [
-    "Pricing in the middle lands after value is built. Smart positioning.",
-    "No pricing in the proposal means prospects cannot say yes. Give them a number to react to — even a range.",
-  ],
-  [
-    "Behaviour-triggered follow-up is the gold standard. Following up when you know they just opened the document is the difference between interrupting and being timely.",
-    "Most deals die in the silence after sending. You need a follow-up system — waiting costs you revenue.",
-  ],
-  [
-    "You have document visibility. Use it — page-level engagement data tells you exactly where hesitation lives.",
-    "Flying blind is your biggest problem. When you don't know if the proposal was even opened, every follow-up is a guess.",
-  ],
-  [
-    "Fast closes signal good proposal-prospect fit. When prospects reply quickly it means your proposal spoke directly to their situation.",
-    "Silence after sending means the proposal didn't create urgency, or you're not reaching the real decision-maker.",
-  ],
-];
-
+// ── Score mapping per question per answer ─────────────────────────────────────
 const questionScores: number[][] = [
-  [20, 20, 10, 0],
-  [15, 20, 15, 0],
-  [0, 10, 20, 0],
-  [20, 5, 0, 20],
-  [20, 10, 0, 20],
+  [20, 20, 10, 0],   // Q1: length
+  [12, 20, 12, 0],   // Q2: pricing position
+  [0,  10, 20, 0],   // Q3: follow-up method
+  [15,  5,  0, 20],  // Q4: visibility
+  [20, 10,  0, 20],  // Q5: outcome
 ];
 
+// ── Insight text — improved with founder wisdom ───────────────────────────────
+// Each question has [good insight, bad insight]
+// Based on: 20yr veteran, Founder 1 (structure beats improvisation),
+// Founder 2 (effort bearing signals > cheap signals), MonetScope founder
+const insightText: string[][] = [
+  // Q1 — proposal length
+  [
+    "Short proposals get read fully. A prospect who reads to the end can say yes. One who stops at page four cannot. Your length is working in your favour.",
+    "Proposals over 10 pages are rarely read in full. The sections your prospect never reaches cannot close the deal for you. Every page that does not move the decision forward is a page that moves you further from it. Trim ruthlessly.",
+  ],
+  // Q2 — pricing position
+  [
+    "Pricing placed after value is established is the right architecture. When a prospect reaches your number having already understood why it exists, the number lands differently. You are doing this correctly.",
+    "Leaving pricing out of the proposal creates a gap that stalls decisions. Prospects who cannot react to a number cannot say yes to one. Give them something concrete to evaluate — even a range is better than nothing.",
+  ],
+  // Q3 — follow-up method
+  [
+    "Following up based on actual engagement behaviour rather than a calendar is the highest-leverage thing a salesperson can do. You are not interrupting — you are responding to a signal the prospect generated themselves. That is the difference between timely and intrusive.",
+    "Most deals do not close because of a bad proposal. They die in the silence after one. A follow-up system is not optional — it is the mechanism that converts interest into a conversation. Without it you are leaving the outcome entirely to chance.",
+  ],
+  // Q4 — visibility
+  [
+    "Page-level engagement data is the signal that separates passive browsers from real intent. When you can see that a prospect re-read your pricing section three times across two sessions you know exactly what the follow-up conversation needs to address. Use that data every time.",
+    "Not knowing whether a prospect opened your proposal means every follow-up is a guess. You cannot tell the difference between a prospect who read every word and one who never clicked the link. That uncertainty shapes everything from timing to tone — almost always in the wrong direction.",
+  ],
+  // Q5 — outcome in 72 hours
+  [
+    "Fast responses after sending signal good proposal-to-prospect fit. When someone replies quickly it usually means your framing matched their current situation. The 72-hour window after sending is the clearest signal of deal temperature you have. If they are engaging in that window, the deal is alive.",
+    "Silence in the first 72 hours is the most misread signal in sales. It looks like disengagement but it is often the opposite — internal review, budget conversations, stakeholder alignment. The problem is you cannot tell which kind of silence it is without data. Flying blind during the most critical window costs more deals than any other single factor.",
+  ],
+];
+
+// ── Score helpers ─────────────────────────────────────────────────────────────
 function getScoreLabel(score: number): string {
   if (score >= 80) return "Strong proposal process";
   if (score >= 55) return "Room to improve";
@@ -89,10 +101,10 @@ function getScoreLabel(score: number): string {
 }
 
 function getScoreDesc(score: number): string {
-  if (score >= 80) return "You have most of the fundamentals in place. The gap between good and great is usually visibility.";
-  if (score >= 55) return "You have some good habits but key gaps are likely costing you deals you should be closing.";
-  if (score >= 30) return "Your proposal process is leaving a lot on the table. A few targeted changes will have an immediate impact.";
-  return "You're sending proposals into a void with no visibility, no system, and no feedback loop. This is fixable.";
+  if (score >= 80) return "You have most of the fundamentals in place. The gap between good and great is usually visibility — knowing what happens after you send.";
+  if (score >= 55) return "You have some good habits but there are gaps that are likely costing you deals you should be closing. The fixes are specific and not difficult.";
+  if (score >= 30) return "Your proposal process has structural issues that compound over time. A few targeted changes will have an immediate impact on close rates.";
+  return "You are sending proposals into a void with no visibility, no follow-up system, and no feedback loop. Every one of these is fixable.";
 }
 
 function getScoreColor(score: number): string {
@@ -102,6 +114,14 @@ function getScoreColor(score: number): string {
   return "#ef4444";
 }
 
+function getScoreBg(score: number): string {
+  if (score >= 80) return "#f0fdf4";
+  if (score >= 55) return "#fffbeb";
+  if (score >= 30) return "#fff7ed";
+  return "#fef2f2";
+}
+
+// ── Score Ring ────────────────────────────────────────────────────────────────
 function ScoreRing({ score }: { score: number }) {
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
@@ -109,16 +129,16 @@ function ScoreRing({ score }: { score: number }) {
   const color = getScoreColor(score);
 
   return (
-    <div style={{ position: "relative", width: 140, height: 140, margin: "0 auto 1.5rem" }}>
-      <svg width="140" height="140" viewBox="0 0 140 140" style={{ transform: "rotate(-90deg)" }}>
-        <circle cx="70" cy="70" r={radius} fill="none" stroke="#EEEDFE" strokeWidth="10" />
+    <div style={{ position: "relative", width: 148, height: 148, margin: "0 auto 1.25rem" }}>
+      <svg width="148" height="148" viewBox="0 0 148 148" style={{ transform: "rotate(-90deg)" }}>
+        <circle cx="74" cy="74" r={radius} fill="none" stroke="#f1f5f9" strokeWidth="12" />
         <circle
-          cx="70" cy="70" r={radius} fill="none"
-          stroke={color} strokeWidth="10"
+          cx="74" cy="74" r={radius} fill="none"
+          stroke={color} strokeWidth="12"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          style={{ transition: "stroke-dashoffset 1s ease" }}
+          style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1)" }}
         />
       </svg>
       <div style={{
@@ -126,14 +146,14 @@ function ScoreRing({ score }: { score: number }) {
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
       }}>
-        <span style={{ fontSize: 32, fontWeight: 500, color: "#1e1b4b" }}>{score}</span>
-        <span style={{ fontSize: 11, color: "#6b7280" }}>out of 100</span>
+        <span style={{ fontSize: 34, fontWeight: 600, color: "#111827", lineHeight: 1 }}>{score}</span>
+        <span style={{ fontSize: 11, color: "#9ca3af", marginTop: 3 }}>out of 100</span>
       </div>
     </div>
   );
 }
 
-// ── SCREEN 1: Quiz ────────────────────────────────────────────────────────────
+// ── Quiz Screen ───────────────────────────────────────────────────────────────
 interface QuizScreenProps {
   current: number;
   answers: (number | null)[];
@@ -147,95 +167,117 @@ function QuizScreen({ current, answers, onSelect, onNext, onBack }: QuizScreenPr
   const progressPct = ((current + 1) / 5) * 100;
 
   return (
-    <div style={{ maxWidth: 580, margin: "0 auto", padding: "2rem 1rem", fontFamily: "system-ui, sans-serif" }}>
-        {/* Show context only on first question */}
-    {current === 0 && (
-      <div style={{
-        padding: 18,
-        borderRadius: 12,
-        border: "0.5px solid #e5e7eb",
-        background: "#ffffff",
-        marginBottom: "1.5rem",
-      }}>
-        <p style={{ fontSize: 15, fontWeight: 500, color: "#111827", marginBottom: ".8rem" }}>
-          What this grader measures
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", gap: 10 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7F77DD", marginTop: 6, flexShrink: 0 }} />
-            <p style={{ margin: 0, fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
-              Proposal length affects completion rates. Long proposals usually lose attention before pricing or next steps are reached.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7F77DD", marginTop: 6, flexShrink: 0 }} />
-            <p style={{ margin: 0, fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
-              Follow-up timing changes outcomes. Most proposals fail because the sender follows up too late or without context.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7F77DD", marginTop: 6, flexShrink: 0 }} />
-            <p style={{ margin: 0, fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>
-              Engagement tracking helps you understand when buyers revisit pricing, hesitate on certain pages, or quietly lose interest.
-            </p>
-          </div>
-        </div>
-      </div>
-    )}
-      <div style={{ height: 3, background: "#e5e7eb", borderRadius: 2, marginBottom: "2rem", overflow: "hidden" }}>
+    <div style={{ maxWidth: 580, margin: "0 auto", padding: "2rem 1rem", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+
+      {/* Context box — only on Q1 */}
+      {current === 0 && (
         <div style={{
-          height: "100%", background: "#7F77DD", borderRadius: 2,
+          padding: "18px 20px", borderRadius: 14,
+          border: "1px solid #ede9fe", background: "#faf9ff",
+          marginBottom: "1.75rem",
+        }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#5b21b6", marginBottom: 10, margin: "0 0 10px" }}>
+            What this grader measures
+          </p>
+          {[
+            "Proposal structure — whether your format helps or hurts the decision process.",
+            "Follow-up behaviour — whether you act on engagement signals or rely on gut feel.",
+            "Visibility — whether you know what happens to your proposal after you send it.",
+          ].map((point, i) => (
+            <div key={i} style={{ display: "flex", gap: 10, marginTop: i > 0 ? 8 : 0 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#7c3aed", marginTop: 6, flexShrink: 0 }} />
+              <p style={{ margin: 0, fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>{point}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Progress bar */}
+      <div style={{ height: 3, background: "#f1f5f9", borderRadius: 2, marginBottom: "1.75rem", overflow: "hidden" }}>
+        <div style={{
+          height: "100%", background: "#7c3aed", borderRadius: 2,
           width: `${progressPct}%`, transition: "width 0.4s ease",
         }} />
       </div>
 
-      <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: ".5rem", letterSpacing: ".04em" }}>
+      <p style={{ fontSize: 11, color: "#9ca3af", marginBottom: 6, letterSpacing: ".06em", textTransform: "uppercase" }}>
         Question {current + 1} of 5
       </p>
-      <p style={{ fontSize: 18, fontWeight: 500, color: "#111827", marginBottom: "1.5rem", lineHeight: 1.4 }}>
+      <p style={{ fontSize: 17, fontWeight: 500, color: "#111827", marginBottom: "1.5rem", lineHeight: 1.45 }}>
         {questions[current].text}
       </p>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: "2rem" }}>
-        {questions[current].options.map((o, i: number) => (
-          <button key={i} onClick={() => onSelect(i)} style={{
-            display: "flex", alignItems: "center", gap: 12,
-            padding: "14px 16px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-            fontSize: 14, transition: "all .15s",
-            border: answers[current] === i ? "1.5px solid #7F77DD" : "0.5px solid #e5e7eb",
-            background: answers[current] === i ? "#EEEDFE" : "#fff",
-            color: answers[current] === i ? "#3C3489" : "#374151",
-          }}>
-            <span style={{
-              width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 12, fontWeight: 500,
-              background: answers[current] === i ? "#7F77DD" : "#f3f4f6",
-              color: answers[current] === i ? "#fff" : "#6b7280",
-              border: answers[current] === i ? "none" : "0.5px solid #e5e7eb",
-            }}>
-              {letters[i]}
-            </span>
-            {o.label}
-          </button>
-        ))}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: "2rem" }}>
+        {questions[current].options.map((o, i) => {
+          const selected = answers[current] === i;
+          return (
+            <button
+              key={i}
+              onClick={() => onSelect(i)}
+              style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "13px 16px", borderRadius: 12, cursor: "pointer", textAlign: "left",
+                fontSize: 14, lineHeight: 1.45, transition: "all .15s",
+                border: selected ? "1.5px solid #7c3aed" : "1px solid #e5e7eb",
+                background: selected ? "#f5f3ff" : "#fff",
+                color: selected ? "#4c1d95" : "#374151",
+                fontWeight: selected ? 500 : 400,
+              }}
+            >
+              <span style={{
+                width: 26, height: 26, borderRadius: "50%", flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 11, fontWeight: 600,
+                background: selected ? "#7c3aed" : "#f9fafb",
+                color: selected ? "#fff" : "#9ca3af",
+                border: selected ? "none" : "1px solid #e5e7eb",
+                transition: "all .15s",
+              }}>
+                {letters[i]}
+              </span>
+              {o.label}
+            </button>
+          );
+        })}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <button onClick={onBack} disabled={current === 0} style={{
-          padding: "10px 20px", borderRadius: 8, fontSize: 14,
-          border: "0.5px solid #e5e7eb", background: "#fff", color: "#374151",
-          cursor: current === 0 ? "not-allowed" : "pointer", opacity: current === 0 ? 0.35 : 1,
-        }}>
-          Back
+        <button
+          onClick={onBack}
+          disabled={current === 0}
+          style={{
+            padding: "10px 20px", borderRadius: 8, fontSize: 13,
+            border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280",
+            cursor: current === 0 ? "not-allowed" : "pointer",
+            opacity: current === 0 ? 0.4 : 1,
+          }}
+        >
+          ← Back
         </button>
-        <span style={{ fontSize: 13, color: "#9ca3af" }}>{current + 1} / 5</span>
-        <button onClick={onNext} disabled={answers[current] === null} style={{
-          padding: "10px 20px", borderRadius: 8, fontSize: 14,
-          background: answers[current] === null ? "#c4b5fd" : "#7F77DD",
-          color: "#fff", border: "none",
-          cursor: answers[current] === null ? "not-allowed" : "pointer",
-        }}>
+        <span style={{ fontSize: 12, color: "#d1d5db" }}>
+          {Array.from({ length: 5 }, (_, i) => (
+            <span
+              key={i}
+              style={{
+                display: "inline-block", width: 6, height: 6, borderRadius: "50%",
+                margin: "0 2px",
+                background: i === current ? "#7c3aed" : answers[i] !== null ? "#c4b5fd" : "#e5e7eb",
+                transition: "background .2s",
+              }}
+            />
+          ))}
+        </span>
+        <button
+          onClick={onNext}
+          disabled={answers[current] === null}
+          style={{
+            padding: "10px 22px", borderRadius: 8, fontSize: 13, fontWeight: 500,
+            background: answers[current] === null ? "#ddd6fe" : "#7c3aed",
+            color: "#fff", border: "none",
+            cursor: answers[current] === null ? "not-allowed" : "pointer",
+            transition: "background .15s",
+          }}
+        >
           {current === 4 ? "See my score →" : "Next →"}
         </button>
       </div>
@@ -243,73 +285,78 @@ function QuizScreen({ current, answers, onSelect, onNext, onBack }: QuizScreenPr
   );
 }
 
-// ── SCREEN 2: Email gate ──────────────────────────────────────────────────────
+// ── Email Gate Screen ─────────────────────────────────────────────────────────
 interface EmailGateScreenProps {
+  score: number;
   onSubmit: (email: string) => void;
   loading: boolean;
 }
 
-function EmailGateScreen({ onSubmit, loading }: EmailGateScreenProps) {
+function EmailGateScreen({ score, onSubmit, loading }: EmailGateScreenProps) {
   const [email, setEmail] = useState("");
   const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const color = getScoreColor(score);
+  const label = getScoreLabel(score);
 
   return (
-    <div style={{ maxWidth: 480, margin: "0 auto", padding: "3rem 1rem", fontFamily: "system-ui, sans-serif", textAlign: "center" }}>
+    <div style={{
+      maxWidth: 460, margin: "0 auto", padding: "3rem 1.25rem",
+      fontFamily: "system-ui, -apple-system, sans-serif", textAlign: "center",
+    }}>
+      {/* Score preview */}
       <div style={{
-        width: 56, height: 56, borderRadius: "50%",
-        background: "#EEEDFE", margin: "0 auto 1.5rem",
-        display: "flex", alignItems: "center", justifyContent: "center",
+        display: "inline-flex", alignItems: "center", gap: 10,
+        padding: "10px 20px", borderRadius: 40,
+        border: `1px solid ${color}22`, background: `${color}11`,
+        marginBottom: "1.5rem",
       }}>
-        <svg width="24" height="24" fill="none" stroke="#7F77DD" strokeWidth="2" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-        </svg>
+        <span style={{ fontSize: 22, fontWeight: 700, color }}>{score}</span>
+        <span style={{ fontSize: 12, color: "#6b7280" }}>/ 100 · {label}</span>
       </div>
 
-      <h2 style={{ fontSize: 20, fontWeight: 500, color: "#111827", marginBottom: ".5rem" }}>
-        Your score is ready
+      <h2 style={{ fontSize: 20, fontWeight: 600, color: "#111827", marginBottom: ".5rem" }}>
+        Your full results are ready
       </h2>
-      <p style={{ fontSize: 14, color: "#6b7280", marginBottom: "2rem", lineHeight: 1.6 }}>
-        Enter your email and we will send your full results — including what each answer reveals about your process.
+      <p style={{ fontSize: 14, color: "#6b7280", marginBottom: "2rem", lineHeight: 1.65 }}>
+        Enter your work email and we will send a breakdown of exactly what each answer reveals about your process — and what to fix first.
       </p>
 
-      <div style={{ marginBottom: 12 }}>
-        <input
-          type="email"
-          placeholder="you@company.com"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && valid && !loading && onSubmit(email)}
-          style={{
-            width: "100%", padding: "12px 16px",
-            borderRadius: 10, fontSize: 15,
-            border: "0.5px solid #e5e7eb", outline: "none",
-            boxSizing: "border-box", marginBottom: 10,
-          }}
-        />
-        <button
-          onClick={() => valid && !loading && onSubmit(email)}
-          disabled={!valid || loading}
-          style={{
-            width: "100%", padding: "12px 20px",
-            borderRadius: 10, fontSize: 15, fontWeight: 500,
-            background: !valid || loading ? "#c4b5fd" : "#7F77DD",
-            color: "#fff", border: "none",
-            cursor: !valid || loading ? "not-allowed" : "pointer",
-            transition: "background .15s",
-          }}
-        >
-          {loading ? "Sending your results..." : "See my score →"}
-        </button>
-      </div>
+      <input
+        type="email"
+        placeholder="you@company.com"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        onKeyDown={e => e.key === "Enter" && valid && !loading && onSubmit(email)}
+        style={{
+          width: "100%", padding: "13px 16px", borderRadius: 10, fontSize: 14,
+          border: "1px solid #e5e7eb", outline: "none",
+          boxSizing: "border-box", marginBottom: 10,
+          fontFamily: "inherit",
+        }}
+      />
+      <button
+        onClick={() => valid && !loading && onSubmit(email)}
+        disabled={!valid || loading}
+        style={{
+          width: "100%", padding: "13px 20px", borderRadius: 10,
+          fontSize: 14, fontWeight: 600,
+          background: !valid || loading ? "#ddd6fe" : "#7c3aed",
+          color: "#fff", border: "none",
+          cursor: !valid || loading ? "not-allowed" : "pointer",
+          transition: "background .15s", fontFamily: "inherit",
+        }}
+      >
+        {loading ? "Sending your results..." : "Send my results →"}
+      </button>
 
-      <p style={{ fontSize: 12, color: "#9ca3af" }}>
-        No spam. Just your results and one follow-up if DocMetrics can help.
+      <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 12 }}>
+        No spam. Your results arrive immediately. One follow-up only if DocMetrics can help.
       </p>
     </div>
   );
 }
 
-// ── SCREEN 3: Results ─────────────────────────────────────────────────────────
+// ── Results Screen ────────────────────────────────────────────────────────────
 interface ResultsScreenProps {
   answers: (number | null)[];
   score: number;
@@ -317,89 +364,190 @@ interface ResultsScreenProps {
 }
 
 function ResultsScreen({ answers, score, onRestart }: ResultsScreenProps) {
-  const observations = answers.map((a: number | null, qi: number) => {
+  const [copied, setCopied] = useState(false);
+
+  const observations = answers.map((a, qi) => {
     const s = questionScores[qi][a ?? 0];
     const good = s >= 15;
-    return { insight: insightText[qi][good ? 0 : 1], good };
+    return {
+      question: questions[qi].text,
+      answer: questions[qi].options[a ?? 0]?.label ?? "",
+      insight: insightText[qi][good ? 0 : 1],
+      good,
+    };
   });
 
+  const goodCount = observations.filter(o => o.good).length;
+  const color = getScoreColor(score);
+  const bg = getScoreBg(score);
+
+  const handleShare = () => {
+    const text = `I scored ${score}/100 on the Sales Proposal Grader — ${getScoreLabel(score)}. Test your own proposal process: https://docmetrics.io/tools/proposal-grader`;
+    if (navigator.share) {
+      navigator.share({ text }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  };
+
   return (
-    <div style={{ maxWidth: 580, margin: "0 auto", padding: "2rem 1rem", fontFamily: "system-ui, sans-serif" }}>
+    <div style={{ maxWidth: 580, margin: "0 auto", padding: "2rem 1rem 3rem", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+
+      {/* Score ring */}
       <ScoreRing score={score} />
 
-      <p style={{ textAlign: "center", fontSize: 17, fontWeight: 500, color: "#111827", marginBottom: ".4rem" }}>
+      <p style={{ textAlign: "center", fontSize: 18, fontWeight: 600, color: "#111827", marginBottom: 6 }}>
         {getScoreLabel(score)}
       </p>
-      <p style={{ textAlign: "center", fontSize: 13, color: "#6b7280", marginBottom: "2rem", lineHeight: 1.6 }}>
+      <p style={{ textAlign: "center", fontSize: 13, color: "#6b7280", marginBottom: "2rem", lineHeight: 1.65, maxWidth: 420, margin: "0 auto 2rem" }}>
         {getScoreDesc(score)}
       </p>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: "1.5rem" }}>
-        {observations.map((o: { insight: string; good: boolean }, i: number) => (
+      {/* Quick summary pills */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: "1.75rem", flexWrap: "wrap" }}>
+        <span style={{
+          padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500,
+          background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0",
+        }}>
+          {goodCount} of 5 strong
+        </span>
+        <span style={{
+          padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500,
+          background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca",
+        }}>
+          {5 - goodCount} areas to fix
+        </span>
+        <span style={{
+          padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500,
+          background: bg, color, border: `1px solid ${color}33`,
+        }}>
+          Score: {score}/100
+        </span>
+      </div>
+
+      {/* Observations */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: "1.75rem" }}>
+        {observations.map((o, i) => (
           <div key={i} style={{
-            display: "flex", gap: 12, padding: "14px 16px",
-            borderRadius: 12, border: "0.5px solid #e5e7eb", background: "#fff",
+            padding: "16px 18px", borderRadius: 14,
+            border: `1px solid ${o.good ? "#d1fae5" : "#fee2e2"}`,
+            background: o.good ? "#f0fdf4" : "#fff7f7",
           }}>
-            <span style={{
-              width: 8, height: 8, borderRadius: "50%", flexShrink: 0, marginTop: 5,
-              background: o.good ? "#22c55e" : "#ef4444",
-            }} />
-            <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6, margin: 0 }}>
-              {o.insight}
-            </p>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <span style={{
+                width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                background: o.good ? "#22c55e" : "#ef4444",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                marginTop: 1,
+              }}>
+                <svg width="10" height="10" fill="none" stroke="#fff" strokeWidth="2.5" viewBox="0 0 24 24">
+                  {o.good
+                    ? <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    : <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  }
+                </svg>
+              </span>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: "0 0 4px", fontSize: 11, color: o.good ? "#15803d" : "#dc2626", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".04em" }}>
+                  {o.good ? "Working for you" : "Needs attention"}
+                </p>
+                <p style={{ margin: 0, fontSize: 13, color: "#374151", lineHeight: 1.65 }}>
+                  {o.insight}
+                </p>
+              </div>
+            </div>
           </div>
         ))}
       </div>
 
-      
-
+      {/* Key principle from founders */}
       <div style={{
-        padding: 20, borderRadius: 12,
-        background: "#EEEDFE", border: "0.5px solid #AFA9EC",
+        padding: "16px 18px", borderRadius: 14,
+        border: "1px solid #e0e7ff", background: "#eef2ff",
+        marginBottom: "1.5rem",
+      }}>
+        <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#4338ca", textTransform: "uppercase", letterSpacing: ".06em" }}>
+          The principle behind this grader
+        </p>
+        <p style={{ margin: 0, fontSize: 13, color: "#3730a3", lineHeight: 1.65 }}>
+          Cheap signals are noise. Effort-bearing signals are signal. A prospect who re-reads your pricing section is telling you something. A prospect who forwards your proposal internally before saying a word is telling you even more. The goal is to stop mistaking activity for intent.
+        </p>
+      </div>
+
+      {/* CTA */}
+      <div style={{
+        padding: "24px 22px", borderRadius: 16,
+        background: "linear-gradient(135deg, #4c1d95 0%, #5b21b6 100%)",
         textAlign: "center", marginBottom: "1rem",
       }}>
-        <p style={{ fontSize: 15, fontWeight: 500, color: "#3C3489", marginBottom: ".4rem" }}>
+        <p style={{ fontSize: 16, fontWeight: 600, color: "#fff", marginBottom: 6, margin: "0 0 6px" }}>
           Stop guessing. Start knowing.
         </p>
-        <p style={{ fontSize: 13, color: "#534AB7", marginBottom: "1rem", lineHeight: 1.5 }}>
-          DocMetrics tracks every re-read, every hesitation, and tells you what the silence means — so you follow up with context, not hope.
+        <p style={{ fontSize: 13, color: "#c4b5fd", marginBottom: 18, lineHeight: 1.65, margin: "0 0 18px" }}>
+          DocMetrics tracks every re-read, every hesitation, and every internal share — then tells you in plain English what the silence means and exactly what to do next.
         </p>
         <a
-          href="https://docmetrics.io"
+          href="https://docmetrics.io/signup"
           target="_blank"
           rel="noopener noreferrer"
           style={{
-            display: "inline-block", padding: "10px 24px",
-            background: "#534AB7", color: "#fff",
-            borderRadius: 8, fontSize: 13, fontWeight: 500,
-            textDecoration: "none",
+            display: "inline-block", padding: "11px 26px",
+            background: "#fff", color: "#4c1d95",
+            borderRadius: 8, fontSize: 13, fontWeight: 600,
+            textDecoration: "none", marginBottom: 10,
           }}
         >
           Free to start at docmetrics.io →
         </a>
+        <p style={{ margin: 0, fontSize: 11, color: "#a78bfa" }}>
+          No credit card required
+        </p>
       </div>
 
-      <p onClick={onRestart} style={{
-        textAlign: "center", fontSize: 12, color: "#9ca3af",
-        cursor: "pointer", textDecoration: "underline",
-      }}>
-        ← Retake the quiz
-      </p>
+      {/* Share + Retake */}
+      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        <button
+          onClick={handleShare}
+          style={{
+            padding: "9px 18px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+            border: "1px solid #e5e7eb", background: "#fff", color: "#374151",
+            cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+          }}
+        >
+          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+          </svg>
+          {copied ? "Copied!" : "Share my score"}
+        </button>
+        <button
+          onClick={onRestart}
+          style={{
+            padding: "9px 18px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+            border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280",
+            cursor: "pointer",
+          }}
+        >
+          ← Retake the quiz
+        </button>
+      </div>
     </div>
   );
 }
 
-// ── MAIN COMPONENT ────────────────────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function SalesProposalGrader() {
   const [screen, setScreen] = useState<"quiz" | "email" | "results">("quiz");
-  const [current, setCurrent] = useState<number>(0);
+  const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<(number | null)[]>(Array(5).fill(null));
-  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const totalScore = Math.min(
     100,
-    answers.reduce((sum: number, a, qi: number) => {
+    answers.reduce<number>((sum, a, qi) => {
       if (a === null) return sum;
       return sum + questionScores[qi][a];
     }, 0)
@@ -413,11 +561,11 @@ export default function SalesProposalGrader() {
 
   const handleNext = () => {
     if (current === 4) { setScreen("email"); return; }
-    setCurrent(current + 1);
+    setCurrent(c => c + 1);
   };
 
   const handleBack = () => {
-    if (current > 0) setCurrent(current - 1);
+    if (current > 0) setCurrent(c => c - 1);
   };
 
   const handleEmailSubmit = async (email: string) => {
@@ -429,9 +577,9 @@ export default function SalesProposalGrader() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, answers, score: totalScore }),
       });
-      if (!res.ok) throw new Error("Submission failed");
+      if (!res.ok) throw new Error("failed");
       setScreen("results");
-    } catch (e) {
+    } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
@@ -445,12 +593,14 @@ export default function SalesProposalGrader() {
   };
 
   if (screen === "email") return (
-    <>
-      <EmailGateScreen onSubmit={handleEmailSubmit} loading={submitting} />
+    <div>
+      <EmailGateScreen score={totalScore} onSubmit={handleEmailSubmit} loading={submitting} />
       {error && (
-        <p style={{ textAlign: "center", fontSize: 13, color: "#ef4444", marginTop: 8 }}>{error}</p>
+        <p style={{ textAlign: "center", fontSize: 13, color: "#ef4444", marginTop: 8, fontFamily: "system-ui" }}>
+          {error}
+        </p>
       )}
-    </>
+    </div>
   );
 
   if (screen === "results") return (
