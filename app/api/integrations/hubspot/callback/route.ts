@@ -45,10 +45,8 @@ export async function GET(request: NextRequest) {
     const db = await dbPromise;
     const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
 
-    // Always update the token — this handles both first connection and
-    // reconnections after new scopes are added. Never skip the update
-    // on an existing connection because the new token carries new scopes
-    // that the old token did not have.
+   
+
     await db.collection("integrations").updateOne(
       { userId: state, provider: "hubspot" },
       {
@@ -65,9 +63,6 @@ export async function GET(request: NextRequest) {
           },
           isActive: true,
           updatedAt: new Date(),
-          // Track when scopes were last updated so you can audit
-          // which users have the latest scope set
-          scopesUpdatedAt: new Date(),
         },
         $setOnInsert: {
           createdAt: new Date(),
