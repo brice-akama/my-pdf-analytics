@@ -30,8 +30,8 @@ export function AnimatedFeaturesSection() {
 
   return (
     // CHANGE: py-20 sm:py-32 → py-12 sm:py-16 (reduces top/bottom gap significantly)
-    <section className="relative overflow-hidden py-12 sm:py-16 bg-white">
-      <div className="container px-4">
+    <section className="relative overflow-hidden py-12 sm:py-16 bg-white w-full">
+      <div className="container mx-auto max-w-7xl px-4">
 
         {/* CHANGE: mb-16 → mb-10 (tightens space between header and cards) */}
         <div className="mx-auto max-w-3xl text-center mb-10">
@@ -45,7 +45,7 @@ export function AnimatedFeaturesSection() {
         </div>
 
         {/* Sliding Container */}
-        <div className="relative overflow-hidden">
+      <div className="relative overflow-hidden mx-auto max-w-7xl">
           <div className="flex gap-8 animate-scroll">
             {duplicatedFeatures.map((feature, index) => (
               <div
