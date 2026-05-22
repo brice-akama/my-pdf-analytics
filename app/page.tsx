@@ -161,9 +161,9 @@ export default function Home() {
       />
 
       {/* Page Content */}
-      <div className="bg-gradient-to-br from-white via-indigo-50 to-indigo-100 -mt-16 pt-16">
-        <HeroSection />
-      </div>
+      <div className="bg-gradient-to-br from-white via-indigo-50 to-indigo-100 -mt-16 pt-16 w-full">
+  <HeroSection />
+</div>
       <SocialProofSection />
       <AnimatedFeaturesSection />
       <FeatureBentoSection />

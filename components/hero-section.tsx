@@ -7,16 +7,16 @@ export function HeroSection() {
   return (
     // overflow-visible = lets SocialProofSection bleed out below
     // pb-32 = enough room so the image overlaps into the hero bg
-    <section className="relative pt-12 sm:pt-16 md:pt-20 pb-32">
+    <section className="relative pt-12 sm:pt-16 md:pt-20 pb-32 w-full flex flex-col items-center">
       <div className="" />
 
-      <div className="relative container px-4">
+     <div className="relative container mx-auto px-4 max-w-7xl">
         <div className="mx-auto max-w-4xl">
 
           {/* Main Heading */}
           <h1 className="mb-6 text-2xl sm:text-3xl md:text-3xl lg:text-3xl xl:text-4xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
   Understand buyer{" "}
-  <span className="text-sky-600">
+  <span className="text-blue-600">
     intent beyond open tracking
   </span>
 </h1>   
@@ -32,8 +32,8 @@ export function HeroSection() {
   size="lg"
   className="
     text-base px-8 py-6
-    bg-sky-600 text-white
-    hover:bg-sky-700
+    bg-blue-600 text-white
+    hover:bg-blue-700
     transition-colors
     w-full sm:w-auto
   "
