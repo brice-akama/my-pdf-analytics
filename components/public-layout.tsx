@@ -41,6 +41,8 @@ const HIDDEN_ROUTES = [
   "/reset-password",
   "/documents",
   "/proposal-grader",
+  "/templates",
+  "/templates/editor",
 ]
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {

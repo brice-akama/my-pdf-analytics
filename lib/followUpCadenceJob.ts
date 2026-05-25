@@ -25,31 +25,66 @@ function getStepMessage(
   switch (step) {
 
     case 1:
-      // Day 2 — value add, not a check in
+      // Day 2 — ghosting risk alert with ready to paste follow up
       return {
-        subject: `One thing worth flagging about ${documentName}`,
+        subject: `⚠️ Your "${documentName}" proposal is entering the Ghosting Zone`,
         body: `
-          <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #1e293b; line-height: 1.7;">
-            <p style="margin: 0 0 16px;">Hi,</p>
-            <p style="margin: 0 0 16px;">
-              I wanted to flag something specific in <strong>${documentName}</strong> 
-              that tends to raise questions — rather than just asking if you had a chance to look at it.
+          <div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; color: #1e293b; line-height: 1.7;">
+
+            <!-- Alert banner -->
+            <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+              <p style="margin: 0; font-size: 13px; font-weight: 700; color: #c2410c;">⚠️ Ghosting Risk Detected</p>
+              <p style="margin: 4px 0 0; font-size: 13px; color: #9a3412;">
+                <strong>${viewerEmail}</strong> received <strong>${documentName}</strong> 2 days ago and has not replied.
+                This is the window where most deals quietly die.
+              </p>
+            </div>
+
+            <!-- What this means -->
+            <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">What this means</p>
+            <p style="margin: 0 0 16px; font-size: 13px; color: #475569;">
+              Silence at 48 hours usually means one of two things. 
+              They opened it and got distracted, or they are reviewing it internally before replying. 
+              Either way a well timed follow up today dramatically increases your chance of a response.
             </p>
-            <p style="margin: 0 0 16px;">
-              There are a few decisions in there worth talking through before you move forward. 
-              Happy to walk you through them on a quick call or answer anything in writing if that works better for you.
+
+            <!-- Ready to send message -->
+            <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">Ready to send — copy and paste this now</p>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #0f172a; border-radius: 0 8px 8px 0; padding: 16px 20px; margin-bottom: 20px;">
+              <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">Hi,</p>
+              <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">
+                I wanted to flag something specific in ${documentName} before you go through it — 
+                there are a couple of decisions in there that tend to raise questions and are 
+                worth a quick conversation rather than leaving to email.
+              </p>
+              <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">
+                Happy to walk you through them on a short call or answer anything in writing 
+                if that works better. Just let me know what suits you.
+              </p>
+              <p style="margin: 0; font-size: 13px; color: #64748b;">— ${sender}</p>
+            </div>
+
+            <!-- Why this works -->
+            <p style="font-size: 12px; color: #94a3b8; margin: 0 0 24px;">
+              This message works because it gives them a reason to reply without asking 
+              if they read it. Reference the document specifically. Do not ask if they got it.
             </p>
-            <p style="margin: 0 0 24px;">
-              Just reply here and let me know what works.
-            </p>
-            <p style="margin: 0; color: #64748b; font-size: 13px;">— ${sender}</p>
-            <hr style="margin: 24px 0; border: none; border-top: 1px solid #e2e8f0;" />
+
+            <!-- CTA -->
+            <a href="https://docmetrics.io/dashboard"
+               style="display: inline-block; background: #0f172a; color: #fff; padding: 11px 24px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600;">
+              View document analytics →
+            </a>
+
+            <hr style="margin: 28px 0; border: none; border-top: 1px solid #f1f5f9;" />
             <p style="margin: 0; font-size: 11px; color: #94a3b8;">
-              This follow up was suggested by DocMetrics based on your document engagement data.
+              DocMetrics detected this because ${viewerEmail} has not opened 
+              ${documentName} in 48 hours. 
+              <a href="https://docmetrics.io/dashboard" style="color: #94a3b8;">Manage alerts</a>
             </p>
           </div>
         `,
-        slackMessage: `Follow up reminder — ${viewerEmail} received "${documentName}" 2 days ago and has not replied. Suggested action: send a value add today, not a check in. Reference something specific in the document rather than asking if they read it.`,
+        slackMessage: `⚠️ Ghosting risk — ${viewerEmail} received "${documentName}" 2 days ago with no reply. Send the value add message today. Reference something specific rather than asking if they read it. This is the window where most deals go cold.`,
       };
 
     case 2:
