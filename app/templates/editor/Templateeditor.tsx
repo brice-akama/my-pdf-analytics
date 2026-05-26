@@ -277,7 +277,8 @@ const DOC_STYLE = `
     .sig-block{display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:48px;padding-top:28px;border-top:1px solid #e5e5e5;}
     .sig-line{border-bottom:1px solid #111;height:40px;margin-bottom:6px;}
     .sig-label{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#999;}
-    .sig-name{font-size:12px;color:#666;margin-top:4px;}
+     .sig-name{font-size:12px;color:#666;margin-top:4px;}
+.sig-date{font-size:12px;color:#333;margin-top:4px;}
     .docmetrics-footer{margin-top:56px;padding:14px 18px;border:1px solid #e5e5e5;border-radius:4px;font-family:'DM Sans',sans-serif;font-size:11px;color:#999;line-height:1.6;}
     .docmetrics-footer a{color:#111;font-weight:600;}
     .total-row td{font-family:'DM Sans',sans-serif;font-weight:700;font-size:15px;color:#111;border-bottom:none;padding-top:14px;}
@@ -834,7 +835,7 @@ export default function TemplateEditor() {
     return buildConsultingHTML(consultingFields);
   }, [selected, websiteFields, copywritingFields, marketingFields, consultingFields]);
 
-  const handlePrint = () => {
+ const handlePrint = () => {
     const html = getHTML();
     const win = window.open("", "_blank");
     if (!win) return;
@@ -844,6 +845,17 @@ export default function TemplateEditor() {
       win.focus();
       win.print();
     };
+  };
+
+  const handleDownload = () => {
+    const html = getHTML();
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${currentTemplate.title.toLowerCase().replace(/\s+/g, "-")}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const currentTemplate = TEMPLATES.find(t => t.id === selected)!;
@@ -860,11 +872,17 @@ export default function TemplateEditor() {
           <span style={{ fontSize: 12, color: "#9ca3af" }}>/ Proposal Builder</span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+         <button
+            onClick={handleDownload}
+            style={{ padding: "8px 18px", background: "#111", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", marginRight: 8 }}
+          >
+            ↓ Save as HTML
+          </button>
           <button
             onClick={handlePrint}
-            style={{ padding: "8px 18px", background: "#111", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+            style={{ padding: "8px 18px", background: "#fff", color: "#111", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
           >
-            ↓ Download PDF
+            🖨 Print / Save PDF
           </button>
         </div>
       </div>

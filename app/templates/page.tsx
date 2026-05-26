@@ -267,7 +267,7 @@ export default function TemplatesPage(): JSX.Element {
                 {/* Download button */}
                 <a
                   href={t.downloadHref}
-                  download
+                  
                   style={{
                     display: "block", textAlign: "center",
                     padding: "11px 20px", borderRadius: 10,
