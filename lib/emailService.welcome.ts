@@ -86,6 +86,30 @@ export async function sendWelcomeEmail({
         <div class="feature-title">Document sharing</div>
         <div class="feature-desc">Share documents with custom permissions, expiration dates, and view tracking.</div>
       </div>
+      <div class="feature-row">
+        <div class="feature-title">Proposal intelligence</div>
+        <div class="feature-desc">Know the moment your prospect opens your proposal, which pages they read, how long they spent, and whether they came back for a second look.</div>
+      </div>
+
+      <div class="feature-row">
+        <div class="feature-title">Deal momentum scoring</div>
+        <div class="feature-desc">Every document gets a momentum score from 0 to 100. See instantly whether your deal is accelerating, holding, fading, or stalled — before your prospect says a word.</div>
+      </div>
+
+      <div class="feature-row">
+        <div class="feature-title">Internal sharing detection</div>
+        <div class="feature-desc">DocMetrics detects when your prospect forwards your proposal to someone else inside their organisation. The highest buying signal there is.</div>
+      </div>
+
+      <div class="feature-row">
+        <div class="feature-title">Ghosting risk alerts</div>
+        <div class="feature-desc">When a proposal goes quiet DocMetrics alerts you automatically with a ready to send follow up message based on the exact engagement pattern.</div>
+      </div>
+
+      <div class="feature-row">
+        <div class="feature-title">CRM sync</div>
+        <div class="feature-desc">Connect HubSpot and DocMetrics writes deal intelligence directly onto your deal records automatically. Momentum score, last signal, recommended action — all updated in real time.</div>
+      </div>
 
       <div class="feature-row">
         <div class="feature-title">E-signatures</div>
@@ -103,19 +127,33 @@ export async function sendWelcomeEmail({
         <span class="step-num">1</span>
         <span class="step-text"><strong>Upload a document</strong> — drag and drop any PDF from your dashboard.</span>
       </div>
-
-      <div class="step-row">
+       <div class="step-row">
         <span class="step-num">2</span>
-        <span class="step-text"><strong>Share or send for signature</strong> — choose who can view it or request a signature.</span>
+        <span class="step-text"><strong>Share via a tracked link</strong> — send the link to your prospect. DocMetrics starts tracking the moment they click it.</span>
       </div>
 
       <div class="step-row">
         <span class="step-num">3</span>
-        <span class="step-text"><strong>Track activity</strong> — monitor views, time spent, and signature progress.</span>
+        <span class="step-text"><strong>Watch the intelligence come in</strong> — see opens, re-reads, page engagement, and internal sharing in real time from your dashboard.</span>
       </div>
 
       <div class="step-row">
         <span class="step-num">4</span>
+        <span class="step-text"><strong>Connect your CRM</strong> — link HubSpot from Settings and DocMetrics will write deal intelligence onto your deal records automatically.</span>
+      </div>
+
+      <div class="step-row">
+        <span class="step-num">5</span>
+        <span class="step-text"><strong>Share or send for signature</strong> — choose who can view it or request a signature.</span>
+      </div>
+
+      <div class="step-row">
+        <span class="step-num">6</span>
+        <span class="step-text"><strong>Track activity</strong> — monitor views, time spent, and signature progress.</span>
+      </div>
+
+      <div class="step-row">
+        <span class="step-num">7</span>
         <span class="step-text"><strong>Invite your team</strong> — add members and manage permissions from settings.</span>
       </div>
 
