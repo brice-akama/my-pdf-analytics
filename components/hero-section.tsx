@@ -15,15 +15,16 @@ export function HeroSection() {
 
           {/* Main Heading */}
           <h1 className="mb-6 text-2xl sm:text-3xl md:text-3xl lg:text-3xl xl:text-4xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
-  Understand buyer{" "}
+  Post-proposal{" "}
   <span className="text-blue-600">
-    intent beyond open tracking
+    intelligence for sales teams
   </span>
 </h1>   
 
           {/* Subtitle */}
           <p className="mb-10 text-lg sm:text-xl md:text-2xl text-slate-600 max-w-2xl text-left md:text-center md:mx-auto">
-            Not just who opened it — what it meant. See every re-read, every hesitation, and know the moment your deal goes cold.
+            Not just who opened it — what they actually did with it.Track re-reads, stakeholder activity, and deal momentum before the deal quietly stalls.
+
           </p>
 
           {/* CTA Buttons */}
