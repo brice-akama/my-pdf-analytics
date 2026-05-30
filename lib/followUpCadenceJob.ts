@@ -190,7 +190,89 @@ export async function runFollowUpCadenceJob() {
 
     for (const cadence of dueCadences) {
       try {
-        const step = cadence.currentStep;
+       const step = cadence.currentStep;
+
+        // Get owner profile for email (needed by committee check and main send)
+        const ownerProfile = await db.collection('profiles').findOne({
+          user_id: cadence.userId,
+        });
+
+        // ── Buying committee check — only on step 1 ───────────
+        if (step === 1) {
+          const committeeSessions = await db.collection('analytics_sessions').find({
+            documentId: cadence.documentId,
+          }).sort({ startedAt: -1 }).limit(20).toArray();
+
+          const committeeEmails = [...new Set(
+            committeeSessions
+              .filter((s: any) => s.email)
+              .map((s: any) => s.email as string)
+          )];
+
+          const prospectDomain = cadence.viewerEmail?.split('@')[1];
+          const committeeViewers = committeeEmails.filter((e: string) =>
+            e.split('@')[1] === prospectDomain && e !== cadence.viewerEmail
+          );
+          const committeeGrowing = committeeViewers.length > 0;
+
+          if (committeeGrowing && ownerProfile?.email) {
+            const committeeSubject = `🔄 New stakeholder detected on "${cadence.documentName}" — act before the moment passes`;
+            const committeeSlack = `🔄 New stakeholder detected — someone new from ${prospectDomain} opened "${cadence.documentName}". Your deal is alive but entering complex evaluation. Ask your champion who else is now involved before sending any follow up.`;
+
+            sendEmail({
+              to: ownerProfile.email,
+              subject: committeeSubject,
+              html: `
+                <div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; color: #1e293b; line-height: 1.7;">
+                  <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+                    <p style="margin: 0; font-size: 13px; font-weight: 700; color: #15803d;">🔄 Buying Committee Growing</p>
+                    <p style="margin: 4px 0 0; font-size: 13px; color: #166534;">
+                      Someone new from <strong>${prospectDomain}</strong> has opened <strong>${cadence.documentName}</strong>.
+                      Your deal is alive but entering a more complex evaluation stage.
+                    </p>
+                  </div>
+                  <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">What to do right now</p>
+                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #0f172a; border-radius: 0 8px 8px 0; padding: 16px 20px; margin-bottom: 20px;">
+                    <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">Hi,</p>
+                    <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">
+                      It looks like ${cadence.documentName} may have been shared internally.
+                      Who else is now involved in evaluating this, and is there anything specific
+                      I can put together to help each person make their decision?
+                    </p>
+                    <p style="margin: 0; font-size: 13px; color: #64748b;">— Your contact</p>
+                  </div>
+                  <a href="https://docmetrics.io/dashboard"
+                     style="display: inline-block; background: #0f172a; color: #fff; padding: 11px 24px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600;">
+                    View document analytics →
+                  </a>
+                </div>
+              `,
+              from: 'DocMetrics <noreply@docmetrics.io>',
+            }).catch(err => console.error('[FollowUpCadence] Committee email fail:', err));
+
+            sendSlackNotification({
+              userId: cadence.userId,
+              message: committeeSlack,
+            }).catch(() => {});
+
+            // Mark step fired and advance — skip the normal ghosting message
+            await db.collection('follow_up_cadences').updateOne(
+              { _id: cadence._id },
+              {
+                $set: {
+                  currentStep: step + 1,
+                  nextFireAt: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000),
+                  lastFiredAt: now,
+                },
+                $push: {
+                  stepsFired: { step, firedAt: now, viewerEmail: cadence.viewerEmail },
+                } as any,
+              }
+            );
+            continue;
+          }
+        }
+
         const message = getStepMessage(
           step,
           cadence.viewerEmail,
@@ -207,10 +289,7 @@ export async function runFollowUpCadenceJob() {
           continue;
         }
 
-        // Get owner profile for email
-        const ownerProfile = await db.collection('profiles').findOne({
-          user_id: cadence.userId,
-        });
+         
 
         // Check engagement to personalise the message
         const recentSessions = await db.collection('analytics_sessions').find({

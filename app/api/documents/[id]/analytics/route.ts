@@ -125,6 +125,29 @@ for (const session of allSessions) {
       uniqueViewerEmails.size
     );
 
+    // ── Buying committee growth detection ─────────────────────────
+const uniqueDomainViewers = allSessions
+  .filter((s: any) => s.email)
+  .reduce((acc: Record<string, string[]>, s: any) => {
+    const domain = s.email?.split('@')[1];
+    if (domain) {
+      if (!acc[domain]) acc[domain] = [];
+      if (!acc[domain].includes(s.email)) acc[domain].push(s.email);
+    }
+    return acc;
+  }, {});
+
+const committeeSize = Math.max(
+  ...Object.values(uniqueDomainViewers).map((v: any) => v.length),
+  1
+);
+const committeeGrowing = committeeSize >= 2;
+const prospectDomain = Object.keys(uniqueDomainViewers)[0] || 'the prospect company';
+
+const recommendedAction = committeeGrowing
+  ? `Your proposal has reached ${committeeSize} people inside ${prospectDomain}. Before sending any follow up ask your champion specifically who else is now involved, what each person cares about most, and whether they need help making the internal case. Do not send a generic check in. The deal is alive but entering a more complex evaluation stage.`
+  : `Monitor engagement and follow up with context rather than a generic check in.`;
+
     const shares = await db.collection('shares')
       .find({ documentId })
       .toArray();
@@ -165,6 +188,9 @@ for (const session of allSessions) {
           // ✅ Allowed on basic
           totalViews,
           uniqueViewers,
+          committeeGrowing,
+committeeSize,
+recommendedAction,
           completionRate,
           downloads,
           shares: totalShares,
@@ -991,7 +1017,9 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
             ),
         })),
 
-        
+        committeeGrowing,
+        committeeSize,
+        recommendedAction,
         sharingInfo: {
           isPublic: document.isPublic || false,
           sharedWith: document.sharedWith?.length || 0,

@@ -62,6 +62,28 @@ export async function GET(
         Math.min(10, basicDownloads * 5)
       )
 
+      // ── Buying committee detection for basic plan ─────────────
+      const basicDomainViewers = logsBasic
+        .filter((l: any) => l.visitorEmail)
+        .reduce((acc: Record<string, string[]>, l: any) => {
+          const domain = l.visitorEmail?.split('@')[1];
+          if (domain) {
+            if (!acc[domain]) acc[domain] = [];
+            if (!acc[domain].includes(l.visitorEmail)) acc[domain].push(l.visitorEmail);
+          }
+          return acc;
+        }, {});
+
+      const spaceCommitteeSize = Math.max(
+        ...Object.values(basicDomainViewers).map((v: any) => v.length),
+        1
+      );
+      const spaceCommitteeGrowing = spaceCommitteeSize >= 2;
+      const spaceProspectDomain = Object.keys(basicDomainViewers)[0] || 'the prospect company';
+      const spaceRecommendedAction = spaceCommitteeGrowing
+        ? `Your space has been accessed by ${spaceCommitteeSize} people from ${spaceProspectDomain}. Ask your champion who else is now involved.`
+        : `Monitor engagement and follow up with context.`;
+
       return NextResponse.json({
         success: true,
         analyticsLevel: 'basic',
@@ -75,6 +97,9 @@ export async function GET(
             dealHeatScore:   basicHeat,
             totalShareLinks: Array.isArray(space.publicAccess) ? space.publicAccess.length : (space.publicAccess ? 1 : 0),
           },
+           committeeGrowing: spaceCommitteeGrowing,
+          committeeSize: spaceCommitteeSize,
+          recommendedAction: spaceRecommendedAction,
           shareLinks:  [],
           visitors:    [],
           documents:   [],
@@ -100,6 +125,29 @@ export async function GET(
     const uniqueVisitors = new Set(
       logs.map(l => l.visitorEmail).filter(Boolean)
     ).size;
+
+    // ── Buying committee growth detection ─────────────────────────
+    const spaceDomainViewers = logs
+      .filter((l: any) => l.visitorEmail)
+      .reduce((acc: Record<string, string[]>, l: any) => {
+        const domain = l.visitorEmail?.split('@')[1];
+        if (domain) {
+          if (!acc[domain]) acc[domain] = [];
+          if (!acc[domain].includes(l.visitorEmail)) acc[domain].push(l.visitorEmail);
+        }
+        return acc;
+      }, {});
+
+    const fullCommitteeSize = Math.max(
+      ...Object.values(spaceDomainViewers).map((v: any) => v.length),
+      1
+    );
+    const fullCommitteeGrowing = fullCommitteeSize >= 2;
+    const spaceProspectDomain = Object.keys(spaceDomainViewers)[0] || 'the prospect company';
+
+    const fullRecommendedAction = fullCommitteeGrowing
+      ? `Your space has been accessed by ${fullCommitteeSize} people from ${spaceProspectDomain}. Before sending any follow up ask your champion specifically who else is now involved and what each person cares about most. The deal is alive but entering a more complex evaluation stage.`
+      : `Monitor engagement and follow up with context rather than a generic check in.`;
 
     const lastActivity = logs.length > 0 ? logs[0].timestamp : null;
 
@@ -662,6 +710,9 @@ export async function GET(
         documents,
         timeline,
         dailyVisits,
+        committeeGrowing: fullCommitteeGrowing,
+        committeeSize: fullCommitteeSize,
+        recommendedAction: fullRecommendedAction,
         visitorIntelligence: spaceVisitorIntelligence,
       }
     });
