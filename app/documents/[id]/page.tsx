@@ -50,7 +50,7 @@ type SignatureRequestType = {
 type GeneratedLink = { recipient?: string; email?: string; link?: string; status?: string };
 
 const DEFAULT_SHARE_SETTINGS = {
-  requireEmail: true, allowDownload: false, expiresIn: 7, password: "",
+  requireEmail: true, allowDownload: false, expiresIn: 0, password: "",
   recipientEmails: [] as string[], sendEmailNotification: true, customMessage: "",
   requireNDA: false, allowedEmails: [] as string[], recipientNames: [] as string[],
   enableWatermark: false, watermarkText: "", watermarkPosition: "bottom" as const,
