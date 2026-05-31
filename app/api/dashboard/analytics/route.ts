@@ -629,6 +629,11 @@ const mostEngagedContacts = await Promise.all(
           momentumState,
           recommendation,
           lastActivityAt: lastSession.startedAt,
+          committeeGrowing: uniqueViewers >= 2,
+          committeeSize: uniqueViewers,
+          committeeAction: uniqueViewers >= 2
+            ? `Your proposal has reached ${uniqueViewers} people inside this organisation. Ask your champion specifically who else is now involved before sending any follow up.`
+            : null,
         };
       })
     );
