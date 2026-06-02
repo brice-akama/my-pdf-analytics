@@ -27,17 +27,17 @@ function getStepMessage(
     case 1:
       // Day 2 — ghosting risk alert with ready to paste follow up
       return {
-        subject: `⚠️ Your "${documentName}" proposal is entering the Ghosting Zone`,
+        subject: `Engagement signal on "${documentName}" — 48 hours with no reply detected`,
         body: `
           <div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; color: #1e293b; line-height: 1.7;">
 
             <!-- Alert banner -->
             <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
-              <p style="margin: 0; font-size: 13px; font-weight: 700; color: #c2410c;">⚠️ Ghosting Risk Detected</p>
-              <p style="margin: 4px 0 0; font-size: 13px; color: #9a3412;">
-                <strong>${viewerEmail}</strong> received <strong>${documentName}</strong> 2 days ago and has not replied.
-                This is the window where most deals quietly die.
-              </p>
+             <p style="margin: 0; font-size: 13px; font-weight: 700; color: #c2410c;">Signal detected (medium confidence): No reply after 48 hours</p>
+<p style="margin: 4px 0 0; font-size: 13px; color: #9a3412;">
+  <strong>${viewerEmail}</strong> received <strong>${documentName}</strong> 2 days ago with no reply recorded.
+  48 hours of silence is a common pattern before deals go cold — though many deals recover with the right follow up.
+</p>
             </div>
 
             <!-- What this means -->
@@ -225,11 +225,11 @@ export async function runFollowUpCadenceJob() {
               html: `
                 <div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; color: #1e293b; line-height: 1.7;">
                   <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
-                    <p style="margin: 0; font-size: 13px; font-weight: 700; color: #15803d;">🔄 Buying Committee Growing</p>
-                    <p style="margin: 4px 0 0; font-size: 13px; color: #166534;">
-                      Someone new from <strong>${prospectDomain}</strong> has opened <strong>${cadence.documentName}</strong>.
-                      Your deal is alive but entering a more complex evaluation stage.
-                    </p>
+                   <p style="margin: 0; font-size: 13px; font-weight: 700; color: #15803d;">Signal detected (high confidence): New viewer from same organisation</p>
+<p style="margin: 4px 0 0; font-size: 13px; color: #166534;">
+  Someone new from <strong>${prospectDomain}</strong> has opened <strong>${cadence.documentName}</strong>.
+  This may indicate internal sharing is underway. Your deal context will determine the best next step.
+</p>
                   </div>
                   <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">What to do right now</p>
                   <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #0f172a; border-radius: 0 8px 8px 0; padding: 16px 20px; margin-bottom: 20px;">

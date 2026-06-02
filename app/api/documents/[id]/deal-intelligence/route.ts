@@ -174,17 +174,17 @@ export async function POST(
           dealStatus = 'dead';
           if (longSilent) {
             summary = `${email} last engaged with this document ${signals.daysSinceLastView} days ago and has not returned since. Their earlier engagement suggested interest but the prolonged silence points to a stalled or lost deal.`;
-             recommendation = `You have one move left here. Send a short message that acknowledges the gap without making them feel guilty about it. Something like — I wanted to check in one last time before I close this out on my end. If the timing is off or priorities have shifted that is completely understandable. Just let me know either way and I will follow up when it makes more sense. If there is no reply within three days close the file. Leave the door open with a brief value add every six weeks. Some deals are not dead, they are just waiting for an external trigger you cannot see from here.`;
+             recommendation = `Signal detected (low confidence): ${signals.daysSinceLastView} days of silence after earlier engagement. This pattern often indicates a stalled deal but external factors you cannot see may also explain the silence. If you decide to act, a short message acknowledging the gap without guilt tends to perform better than another pitch. Whether to send it or archive the deal is your call based on the broader relationship context.`;
           } else {
             summary = `${email} has shown multiple signals of disengagement. Despite opening the document, their reading pattern and subsequent silence suggest this deal is unlikely to progress without a significant change in approach.`;
-            recommendation = `Do not send the same message again. If the proposal did not land the first time repeating it will not change that. Try a completely different angle — strip it down to one sentence describing the single most relevant thing your product does for their specific situation. Then ask one direct question. Something like — is solving this still a priority for you this quarter or should we pick this up at a better time. A direct question almost always gets a response even if the answer is not what you hoped for.`;
+            recommendation = `Signal detected (low confidence): Multiple disengagement signals detected. The data suggests this deal may need a different approach if you choose to pursue it. A completely different angle rather than repeating the same message is generally more effective at this stage. Only you know whether the relationship warrants another attempt.`;
           }
 
         // ── BOUNCED — opened and left immediately ─────────────────
         } else if (signals.bounced) {
           dealStatus = 'cold';
           summary = `${email} opened the document but left almost immediately without reading it. This could mean the timing was wrong, the subject line did not match their expectations, or they were simply distracted when they opened it.`;
-           recommendation = `Do not follow up today. Give it 48 hours then resend with one sentence of personal context before the link — something that makes it clear this is not a mass send and you chose to share this with them specifically. Do not ask if they saw the last one. Just send it fresh as if it is the first time.`;
+           recommendation = `Signal detected (low confidence): Document opened but closed almost immediately. This may indicate poor timing, distraction, or a mismatch between the subject and their expectations. Waiting 48 hours before any follow up is generally advisable. Adding personal context about why this is relevant to their specific situation tends to improve re-engagement.`;
 
          
        // ── HOT — progressive reader + multiple sessions ──────────
@@ -195,7 +195,7 @@ export async function POST(
             ? ` Each time they return they read deeper into the document — from page ${depths[0]} in their first visit to page ${depths[depths.length - 1]} most recently.`
             : '';
           summary = `${email} has returned to this document ${signals.uniqueSessions} times and is progressing further through it with each visit.${depthNote} This pattern of deepening engagement across sessions is one of the strongest buying signals a proposal can generate.`;
-           recommendation = `Reach out today while their momentum is building. Do not open with did you get a chance to review it. They clearly did. Instead reference something specific — you noticed they have been spending time with the document and wanted to see if anything raised questions. Then ask directly whether there is anyone else on their side who should be part of the conversation. That question surfaces the internal stakeholders before they surface on their own.`;
+          recommendation = `Signal detected (high confidence): Progressive deepening engagement across multiple sessions is one of the stronger buying signals in document analytics. A contextual follow up referencing something specific in the document tends to perform well at this stage. Asking whether others on their side should be involved is worth considering given the engagement pattern.`;
 
         // ── WARM/NEEDS HELP — stuck reader ────────────────────────
         } else if (signals.progressionPattern === 'stuck' && hasMultipleSessions) {
@@ -205,7 +205,7 @@ export async function POST(
             ? ` They keep returning to page${stuckPages.length > 1 ? 's' : ''} ${stuckPages.join(' and ')} without moving past that section.`
             : '';
           summary = `${email} has opened this document ${signals.uniqueSessions} times but keeps returning to the same section each visit without progressing further.${stuckNote} This pattern almost always means something on those pages is raising a question or objection they cannot resolve on their own.`;
-           recommendation = `Do not send a check in. They are stuck on something specific and a vague follow up will not unstick them. Reach out and offer to walk them through that section directly — a ten minute call or even a short voice note explaining it in plain language. The blocker is almost always something that feels too small to ask about. Making it easy for them to ask is what moves this forward.`;
+           recommendation = `Signal detected (medium confidence): Repeated returns to the same section without progressing often indicates an unresolved question or objection on those pages. Offering to clarify that specific section directly rather than sending a generic check in tends to be more effective. A short call or written explanation both work depending on your relationship with this prospect.`;
 
         // ── COLD — falling engagement ─────────────────────────────
         } else if (signals.progressionPattern === 'falling' && hasMultipleSessions) {
@@ -215,7 +215,7 @@ export async function POST(
             ? ` Their first visit reached page ${depths[0]} but their most recent visit only reached page ${depths[depths.length - 1]}.`
             : '';
           summary = `${email} has returned to this document multiple times but is reading less of it with each visit.${fallingNote} Declining depth across sessions is a clear signal that initial interest is fading and without a new angle this deal is likely to go cold.`;
-           recommendation = `Something shifted between their first visit and now. Do not follow up with the same framing. Either find a completely different angle that speaks to something you know about their situation, or send one honest message — I noticed you have been back to this a few times and wanted to check in. Has something changed on your end or is timing the issue. If there is no reply park this deal for 30 days and set a reminder. Some deals go quiet because of internal changes you cannot see from here. They are not always dead.`;
+          recommendation = `Signal detected (medium confidence): Declining reading depth across sessions suggests initial interest may be fading. This pattern sometimes indicates internal changes at the prospect's organisation rather than loss of interest. A different angle or a direct question about whether priorities have shifted tends to work better than repeating the original message. Your knowledge of the broader situation should guide whether to act now or wait.`;
 
         // ── HOT — re-reads + multiple sessions + recent ───────────
         } else if (topReRead && hasMultipleSessions && recentlyActive) {
@@ -224,31 +224,31 @@ export async function POST(
             ? ` They also replayed the video on page ${topVideo.page} ${topVideo.count} time${topVideo.count > 1 ? 's' : ''}, which points to a specific area they want to understand more deeply.`
             : '';
           summary = `${email} has returned to this document ${signals.uniqueSessions} times and keeps coming back to page ${topReRead.page}, reviewing it ${topReRead.count} times across their sessions.${videoNote} This level of repeated engagement is a strong signal that they are actively evaluating and likely building an internal case.`;
-          recommendation = `Follow up today. Do not lead with the document. Lead with a question about their situation — something like I wanted to check in and see if anything had come up since you had a chance to go through this. Then ask directly whether there is anyone else involved in the decision. If they have been reviewing this repeatedly they are either genuinely considering it or stuck on something they have not mentioned yet. Either way a direct question moves things forward faster than waiting.`;
+         recommendation = `Signal detected (high confidence): Repeated engagement with specific pages across multiple recent sessions is a strong indicator of active evaluation. Leading with a question about their situation rather than the document itself tends to get better responses at this stage. Asking whether others are involved in the decision is worth considering given the engagement depth.`;
 
         // ── HOT — new viewers from same company ───────────────────
         } else if (hasNewViewers) {
           dealStatus = 'hot';
           summary = `${email} has shared this document internally. ${signals.newViewersFromSameCompany} additional ${signals.newViewersFromSameCompany === 1 ? 'person' : 'people'} from the same organisation have now opened it, which strongly suggests the evaluation has moved beyond your initial contact and is being reviewed at a higher level.`;
-           recommendation = `Contact your original prospect today. Do not mention that you can see the document has been shared internally. Just reach out naturally and ask whether there is anyone else on their side who should be involved in the conversation. That question signals that you understand how buying decisions actually work inside organisations and it gives them an easy way to loop in the people who are already looking at your proposal without making it awkward.`;
+           recommendation = `Signal detected (high confidence): Additional viewers from the same organisation suggest internal sharing has occurred. This is typically a positive buying signal indicating your champion is building an internal case. Asking naturally whether others should be involved in the conversation tends to work well here. Avoid mentioning that you can see the sharing activity directly.`;
 
         // ── HOT — re-reads but no multiple sessions ───────────────
         } else if (topReRead && recentlyActive) {
           dealStatus = 'hot';
           summary = `${email} spent time reading this document and returned specifically to page ${topReRead.page} more than once.${timeStr ? ` They invested ${timeStr} in total reading it.` : ''} Returning to a specific page almost always signals either serious consideration or a question that page raises for them.`;
-           recommendation = `Follow up today. Keep it short. Tell them you wanted to check in and see if anything stood out or raised questions when they went through it. Then offer to walk them through any part of it directly — a quick call or even a written explanation if a call does not suit them. The offer to clarify removes the barrier that stops most people from replying.`;
+           recommendation = `Signal detected (medium confidence): Return visits to a specific page suggest either genuine consideration or an unresolved question. A short follow up offering to clarify anything in the document tends to lower the barrier for prospects who have questions but have not asked them yet. Timing and tone are your judgment call.`;
 
         // ── HOT — video replays ───────────────────────────────────
         } else if (topVideo && topVideo.count >= 2) {
           dealStatus = 'hot';
           summary = `${email} replayed the video on page ${topVideo.page} ${topVideo.count} times.${timeStr ? ` They spent ${timeStr} with the document overall.` : ''} Replaying a video is one of the clearest signals that something on that page either resonated strongly or raised a question they are trying to resolve.`;
-           recommendation = `Follow up and mention that you are happy to go deeper on anything in the document. Do not specifically call out that you saw them watch the video multiple times. Just make it easy for them to ask the question they clearly have. Something like — wanted to check in and see if anything in the walkthrough raised questions I can help clarify. Short, direct, and gives them a reason to reply without feeling watched.`;
+           recommendation = `Signal detected (medium confidence): Multiple video replays on the same page suggest strong interest in that specific content or an unresolved question. Making it easy for the prospect to ask about that section tends to work better than a generic follow up. Avoid referencing that you can see the replay activity directly.`;
 
         // ── WARM — multiple sessions, strong read ─────────────────
         } else if (hasMultipleSessions && strongRead) {
           dealStatus = 'warm';
           summary = `${email} has come back to this document ${signals.uniqueSessions} times and has read through ${Math.round(signals.completionRate)}% of it.${timeStr ? ` Their total reading time across all visits is ${timeStr}.` : ''} This pattern of returning and reading thoroughly suggests they are genuinely considering it, likely alongside other options.`;
-           recommendation = `Send a follow up that moves the conversation forward rather than asking if they read it. They have. Ask one specific question about their timeline or situation — something like are you looking to have something in place before the end of the quarter or is this more of a longer evaluation. A question about timing gets you real information. A question about whether they saw the document gets you nothing.`;
+           recommendation = `Signal detected (medium confidence): Multiple return visits combined with high completion rate suggests genuine evaluation is underway. A follow up focused on their timeline rather than the document itself tends to surface more useful information at this stage. The data indicates they have read it so asking if they did is unlikely to add value.`;
 
         // ── WARM — single strong session ─────────────────────────
         } else if (strongRead && recentlyActive) {
@@ -257,33 +257,33 @@ export async function POST(
             ? ` They did skip ${skippedCount} page${skippedCount > 1 ? 's' : ''}, which may be worth noting in your follow up.`
             : '';
           summary = `${email} read through ${Math.round(signals.completionRate)}% of this document in a single focused session.${timeStr ? ` They spent ${timeStr} reading it.` : ''}${skippedNote} A thorough first read is a positive signal that the document captured their attention.`;
-          recommendation = `Follow up within 48 hours while the document is still fresh. Do not ask if they had a chance to look at it. Send a short value add instead — a relevant case study, a one line answer to a likely objection, or a specific insight about their industry. Then wait five business days. If there is still no reply send one direct question — is this still a priority for you right now or should we pick this up at a better time. That question almost always gets a response.`;
+          recommendation = `Signal detected (medium confidence): Strong single session engagement with high completion. Engagement is increasing from first contact. A value-add follow up within 48 hours tends to build on this momentum better than asking if they read it. Your judgment on timing and what value to add is what matters most here.`;
 
         // ── WARM — going silent after good engagement ─────────────
         } else if (goingSilent && signals.totalViews >= 2) {
           dealStatus = 'warm';
           summary = `${email} engaged well with this document ${signals.daysSinceLastView} days ago but has not returned since. Their initial engagement was genuine but the silence since then suggests they may be waiting for something internally, comparing options, or simply got busy.`;
-           recommendation = `Send one short message today. Do not reference the silence or ask if they are still interested. Just add a piece of value — a relevant case study, a specific insight, or a one line answer to an objection they probably have. Then end with one direct question about timing. Something like — still the right time to be looking at this or would it make more sense to revisit in a month. Easy to answer, impossible to ignore entirely.`;
+           recommendation = `Signal detected (medium confidence): Good initial engagement followed by silence. This pattern may indicate internal review, competing priorities, or a timing issue rather than loss of interest. A value-add message followed by a direct timing question tends to work better than referencing the silence. Whether to act now or wait is your call.`;
 
         // ── COLD — partial read, no return ───────────────────────
         } else if (partialRead) {
           dealStatus = 'cold';
           summary = `${email} opened this document and read approximately ${Math.round(signals.completionRate)}% of it before stopping.${timeStr ? ` They spent ${timeStr} with it.` : ''} They did not return after their initial visit. Dropping off partway through often means something in the document did not connect or their attention was pulled away.`;
-           recommendation = `Do not resend the full document. Pull out the single most relevant section for their situation and share just that. One paragraph or one page maximum. Tell them this is the part most relevant to where they are right now and ask if it addresses what they were looking for. Removing the commitment of reading the whole thing again is often what gets a reply.`;
+           recommendation = `Signal detected (low confidence): Partial read with no return visit. Dropping off partway through may indicate a content mismatch, distraction, or timing issue. Sharing only the most relevant section rather than the full document again tends to lower the re-engagement barrier. Whether this deal is worth the effort is your judgment based on the broader context.`;
 
         // ── COLD — opened but minimal reading ────────────────────
         } else if (signals.totalViews >= 1 && signals.totalTimeSeconds > 30) {
           dealStatus = 'cold';
           summary = `${email} opened this document${timeStr ? ` and spent ${timeStr} with it` : ''} but their engagement was limited.${signals.daysSinceLastView > 0 ? ` It has been ${signals.daysSinceLastView} day${signals.daysSinceLastView > 1 ? 's' : ''} since they last opened it.` : ''} Low engagement on a first read does not necessarily mean no interest but it does mean the document alone has not yet made a strong case.`;
-           recommendation = `Do not follow up about the document at all. Instead ask a question about their current situation that has nothing to do with whether they read it. Something about a challenge they are likely facing right now or a change in their industry. If the conversation restarts on fresh ground you can reintroduce the proposal naturally. Leading with the document again signals that you have nothing new to offer.`;
+          recommendation = `Signal detected (low confidence): Document opened with limited engagement. The data alone cannot distinguish between distraction, poor timing, and low interest. A conversation focused on their current situation rather than the document tends to be more effective at this stage. Reintroducing the proposal can happen naturally if the conversation restarts.`;
 
         // ── DEFAULT ───────────────────────────────────────────────
         } else {
           dealStatus = 'cold';
           summary = `${email} has received this document.${signals.totalViews > 0 ? ` They have opened it ${signals.totalViews} time${signals.totalViews > 1 ? 's' : ''}.` : ' There has been no engagement yet.'} ${signals.daysSinceLastView > 0 ? `It has been ${signals.daysSinceLastView} day${signals.daysSinceLastView > 1 ? 's' : ''} since any activity.` : ''}`.trim();
-         recommendation = signals.totalViews === 0
-  ? `They have not opened it yet. Before resending add one sentence of personal context that makes it clear why this is relevant to their specific situation right now. A personalised reason to open is worth more than any subject line tweak.`
-  : `Send a short note today. Do not ask if they had a chance to look at it. Instead add a small piece of value — one relevant insight or a direct answer to a likely question. Then end with one easy question about their timeline. That combination almost always gets a reply even from people who were not planning to respond.`;
+       recommendation = signals.totalViews === 0
+  ? `No signal yet: The document has not been opened. No engagement data available to interpret. Adding personal context about why this is specifically relevant to their situation before resending tends to improve open rates more than subject line changes.`
+  : `Signal detected (low confidence): Limited engagement data available. A value-add message combined with a direct question about their timeline tends to generate responses even from prospects who were not planning to reply. Your knowledge of the relationship should guide the timing.`;
         }
       }
       if (!summary) continue;

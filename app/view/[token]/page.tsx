@@ -681,15 +681,15 @@ const handleEndQuestion = async (answer: string) => {
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-4"
                 style={{ background: '#f3f0ff', color: '#7c3aed' }}>
                 <div className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-                {requiresNDA ? 'NDA Required' : 'Verification Required'}
+                {requiresNDA ? 'NDA Required' : ''}
               </div>
               <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                {requiresNDA ? 'Sign NDA to continue' : 'Verify your identity'}
+                {requiresNDA ? 'Sign NDA to continue' : ''}
               </h1>
               <p className="text-slate-500 text-sm mt-2 leading-relaxed">
                 {requiresNDA
                   ? 'Read and accept the Non-Disclosure Agreement before viewing this document.'
-                  : 'This document is protected. Please verify your identity to continue.'}
+                  : ''}
               </p>
             </div>
 
@@ -794,7 +794,7 @@ const handleEndQuestion = async (answer: string) => {
                       onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.boxShadow = 'none'; e.target.style.background = '#f8fafc'; }}
                     />
                   </div>
-                  <p className="text-xs text-slate-400 mt-1.5">Enter the email this document was shared with</p>
+                  
                 </div>
               )}
 

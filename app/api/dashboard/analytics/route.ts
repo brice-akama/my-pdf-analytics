@@ -593,25 +593,25 @@ const mostEngagedContacts = await Promise.all(
         let recommendation = '';
         if (momentumState === 'accelerating') {
           if (uniqueViewers >= 2) {
-            recommendation = 'A second person from this organisation has opened your document. Reach out to your original contact today and ask directly who else is involved in the decision.';
+            recommendation = 'Signal detected (high confidence): A second person from this organisation has opened your document. This may indicate internal sharing. You may want to ask your original contact who else is now involved — timing and approach are your call.';
           } else if (hasReReads) {
-            recommendation = 'Your prospect keeps returning to specific sections. Follow up today and offer to walk them through whatever is raising questions. Do not wait.';
+            recommendation = 'Signal detected (medium confidence): Your prospect has returned to specific sections across multiple sessions. This often indicates unresolved questions. A contextual follow up offering to clarify may be well received.';
           } else {
-            recommendation = 'Strong engagement in the last 48 hours. Follow up now while their attention is high. Reference something specific rather than asking if they read it.';
+           recommendation = 'Signal detected (medium confidence): Strong engagement recorded in the last 48 hours. Engagement is increasing. A follow up referencing something specific in the document may be timely — you know your prospect best.';
           }
         } else if (momentumState === 'holding') {
           if (daysSinceLastActivity >= 3) {
-            recommendation = `It has been ${daysSinceLastActivity} days since their last visit. Send a short value add today — a relevant insight or a one line answer to a likely question. Then ask one direct question about their timeline.`;
+           recommendation = `Signal detected (medium confidence): Engagement is steady but ${daysSinceLastActivity} days have passed since their last visit. A value-add follow up may maintain momentum. Consider a relevant insight or a direct question about their timeline based on your knowledge of the deal.`;
           } else {
-            recommendation = 'Engagement is steady. Give it another day or two before following up. When you do, ask a specific question about timing rather than checking if they read it.';
+            recommendation = 'Signal detected (medium confidence): Engagement is steady and recent. No urgent action indicated by the data. A timing question when you do follow up tends to be more effective than asking if they read the document.';
           }
         } else if (momentumState === 'fading') {
-          recommendation = `Engagement is dropping. Send one direct question today — is this still a priority right now or should we revisit this at a better time. A direct question almost always gets a response even if it is not the one you hoped for.`;
+         recommendation = `Signal detected (low confidence): Engagement is decreasing. Deal momentum appears to be fading based on available signals. A direct question about whether this is still a priority may help clarify intent — though only you know the full context of this relationship.`;
         } else {
           if (daysSinceLastActivity > 21) {
-            recommendation = 'Two weeks of silence. Send one final short message acknowledging the gap without guilt. If there is no reply within three days, archive this deal and set a six week reminder.';
+            recommendation = `Signal detected (low confidence): No engagement detected for ${daysSinceLastActivity} days. Deal appears stalled based on document signals alone. A final short message or archiving the deal may be worth considering — your knowledge of the broader relationship should guide this decision.`;
           } else {
-            recommendation = 'No engagement yet. Consider sending a personal note explaining specifically why this document is relevant to their situation right now.';
+            recommendation = 'No signal yet: The document has not been opened. No engagement data available. A personal note explaining why this document is relevant to their specific situation may help prompt an initial open.';
           }
         }
 

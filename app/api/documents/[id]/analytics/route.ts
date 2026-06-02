@@ -145,8 +145,8 @@ const committeeGrowing = committeeSize >= 2;
 const prospectDomain = Object.keys(uniqueDomainViewers)[0] || 'the prospect company';
 
 const recommendedAction = committeeGrowing
-  ? `Your proposal has reached ${committeeSize} people inside ${prospectDomain}. Before sending any follow up ask your champion specifically who else is now involved, what each person cares about most, and whether they need help making the internal case. Do not send a generic check in. The deal is alive but entering a more complex evaluation stage.`
-  : `Monitor engagement and follow up with context rather than a generic check in.`;
+  ? `Signal detected (high confidence): Your proposal has reached ${committeeSize} people inside ${prospectDomain}. This typically means your champion is sharing it internally. Before acting, consider asking your champion who else is now involved, what each person cares about most, and whether they need help making the internal case. Avoid sending a generic follow up at this stage.`
+  : `Signal detected (low confidence): Engagement from a single viewer only. No internal sharing detected yet. Context-based follow up may be appropriate depending on your sales stage.`;
 
     const shares = await db.collection('shares')
       .find({ documentId })

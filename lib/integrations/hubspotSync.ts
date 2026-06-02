@@ -520,7 +520,7 @@ export async function syncDealInsightToHubSpot({
       `Total pages: ${totalPages}`,
       trigger === 'gone_silent' ? `Days silent: ${daysSilent}` : null,
       '',
-      `Analytics: ${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}?tab=analytics`,
+      `Analytics: ${process.env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
     ].filter(Boolean).join('\n');
 
     await createContactNote(token, contactId, noteBody, new Date());

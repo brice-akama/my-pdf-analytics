@@ -81,8 +81,8 @@ export async function GET(
       const spaceCommitteeGrowing = spaceCommitteeSize >= 2;
       const spaceProspectDomain = Object.keys(basicDomainViewers)[0] || 'the prospect company';
       const spaceRecommendedAction = spaceCommitteeGrowing
-        ? `Your space has been accessed by ${spaceCommitteeSize} people from ${spaceProspectDomain}. Ask your champion who else is now involved.`
-        : `Monitor engagement and follow up with context.`;
+  ? `Signal detected (high confidence): ${spaceCommitteeSize} people from ${spaceProspectDomain} have accessed this space. This may indicate internal circulation. Consider asking your champion who else is now involved before sending any follow up.`
+  : `Signal detected (low confidence): Single viewer engagement only. Monitor before acting.`;
 
       return NextResponse.json({
         success: true,
@@ -146,8 +146,8 @@ export async function GET(
     const spaceProspectDomain = Object.keys(spaceDomainViewers)[0] || 'the prospect company';
 
     const fullRecommendedAction = fullCommitteeGrowing
-      ? `Your space has been accessed by ${fullCommitteeSize} people from ${spaceProspectDomain}. Before sending any follow up ask your champion specifically who else is now involved and what each person cares about most. The deal is alive but entering a more complex evaluation stage.`
-      : `Monitor engagement and follow up with context rather than a generic check in.`;
+  ? `Signal detected (high confidence): ${fullCommitteeSize} people from ${spaceProspectDomain} have accessed this space across multiple sessions. This pattern typically indicates internal evaluation is underway. Before acting, consider asking your champion who else is now involved and what each person cares about most. You are best placed to judge the right moment to reach out.`
+  : `Signal detected (low confidence): Engagement is from a single viewer. No internal sharing pattern detected yet. A context-based follow up may be appropriate depending on your relationship and sales stage.`;
 
     const lastActivity = logs.length > 0 ? logs[0].timestamp : null;
 
