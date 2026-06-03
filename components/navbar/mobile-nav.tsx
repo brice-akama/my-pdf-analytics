@@ -43,8 +43,8 @@ export function MobileNav() {
         <div className="flex flex-col gap-4 mt-8">
           {/* Product Accordion */}
           <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="product" className="border-none">
-              <AccordionTrigger className="text-base font-medium hover:no-underline">
+            <AccordionItem value="product" className="border-b border-gray-200">
+             <AccordionTrigger className="text-base font-medium hover:no-underline py-4">
                 Product
               </AccordionTrigger>
               <AccordionContent>
@@ -96,8 +96,8 @@ export function MobileNav() {
             </AccordionItem>
 
             {/* Solutions Accordion */}
-            <AccordionItem value="solutions" className="border-none">
-              <AccordionTrigger className="text-base font-medium hover:no-underline">
+            <AccordionItem value="solutions" className="border-b border-gray-200">
+              <AccordionTrigger className="text-base font-medium hover:no-underline py-4">
                 Solutions
               </AccordionTrigger>
               <AccordionContent>
@@ -133,8 +133,8 @@ export function MobileNav() {
              
 
             {/* Resources Accordion */}
-            <AccordionItem value="resources" className="border-none">
-              <AccordionTrigger className="text-base font-medium hover:no-underline">
+            <AccordionItem value="resources" className="border-b border-gray-200">
+              <AccordionTrigger className="text-base font-medium hover:no-underline py-4">
                 Resources
               </AccordionTrigger>
               <AccordionContent>
@@ -167,9 +167,9 @@ export function MobileNav() {
           </Accordion>
 
           {/* Direct Links */}
-          <Link
+         <Link
             href="/pricing"
-            className="text-base font-medium hover:text-primary"
+            className="text-base font-medium hover:text-primary py-4 block border-b border-gray-200"
             onClick={() => setOpen(false)}
           >
             Pricing
@@ -180,12 +180,12 @@ export function MobileNav() {
           {/* CTA Buttons */}
           <div className="flex flex-col gap-2">
             <Link href="/login" onClick={() => setOpen(false)}>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full bg-black text-white hover:bg-gray-800 border-black">
                 Login
               </Button>
             </Link>
             <Link href="/signup" onClick={() => setOpen(false)}>
-              <Button className="w-full">Start Free Trial</Button>
+             <Button className="w-full bg-transparent text-black border border-black hover:bg-gray-100">Start Free Trial</Button>
             </Link>
           </div>
         </div>
