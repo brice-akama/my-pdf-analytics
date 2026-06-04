@@ -7,22 +7,22 @@ const features = [
   {
     title: "Board Meetings",
     description: "Share board materials securely. Know who read the agenda before the meeting starts.",
-    image: "/assets/board-meetings.jpg",
+    image: "/assets/board-meetings.webp",
   },
   {
     title: "Investor Relations",
     description: "Send your pitch deck and know exactly which slides investors spent time on.",
-    image: "/assets/team-photo.jpg",
+    image: "/assets/team-photo.webp",
   },
   {
     title: "Client Portals",
     description: "Branded document rooms for every client. Collect files, signatures, and feedback in one place.",
-    image: "/assets/client-portals.jpg",
+    image: "/assets/client-portals.webp",
   },
   {
     title: "Mergers & Acquisitions",
     description: "Secure data rooms with NDA gating, role-based access, and full audit trails for every document.",
-    image: "/assets/mergers-acquisitions.jpg",
+    image: "/assets/mergers-acquisitions.webp",
   },
 ];
 
