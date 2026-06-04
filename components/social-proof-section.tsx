@@ -7,17 +7,17 @@ const SLIDES = [
   {
     id: "upload",
     label: "Upload documents",
-    image: "/assets/feature-upload.png",
+    image: "/assets/feature-upload.webp",
   },
   {
     id: "track",
     label: "Track visitor analytics",
-    image: "/assets/feature-dataroom.png",
+    image: "/assets/feature-dataroom.webp",
   },
   {
     id: "dataroom",
     label: "Create a Data Room",
-    image: "/assets/feature-tracking.png",
+    image: "/assets/feature-tracking.webp",
   },
 ]
 

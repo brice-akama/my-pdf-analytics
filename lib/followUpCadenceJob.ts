@@ -84,7 +84,7 @@ function getStepMessage(
             </p>
           </div>
         `,
-        slackMessage: `⚠️ Ghosting risk — ${viewerEmail} received "${documentName}" 2 days ago with no reply. Send the value add message today. Reference something specific rather than asking if they read it. This is the window where most deals go cold.`,
+        slackMessage: `Signal detected (medium confidence): No reply on "${documentName}" from ${viewerEmail} after 48 hours. This is a common pattern before deals go cold but a well timed follow up can often recover it. Suggested message: "Hi, I wanted to flag something specific in ${documentName} before you go through it — there are a couple of decisions in there that tend to raise questions and are worth a quick conversation rather than leaving to email. Happy to walk you through them on a short call or answer anything in writing if that works better. Just let me know what suits you." Your judgment on the relationship context will help you decide when and how to follow up.`,
       };
 
     case 2:
@@ -110,7 +110,7 @@ function getStepMessage(
             <p style="margin: 0; color: #64748b; font-size: 13px;">— DocMetrics</p>
           </div>
         `,
-        slackMessage: `Timing check — it has been 5 days since you shared "${documentName}" with ${viewerEmail}. If you sent a value add on day 2, wait two more days. If you have not followed up yet, do it today with one specific question about their timeline.`,
+       slackMessage: `Signal check (medium confidence): 5 days since "${documentName}" was shared with ${viewerEmail}. Engagement pattern suggests holding off may be appropriate if you already followed up on day 2. If no follow up has been sent yet a timing question tends to work better than a check in at this stage. Your judgment on the relationship context matters here.`,
       };
 
     case 3:
@@ -136,7 +136,7 @@ function getStepMessage(
             </p>
           </div>
         `,
-        slackMessage: `7 day follow up — it has been a week since ${viewerEmail} received "${documentName}". Time to send one direct question about whether this is still a priority. Suggested message: Is moving forward on this still a priority right now or should we revisit this later. Direct questions get responses. Vague check ins get ignored.`,
+        slackMessage: `Signal detected (medium confidence): 7 days since "${documentName}" was shared with ${viewerEmail} with no reply recorded. A direct question about whether this is still a priority tends to generate responses at this stage. Whether to send it now is your call based on the broader relationship context.`,
       };
 
     case 4:
@@ -167,7 +167,7 @@ function getStepMessage(
             <p style="margin: 0; color: #64748b; font-size: 13px;">— DocMetrics</p>
           </div>
         `,
-        slackMessage: `14 day silence — ${viewerEmail} has not responded to "${documentName}" in two weeks. Either send a final short message acknowledging the silence without guilt, or archive the deal and set a 6 week reminder. Some deals are not dead, just waiting for an external trigger.`,
+        slackMessage: `Signal detected (low confidence): 14 days of silence on "${documentName}" from ${viewerEmail}. The data alone cannot confirm whether this deal is lost or paused for external reasons. A final short message or archiving with a reminder are both reasonable options depending on your read of the relationship.`,
       };
 
     default:
