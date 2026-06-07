@@ -138,16 +138,49 @@ export async function GET(
         return acc;
       }, {});
 
-    const fullCommitteeSize = Math.max(
+   const fullCommitteeSize = Math.max(
       ...Object.values(spaceDomainViewers).map((v: any) => v.length),
       1
     );
     const fullCommitteeGrowing = fullCommitteeSize >= 2;
     const spaceProspectDomain = Object.keys(spaceDomainViewers)[0] || 'the prospect company';
 
+    // ── Secondary viewer engagement quality for spaces ────────────
+    // Score each secondary visitor by number of documents opened
+    // and total events to distinguish passive opens from active evaluation
+    const primarySpaceVisitor = logs
+      .filter((l: any) => l.visitorEmail)
+      .sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())[0]?.visitorEmail || null;
+
+    const spaceSecondaryEngagement = fullCommitteeGrowing
+      ? (spaceDomainViewers[spaceProspectDomain] || [])
+          .filter((email: string) => email !== primarySpaceVisitor)
+          .map((email: string) => {
+            const visitorEvents = logs.filter((l: any) => l.visitorEmail === email);
+            const docsOpened = new Set(
+              visitorEvents.filter((l: any) => l.documentId).map((l: any) => l.documentId.toString())
+            ).size;
+            const totalEvents = visitorEvents.length;
+
+            const engagementQuality = docsOpened >= 3 || totalEvents >= 5
+              ? 'high'
+              : docsOpened >= 2 || totalEvents >= 2
+              ? 'medium'
+              : 'low';
+
+            return { email, docsOpened, totalEvents, engagementQuality };
+          })
+      : [];
+
+    const spaceHasHighQualitySecondary = spaceSecondaryEngagement.some(
+      (v: any) => v.engagementQuality === 'high'
+    );
+
     const fullRecommendedAction = fullCommitteeGrowing
-  ? `Signal detected (high confidence): ${fullCommitteeSize} people from ${spaceProspectDomain} have accessed this space across multiple sessions. This pattern typically indicates internal evaluation is underway. Before acting, consider asking your champion who else is now involved and what each person cares about most. You are best placed to judge the right moment to reach out.`
-  : `Signal detected (low confidence): Engagement is from a single viewer. No internal sharing pattern detected yet. A context-based follow up may be appropriate depending on your relationship and sales stage.`;
+      ? spaceHasHighQualitySecondary
+        ? `Signal detected (high confidence): ${fullCommitteeSize} people from ${spaceProspectDomain} have accessed this space and at least one secondary visitor opened multiple documents actively. This indicates genuine internal evaluation beyond a passive forward. Ask your champion who else is now involved and what each person cares about most before sending any follow up.`
+        : `Signal detected (high confidence): ${fullCommitteeSize} people from ${spaceProspectDomain} have accessed this space. Secondary visitor engagement is present but moderate. Monitor whether secondary viewers return before deciding to act.`
+      : `Signal detected (low confidence): Engagement is from a single viewer. No internal sharing pattern detected yet. A context-based follow up may be appropriate depending on your relationship and sales stage.`;
 
     const lastActivity = logs.length > 0 ? logs[0].timestamp : null;
 
@@ -713,6 +746,8 @@ export async function GET(
         committeeGrowing: fullCommitteeGrowing,
         committeeSize: fullCommitteeSize,
         recommendedAction: fullRecommendedAction,
+        secondaryViewerEngagement: spaceSecondaryEngagement,
+        hasHighQualitySecondaryViewer: spaceHasHighQualitySecondary,
         visitorIntelligence: spaceVisitorIntelligence,
       }
     });

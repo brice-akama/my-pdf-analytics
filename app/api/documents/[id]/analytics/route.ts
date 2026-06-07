@@ -144,8 +144,64 @@ const committeeSize = Math.max(
 const committeeGrowing = committeeSize >= 2;
 const prospectDomain = Object.keys(uniqueDomainViewers)[0] || 'the prospect company';
 
+// ── Secondary viewer engagement quality scoring ───────────────
+// Izzy insight: a viewer spending 8 minutes on pricing is
+// categorically different from one who opens for 12 seconds.
+// We score each secondary viewer by time spent to separate
+// passive opens from active evaluation.
+
+const primaryViewerEmail = allSessions
+  .filter((s: any) => s.email)
+  .sort((a: any, b: any) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())[0]?.email || null;
+
+const secondaryViewerEngagement = committeeGrowing
+  ? await Promise.all(
+      (uniqueDomainViewers[prospectDomain] || [])
+        .filter((email: string) => email !== primaryViewerEmail)
+        .map(async (email: string) => {
+          const viewerLogs = await db.collection('analytics_logs').find({
+            documentId: id,
+            action: 'page_view',
+            email,
+          }).toArray();
+
+          const totalTime = viewerLogs.reduce(
+            (sum: number, l: any) => sum + (l.viewTime || 0), 0
+          );
+
+          const pagesViewed = new Set(viewerLogs.map((l: any) => l.pageNumber)).size;
+
+          const engagementQuality = totalTime >= 300
+            ? 'high'
+            : totalTime >= 60
+            ? 'medium'
+            : 'low';
+
+          return {
+            email,
+            totalTimeSeconds: totalTime,
+            pagesViewed,
+            engagementQuality,
+          };
+        })
+    )
+  : [];
+
+const hasHighQualitySecondaryViewer = secondaryViewerEngagement.some(
+  (v: any) => v.engagementQuality === 'high'
+);
+
+const hasMediumQualitySecondaryViewer = secondaryViewerEngagement.some(
+  (v: any) => v.engagementQuality === 'medium'
+);
+
+// Build recommended action based on committee size AND engagement quality
 const recommendedAction = committeeGrowing
-  ? `Signal detected (high confidence): Your proposal has reached ${committeeSize} people inside ${prospectDomain}. This typically means your champion is sharing it internally. Before acting, consider asking your champion who else is now involved, what each person cares about most, and whether they need help making the internal case. Avoid sending a generic follow up at this stage.`
+  ? hasHighQualitySecondaryViewer
+    ? `Signal detected (high confidence): ${committeeSize} people from ${prospectDomain} have opened your proposal and at least one secondary viewer spent significant time engaging with specific sections. This is not a passive forward. Someone beyond your original contact is actively evaluating this. Ask your champion who else is now involved and what each person cares about most before sending any follow up.`
+    : hasMediumQualitySecondaryViewer
+    ? `Signal detected (high confidence): ${committeeSize} people from ${prospectDomain} have opened your proposal. Secondary viewers show moderate engagement. The proposal is circulating internally but evaluation depth varies. Consider asking your champion who else is involved before following up.`
+    : `Signal detected (medium confidence): ${committeeSize} people from ${prospectDomain} have opened your proposal but secondary viewers opened briefly. This may be a passive forward rather than active internal evaluation. Monitor for return visits from secondary viewers before acting.`
   : `Signal detected (low confidence): Engagement from a single viewer only. No internal sharing detected yet. Context-based follow up may be appropriate depending on your sales stage.`;
 
     const shares = await db.collection('shares')
@@ -1020,6 +1076,8 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
         committeeGrowing,
         committeeSize,
         recommendedAction,
+        secondaryViewerEngagement,
+        hasHighQualitySecondaryViewer,
         sharingInfo: {
           isPublic: document.isPublic || false,
           sharedWith: document.sharedWith?.length || 0,
