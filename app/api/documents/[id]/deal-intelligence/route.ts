@@ -414,11 +414,161 @@ sendTeamsNotification({
 );
     }
 
-    return NextResponse.json({ success: true, summaries });
+   // ── Compute deal level summary from all viewer summaries ──────
+    // This runs after all individual summaries are generated
+    // so it has the full picture of every viewer's engagement state
+    let dealLevelSummary: {
+      state: string;
+      label: string;
+      summary: string;
+      recommendedAction: string;
+      confidence: 'high' | 'medium' | 'low';
+      totalViewers: number;
+      hotCount: number;
+      warmCount: number;
+      coldCount: number;
+    } | null = null;
+
+    if (summaries.length > 0) {
+      // Get committee data from the document analytics
+      const docSessions = await db.collection('analytics_sessions')
+        .find({ documentId: id })
+        .sort({ startedAt: 1 })
+        .toArray();
+
+      const domainViewerMap = docSessions
+        .filter((s: any) => s.email)
+        .reduce((acc: Record<string, string[]>, s: any) => {
+          const domain = s.email?.split('@')[1];
+          if (domain) {
+            if (!acc[domain]) acc[domain] = [];
+            if (!acc[domain].includes(s.email)) acc[domain].push(s.email);
+          }
+          return acc;
+        }, {});
+
+      const committeeSize = Math.max(
+        ...Object.values(domainViewerMap).map((v: any) => v.length),
+        1
+      );
+      const committeeGrowing = committeeSize >= 2;
+      const prospectDomain = Object.keys(domainViewerMap)[0] || 'the prospect company';
+
+      // Score secondary viewer engagement quality
+      const primaryEmail = summaries[0]?.viewerEmail;
+      const secondaryEmails = (domainViewerMap[prospectDomain] || [])
+        .filter((e: string) => e !== primaryEmail);
+
+      let hasHighQualitySecondary = false;
+
+      for (const secEmail of secondaryEmails) {
+        const secLogs = await db.collection('analytics_logs').find({
+          documentId: id,
+          action: 'page_view',
+          email: secEmail,
+        }).toArray();
+        const secTime = secLogs.reduce((sum: number, l: any) => sum + (l.viewTime || 0), 0);
+        if (secTime >= 300) {
+          hasHighQualitySecondary = true;
+          break;
+        }
+      }
+
+      // Get days since last activity across all viewers
+      const lastSession = docSessions[docSessions.length - 1];
+      const daysSinceLast = lastSession
+        ? Math.floor((Date.now() - new Date(lastSession.startedAt).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
+      const hotCount = summaries.filter(s => s.dealStatus === 'hot').length;
+      const warmCount = summaries.filter(s => s.dealStatus === 'warm').length;
+      const coldCount = summaries.filter(s => s.dealStatus === 'cold').length;
+      const acceleratingCount = summaries.filter(s => s.momentumState === 'accelerating').length;
+      const fadingCount = summaries.filter(
+        s => s.momentumState === 'fading' || s.momentumState === 'stalled'
+      ).length;
+
+      // ── Deal level state logic ────────────────────────────────
+      if (committeeGrowing && hasHighQualitySecondary && hotCount >= 1) {
+        dealLevelSummary = {
+          state: 'advancing',
+          label: 'Deal Advancing',
+          summary: `${committeeSize} people from ${prospectDomain} have opened this proposal and at least one secondary stakeholder is engaging deeply. Your champion is actively building the internal case. The buying committee is growing and engagement quality is high.`,
+          recommendedAction: `Signal detected (high confidence): Contact your champion today. Ask specifically who else is now involved, what each person cares about most, and whether they need help making the internal case for different stakeholders. Do not send a generic follow up — the deal is in active internal evaluation.`,
+          confidence: 'high',
+          totalViewers: summaries.length,
+          hotCount,
+          warmCount,
+          coldCount,
+        };
+      } else if (committeeGrowing && !hasHighQualitySecondary && hotCount >= 1) {
+        dealLevelSummary = {
+          state: 'evaluating',
+          label: 'Internal Circulation',
+          summary: `${committeeSize} people from ${prospectDomain} have opened this proposal but secondary viewers are engaging briefly rather than deeply. The proposal has been forwarded internally but it is not yet clear how seriously secondary stakeholders are evaluating it.`,
+          recommendedAction: `Signal detected (medium confidence): The proposal is circulating internally. Monitor whether secondary viewers return for deeper engagement before acting. A premature follow up could interrupt the internal process.`,
+          confidence: 'medium',
+          totalViewers: summaries.length,
+          hotCount,
+          warmCount,
+          coldCount,
+        };
+      } else if (!committeeGrowing && hotCount >= 1 && acceleratingCount >= 1 && daysSinceLast <= 3) {
+        dealLevelSummary = {
+          state: 'single_strong',
+          label: 'Strong Single Engagement',
+          summary: `Your primary contact is engaging strongly with this proposal but no internal sharing has been detected yet. Strong single contact engagement is a positive signal but the absence of stakeholder expansion means the deal may still be at an early evaluation stage.`,
+          recommendedAction: `Signal detected (medium confidence): Engagement is strong from your primary contact. Now is a good moment to ask directly whether others on their side should be involved in the evaluation. That question naturally surfaces the internal buying process without being pushy.`,
+          confidence: 'medium',
+          totalViewers: summaries.length,
+          hotCount,
+          warmCount,
+          coldCount,
+        };
+      } else if (!committeeGrowing && fadingCount > warmCount && daysSinceLast >= 5) {
+        dealLevelSummary = {
+          state: 'at_risk',
+          label: 'Engagement Dropping',
+          summary: `Engagement is declining and no internal sharing has been detected. ${daysSinceLast} days have passed since the last activity. This pattern often means the deal is losing priority internally or competing priorities have taken over.`,
+          recommendedAction: `Signal detected (medium confidence): Engagement is dropping and the buying circle has not expanded. Send one direct question about whether this is still a priority. If there is no response within 48 hours this deal needs a different approach or should be parked with a reminder.`,
+          confidence: 'medium',
+          totalViewers: summaries.length,
+          hotCount,
+          warmCount,
+          coldCount,
+        };
+      } else if (daysSinceLast >= 14 && !committeeGrowing) {
+        dealLevelSummary = {
+          state: 'stalled',
+          label: 'Deal Stalled',
+          summary: `No engagement has been detected for ${daysSinceLast} days and the buying circle has not expanded. The deal appears stalled based on available document signals. This does not necessarily mean the deal is lost.`,
+          recommendedAction: `Signal detected (low confidence): ${daysSinceLast} days of silence. Send one final short message acknowledging the gap without guilt. If there is no reply within three days consider archiving this deal and setting a six week reminder.`,
+          confidence: 'low',
+          totalViewers: summaries.length,
+          hotCount,
+          warmCount,
+          coldCount,
+        };
+      } else {
+        dealLevelSummary = {
+          state: 'early',
+          label: 'Early Stage',
+          summary: `${summaries.length === 1 ? 'One person has' : `${summaries.length} people have`} opened this proposal so far. Engagement is present but it is too early to draw strong conclusions from the available signals.`,
+          recommendedAction: `No strong signal yet: Monitor engagement over the next 48 hours before acting. If engagement remains low after 72 hours a short contextual follow up referencing something specific in the proposal tends to perform better than a generic check in.`,
+          confidence: 'low',
+          totalViewers: summaries.length,
+          hotCount,
+          warmCount,
+          coldCount,
+        };
+      }
+    }
+
+    return NextResponse.json({ success: true, summaries, dealLevelSummary });
 
   } catch (error) {
     // Never crash the app
     console.error('[DealIntelligence] outer error:', error);
-    return NextResponse.json({ success: true, summaries: [] });
+    return NextResponse.json({ success: true, summaries: [], dealLevelSummary: null });
   }
 }

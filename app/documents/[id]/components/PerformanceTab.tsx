@@ -9,6 +9,7 @@ import { Eye, FileText, BarChart3, Link as LinkIcon, Clock, ChevronRight } from 
 import DocSendStyleCharts from '@/components/DocSendStyleCharts';
 import dynamic from 'next/dynamic';
 import DealIntelligenceSummary from './DealIntelligenceSummary';
+import { DealLevelSummary } from './DealLevelSummary';
 
 const DocumentHeatmap = dynamic(() => import('@/components/DocumentHeatmap'), { ssr: false });
 const ViewerMap = dynamic(() => import('@/components/ViewerMap'), { ssr: false });
@@ -343,6 +344,33 @@ export default function PerformanceTab({
 
   return (
     <>
+   
+
+
+    <DealLevelSummary
+  viewers={
+    analytics.dealInsight?.viewers?.map((v: any) => ({
+      viewerEmail: v.viewerEmail,
+      dealStatus: v.dealStatus || 'cold',
+      momentumState: v.momentumState || 'holding',
+      totalTimeSeconds: v.totalTimeSeconds || 0,
+      summary: v.narrative,
+      recommendation: v.recommendation,
+    })) || []
+  }
+  committeeGrowing={analytics.committeeGrowing || false}
+  committeeSize={analytics.committeeSize || 1}
+  prospectDomain={analytics.prospectDomain || 'the prospect company'}
+  secondaryViewerEngagement={analytics.secondaryViewerEngagement || []}
+  hasHighQualitySecondaryViewer={analytics.hasHighQualitySecondaryViewer || false}
+  daysSinceLastActivity={(() => {
+    if (!analytics.lastViewed) return 0;
+    return Math.floor(
+      (Date.now() - new Date(analytics.lastViewed).getTime()) / (1000 * 60 * 60 * 24)
+    );
+  })()}
+/>
+
     {/* SECTION 0 — DEAL INTELLIGENCE SUMMARY */}
       <DealIntelligenceSummary
         documentId={doc._id}
