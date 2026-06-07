@@ -347,29 +347,7 @@ export default function PerformanceTab({
    
 
 
-    <DealLevelSummary
-  viewers={
-    analytics.dealInsight?.viewers?.map((v: any) => ({
-      viewerEmail: v.viewerEmail,
-      dealStatus: v.dealStatus || 'cold',
-      momentumState: v.momentumState || 'holding',
-      totalTimeSeconds: v.totalTimeSeconds || 0,
-      summary: v.narrative,
-      recommendation: v.recommendation,
-    })) || []
-  }
-  committeeGrowing={analytics.committeeGrowing || false}
-  committeeSize={analytics.committeeSize || 1}
-  prospectDomain={analytics.prospectDomain || 'the prospect company'}
-  secondaryViewerEngagement={analytics.secondaryViewerEngagement || []}
-  hasHighQualitySecondaryViewer={analytics.hasHighQualitySecondaryViewer || false}
-  daysSinceLastActivity={(() => {
-    if (!analytics.lastViewed) return 0;
-    return Math.floor(
-      (Date.now() - new Date(analytics.lastViewed).getTime()) / (1000 * 60 * 60 * 24)
-    );
-  })()}
-/>
+    
 
     {/* SECTION 0 — DEAL INTELLIGENCE SUMMARY */}
       <DealIntelligenceSummary
