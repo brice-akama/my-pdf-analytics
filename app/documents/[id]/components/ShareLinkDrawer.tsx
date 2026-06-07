@@ -523,6 +523,7 @@ export default function ShareLinkDrawer({
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
                 <Shield className="h-4 w-4 text-slate-400" />
+                <h3 className="font-semibold text-slate-700 text-sm">Advanced <span className="text-slate-400 font-normal">(optional)</span></h3>
               </div>
               <div className="divide-y divide-slate-100">
                 <label className="flex items-center justify-between px-5 py-3.5 cursor-pointer hover:bg-slate-50 transition-colors">
@@ -621,7 +622,7 @@ export default function ShareLinkDrawer({
               <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <FileSignature className="h-4 w-4 text-amber-500" />
-                  <h3 className="font-semibold text-slate-700 text-sm">Premium Features</h3>
+                <h3 className="font-semibold text-slate-700 text-sm">Premium Features <span className="text-slate-400 font-normal">(optional)</span></h3>
                 </div>
                 <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">Premium</span>
               </div>
@@ -685,7 +686,7 @@ export default function ShareLinkDrawer({
             <div className="flex items-start gap-2.5 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
               <Eye className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-blue-700">
-                Views, time spent, and page engagement are automatically tracked and available in your analytics dashboard.
+                Views, time spent, and page engagement are automatically tracked and available in your Activity tab, Performance tab and analytics dashboard.
               </p>
             </div>
             <div className="h-4" />
