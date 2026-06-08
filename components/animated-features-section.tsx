@@ -82,13 +82,14 @@ export function AnimatedFeaturesSection() {
                         <p className="mt-2 text-xs text-slate-400">Add image</p>
                       </div>
                     </div>
-                    <Image
+                   <Image
   src={feature.image}
   alt={feature.title}
-  fill
+  width={640}
+  height={480}
   sizes="80vw"
   priority={index === 0}
-  className="object-cover"
+  className="w-full h-auto"
 />
                   </div>
                   <div className="p-6 flex-1 flex flex-col">
@@ -131,12 +132,14 @@ export function AnimatedFeaturesSection() {
                         <p className="mt-2 text-xs text-slate-400">Add image</p>
                       </div>
                     </div>
-                   <Image
+                  <Image
   src={feature.image}
   alt={feature.title}
-  fill
+  width={300}
+  height={225}
   sizes="300px"
-  className="object-cover transition-transform duration-500 group-hover:scale-110"
+  priority={index < 4}
+  className="w-full h-auto transition-transform duration-500 group-hover:scale-110"
 />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0369a1]/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                   </div>
