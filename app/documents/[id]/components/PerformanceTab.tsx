@@ -346,7 +346,52 @@ export default function PerformanceTab({
     <>
    
 
+{(analytics.committeeSize >= 2) && (
+  <DealLevelSummary
+    viewers={
+      (() => {
+        // Build viewer list from recipientPageTracking which has ALL viewers
+        // not just those with re-reads like dealInsight.viewers
+        const allViewers = (analytics.recipientPageTracking || [])
+          .filter((r: any) => !r.neverOpened && !r.recipientEmail.startsWith('Anonymous'))
+          .map((r: any) => ({
+            viewerEmail: r.recipientEmail,
+            dealStatus: r.totalTimeSeconds >= 300 ? 'hot'
+              : r.totalTimeSeconds >= 60 ? 'warm'
+              : r.bounced ? 'cold'
+              : 'cold',
+            momentumState: r.totalTimeSeconds >= 300 ? 'accelerating'
+              : r.totalTimeSeconds >= 60 ? 'holding'
+              : 'stalled',
+            totalTimeSeconds: r.totalTimeSeconds || 0,
+          }));
 
+        // Fall back to dealInsight viewers if recipientPageTracking is empty
+        if (allViewers.length === 0) {
+          return (analytics.dealInsight?.viewers || []).map((v: any) => ({
+            viewerEmail: v.viewerEmail,
+            dealStatus: v.dealStatus || 'cold',
+            momentumState: v.momentumState || 'holding',
+            totalTimeSeconds: v.totalTimeSeconds || 0,
+          }));
+        }
+
+        return allViewers;
+      })()
+    }
+    committeeGrowing={analytics.committeeGrowing || false}
+    committeeSize={analytics.committeeSize || 1}
+    prospectDomain={analytics.prospectDomain || 'the prospect company'}
+    secondaryViewerEngagement={analytics.secondaryViewerEngagement || []}
+    hasHighQualitySecondaryViewer={analytics.hasHighQualitySecondaryViewer || false}
+    daysSinceLastActivity={(() => {
+      if (!analytics.lastViewed) return 0;
+      return Math.floor(
+        (Date.now() - new Date(analytics.lastViewed).getTime()) / (1000 * 60 * 60 * 24)
+      );
+    })()}
+  />
+)}
     
 
     {/* SECTION 0 — DEAL INTELLIGENCE SUMMARY */}

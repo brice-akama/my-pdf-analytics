@@ -1075,6 +1075,7 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
 
         committeeGrowing,
         committeeSize,
+        prospectDomain,
         recommendedAction,
         secondaryViewerEngagement,
         hasHighQualitySecondaryViewer,
