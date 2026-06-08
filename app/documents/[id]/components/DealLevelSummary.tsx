@@ -194,7 +194,7 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
 
   const evidence = buildEvidence();
 
-  // ── ADVANCING ─────────────────────────────────────────────────────
+  // ── ADVANCING: committee growing + high quality secondary + any hot viewer ──
   if (committeeGrowing && hasHighQualitySecondaryViewer && hotViewers >= 1) {
     return {
       state: 'advancing',
@@ -203,7 +203,7 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
       icon: <TrendingUp className="h-4 w-4 text-green-600" />,
-      whatHappened: `${committeeSize} people from ${prospectDomain} have opened this proposal. At least one secondary stakeholder spent significant time reading it — not a passive forward.`,
+      whatHappened: `${committeeSize} people from ${prospectDomain} have opened this proposal and at least one secondary stakeholder spent significant time reading it — not a passive forward.`,
       whatItMeans: `The buying committee is growing and secondary stakeholders are actively evaluating. Your champion is selling internally on your behalf. This is the combination that experienced sales leaders say distinguishes deals that close from ones that stall.`,
       recommendedAction: `Signal detected (high confidence): Contact your champion today. Ask specifically who else is now involved, what each person cares about most, and whether they need help making the internal case. Do not send a generic follow up. The right message now is one that helps your champion sell to the people who are already reading this.`,
       confidence: 'high',
@@ -211,8 +211,28 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
     };
   }
 
-  // ── INTERNAL CIRCULATION ──────────────────────────────────────────
-  if (committeeGrowing && !hasHighQualitySecondaryViewer && hotViewers >= 1) {
+  // ── INTERNAL CIRCULATION: committee growing, any engagement level ──
+  // This fires whenever committeeSize >= 2 regardless of hot/warm counts
+  // because the committee signal itself is the most important indicator
+  if (committeeGrowing) {
+    const secondaryDepth = hasHighQualitySecondaryViewer
+      ? 'at least one secondary stakeholder is engaging deeply'
+      : secondaryViewerEngagement.some((v: any) => v.engagementQuality === 'medium')
+      ? 'secondary viewers are showing moderate engagement'
+      : 'secondary viewers are opening briefly rather than reading deeply';
+
+    const confidenceLevel: 'high' | 'medium' | 'low' = hasHighQualitySecondaryViewer
+      ? 'high'
+      : secondaryViewerEngagement.some((v: any) => v.engagementQuality === 'medium')
+      ? 'medium'
+      : 'medium';
+
+    const actionText = hasHighQualitySecondaryViewer
+      ? `Signal detected (high confidence): ${committeeSize} people from ${prospectDomain} have opened this proposal and secondary engagement is deep. Contact your champion today. Ask who else is now involved, what each person cares about most, and whether they need help making the internal case.`
+      : secondaryViewerEngagement.some((v: any) => v.engagementQuality === 'medium')
+      ? `Signal detected (medium confidence): The proposal is circulating internally with moderate secondary engagement. Ask your champion who else is involved before sending any follow up. A premature generic message could interrupt the internal process.`
+      : `Signal detected (medium confidence): The proposal has been forwarded internally but secondary viewers are engaging briefly. Monitor whether they return for deeper engagement. Asking your champion about the internal timeline is lower risk than following up with the group directly.`;
+
     return {
       state: 'evaluating',
       label: 'Internal Circulation',
@@ -220,17 +240,16 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       bgColor: 'bg-blue-50',
       borderColor: 'border-blue-200',
       icon: <Users className="h-4 w-4 text-blue-600" />,
-      whatHappened: `${committeeSize} people from ${prospectDomain} have opened this proposal but secondary viewers opened briefly rather than reading deeply.`,
-      whatItMeans: `The proposal has been forwarded internally but secondary stakeholders have not yet engaged seriously. This may mean they glanced at it and deferred to your champion, or it may mean the forward did not land with the right person yet. The committee is growing but the depth of evaluation is not confirmed.`,
-      recommendedAction: `Signal detected (medium confidence): Monitor whether secondary viewers return for a second look before acting. A premature follow up could interrupt the internal process. If ${daysSinceLastActivity} days have passed without a reply from your primary contact it is reasonable to ask your champion how the internal conversation is progressing.`,
-      confidence: 'medium',
+      whatHappened: `${committeeSize} people from ${prospectDomain} have opened this proposal and ${secondaryDepth}.`,
+      whatItMeans: `The proposal has moved beyond your original contact and is being reviewed internally. This is what buying committees look like before a decision is made. The deal is alive and progressing through the buyer's internal process.`,
+      recommendedAction: actionText,
+      confidence: confidenceLevel,
       evidence,
     };
   }
 
-  // ── SINGLE THREADED RISK ──────────────────────────────────────────
-  // Named explicitly because experienced reps know this pattern kills deals
-  if (!committeeGrowing && hotViewers >= 1 && daysSinceLastActivity >= 4) {
+  // ── SINGLE THREADED RISK: one viewer, hot, but no committee after 4+ days ──
+  if (!committeeGrowing && (hotViewers >= 1 || warmViewers >= 1) && daysSinceLastActivity >= 4) {
     return {
       state: 'single_threaded_risk',
       label: 'Single Threaded Risk',
@@ -239,15 +258,15 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       borderColor: 'border-amber-200',
       icon: <AlertTriangle className="h-4 w-4 text-amber-600" />,
       whatHappened: `Only one person from ${prospectDomain} has opened this proposal despite ${daysSinceLastActivity} days having passed since it was sent. Your primary contact is engaged but no internal sharing has been detected.`,
-      whatItMeans: `Single threaded deals fail more often than multi stakeholder deals. A warm champion who has not introduced the proposal internally is either waiting for the right moment, does not have the authority to move forward alone, or has not prioritised it yet. This is not a reason to panic but it is a signal to act on before the deal drifts.`,
-      recommendedAction: `Signal detected (medium confidence): Your primary contact is engaged but the deal is single threaded. The most effective move here is to ask directly whether others on their side should be part of the evaluation. Phrase it as a helpful question not a pressure tactic — something like I want to make sure I am giving the right people what they need to evaluate this properly, who else should be involved in this conversation?`,
+      whatItMeans: `Single threaded deals fail more often than multi stakeholder deals. A warm champion who has not introduced the proposal internally is either waiting for the right moment, does not have the authority to move forward alone, or has not prioritised it yet.`,
+      recommendedAction: `Signal detected (medium confidence): Your primary contact is engaged but the deal is single threaded. Ask directly whether others on their side should be part of the evaluation. Phrase it as a helpful question — I want to make sure I am giving the right people what they need to evaluate this properly, who else should be involved in this conversation?`,
       confidence: 'medium',
       evidence,
     };
   }
 
-  // ── SINGLE STRONG — early and recent ─────────────────────────────
-  if (!committeeGrowing && hotViewers >= 1 && acceleratingViewers >= 1 && daysSinceLastActivity <= 3) {
+  // ── SINGLE STRONG: one viewer, high engagement, recent ──
+  if (!committeeGrowing && (hotViewers >= 1 || warmViewers >= 1) && acceleratingViewers >= 1 && daysSinceLastActivity <= 3) {
     return {
       state: 'single_strong',
       label: 'Strong Early Engagement',
@@ -255,15 +274,15 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       bgColor: 'bg-violet-50',
       borderColor: 'border-violet-200',
       icon: <TrendingUp className="h-4 w-4 text-violet-600" />,
-      whatHappened: `Your primary contact is reading this proposal deeply and returning to it. No internal sharing has been detected yet but the deal is recent and engagement is accelerating.`,
-      whatItMeans: `Early strong engagement from a single contact is a promising signal but the absence of stakeholder expansion means the buying process has not yet started internally. This is normal at the early evaluation stage. The question is whether your champion will take this to others.`,
+      whatHappened: `Your primary contact is reading this proposal deeply and returning to it. No internal sharing has been detected yet but the deal is recent and engagement is strong.`,
+      whatItMeans: `Early strong engagement from a single contact is a promising signal but the absence of stakeholder expansion means the buying process has not yet started internally. This is normal at the early evaluation stage.`,
       recommendedAction: `Signal detected (medium confidence): Engagement is strong and recent. Now is a natural moment to ask whether others on their side should be involved. That question moves the deal from single threaded evaluation to internal circulation which is where buying processes actually progress.`,
       confidence: 'medium',
       evidence,
     };
   }
 
-  // ── AT RISK ───────────────────────────────────────────────────────
+  // ── AT RISK: engagement fading, no committee growth ──
   if (!committeeGrowing && fadingViewers > warmViewers && daysSinceLastActivity >= 5) {
     return {
       state: 'at_risk',
@@ -273,14 +292,14 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       borderColor: 'border-red-200',
       icon: <TrendingDown className="h-4 w-4 text-red-500" />,
       whatHappened: `Engagement from your contacts is declining. ${daysSinceLastActivity} days have passed since the last activity and no new stakeholders have appeared.`,
-      whatItMeans: `Declining engagement without stakeholder expansion is one of the clearest warning patterns in proposal analytics. It often means the deal is losing internal priority without the salesperson being told. This is the pattern that later becomes a polite no or a permanent silence.`,
+      whatItMeans: `Declining engagement without stakeholder expansion is one of the clearest warning patterns in proposal analytics. It often means the deal is losing internal priority without the salesperson being told.`,
       recommendedAction: `Signal detected (medium confidence): Do not send another follow up about the document. Send one direct question about whether this is still a priority right now. A direct question gets a response even when engagement is dropping because it forces a yes or no rather than allowing continued deferral.`,
       confidence: 'medium',
       evidence,
     };
   }
 
-  // ── STALLED ───────────────────────────────────────────────────────
+  // ── STALLED: prolonged silence, no committee growth ──
   if (daysSinceLastActivity >= 14 && !committeeGrowing) {
     return {
       state: 'stalled',
@@ -290,14 +309,14 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       borderColor: 'border-slate-200',
       icon: <AlertCircle className="h-4 w-4 text-slate-500" />,
       whatHappened: `No engagement has been recorded for ${daysSinceLastActivity} days. The buying circle has not expanded beyond the original contact.`,
-      whatItMeans: `Prolonged silence without stakeholder expansion is the most common pattern in lost deals. The data cannot tell you whether this deal is genuinely dead or paused for external reasons. Both look identical from the outside.`,
+      whatItMeans: `Prolonged silence without stakeholder expansion is the most common pattern in lost deals. The data cannot tell you whether this deal is genuinely dead or paused for external reasons.`,
       recommendedAction: `Signal detected (low confidence): Send one final short message acknowledging the silence without guilt. If there is no reply within three days archive this deal and set a six week reminder. Some deals are not dead. They are waiting for an external trigger you cannot see.`,
       confidence: 'low',
       evidence,
     };
   }
 
-  // ── EARLY STAGE ───────────────────────────────────────────────────
+  // ── EARLY STAGE: default fallback — minimal data ──
   return {
     state: 'early',
     label: 'Early Stage',
@@ -305,9 +324,9 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
     bgColor: 'bg-slate-50',
     borderColor: 'border-slate-200',
     icon: <Eye className="h-4 w-4 text-slate-400" />,
-    whatHappened: `${totalViewers === 1 ? 'One person has' : `${totalViewers} people have`} opened this proposal. Engagement data is limited and no internal sharing has been detected yet.`,
-    whatItMeans: `It is too early to draw reliable conclusions. The signals available do not yet indicate whether this deal is progressing or stalling. More engagement data is needed before the system can provide a reliable interpretation.`,
-    recommendedAction: `No strong signal yet: Monitor engagement over the next 48 to 72 hours. If engagement remains low after that window a short contextual follow up referencing something specific in the document tends to perform better than a generic check in.`,
+    whatHappened: `${totalViewers === 1 ? 'One person has' : `${totalViewers} people have`} opened this proposal so far. Engagement data is present but limited.`,
+    whatItMeans: `It is too early to draw reliable conclusions. Monitor engagement over the next 48 to 72 hours before acting.`,
+    recommendedAction: `No strong signal yet: A short contextual follow up referencing something specific in the document tends to perform better than a generic check in after 72 hours of silence.`,
     confidence: 'low',
     evidence,
   };
