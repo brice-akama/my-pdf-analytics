@@ -27,7 +27,7 @@ const features = [
 ];
 
 export function AnimatedFeaturesSection() {
-  const duplicatedFeatures = [...features, ...features];
+  const duplicatedFeatures = features;
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -82,14 +82,15 @@ export function AnimatedFeaturesSection() {
                         <p className="mt-2 text-xs text-slate-400">Add image</p>
                       </div>
                     </div>
-                   <Image
+                    <Image
   src={feature.image}
   alt={feature.title}
-  width={640}
-  height={480}
+  fill
   sizes="80vw"
   priority={index === 0}
-  className="w-full h-auto"
+  loading={index === 0 ? "eager" : "lazy"}
+  quality={75}
+  className="object-cover"
 />
                   </div>
                   <div className="p-6 flex-1 flex flex-col">
@@ -132,14 +133,14 @@ export function AnimatedFeaturesSection() {
                         <p className="mt-2 text-xs text-slate-400">Add image</p>
                       </div>
                     </div>
-                  <Image
+                   <Image
   src={feature.image}
   alt={feature.title}
-  width={300}
-  height={225}
+  fill
   sizes="300px"
-  priority={index < 4}
-  className="w-full h-auto transition-transform duration-500 group-hover:scale-110"
+  loading="lazy"
+  quality={70}
+  className="object-cover transition-transform duration-500 group-hover:scale-110"
 />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0369a1]/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                   </div>
