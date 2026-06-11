@@ -75,19 +75,61 @@ export async function GET(request: NextRequest) {
           (now - new Date(s.startedAt).getTime()) < 48 * 60 * 60 * 1000;
       });
 
+    // ── Check deal intelligence cache for this document ───────
+      // Reuse signals already computed by deal-intelligence route
+      // rather than computing in isolation
+      const cachedInsights = await db.collection('deal_intelligence_cache')
+        .find({ documentId: docId })
+        .toArray();
+
+      const bestCachedInsight = cachedInsights
+        .sort((a: any, b: any) => {
+          const order = { hot: 3, warm: 2, cold: 1, dead: 0 };
+          return (order[b.dealStatus as keyof typeof order] || 0) -
+                 (order[a.dealStatus as keyof typeof order] || 0);
+        })[0] || null;
+
       // Compute priority score
       let priorityScore = 0;
       let priorityReason = '';
       let priorityAction = '';
 
+      // Committee signal always wins — highest confidence signal
       if (newViewerLast48h) {
         priorityScore = 100;
         priorityReason = `New stakeholder from same organisation opened this in the last 48 hours`;
         priorityAction = `Ask your champion who else is now involved before sending any follow up`;
       } else if (committeeGrowing && daysSinceLast <= 3) {
-        priorityScore = 85;
+        priorityScore = 92;
         priorityReason = `${committeeSize} people from same organisation have engaged and activity is recent`;
         priorityAction = `Follow up today with a question about who else should be involved`;
+      } else if (committeeGrowing && daysSinceLast <= 7) {
+        priorityScore = 80;
+        priorityReason = `${committeeSize} people from same organisation have opened this — committee is active`;
+        priorityAction = `Ask your champion who else is now involved before your next follow up`;
+      } else if (committeeGrowing) {
+        // Committee growing but older — still elevated priority
+        priorityScore = 70;
+        priorityReason = `${committeeSize} people from same organisation have viewed this document`;
+        priorityAction = `Ask your original contact who else is now involved in evaluating this`;
+
+      // Use deal intelligence cache if available
+      } else if (bestCachedInsight?.dealStatus === 'hot') {
+        priorityScore = daysSinceLast <= 2 ? 85 : daysSinceLast <= 5 ? 72 : 60;
+        priorityReason = bestCachedInsight.summary?.split('.')[0] || `High engagement detected`;
+        priorityAction = bestCachedInsight.recommendation?.replace(/^Signal detected[^:]+:\s*/i, '') ||
+          `Follow up with something specific rather than a generic check in`;
+      } else if (bestCachedInsight?.dealStatus === 'warm') {
+        priorityScore = daysSinceLast <= 2 ? 65 : daysSinceLast <= 7 ? 50 : 38;
+        priorityReason = bestCachedInsight.summary?.split('.')[0] || `Moderate engagement detected`;
+        priorityAction = bestCachedInsight.recommendation?.replace(/^Signal detected[^:]+:\s*/i, '') ||
+          `Send one direct question about their timeline`;
+      } else if (bestCachedInsight?.dealStatus === 'dead') {
+        priorityScore = 15;
+        priorityReason = `Multiple disengagement signals detected`;
+        priorityAction = `Send a final short message or archive this deal`;
+
+      // Fall back to raw session signals if no cache exists
       } else if (daysSinceLast === 0) {
         priorityScore = 70;
         priorityReason = `Opened today`;
@@ -105,11 +147,11 @@ export async function GET(request: NextRequest) {
         priorityReason = `${daysSinceLast} days of silence`;
         priorityAction = `Send a final short message or archive this deal`;
       } else {
-        priorityScore = 20;
+        priorityScore = 25;
         priorityReason = `Moderate engagement, no urgent action needed`;
         priorityAction = `Monitor for another day or two`;
       }
-
+      
       priorities.push({
         documentId: docId,
         documentName: doc.originalFilename || doc.filename || 'Untitled',

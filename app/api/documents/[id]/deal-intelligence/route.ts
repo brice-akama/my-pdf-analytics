@@ -1,3 +1,5 @@
+//app/api/documents/[id]/deal-intelligence/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { checkAccess } from '@/lib/checkAccess';
