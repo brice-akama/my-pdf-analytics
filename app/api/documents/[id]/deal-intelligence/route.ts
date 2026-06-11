@@ -38,8 +38,33 @@ export async function POST(
     const summaries = [];
 
     for (const viewer of viewerData) {
-      const email = viewer.email;
-      if (!email || email.startsWith('Anonymous')) continue;
+  const email = viewer.email;
+  if (!email || email.startsWith('Anonymous')) continue;
+
+  // ── Minimum engagement threshold ─────────────────────────────
+  // Ashley insight: if the narrative is not clear from the data
+  // the data is not ready for insight extraction.
+  // Under 60 seconds with one session and no return = noise not signal.
+  const meetsThreshold =
+    (viewer.totalTimeSeconds || 0) >= 60 ||
+    (viewer.totalSessions || 1) >= 2 ||
+    (viewer.reReadPages || []).length > 0 ||
+    (viewer.newViewersFromSameCompany || 0) > 0;
+
+  if (!meetsThreshold) {
+    // Still include in summaries so frontend knows viewer exists
+    // but mark as insufficient data — no recommendation generated
+    summaries.push({
+      viewerEmail: email,
+      summary: `${email} opened this document briefly. Engagement time is under 60 seconds with a single session. Insufficient data to generate a reliable signal.`,
+      recommendation: null,
+      dealStatus: 'cold',
+      momentumState: 'stalled',
+      insufficientData: true,
+      cached: false,
+    });
+    continue;
+  }
 
       // ── Check cache first ─────────────────────────────────────
       // Only regenerate if forced or new session detected

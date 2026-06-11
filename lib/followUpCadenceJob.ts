@@ -273,6 +273,57 @@ export async function runFollowUpCadenceJob() {
           }
         }
 
+        // ── Unexpected signal detection ───────────────────────────
+        // An unexpected signal is a viewer who appeared with NO prior
+        // sessions on this document — not just a new stakeholder from
+        // the same domain but a completely unknown email opening it.
+        // This fires for experienced reps who would otherwise ignore
+        // standard signals but find genuinely new information valuable.
+        // ── Unexpected signal detection ───────────────────────────
+        if (step === 1) {
+          const allPriorEmails = await db.collection('analytics_sessions')
+            .distinct('email', { documentId: cadence.documentId });
+
+          const prospectDomain2 = cadence.viewerEmail?.split('@')[1];
+          const trulyNewViewers = allPriorEmails.filter((e: string) =>
+            e && e !== cadence.viewerEmail && e.split('@')[1] !== prospectDomain2
+          );
+
+          // Check if any new viewer opened in last 12 hours
+          const recentUnexpected = await db.collection('analytics_sessions').findOne({
+            documentId: cadence.documentId,
+            email: { $in: trulyNewViewers },
+            startedAt: { $gte: new Date(now.getTime() - 12 * 60 * 60 * 1000) },
+          });
+
+          if (recentUnexpected && ownerProfile?.email) {
+            sendEmail({
+              to: ownerProfile.email,
+              subject: `Unexpected viewer on "${cadence.documentName}"`,
+              html: `
+                <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #1e293b; line-height: 1.7;">
+                  <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px;">
+                    <p style="margin: 0; font-size: 13px; font-weight: 700; color: #7e22ce;">Unexpected signal detected</p>
+                    <p style="margin: 4px 0 0; font-size: 13px; color: #6b21a8;">
+                      <strong>${recentUnexpected.email}</strong> just opened <strong>${cadence.documentName}</strong>.
+                      This is someone you have not interacted with on this document before.
+                    </p>
+                  </div>
+                  <p style="font-size: 13px; color: #475569;">
+                    This may mean your proposal reached someone outside your expected buying circle.
+                    Worth noting before your next interaction with this account.
+                  </p>
+                  <a href="https://docmetrics.io/documents/${cadence.documentId}"
+                     style="display: inline-block; background: #0f172a; color: #fff; padding: 11px 24px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; margin-top: 8px;">
+                    View document analytics →
+                  </a>
+                </div>
+              `,
+              from: 'DocMetrics <noreply@docmetrics.io>',
+            }).catch(() => {});
+          }
+        }
+
         const message = getStepMessage(
           step,
           cadence.viewerEmail,
