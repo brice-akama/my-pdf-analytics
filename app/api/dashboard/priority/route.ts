@@ -65,8 +65,11 @@ export async function GET(request: NextRequest) {
       const committeeGrowing = committeeSize >= 2;
 
       const lastSession = sessions[0];
+      const lastSessionTime = lastSession?.startedAt
+        ? new Date(lastSession.startedAt).getTime()
+        : now;
       const daysSinceLast = Math.floor(
-        (now - new Date(lastSession.startedAt).getTime()) / (1000 * 60 * 60 * 24)
+        (now - lastSessionTime) / (1000 * 60 * 60 * 24)
       );
 
       // Check for new viewer in last 48 hours
@@ -146,12 +149,20 @@ export async function GET(request: NextRequest) {
         priorityScore = 30;
         priorityReason = `${daysSinceLast} days of silence`;
         priorityAction = `Send a final short message or archive this deal`;
+      } else if (sessions.length >= 2) {
+        priorityScore = 55;
+        priorityReason = `${sessions.length} sessions recorded on this document`;
+        priorityAction = `Review engagement and consider a contextual follow up`;
+      } else if (sessions.length === 1 && daysSinceLast <= 3) {
+        priorityScore = 45;
+        priorityReason = `Opened recently — monitoring for return visits`;
+        priorityAction = `Wait for a second session before following up`;
       } else {
         priorityScore = 25;
         priorityReason = `Moderate engagement, no urgent action needed`;
         priorityAction = `Monitor for another day or two`;
       }
-      
+
       priorities.push({
         documentId: docId,
         documentName: doc.originalFilename || doc.filename || 'Untitled',

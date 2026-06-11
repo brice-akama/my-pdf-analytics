@@ -97,7 +97,7 @@ export function DailyPriorityList({ priorities, onDocumentClick }: Props) {
                   )}
                   <span className="flex items-center gap-1 text-[10px] text-slate-400">
                     <Clock className="h-2.5 w-2.5" />
-                    {item.daysSinceLast === 0 ? 'today' : `${item.daysSinceLast}d ago`}
+                    {item.daysSinceLast === 0 ? 'today' : item.daysSinceLast > 0 ? `${item.daysSinceLast}d ago` : 'recently'}
                   </span>
                 </div>
               </div>

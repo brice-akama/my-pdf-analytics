@@ -365,10 +365,10 @@ export default function DashboardOverview() {
 
   return (
     <div className="space-y-0 bg-white border border-slate-200 rounded-lg overflow-hidden">
-       <DailyPriorityList
+       {/* <DailyPriorityList
   priorities={pipelineMomentum}
   onDocumentClick={(id) => router.push(`/documents/${id}`)}
-/>
+/> */}
        {/* ── Pipeline Momentum Score — shown at very top ──────────── */}
       {pipelineMomentum.length > 0 && (
         <div className="border-b border-slate-100 px-6 py-5">
