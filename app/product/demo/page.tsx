@@ -36,11 +36,9 @@ const videoSchema = {
   name: "DocMetrics Product Walkthrough",
   description:
     "A full walkthrough of DocMetrics — from uploading a document to seeing exactly how long each person spent on every page. Covers share links, real-time tracking, and data rooms.",
-  thumbnailUrl: "https://docmetrics.io/assets/screenshots/demo-poster.png",
+  thumbnailUrl: "https://img.youtube.com/vi/6YhYah-a7QQ/maxresdefault.jpg",
   uploadDate: new Date().toISOString(),
-  duration: "PT4M27S",
-  contentUrl: "https://docmetrics.io/videos/demo.mp4",
-  embedUrl: "https://docmetrics.io/product/demo",
+  embedUrl: "https://www.youtube.com/embed/6YhYah-a7QQ",
   publisher: {
     "@type": "Organization",
     name: "DocMetrics",
@@ -82,27 +80,7 @@ export default function DemoPage(): JSX.Element {
           <VideoPlayer />
         </div>
 
-        {/* Timestamp markers */}
-        <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
-          {[
-            { time: "0:00", label: "Upload a document" },
-            { time: "0:45", label: "Create a share link" },
-            { time: "1:30", label: "See who read what" },
-            { time: "2:45", label: "Spaces & data rooms" },
-          ].map((item) => (
-            <div
-              key={item.time}
-              className="flex items-start gap-2.5 p-4 rounded-xl bg-slate-50 border border-slate-100"
-            >
-              <span className="text-xs font-mono font-semibold text-sky-500 mt-0.5 flex-shrink-0">
-                {item.time}
-              </span>
-              <span className="text-xs text-slate-500 leading-relaxed">
-                {item.label}
-              </span>
-            </div>
-          ))}
-        </div>
+        
       </div>
 
       {/* ── What you will see — 3 columns below video ── */}

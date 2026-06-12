@@ -212,7 +212,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
         <VideoBlock
           title="Know the moment someone opens your document."
           description="The instant a recipient opens your share link you receive a notification — in your dashboard, by email, and in Slack if connected. The notification includes their email, which document they opened, and what time. If they are viewing right now a live indicator appears on your dashboard. You always know when to follow up and you never have to guess whether they have seen it yet."
-          videoSrc="/videos/tracking-demo.mp4"
+          videoSrc="/videos/analytics-demo.mp4"
           posterSrc="/assets/doc2-tracking.png"
           reverse
         />
