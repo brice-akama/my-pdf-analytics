@@ -463,16 +463,21 @@ sendTeamsNotification({
         .sort({ startedAt: 1 })
         .toArray();
 
-      const domainViewerMap = docSessions
-        .filter((s: any) => s.email)
-        .reduce((acc: Record<string, string[]>, s: any) => {
-          const domain = s.email?.split('@')[1];
-          if (domain) {
-            if (!acc[domain]) acc[domain] = [];
-            if (!acc[domain].includes(s.email)) acc[domain].push(s.email);
-          }
-          return acc;
-        }, {});
+      const FREE_EMAIL_DOMAINS_DI = new Set([
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+  'icloud.com', 'me.com', 'aol.com', 'protonmail.com',
+  'mail.com', 'live.com', 'msn.com', 'googlemail.com',
+]);
+
+const domainViewerMap = docSessions
+  .filter((s: any) => s.email)
+  .reduce((acc: Record<string, string[]>, s: any) => {
+    const domain = s.email?.split('@')[1];
+    if (!domain || FREE_EMAIL_DOMAINS_DI.has(domain.toLowerCase())) return acc;
+    if (!acc[domain]) acc[domain] = [];
+    if (!acc[domain].includes(s.email)) acc[domain].push(s.email);
+    return acc;
+  }, {});
 
       const committeeSize = Math.max(
         ...Object.values(domainViewerMap).map((v: any) => v.length),
@@ -501,11 +506,16 @@ sendTeamsNotification({
         }
       }
 
-      // Get days since last activity across all viewers
-      const lastSession = docSessions[docSessions.length - 1];
-      const daysSinceLast = lastSession
-        ? Math.floor((Date.now() - new Date(lastSession.startedAt).getTime()) / (1000 * 60 * 60 * 24))
-        : 0;
+      // Get days since last activity — use the most recently active viewer
+// so the deal-level state reflects the freshest signal, not an arbitrary session order
+const mostRecentSession = docSessions.reduce((latest: any, s: any) => {
+  if (!latest) return s;
+  return new Date(s.startedAt) > new Date(latest.startedAt) ? s : latest;
+}, null);
+
+const daysSinceLast = mostRecentSession?.startedAt
+  ? Math.floor((Date.now() - new Date(mostRecentSession.startedAt).getTime()) / (1000 * 60 * 60 * 24))
+  : 0;
 
       const hotCount = summaries.filter(s => s.dealStatus === 'hot').length;
       const warmCount = summaries.filter(s => s.dealStatus === 'warm').length;

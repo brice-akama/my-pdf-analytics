@@ -210,7 +210,13 @@ export default function DealIntelligenceSummary({ documentId, analytics, totalPa
         return {
           email: r.recipientEmail,
           totalViews: analytics.totalViews || 0,
-          totalSessions: analytics.revisitData?.totalSessions || 1,
+          totalSessions: (() => {
+  // Count sessions belonging to THIS specific viewer only
+  // not the total across all viewers
+  if (!analytics.recipientPageTracking) return 1;
+  const viewerDepths = r.sessionDepths || [];
+  return viewerDepths.length > 0 ? viewerDepths.length : 1;
+})(),
           daysSinceLastView: analytics.lastViewed
             ? Math.floor(
                 (Date.now() - new Date(analytics.lastViewed).getTime()) /
