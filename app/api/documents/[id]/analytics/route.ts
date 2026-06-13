@@ -126,14 +126,21 @@ for (const session of allSessions) {
     );
 
     // ── Buying committee growth detection ─────────────────────────
+// ── Free email providers are not buying committees ────────────
+const FREE_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+  'icloud.com', 'me.com', 'aol.com', 'protonmail.com',
+  'mail.com', 'live.com', 'msn.com', 'googlemail.com',
+]);
+
 const uniqueDomainViewers = allSessions
   .filter((s: any) => s.email)
   .reduce((acc: Record<string, string[]>, s: any) => {
     const domain = s.email?.split('@')[1];
-    if (domain) {
-      if (!acc[domain]) acc[domain] = [];
-      if (!acc[domain].includes(s.email)) acc[domain].push(s.email);
-    }
+    // Skip free providers — they are individuals not organisations
+    if (!domain || FREE_EMAIL_DOMAINS.has(domain.toLowerCase())) return acc;
+    if (!acc[domain]) acc[domain] = [];
+    if (!acc[domain].includes(s.email)) acc[domain].push(s.email);
     return acc;
   }, {});
 
