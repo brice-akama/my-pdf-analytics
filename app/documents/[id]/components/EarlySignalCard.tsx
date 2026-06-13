@@ -145,7 +145,7 @@ export function EarlySignalCard({
     ? 'strong'
     : 'positive';
 
-  const narrative = `This proposal is showing ${strengthLabel} early momentum. ${hoursNote.charAt(0).toUpperCase() + hoursNote.slice(1)} your prospect has ${signalText}. Early engagement at this level is a reliable indicator that the deal is being taken seriously. This is the right moment to follow up with something specific rather than waiting for them to reach out first.`;
+  const narrative = `This proposal is showing ${strengthLabel} early engagement. ${hoursNote.charAt(0).toUpperCase() + hoursNote.slice(1)} the viewer has ${signalText}. Early patterns at this level are worth noting — they often indicate the document is being taken seriously rather than filed away. How and whether to act on this is best judged against what you know about the relationship and where things stand.`;
 
   return (
     <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 mt-3">
@@ -156,7 +156,7 @@ export function EarlySignalCard({
           <Zap className="h-3.5 w-3.5 text-emerald-600" />
         </div>
         <p className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider">
-          Early Signal — First 72 Hours
+        Early Engagement Pattern — First 72 Hours
         </p>
         <span className="ml-auto text-[10px] text-emerald-600 font-medium">
           {Math.round(hoursElapsed)}h since first open

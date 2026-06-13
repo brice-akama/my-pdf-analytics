@@ -489,6 +489,14 @@ if (reReadPages.length > 0) {
       createdAt: { $gte: thirtyDaysAgoP },
     }).sort({ createdAt: -1 }).limit(20).toArray();
 
+    const FREE_EMAIL_DOMAINS_DASH = new Set([
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+  'icloud.com', 'me.com', 'aol.com', 'protonmail.com',
+  'mail.com', 'live.com', 'msn.com', 'googlemail.com',
+]);
+
+ 
+
     const pipelineDeals = await Promise.all(
       activeShares.map(async (share: any) => {
         const docId = share.documentId.toString();
@@ -524,7 +532,29 @@ if (reReadPages.length > 0) {
         );
 
         // Get unique viewers
-        const uniqueViewers = new Set(shareSessions.map((s: any) => s.viewerId || s.email)).size;
+        const FREE_EMAIL_DOMAINS_DASH = new Set([
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+  'icloud.com', 'me.com', 'aol.com', 'protonmail.com',
+  'mail.com', 'live.com', 'msn.com', 'googlemail.com',
+]);
+
+// Count all unique viewers for session purposes
+const uniqueViewers = new Set(
+  shareSessions.map((s: any) => s.viewerId || s.email)
+).size;
+
+// Count only company domain viewers for committee detection
+const companyViewerEmails = new Set(
+  shareSessions
+    .filter((s: any) => {
+      if (!s.email) return false;
+      const domain = s.email.split('@')[1]?.toLowerCase();
+      return domain && !FREE_EMAIL_DOMAINS_DASH.has(domain);
+    })
+    .map((s: any) => s.email)
+);
+const committeeSize = Math.max(companyViewerEmails.size, 1);
+const committeeGrowing = committeeSize >= 2;
 
         // Get page depth from most recent session
         const recentPagesViewed = lastSession.pagesViewed || [];
@@ -593,11 +623,11 @@ if (reReadPages.length > 0) {
         let recommendation = '';
         if (momentumState === 'accelerating') {
           if (uniqueViewers >= 2) {
-            recommendation = 'Signal detected (high confidence): A second person from this organisation has opened your document. This may indicate internal sharing. You may want to ask your original contact who else is now involved — timing and approach are your call.';
+            recommendation = 'Signal detected (high confidence): A second person from the same organisation has opened this document. This may indicate the proposal is being shared internally. Whether to act on this and how is best judged against what you know about the account.';
           } else if (hasReReads) {
             recommendation = 'Signal detected (medium confidence): Your prospect has returned to specific sections across multiple sessions. This often indicates unresolved questions. A contextual follow up offering to clarify may be well received.';
           } else {
-           recommendation = 'Signal detected (medium confidence): Strong engagement recorded in the last 48 hours. Engagement is increasing. A follow up referencing something specific in the document may be timely — you know your prospect best.';
+          recommendation = 'Signal detected (medium confidence): Strong engagement recorded in the last 48 hours. Engagement is building. A follow up referencing something specific in the document tends to land better than a generic check in at this stage — though timing is your call.';
           }
         } else if (momentumState === 'holding') {
           if (daysSinceLastActivity >= 3) {
@@ -629,11 +659,11 @@ if (reReadPages.length > 0) {
           momentumState,
           recommendation,
           lastActivityAt: lastSession.startedAt,
-          committeeGrowing: uniqueViewers >= 2,
-          committeeSize: uniqueViewers,
-          committeeAction: uniqueViewers >= 2
-            ? `Your proposal has reached ${uniqueViewers} people inside this organisation. Ask your champion specifically who else is now involved before sending any follow up.`
-            : null,
+          committeeGrowing,
+committeeSize,
+committeeAction: committeeGrowing
+  ? `${committeeSize} people from the same organisation have opened this document. This may indicate the proposal is circulating internally — your read on the relationship and timing will matter more than this signal alone.`
+  : null,
         };
       })
     );
