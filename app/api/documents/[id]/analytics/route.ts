@@ -960,7 +960,7 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
     const viewerPageLogs = await db.collection('analytics_logs').find({
       documentId: id,
       action: 'page_view',
-      ...(emailKey ? { email: emailKey } : { viewerId: { $regex: viewerIdKey ? `^${viewerIdKey}` : 'NOMATCH' } }),
+      ...(emailKey ? { email: emailKey } : { viewerId: viewerIdKey }),
     }).toArray();
 
     // Group by page, count distinct sessions
@@ -1000,10 +1000,13 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
 
     // Build narrative for this specific viewer
     const parts: string[] = [];
-    if (reReadPages.length > 0) {
-      const top = reReadPages[0];
-      parts.push(`Page ${top.page} was re-read ${top.count} time${top.count > 1 ? 's' : ''}`);
-    }
+if (reReadPages.length > 0) {
+  const pageList = reReadPages
+    .map(p => `page ${p.page} (${p.count}×)`)
+    .join(', ');
+  parts.push(`Pages ${pageList} were re-read across sessions`);
+}
+
     if (videoReplays.length > 0) {
       const top = videoReplays[0];
       parts.push(`the page ${top.page} video was replayed ${top.count} time${top.count > 1 ? 's' : ''}`);
@@ -1014,7 +1017,7 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
     allViewerInsights.push({
       viewerEmail: recipient.recipientEmail,
       narrative,
-      reReadPages: reReadPages.slice(0, 3),
+      reReadPages: reReadPages,
       videoReplays,
       backNavigations: [],
       engagementDropping: false,

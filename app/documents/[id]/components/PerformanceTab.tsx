@@ -810,32 +810,7 @@ export default function PerformanceTab({
         );
       })()}
 
-      {/* SECTION 5 — PAGE ENGAGEMENT */}
-      {analytics.pageEngagement?.length > 0 && (
-        <div className="py-5 border-b border-slate-100">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-5">Page Engagement</p>
-          <div className="space-y-3">
-            {analytics.pageEngagement.slice(0, 10).map((page: any, i: number) => {
-              const maxViews = Math.max(...analytics.pageEngagement.map((p: any) => p.totalViews), 1);
-              const pct = (page.totalViews / maxViews) * 100;
-              return (
-                <div key={i} className="flex items-center gap-3">
-                  <span className="text-[11px] text-slate-400 w-8 flex-shrink-0 text-right tabular-nums">P{page.page}</span>
-                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct > 70 ? '#0ea5e9' : pct > 40 ? '#a855f7' : '#cbd5e1' }} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-700 tabular-nums w-8 flex-shrink-0">{page.totalViews}</span>
-                  {page.avgTimeSpent && (
-                    <span className="text-[11px] text-slate-400 flex-shrink-0 tabular-nums w-14 text-right">
-                      {Math.floor(page.avgTimeSpent / 60)}:{String(Math.round(page.avgTimeSpent % 60)).padStart(2, '0')}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      
 
       {/* SECTION 6 — REVISIT + INTENT */}
       {analytics.revisitData && (
@@ -929,36 +904,7 @@ export default function PerformanceTab({
         </div>
       )}
 
-      {/* SECTION 9 — TOP VIEWERS */}
-      {analytics.topViewers?.length > 0 && (
-        <div className="py-5 border-b border-slate-100">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5 text-sky-400" />
-              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Top Viewers</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 py-2 border-b border-slate-100 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-            <span>Viewer</span><span className="text-center">Views</span><span className="text-right">Last seen</span>
-          </div>
-          {analytics.topViewers.map((viewer: any, index: number) => (
-            <div key={index} className="grid grid-cols-3 items-center py-3.5 border-b border-slate-50 last:border-b-0 group hover:bg-slate-50/50 transition-colors -mx-1 px-1 rounded">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-400 to-violet-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                  {viewer.email.charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-slate-900 truncate">{viewer.email}</p>
-                  <p className="text-[11px] text-slate-400">{viewer.time} total</p>
-                </div>
-              </div>
-              <div className="text-center"><span className="text-sm font-bold text-slate-900 tabular-nums">{viewer.views}</span></div>
-              <div className="text-right"><span className="text-[11px] text-slate-400">{viewer.lastViewed}</span></div>
-            </div>
-          ))}
-        </div>
-      )}
-
+     
       {/* SECTION 10 — NDA ACCEPTANCES */}
       {analytics?.ndaAcceptances?.length > 0 && (
         <div className="py-5 border-b border-slate-100">

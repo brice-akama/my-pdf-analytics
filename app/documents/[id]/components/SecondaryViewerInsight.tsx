@@ -187,7 +187,7 @@ export function SecondaryViewerInsight({ viewers, totalPages }: Props) {
                   <Users className="h-3.5 w-3.5 text-blue-600" />
                 </div>
                 <p className="text-[11px] font-bold text-blue-900 uppercase tracking-wider">
-                  Internal Sharing Detected — {domain}
+                 Multiple Viewers Detected — {domain}
                 </p>
               </div>
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">
@@ -257,17 +257,17 @@ export function SecondaryViewerInsight({ viewers, totalPages }: Props) {
                 </div>
                 <p className="text-xs text-slate-500">
                   {groupedViewers.filter(v => getEngagementQuality(v) === 'high').length > 0
-                    ? `${groupedViewers.filter(v => getEngagementQuality(v) === 'high').length} of these viewer${groupedViewers.filter(v => getEngagementQuality(v) === 'high').length > 1 ? 's' : ''} spent significant time reading. The buying committee is actively engaged.`
-                    : 'These viewers opened briefly. Monitor for return visits to gauge their level of interest.'}
+                   ? `${groupedViewers.filter(v => getEngagementQuality(v) === 'high').length} of these viewer${groupedViewers.filter(v => getEngagementQuality(v) === 'high').length > 1 ? 's' : ''} spent significant time reading — a signal worth noting alongside what you know about the account.`
+                    : 'These viewers opened briefly. Return visits from any of them would strengthen the signal considerably.'}
                 </p>
               </div>
             )}
 
-            {/* Bottom conclusion */}
+          {/* Bottom conclusion */}
             <p className="text-sm font-medium text-blue-800 border-t border-blue-100 pt-3">
               {totalSecondaryCount === 1
-                ? 'This almost certainly means your proposal has moved beyond your initial contact and is being reviewed internally. The deal is progressing — your champion has been selling it on your behalf.'
-                : `This proposal has reached ${totalSecondaryCount + 1} people inside ${domain}. Your champion is actively building the internal case. Before following up ask who else is involved and what each stakeholder cares about most.`}
+                ? `A second person from ${domain} has opened this document. This may indicate your contact has shared it internally, though the data alone cannot confirm that. Your read on the relationship and what you know about their internal process will matter more than this signal alone.`
+                : `${totalSecondaryCount + 1} people from ${domain} have now opened this document. The spread of engagement across these viewers may indicate the proposal is moving through an internal review. Whether and how to act on this is best judged against what you know about the account.`}
             </p>
           </div>
         );

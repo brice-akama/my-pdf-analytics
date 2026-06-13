@@ -419,7 +419,6 @@ const mostEngagedContacts = await Promise.all(
               };
             })
             .sort((a, b) => b.count - a.count)
-            .slice(0, 3);
 
           // ── Build narrative if signals exist ───────────────────────
           let dealInsight: {
@@ -430,12 +429,13 @@ const mostEngagedContacts = await Promise.all(
 
           if (reReadPages.length > 0 || videoReplays.length > 0) {
             const parts: string[] = [];
-            if (reReadPages.length > 0) {
-              const top = reReadPages[0];
-              parts.push(
-                `Page ${top.page} of "${top.docName}" was re-read ${top.count} time${top.count > 1 ? 's' : ''}`
-              );
-            }
+            
+if (reReadPages.length > 0) {
+  const pageList = reReadPages
+    .map(p => `page ${p.page} of "${p.docName}" (${p.count}×)`)
+    .join(', ');
+  parts.push(`Pages ${pageList} were re-read across sessions`);
+}
             if (videoReplays.length > 0) {
               const top = videoReplays[0];
               parts.push(
@@ -445,7 +445,7 @@ const mostEngagedContacts = await Promise.all(
             const narrative = parts.join(' and ') + '. They may need help justifying this internally.';
             dealInsight = {
               narrative,
-              reReadPages: reReadPages.slice(0, 3),
+               reReadPages,
               videoReplays,
             };
           }
