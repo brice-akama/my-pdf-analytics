@@ -530,8 +530,8 @@ const daysSinceLast = mostRecentSession?.startedAt
         dealLevelSummary = {
           state: 'advancing',
           label: 'Deal Advancing',
-          summary: `${committeeSize} people from ${prospectDomain} have opened this proposal and at least one secondary stakeholder is engaging deeply. Your champion is actively building the internal case. The buying committee is growing and engagement quality is high.`,
-          recommendedAction: `Signal detected (high confidence): Contact your champion today. Ask specifically who else is now involved, what each person cares about most, and whether they need help making the internal case for different stakeholders. Do not send a generic follow up — the deal is in active internal evaluation.`,
+          summary: `${committeeSize} people from ${prospectDomain} have opened this proposal and at least one secondary stakeholder is engaging deeply. Engagement quality across the group is high.`,
+          recommendedAction: `Signal detected (high confidence): Multiple stakeholders from the same organisation are actively reading this. Depending on your relationship with your original contact, this may be a natural moment to check in about whether there are questions on their side you could help address — framed around being helpful rather than checking on progress. Your read on timing will matter more than the data alone.`,
           confidence: 'high',
           totalViewers: summaries.length,
           hotCount,
@@ -554,8 +554,8 @@ const daysSinceLast = mostRecentSession?.startedAt
         dealLevelSummary = {
           state: 'single_strong',
           label: 'Strong Single Engagement',
-          summary: `Your primary contact is engaging strongly with this proposal but no internal sharing has been detected yet. Strong single contact engagement is a positive signal but the absence of stakeholder expansion means the deal may still be at an early evaluation stage.`,
-          recommendedAction: `Signal detected (medium confidence): Engagement is strong from your primary contact. Now is a good moment to ask directly whether others on their side should be involved in the evaluation. That question naturally surfaces the internal buying process without being pushy.`,
+          summary: `Your primary contact is engaging strongly with this proposal. No internal sharing has been detected yet — which is normal at this stage. Most contacts read a proposal themselves before deciding whether to involve others.`,
+          recommendedAction: `Signal detected (medium confidence): Engagement is strong and recent. Whether to act now depends on where you are in the relationship. A value-add message or a natural question about their timeline tends to work better than asking if they read it.`,
           confidence: 'medium',
           totalViewers: summaries.length,
           hotCount,

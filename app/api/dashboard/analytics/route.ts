@@ -489,11 +489,7 @@ if (reReadPages.length > 0) {
       createdAt: { $gte: thirtyDaysAgoP },
     }).sort({ createdAt: -1 }).limit(20).toArray();
 
-    const FREE_EMAIL_DOMAINS_DASH = new Set([
-  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
-  'icloud.com', 'me.com', 'aol.com', 'protonmail.com',
-  'mail.com', 'live.com', 'msn.com', 'googlemail.com',
-]);
+  
 
  
 
@@ -597,7 +593,8 @@ const committeeGrowing = committeeSize >= 2;
         // Multiple viewers from same company
          // Veteran signal: internal sharing is the highest cost action
         // a prospect takes — weighted above all other signals
-        if (uniqueViewers >= 2) score += 28;
+         
+        if (committeeGrowing) score += 28;
 
         // Depth
         if (depthPercent >= 80) score += 15;
@@ -622,7 +619,7 @@ const committeeGrowing = committeeSize >= 2;
         // ── Plain English recommendation ──────────────────────
         let recommendation = '';
         if (momentumState === 'accelerating') {
-          if (uniqueViewers >= 2) {
+         if (committeeGrowing) {
             recommendation = 'Signal detected (high confidence): A second person from the same organisation has opened this document. This may indicate the proposal is being shared internally. Whether to act on this and how is best judged against what you know about the account.';
           } else if (hasReReads) {
             recommendation = 'Signal detected (medium confidence): Your prospect has returned to specific sections across multiple sessions. This often indicates unresolved questions. A contextual follow up offering to clarify may be well received.';
@@ -670,6 +667,10 @@ committeeAction: committeeGrowing
 
     // Sort by momentum score descending, filter out never-opened with no score
     const pipelineMomentum = pipelineDeals
+      .filter(deal =>
+        !(deal.momentumScore === 0 && deal.daysSinceLastActivity > 30) &&
+        !(deal.momentumScore <= 5 && deal.daysSinceLastActivity > 21)
+      )
       .sort((a, b) => b.momentumScore - a.momentumScore)
       .slice(0, 10);
 

@@ -25,6 +25,13 @@ export async function GET(
 
     const db = await dbPromise;
 
+    // ── Free email providers excluded from committee detection ────
+    const FREE_EMAIL_DOMAINS_SPACE = new Set([
+      'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+      'icloud.com', 'me.com', 'aol.com', 'protonmail.com',
+      'mail.com', 'live.com', 'msn.com', 'googlemail.com',
+    ]);
+
     const space = await db.collection('spaces').findOne({
       _id: new ObjectId(spaceId)
     });
@@ -63,14 +70,15 @@ export async function GET(
       )
 
       // ── Buying committee detection for basic plan ─────────────
+     
+
       const basicDomainViewers = logsBasic
         .filter((l: any) => l.visitorEmail)
         .reduce((acc: Record<string, string[]>, l: any) => {
-          const domain = l.visitorEmail?.split('@')[1];
-          if (domain) {
-            if (!acc[domain]) acc[domain] = [];
-            if (!acc[domain].includes(l.visitorEmail)) acc[domain].push(l.visitorEmail);
-          }
+          const domain = l.visitorEmail?.split('@')[1]?.toLowerCase();
+          if (!domain || FREE_EMAIL_DOMAINS_SPACE.has(domain)) return acc;
+          if (!acc[domain]) acc[domain] = [];
+          if (!acc[domain].includes(l.visitorEmail)) acc[domain].push(l.visitorEmail);
           return acc;
         }, {});
 
@@ -127,14 +135,13 @@ export async function GET(
     ).size;
 
     // ── Buying committee growth detection ─────────────────────────
-    const spaceDomainViewers = logs
+   const spaceDomainViewers = logs
       .filter((l: any) => l.visitorEmail)
       .reduce((acc: Record<string, string[]>, l: any) => {
-        const domain = l.visitorEmail?.split('@')[1];
-        if (domain) {
-          if (!acc[domain]) acc[domain] = [];
-          if (!acc[domain].includes(l.visitorEmail)) acc[domain].push(l.visitorEmail);
-        }
+        const domain = l.visitorEmail?.split('@')[1]?.toLowerCase();
+        if (!domain || FREE_EMAIL_DOMAINS_SPACE.has(domain)) return acc;
+        if (!acc[domain]) acc[domain] = [];
+        if (!acc[domain].includes(l.visitorEmail)) acc[domain].push(l.visitorEmail);
         return acc;
       }, {});
 
@@ -299,7 +306,10 @@ export async function GET(
       const visitorDomain = v.email.includes('@')
         ? v.email.split('@')[1].toLowerCase()
         : null;
-      const sameCompanyViewers = visitorDomain
+      const isFreeDomain = visitorDomain
+        ? FREE_EMAIL_DOMAINS_SPACE.has(visitorDomain)
+        : true;
+      const sameCompanyViewers = visitorDomain && !isFreeDomain
         ? Object.values(visitorMap).filter(other =>
             other.email !== v.email &&
             other.email.includes('@') &&
@@ -329,10 +339,10 @@ export async function GET(
       else status = 'cold';
 
       let deadDealVerdict: string | null = null;
-      if (isLikelyDead) {
-        deadDealVerdict = `${v.email} opened this space ${Math.round(daysSinceLastSeen)} days ago and has not returned. Send one final message acknowledging the silence without guilt. If there is no reply within three days close this deal and set a six week reminder.`;
+    if (isLikelyDead) {
+        deadDealVerdict = `${v.email} opened this space ${Math.round(daysSinceLastSeen)} days ago and has not returned. Prolonged silence after a single visit is one of the more common patterns in deals that go cold — though external factors you cannot see may also explain it.`;
       } else if (isDisengaging) {
-        deadDealVerdict = `${v.email} visited briefly and has not returned in ${Math.round(daysSinceLastSeen)} days. Send one direct question about whether this is still a priority before this goes completely cold.`;
+        deadDealVerdict = `${v.email} visited briefly and has not returned in ${Math.round(daysSinceLastSeen)} days. Light engagement followed by silence may indicate poor timing or competing priorities rather than lost interest.`;
       }
 
       return {
@@ -358,7 +368,14 @@ export async function GET(
           internalSharing: internalSharingScore,
         }
       };
-    }).sort((a, b) => b.engagementScore - a.engagementScore);
+   })
+    .filter(v =>
+      // Approach 1 — remove visitors with zero engagement after 30 days
+      !(v.engagementScore === 0 && v.daysSinceLastSeen > 30) &&
+      // Approach 3 — remove visitors who bounced and never returned after 21 days
+      !(v.isLikelyDead && v.daysSinceLastSeen > 21 && v.totalEvents <= 1)
+    )
+    .sort((a, b) => b.engagementScore - a.engagementScore);
 
     // ─── 4. ACTIVITY TIMELINE ────────────────────────────────────────────
 
@@ -582,35 +599,36 @@ export async function GET(
         else momentumState = 'stalled';
 
         // Plain English narrative
+        // Plain English narrative
         let narrative = '';
         if (momentumState === 'accelerating') {
           if (hasInternalSharing) {
-            narrative = `${visitor.email} has opened this space and a second person from ${visitorDomain} has also accessed it. Your proposal has moved beyond your original contact and is being reviewed internally. Reach out today and ask directly who else is involved in the decision.`;
+            narrative = `${visitor.email} has opened this space and a second person from ${visitorDomain} has also accessed it. The space may have been shared internally — though the data alone cannot confirm that. Your read on the relationship will matter more than this signal.`;
           } else if (reReadDocs.length > 0) {
-            narrative = `${visitor.email} has returned to this space ${reReadDocs[0].sessionCount} times and keeps coming back to ${reReadDocs[0].docName}. Something in that document is making them think carefully. Follow up today and offer to walk them through it directly.`;
+            narrative = `${visitor.email} has returned to this space ${reReadDocs[0].sessionCount} times and keeps coming back to ${reReadDocs[0].docName}. This pattern of returning to specific content often indicates an unresolved question or active evaluation.`;
           } else {
-            narrative = `${visitor.email} is actively engaging with this space and has opened ${docsOpened} of ${documents.length} documents. Engagement is strong. Follow up now while their attention is high.`;
+            narrative = `${visitor.email} is actively engaging with this space and has opened ${docsOpened} of ${documents.length} documents. Engagement is strong and recent.`;
           }
         } else if (momentumState === 'holding') {
-          narrative = `${visitor.email} opened ${docsOpened} document${docsOpened !== 1 ? 's' : ''} in this space ${daysSinceLastActivity} day${daysSinceLastActivity !== 1 ? 's' : ''} ago. Engagement is steady but not accelerating. Send a short value add today rather than a generic check in.`;
+          narrative = `${visitor.email} opened ${docsOpened} document${docsOpened !== 1 ? 's' : ''} in this space ${daysSinceLastActivity} day${daysSinceLastActivity !== 1 ? 's' : ''} ago. Engagement is steady but not accelerating. The data does not indicate urgency but a value-add message tends to perform better than a generic check in at this stage.`;
         } else if (momentumState === 'fading') {
-          narrative = `${visitor.email} last visited this space ${daysSinceLastActivity} days ago and engagement is dropping. Send one direct question about their timeline before this goes completely cold.`;
+          narrative = `${visitor.email} last visited this space ${daysSinceLastActivity} days ago and engagement appears to be dropping. This pattern sometimes reflects competing priorities rather than loss of interest — though the data cannot distinguish between the two.`;
         } else {
-          narrative = `${visitor.email} has not visited this space in ${daysSinceLastActivity} days. Send a final short message acknowledging the silence without guilt, or archive this deal and set a reminder for six weeks.`;
+          narrative = `${visitor.email} has not visited this space in ${daysSinceLastActivity} days. The data suggests the deal has stalled but cannot explain why. External factors you cannot see may account for the silence.`;
         }
 
         // Recommended action
         let recommendation = '';
         if (momentumState === 'accelerating' && hasInternalSharing) {
-          recommendation = `Contact ${visitor.email} today. Ask directly who else on their side should be part of the conversation. Do not mention that you can see the space has been shared internally — just ask naturally.`;
+          recommendation = `High confidence signal. A second person from the same domain has accessed this space. Whether to act on this and how depends on your relationship with your original contact and your read on their internal process.`;
         } else if (momentumState === 'accelerating') {
-          recommendation = `Follow up today. Lead with something specific about what they have been reviewing rather than asking if they had a chance to look at it. They clearly did.`;
+          recommendation = `Medium confidence signal. Engagement is strong and recent. A follow up referencing something specific in what they have been reviewing tends to land better than a generic check in — though timing is your judgment.`;
         } else if (momentumState === 'holding') {
-          recommendation = `Send a value add today. A relevant case study or a one line answer to a likely question. Then ask one direct question about their timeline. Do not ask if they read it.`;
+          recommendation = `Medium confidence signal. Engagement is steady. A short message adding value — a relevant insight or a direct question about their timeline — tends to maintain momentum better than waiting. Your knowledge of the deal should guide the approach.`;
         } else if (momentumState === 'fading') {
-          recommendation = `Send one direct question today — is moving forward still a priority right now or should we revisit this at a better time. Direct questions get responses even when engagement is dropping.`;
+          recommendation = `Low confidence signal. Engagement is dropping. A direct question about whether this is still a priority tends to surface useful information even when engagement is declining — but only you know whether the timing and relationship make that the right move.`;
         } else {
-          recommendation = `Send one final short message. If there is no reply within three days close this deal and set a six week reminder. Some deals are not dead, they are just waiting for an external trigger.`;
+          recommendation = `Low confidence signal. The data suggests the deal has stalled. A short message that acknowledges the gap without pressure is generally the lowest risk approach at this stage. Whether to send it or park the deal is your judgment based on the broader context.`;
         }
 
         // ── Return after silence plus question detection ───────────────────
@@ -660,7 +678,7 @@ export async function GET(
         // Update narrative if return plus question detected
         let finalNarrative = narrative;
         if (returnWithQuestion && returnQuestionText) {
-          finalNarrative = `${visitor.email} went quiet then came back and asked a specific question — "${returnQuestionText.slice(0, 80)}${returnQuestionText.length > 80 ? '...' : ''}". This combination is one of the strongest buying signals in your pipeline. They were not gone. They were thinking. Follow up today and answer their question directly.`;
+          finalNarrative = `${visitor.email} went quiet then came back and asked a specific question — "${returnQuestionText.slice(0, 80)}${returnQuestionText.length > 80 ? '...' : ''}". This combination — silence followed by a return with a specific question — is one of the stronger engagement patterns in the data. Answering their question directly tends to be more effective than a broader follow up at this point.`;
         }
 
 

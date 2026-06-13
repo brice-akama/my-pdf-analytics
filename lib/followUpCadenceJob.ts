@@ -210,14 +210,26 @@ export async function runFollowUpCadenceJob() {
           )];
 
           const prospectDomain = cadence.viewerEmail?.split('@')[1];
-          const committeeViewers = committeeEmails.filter((e: string) =>
-            e.split('@')[1] === prospectDomain && e !== cadence.viewerEmail
-          );
+         const FREE_EMAIL_DOMAINS_CADENCE = new Set([
+            'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+            'icloud.com', 'me.com', 'aol.com', 'protonmail.com',
+            'mail.com', 'live.com', 'msn.com', 'googlemail.com',
+          ]);
+
+          const isProspectDomainFree = prospectDomain
+            ? FREE_EMAIL_DOMAINS_CADENCE.has(prospectDomain.toLowerCase())
+            : true;
+
+          const committeeViewers = !isProspectDomainFree
+            ? committeeEmails.filter((e: string) =>
+                e.split('@')[1] === prospectDomain && e !== cadence.viewerEmail
+              )
+            : [];
           const committeeGrowing = committeeViewers.length > 0;
 
           if (committeeGrowing && ownerProfile?.email) {
-            const committeeSubject = `🔄 New stakeholder detected on "${cadence.documentName}" — act before the moment passes`;
-            const committeeSlack = `🔄 New stakeholder detected — someone new from ${prospectDomain} opened "${cadence.documentName}". Your deal is alive but entering complex evaluation. Ask your champion who else is now involved before sending any follow up.`;
+            const committeeSubject = `New viewer detected on "${cadence.documentName}"`;
+            const committeeSlack = `Signal detected (high confidence): A new viewer from ${prospectDomain} opened "${cadence.documentName}". This may indicate internal sharing is underway. Whether to act on this and how depends on your relationship context and read of the account.`;
 
             sendEmail({
               to: ownerProfile.email,
@@ -235,9 +247,7 @@ export async function runFollowUpCadenceJob() {
                   <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #0f172a; border-radius: 0 8px 8px 0; padding: 16px 20px; margin-bottom: 20px;">
                     <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">Hi,</p>
                     <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">
-                      It looks like ${cadence.documentName} may have been shared internally.
-                      Who else is now involved in evaluating this, and is there anything specific
-                      I can put together to help each person make their decision?
+                      Following up on ${cadence.documentName} — wanted to check whether there are any questions on your side I could help address, or whether others on your team should be part of the conversation at this stage.
                     </p>
                     <p style="margin: 0; font-size: 13px; color: #64748b;">— Your contact</p>
                   </div>
