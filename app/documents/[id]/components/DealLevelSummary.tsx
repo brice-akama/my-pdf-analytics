@@ -50,6 +50,42 @@ type DealPulse = {
   evidence: EvidenceItem[];
 };
 
+// ── Helper: format seconds into readable time ─────────────────────
+function fmtMins(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  if (m < 1) return 'under a minute';
+  if (m === 1) return '1 minute';
+  return `${m} minutes`;
+}
+
+// ── Helper: describe secondary viewer group intelligently ─────────
+// Instead of "1 high quality secondary viewer" this returns
+// language an experienced rep would use themselves
+function describeSecondaryViewers(
+  secondaryViewerEngagement: {
+    email: string;
+    totalTimeSeconds: number;
+    pagesViewed: number;
+    engagementQuality: 'high' | 'medium' | 'low';
+  }[]
+): {
+  deepReaders: typeof secondaryViewerEngagement;
+  moderateReaders: typeof secondaryViewerEngagement;
+  passiveOpens: typeof secondaryViewerEngagement;
+  deepestReader: (typeof secondaryViewerEngagement)[0] | null;
+} {
+  const deepReaders = secondaryViewerEngagement.filter(v => v.engagementQuality === 'high');
+  const moderateReaders = secondaryViewerEngagement.filter(v => v.engagementQuality === 'medium');
+  const passiveOpens = secondaryViewerEngagement.filter(v => v.engagementQuality === 'low');
+
+  // The most engaged secondary viewer — most time spent
+  const deepestReader = secondaryViewerEngagement.length > 0
+    ? [...secondaryViewerEngagement].sort((a, b) => b.totalTimeSeconds - a.totalTimeSeconds)[0]
+    : null;
+
+  return { deepReaders, moderateReaders, passiveOpens, deepestReader };
+}
+
 function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
   const {
     viewers,
@@ -70,121 +106,94 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
     v => v.momentumState === 'fading' || v.momentumState === 'stalled'
   ).length;
 
-  const highQualitySecondaryCount = secondaryViewerEngagement.filter(
-    v => v.engagementQuality === 'high'
-  ).length;
-  const mediumQualitySecondaryCount = secondaryViewerEngagement.filter(
-    v => v.engagementQuality === 'medium'
-  ).length;
-  const passiveSecondaryCount = secondaryViewerEngagement.filter(
-    v => v.engagementQuality === 'low'
-  ).length;
+  // ── Champion = first viewer (highest total time among identified viewers) ──
+  const champion = viewers.length > 0
+    ? [...viewers].sort((a, b) => b.totalTimeSeconds - a.totalTimeSeconds)[0]
+    : null;
 
-  // ── Build evidence list from raw signals ──────────────────────────
+  const { deepReaders, moderateReaders, passiveOpens, deepestReader } =
+    describeSecondaryViewers(secondaryViewerEngagement);
+
+  // ── Build evidence list ───────────────────────────────────────────
   function buildEvidence(): EvidenceItem[] {
     const items: EvidenceItem[] = [];
 
-    // Committee size
     if (committeeSize >= 2) {
       items.push({
-        label: 'Buying committee size',
-        value: `${committeeSize} people from ${prospectDomain} have opened this proposal`,
+        label: 'Viewers from same company',
+        value: `${committeeSize} people from ${prospectDomain} have opened this document`,
         signal: 'positive',
       });
     } else {
       items.push({
-        label: 'Buying committee size',
-        value: `Only 1 person from ${prospectDomain} has opened this proposal`,
+        label: 'Viewers from same company',
+        value: `1 person from ${prospectDomain} has opened this document so far`,
         signal: 'warning',
       });
     }
 
-    // Secondary engagement quality
-    if (highQualitySecondaryCount > 0) {
+    if (deepReaders.length > 0) {
       items.push({
         label: 'Secondary viewer depth',
-        value: `${highQualitySecondaryCount} secondary viewer${highQualitySecondaryCount > 1 ? 's' : ''} spent 5+ minutes reading — active evaluation not passive browsing`,
+        value: `${deepReaders.length} secondary viewer${deepReaders.length > 1 ? 's' : ''} spent 5+ minutes reading — active evaluation, not a passive glance`,
         signal: 'positive',
       });
-    } else if (mediumQualitySecondaryCount > 0) {
+    } else if (moderateReaders.length > 0) {
       items.push({
         label: 'Secondary viewer depth',
-        value: `${mediumQualitySecondaryCount} secondary viewer${mediumQualitySecondaryCount > 1 ? 's' : ''} spent 1 to 5 minutes reading — moderate engagement`,
+        value: `${moderateReaders.length} secondary viewer${moderateReaders.length > 1 ? 's' : ''} spent 1–5 minutes reading — moderate engagement`,
         signal: 'neutral',
       });
-    } else if (passiveSecondaryCount > 0) {
+    } else if (passiveOpens.length > 0) {
       items.push({
         label: 'Secondary viewer depth',
-        value: `${passiveSecondaryCount} secondary viewer${passiveSecondaryCount > 1 ? 's' : ''} opened briefly under 1 minute — passive forward not active evaluation`,
+        value: `${passiveOpens.length} secondary viewer${passiveOpens.length > 1 ? 's' : ''} opened briefly (under 1 minute) — passive forward, not active evaluation`,
         signal: 'warning',
       });
     }
 
-    // Primary viewer engagement
     if (hotViewers > 0) {
       items.push({
         label: 'Primary contact engagement',
-        value: `${hotViewers} viewer${hotViewers > 1 ? 's' : ''} classified as hot based on re-reads, time spent, and session depth`,
+        value: `${hotViewers} viewer${hotViewers > 1 ? 's' : ''} showing strong engagement — multiple sessions, time spent, re-reads detected`,
         signal: 'positive',
       });
     } else if (warmViewers > 0) {
       items.push({
         label: 'Primary contact engagement',
-        value: `${warmViewers} viewer${warmViewers > 1 ? 's' : ''} classified as warm — engaged but not at evaluation depth`,
+        value: `${warmViewers} viewer${warmViewers > 1 ? 's' : ''} engaged but not yet at evaluation depth`,
         signal: 'neutral',
       });
     } else if (coldViewers > 0) {
       items.push({
         label: 'Primary contact engagement',
-        value: `${coldViewers} viewer${coldViewers > 1 ? 's' : ''} classified as cold — limited engagement detected`,
+        value: `${coldViewers} viewer${coldViewers > 1 ? 's' : ''} with limited engagement so far`,
         signal: 'negative',
       });
     }
 
-    // Recency
     if (daysSinceLastActivity === 0) {
-      items.push({
-        label: 'Last activity',
-        value: 'Activity detected today',
-        signal: 'positive',
-      });
+      items.push({ label: 'Last activity', value: 'Activity recorded today', signal: 'positive' });
     } else if (daysSinceLastActivity <= 3) {
-      items.push({
-        label: 'Last activity',
-        value: `${daysSinceLastActivity} day${daysSinceLastActivity > 1 ? 's' : ''} since last open — recent`,
-        signal: 'positive',
-      });
+      items.push({ label: 'Last activity', value: `${daysSinceLastActivity} day${daysSinceLastActivity > 1 ? 's' : ''} ago — recent`, signal: 'positive' });
     } else if (daysSinceLastActivity <= 7) {
-      items.push({
-        label: 'Last activity',
-        value: `${daysSinceLastActivity} days since last open — watch for further silence`,
-        signal: 'neutral',
-      });
+      items.push({ label: 'Last activity', value: `${daysSinceLastActivity} days ago — worth monitoring`, signal: 'neutral' });
     } else if (daysSinceLastActivity <= 14) {
-      items.push({
-        label: 'Last activity',
-        value: `${daysSinceLastActivity} days since last open — engagement dropping`,
-        signal: 'negative',
-      });
+      items.push({ label: 'Last activity', value: `${daysSinceLastActivity} days ago — engagement is dropping`, signal: 'negative' });
     } else {
-      items.push({
-        label: 'Last activity',
-        value: `${daysSinceLastActivity} days since last open — prolonged silence`,
-        signal: 'negative',
-      });
+      items.push({ label: 'Last activity', value: `${daysSinceLastActivity} days ago — prolonged silence`, signal: 'negative' });
     }
 
-    // Momentum direction
     if (acceleratingViewers > 0) {
       items.push({
         label: 'Momentum direction',
-        value: `${acceleratingViewers} viewer${acceleratingViewers > 1 ? 's' : ''} showing accelerating engagement — returning and reading deeper each time`,
+        value: `${acceleratingViewers} viewer${acceleratingViewers > 1 ? 's' : ''} returning and reading deeper with each visit`,
         signal: 'positive',
       });
     } else if (fadingViewers > 0) {
       items.push({
         label: 'Momentum direction',
-        value: `${fadingViewers} viewer${fadingViewers > 1 ? 's' : ''} showing fading engagement — reading less with each return visit`,
+        value: `${fadingViewers} viewer${fadingViewers > 1 ? 's' : ''} reading less with each return visit`,
         signal: 'negative',
       });
     }
@@ -194,8 +203,30 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
 
   const evidence = buildEvidence();
 
-  // ── ADVANCING: committee growing + high quality secondary + any hot viewer ──
+  // ════════════════════════════════════════════════════════════════
+  // DEAL PULSE STATES — ordered by signal strength
+  // Each state produces: whatHappened, whatItMeans, recommendedAction
+  //
+  // Language rules:
+  // — Never order the rep. Observe and interpret. Let them decide.
+  // — Never say "your champion is selling internally" — we don't know that.
+  // — Never say "follow up now" as a command.
+  // — Acknowledge the rep knows the relationship better than the data does.
+  // — Be specific about what the data actually shows. No filler.
+  // ════════════════════════════════════════════════════════════════
+
+  // ── STATE 1: ADVANCING ───────────────────────────────────────────
+  // Committee growing + deep secondary engagement + hot primary
   if (committeeGrowing && hasHighQualitySecondaryViewer && hotViewers >= 1) {
+
+    const deepReaderDetail = deepestReader
+      ? ` One secondary viewer spent ${fmtMins(deepestReader.totalTimeSeconds)} across ${deepestReader.pagesViewed} page${deepestReader.pagesViewed !== 1 ? 's' : ''} — that is active evaluation, not a quick glance.`
+      : '';
+
+    const noiseNote = passiveOpens.length > 0
+      ? ` ${passiveOpens.length} other viewer${passiveOpens.length > 1 ? 's' : ''} opened briefly and likely did not engage meaningfully.`
+      : '';
+
     return {
       state: 'advancing',
       label: 'Deal Advancing',
@@ -203,35 +234,63 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
       icon: <TrendingUp className="h-4 w-4 text-green-600" />,
-      whatHappened: `${committeeSize} people from ${prospectDomain} have opened this proposal and at least one secondary stakeholder spent significant time reading it — not a passive forward.`,
-      whatItMeans: `The buying committee is growing and secondary stakeholders are actively evaluating. Your champion is selling internally on your behalf. This is the combination that experienced sales leaders say distinguishes deals that close from ones that stall.`,
-      recommendedAction: `Signal detected (high confidence): Contact your champion today. Ask specifically who else is now involved, what each person cares about most, and whether they need help making the internal case. Do not send a generic follow up. The right message now is one that helps your champion sell to the people who are already reading this.`,
+
+      whatHappened:
+        `${committeeSize} people from ${prospectDomain} have opened this document.` +
+        deepReaderDetail +
+        noiseNote,
+
+      whatItMeans:
+        `When a secondary viewer spends this much time reading, the document has moved beyond a courtesy forward. ` +
+        `Someone beyond your original contact is evaluating it seriously. ` +
+        `This combination — strong primary engagement plus a deep secondary reader — is one of the clearer buying signals in post-proposal analytics.`,
+
+      recommendedAction:
+        `High confidence signal. The data suggests internal evaluation is underway. ` +
+        `Depending on your relationship with your contact, this may be a natural moment to check in — ` +
+        `not about the document itself, but about whether there are questions on their side you could help address. ` +
+        `Reps who know this account will have a better read on timing than the data alone.`,
+
       confidence: 'high',
       evidence,
     };
   }
 
-  // ── INTERNAL CIRCULATION: committee growing, any engagement level ──
-  // This fires whenever committeeSize >= 2 regardless of hot/warm counts
-  // because the committee signal itself is the most important indicator
+  // ── STATE 2: INTERNAL CIRCULATION (committee, varying engagement) ─
   if (committeeGrowing) {
-    const secondaryDepth = hasHighQualitySecondaryViewer
-      ? 'at least one secondary stakeholder is engaging deeply'
-      : secondaryViewerEngagement.some((v: any) => v.engagementQuality === 'medium')
-      ? 'secondary viewers are showing moderate engagement'
-      : 'secondary viewers are opening briefly rather than reading deeply';
 
-    const confidenceLevel: 'high' | 'medium' | 'low' = hasHighQualitySecondaryViewer
-      ? 'high'
-      : secondaryViewerEngagement.some((v: any) => v.engagementQuality === 'medium')
-      ? 'medium'
+    // Build a precise picture of who is doing what
+    const deepDetail = deepReaders.length > 0
+      ? `${deepReaders.length} secondary viewer${deepReaders.length > 1 ? 's' : ''} spent significant time reading (5+ minutes)`
+      : null;
+    const moderateDetail = moderateReaders.length > 0
+      ? `${moderateReaders.length} spent 1–5 minutes`
+      : null;
+    const passiveDetail = passiveOpens.length > 0
+      ? `${passiveOpens.length} opened briefly under a minute`
+      : null;
+
+    const engagementBreakdown = [deepDetail, moderateDetail, passiveDetail]
+      .filter(Boolean)
+      .join(', ');
+
+    const confidenceLevel: 'high' | 'medium' | 'low' =
+      deepReaders.length > 0 ? 'high'
+      : moderateReaders.length > 0 ? 'medium'
       : 'medium';
 
-    const actionText = hasHighQualitySecondaryViewer
-      ? `Signal detected (high confidence): ${committeeSize} people from ${prospectDomain} have opened this proposal and secondary engagement is deep. Contact your champion today. Ask who else is now involved, what each person cares about most, and whether they need help making the internal case.`
-      : secondaryViewerEngagement.some((v: any) => v.engagementQuality === 'medium')
-      ? `Signal detected (medium confidence): The proposal is circulating internally with moderate secondary engagement. Ask your champion who else is involved before sending any follow up. A premature generic message could interrupt the internal process.`
-      : `Signal detected (medium confidence): The proposal has been forwarded internally but secondary viewers are engaging briefly. Monitor whether they return for deeper engagement. Asking your champion about the internal timeline is lower risk than following up with the group directly.`;
+    const actionByDepth =
+      deepReaders.length > 0
+        ? `High confidence signal. Secondary viewers are reading deeply. ` +
+          `Based on your knowledge of this account, it may be worth checking in with your contact about any questions that have come up internally — ` +
+          `framed around being helpful rather than checking on progress.`
+        : moderateReaders.length > 0
+        ? `Medium confidence signal. The document is circulating and some secondary viewers are engaging. ` +
+          `The signal is not strong enough yet to act with certainty. ` +
+          `Monitoring whether secondary viewers return for another session will sharpen the picture before you reach out.`
+        : `Medium confidence signal. The document has been forwarded but secondary engagement is light so far. ` +
+          `This could mean the forwards were informational rather than part of an active evaluation. ` +
+          `Watching whether secondary viewers return over the next few days will tell you more than acting on this alone.`;
 
     return {
       state: 'evaluating',
@@ -240,33 +299,66 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       bgColor: 'bg-blue-50',
       borderColor: 'border-blue-200',
       icon: <Users className="h-4 w-4 text-blue-600" />,
-      whatHappened: `${committeeSize} people from ${prospectDomain} have opened this proposal and ${secondaryDepth}.`,
-      whatItMeans: `The proposal has moved beyond your original contact and is being reviewed internally. This is what buying committees look like before a decision is made. The deal is alive and progressing through the buyer's internal process.`,
-      recommendedAction: actionText,
+
+      whatHappened:
+        `${committeeSize} people from ${prospectDomain} have opened this document. ` +
+        (engagementBreakdown
+          ? `Across the secondary viewers: ${engagementBreakdown}.`
+          : ''),
+
+      whatItMeans:
+        `The document has moved beyond your original contact. ` +
+        (deepReaders.length > 0
+          ? `When secondary viewers invest real time reading, it suggests they are evaluating rather than just being looped in. `
+          : `Secondary engagement is mixed — some readers are engaging, others opened and moved on. `) +
+        `The spread of engagement across viewers is more meaningful than any single viewer's behaviour here.`,
+
+      recommendedAction: actionByDepth,
       confidence: confidenceLevel,
       evidence,
     };
   }
 
-  // ── SINGLE THREADED RISK: one viewer, hot, but no committee after 4+ days ──
+  // ── STATE 3: SINGLE THREADED RISK ────────────────────────────────
+  // One viewer, engaged, but no committee after 4+ days
   if (!committeeGrowing && (hotViewers >= 1 || warmViewers >= 1) && daysSinceLastActivity >= 4) {
+
+    const championEngagement = champion
+      ? ` Your primary contact has spent time with this document and engagement is ${hotViewers >= 1 ? 'strong' : 'moderate'}.`
+      : '';
+
     return {
       state: 'single_threaded_risk',
-      label: 'Single Threaded Risk',
+      label: 'Single Threaded',
       color: 'text-amber-700',
       bgColor: 'bg-amber-50',
       borderColor: 'border-amber-200',
       icon: <AlertTriangle className="h-4 w-4 text-amber-600" />,
-      whatHappened: `Only one person from ${prospectDomain} has opened this proposal despite ${daysSinceLastActivity} days having passed since it was sent. Your primary contact is engaged but no internal sharing has been detected.`,
-      whatItMeans: `Single threaded deals fail more often than multi stakeholder deals. A warm champion who has not introduced the proposal internally is either waiting for the right moment, does not have the authority to move forward alone, or has not prioritised it yet.`,
-      recommendedAction: `Signal detected (medium confidence): Your primary contact is engaged but the deal is single threaded. Ask directly whether others on their side should be part of the evaluation. Phrase it as a helpful question — I want to make sure I am giving the right people what they need to evaluate this properly, who else should be involved in this conversation?`,
+
+      whatHappened:
+        `Only one person from ${prospectDomain} has opened this document after ${daysSinceLastActivity} days.` +
+        championEngagement,
+
+      whatItMeans:
+        `When a contact is engaged with a proposal but has not shared it internally after several days, ` +
+        `it usually means one of three things: they are still forming their own view before involving others, ` +
+        `they do not yet have the internal support to move it forward, or they are evaluating quietly before bringing it to a decision. ` +
+        `The data cannot distinguish between these — your read on the relationship will matter more than the signal here.`,
+
+      recommendedAction:
+        `Medium confidence signal. The engagement is real but the deal is single threaded so far. ` +
+        `If your relationship with this contact allows it, a natural conversation about who else might benefit from seeing this — ` +
+        `framed around their needs rather than your process — tends to surface the internal situation ` +
+        `without putting pressure on the contact directly.`,
+
       confidence: 'medium',
       evidence,
     };
   }
 
-  // ── SINGLE STRONG: one viewer, high engagement, recent ──
+  // ── STATE 4: SINGLE STRONG (early, recent, accelerating) ─────────
   if (!committeeGrowing && (hotViewers >= 1 || warmViewers >= 1) && acceleratingViewers >= 1 && daysSinceLastActivity <= 3) {
+
     return {
       state: 'single_strong',
       label: 'Strong Early Engagement',
@@ -274,16 +366,31 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       bgColor: 'bg-violet-50',
       borderColor: 'border-violet-200',
       icon: <TrendingUp className="h-4 w-4 text-violet-600" />,
-      whatHappened: `Your primary contact is reading this proposal deeply and returning to it. No internal sharing has been detected yet but the deal is recent and engagement is strong.`,
-      whatItMeans: `Early strong engagement from a single contact is a promising signal but the absence of stakeholder expansion means the buying process has not yet started internally. This is normal at the early evaluation stage.`,
-      recommendedAction: `Signal detected (medium confidence): Engagement is strong and recent. Now is a natural moment to ask whether others on their side should be involved. That question moves the deal from single threaded evaluation to internal circulation which is where buying processes actually progress.`,
+
+      whatHappened:
+        `Your primary contact is reading this document deeply and returning to it. ` +
+        `No one else from ${prospectDomain} has opened it yet, but activity is recent — within the last ${daysSinceLastActivity === 0 ? 'day' : `${daysSinceLastActivity} day${daysSinceLastActivity > 1 ? 's' : ''}`}.`,
+
+      whatItMeans:
+        `Strong single-contact engagement in the first few days is a positive early signal. ` +
+        `The absence of internal sharing is normal at this stage — ` +
+        `most contacts read a proposal themselves before deciding whether to involve others. ` +
+        `The next meaningful signal will be whether a second viewer from the same company appears.`,
+
+      recommendedAction:
+        `Medium confidence signal. Engagement is strong and the momentum is building. ` +
+        `This is typically a natural moment to add value rather than check in — ` +
+        `sharing something relevant to their situation, or asking a question that opens the door to a conversation ` +
+        `about who else on their side should be involved, depending on where you are in the relationship.`,
+
       confidence: 'medium',
       evidence,
     };
   }
 
-  // ── AT RISK: engagement fading, no committee growth ──
+  // ── STATE 5: AT RISK ─────────────────────────────────────────────
   if (!committeeGrowing && fadingViewers > warmViewers && daysSinceLastActivity >= 5) {
+
     return {
       state: 'at_risk',
       label: 'Engagement Dropping',
@@ -291,32 +398,63 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       bgColor: 'bg-red-50',
       borderColor: 'border-red-200',
       icon: <TrendingDown className="h-4 w-4 text-red-500" />,
-      whatHappened: `Engagement from your contacts is declining. ${daysSinceLastActivity} days have passed since the last activity and no new stakeholders have appeared.`,
-      whatItMeans: `Declining engagement without stakeholder expansion is one of the clearest warning patterns in proposal analytics. It often means the deal is losing internal priority without the salesperson being told.`,
-      recommendedAction: `Signal detected (medium confidence): Do not send another follow up about the document. Send one direct question about whether this is still a priority right now. A direct question gets a response even when engagement is dropping because it forces a yes or no rather than allowing continued deferral.`,
+
+      whatHappened:
+        `Engagement is declining across your contacts from ${prospectDomain}. ` +
+        `${daysSinceLastActivity} days have passed since the last recorded activity and no new viewers have appeared.`,
+
+      whatItMeans:
+        `Declining engagement without stakeholder expansion is one of the more reliable warning patterns in proposal data. ` +
+        `It often reflects a shift in internal priorities rather than a rejection — ` +
+        `something else moved up the stack. ` +
+        `The data alone cannot confirm this, but it is worth factoring into how you approach the next contact.`,
+
+      recommendedAction:
+        `Medium confidence signal. The window for a natural response is narrowing. ` +
+        `A short, direct message focused on their priorities — not the document — ` +
+        `tends to get a response even when engagement is dropping, ` +
+        `because it asks them to say yes or no rather than leaving things open.`,
+
       confidence: 'medium',
       evidence,
     };
   }
 
-  // ── STALLED: prolonged silence, no committee growth ──
+  // ── STATE 6: STALLED ─────────────────────────────────────────────
   if (daysSinceLastActivity >= 14 && !committeeGrowing) {
+
     return {
       state: 'stalled',
-      label: 'Deal Stalled',
+      label: 'Gone Quiet',
       color: 'text-slate-600',
       bgColor: 'bg-slate-50',
       borderColor: 'border-slate-200',
       icon: <AlertCircle className="h-4 w-4 text-slate-500" />,
-      whatHappened: `No engagement has been recorded for ${daysSinceLastActivity} days. The buying circle has not expanded beyond the original contact.`,
-      whatItMeans: `Prolonged silence without stakeholder expansion is the most common pattern in lost deals. The data cannot tell you whether this deal is genuinely dead or paused for external reasons.`,
-      recommendedAction: `Signal detected (low confidence): Send one final short message acknowledging the silence without guilt. If there is no reply within three days archive this deal and set a six week reminder. Some deals are not dead. They are waiting for an external trigger you cannot see.`,
+
+      whatHappened:
+        `No engagement has been recorded for ${daysSinceLastActivity} days. ` +
+        `The document has not been forwarded internally and no return visits have been detected.`,
+
+      whatItMeans:
+        `Prolonged silence after a proposal is one of the most common patterns in deals that eventually go cold — ` +
+        `but it is not always a closed door. ` +
+        `External factors, budget cycles, and internal changes at the prospect's company ` +
+        `regularly explain silences that look like disengagement from the outside.`,
+
+      recommendedAction:
+        `Low confidence signal. The data suggests the deal has stalled but cannot explain why. ` +
+        `A short message that acknowledges the gap without pressure — ` +
+        `and asks a direct question about whether the timing still works — ` +
+        `is usually the lowest risk move at this stage. ` +
+        `If there is no reply within a few days, parking the deal with a future reminder ` +
+        `is a reasonable way to keep the pipeline clean without writing it off.`,
+
       confidence: 'low',
       evidence,
     };
   }
 
-  // ── EARLY STAGE: default fallback — minimal data ──
+  // ── STATE 7: EARLY STAGE (default) ───────────────────────────────
   return {
     state: 'early',
     label: 'Early Stage',
@@ -324,14 +462,26 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
     bgColor: 'bg-slate-50',
     borderColor: 'border-slate-200',
     icon: <Eye className="h-4 w-4 text-slate-400" />,
-    whatHappened: `${totalViewers === 1 ? 'One person has' : `${totalViewers} people have`} opened this proposal so far. Engagement data is present but limited.`,
-    whatItMeans: `It is too early to draw reliable conclusions. Monitor engagement over the next 48 to 72 hours before acting.`,
-    recommendedAction: `No strong signal yet: A short contextual follow up referencing something specific in the document tends to perform better than a generic check in after 72 hours of silence.`,
+
+    whatHappened:
+      `${totalViewers === 1 ? 'One person has' : `${totalViewers} people have`} opened this document so far. ` +
+      `Engagement data is present but limited.`,
+
+    whatItMeans:
+      `It is too early to draw reliable conclusions from the available signals. ` +
+      `The next 48 to 72 hours of engagement — or silence — will shape the picture significantly.`,
+
+    recommendedAction:
+      `Low confidence signal. Not enough data yet to read the situation clearly. ` +
+      `Watching whether engagement continues, drops, or expands to new viewers ` +
+      `will produce a more reliable signal than acting on what is here now.`,
+
     confidence: 'low',
     evidence,
   };
 }
 
+// ── Style maps ────────────────────────────────────────────────────
 const CONFIDENCE_STYLES = {
   high: 'bg-green-100 text-green-700',
   medium: 'bg-yellow-100 text-yellow-700',
@@ -352,6 +502,7 @@ const SIGNAL_DOTS = {
   warning: 'bg-amber-400',
 };
 
+// ── Component ─────────────────────────────────────────────────────
 export function DealLevelSummary(props: DealLevelSummaryProps) {
   const { viewers, committeeSize, prospectDomain, daysSinceLastActivity } = props;
   const [showEvidence, setShowEvidence] = React.useState(false);
@@ -383,7 +534,7 @@ export function DealLevelSummary(props: DealLevelSummaryProps) {
           </span>
           {committeeSize >= 2 && (
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-              {committeeSize} stakeholders
+              {committeeSize} viewers from {prospectDomain}
             </span>
           )}
           {daysSinceLastActivity > 0 && (
@@ -400,23 +551,23 @@ export function DealLevelSummary(props: DealLevelSummaryProps) {
         <div className="flex items-center gap-3 flex-wrap">
           {hotCount > 0 && (
             <span className="text-[11px] font-medium text-green-700">
-              🔥 {hotCount} hot viewer{hotCount > 1 ? 's' : ''}
+              🔥 {hotCount} viewer{hotCount > 1 ? 's' : ''} — strong engagement
             </span>
           )}
           {warmCount > 0 && (
             <span className="text-[11px] font-medium text-amber-600">
-              🌤 {warmCount} warm viewer{warmCount > 1 ? 's' : ''}
+              🌤 {warmCount} viewer{warmCount > 1 ? 's' : ''} — moderate engagement
             </span>
           )}
           {coldCount > 0 && (
             <span className="text-[11px] font-medium text-slate-500">
-              ❄️ {coldCount} cold viewer{coldCount > 1 ? 's' : ''}
+              ❄️ {coldCount} viewer{coldCount > 1 ? 's' : ''} — light engagement
             </span>
           )}
         </div>
       )}
 
-      {/* What happened — the evidence */}
+      {/* What happened */}
       <div className="space-y-1">
         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
           What DocMetrics observed
@@ -426,32 +577,32 @@ export function DealLevelSummary(props: DealLevelSummaryProps) {
         </p>
       </div>
 
-      {/* What it means — the interpretation */}
+      {/* What it means */}
       <div className="space-y-1">
         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
-          What this typically means
+          What this pattern typically suggests
         </p>
         <p className="text-sm text-slate-700 leading-relaxed">
           {pulse.whatItMeans}
         </p>
       </div>
 
-      {/* Recommended action */}
+      {/* Combined signal recommendation */}
       <div className="bg-white rounded-lg border border-slate-200 p-3 space-y-1">
         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">
-          Combined signal recommendation
+          Combined signal
         </p>
         <p className="text-sm text-slate-700 leading-relaxed">
           {pulse.recommendedAction}
         </p>
       </div>
 
-      {/* Show evidence toggle — for experienced reps who want to see the data */}
+      {/* Evidence toggle — for experienced reps who want the raw signals */}
       <button
         onClick={() => setShowEvidence(!showEvidence)}
         className="text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1"
       >
-        {showEvidence ? '▲ Hide signals' : '▼ Show signals used to reach this conclusion'}
+        {showEvidence ? '▲ Hide signals' : '▼ Show signals behind this reading'}
       </button>
 
       {showEvidence && (
@@ -474,8 +625,8 @@ export function DealLevelSummary(props: DealLevelSummaryProps) {
       {/* Disclaimer */}
       <p className="text-[11px] text-slate-400 leading-relaxed">
         {committeeSize >= 2
-          ? `This summary combines signals from ${committeeSize} viewers inside ${prospectDomain}. Your knowledge of the relationship and broader context should inform any decision to act.`
-          : `This summary reflects engagement from your primary contact only. Deal level confidence increases significantly when internal sharing is detected.`}
+          ? `These signals combine behaviour from ${committeeSize} viewers at ${prospectDomain}. Your knowledge of the account and relationship context will always matter more than any single data point here.`
+          : `These signals reflect your primary contact only. The picture becomes significantly clearer when a second viewer from the same company appears.`}
       </p>
 
     </div>
