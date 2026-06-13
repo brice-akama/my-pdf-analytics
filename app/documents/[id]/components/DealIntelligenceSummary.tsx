@@ -1,37 +1,19 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import {
-  RefreshCw, Zap, TrendingUp, TrendingDown, Minus,
-  ArrowUpRight, ArrowRight, ArrowDownRight, OctagonX,
-} from 'lucide-react';
+import { RefreshCw, Zap, TrendingUp, TrendingDown, Minus ,  ArrowUpRight, ArrowRight, ArrowDownRight, OctagonX } from 'lucide-react';
 import { SecondaryViewerInsight } from './SecondaryViewerInsight';
 import { EarlySignalCard } from './EarlySignalCard';
-import { DealLevelSummary } from './DealLevelSummary';
 
 type DealStatus = 'hot' | 'warm' | 'cold' | 'dead';
-type MomentumState = 'accelerating' | 'holding' | 'fading' | 'stalled';
 
 type ViewerSummary = {
   viewerEmail: string;
   summary: string;
   recommendation: string;
   dealStatus: DealStatus;
-  momentumState?: MomentumState;
+   momentumState?: MomentumState;
   cached: boolean;
-};
-
-// ── Shape returned by the deal-intelligence route ─────────────────
-type DealLevelSummaryData = {
-  state: string;
-  label: string;
-  summary: string;
-  recommendedAction: string;
-  confidence: 'high' | 'medium' | 'low';
-  totalViewers: number;
-  hotCount: number;
-  warmCount: number;
-  coldCount: number;
 };
 
 const STATUS_CONFIG: Record<DealStatus, {
@@ -76,6 +58,10 @@ const STATUS_CONFIG: Record<DealStatus, {
   },
 };
 
+
+// ── Momentum Indicator Config ─────────────────────────────────
+type MomentumState = 'accelerating' | 'holding' | 'fading' | 'stalled';
+
 const MOMENTUM_CONFIG: Record<MomentumState, {
   label: string;
   sublabel: string;
@@ -84,61 +70,80 @@ const MOMENTUM_CONFIG: Record<MomentumState, {
   bgColor: string;
   textColor: string;
   borderColor: string;
+  barWidth: string;
   pulse: boolean;
 }> = {
   accelerating: {
     label: 'Accelerating',
-    sublabel: 'Engagement is building',
+    sublabel: 'Engagement is building — act now',
     icon: <ArrowUpRight className="h-5 w-5" />,
     barColor: 'bg-emerald-500',
     bgColor: 'bg-emerald-50',
     textColor: 'text-emerald-700',
     borderColor: 'border-emerald-200',
+    barWidth: 'w-full',
     pulse: true,
   },
   holding: {
     label: 'Holding Steady',
-    sublabel: 'Deal is alive',
+    sublabel: 'Deal is alive — a nudge will help',
     icon: <ArrowRight className="h-5 w-5" />,
     barColor: 'bg-amber-400',
     bgColor: 'bg-amber-50',
     textColor: 'text-amber-700',
     borderColor: 'border-amber-200',
+    barWidth: 'w-2/3',
     pulse: false,
   },
   fading: {
     label: 'Fading',
-    sublabel: 'Window is narrowing',
+    sublabel: 'Window is narrowing — act urgently',
     icon: <ArrowDownRight className="h-5 w-5" />,
     barColor: 'bg-orange-500',
     bgColor: 'bg-orange-50',
     textColor: 'text-orange-700',
     borderColor: 'border-orange-200',
+    barWidth: 'w-1/3',
     pulse: false,
   },
   stalled: {
     label: 'Stalled',
-    sublabel: 'Engagement has stopped',
+    sublabel: 'Engagement has stopped — different approach needed',
     icon: <OctagonX className="h-5 w-5" />,
     barColor: 'bg-slate-400',
     bgColor: 'bg-slate-50',
     textColor: 'text-slate-500',
     borderColor: 'border-slate-200',
+    barWidth: 'w-1/6',
     pulse: false,
   },
 };
 
+// ── Momentum Indicator Component ──────────────────────────────
 function MomentumIndicator({ state }: { state: MomentumState }) {
   const config = MOMENTUM_CONFIG[state];
+
   return (
     <div className={`rounded-xl border ${config.borderColor} ${config.bgColor} px-4 py-3 mb-3`}>
+      {/* Top row — icon + label + sublabel */}
       <div className="flex items-center gap-3 mb-2.5">
-        <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${config.bgColor} border ${config.borderColor} ${config.textColor} ${config.pulse ? 'animate-pulse' : ''}`}>
+        {/* Animated icon container */}
+        <div
+          className={`
+            h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0
+            ${config.bgColor} border ${config.borderColor} ${config.textColor}
+            ${config.pulse ? 'animate-pulse' : ''}
+          `}
+        >
           {config.icon}
         </div>
+
+        {/* Label stack */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className={`text-sm font-bold ${config.textColor}`}>{config.label}</p>
+            <p className={`text-sm font-bold ${config.textColor}`}>
+              {config.label}
+            </p>
             {config.pulse && (
               <span className="flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-emerald-400 opacity-75" />
@@ -151,6 +156,8 @@ function MomentumIndicator({ state }: { state: MomentumState }) {
           </p>
         </div>
       </div>
+
+      {/* Momentum bar */}
       <div className="h-1.5 w-full bg-white/60 rounded-full overflow-hidden border border-white/40">
         <div
           className={`h-full rounded-full transition-all duration-700 ${config.barColor} ${config.pulse ? 'animate-pulse' : ''}`}
@@ -162,6 +169,8 @@ function MomentumIndicator({ state }: { state: MomentumState }) {
           }}
         />
       </div>
+
+      {/* Bar labels */}
       <div className="flex justify-between mt-1">
         <span className="text-[9px] text-slate-400 font-medium">Stalled</span>
         <span className="text-[9px] text-slate-400 font-medium">Accelerating</span>
@@ -173,20 +182,14 @@ function MomentumIndicator({ state }: { state: MomentumState }) {
 type Props = {
   documentId: string;
   analytics: any;
-  totalPages?: number;
+   totalPages?: number;
 };
 
 export default function DealIntelligenceSummary({ documentId, analytics, totalPages = 1 }: Props) {
   const [summaries, setSummaries] = useState<ViewerSummary[]>([]);
-  const [dealLevelData, setDealLevelData] = useState<DealLevelSummaryData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
-
-  // ── Whether the buying committee has grown beyond 1 person ───────
-  // This is the key flag — when true, individual recommendations
-  // are hidden because the combined card handles the decision.
-  const committeeGrowing: boolean = analytics?.committeeGrowing ?? false;
 
   const buildViewerData = () => {
     if (!analytics?.recipientPageTracking) return [];
@@ -194,9 +197,12 @@ export default function DealIntelligenceSummary({ documentId, analytics, totalPa
     return analytics.recipientPageTracking
       .filter((r: any) => !r.neverOpened && !r.recipientEmail?.startsWith('Anonymous'))
       .map((r: any) => {
+        // Find re-read pages for this viewer from dealInsight
         const viewerInsight = analytics.dealInsight?.viewers?.find(
           (v: any) => v.viewerEmail === r.recipientEmail
         );
+
+        // Find pages with most and least time
         const sortedPages = [...(r.pageData || [])].sort(
           (a: any, b: any) => b.timeSpent - a.timeSpent
         );
@@ -206,39 +212,38 @@ export default function DealIntelligenceSummary({ documentId, analytics, totalPa
           totalViews: analytics.totalViews || 0,
           totalSessions: analytics.revisitData?.totalSessions || 1,
           daysSinceLastView: analytics.lastViewed
-            ? Math.floor((Date.now() - new Date(analytics.lastViewed).getTime()) / (1000 * 60 * 60 * 24))
+            ? Math.floor(
+                (Date.now() - new Date(analytics.lastViewed).getTime()) /
+                  (1000 * 60 * 60 * 24)
+              )
             : 0,
           daysSinceFirstView: 0,
           completionRate: r.pageData?.filter((p: any) => p.visited).length /
             Math.max((r.pageData?.length || 1), 1) * 100,
           totalTimeSeconds: r.totalTimeSeconds || 0,
           reReadPages: viewerInsight?.reReadPages || [],
-          skippedPages: r.pageData?.filter((p: any) => p.skipped).map((p: any) => p.page) || [],
+          skippedPages: r.pageData
+            ?.filter((p: any) => p.skipped)
+            .map((p: any) => p.page) || [],
           videoReplays: viewerInsight?.videoReplays || [],
           bounced: r.bounced || false,
-          // ── Fix 2 (partial): wire committee data into viewer payload ──
-          newViewersFromSameCompany: analytics.committeeGrowing
-            ? Math.max((analytics.committeeSize || 1) - 1, 0)
-            : 0,
+          newViewersFromSameCompany: 0,
           deadDealScore: analytics.deadDeal?.score || 0,
           intentLevel: analytics.intentScores?.find(
             (v: any) => v.email === r.recipientEmail
           )?.intentLevel || 'low',
-          pageWithMostTime: sortedPages[0]?.page || null,
+         pageWithMostTime: sortedPages[0]?.page || null,
           pageWithLeastTime: sortedPages[sortedPages.length - 1]?.page || null,
           totalPages: analytics.pageEngagement?.length || 1,
-          progressionPattern: (() => {
-            const sessions = analytics.revisitData?.totalSessions || 1;
-            if (sessions < 2) return 'single';
-            if (analytics.revisitData?.engagementDropping) return 'falling';
-            if (r.completionRate >= 80 && sessions >= 2) return 'progressive';
-            if (sessions >= 2 && r.completionRate < 50) return 'stuck';
-            return 'single';
-          })(),
+          // Progressive return pattern from revisit data
+         // Progressive return pattern — now from route, not guessed
+          progressionPattern: r.progressionPattern || 'single',
           progressionDetails: {
-            sessionDepths: [],
-            stuckOnPages: r.pageData?.filter((p: any) => p.visits >= 2).map((p: any) => p.page) || [],
-            deepestPageReached: r.pageData ? Math.max(...r.pageData.map((p: any) => p.page), 0) : 0,
+            sessionDepths: r.sessionDepths || [],
+            stuckOnPages: r.stuckOnPages || [],
+            deepestPageReached: r.sessionDepths?.length > 0
+              ? Math.max(...(r.sessionDepths as number[]))
+              : 0,
           },
         };
       });
@@ -252,21 +257,24 @@ export default function DealIntelligenceSummary({ documentId, analytics, totalPa
         return;
       }
 
-      const res = await fetch(`/api/documents/${documentId}/deal-intelligence`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ viewerData, forceRegenerate: force }),
-      });
+      const res = await fetch(
+        `/api/documents/${documentId}/deal-intelligence`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ viewerData, forceRegenerate: force }),
+        }
+      );
 
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
-
-      if (data.summaries) setSummaries(data.summaries);
-      // ── Store dealLevelSummary from route — was being ignored before ──
-      if (data.dealLevelSummary) setDealLevelData(data.dealLevelSummary);
-      setLastRefreshed(new Date());
+      if (data.summaries) {
+        setSummaries(data.summaries);
+        setLastRefreshed(new Date());
+      }
     } catch (err) {
+      // Silent failure — never crash the page
       console.error('[DealIntelligenceSummary] fetch failed:', err);
     } finally {
       setLoading(false);
@@ -294,7 +302,10 @@ export default function DealIntelligenceSummary({ documentId, analytics, totalPa
         </div>
         <div className="space-y-3">
           {[1, 2].map(i => (
-            <div key={i} className="h-20 bg-slate-50 rounded-xl animate-pulse" />
+            <div
+              key={i}
+              className="h-20 bg-slate-50 rounded-xl animate-pulse"
+            />
           ))}
         </div>
       </div>
@@ -303,23 +314,8 @@ export default function DealIntelligenceSummary({ documentId, analytics, totalPa
 
   if (summaries.length === 0) return null;
 
-  // ── Build viewer shape for DealLevelSummary ───────────────────────
-  const viewersForCombinedCard = summaries.map(s => ({
-    viewerEmail: s.viewerEmail,
-    dealStatus: s.dealStatus,
-    momentumState: (s.momentumState ?? 'holding') as MomentumState,
-    totalTimeSeconds: analytics?.recipientPageTracking?.find(
-      (r: any) => r.recipientEmail === s.viewerEmail
-    )?.totalTimeSeconds ?? 0,
-  }));
-
-  const daysSinceLastActivity = analytics?.lastViewed
-    ? Math.floor((Date.now() - new Date(analytics.lastViewed).getTime()) / (1000 * 60 * 60 * 24))
-    : 0;
-
   return (
     <div className="py-5 border-b border-slate-100">
-
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -330,41 +326,26 @@ export default function DealIntelligenceSummary({ documentId, analytics, totalPa
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-slate-300">
-            {lastRefreshed.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            {lastRefreshed.toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </span>
           <button
             onClick={handleRefresh}
             disabled={refreshing}
             className="flex items-center gap-1 text-[11px] font-semibold text-violet-600 hover:text-violet-800 transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`}
+            />
             {refreshing ? 'Thinking...' : 'Refresh'}
           </button>
         </div>
       </div>
 
+      {/* One card per viewer */}
       <div className="space-y-3">
-
-        {/* ── COMBINED SIGNAL CARD — always at top ─────────────────────
-            This reads ALL viewers together and produces ONE signal.
-            Individual recommendations below are hidden when this fires
-            with a committee (committeeGrowing = true) because the
-            combined card already tells the rep what to consider.      */}
-        <DealLevelSummary
-          viewers={viewersForCombinedCard}
-          committeeGrowing={committeeGrowing}
-          committeeSize={analytics?.committeeSize ?? 1}
-          prospectDomain={analytics?.prospectDomain ?? 'the prospect'}
-          secondaryViewerEngagement={analytics?.secondaryViewerEngagement ?? []}
-          hasHighQualitySecondaryViewer={analytics?.hasHighQualitySecondaryViewer ?? false}
-          daysSinceLastActivity={daysSinceLastActivity}
-        />
-
-        {/* ── INDIVIDUAL VIEWER CARDS ───────────────────────────────────
-            Summary (what this person did) always shows.
-            Recommendation (what to do) only shows when the committee
-            has NOT grown — because when committeeGrowing is true,
-            the combined card above already covers the decision.        */}
         {summaries.map((s, i) => {
           const config = STATUS_CONFIG[s.dealStatus] || STATUS_CONFIG.cold;
           return (
@@ -372,41 +353,41 @@ export default function DealIntelligenceSummary({ documentId, analytics, totalPa
               key={s.viewerEmail || i}
               className={`rounded-xl border p-4 ${config.bg} ${config.border}`}
             >
-              {/* Momentum indicator */}
-              <MomentumIndicator state={(s.momentumState as MomentumState) || 'holding'} />
-
-              {/* Email + status badge */}
+                {/* Momentum Indicator — sits at very top of each card */}
+              <MomentumIndicator
+                state={(s.momentumState as MomentumState) || 'holding'}
+              />
+              {/* Viewer email + status badge */}
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-slate-800 truncate flex-1 mr-3">
                   {s.viewerEmail}
                 </p>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${config.badge}`}>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${config.badge}`}
+                >
                   {config.badgeText}
                 </span>
               </div>
 
-              {/* Summary — always visible */}
+              {/* AI summary */}
               <p className="text-sm text-slate-700 leading-relaxed mb-3">
                 {s.summary}
               </p>
 
-              {/* Recommendation — only when single viewer (no committee)
-                  When committeeGrowing = true the combined card above
-                  handles the recommendation so we hide it here to avoid
-                  conflicting instructions reaching the rep.             */}
-              {!committeeGrowing && s.recommendation && (
-                <div className="flex items-start gap-2 bg-white/70 rounded-lg px-3 py-2">
-                  {config.icon}
-                  <p className="text-xs font-semibold text-slate-700 leading-snug">
-                    {s.recommendation}
-                  </p>
-                </div>
-              )}
+              {/* Recommended action */}
+             {/*
+              <div className="flex items-start gap-2 bg-white/70 rounded-lg px-3 py-2">
+                {config.icon}
+                <p className="text-xs font-semibold text-slate-700 leading-snug">
+                  {s.recommendation}
+                </p>
+              </div>
+               */}
             </div>
           );
         })}
 
-        {/* Early signal card — first 72 hours only */}
+        {/* Early signal card — only shows in first 72 hours */}
         {analytics?.recipientPageTracking?.length > 0 && (
           <EarlySignalCard
             recipientPageTracking={analytics.recipientPageTracking}
@@ -416,14 +397,13 @@ export default function DealIntelligenceSummary({ documentId, analytics, totalPa
           />
         )}
 
-        {/* Secondary viewer insight — when internal sharing detected */}
+        {/* Secondary viewer insight — only shows when internal sharing detected */}
         {analytics?.recipientPageTracking?.length >= 2 && (
           <SecondaryViewerInsight
             viewers={analytics.recipientPageTracking}
             totalPages={totalPages}
           />
         )}
-
       </div>
     </div>
   );

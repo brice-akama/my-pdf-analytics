@@ -462,6 +462,24 @@ recommendedAction,
     }
     const uniqueEmailsForTracking = [...new Set(allViewerEmails)];
 
+    // ── Per-viewer session depth progression ─────────────────────
+    async function getSessionDepths(emailOrId: string): Promise<number[]> {
+      const isAnon = emailOrId.startsWith('anon:');
+      const email = isAnon ? null : emailOrId;
+      const viewerId = isAnon ? emailOrId.replace('anon:', '') : null;
+
+      const viewerSessions = allSessions
+        .filter((s: any) => email ? s.email === email : s.viewerId === viewerId)
+        .sort((a: any, b: any) =>
+          new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
+        );
+
+      return viewerSessions.map((session: any) => {
+        const pages = session.pagesViewed || [];
+        return pages.length > 0 ? Math.max(...pages) : 0;
+      }).filter((depth: number) => depth > 0);
+    }
+
     const recipientPageTracking = await Promise.all(
       uniqueEmailsForTracking.map(async (emailOrId) => {
         const isAnon = emailOrId.startsWith('anon:');
@@ -500,6 +518,33 @@ recommendedAction,
         });
         const bounced = totalTime > 0 && totalTime < 30;
         const neverOpened = totalTime === 0 && !firstLog;
+        // ── Session depth progression for this viewer ─────────────
+        const sessionDepths = await getSessionDepths(emailOrId);
+
+        const stuckOnPages = (() => {
+          if (sessionDepths.length < 2) return [];
+          const depthCounts = new Map<number, number>();
+          sessionDepths.forEach(d => depthCounts.set(d, (depthCounts.get(d) || 0) + 1));
+          return Array.from(depthCounts.entries())
+            .filter(([, count]) => count >= 2)
+            .map(([page]) => page);
+        })();
+
+        const progressionPattern = (() => {
+          if (sessionDepths.length < 2) return 'single';
+          const first = sessionDepths[0];
+          const last = sessionDepths[sessionDepths.length - 1];
+          const isProgressive = last > first && sessionDepths.every(
+            (d, i) => i === 0 || d >= sessionDepths[i - 1]
+          );
+          const isFalling = last < first;
+          const isStuck = stuckOnPages.length > 0 && !isProgressive;
+          if (isProgressive) return 'progressive';
+          if (isFalling) return 'falling';
+          if (isStuck) return 'stuck';
+          return 'single';
+        })();
+
         return {
           recipientEmail: email || `Anonymous (${viewerId?.substring(0, 8)})`,
           totalTimeOnDoc: formatTime(totalTime),
@@ -508,6 +553,9 @@ recommendedAction,
           neverOpened,
           firstOpened: firstLog?.timestamp || null,
           pageData,
+          sessionDepths,
+          progressionPattern,
+          stuckOnPages,
         };
       })
     );
