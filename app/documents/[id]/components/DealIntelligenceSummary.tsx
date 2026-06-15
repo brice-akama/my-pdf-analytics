@@ -1,3 +1,4 @@
+//app/documents/[id]/components/dealIntelligenceSummary
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -75,7 +76,7 @@ const MOMENTUM_CONFIG: Record<MomentumState, {
 }> = {
   accelerating: {
     label: 'Accelerating',
-    sublabel: 'Engagement is building — act now',
+   sublabel: 'Engagement is building across sessions',
     icon: <ArrowUpRight className="h-5 w-5" />,
     barColor: 'bg-emerald-500',
     bgColor: 'bg-emerald-50',
@@ -86,7 +87,7 @@ const MOMENTUM_CONFIG: Record<MomentumState, {
   },
   holding: {
     label: 'Holding Steady',
-    sublabel: 'Deal is alive — a nudge will help',
+    sublabel: 'Activity present — no strong direction yet',
     icon: <ArrowRight className="h-5 w-5" />,
     barColor: 'bg-amber-400',
     bgColor: 'bg-amber-50',
@@ -97,7 +98,7 @@ const MOMENTUM_CONFIG: Record<MomentumState, {
   },
   fading: {
     label: 'Fading',
-    sublabel: 'Window is narrowing — act urgently',
+     sublabel: 'Engagement dropping — mixed signals',
     icon: <ArrowDownRight className="h-5 w-5" />,
     barColor: 'bg-orange-500',
     bgColor: 'bg-orange-50',
@@ -108,7 +109,7 @@ const MOMENTUM_CONFIG: Record<MomentumState, {
   },
   stalled: {
     label: 'Stalled',
-    sublabel: 'Engagement has stopped — different approach needed',
+     sublabel: 'No recent activity detected',
     icon: <OctagonX className="h-5 w-5" />,
     barColor: 'bg-slate-400',
     bgColor: 'bg-slate-50',

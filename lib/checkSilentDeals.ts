@@ -1,3 +1,4 @@
+//app/lib/checkSilentDeals.ts
 import { notifyDealInsight, isSlackConnected } from './integrations/slack';
 import { syncDealInsightToHubSpot, isHubSpotConnected } from './integrations/hubspotSync';
 import { sendDealInsightEmail } from './documentNotifications';
@@ -33,55 +34,51 @@ export function buildNarrative({
   trigger: 'session_end' | 'gone_silent' | 'behavioral';
 }): string {
   const parts: string[] = [];
+  const absenceParts: string[] = [];
 
-  // Re-reads
+  // Re-reads — list all pages, not just the top one
   if (reReadPages.length > 0) {
-    const top = reReadPages[0];
-    parts.push(
-      `Page ${top.page} was re-read ${top.count} time${top.count > 1 ? 's' : ''}`
-    );
+    const pageList = reReadPages
+      .map(p => `page ${p.page} (${p.count}×)`)
+      .join(', ');
+    parts.push(`returned to ${pageList} across multiple sessions`);
   }
 
   // Video replays
   if (videoReplays.length > 0) {
     const top = videoReplays[0];
-    parts.push(
-      `watched the page ${top.page} video ${top.count} time${top.count > 1 ? 's' : ''}`
-    );
+    parts.push(`replayed the video on page ${top.page} ${top.count} time${top.count > 1 ? 's' : ''}`);
   }
 
   // Back navigation
   if (backNavigations.length > 0) {
-    parts.push(
-      `jumped back to page ${backNavigations[0]}`
-    );
+    parts.push(`navigated back to page ${backNavigations[0]}`);
   }
 
   // Engagement dropping
   if (engagementDropping) {
-    parts.push('engagement is dropping across visits');
+    parts.push(`engagement is dropping across sessions`);
   }
 
-  // Never forwarded
+  // Never forwarded goes to absenceParts — it's context, not a signal
   if (neverForwarded) {
-    parts.push('no one else has opened this doc');
+    absenceParts.push(`no one else from the same company has opened this document`);
   }
 
   // Silence
   if (trigger === 'gone_silent' && daysSilent) {
-    parts.push(`gone silent for ${daysSilent} days`);
+    parts.push(`gone quiet for ${daysSilent} days after earlier engagement`);
   }
 
-  if (parts.length === 0) {
-    return 'Unusual engagement pattern detected.';
-  }
+  if (parts.length === 0) return 'Engagement pattern detected but signals are mixed.';
 
-  // Join into one readable sentence
-  const sentence = parts.length === 1
-    ? parts[0]
-    : parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
+  const observed = parts.slice(0, -1).join(', ') + (parts.length > 1 ? ' and ' : '') + parts[parts.length - 1];
+  const absence = absenceParts.length > 0 ? ` Note: ${absenceParts.join(', ')}.` : '';
+  const confidence = parts.length >= 2
+    ? 'Multiple signals detected.'
+    : 'Single signal — treat with caution.';
 
-  return sentence.charAt(0).toUpperCase() + sentence.slice(1) + '.';
+  return `${observed.charAt(0).toUpperCase() + observed.slice(1)}.${absence} ${confidence} Your read on the relationship will matter more than this data alone.`;
 }
 
 // ── Detect behavioral signals from page logs ──────────────────────

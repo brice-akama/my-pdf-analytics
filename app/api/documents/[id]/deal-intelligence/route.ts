@@ -203,7 +203,10 @@ export async function POST(
             summary = `${email} last engaged with this document ${signals.daysSinceLastView} days ago and has not returned since. Their earlier engagement suggested interest but the prolonged silence points to a stalled or lost deal.`;
              recommendation = `Signal detected (low confidence): ${signals.daysSinceLastView} days of silence after earlier engagement. This pattern often indicates a stalled deal but external factors you cannot see may also explain the silence. If you decide to act, a short message acknowledging the gap without guilt tends to perform better than another pitch. Whether to send it or archive the deal is your call based on the broader relationship context.`;
           } else {
-            summary = `${email} has shown multiple signals of disengagement. Despite opening the document, their reading pattern and subsequent silence suggest this deal is unlikely to progress without a significant change in approach.`;
+            summary = `${email} has shown patterns that can indicate disengagement — limited 
+reading depth and silence after the initial open. This pattern sometimes reflects 
+a lost deal, but it can equally reflect poor timing or a busy period on their side. 
+The data alone cannot distinguish between these.`;
             recommendation = `Signal detected (low confidence): Multiple disengagement signals detected. The data suggests this deal may need a different approach if you choose to pursue it. A completely different angle rather than repeating the same message is generally more effective at this stage. Only you know whether the relationship warrants another attempt.`;
           }
 
@@ -241,7 +244,10 @@ export async function POST(
           const fallingNote = depths.length >= 2
             ? ` Their first visit reached page ${depths[0]} but their most recent visit only reached page ${depths[depths.length - 1]}.`
             : '';
-          summary = `${email} has returned to this document multiple times but is reading less of it with each visit.${fallingNote} Declining depth across sessions is a clear signal that initial interest is fading and without a new angle this deal is likely to go cold.`;
+          summary = `${email} has returned to this document multiple times but is reading less of it with each visit.${fallingNote} Reading depth has decreased across their sessions — they are reaching 
+fewer pages each time they return. This pattern can indicate fading interest but 
+can also reflect time pressure or distraction. Whether to act on it and how is 
+your judgment call based on the broader relationship.`;
           recommendation = `Signal detected (medium confidence): Declining reading depth across sessions suggests initial interest may be fading. This pattern sometimes indicates internal changes at the prospect's organisation rather than loss of interest. A different angle or a direct question about whether priorities have shifted tends to work better than repeating the original message. Your knowledge of the broader situation should guide whether to act now or wait.`;
 
         // ── HOT — re-reads + multiple sessions + recent ───────────
