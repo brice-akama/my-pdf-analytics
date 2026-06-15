@@ -396,13 +396,14 @@ export default function DealIntelligenceSummary({ documentId, analytics, totalPa
 
         {/* Early signal card — only shows in first 72 hours */}
         {analytics?.recipientPageTracking?.length > 0 && (
-          <EarlySignalCard
-            recipientPageTracking={analytics.recipientPageTracking}
-            revisitData={analytics.revisitData}
-            totalPages={totalPages}
-            lastViewed={analytics.lastViewed}
-          />
-        )}
+  <EarlySignalCard
+    recipientPageTracking={analytics.recipientPageTracking}
+    revisitData={analytics.revisitData}
+    totalPages={totalPages}
+    lastViewed={analytics.lastViewed}
+    currentMomentumState={summaries[0]?.momentumState || 'holding'}
+  />
+)}
 
         {/* Secondary viewer insight — only shows when internal sharing detected */}
         {analytics?.recipientPageTracking?.length >= 2 && (

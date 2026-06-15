@@ -1,3 +1,6 @@
+
+//app/documents/[id]/components/EarlySignalCard
+
 'use client';
 
 import React from 'react';
@@ -30,6 +33,7 @@ type Props = {
   revisitData: RevisitData | null;
   totalPages: number;
   lastViewed: string | null;
+  currentMomentumState?: 'accelerating' | 'holding' | 'fading' | 'stalled';
 };
 
 function formatTime(seconds: number): string {
@@ -52,6 +56,7 @@ export function EarlySignalCard({
   revisitData,
   totalPages,
   lastViewed,
+  currentMomentumState = 'holding',
 }: Props) {
 
   // Only show within first 72 hours of first open
@@ -145,7 +150,16 @@ export function EarlySignalCard({
     ? 'strong'
     : 'positive';
 
-  const narrative = `This proposal is showing ${strengthLabel} early engagement. ${hoursNote.charAt(0).toUpperCase() + hoursNote.slice(1)} the viewer has ${signalText}. Early patterns at this level are worth noting — they often indicate the document is being taken seriously rather than filed away. How and whether to act on this is best judged against what you know about the relationship and where things stand.`;
+ const momentumQualifier =
+  currentMomentumState === 'fading'
+    ? `However, more recent sessions show declining reading depth — they are not going as deep into the document as their first visit. The early signal was real but momentum has since shifted. Both patterns are visible in the data and both matter.`
+    : currentMomentumState === 'stalled'
+    ? `However, there has been no activity since that early engagement. The initial signal was genuine but the silence since then changes the picture.`
+    : currentMomentumState === 'accelerating'
+    ? `More recent sessions confirm this pattern is continuing — they are reading deeper into the document with each return. The early signal and current momentum are pointing in the same direction.`
+    : `Current engagement is holding steady since that early activity.`;
+
+const narrative = `This proposal is showing ${strengthLabel} early engagement. ${hoursNote.charAt(0).toUpperCase() + hoursNote.slice(1)} the viewer has ${signalText}. Early patterns at this level are worth noting — they often indicate the document is being taken seriously rather than filed away. ${momentumQualifier} How and whether to act on this is best judged against what you know about the relationship and where things stand.`;
 
   return (
     <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 mt-3">
