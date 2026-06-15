@@ -999,20 +999,80 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
     if (reReadPages.length === 0 && videoReplays.length === 0) continue;
 
     // Build narrative for this specific viewer
-    const parts: string[] = [];
+    // AFTER
+const totalDocPages = document.numPages || 1;
+const reReadPageNumbers = reReadPages.map(p => p.page);
+const allPagesReRead = reReadPageNumbers.length >= totalDocPages;
+const isSelective = reReadPageNumbers.length <= 3;
+
+// Find the furthest page they re-read — this is where they stopped
+const furthestReRead = reReadPageNumbers.length > 0
+  ? Math.max(...reReadPageNumbers)
+  : null;
+
+// Pages they did NOT return to — potential stopping point signal
+const pagesNotReRead = Array.from(
+  { length: totalDocPages }, (_, i) => i + 1
+).filter(p => !reReadPageNumbers.includes(p));
+
+const firstSkippedAfterReRead = pagesNotReRead.find(
+  p => furthestReRead !== null && p > furthestReRead
+);
+
+// Max re-read count across all pages for this viewer
+const maxReReadCount = reReadPages.length > 0
+  ? Math.max(...reReadPages.map(p => p.count))
+  : 0;
+
+let narrative = '';
+
 if (reReadPages.length > 0) {
-  const pageList = reReadPages
-    .map(p => `page ${p.page} (${p.count}×)`)
-    .join(', ');
-  parts.push(`Pages ${pageList} were re-read across sessions`);
+  if (allPagesReRead) {
+    // Full re-read — strong evaluation signal
+    narrative =
+      `${recipient.recipientEmail} has read this document ${maxReReadCount} times in full across multiple sessions. ` +
+      `Reading a proposal end-to-end more than once typically indicates serious evaluation or internal preparation — ` +
+      `this is a stronger signal than a single thorough read.`;
+
+  } else if (isSelective) {
+    // Returned to only 1–3 specific pages — question or hesitation signal
+    const pageList = reReadPages
+      .sort((a, b) => a.page - b.page)
+      .map(p => `page ${p.page}`)
+      .join(' and ');
+    narrative =
+      `${recipient.recipientEmail} returned specifically to ${pageList} without reading the surrounding pages again. ` +
+      `Returning to isolated pages rather than reading linearly almost always means those pages raised a specific question ` +
+      `or contain information they needed to revisit. ` +
+      `These are the pages worth addressing directly if you follow up.`;
+
+  } else {
+    // Partial re-read — stopped at a specific point
+    const reReadRange = `pages 1–${furthestReRead}`;
+    const skippedNote = firstSkippedAfterReRead
+      ? ` They did not return to page ${firstSkippedAfterReRead} onward in their second session.`
+      : '';
+    narrative =
+      `${recipient.recipientEmail} returned to ${reReadRange} in a second session but did not continue past page ${furthestReRead}.${skippedNote} ` +
+      `The pages they revisited are not necessarily the problem — ` +
+      `the point where they stopped is where a question or hesitation may be developing.`;
+  }
+
+  // Add video replay note if present
+  if (videoReplays.length > 0) {
+    const top = videoReplays[0];
+    narrative += ` They also replayed the video on page ${top.page} ${top.count} time${top.count > 1 ? 's' : ''}, which reinforces that page as an area of specific interest.`;
+  }
+
+} else if (videoReplays.length > 0) {
+  // Video replays only — no re-reads
+  const top = videoReplays[0];
+  narrative =
+    `${recipient.recipientEmail} replayed the video on page ${top.page} ${top.count} time${top.count > 1 ? 's' : ''}. ` +
+    `Replaying a video almost always means either the content resonated strongly or it raised a question they are trying to resolve.`;
 }
 
-    if (videoReplays.length > 0) {
-      const top = videoReplays[0];
-      parts.push(`the page ${top.page} video was replayed ${top.count} time${top.count > 1 ? 's' : ''}`);
-    }
-
-    const narrative = parts.join(' and ') + '. They may need help justifying this internally.';
+if (!narrative) narrative = 'Engagement pattern detected across sessions.';
 
     allViewerInsights.push({
       viewerEmail: recipient.recipientEmail,

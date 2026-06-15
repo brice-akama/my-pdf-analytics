@@ -427,25 +427,36 @@ const mostEngagedContacts = await Promise.all(
             videoReplays: typeof videoReplays;
           } | null = null;
 
-          if (reReadPages.length > 0 || videoReplays.length > 0) {
-            const parts: string[] = [];
-            
-if (reReadPages.length > 0) {
-  const pageList = reReadPages
-    .map(p => `page ${p.page} of "${p.docName}" (${p.count}×)`)
-    .join(', ');
-  parts.push(`Pages ${pageList} were re-read across sessions`);
-}
+         if (reReadPages.length > 0 || videoReplays.length > 0) {
+            let narrative = '';
+
+            if (reReadPages.length > 0) {
+              const isSelective = reReadPages.length <= 3;
+
+              if (isSelective) {
+                const pageList = reReadPages
+                  .map(p => `page ${p.page} of "${p.docName}" (${p.count}×)`)
+                  .join(', ');
+                narrative = `This contact returned specifically to ${pageList} across sessions. Returning to isolated pages rather than re-reading broadly often means those sections raised a specific question worth addressing directly.`;
+              } else {
+                const pageList = reReadPages
+                  .map(p => `page ${p.page} of "${p.docName}" (${p.count}×)`)
+                  .join(', ');
+                narrative = `This contact has re-read several sections across documents — ${pageList}. Broad re-reading across multiple pages often indicates serious evaluation or internal preparation.`;
+              }
+            }
+
             if (videoReplays.length > 0) {
               const top = videoReplays[0];
-              parts.push(
-                `the page ${top.page} video in "${top.docName}" was replayed ${top.count} time${top.count > 1 ? 's' : ''}`
-              );
+              const videoNote = `the page ${top.page} video in "${top.docName}" was replayed ${top.count} time${top.count > 1 ? 's' : ''}`;
+              narrative = narrative
+                ? `${narrative} They also replayed ${videoNote}, which reinforces that section as an area of specific interest.`
+                : `This contact replayed ${videoNote}. Replaying a video often means either the content resonated strongly or it raised a question they are trying to resolve.`;
             }
-            const narrative = parts.join(' and ') + '. They may need help justifying this internally.';
+
             dealInsight = {
               narrative,
-               reReadPages,
+              reReadPages,
               videoReplays,
             };
           }
