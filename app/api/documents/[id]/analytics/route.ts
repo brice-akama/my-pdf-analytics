@@ -1226,8 +1226,9 @@ if (!narrative) narrative = 'Engagement pattern detected across sessions.';
             ),
         })),
 
-        committeeGrowing,
-        committeeSize,
+        committeeGrowing: committeeGrowingFinal,
+        committeeSize: committeeSizeFinal,
+        committeeConfidence,
         prospectDomain,
         recommendedAction,
         secondaryViewerEngagement,
