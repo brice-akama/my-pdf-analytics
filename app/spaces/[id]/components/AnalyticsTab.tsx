@@ -21,6 +21,7 @@ import {
   Loader2
 } from "lucide-react"
 import { toast } from "sonner"
+import { SpaceDealLevelSummary } from "./SpaceDealLevelSummary"
 
 type ShareLinkStat = {
   shareLink: string
@@ -67,6 +68,18 @@ type AnalyticsData = {
     dealHeatScore: number
     totalShareLinks: number
   }
+  committeeGrowing?: boolean
+  committeeSize?: number
+  committeeConfidence?: 'domain_confirmed' | 'link_only' | 'none'
+  prospectDomain?: string
+  recommendedAction?: string
+  secondaryViewerEngagement?: {
+    email: string
+    docsOpened: number
+    totalEvents: number
+    engagementQuality: 'high' | 'medium' | 'low'
+  }[]
+  hasHighQualitySecondaryViewer?: boolean
   shareLinks: ShareLinkStat[]
   visitors: Array<{
     email: string
@@ -252,6 +265,21 @@ export function AnalyticsTab({ spaceId, spaceName }: { spaceId: string; spaceNam
           </div>
         ))}
       </div>
+
+     {/* Committee / Internal Circulation Summary */}
+      {data.committeeGrowing && (data.committeeSize ?? 0) >= 2 && (
+        <SpaceDealLevelSummary
+          committeeGrowing={data.committeeGrowing}
+          committeeSize={data.committeeSize ?? 1}
+          committeeConfidence={data.committeeConfidence}
+          prospectDomain={data.prospectDomain ?? 'the prospect company'}
+          recommendedAction={data.recommendedAction ?? ''}
+          secondaryViewerEngagement={data.secondaryViewerEngagement ?? []}
+          hasHighQualitySecondaryViewer={data.hasHighQualitySecondaryViewer ?? false}
+          totalVisitors={data.overview.uniqueVisitors}
+          lastActivity={data.overview.lastActivity}
+        />
+      )}
 
       {/* Activity Chart */}
       <div className="bg-white rounded-xl border p-4 lg:p-5">

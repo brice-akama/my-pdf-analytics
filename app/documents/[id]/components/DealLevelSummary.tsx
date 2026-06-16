@@ -642,11 +642,13 @@ export function DealLevelSummary(props: DealLevelSummaryProps) {
       )}
 
       {/* Disclaimer */}
-      <p className="text-[11px] text-slate-400 leading-relaxed">
-        {committeeSize >= 2
-          ? `These signals combine behaviour from ${committeeSize} viewers at ${prospectDomain}. Your knowledge of the account and relationship context will always matter more than any single data point here.`
-          : `These signals reflect your primary contact only. The picture becomes significantly clearer when a second viewer from the same company appears.`}
-      </p>
+<p className="text-[11px] text-slate-400 leading-relaxed">
+  {committeeSize >= 2
+    ? props.committeeConfidence === 'link_only'
+      ? `These signals combine behaviour from ${committeeSize} viewers who opened this document using the same link. Their company relationship is not confirmed by email domain. Your knowledge of the account and relationship context will always matter more than any single data point here.`
+      : `These signals combine behaviour from ${committeeSize} viewers at ${prospectDomain}. Your knowledge of the account and relationship context will always matter more than any single data point here.`
+    : `These signals reflect your primary contact only. The picture becomes significantly clearer when a second viewer from the same company appears.`}
+</p>
 
     </div>
   );

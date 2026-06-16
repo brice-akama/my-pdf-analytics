@@ -82,15 +82,30 @@ export async function GET(
           return acc;
         }, {});
 
-      const spaceCommitteeSize = Math.max(
+      const basicDomainCommitteeSize = Math.max(
         ...Object.values(basicDomainViewers).map((v: any) => v.length),
         1
       );
-      const spaceCommitteeGrowing = spaceCommitteeSize >= 2;
+      const basicDomainCommitteeGrowing = basicDomainCommitteeSize >= 2;
       const spaceProspectDomain = Object.keys(basicDomainViewers)[0] || 'the prospect company';
-      const spaceRecommendedAction = spaceCommitteeGrowing
-  ? `Signal detected (high confidence): ${spaceCommitteeSize} people from ${spaceProspectDomain} have accessed this space. This may indicate internal circulation. Consider asking your champion who else is now involved before sending any follow up.`
-  : `Signal detected (low confidence): Single viewer engagement only. Monitor before acting.`;
+
+      const basicIdentifiedEmails = new Set(
+        logsBasic.filter((l: any) => l.visitorEmail).map((l: any) => l.visitorEmail)
+      );
+      const basicSharedMultiViewer = basicIdentifiedEmails.size >= 2 && !basicDomainCommitteeGrowing;
+
+      const spaceCommitteeSize = Math.max(basicDomainCommitteeSize, basicIdentifiedEmails.size);
+      const spaceCommitteeGrowing = basicDomainCommitteeGrowing || basicSharedMultiViewer;
+      const basicCommitteeConfidence: 'domain_confirmed' | 'link_only' | 'none' =
+        basicDomainCommitteeGrowing ? 'domain_confirmed'
+        : basicSharedMultiViewer ? 'link_only'
+        : 'none';
+
+      const spaceRecommendedAction = basicCommitteeConfidence === 'domain_confirmed'
+        ? `Signal detected (high confidence): ${spaceCommitteeSize} people from ${spaceProspectDomain} have accessed this space. This may indicate internal circulation. Consider asking your champion who else is now involved before sending any follow up.`
+        : basicCommitteeConfidence === 'link_only'
+        ? `Signal detected (medium confidence): ${spaceCommitteeSize} different people have accessed this space. Their email addresses don't share a company domain. More than one person is looking at this regardless.`
+        : `Signal detected (low confidence): Single viewer engagement only. Monitor before acting.`;
 
       return NextResponse.json({
         success: true,
@@ -107,6 +122,8 @@ export async function GET(
           },
            committeeGrowing: spaceCommitteeGrowing,
           committeeSize: spaceCommitteeSize,
+          committeeConfidence: basicCommitteeConfidence,
+          prospectDomain: spaceProspectDomain,
           recommendedAction: spaceRecommendedAction,
           shareLinks:  [],
           visitors:    [],
@@ -135,6 +152,7 @@ export async function GET(
     ).size;
 
     // ── Buying committee growth detection ─────────────────────────
+  // ── Buying committee growth detection ─────────────────────────
    const spaceDomainViewers = logs
       .filter((l: any) => l.visitorEmail)
       .reduce((acc: Record<string, string[]>, l: any) => {
@@ -145,12 +163,30 @@ export async function GET(
         return acc;
       }, {});
 
-   const fullCommitteeSize = Math.max(
+   const domainCommitteeSize = Math.max(
       ...Object.values(spaceDomainViewers).map((v: any) => v.length),
       1
     );
-    const fullCommitteeGrowing = fullCommitteeSize >= 2;
+    const domainCommitteeGrowing = domainCommitteeSize >= 2;
     const spaceProspectDomain = Object.keys(spaceDomainViewers)[0] || 'the prospect company';
+
+    // ── Fallback — same space link, different/free email providers ──
+    // Mirrors the document-level fix. Domain matching misses cases
+    // where someone shares the space link to a personal Gmail/Outlook
+    // address. If 2+ distinct identified emails accessed this SAME
+    // space, that's still sharing — just not confirmed as same company.
+    const identifiedEmailsInSpace = new Set(
+      logs.filter((l: any) => l.visitorEmail).map((l: any) => l.visitorEmail)
+    );
+    const maxSharedSpaceViewers = identifiedEmailsInSpace.size;
+    const sharedSpaceMultiViewer = maxSharedSpaceViewers >= 2 && !domainCommitteeGrowing;
+
+    const fullCommitteeSize = Math.max(domainCommitteeSize, maxSharedSpaceViewers);
+    const fullCommitteeGrowing = domainCommitteeGrowing || sharedSpaceMultiViewer;
+    const spaceCommitteeConfidence: 'domain_confirmed' | 'link_only' | 'none' =
+      domainCommitteeGrowing ? 'domain_confirmed'
+      : sharedSpaceMultiViewer ? 'link_only'
+      : 'none';
 
     // ── Secondary viewer engagement quality for spaces ────────────
     // Score each secondary visitor by number of documents opened
@@ -183,10 +219,16 @@ export async function GET(
       (v: any) => v.engagementQuality === 'high'
     );
 
-    const fullRecommendedAction = fullCommitteeGrowing
+   const spaceGroupLabel = spaceCommitteeConfidence === 'link_only'
+      ? `${fullCommitteeSize} different people`
+      : `${fullCommitteeSize} people from ${spaceProspectDomain}`;
+
+    const fullRecommendedAction = spaceCommitteeConfidence === 'domain_confirmed'
       ? spaceHasHighQualitySecondary
-        ? `Signal detected (high confidence): ${fullCommitteeSize} people from ${spaceProspectDomain} have accessed this space and at least one secondary visitor opened multiple documents actively. This indicates genuine internal evaluation beyond a passive forward. Ask your champion who else is now involved and what each person cares about most before sending any follow up.`
-        : `Signal detected (high confidence): ${fullCommitteeSize} people from ${spaceProspectDomain} have accessed this space. Secondary visitor engagement is present but moderate. Monitor whether secondary viewers return before deciding to act.`
+        ? `Signal detected (high confidence): ${spaceGroupLabel} have accessed this space and at least one secondary visitor opened multiple documents actively. This indicates genuine internal evaluation beyond a passive forward. Ask your champion who else is now involved and what each person cares about most before sending any follow up.`
+        : `Signal detected (high confidence): ${spaceGroupLabel} have accessed this space. Secondary visitor engagement is present but moderate. Monitor whether secondary viewers return before deciding to act.`
+      : spaceCommitteeConfidence === 'link_only'
+      ? `Signal detected (medium confidence): ${spaceGroupLabel} have accessed this space. Their email addresses don't share a company domain, so this may be personal email used for business, or the space link forwarded outside the original company. More than one person is now looking at this regardless. Asking your contact who else has seen it may clarify the picture.`
       : `Signal detected (low confidence): Engagement is from a single viewer. No internal sharing pattern detected yet. A context-based follow up may be appropriate depending on your relationship and sales stage.`;
 
     const lastActivity = logs.length > 0 ? logs[0].timestamp : null;
@@ -548,10 +590,17 @@ export async function GET(
           : 999;
 
         // Secondary viewer detection — another person from same company domain
+       // Secondary viewer detection — another person from same company domain
+        // Free providers (gmail.com, outlook.com etc) are excluded from domain
+        // matching since two strangers on gmail.com are not "the same company"
         const visitorDomain = visitor.email.includes('@')
           ? visitor.email.split('@')[1].toLowerCase()
           : null;
-        const secondaryViewers = visitorDomain
+        const visitorIsFreeDomain = visitorDomain
+          ? FREE_EMAIL_DOMAINS_SPACE.has(visitorDomain)
+          : true;
+
+        const secondaryViewers = (visitorDomain && !visitorIsFreeDomain)
           ? visitors.filter(v =>
               v.email !== visitor.email &&
               v.email.includes('@') &&
@@ -559,6 +608,19 @@ export async function GET(
             )
           : [];
         const hasInternalSharing = secondaryViewers.length > 0;
+
+        // ── Link-only fallback — free domain viewers on the SAME space ──
+        // Two Gmail/Outlook users opening the same space within a short
+        // window is still a signal worth surfacing, just not confirmed
+        // as "same company." Tracked separately so narrative stays honest.
+        const sameSpaceFreeViewers = visitorIsFreeDomain
+          ? visitors.filter(v =>
+              v.email !== visitor.email &&
+              v.email.includes('@') &&
+              FREE_EMAIL_DOMAINS_SPACE.has(v.email.split('@')[1]?.toLowerCase() || '')
+            )
+          : [];
+        const hasLinkOnlySharing = sameSpaceFreeViewers.length > 0;
 
         // Document coverage — what percentage of space docs did they open
         const docsOpened = new Set(
@@ -604,6 +666,8 @@ export async function GET(
         if (momentumState === 'accelerating') {
           if (hasInternalSharing) {
             narrative = `${visitor.email} has opened this space and a second person from ${visitorDomain} has also accessed it. The space may have been shared internally — though the data alone cannot confirm that. Your read on the relationship will matter more than this signal.`;
+          } else if (hasLinkOnlySharing) {
+            narrative = `${visitor.email} has opened this space and ${sameSpaceFreeViewers.length} other ${sameSpaceFreeViewers.length === 1 ? 'person' : 'people'} using personal email${sameSpaceFreeViewers.length === 1 ? '' : 'es'} have also accessed it. Their addresses don't share a company domain, so this may be personal email used for business, or the link forwarded outside the original company. More than one person is looking at this regardless.`;
           } else if (reReadDocs.length > 0) {
             narrative = `${visitor.email} has returned to this space ${reReadDocs[0].sessionCount} times and keeps coming back to ${reReadDocs[0].docName}. This pattern of returning to specific content often indicates an unresolved question or active evaluation.`;
           } else {
@@ -763,6 +827,8 @@ export async function GET(
         dailyVisits,
         committeeGrowing: fullCommitteeGrowing,
         committeeSize: fullCommitteeSize,
+        committeeConfidence: spaceCommitteeConfidence,
+        prospectDomain: spaceProspectDomain,
         recommendedAction: fullRecommendedAction,
         secondaryViewerEngagement: spaceSecondaryEngagement,
         hasHighQualitySecondaryViewer: spaceHasHighQualitySecondary,
