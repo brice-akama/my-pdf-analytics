@@ -21,6 +21,7 @@ type DealLevelSummaryProps = {
   committeeGrowing: boolean;
   committeeSize: number;
   prospectDomain: string;
+  committeeConfidence?: 'domain_confirmed' | 'link_only' | 'none';
   secondaryViewerEngagement?: {
     email: string;
     totalTimeSeconds: number;
@@ -93,10 +94,18 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
     committeeGrowing,
     committeeSize,
     prospectDomain,
+    committeeConfidence = 'domain_confirmed',
     secondaryViewerEngagement = [],
     hasHighQualitySecondaryViewer = false,
     daysSinceLastActivity,
   } = props;
+
+  // When committee detection came from matching share links rather than
+  // a confirmed company domain, describe the group honestly instead of
+  // implying we know they work at the same place.
+  const groupLabel = committeeConfidence === 'link_only'
+    ? `${committeeSize} different people`
+    : `${committeeSize} people from ${prospectDomain}`;
 
   const totalViewers = viewers.length;
   const hotViewers = viewers.filter(v => v.dealStatus === 'hot').length;
@@ -235,11 +244,13 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
       icon: <TrendingUp className="h-4 w-4 text-green-600" />,
-
-      whatHappened:
-        `${committeeSize} people from ${prospectDomain} have opened this document.` +
-        deepReaderDetail +
-        noiseNote,
+whatHappened:
+  `${groupLabel} have opened this document.` +
+  (committeeConfidence === 'link_only'
+    ? ` Their email addresses don't share a company domain, so this may be a personal email being used for business, or the document being shared outside the original company.`
+    : '') +
+  deepReaderDetail +
+  noiseNote,
 
       whatItMeans:
         `When a secondary viewer spends this much time reading, the document has moved beyond a courtesy forward. ` +
@@ -252,7 +263,7 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
         `not about the document itself, but about whether there are questions on their side you could help address. ` +
         `Reps who know this account will have a better read on timing than the data alone.`,
 
-      confidence: 'high',
+      confidence: committeeConfidence === 'link_only' ? 'medium' : 'high',
       evidence,
     };
   }
@@ -276,9 +287,11 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       .join(', ');
 
     const confidenceLevel: 'high' | 'medium' | 'low' =
-      deepReaders.length > 0 ? 'high'
-      : moderateReaders.length > 0 ? 'medium'
-      : 'medium';
+  committeeConfidence === 'link_only'
+    ? 'medium'
+    : deepReaders.length > 0 ? 'high'
+    : moderateReaders.length > 0 ? 'medium'
+    : 'medium';
 
     const actionByDepth =
       deepReaders.length > 0
@@ -302,10 +315,13 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
       icon: <Users className="h-4 w-4 text-blue-600" />,
 
       whatHappened:
-        `${committeeSize} people from ${prospectDomain} have opened this document. ` +
-        (engagementBreakdown
-          ? `Across the secondary viewers: ${engagementBreakdown}.`
-          : ''),
+  `${groupLabel} have opened this document. ` +
+  (committeeConfidence === 'link_only'
+    ? `Their email addresses don't share a company domain, so this may be a personal email or the link forwarded outside the original company. `
+    : '') +
+  (engagementBreakdown
+    ? `Across the secondary viewers: ${engagementBreakdown}.`
+    : ''),
 
       whatItMeans:
         `The document has moved beyond your original contact. ` +
@@ -534,10 +550,12 @@ export function DealLevelSummary(props: DealLevelSummaryProps) {
               : 'Low confidence'}
           </span>
           {committeeSize >= 2 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-              {committeeSize} viewers from {prospectDomain}
-            </span>
-          )}
+  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+    {props.committeeConfidence === 'link_only'
+      ? `${committeeSize} viewers, same link`
+      : `${committeeSize} viewers from ${prospectDomain}`}
+  </span>
+)}
           {daysSinceLastActivity > 0 && (
             <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 flex items-center gap-1">
               <Clock className="h-2.5 w-2.5" />

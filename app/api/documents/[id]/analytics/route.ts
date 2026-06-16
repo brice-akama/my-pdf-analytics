@@ -151,6 +151,38 @@ const committeeSize = Math.max(
 const committeeGrowing = committeeSize >= 2;
 const prospectDomain = Object.keys(uniqueDomainViewers)[0] || 'the prospect company';
 
+// ── Fallback committee detection — for free email providers ───
+// Domain matching misses cases where someone forwards a share link
+// to a personal Gmail/Outlook address. If 2+ distinct identified
+// viewers used the SAME share link, that is still internal sharing —
+// it just cannot be confirmed as the same company by domain alone.
+const identifiedEmailsByShare = new Map<string, Set<string>>();
+allSessions.forEach((s: any) => {
+  if (!s.email || !s.shareToken) return;
+  if (!identifiedEmailsByShare.has(s.shareToken)) {
+    identifiedEmailsByShare.set(s.shareToken, new Set());
+  }
+  identifiedEmailsByShare.get(s.shareToken)!.add(s.email);
+});
+
+const maxSharedLinkViewers = Math.max(
+  ...Array.from(identifiedEmailsByShare.values()).map(set => set.size),
+  0
+);
+
+// True if multiple distinct people opened the SAME link, even on free email
+const sharedLinkMultiViewer = maxSharedLinkViewers >= 2;
+
+// Final committee signal — domain match OR same-link multi-viewer
+const committeeSizeFinal = Math.max(committeeSize, maxSharedLinkViewers);
+const committeeGrowingFinal = committeeGrowing || sharedLinkMultiViewer;
+
+// Distinguish HOW we know — domain-confirmed vs link-only
+const committeeConfidence: 'domain_confirmed' | 'link_only' | 'none' =
+  committeeGrowing ? 'domain_confirmed'
+  : sharedLinkMultiViewer ? 'link_only'
+  : 'none';
+
 // ── Secondary viewer engagement quality scoring ───────────────
 // Izzy insight: a viewer spending 8 minutes on pricing is
 // categorically different from one who opens for 12 seconds.
@@ -203,12 +235,14 @@ const hasMediumQualitySecondaryViewer = secondaryViewerEngagement.some(
 );
 
 // Build recommended action based on committee size AND engagement quality
-const recommendedAction = committeeGrowing
+const recommendedAction = committeeConfidence === 'domain_confirmed'
   ? hasHighQualitySecondaryViewer
-    ? `Signal detected (high confidence): ${committeeSize} people from ${prospectDomain} have opened your proposal and at least one secondary viewer spent significant time engaging with specific sections. This is not a passive forward. Someone beyond your original contact is actively evaluating this. Ask your champion who else is now involved and what each person cares about most before sending any follow up.`
+    ? `Signal detected (high confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal and at least one secondary viewer spent significant time engaging with specific sections. This is not a passive forward. Someone beyond your original contact is actively evaluating this. Ask your champion who else is now involved and what each person cares about most before sending any follow up.`
     : hasMediumQualitySecondaryViewer
-    ? `Signal detected (high confidence): ${committeeSize} people from ${prospectDomain} have opened your proposal. Secondary viewers show moderate engagement. The proposal is circulating internally but evaluation depth varies. Consider asking your champion who else is involved before following up.`
-    : `Signal detected (medium confidence): ${committeeSize} people from ${prospectDomain} have opened your proposal but secondary viewers opened briefly. This may be a passive forward rather than active internal evaluation. Monitor for return visits from secondary viewers before acting.`
+    ? `Signal detected (high confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal. Secondary viewers show moderate engagement. The proposal is circulating internally but evaluation depth varies. Consider asking your champion who else is involved before following up.`
+    : `Signal detected (medium confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal but secondary viewers opened briefly. This may be a passive forward rather than active internal evaluation. Monitor for return visits from secondary viewers before acting.`
+  : committeeConfidence === 'link_only'
+  ? `Signal detected (medium confidence): ${committeeSizeFinal} different people have opened this document using the same share link. Their email addresses do not share a company domain, so this may be a personal email being used for business, or the link being forwarded outside the original company. Either way, more than one person is now looking at this document. Asking your contact who else has seen it may clarify the picture.`
   : `Signal detected (low confidence): Engagement from a single viewer only. No internal sharing detected yet. Context-based follow up may be appropriate depending on your sales stage.`;
 
     const shares = await db.collection('shares')
@@ -251,8 +285,9 @@ const recommendedAction = committeeGrowing
           // ✅ Allowed on basic
           totalViews,
           uniqueViewers,
-          committeeGrowing,
-committeeSize,
+          committeeGrowing: committeeGrowingFinal,
+committeeSize: committeeSizeFinal,
+committeeConfidence,
 recommendedAction,
           completionRate,
           downloads,

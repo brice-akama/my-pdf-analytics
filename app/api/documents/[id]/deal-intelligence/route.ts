@@ -228,26 +228,29 @@ The data alone cannot distinguish between these.`;
           recommendation = `Signal detected (high confidence): Progressive deepening engagement across multiple sessions is one of the stronger buying signals in document analytics. A contextual follow up referencing something specific in the document tends to perform well at this stage. Asking whether others on their side should be involved is worth considering given the engagement pattern.`;
 
         // ── WARM/NEEDS HELP — stuck reader ────────────────────────
-        } else if (signals.progressionPattern === 'stuck' && hasMultipleSessions) {
-          dealStatus = 'warm';
-          const stuckPages = signals.progressionDetails.stuckOnPages;
-          const stuckNote = stuckPages.length > 0
-            ? ` They keep returning to page${stuckPages.length > 1 ? 's' : ''} ${stuckPages.join(' and ')} without moving past that section.`
-            : '';
-          summary = `${email} has opened this document ${signals.uniqueSessions} times but keeps returning to the same section each visit without progressing further.${stuckNote} This pattern almost always means something on those pages is raising a question or objection they cannot resolve on their own.`;
+       } else if (signals.progressionPattern === 'stuck' && hasMultipleSessions) {
+  dealStatus = 'warm';
+  const stuckPages = signals.progressionDetails.stuckOnPages;
+  const stuckNote = stuckPages.length > 0
+    ? ` They keep returning to page${stuckPages.length > 1 ? 's' : ''} ${stuckPages.join(' and ')} without moving past that section.`
+    : '';
+  const sessionWordStuck = signals.uniqueSessions === 2
+    ? 'twice'
+    : `${signals.uniqueSessions} times`;
+  summary = `${email} has opened this document ${sessionWordStuck} but keeps returning to the same section each visit without progressing further.${stuckNote} This pattern almost always means something on those pages is raising a question or objection they cannot resolve on their own.`;
            recommendation = `Signal detected (medium confidence): Repeated returns to the same section without progressing often indicates an unresolved question or objection on those pages. Offering to clarify that specific section directly rather than sending a generic check in tends to be more effective. A short call or written explanation both work depending on your relationship with this prospect.`;
 
         // ── COLD — falling engagement ─────────────────────────────
-        } else if (signals.progressionPattern === 'falling' && hasMultipleSessions) {
-          dealStatus = 'cold';
-          const depths = signals.progressionDetails.sessionDepths;
-          const fallingNote = depths.length >= 2
-            ? ` Their first visit reached page ${depths[0]} but their most recent visit only reached page ${depths[depths.length - 1]}.`
-            : '';
-          summary = `${email} has returned to this document multiple times but is reading less of it with each visit.${fallingNote} Reading depth has decreased across their sessions — they are reaching 
-fewer pages each time they return. This pattern can indicate fading interest but 
-can also reflect time pressure or distraction. Whether to act on it and how is 
-your judgment call based on the broader relationship.`;
+       } else if (signals.progressionPattern === 'falling' && hasMultipleSessions) {
+  dealStatus = 'cold';
+  const depths = signals.progressionDetails.sessionDepths;
+  const fallingNote = depths.length >= 2
+    ? ` Their first visit reached page ${depths[0]} but their most recent visit only reached page ${depths[depths.length - 1]}.`
+    : '';
+  const sessionWord = signals.uniqueSessions === 2
+    ? 'twice'
+    : `${signals.uniqueSessions} times`;
+  summary = `${email} has returned to this document ${sessionWord} but is reading less of it with each visit.${fallingNote} Reading depth has decreased across their sessions — they are reaching fewer pages each time they return. This pattern can indicate fading interest but can also reflect time pressure or distraction. Whether to act on it and how is your judgment call based on the broader relationship.`;
           recommendation = `Signal detected (medium confidence): Declining reading depth across sessions suggests initial interest may be fading. This pattern sometimes indicates internal changes at the prospect's organisation rather than loss of interest. A different angle or a direct question about whether priorities have shifted tends to work better than repeating the original message. Your knowledge of the broader situation should guide whether to act now or wait.`;
 
         // ── HOT — re-reads + multiple sessions + recent ───────────
@@ -485,12 +488,39 @@ const domainViewerMap = docSessions
     return acc;
   }, {});
 
-      const committeeSize = Math.max(
+      const domainCommitteeSize = Math.max(
         ...Object.values(domainViewerMap).map((v: any) => v.length),
         1
       );
-      const committeeGrowing = committeeSize >= 2;
+      const domainCommitteeGrowing = domainCommitteeSize >= 2;
       const prospectDomain = Object.keys(domainViewerMap)[0] || 'the prospect company';
+
+      // ── Fallback — same share link, different/free email providers ──
+      // Mirrors the logic in analytics/route.ts. Domain matching misses
+      // cases where someone forwards the link to a personal Gmail/Outlook
+      // address. If 2+ distinct emails used the SAME share link, that is
+      // still internal sharing — just not confirmed as same company.
+      const identifiedEmailsByShareDI = new Map<string, Set<string>>();
+      docSessions.forEach((s: any) => {
+        if (!s.email || !s.shareToken) return;
+        if (!identifiedEmailsByShareDI.has(s.shareToken)) {
+          identifiedEmailsByShareDI.set(s.shareToken, new Set());
+        }
+        identifiedEmailsByShareDI.get(s.shareToken)!.add(s.email);
+      });
+
+      const maxSharedLinkViewersDI = Math.max(
+        ...Array.from(identifiedEmailsByShareDI.values()).map(set => set.size),
+        0
+      );
+      const sharedLinkMultiViewerDI = maxSharedLinkViewersDI >= 2;
+
+      const committeeSize = Math.max(domainCommitteeSize, maxSharedLinkViewersDI);
+      const committeeGrowing = domainCommitteeGrowing || sharedLinkMultiViewerDI;
+      const committeeConfidence: 'domain_confirmed' | 'link_only' | 'none' =
+        domainCommitteeGrowing ? 'domain_confirmed'
+        : sharedLinkMultiViewerDI ? 'link_only'
+        : 'none';
 
       // Score secondary viewer engagement quality
       const primaryEmail = summaries[0]?.viewerEmail;
@@ -532,30 +562,38 @@ const daysSinceLast = mostRecentSession?.startedAt
       ).length;
 
       // ── Deal level state logic ────────────────────────────────
-      if (committeeGrowing && hasHighQualitySecondary && hotCount >= 1) {
-        dealLevelSummary = {
-          state: 'advancing',
-          label: 'Deal Advancing',
-          summary: `${committeeSize} people from ${prospectDomain} have opened this proposal and at least one secondary stakeholder is engaging deeply. Engagement quality across the group is high.`,
-          recommendedAction: `Signal detected (high confidence): Multiple stakeholders from the same organisation are actively reading this. Depending on your relationship with your original contact, this may be a natural moment to check in about whether there are questions on their side you could help address — framed around being helpful rather than checking on progress. Your read on timing will matter more than the data alone.`,
-          confidence: 'high',
-          totalViewers: summaries.length,
-          hotCount,
-          warmCount,
-          coldCount,
-        };
-      } else if (committeeGrowing && !hasHighQualitySecondary && hotCount >= 1) {
-        dealLevelSummary = {
-          state: 'evaluating',
-          label: 'Internal Circulation',
-          summary: `${committeeSize} people from ${prospectDomain} have opened this proposal but secondary viewers are engaging briefly rather than deeply. The proposal has been forwarded internally but it is not yet clear how seriously secondary stakeholders are evaluating it.`,
-          recommendedAction: `Signal detected (medium confidence): The proposal is circulating internally. Monitor whether secondary viewers return for deeper engagement before acting. A premature follow up could interrupt the internal process.`,
-          confidence: 'medium',
-          totalViewers: summaries.length,
-          hotCount,
-          warmCount,
-          coldCount,
-        };
+      const groupLabelDI = committeeConfidence === 'link_only'
+  ? `${committeeSize} different people`
+  : `${committeeSize} people from ${prospectDomain}`;
+const groupCaveatDI = committeeConfidence === 'link_only'
+  ? ` Their email addresses don't share a company domain, so this may be a personal email being used for business, or the link forwarded outside the original company.`
+  : '';
+
+if (committeeGrowing && hasHighQualitySecondary && hotCount >= 1) {
+  dealLevelSummary = {
+    state: 'advancing',
+    label: 'Deal Advancing',
+    summary: `${groupLabelDI} have opened this proposal and at least one secondary stakeholder is engaging deeply.${groupCaveatDI} Engagement quality across the group is high.`,
+    recommendedAction: `Signal detected (${committeeConfidence === 'link_only' ? 'medium' : 'high'} confidence): Multiple stakeholders are actively reading this. Depending on your relationship with your original contact, this may be a natural moment to check in about whether there are questions on their side you could help address — framed around being helpful rather than checking on progress. Your read on timing will matter more than the data alone.`,
+    confidence: committeeConfidence === 'link_only' ? 'medium' : 'high',
+    totalViewers: summaries.length,
+    hotCount,
+    warmCount,
+    coldCount,
+  };
+} else if (committeeGrowing && !hasHighQualitySecondary && hotCount >= 1) {
+  dealLevelSummary = {
+    state: 'evaluating',
+    label: 'Internal Circulation',
+    summary: `${groupLabelDI} have opened this proposal but secondary viewers are engaging briefly rather than deeply.${groupCaveatDI} The proposal has circulated but it is not yet clear how seriously secondary viewers are evaluating it.`,
+    recommendedAction: `Signal detected (medium confidence): The proposal is circulating. Monitor whether secondary viewers return for deeper engagement before acting. A premature follow up could interrupt the internal process.`,
+    confidence: 'medium',
+    totalViewers: summaries.length,
+    hotCount,
+    warmCount,
+    coldCount,
+  };
+
       } else if (!committeeGrowing && hotCount >= 1 && acceleratingCount >= 1 && daysSinceLast <= 3) {
         dealLevelSummary = {
           state: 'single_strong',

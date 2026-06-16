@@ -73,65 +73,78 @@ export function EarlySignalCard({
   // ── Compute early signals ────────────────────────────────────
 
   // Signal 1 — Total sessions in first 72 hours
-  const totalSessions = revisitData?.totalSessions || 1;
+  // ── Per-viewer breakdown — treat each viewer independently ────
+const activeViewers = recipientPageTracking.filter(
+  r => !r.neverOpened && !r.bounced && !r.recipientEmail?.startsWith('Anonymous')
+);
 
-  // Signal 2 — Deepest page reached across all viewers
-  const deepestPage = recipientPageTracking.reduce((max, r) => {
-    const visited = r.pageData?.filter(p => p.visited) || [];
-    const maxPage = visited.length > 0
-      ? Math.max(...visited.map(p => p.page))
-      : 0;
-    return Math.max(max, maxPage);
-  }, 0);
-  const depthPercent = totalPages > 0
-    ? Math.round((deepestPage / totalPages) * 100)
-    : 0;
-
-  // Signal 3 — Return within 24 hours
-  const hasQuickReturn = revisitData ? revisitData.revisits > 0 : false;
-
-  // Signal 4 — Second viewer from same domain appeared
-  const domainGroups = new Map<string, number>();
-  recipientPageTracking.forEach(r => {
-    if (!r.recipientEmail || r.recipientEmail.startsWith('Anonymous')) return;
-    const domain = getDomain(r.recipientEmail);
-    if (!domain) return;
-    domainGroups.set(domain, (domainGroups.get(domain) || 0) + 1);
-  });
-  const hasSecondViewer = Array.from(domainGroups.values()).some(count => count >= 2);
-
-  // Signal 5 — Time spent on late pages (last 30% of document)
-  const latePagesThreshold = Math.floor(totalPages * 0.7);
-  const timeOnLatePages = recipientPageTracking.reduce((sum, r) => {
-    return sum + (r.pageData || [])
-      .filter(p => p.page >= latePagesThreshold && p.visited)
-      .reduce((s, p) => s + (p.timeSpent || 0), 0);
-  }, 0);
-  const engagedWithLatePages = timeOnLatePages > 30;
-
-  // ── Count strong signals ──────────────────────────────────────
-  const signals: string[] = [];
-
-  if (totalSessions >= 2) {
-    signals.push(
-      `returned ${totalSessions - 1} time${totalSessions - 1 > 1 ? 's' : ''} already`
-    );
+// Domain grouping — identify committee viewers
+const domainGroups = new Map<string, string[]>();
+activeViewers.forEach(r => {
+  const domain = getDomain(r.recipientEmail);
+  if (!domain) return;
+  const existing = domainGroups.get(domain) || [];
+  if (!existing.includes(r.recipientEmail)) {
+    domainGroups.set(domain, [...existing, r.recipientEmail]);
   }
-  if (depthPercent >= 70) {
-    signals.push(`read ${depthPercent}% of the document`);
-  }
-  if (hasQuickReturn) {
-    signals.push('came back within 24 hours');
-  }
-  if (hasSecondViewer) {
-    signals.push('a second person from the same organisation opened it');
-  }
-  if (engagedWithLatePages) {
-    signals.push(
-      `spent time on the later sections — ${formatTime(timeOnLatePages)} on pages ${latePagesThreshold} onwards`
-    );
-  }
+});
 
+const largestGroup = Array.from(domainGroups.values())
+  .sort((a, b) => b.length - a.length)[0] || [];
+const committeeViewerCount = largestGroup.length;
+const hasSecondViewer = committeeViewerCount >= 2;
+
+// Primary viewer — first person to open
+const primaryViewer = recipientPageTracking
+  .filter(r => r.firstOpened)
+  .sort((a, b) => new Date(a.firstOpened!).getTime() - new Date(b.firstOpened!).getTime())[0];
+
+// Per-viewer session counts from sessionDepths length
+const primarySessionCount = (primaryViewer as any)?.sessionDepths?.length || 1;
+const primaryReturnCount = primarySessionCount - 1;
+
+// Deepest page for primary viewer only
+const primaryDepth = primaryViewer?.pageData
+  ? Math.max(...primaryViewer.pageData.filter(p => p.visited).map(p => p.page), 0)
+  : 0;
+const primaryDepthPercent = totalPages > 0
+  ? Math.round((primaryDepth / totalPages) * 100)
+  : 0;
+
+// Quick return — primary viewer came back within 24hrs
+const hasQuickReturn = primarySessionCount >= 2;
+
+// Late page engagement — primary viewer
+const latePagesThreshold = Math.floor(totalPages * 0.7);
+const timeOnLatePages = (primaryViewer?.pageData || [])
+  .filter(p => p.page >= latePagesThreshold && p.visited)
+  .reduce((s, p) => s + (p.timeSpent || 0), 0);
+const engagedWithLatePages = timeOnLatePages > 30;
+
+// ── Build signals — specific numbers, not vague language ─────
+const signals: string[] = [];
+
+if (primaryReturnCount >= 1) {
+  signals.push(
+    `returned ${primaryReturnCount} time${primaryReturnCount > 1 ? 's' : ''} already`
+  );
+}
+if (primaryDepthPercent >= 70) {
+  signals.push(`read ${primaryDepthPercent}% of the document`);
+}
+if (hasQuickReturn) {
+  signals.push('came back within 24 hours');
+}
+if (hasSecondViewer) {
+  signals.push(
+    `${committeeViewerCount} people from the same organisation have now opened it`
+  );
+}
+if (engagedWithLatePages) {
+  signals.push(
+    `spent time on the later sections — ${formatTime(timeOnLatePages)} on pages ${latePagesThreshold}+`
+  );
+}
   // Only show if at least 2 strong signals exist
   if (signals.length < 2) return null;
 
