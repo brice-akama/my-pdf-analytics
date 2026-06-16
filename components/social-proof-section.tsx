@@ -11,13 +11,13 @@ const SLIDES = [
   },
   {
     id: "track",
-    label: "Track visitor analytics",
-    image: "/assets/feature-dataroom.webp",
+    label: "See the story",
+    image: "/assets/combine.png",
   },
   {
     id: "dataroom",
-    label: "Create a Data Room",
-    image: "/assets/feature-tracking.webp",
+    label: "Connect the signals",
+    image: "/assets/dataroom.png",
   },
 ]
 
