@@ -1,3 +1,5 @@
+//app/documents/[id]/components/SecondaryViewerInsight.tsx
+
 'use client';
 
 import React from 'react';
@@ -22,10 +24,20 @@ type Props = {
   totalPages: number;
 };
 
+const FREE_EMAIL_DOMAINS = new Set([
+  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+  'icloud.com', 'me.com', 'aol.com', 'protonmail.com',
+  'mail.com', 'live.com', 'msn.com', 'googlemail.com',
+]);
+
 function getDomain(email: string): string {
   if (!email || email.startsWith('Anonymous')) return '';
   const parts = email.split('@');
   return parts.length > 1 ? parts[1].toLowerCase() : '';
+}
+
+function isFreeEmailDomain(domain: string): boolean {
+  return FREE_EMAIL_DOMAINS.has(domain.toLowerCase());
 }
 
 function formatTime(seconds: number): string {
@@ -141,23 +153,42 @@ function getEngagementColor(quality: 'high' | 'medium' | 'low'): string {
 
 export function SecondaryViewerInsight({ viewers, totalPages }: Props) {
   const domainGroups = new Map<string, ViewerProfile[]>();
+  // Free-provider viewers go in a single bucket keyed by 'link_only' —
+  // we cannot claim they share a company, only that they share the doc
+  const linkOnlyViewers: ViewerProfile[] = [];
 
   viewers.forEach(viewer => {
     if (!viewer.recipientEmail || viewer.recipientEmail.startsWith('Anonymous')) return;
     const domain = getDomain(viewer.recipientEmail);
     if (!domain) return;
+
+    if (isFreeEmailDomain(domain)) {
+      linkOnlyViewers.push(viewer);
+      return;
+    }
+
     if (!domainGroups.has(domain)) domainGroups.set(domain, []);
     domainGroups.get(domain)!.push(viewer);
   });
 
-  const sharedDomains = Array.from(domainGroups.entries())
+  const sharedDomains: [string, ViewerProfile[]][] = Array.from(domainGroups.entries())
     .filter(([, domainViewers]) => domainViewers.length >= 2);
 
-  if (sharedDomains.length === 0) return null;
+  // Free-email viewers count as a "shared group" too, just unconfirmed —
+  // only surface it if 2+ distinct free-email viewers opened this doc
+  const hasLinkOnlyGroup = linkOnlyViewers.length >= 2;
+
+  if (sharedDomains.length === 0 && !hasLinkOnlyGroup) return null;
+
+  // Combine confirmed domain groups with the link-only group for rendering
+  const allGroups: { domain: string; domainViewers: ViewerProfile[]; isLinkOnly: boolean }[] = [
+    ...sharedDomains.map(([domain, domainViewers]) => ({ domain, domainViewers, isLinkOnly: false })),
+    ...(hasLinkOnlyGroup ? [{ domain: 'multiple providers', domainViewers: linkOnlyViewers, isLinkOnly: true }] : []),
+  ];
 
   return (
     <div className="space-y-4 mt-4">
-      {sharedDomains.map(([domain, domainViewers]) => {
+      {allGroups.map(({ domain, domainViewers, isLinkOnly }) => {
         // Sort by first opened — earliest is the primary viewer
         const sorted = [...domainViewers].sort((a, b) => {
           if (!a.firstOpened) return 1;
@@ -186,8 +217,10 @@ export function SecondaryViewerInsight({ viewers, totalPages }: Props) {
                 <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
                   <Users className="h-3.5 w-3.5 text-blue-600" />
                 </div>
-                <p className="text-[11px] font-bold text-blue-900 uppercase tracking-wider">
-                 Multiple Viewers Detected — {domain}
+               <p className="text-[11px] font-bold text-blue-900 uppercase tracking-wider">
+                 {isLinkOnly
+                   ? 'Multiple Viewers Detected — Same Link'
+                   : `Multiple Viewers Detected — ${domain}`}
                 </p>
               </div>
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">
@@ -212,7 +245,8 @@ export function SecondaryViewerInsight({ viewers, totalPages }: Props) {
             {/* Individual narratives for 2nd and 3rd viewers */}
             {individualViewers.map((viewer, index) => {
               const position = index + 2;
-              const narrative = buildViewerNarrative(viewer, primary, position, domain, totalPages);
+              const domainLabel = isLinkOnly ? 'the same link' : domain;
+              const narrative = buildViewerNarrative(viewer, primary, position, domainLabel, totalPages);
               const quality = getEngagementQuality(viewer);
 
               return (
@@ -265,7 +299,9 @@ export function SecondaryViewerInsight({ viewers, totalPages }: Props) {
 
           {/* Bottom conclusion */}
             <p className="text-sm font-medium text-blue-800 border-t border-blue-100 pt-3">
-              {totalSecondaryCount === 1
+              {isLinkOnly
+                ? `${totalSecondaryCount + 1} different people have opened this document using the same link. Their email addresses don't share a company domain, so this may be personal email used for business, or the link forwarded outside the original company. Either way, more than one person is now looking at this document.`
+                : totalSecondaryCount === 1
                 ? `A second person from ${domain} has opened this document. This may indicate your contact has shared it internally, though the data alone cannot confirm that. Your read on the relationship and what you know about their internal process will matter more than this signal alone.`
                 : `${totalSecondaryCount + 1} people from ${domain} have now opened this document. The spread of engagement across these viewers may indicate the proposal is moving through an internal review. Whether and how to act on this is best judged against what you know about the account.`}
             </p>

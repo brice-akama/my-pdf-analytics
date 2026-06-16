@@ -381,6 +381,7 @@ export default function PerformanceTab({
     }
     committeeGrowing={analytics.committeeGrowing || false}
     committeeSize={analytics.committeeSize || 1}
+    committeeConfidence={analytics.committeeConfidence || 'domain_confirmed'}
     prospectDomain={analytics.prospectDomain || 'the prospect company'}
     secondaryViewerEngagement={analytics.secondaryViewerEngagement || []}
     hasHighQualitySecondaryViewer={analytics.hasHighQualitySecondaryViewer || false}

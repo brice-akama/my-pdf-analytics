@@ -427,39 +427,93 @@ const mostEngagedContacts = await Promise.all(
             videoReplays: typeof videoReplays;
           } | null = null;
 
-         if (reReadPages.length > 0 || videoReplays.length > 0) {
-            let narrative = '';
+         
+if (reReadPages.length > 0 || videoReplays.length > 0) {
+  let narrative = '';
 
-            if (reReadPages.length > 0) {
-              const isSelective = reReadPages.length <= 3;
+  if (reReadPages.length > 0) {
+    // Group re-read pages by document so we can evaluate pattern per doc
+    const reReadByDoc = new Map<string, { pages: number[]; counts: number[]; docName: string }>();
+    reReadPages.forEach(p => {
+      if (!reReadByDoc.has(p.docId)) {
+        reReadByDoc.set(p.docId, { pages: [], counts: [], docName: p.docName });
+      }
+      const entry = reReadByDoc.get(p.docId)!;
+      entry.pages.push(p.page);
+      entry.counts.push(p.count);
+    });
 
-              if (isSelective) {
-                const pageList = reReadPages
-                  .map(p => `page ${p.page} of "${p.docName}" (${p.count}×)`)
-                  .join(', ');
-                narrative = `This contact returned specifically to ${pageList} across sessions. Returning to isolated pages rather than re-reading broadly often means those sections raised a specific question worth addressing directly.`;
-              } else {
-                const pageList = reReadPages
-                  .map(p => `page ${p.page} of "${p.docName}" (${p.count}×)`)
-                  .join(', ');
-                narrative = `This contact has re-read several sections across documents — ${pageList}. Broad re-reading across multiple pages often indicates serious evaluation or internal preparation.`;
-              }
-            }
+    const narrativeParts: string[] = [];
 
-            if (videoReplays.length > 0) {
-              const top = videoReplays[0];
-              const videoNote = `the page ${top.page} video in "${top.docName}" was replayed ${top.count} time${top.count > 1 ? 's' : ''}`;
-              narrative = narrative
-                ? `${narrative} They also replayed ${videoNote}, which reinforces that section as an area of specific interest.`
-                : `This contact replayed ${videoNote}. Replaying a video often means either the content resonated strongly or it raised a question they are trying to resolve.`;
-            }
+    reReadByDoc.forEach((entry, docId) => {
+      const doc = documents.find((d: any) => d._id.toString() === docId);
+      const totalDocPages = doc?.numPages || null;
+      const reReadPageNumbers = entry.pages.sort((a, b) => a - b);
+      const maxReReadCount = Math.max(...entry.counts);
 
-            dealInsight = {
-              narrative,
-              reReadPages,
-              videoReplays,
-            };
-          }
+      // Furthest page they re-read in this doc
+      const furthestReRead = Math.max(...reReadPageNumbers);
+
+      // Pages in this doc they did NOT re-read
+      const pagesNotReRead = totalDocPages
+        ? Array.from({ length: totalDocPages }, (_, i) => i + 1)
+            .filter(p => !reReadPageNumbers.includes(p))
+        : [];
+
+      const firstSkippedAfterReRead = pagesNotReRead.find(p => p > furthestReRead);
+
+      const allPagesReRead = totalDocPages !== null &&
+        reReadPageNumbers.length >= totalDocPages;
+
+      const isSelective = reReadPageNumbers.length <= 3;
+
+      if (allPagesReRead) {
+        // Full re-read — serious evaluation signal
+        narrativeParts.push(
+          `read "${entry.docName}" ${maxReReadCount} times in full across multiple sessions` +
+          ` — reading a proposal end-to-end more than once typically indicates serious evaluation or internal preparation`
+        );
+      } else if (isSelective) {
+        // Returned to only 1–3 specific pages — question signal
+        const pageList = reReadPageNumbers
+          .map((p, i) => `page ${p} (${entry.counts[i]}×)`)
+          .join(' and ');
+        narrativeParts.push(
+          `returned specifically to ${pageList} of "${entry.docName}" without re-reading surrounding pages` +
+          ` — isolated page returns almost always mean those sections raised a specific question worth addressing directly`
+        );
+      } else {
+        // Partial re-read — stopped at a specific point
+        const reReadRange = `pages 1–${furthestReRead}`;
+        const skippedNote = firstSkippedAfterReRead && totalDocPages
+          ? ` and did not return to page ${firstSkippedAfterReRead} onward (out of ${totalDocPages} pages)`
+          : '';
+        narrativeParts.push(
+          `returned to ${reReadRange} of "${entry.docName}"${skippedNote}` +
+          ` — the point where they stopped is where a question or hesitation may be developing`
+        );
+      }
+    });
+
+    narrative = `This contact ${narrativeParts.join('; and ')}.`;
+  }
+
+  if (videoReplays.length > 0) {
+    const top = videoReplays[0];
+    const videoNote =
+      `the page ${top.page} video in "${top.docName}" was replayed ` +
+      `${top.count} time${top.count > 1 ? 's' : ''}`;
+    narrative = narrative
+      ? `${narrative} They also replayed ${videoNote}, which reinforces that section as an area of specific interest.`
+      : `This contact replayed ${videoNote}. Replaying a video often means either the content resonated strongly or it raised a question they are trying to resolve.`;
+  }
+
+  dealInsight = {
+    narrative,
+    reReadPages,
+    videoReplays,
+  };
+}
 
           return {
             email: c.email,
