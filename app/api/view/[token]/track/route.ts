@@ -1052,6 +1052,8 @@ const narrative = buildNarrative({
   engagementDropping: signals.engagementDropping,
   neverForwarded,
   trigger: 'session_end',
+  viewerLabel: viewerEmail,
+  totalPages: insightDoc.numPages || 1,
 });
 
               const ownerProfile = await db.collection('profiles')

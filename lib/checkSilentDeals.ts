@@ -4,6 +4,7 @@ import { syncDealInsightToHubSpot, isHubSpotConnected } from './integrations/hub
 import { sendDealInsightEmail } from './documentNotifications';
 import { sendTeamsNotification } from '@/app/api/integrations/teams/notify/route';
 import { ObjectId } from 'mongodb';
+import { buildViewerNarrative } from './buildViewerNarrative';
 
 const SILENT_DAYS = 3;
 
@@ -15,7 +16,13 @@ function formatTime(s: number): string {
 }
 
 // ── Build the narrative sentence from all signals ─────────────────
-// This is the "they re-read page 3 three times" layer
+// ── Build the narrative sentence from all signals ─────────────────
+// Delegates the "what happened" core sentence to buildViewerNarrative
+// (the shared single source of truth also used by the dashboard),
+// then layers on back-navigation/dropping-engagement/absence framing
+// and the confidence qualifier on top. Pure string logic — cannot throw.
+
+
 export function buildNarrative({
   reReadPages,
   videoReplays,
@@ -24,6 +31,8 @@ export function buildNarrative({
   neverForwarded,
   daysSilent,
   trigger,
+  viewerLabel = 'The viewer',
+  totalPages = 1,
 }: {
   reReadPages: { page: number; count: number }[];
   videoReplays: { page: number; count: number }[];
@@ -32,53 +41,43 @@ export function buildNarrative({
   neverForwarded: boolean;
   daysSilent?: number;
   trigger: 'session_end' | 'gone_silent' | 'behavioral';
+  viewerLabel?: string;
+  totalPages?: number;
 }): string {
-  const parts: string[] = [];
-  const absenceParts: string[] = [];
+  const coreNarrative = buildViewerNarrative({
+    viewerLabel,
+    totalPages,
+    reReadPages,
+    videoReplays,
+  });
 
-  // Re-reads — list all pages, not just the top one
-  if (reReadPages.length > 0) {
-    const pageList = reReadPages
-      .map(p => `page ${p.page} (${p.count}×)`)
-      .join(', ');
-    parts.push(`returned to ${pageList} across multiple sessions`);
-  }
-
-  // Video replays
-  if (videoReplays.length > 0) {
-    const top = videoReplays[0];
-    parts.push(`replayed the video on page ${top.page} ${top.count} time${top.count > 1 ? 's' : ''}`);
-  }
-
-  // Back navigation
+  const extras: string[] = [];
   if (backNavigations.length > 0) {
-    parts.push(`navigated back to page ${backNavigations[0]}`);
+    extras.push(`navigated back to page ${backNavigations[0]}`);
   }
-
-  // Engagement dropping
   if (engagementDropping) {
-    parts.push(`engagement is dropping across sessions`);
+    extras.push('engagement is dropping across sessions');
   }
-
-  // Never forwarded goes to absenceParts — it's context, not a signal
-  if (neverForwarded) {
-    absenceParts.push(`no one else from the same company has opened this document`);
-  }
-
-  // Silence
   if (trigger === 'gone_silent' && daysSilent) {
-    parts.push(`gone quiet for ${daysSilent} days after earlier engagement`);
+    extras.push(`gone quiet for ${daysSilent} days after earlier engagement`);
   }
 
-  if (parts.length === 0) return 'Engagement pattern detected but signals are mixed.';
+  const extrasText = extras.length > 0
+    ? ` Also: ${extras.join(', ')}.`
+    : '';
 
-  const observed = parts.slice(0, -1).join(', ') + (parts.length > 1 ? ' and ' : '') + parts[parts.length - 1];
-  const absence = absenceParts.length > 0 ? ` Note: ${absenceParts.join(', ')}.` : '';
-  const confidence = parts.length >= 2
-    ? 'Multiple signals detected.'
-    : 'Single signal — treat with caution.';
+  const absence = neverForwarded
+    ? ` Note: no one else from the same company has opened this document.`
+    : '';
 
-  return `${observed.charAt(0).toUpperCase() + observed.slice(1)}.${absence} ${confidence} Your read on the relationship will matter more than this data alone.`;
+  const signalCount =
+    reReadPages.length + videoReplays.length + backNavigations.length +
+    (engagementDropping ? 1 : 0) + (videoReplays.length > 0 ? 0 : 0);
+  const confidence = signalCount >= 2
+    ? ' Multiple signals detected.'
+    : ' Single signal — treat with caution.';
+
+  return `${coreNarrative}${extrasText}${absence}${confidence} Your read on the relationship will matter more than this data alone.`;
 }
 
 // ── Detect behavioral signals from page logs ──────────────────────
@@ -464,6 +463,8 @@ export async function checkSilentDeals(db: any) {
           neverForwarded,
           daysSilent,
           trigger: 'gone_silent',
+          viewerLabel: viewerEmail,
+          totalPages: doc.numPages || 1,
         });
 
         const ownerProfile = await db.collection('profiles').findOne({

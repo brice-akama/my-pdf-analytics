@@ -630,7 +630,7 @@ if (committeeGrowing && hasHighQualitySecondary && hotCount >= 1) {
           warmCount,
           coldCount,
         };
-      } else {
+     } else {
         dealLevelSummary = {
           state: 'early',
           label: 'Early Stage',
@@ -642,6 +642,100 @@ if (committeeGrowing && hasHighQualitySecondary && hotCount >= 1) {
           warmCount,
           coldCount,
         };
+      }
+
+     // ── Fire the deal-level (committee) summary to all channels ──
+      // This is the same text DealLevelSummary.tsx renders on the
+      // dashboard — reps should not have to open a tab to see it.
+      // Fires once per document, not once per viewer, and only when
+      // there's an actual committee signal (2+ people) — domain
+      // confirmed OR link-only (e.g. Gmail/Outlook viewers sharing
+      // the same link). A single viewer doesn't warrant this notification.
+      if (dealLevelSummary && committeeGrowing) {
+        (async () => {
+          try {
+            const dlOwnerProfile = await db.collection('profiles').findOne({
+              user_id: access.userId,
+            });
+            const dlDoc = await db.collection('documents').findOne({
+              _id: new ObjectId(id),
+            });
+            const dlDocumentName = dlDoc?.originalFilename || 'Your document';
+            const dlNarrative = `${dealLevelSummary!.label}\n\n${dealLevelSummary!.summary}\n\n${dealLevelSummary!.recommendedAction}`;
+            const dlViewerEmail = summaries[0]?.viewerEmail || 'Multiple viewers';
+
+            // Gmail
+            if (dlOwnerProfile?.email) {
+              sendDealInsightEmail({
+                ownerEmail: dlOwnerProfile.email,
+                ownerName: dlOwnerProfile.full_name || dlOwnerProfile.first_name || null,
+                viewerEmail: dlViewerEmail,
+                documentName: dlDocumentName,
+                documentId: id,
+                slowestPage: 1,
+                slowestPageTime: 0,
+                avgPageTime: 0,
+                skippedPages: [],
+                totalPages: dlDoc?.numPages || 1,
+                trigger: 'session_end',
+                narrative: dlNarrative,
+              }).catch(err => console.error('[DealLevelSummary] Gmail silent fail:', err));
+            }
+
+            // Slack
+            isSlackConnected(access.userId)
+              .then(connected => {
+                if (!connected) return;
+                return notifyDealInsight({
+                  userId: access.userId,
+                  documentName: dlDocumentName,
+                  documentId: id,
+                  viewerEmail: dlViewerEmail,
+                  slowestPage: 1,
+                  slowestPageTime: 0,
+                  avgPageTime: 0,
+                  skippedPages: [],
+                  totalPages: dlDoc?.numPages || 1,
+                  trigger: 'session_end',
+                  narrative: dlNarrative,
+                });
+              })
+              .catch(err => console.error('[DealLevelSummary] Slack silent fail:', err));
+
+            // HubSpot
+            isHubSpotConnected(access.userId)
+              .then(connected => {
+                if (!connected) return;
+                return syncDealInsightToHubSpot({
+                  userId: access.userId,
+                  viewerEmail: dlViewerEmail,
+                  documentName: dlDocumentName,
+                  documentId: id,
+                  slowestPage: 1,
+                  slowestPageTime: 0,
+                  avgPageTime: 0,
+                  skippedPages: [],
+                  totalPages: dlDoc?.numPages || 1,
+                  trigger: 'session_end',
+                  narrative: dlNarrative,
+                });
+              })
+              .catch(err => console.error('[DealLevelSummary] HubSpot silent fail:', err));
+
+            // Teams
+            sendTeamsNotification({
+              userId: access.userId,
+              event: 'deal_insight',
+              documentName: dlDocumentName,
+              documentId: id,
+              viewerEmail: dlViewerEmail,
+              extraInfo: dlNarrative,
+            }).catch(err => console.error('[DealLevelSummary] Teams silent fail:', err));
+
+          } catch (err) {
+            console.error('[DealLevelSummary] outer silent fail:', err);
+          }
+        })();
       }
     }
 

@@ -286,34 +286,174 @@ if (email && notifyEvents.includes(event)) {
       }).catch(() => {});
 
       // ── Fire deal intelligence to HubSpot silently ──────────────
-      // On first open we send a baseline intelligence record.
-      // The score updates automatically on subsequent analytics calls.
+      // ── Fire REAL deal intelligence — only when something MEANINGFULLY
+      // CHANGED (committee just formed, momentum just accelerated, or
+      // silence-then-question just happened). Mirrors the document-level
+      // behavioral trigger pattern. Never fires on routine repeat opens.
       const ownerId = space.userId || space.createdBy;
       if (ownerId) {
-        import('@/lib/integrations/hubspotSync').then(
-          ({ syncDealIntelligenceToHubSpot, isHubSpotConnected }) => {
-            isHubSpotConnected(ownerId).then(connected => {
-              if (!connected) return;
-              syncDealIntelligenceToHubSpot({
-                userId:            ownerId,
-                viewerEmail:       email,
-                documentName:      space.name || 'Space',
-                documentId:        space._id.toString(),
-                spaceId:           space._id.toString(),
-                momentumScore:     50,
-                engagementState:   'holding',
-                lastSignal:        `First open of space "${space.name}"`,
-                recommendedAction: `Send a value add message within 48 hours while attention is high`,
-                internalSharing:   false,
-                daysSinceLastActivity: 0,
-                isSpace:           true,
-              }).catch(() => {});
-            }).catch(() => {});
+        (async () => {
+          try {
+            const allSpaceLogs = await db.collection('activityLogs')
+              .find({ spaceId: space._id })
+              .sort({ timestamp: -1 })
+              .toArray();
+
+            const visitorEmails = [...new Set(
+              allSpaceLogs.map((l: any) => l.visitorEmail).filter(Boolean)
+            )];
+
+            const trackVisitors = visitorEmails.map((vEmail: string) => {
+              const vLogs = allSpaceLogs.filter((l: any) => l.visitorEmail === vEmail);
+              const lastSeen = vLogs.length > 0
+                ? vLogs.reduce((latest: any, l: any) =>
+                    new Date(l.timestamp) > new Date(latest.timestamp) ? l : latest
+                  ).timestamp
+                : new Date();
+              return { email: vEmail, engagementScore: 0, status: 'new', lastSeen };
+            });
+
+            const trackDocuments = [...new Set(
+              allSpaceLogs.filter((l: any) => l.documentId).map((l: any) => l.documentId.toString())
+            )].map(docId => {
+              const docLog = allSpaceLogs.find((l: any) => l.documentId?.toString() === docId);
+              return { documentId: docId, documentName: docLog?.documentName || 'Document' };
+            });
+
+            const thisVisitor = trackVisitors.find(v => v.email === email) || {
+              email, engagementScore: 0, status: 'new', lastSeen: new Date(),
+            };
+
+            const { buildSpaceVisitorIntelligence } = await import('@/lib/buildSpaceVisitorIntelligence');
+            const intel = await buildSpaceVisitorIntelligence({
+              db,
+              spaceId: space._id.toString(),
+              visitor: thisVisitor,
+              logs: allSpaceLogs,
+              visitors: trackVisitors,
+              documents: trackDocuments,
+            });
+
+            // ── Compare against last-known state for this visitor+space ──
+            const lastState = await db.collection('space_visitor_intel_state').findOne({
+              spaceId: space._id.toString(),
+              visitorEmail: email,
+            });
+
+            const { shouldFireSpaceIntelligence } = await import('@/lib/shouldFireSpaceIntelligence');
+            const shouldFire = shouldFireSpaceIntelligence({
+              current: intel,
+              previous: lastState ? {
+                hasInternalSharing: lastState.hasInternalSharing,
+                hasLinkOnlySharing: lastState.hasLinkOnlySharing,
+                momentumState: lastState.momentumState,
+                returnWithQuestion: lastState.returnWithQuestion,
+              } : null,
+            });
+
+            // Always update the stored state, whether or not we fire,
+            // so the NEXT event has something accurate to compare against
+            await db.collection('space_visitor_intel_state').updateOne(
+              { spaceId: space._id.toString(), visitorEmail: email },
+              {
+                $set: {
+                  spaceId: space._id.toString(),
+                  visitorEmail: email,
+                  hasInternalSharing: intel.hasInternalSharing,
+                  hasLinkOnlySharing: intel.hasLinkOnlySharing,
+                  momentumState: intel.momentumState,
+                  returnWithQuestion: intel.returnWithQuestion,
+                  updatedAt: new Date(),
+                },
+              },
+              { upsert: true }
+            ).catch(err => console.error('[SpaceIntel] state save failed:', err));
+
+            if (!shouldFire) return;
+
+            const momentumScoreMap = { accelerating: 75, holding: 50, fading: 25, stalled: 10 };
+
+            // Fire to all four channels — same pattern as fireToAllChannels,
+            // each independently caught so one failure never blocks another
+            const ownerProfile = await db.collection('profiles').findOne({ user_id: ownerId });
+            const ownerEmailAddr = ownerProfile?.email || space.ownerEmail;
+
+            if (ownerEmailAddr) {
+              const { sendDealInsightEmail } = await import('@/lib/documentNotifications');
+              sendDealInsightEmail({
+                ownerEmail: ownerEmailAddr,
+                ownerName: ownerProfile?.full_name || ownerProfile?.first_name || null,
+                viewerEmail: email,
+                documentName: space.name || 'Your space',
+                documentId: space._id.toString(),
+                slowestPage: 1,
+                slowestPageTime: 0,
+                avgPageTime: 0,
+                skippedPages: [],
+                totalPages: 1,
+                trigger: 'session_end',
+                narrative: `${intel.narrative}\n\n${intel.recommendation}`,
+              }).catch(err => console.error('[SpaceIntel] Email silent fail:', err));
+            }
+
+            const { isSlackConnected, notifyDealInsight } = await import('@/lib/integrations/slack');
+            isSlackConnected(ownerId)
+              .then(connected => {
+                if (!connected) return;
+                return notifyDealInsight({
+                  userId: ownerId,
+                  documentName: space.name || 'Your space',
+                  documentId: space._id.toString(),
+                  viewerEmail: email,
+                  slowestPage: 1,
+                  slowestPageTime: 0,
+                  avgPageTime: 0,
+                  skippedPages: [],
+                  totalPages: 1,
+                  trigger: 'session_end',
+                  narrative: `${intel.narrative} ${intel.recommendation}`,
+                });
+              })
+              .catch(err => console.error('[SpaceIntel] Slack silent fail:', err));
+
+            const { syncDealIntelligenceToHubSpot, isHubSpotConnected } =
+              await import('@/lib/integrations/hubspotSync');
+            isHubSpotConnected(ownerId)
+              .then(connected => {
+                if (!connected) return;
+                return syncDealIntelligenceToHubSpot({
+                  userId: ownerId,
+                  viewerEmail: email,
+                  documentName: space.name || 'Space',
+                  documentId: space._id.toString(),
+                  spaceId: space._id.toString(),
+                  momentumScore: momentumScoreMap[intel.momentumState],
+                  engagementState: intel.momentumState,
+                  lastSignal: intel.narrative,
+                  recommendedAction: intel.recommendation,
+                  internalSharing: intel.hasInternalSharing,
+                  secondaryViewerCount: intel.secondaryViewers?.length,
+                  daysSinceLastActivity: intel.daysSinceLastActivity,
+                  isSpace: true,
+                });
+              })
+              .catch(err => console.error('[SpaceIntel] HubSpot silent fail:', err));
+
+            sendTeamsNotification({
+              userId: ownerId,
+              event: 'deal_insight',
+              documentName: space.name || 'Your space',
+              documentId: space._id.toString(),
+              viewerEmail: email,
+              extraInfo: `${intel.narrative}\n\n${intel.recommendation}`,
+            }).catch(err => console.error('[SpaceIntel] Teams silent fail:', err));
+
+          } catch (err) {
+            console.error('[SpaceIntel] outer silent fail:', err);
           }
-        ).catch(() => {});
+        })();
       }
     }
-
     return NextResponse.json({ success: true });
 
   } catch (error) {
