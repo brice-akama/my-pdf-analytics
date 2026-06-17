@@ -12,12 +12,12 @@ const SLIDES = [
   {
     id: "track",
     label: "See the story",
-    image: "/assets/combine.png",
+    image: "/assets/combines.png",
   },
   {
     id: "dataroom",
     label: "Connect the signals",
-    image: "/assets/dataroom.png",
+    image: "/assets/datarooms.png",
   },
 ]
 
