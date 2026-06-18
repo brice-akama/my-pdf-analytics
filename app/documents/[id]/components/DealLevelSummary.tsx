@@ -30,6 +30,11 @@ type DealLevelSummaryProps = {
   }[];
   hasHighQualitySecondaryViewer?: boolean;
   daysSinceLastActivity: number;
+  disappearingViewer?: {
+    detected: boolean;
+    quietViewer: { email: string; daysSinceLastActivity: number; sessionCount: number } | null;
+    stillActiveViewers: { email: string }[];
+  };
 };
 
 type EvidenceItem = {
@@ -98,7 +103,15 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
     secondaryViewerEngagement = [],
     hasHighQualitySecondaryViewer = false,
     daysSinceLastActivity,
+    disappearingViewer,
   } = props;
+
+  // Build the disappearing-viewer sentence once, used wherever it
+  // applies below — only meaningful when committeeGrowing is true,
+  // since it requires multiple viewers to compare against each other.
+  const disappearingNote = disappearingViewer?.detected && disappearingViewer.quietViewer
+    ? ` ${disappearingViewer.quietViewer.email}, the first person to open this document, has not engaged in ${disappearingViewer.quietViewer.daysSinceLastActivity} days after ${disappearingViewer.quietViewer.sessionCount} earlier sessions, while ${disappearingViewer.stillActiveViewers.map(v => v.email).join(' and ')} remain active. Engagement has shifted away from the original viewer toward a different stakeholder.`
+    : '';
 
   // When committee detection came from matching share links rather than
   // a confirmed company domain, describe the group honestly instead of
@@ -116,8 +129,10 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
     v => v.momentumState === 'fading' || v.momentumState === 'stalled'
   ).length;
 
-  // ── Champion = first viewer (highest total time among identified viewers) ──
-  const champion = viewers.length > 0
+  // ── First viewer = the person who opened this document first ──
+  // Never called "champion" — that implies a role and relationship
+  // the data cannot confirm. Just state who opened it first, by email.
+  const firstViewerForChampionCheck = viewers.length > 0
     ? [...viewers].sort((a, b) => b.totalTimeSeconds - a.totalTimeSeconds)[0]
     : null;
 
@@ -250,7 +265,8 @@ whatHappened:
     ? ` Their email addresses don't share a company domain, so this may be a personal email being used for business, or the document being shared outside the original company.`
     : '') +
   deepReaderDetail +
-  noiseNote,
+  noiseNote +
+  disappearingNote,
 
       whatItMeans:
         `When a secondary viewer spends this much time reading, the document has moved beyond a courtesy forward. ` +
@@ -321,7 +337,8 @@ whatHappened:
     : '') +
   (engagementBreakdown
     ? `Across the secondary viewers: ${engagementBreakdown}.`
-    : ''),
+    : '') +
+  disappearingNote,
 
       whatItMeans:
         `The document has moved beyond your original contact. ` +
@@ -340,8 +357,8 @@ whatHappened:
   // One viewer, engaged, but no committee after 4+ days
   if (!committeeGrowing && (hotViewers >= 1 || warmViewers >= 1) && daysSinceLastActivity >= 4) {
 
-    const championEngagement = champion
-      ? ` Your primary contact has spent time with this document and engagement is ${hotViewers >= 1 ? 'strong' : 'moderate'}.`
+    const championEngagement = firstViewerForChampionCheck
+      ? ` ${firstViewerForChampionCheck.viewerEmail} has spent time with this document and engagement is ${hotViewers >= 1 ? 'strong' : 'moderate'}.`
       : '';
 
     return {
@@ -385,7 +402,7 @@ whatHappened:
       icon: <TrendingUp className="h-4 w-4 text-violet-600" />,
 
       whatHappened:
-        `Your primary contact is reading this document deeply and returning to it. ` +
+        `${firstViewerForChampionCheck?.viewerEmail || 'The first viewer'} is reading this document deeply and returning to it. ` +
         `No one else from ${prospectDomain} has opened it yet, but activity is recent — within the last ${daysSinceLastActivity === 0 ? 'day' : `${daysSinceLastActivity} day${daysSinceLastActivity > 1 ? 's' : ''}`}.`,
 
       whatItMeans:

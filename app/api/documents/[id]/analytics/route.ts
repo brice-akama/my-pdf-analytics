@@ -602,6 +602,32 @@ recommendedAction,
       })
     );
 
+  // ── Disappearing-viewer detection — compares viewers against ──
+    // each other, not just their own history. Needs the full set
+    // of recipientPageTracking results, so it runs right after
+    // that's computed.
+    const { detectDisappearingViewer } = await import('@/lib/detectDisappearingViewer');
+
+    const firstViewerEmail = recipientPageTracking.length > 0
+      ? [...recipientPageTracking].sort(
+          (a, b) => new Date(a.firstOpened || 0).getTime() - new Date(b.firstOpened || 0).getTime()
+        )[0]?.recipientEmail
+      : null;
+
+    const viewerSnapshots = recipientPageTracking
+      .filter(r => !r.neverOpened && !r.recipientEmail.startsWith('Anonymous'))
+      .map(r => ({
+        email: r.recipientEmail,
+        isFirstViewer: r.recipientEmail === firstViewerEmail,
+        sessionCount: r.sessionDepths?.length || 0,
+        daysSinceLastActivity: r.firstOpened
+          ? Math.floor((Date.now() - new Date(r.firstOpened).getTime()) / (1000 * 60 * 60 * 24))
+          : 999,
+        totalTimeSeconds: r.totalTimeSeconds,
+      }));
+
+    const disappearingViewer = detectDisappearingViewer(viewerSnapshots);
+
     const revisitData = {
       totalSessions: allSessions.length,
       uniqueVisitors: new Set(allSessions.map((s: any) => s.viewerId)).size,
@@ -1169,6 +1195,7 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
         recommendedAction,
         secondaryViewerEngagement,
         hasHighQualitySecondaryViewer,
+        disappearingViewer,
         sharingInfo: {
           isPublic: document.isPublic || false,
           sharedWith: document.sharedWith?.length || 0,

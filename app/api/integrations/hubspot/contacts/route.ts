@@ -1,3 +1,5 @@
+// my-pdf-analytics/app/api/integrations/hubspot/contacts/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserFromRequest } from "@/lib/auth";
 import { getValidHubSpotToken } from "@/lib/integrations/hubspot";
