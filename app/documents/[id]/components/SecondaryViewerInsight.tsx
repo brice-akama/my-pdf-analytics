@@ -57,7 +57,8 @@ function getTopPages(pageData: PageData[], limit = 3): PageData[] {
 }
 
 function getOrdinal(n: number): string {
-  const ordinals = ['', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
+  // n=2 should mean "second" (the 2nd person overall, since primary is 1st)
+  const ordinals = ['', '', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
   return ordinals[n] || `${n}th`;
 }
 

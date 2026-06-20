@@ -17,8 +17,12 @@ export type SignalAgreementResult = {
   note: string;
 };
 
-const POSITIVE_DEAL_STATUS: DealStatus[] = ['hot', 'warm'];
-const POSITIVE_MOMENTUM: MomentumState[] = ['accelerating', 'holding'];
+// Only 'hot' + 'accelerating' counts as genuinely strong for this
+// comparison. 'warm' is explicitly "engaged but not yet at evaluation
+// depth" per DealLevelSummary's own evidence language — including it
+// here let the headline sentence overstate what the evidence showed.
+const POSITIVE_DEAL_STATUS: DealStatus[] = ['hot'];
+const POSITIVE_MOMENTUM: MomentumState[] = ['accelerating'];
 
 export function detectSignalAgreement({
   strongestIndividualViewer,
