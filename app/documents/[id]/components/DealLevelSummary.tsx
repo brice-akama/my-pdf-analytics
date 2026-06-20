@@ -6,6 +6,7 @@ import {
   TrendingUp, TrendingDown, AlertCircle,
   Users, Eye, Clock, AlertTriangle,
 } from 'lucide-react';
+import { detectSignalAgreement } from '@/lib/detectSignalAgreement';
 
 type ViewerSummary = {
   viewerEmail: string;
@@ -130,6 +131,7 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
   ).length;
 
   // ── First viewer = the person who opened this document first ──
+ // ── First viewer = the person who opened this document first ──
   // Never called "champion" — that implies a role and relationship
   // the data cannot confirm. Just state who opened it first, by email.
   const firstViewerForChampionCheck = viewers.length > 0
@@ -138,6 +140,30 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
 
   const { deepReaders, moderateReaders, passiveOpens, deepestReader } =
     describeSecondaryViewers(secondaryViewerEngagement);
+
+  // ── Signal agreement check — does the strongest individual ──────
+  // signal point the same direction as the group signal? Works the
+  // same whether the committee is domain_confirmed or link_only,
+  // since this compares momentum direction, not domain trust.
+  const strongestViewer = viewers.length > 0
+    ? [...viewers].sort((a, b) => {
+        const order: Record<string, number> = { hot: 3, warm: 2, cold: 1, dead: 0 };
+        return order[b.dealStatus] - order[a.dealStatus];
+      })[0]
+    : null;
+
+  const signalAgreement = detectSignalAgreement({
+    strongestIndividualViewer: strongestViewer
+      ? {
+          email: strongestViewer.viewerEmail,
+          dealStatus: strongestViewer.dealStatus,
+          momentumState: strongestViewer.momentumState,
+        }
+      : null,
+    committeeGrowing,
+    hasHighQualitySecondaryViewer,
+    hasMediumQualitySecondaryViewer: moderateReaders.length > 0,
+  });
 
   // ── Build evidence list ───────────────────────────────────────────
   function buildEvidence(): EvidenceItem[] {
@@ -266,7 +292,8 @@ whatHappened:
     : '') +
   deepReaderDetail +
   noiseNote +
-  disappearingNote,
+  disappearingNote +
+  signalAgreement.note,
 
       whatItMeans:
         `When a secondary viewer spends this much time reading, the document has moved beyond a courtesy forward. ` +
@@ -302,8 +329,12 @@ whatHappened:
       .filter(Boolean)
       .join(', ');
 
-    const confidenceLevel: 'high' | 'medium' | 'low' =
-  committeeConfidence === 'link_only'
+ const confidenceLevel: 'high' | 'medium' | 'low' =
+  signalAgreement.agreement === 'aligned'
+    ? 'high'
+    : signalAgreement.agreement === 'conflicting'
+    ? 'medium'
+    : committeeConfidence === 'link_only'
     ? 'medium'
     : deepReaders.length > 0 ? 'high'
     : moderateReaders.length > 0 ? 'medium'
@@ -330,7 +361,7 @@ whatHappened:
       borderColor: 'border-blue-200',
       icon: <Users className="h-4 w-4 text-blue-600" />,
 
-      whatHappened:
+     whatHappened:
   `${groupLabel} have opened this document. ` +
   (committeeConfidence === 'link_only'
     ? `Their email addresses don't share a company domain, so this may be a personal email or the link forwarded outside the original company. `
@@ -338,7 +369,8 @@ whatHappened:
   (engagementBreakdown
     ? `Across the secondary viewers: ${engagementBreakdown}.`
     : '') +
-  disappearingNote,
+  disappearingNote +
+  signalAgreement.note,
 
       whatItMeans:
         `The document has moved beyond your original contact. ` +
