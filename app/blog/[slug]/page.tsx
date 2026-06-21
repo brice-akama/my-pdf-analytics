@@ -1,3 +1,5 @@
+
+//app/blog/[slug]/page.tsx
 import { getBlogPost } from "./fetchBlog";
 import BlogDetails from "./BlogDetails";
 import { Metadata } from "next";
@@ -35,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title
   )}`;
   const image = imageUrl || ogImageUrl;
-  const canonicalUrl = `https://www.docmetrics.io/blog/${resolvedParams.slug}`;
+  const canonicalUrl = `https://docmetrics.io/blog/${resolvedParams.slug}`;
 
   return {
     title,
@@ -56,7 +58,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: {
       canonical: canonicalUrl,
     },
-    metadataBase: new URL(process.env.NEXT_PUBLIC_API_URL!),
+    metadataBase: new URL(process.env.NEXT_PUBLIC_API_URL || "https://docmetrics.io"),
   };
 }
 
