@@ -200,7 +200,7 @@ export async function POST(
         if (signals.deadDealScore >= 80) {
           dealStatus = 'dead';
           if (longSilent) {
-            summary = `${email} last engaged with this document ${signals.daysSinceLastView} days ago and has not returned since. Their earlier engagement suggested interest but the prolonged silence points to a stalled or lost deal.`;
+            summary = `${email} last engaged with this document ${signals.daysSinceLastView} days ago and has not returned since. Their earlier engagement was real, but document silence this prolonged is one of the patterns DocMetrics commonly observes before deals go cold — though factors outside the document may explain it equally well.`;
              recommendation = `Signal detected (low confidence): ${signals.daysSinceLastView} days of silence after earlier engagement. This pattern often indicates a stalled deal but external factors you cannot see may also explain the silence. If you decide to act, a short message acknowledging the gap without guilt tends to perform better than another pitch. Whether to send it or archive the deal is your call based on the broader relationship context.`;
           } else {
             summary = `${email} has shown patterns that can indicate disengagement — limited 
@@ -224,7 +224,7 @@ The data alone cannot distinguish between these.`;
           const depthNote = depths.length >= 2
             ? ` Each time they return they read deeper into the document — from page ${depths[0]} in their first visit to page ${depths[depths.length - 1]} most recently.`
             : '';
-          summary = `${email} has returned to this document ${signals.uniqueSessions} times and is progressing further through it with each visit.${depthNote} This pattern of deepening engagement across sessions is one of the strongest buying signals a proposal can generate.`;
+         summary = `${email} has returned to this document ${signals.uniqueSessions} times and is progressing further through it with each visit.${depthNote} This pattern of deepening document engagement across sessions is one of the stronger patterns DocMetrics can observe — though it reflects what's happening with the document specifically, not everything happening in the deal.`;
           recommendation = `Signal detected (high confidence): Progressive deepening engagement across multiple sessions is one of the stronger buying signals in document analytics. A contextual follow up referencing something specific in the document tends to perform well at this stage. Asking whether others on their side should be involved is worth considering given the engagement pattern.`;
 
         // ── WARM/NEEDS HELP — stuck reader ────────────────────────
@@ -265,7 +265,7 @@ The data alone cannot distinguish between these.`;
         // ── HOT — new viewers from same company ───────────────────
         } else if (hasNewViewers) {
           dealStatus = 'hot';
-          summary = `${email} has shared this document internally. ${signals.newViewersFromSameCompany} additional ${signals.newViewersFromSameCompany === 1 ? 'person' : 'people'} from the same organisation have now opened it, which strongly suggests the evaluation has moved beyond your initial contact and is being reviewed at a higher level.`;
+          summary = `${email} appears to have shared this document internally — ${signals.newViewersFromSameCompany} additional ${signals.newViewersFromSameCompany === 1 ? 'person' : 'people'} from the same organisation have now opened it. Within the document layer, this is one of the stronger signals DocMetrics can detect. Whether it reflects a broader internal evaluation or a more limited forward is something only you can judge from the relationship context.`;
            recommendation = `Signal detected (high confidence): Additional viewers from the same organisation suggest internal sharing has occurred. This is typically a positive buying signal indicating your champion is building an internal case. Asking naturally whether others should be involved in the conversation tends to work well here. Avoid mentioning that you can see the sharing activity directly.`;
 
         // ── HOT — re-reads but no multiple sessions ───────────────

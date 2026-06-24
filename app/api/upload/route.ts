@@ -382,6 +382,9 @@ plan: plan,
       folder: null,
       starred: false,
       archived: false,
+      dealOutcome: null,         // ← 'won' | 'lost' | null — set later via /outcome endpoint
+      dealOutcomeSetAt: null,    // ← timestamp when rep marked the outcome
+      dealOutcomeSetBy: null, 
       createdAt: new Date(),
       updatedAt: new Date(),
       lastAnalyzedAt: null,

@@ -1167,6 +1167,8 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
           updatedAt: document.updatedAt,
           ownerEmail: ownerProfile?.email || null,
           ownerName: ownerProfile?.full_name || ownerProfile?.first_name || null,
+          dealOutcome: document.dealOutcome ?? null, // ← 'won' | 'lost' | null
+          dealOutcomeSetAt: document.dealOutcomeSetAt ?? null,
         },
         anonymousFingerprints: Array.from(anonFingerprintMap.values()).map(f => ({
           viewerId: f.viewerId,

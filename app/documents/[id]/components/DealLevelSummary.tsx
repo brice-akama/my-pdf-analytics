@@ -280,7 +280,7 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
 
     return {
       state: 'advancing',
-      label: 'Deal Advancing',
+     label: 'Engagement Advancing',
       color: 'text-green-700',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200',
@@ -296,9 +296,9 @@ whatHappened:
   signalAgreement.note,
 
       whatItMeans:
-        `When a secondary viewer spends this much time reading, the document has moved beyond a courtesy forward. ` +
-        `Someone beyond your original contact is evaluating it seriously. ` +
-        `This combination — strong primary engagement plus a deep secondary reader — is one of the clearer buying signals in post-proposal analytics.`,
+        `When a secondary viewer spends this much time reading, the document has moved beyond a courtesy forward within the document layer. ` +
+        `Someone beyond your original contact is engaging with it seriously. ` +
+        `This combination — strong primary engagement plus a deep secondary reader — is one of the clearer patterns DocMetrics can observe, though it reflects document behavior only, not everything happening around the deal.`,
 
       recommendedAction:
         `High confidence signal. The data suggests internal evaluation is underway. ` +
@@ -395,7 +395,7 @@ whatHappened:
 
     return {
       state: 'single_threaded_risk',
-      label: 'Single Threaded',
+     label: 'Single Viewer So Far',
       color: 'text-amber-700',
       bgColor: 'bg-amber-50',
       borderColor: 'border-amber-200',
@@ -502,10 +502,10 @@ whatHappened:
         `The document has not been forwarded internally and no return visits have been detected.`,
 
       whatItMeans:
-        `Prolonged silence after a proposal is one of the most common patterns in deals that eventually go cold — ` +
-        `but it is not always a closed door. ` +
+        `Prolonged silence in document engagement is one of the most common patterns DocMetrics observes before deals go cold — ` +
+        `but document silence is not the same as deal silence. ` +
         `External factors, budget cycles, and internal changes at the prospect's company ` +
-        `regularly explain silences that look like disengagement from the outside.`,
+        `regularly explain silences that look like disengagement from the document alone.`,
 
       recommendedAction:
         `Low confidence signal. The data suggests the deal has stalled but cannot explain why. ` +
