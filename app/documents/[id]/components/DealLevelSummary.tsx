@@ -487,7 +487,51 @@ whatHappened:
   }
 
   // ── STATE 6: STALLED ─────────────────────────────────────────────
+  // ── STATE 6: STALLED ─────────────────────────────────────────────
+  // JOLT insight applied: silence with continued document activity
+  // is different from silence with zero document activity.
+  // The first suggests paralysis — buyer is stuck, not gone.
+  // The second suggests genuine disengagement.
+  // We split the narrative accordingly while keeping the state
+  // the same — both are honest observations, not deal verdicts.
   if (daysSinceLastActivity >= 14 && !committeeGrowing) {
+
+    // Check whether any viewer is still engaging with the document
+    // during the silence period — re-reads or video replays
+    const stillEngagingDuringsilence = viewers.some(
+      v => v.momentumState !== 'stalled' && v.totalTimeSeconds > 0
+    );
+
+    const whatHappenedSilent = stillEngagingDuringsilence
+      ? `Communication has been quiet for ${daysSinceLastActivity} days, but document activity has continued — ` +
+        `at least one viewer is still returning to sections of this document during the quiet period.`
+      : `No engagement has been recorded for ${daysSinceLastActivity} days. ` +
+        `The document has not been forwarded internally and no return visits have been detected.`;
+
+    const whatItMeansSilent = stillEngagingDuringsilence
+      ? `Silence in communication alongside continued document engagement is more consistent with a buyer ` +
+        `working through a decision than one who has moved on. ` +
+        `Buyers who are paralysed by the risk of deciding wrong often go quiet in communication ` +
+        `while continuing to review the document privately. ` +
+        `The specific pages they keep returning to may indicate where the hesitation lives — ` +
+        `worth checking the page-level signals below if visible.`
+      : `Prolonged silence in document engagement is one of the most common patterns DocMetrics observes before deals go cold — ` +
+        `but document silence is not the same as deal silence. ` +
+        `External factors, budget cycles, and internal changes at the prospect's company ` +
+        `regularly explain silences that look like disengagement from the document alone.`;
+
+    const recommendedActionSilent = stillEngagingDuringsilence
+      ? `Medium confidence signal. The buyer may be stuck on a decision rather than disengaged. ` +
+        `A direct question about whether there is anything on their side you could help clarify — ` +
+        `framed around being useful rather than chasing a decision — ` +
+        `tends to surface the specific hesitation better than a generic check-in. ` +
+        `Your read on the relationship and what pages they have been returning to should guide the approach.`
+      : `Low confidence signal. The data suggests the deal has stalled but cannot explain why. ` +
+        `A short message that acknowledges the gap without pressure — ` +
+        `and asks a direct question about whether the timing still works — ` +
+        `is usually the lowest risk move at this stage. ` +
+        `If there is no reply within a few days, parking the deal with a future reminder ` +
+        `is a reasonable way to keep the pipeline clean without writing it off.`;
 
     return {
       state: 'stalled',
@@ -496,26 +540,10 @@ whatHappened:
       bgColor: 'bg-slate-50',
       borderColor: 'border-slate-200',
       icon: <AlertCircle className="h-4 w-4 text-slate-500" />,
-
-      whatHappened:
-        `No engagement has been recorded for ${daysSinceLastActivity} days. ` +
-        `The document has not been forwarded internally and no return visits have been detected.`,
-
-      whatItMeans:
-        `Prolonged silence in document engagement is one of the most common patterns DocMetrics observes before deals go cold — ` +
-        `but document silence is not the same as deal silence. ` +
-        `External factors, budget cycles, and internal changes at the prospect's company ` +
-        `regularly explain silences that look like disengagement from the document alone.`,
-
-      recommendedAction:
-        `Low confidence signal. The data suggests the deal has stalled but cannot explain why. ` +
-        `A short message that acknowledges the gap without pressure — ` +
-        `and asks a direct question about whether the timing still works — ` +
-        `is usually the lowest risk move at this stage. ` +
-        `If there is no reply within a few days, parking the deal with a future reminder ` +
-        `is a reasonable way to keep the pipeline clean without writing it off.`,
-
-      confidence: 'low',
+      whatHappened: whatHappenedSilent,
+      whatItMeans: whatItMeansSilent,
+      recommendedAction: recommendedActionSilent,
+      confidence: stillEngagingDuringsilence ? 'medium' : 'low',
       evidence,
     };
   }

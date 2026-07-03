@@ -23,7 +23,7 @@ export function HeroSection() {
 
           {/* Subtitle */}
           <p className="mb-10 text-lg sm:text-xl md:text-2xl text-slate-600 max-w-2xl text-left md:text-center md:mx-auto">
-            Not just who opened it — what they actually did with it.Track re-reads, internal forwarding, and stakeholder activity before the deal goes cold.
+            Know if your buyer is moving before your next follow-up.Track re-reads, stakeholder activity, and internal sharing to understand what happens after the proposal is sent.
 
           </p>
 
