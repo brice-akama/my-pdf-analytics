@@ -43,6 +43,7 @@ const HIDDEN_ROUTES = [
   "/proposal-grader",
   "/templates",
   "/templates/editor",
+  "/silence-checker",
 ]
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {

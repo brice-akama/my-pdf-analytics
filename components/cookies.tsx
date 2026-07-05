@@ -28,6 +28,7 @@ const CookieConsent = () => {
     '/proposal-grader',
     '/templates',
     '/templates/editor',
+     "/silence-checker",
   ]
 
   // Check if current path starts with any hidden path
