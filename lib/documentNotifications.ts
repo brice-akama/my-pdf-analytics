@@ -644,6 +644,155 @@ export async function sendDealInsightEmail({
 
 }
 
+export async function sendSpaceDealInsightEmail({
+  ownerEmail,
+  ownerName,
+  viewerEmail,
+  documentName,
+  documentId,
+  slowestPage,
+  slowestPageTime,
+  avgPageTime,
+  skippedPages,
+  totalPages,
+  trigger,
+  daysSilent,
+  narrative: narrativeOverride,
+}: {
+  ownerEmail: string;
+  ownerName?: string | null;
+  viewerEmail: string;
+  documentName: string;
+  documentId: string;
+  slowestPage: number;
+  slowestPageTime: number;
+  avgPageTime: number;
+  skippedPages: number[];
+  totalPages: number;
+  trigger: 'session_end' | 'gone_silent';
+  daysSilent?: number;
+  narrative?: string;
+}) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const analyticsUrl = `${appUrl}/spaces/${documentId}`;
+
+  const multiplier = avgPageTime > 0
+    ? (slowestPageTime / avgPageTime).toFixed(1)
+    : '?';
+
+  const formatTime = (s: number) => {
+    if (s < 60) return `${s}s`;
+    return `${Math.floor(s / 60)}m ${s % 60}s`;
+  };
+
+  const skippedText = skippedPages.length > 0
+    ? `Pages ${skippedPages.join(', ')} were never opened.`
+    : 'All pages were opened.';
+
+  const subject = trigger === 'gone_silent'
+    ? `Deal going cold — ${viewerEmail} hasn't returned in ${daysSilent} days`
+    : `Deal insight — ${viewerEmail} just finished reading`;
+
+  const defaultInsight = trigger === 'gone_silent'
+    ? `${viewerEmail} opened your proposal ${daysSilent} days ago and hasn't come back. The last page they spent real time on was page ${slowestPage}.`
+    : `${viewerEmail} just finished a session. They spent ${multiplier}x longer than average on page ${slowestPage} (${formatTime(slowestPageTime)} vs avg ${formatTime(avgPageTime)}).`;
+
+  const insight = narrativeOverride || defaultInsight;
+
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #111;">
+      <h2 style="color: ${trigger === 'gone_silent' ? '#e53e3e' : '#0078D4'};">
+        ${trigger === 'gone_silent' ? '🧊 Deal Going Cold' : '📊 Deal Insight'}
+      </h2>
+
+      <p style="
+        display: inline-block;
+        background: #f1f5f9;
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #475569;
+        margin-bottom: 12px;
+      "> ${viewerEmail}</p>
+
+      <p>${insight}</p>
+      <p style="color: #555;">${skippedText}</p>
+
+      ${narrativeOverride ? `
+      <table style="width:100%; border-collapse:collapse; margin: 24px 0;">
+        <tr style="background:#f7f7f7;">
+          <td style="padding:8px 12px; font-weight:bold;">Space</td>
+          <td style="padding:8px 12px;">${documentName}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px; font-weight:bold;">Prospect</td>
+          <td style="padding:8px 12px;">${viewerEmail}</td>
+        </tr>
+      </table>
+      ` : `
+      <table style="width:100%; border-collapse:collapse; margin: 24px 0;">
+        <tr style="background:#f7f7f7;">
+          <td style="padding:8px 12px; font-weight:bold;">Space</td>
+          <td style="padding:8px 12px;">${documentName}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px; font-weight:bold;">Viewer</td>
+          <td style="padding:8px 12px;">${viewerEmail}</td>
+        </tr>
+        <tr style="background:#f7f7f7;">
+          <td style="padding:8px 12px; font-weight:bold;">Slowest page</td>
+          <td style="padding:8px 12px;">Page ${slowestPage} — ${formatTime(slowestPageTime)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px; font-weight:bold;">Avg per page</td>
+          <td style="padding:8px 12px;">${formatTime(avgPageTime)}</td>
+        </tr>
+        <tr style="background:#f7f7f7;">
+          <td style="padding:8px 12px; font-weight:bold;">Pages skipped</td>
+          <td style="padding:8px 12px;">${skippedPages.length > 0 ? skippedPages.join(', ') : 'None'}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px; font-weight:bold;">Total pages</td>
+          <td style="padding:8px 12px;">${totalPages}</td>
+        </tr>
+        ${trigger === 'gone_silent' ? `
+        <tr style="background:#f7f7f7;">
+          <td style="padding:8px 12px; font-weight:bold;">Days silent</td>
+          <td style="padding:8px 12px;">${daysSilent} days</td>
+        </tr>` : ''}
+      </table>
+      `}
+      <a href="${analyticsUrl}" style="
+        display: inline-block;
+        background: #0078D4;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: bold;
+        margin-top: 8px;
+      ">View Full Analytics</a>
+
+      <p style="margin-top: 32px; color: #999; font-size: 12px;">DocMetrics</p>
+    </div>
+  `;
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to: [ownerEmail],
+    subject,
+    html,
+  });
+
+  if (error) {
+    console.error('sendSpaceDealInsightEmail error:', error);
+    throw error;
+  }
+
+  return { success: true };
+}
+
 export async function markNotificationSent(
   type: string,
   sessionId: string,

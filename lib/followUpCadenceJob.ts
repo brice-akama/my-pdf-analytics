@@ -1,3 +1,5 @@
+//app/lib/followupCadence.ts
+
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { sendEmail } from './email';
 import { sendSlackNotification } from './integrations/slack';
@@ -6,8 +8,11 @@ import { isHubSpotConnected, syncDealInsightToHubSpot } from './integrations/hub
 import { sendTeamsNotification } from '@/app/api/integrations/teams/notify/route';
 
 // ── Follow up message templates ───────────────────────────────
-// Written in plain human language following the 20 year veteran framework
-// Day 2 = value add, Day 7 = direct question, Day 10 = final
+// DocMetrics philosophy: every message here is DocMetrics reporting
+// TO the rep — never a script the rep sends to the buyer, never a
+// verdict on what the rep should do. Each message states what was
+// observed, what that pattern typically suggests, what is worth
+// considering, and an honest confidence level. The rep always decides.
 
 function getStepMessage(
   step: number,
@@ -20,12 +25,10 @@ function getStepMessage(
   slackMessage: string;
 } | null {
 
-  const sender = ownerName || 'your contact';
-
   switch (step) {
 
     case 1:
-      // Day 2 — ghosting risk alert with ready to paste follow up
+      // Day 2 — early silence signal
       return {
         subject: `Engagement signal on "${documentName}" — 48 hours with no reply detected`,
         body: `
@@ -33,41 +36,35 @@ function getStepMessage(
 
             <!-- Alert banner -->
             <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
-             <p style="margin: 0; font-size: 13px; font-weight: 700; color: #c2410c;">Signal detected (medium confidence): No reply after 48 hours</p>
-<p style="margin: 4px 0 0; font-size: 13px; color: #9a3412;">
-  <strong>${viewerEmail}</strong> received <strong>${documentName}</strong> 2 days ago with no reply recorded.
-  48 hours of silence is a common pattern before deals go cold — though many deals recover with the right follow up.
-</p>
+              <p style="margin: 0; font-size: 13px; font-weight: 700; color: #c2410c;">Signal detected (medium confidence): No reply after 48 hours</p>
+              <p style="margin: 4px 0 0; font-size: 13px; color: #9a3412;">
+                <strong>${viewerEmail}</strong> received <strong>${documentName}</strong> 2 days ago. No reply, re-read, or internal forward has been recorded since.
+              </p>
             </div>
 
-            <!-- What this means -->
-            <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">What this means</p>
+            <!-- What was observed -->
+            <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">What was observed</p>
             <p style="margin: 0 0 16px; font-size: 13px; color: #475569;">
-              Silence at 48 hours usually means one of two things. 
-              They opened it and got distracted, or they are reviewing it internally before replying. 
-              Either way a well timed follow up today dramatically increases your chance of a response.
+              ${viewerEmail} received ${documentName} 2 days ago. No reply, re-read, or internal forward has been recorded since.
             </p>
 
-            <!-- Ready to send message -->
-            <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">Ready to send — copy and paste this now</p>
-            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #0f172a; border-radius: 0 8px 8px 0; padding: 16px 20px; margin-bottom: 20px;">
-              <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">Hi,</p>
-              <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">
-                I wanted to flag something specific in ${documentName} before you go through it — 
-                there are a couple of decisions in there that tend to raise questions and are 
-                worth a quick conversation rather than leaving to email.
-              </p>
-              <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">
-                Happy to walk you through them on a short call or answer anything in writing 
-                if that works better. Just let me know what suits you.
-              </p>
-              <p style="margin: 0; font-size: 13px; color: #64748b;">— ${sender}</p>
-            </div>
+            <!-- What this typically suggests -->
+            <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">What this typically suggests</p>
+            <p style="margin: 0 0 16px; font-size: 13px; color: #475569;">
+              At 48 hours, silence usually means one of two things: they opened it and got pulled away,
+              or they are reviewing it internally before responding. Document data alone cannot tell you which.
+            </p>
 
-            <!-- Why this works -->
-            <p style="font-size: 12px; color: #94a3b8; margin: 0 0 24px;">
-              This message works because it gives them a reason to reply without asking 
-              if they read it. Reference the document specifically. Do not ask if they got it.
+            <!-- What is worth considering -->
+            <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">What is worth considering</p>
+            <p style="margin: 0 0 16px; font-size: 13px; color: #475569;">
+              A follow-up that references something specific in the document tends to prompt a reply more
+              reliably than a general check-in. Whether and how you frame that is your call based on the relationship.
+            </p>
+
+            <!-- Confidence -->
+            <p style="margin: 0 0 24px; font-size: 12px; color: #94a3b8;">
+              Confidence: medium. Single signal (time since send), with no corroborating activity yet.
             </p>
 
             <!-- CTA -->
@@ -78,69 +75,79 @@ function getStepMessage(
 
             <hr style="margin: 28px 0; border: none; border-top: 1px solid #f1f5f9;" />
             <p style="margin: 0; font-size: 11px; color: #94a3b8;">
-              DocMetrics detected this because ${viewerEmail} has not opened 
-              ${documentName} in 48 hours. 
+              DocMetrics detected this because ${viewerEmail} has not opened
+              ${documentName} in 48 hours.
               <a href="https://docmetrics.io/dashboard" style="color: #94a3b8;">Manage alerts</a>
             </p>
           </div>
         `,
-        slackMessage: `Signal detected (medium confidence): No reply on "${documentName}" from ${viewerEmail} after 48 hours. This is a common pattern before deals go cold but a well timed follow up can often recover it. Suggested message: "Hi, I wanted to flag something specific in ${documentName} before you go through it — there are a couple of decisions in there that tend to raise questions and are worth a quick conversation rather than leaving to email. Happy to walk you through them on a short call or answer anything in writing if that works better. Just let me know what suits you." Your judgment on the relationship context will help you decide when and how to follow up.`,
+        slackMessage: `Signal detected (medium confidence): No reply on "${documentName}" from ${viewerEmail} after 48 hours. No re-reads or internal forwards detected in this window. Single signal — document data cannot confirm reason for silence.`,
       };
 
     case 2:
-      // Day 5 — wait signal, do not follow up yet
+      // Day 5 — continued silence signal
       return {
-        subject: `Timing check on ${documentName}`,
+        subject: `Engagement update on ${documentName}`,
         body: `
           <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #1e293b; line-height: 1.7;">
             <p style="margin: 0 0 16px; font-size: 13px; color: #64748b;">
               <strong>DocMetrics follow up timing alert</strong>
             </p>
             <p style="margin: 0 0 16px;">
-              It has been 5 days since you shared <strong>${documentName}</strong> with ${viewerEmail}.
+              It has been 5 days since <strong>${documentName}</strong> was shared with ${viewerEmail}.
+            </p>
+
+            <p style="margin: 0 0 16px;">
+              What was observed: no reply, re-read, or internal forward recorded in this window.
             </p>
             <p style="margin: 0 0 16px;">
-              Based on typical deal patterns, this is usually not the moment for another follow up yet. 
-              If you sent a value add on day 2, give it two more days before reaching out again.
+              What this typically suggests: at this stage, silence alone does not distinguish between a buyer
+              still deciding internally and one who has moved on — both look identical from document data.
             </p>
-            <p style="margin: 0 0 16px;">
-              If you have not followed up at all yet, now is the right moment. 
-              Keep it short — one line of context, one specific question about their timeline.
+            <p style="margin: 0 0 16px; font-size: 12px; color: #94a3b8;">
+              Confidence: medium. Timing and frequency of any prior follow-up are best judged on your side.
             </p>
+
             <p style="margin: 0; color: #64748b; font-size: 13px;">— DocMetrics</p>
           </div>
         `,
-       slackMessage: `Signal check (medium confidence): 5 days since "${documentName}" was shared with ${viewerEmail}. Engagement pattern suggests holding off may be appropriate if you already followed up on day 2. If no follow up has been sent yet a timing question tends to work better than a check in at this stage. Your judgment on the relationship context matters here.`,
+        slackMessage: `Signal check (medium confidence): 5 days since "${documentName}" was shared with ${viewerEmail}, with no reply, re-read, or forward detected. Cannot distinguish internal deliberation from disengagement from document data alone.`,
       };
 
     case 3:
-      // Day 7 — direct question time
+      // Day 7 — extended silence signal
       return {
-        subject: `Quick question about ${documentName}`,
+        subject: `Engagement update on ${documentName}`,
         body: `
           <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto; color: #1e293b; line-height: 1.7;">
-            <p style="margin: 0 0 16px;">Hi,</p>
             <p style="margin: 0 0 16px;">
-              Wanted to check in with one direct question — is moving forward on 
-              <strong>${documentName}</strong> still a priority for you right now, 
-              or would it make more sense to pick this up at a better time?
+              What was observed: it has been 7 days since <strong>${documentName}</strong> was shared with
+              ${viewerEmail}, with no reply, re-read, or internal forward recorded.
             </p>
-            <p style="margin: 0 0 24px;">
-              Either answer works. Just want to make sure I am not following up 
-              when timing is off on your end.
+            <p style="margin: 0 0 16px;">
+              What this typically suggests: a full week of silence with zero document activity leans more
+              toward disengagement than active internal deliberation — though external factors (budget cycles,
+              competing priorities) that DocMetrics cannot see often explain this too.
             </p>
-            <p style="margin: 0; color: #64748b; font-size: 13px;">— ${sender}</p>
+            <p style="margin: 0 0 16px;">
+              What is worth considering: a direct question about whether timing still works tends to surface
+              real information faster than another value-add message at this stage.
+            </p>
+            <p style="margin: 0 0 24px; font-size: 12px; color: #94a3b8;">
+              Confidence: medium. Based on document engagement only — not full deal context.
+            </p>
+            <p style="margin: 0; color: #64748b; font-size: 13px;">— DocMetrics</p>
             <hr style="margin: 24px 0; border: none; border-top: 1px solid #e2e8f0;" />
             <p style="margin: 0; font-size: 11px; color: #94a3b8;">
               This follow up was suggested by DocMetrics based on your document engagement data.
             </p>
           </div>
         `,
-        slackMessage: `Signal detected (medium confidence): 7 days since "${documentName}" was shared with ${viewerEmail} with no reply recorded. A direct question about whether this is still a priority tends to generate responses at this stage. Whether to send it now is your call based on the broader relationship context.`,
+        slackMessage: `Signal detected (medium confidence): 7 days since "${documentName}" was shared with ${viewerEmail}, with no reply, re-read, or forward recorded. Leans toward disengagement but external factors DocMetrics cannot see may explain this.`,
       };
 
     case 4:
-      // Day 14 — final message or archive
+      // Day 14 — prolonged silence signal
       return {
         subject: `Closing the loop on ${documentName}`,
         body: `
@@ -149,25 +156,30 @@ function getStepMessage(
               <strong>DocMetrics — 14 day silence alert</strong>
             </p>
             <p style="margin: 0 0 16px;">
-              It has been two weeks since ${viewerEmail} received <strong>${documentName}</strong> 
+              It has been two weeks since ${viewerEmail} received <strong>${documentName}</strong>
               with no reply.
             </p>
+
             <p style="margin: 0 0 16px;">
-              At this point you have two options. Send one final short message that acknowledges 
-              the silence without making them feel guilty — something like: 
-              <em>I wanted to check in one last time before I close this out on my end. 
-              If timing is off or priorities have shifted, completely understandable — 
-              just let me know and I will follow up when it makes more sense.</em>
+              What was observed: no re-reads or internal forwards have been detected across the full 14-day window.
             </p>
             <p style="margin: 0 0 16px;">
-              Or archive this deal and set a reminder for six weeks. 
-              Some deals go quiet because of internal changes you cannot see from here. 
-              They are not always dead.
+              What this typically suggests: two weeks of zero document activity is more consistent with a paused
+              or ended evaluation than active deliberation — though internal changes on their side (budget cycles,
+              reorgs, shifted priorities) regularly produce silence that looks like disengagement from document data alone.
             </p>
+            <p style="margin: 0 0 16px;">
+              What is worth considering: a short final message, or archiving with a future reminder, are both
+              reasonable next steps — which one fits depends on your read of the relationship.
+            </p>
+            <p style="margin: 0 0 24px; font-size: 12px; color: #94a3b8;">
+              Confidence: low. Document silence alone cannot explain why engagement stopped — only that it has.
+            </p>
+
             <p style="margin: 0; color: #64748b; font-size: 13px;">— DocMetrics</p>
           </div>
         `,
-        slackMessage: `Signal detected (low confidence): 14 days of silence on "${documentName}" from ${viewerEmail}. The data alone cannot confirm whether this deal is lost or paused for external reasons. A final short message or archiving with a reminder are both reasonable options depending on your read of the relationship.`,
+        slackMessage: `Signal detected (low confidence): 14 days of silence on "${documentName}" from ${viewerEmail}, no re-reads or forwards detected across the window. Cannot confirm whether the deal is paused, ended, or affected by factors outside document activity.`,
       };
 
     default:
@@ -190,7 +202,7 @@ export async function runFollowUpCadenceJob() {
 
     for (const cadence of dueCadences) {
       try {
-       const step = cadence.currentStep;
+        const step = cadence.currentStep;
 
         // Get owner profile for email (needed by committee check and main send)
         const ownerProfile = await db.collection('profiles').findOne({
@@ -210,7 +222,7 @@ export async function runFollowUpCadenceJob() {
           )];
 
           const prospectDomain = cadence.viewerEmail?.split('@')[1];
-         const FREE_EMAIL_DOMAINS_CADENCE = new Set([
+          const FREE_EMAIL_DOMAINS_CADENCE = new Set([
             'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
             'icloud.com', 'me.com', 'aol.com', 'protonmail.com',
             'mail.com', 'live.com', 'msn.com', 'googlemail.com',
@@ -237,20 +249,24 @@ export async function runFollowUpCadenceJob() {
               html: `
                 <div style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; color: #1e293b; line-height: 1.7;">
                   <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
-                   <p style="margin: 0; font-size: 13px; font-weight: 700; color: #15803d;">Signal detected (high confidence): New viewer from same organisation</p>
-<p style="margin: 4px 0 0; font-size: 13px; color: #166534;">
-  Someone new from <strong>${prospectDomain}</strong> has opened <strong>${cadence.documentName}</strong>.
-  This may indicate internal sharing is underway. Your deal context will determine the best next step.
-</p>
-                  </div>
-                  <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">What to do right now</p>
-                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #0f172a; border-radius: 0 8px 8px 0; padding: 16px 20px; margin-bottom: 20px;">
-                    <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">Hi,</p>
-                    <p style="margin: 0 0 10px; font-size: 13px; color: #1e293b;">
-                      Following up on ${cadence.documentName} — wanted to check whether there are any questions on your side I could help address, or whether others on your team should be part of the conversation at this stage.
+                    <p style="margin: 0; font-size: 13px; font-weight: 700; color: #15803d;">Signal detected (high confidence): New viewer from same organisation</p>
+                    <p style="margin: 4px 0 0; font-size: 13px; color: #166534;">
+                      Someone new from <strong>${prospectDomain}</strong> has opened <strong>${cadence.documentName}</strong>.
+                      This may indicate internal sharing is underway. Your deal context will determine the best next step.
                     </p>
-                    <p style="margin: 0; font-size: 13px; color: #64748b;">— Your contact</p>
                   </div>
+
+                  <p style="font-size: 14px; font-weight: 700; color: #0f172a; margin: 0 0 8px;">What this typically suggests</p>
+                  <p style="margin: 0 0 8px; font-size: 13px; color: #475569;">
+                    A new viewer from the same domain often means the document is being shared internally for review —
+                    though it can also mean a colleague was simply cc'd in passing.
+                  </p>
+                  <p style="margin: 0 0 20px; font-size: 13px; color: #475569;">
+                    <strong>What is worth considering:</strong> checking in on whether other stakeholders should be
+                    looped into the conversation directly is a reasonable next step, but timing and framing are best
+                    judged by your read of the account.
+                  </p>
+
                   <a href="https://docmetrics.io/dashboard"
                      style="display: inline-block; background: #0f172a; color: #fff; padding: 11px 24px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600;">
                     View document analytics →
@@ -289,7 +305,6 @@ export async function runFollowUpCadenceJob() {
         // the same domain but a completely unknown email opening it.
         // This fires for experienced reps who would otherwise ignore
         // standard signals but find genuinely new information valuable.
-        // ── Unexpected signal detection ───────────────────────────
         if (step === 1) {
           const allPriorEmails = await db.collection('analytics_sessions')
             .distinct('email', { documentId: cadence.documentId });
@@ -349,8 +364,6 @@ export async function runFollowUpCadenceJob() {
           );
           continue;
         }
-
-         
 
         // Check engagement to personalise the message
         const recentSessions = await db.collection('analytics_sessions').find({

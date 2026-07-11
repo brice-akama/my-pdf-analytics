@@ -436,6 +436,92 @@ export async function notifyPortalEvent({
 }
 
 // ════════════════════════════════════════════════════════════════
+// 7b — DEAL INSIGHT (Spaces)
+// ════════════════════════════════════════════════════════════════
+export async function notifySpaceDealInsight({
+  userId,
+  documentName,
+  documentId,
+  viewerEmail,
+  slowestPage,
+  slowestPageTime,
+  avgPageTime,
+  skippedPages,
+  totalPages,
+  trigger,
+  daysSilent,
+  narrative: narrativeOverride,
+}: {
+  userId: string;
+  documentName: string;
+  documentId: string;
+  viewerEmail: string;
+  slowestPage: number;
+  slowestPageTime: number;
+  avgPageTime: number;
+  skippedPages: number[];
+  totalPages: number;
+  trigger: 'session_end' | 'gone_silent';
+  daysSilent?: number;
+  narrative?: string;
+}) {
+  const multiplier = avgPageTime > 0
+    ? (slowestPageTime / avgPageTime).toFixed(1)
+    : '?';
+
+  const skippedText = skippedPages.length > 0
+    ? `Page ${skippedPages.join(', ')} never opened`
+    : 'All pages opened';
+
+  const title = trigger === 'gone_silent'
+    ? `Deal Going Cold — ${daysSilent} days silent`
+    : 'Deal Insight — Session Just Ended';
+
+  const insight = trigger === 'gone_silent'
+    ? `*${viewerEmail}* opened your proposal ${daysSilent} days ago and hasn't returned. Last thing they saw was page ${slowestPage}.`
+    : `*${viewerEmail}* just finished a session. They spent ${multiplier}x longer than average on page ${slowestPage}.`;
+
+  const narrative = narrativeOverride || insight;
+
+  return sendSlackNotification({
+    userId,
+    message: `Deal insight for ${viewerEmail} on "${documentName}"`,
+    blocks: [
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: `*${title}*` },
+        accessory: {
+          type: 'button',
+          text: { type: 'plain_text', text: 'View Analytics' },
+          url: `${process.env.NEXT_PUBLIC_APP_URL}/spaces/${documentId}`,
+        },
+      },
+      divider(),
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: ` *Prospect:* ${viewerEmail}\n\n${narrative}`,
+        },
+      },
+      divider(),
+      {
+        type: 'section',
+        fields: [
+          { type: 'mrkdwn', text: `*Space*\n${documentName}` },
+          { type: 'mrkdwn', text: `*Viewer*\n${viewerEmail}` },
+          { type: 'mrkdwn', text: `*Slowest page*\nPage ${slowestPage} (${formatDuration(slowestPageTime)})` },
+          { type: 'mrkdwn', text: `*Avg per page*\n${formatDuration(avgPageTime)}` },
+          { type: 'mrkdwn', text: `*Skipped*\n${skippedText}` },
+          { type: 'mrkdwn', text: `*Total pages*\n${totalPages}` },
+        ],
+      },
+      context('DocMetrics'),
+    ],
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
 // 7 — DEAL INSIGHT (where did this deal slow down)
 // ════════════════════════════════════════════════════════════════
 export async function notifyDealInsight({

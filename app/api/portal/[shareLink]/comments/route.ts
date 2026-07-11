@@ -197,10 +197,11 @@ export async function POST(
         });
 
         // ── Email ─────────────────────────────────────────────────
+        // ── Email ─────────────────────────────────────────────────
         if (ownerProfile?.email) {
-          const { sendDealInsightEmail } =
+          const { sendSpaceDealInsightEmail } =
             await import('@/lib/documentNotifications');
-          sendDealInsightEmail({
+          sendSpaceDealInsightEmail({
             ownerEmail: ownerProfile.email,
             ownerName:
               ownerProfile.full_name || ownerProfile.first_name || null,
@@ -220,12 +221,12 @@ export async function POST(
         }
 
         // ── Slack ─────────────────────────────────────────────────
-        const { isSlackConnected, notifyDealInsight } =
+       const { isSlackConnected, notifySpaceDealInsight } =
           await import('@/lib/integrations/slack');
         isSlackConnected(ownerId)
           .then(connected => {
             if (!connected) return;
-            return notifyDealInsight({
+            return notifySpaceDealInsight({
               userId: ownerId,
               documentName: spaceName,
               documentId: spaceId,
@@ -244,14 +245,29 @@ export async function POST(
           );
 
         // ── Teams ─────────────────────────────────────────────────
-       
+       // ── Teams ─────────────────────────────────────────────────
+        const { sendTeamsNotification } =
+          await import('@/app/api/integrations/teams/notify/route');
+        sendTeamsNotification({
+          userId: ownerId,
+          event: 'deal_insight',
+          documentName: spaceName,
+          documentId: spaceId,
+          viewerEmail: buyerEmail,
+          extraInfo: notificationNarrative,
+          isSpace: true,
+        }).catch(err =>
+          console.error('[SpaceComment] Teams silent fail:', err)
+        );
+
+        
         // ── HubSpot ───────────────────────────────────────────────
-        const { syncDealInsightToHubSpot, isHubSpotConnected } =
+       const { syncSpaceDealInsightToHubSpot, isHubSpotConnected } =
           await import('@/lib/integrations/hubspotSync');
         isHubSpotConnected(ownerId)
           .then(connected => {
             if (!connected) return;
-            return syncDealInsightToHubSpot({
+            return syncSpaceDealInsightToHubSpot({
               userId: ownerId,
               viewerEmail: buyerEmail,
               documentName: spaceName,
@@ -282,11 +298,11 @@ export async function POST(
               .find({ user_id: { $in: memberUserIds } })
               .toArray();
 
-            for (const member of members) {
+          for (const member of members) {
               if (!member.email) continue;
-              const { sendDealInsightEmail } =
+              const { sendSpaceDealInsightEmail } =
                 await import('@/lib/documentNotifications');
-              sendDealInsightEmail({
+              sendSpaceDealInsightEmail({
                 ownerEmail: member.email,
                 ownerName:
                   member.full_name || member.first_name || null,

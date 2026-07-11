@@ -32,6 +32,7 @@ export type TeamsNotifyPayload = {
   completionPercent?: number
   spaceName?: string
   spaceId?: string
+  isSpace?: boolean
 }
 
 // ── Normalise legacy event names ──────────────────────────────────
@@ -118,7 +119,10 @@ function buildAdaptiveCard(
 ) {
   const appUrl  = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   const docUrl  = `${appUrl}/documents/${payload.documentId}`
-  const spaceUrl = payload.spaceId ? `${appUrl}/spaces/${payload.spaceId}` : null
+  const spaceUrl = payload.isSpace
+    ? `${appUrl}/spaces/${payload.documentId}`
+    : (payload.spaceId ? `${appUrl}/spaces/${payload.spaceId}` : null)
+  const primaryUrl = payload.isSpace && spaceUrl ? spaceUrl : docUrl
   const time    = new Date().toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
@@ -150,18 +154,18 @@ function buildAdaptiveCard(
   const actions: any[] = [
     {
       type:  'Action.OpenUrl',
-      title: 'View Document',
-      url:   docUrl,
+      title: payload.isSpace ? 'View Space' : 'View Document',
+      url:   primaryUrl,
       style: 'positive',
     },
     {
       type:  'Action.OpenUrl',
       title: 'View Analytics',
-      url:   `${docUrl}?tab=analytics`,
+      url:   `${primaryUrl}${payload.isSpace ? '' : '?tab=analytics'}`,
     },
   ]
 
-  if (spaceUrl) {
+  if (spaceUrl && !payload.isSpace) {
     actions.push({
       type:  'Action.OpenUrl',
       title: 'View Space',

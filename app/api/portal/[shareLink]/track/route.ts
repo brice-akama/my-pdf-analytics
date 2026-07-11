@@ -379,8 +379,8 @@ if (email && notifyEvents.includes(event)) {
             const ownerEmailAddr = ownerProfile?.email || space.ownerEmail;
 
             if (ownerEmailAddr) {
-              const { sendDealInsightEmail } = await import('@/lib/documentNotifications');
-              sendDealInsightEmail({
+              const { sendSpaceDealInsightEmail } = await import('@/lib/documentNotifications');
+              sendSpaceDealInsightEmail({
                 ownerEmail: ownerEmailAddr,
                 ownerName: ownerProfile?.full_name || ownerProfile?.first_name || null,
                 viewerEmail: email,
@@ -396,11 +396,11 @@ if (email && notifyEvents.includes(event)) {
               }).catch(err => console.error('[SpaceIntel] Email silent fail:', err));
             }
 
-            const { isSlackConnected, notifyDealInsight } = await import('@/lib/integrations/slack');
+           const { isSlackConnected, notifySpaceDealInsight } = await import('@/lib/integrations/slack');
             isSlackConnected(ownerId)
               .then(connected => {
                 if (!connected) return;
-                return notifyDealInsight({
+                return notifySpaceDealInsight({
                   userId: ownerId,
                   documentName: space.name || 'Your space',
                   documentId: space._id.toString(),
@@ -439,13 +439,14 @@ if (email && notifyEvents.includes(event)) {
               })
               .catch(err => console.error('[SpaceIntel] HubSpot silent fail:', err));
 
-            sendTeamsNotification({
+           sendTeamsNotification({
               userId: ownerId,
               event: 'deal_insight',
               documentName: space.name || 'Your space',
               documentId: space._id.toString(),
               viewerEmail: email,
               extraInfo: `${intel.narrative}\n\n${intel.recommendation}`,
+              isSpace: true,
             }).catch(err => console.error('[SpaceIntel] Teams silent fail:', err));
 
           } catch (err) {
