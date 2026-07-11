@@ -60,6 +60,44 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Comment not found' }, { status: 404 });
     }
 
+    // ── Notify buyer that their question has been answered ────────
+    // Closes the conversation loop — buyer asked a question inside
+    // the portal, rep replied inside DocMetrics, buyer gets an email
+    // so they know to go back and read the answer. Silent failure.
+    (async () => {
+      try {
+        const comment = await db.collection('portal_comments').findOne({
+          _id: new ObjectId(commentId),
+        });
+        if (!comment?.visitorEmail || comment.visitorEmail === 'Anonymous') return;
+
+        const spaceName = space.name || 'Your space';
+
+        // Simple transactional email to buyer — not a marketing email,
+        // just "your question was answered, here's what they said"
+        const { sendDealInsightEmail } =
+          await import('@/lib/documentNotifications');
+        sendDealInsightEmail({
+          ownerEmail: comment.visitorEmail,
+          ownerName: null,
+          viewerEmail: user.email || 'The team',
+          documentName: spaceName,
+          documentId: space._id.toString(),
+          slowestPage: 1,
+          slowestPageTime: 0,
+          avgPageTime: 0,
+          skippedPages: [],
+          totalPages: 1,
+          trigger: 'session_end',
+          narrative: `Your question in "${spaceName}" has been answered: "${reply.trim().slice(0, 200)}${reply.trim().length > 200 ? '...' : ''}". You can view the full reply by returning to the space.`,
+        }).catch(err =>
+          console.error('[SpaceComment] Buyer reply notification silent fail:', err)
+        );
+      } catch (err) {
+        console.error('[SpaceComment] Reply notification outer silent fail:', err);
+      }
+    })();
+
     return NextResponse.json({ success: true, message: 'Reply sent' });
 
   } catch (error) {
