@@ -755,6 +755,59 @@ export async function PATCH(
       if (settings.allowDownload !== undefined) updateFields['settings.allowDownload'] = settings.allowDownload;
       if (settings.allowPrint !== undefined) updateFields['settings.allowPrint'] = settings.allowPrint;
       if (settings.notifyOnView !== undefined) updateFields['settings.notifyOnView'] = settings.notifyOnView;
+      if (settings.notifyOnDownload !== undefined) updateFields['settings.notifyOnDownload'] = settings.notifyOnDownload;
+      if (settings.allowForwarding !== undefined) updateFields['settings.allowForwarding'] = settings.allowForwarding;
+      if (settings.selfDestruct !== undefined) updateFields['settings.selfDestruct'] = settings.selfDestruct;
+      if (settings.downloadLimit !== undefined) updateFields['settings.downloadLimit'] = settings.downloadLimit ?? null;
+      if (settings.viewLimit !== undefined) updateFields['settings.viewLimit'] = settings.viewLimit ?? null;
+      if (settings.customMessage !== undefined) updateFields['settings.customMessage'] = settings.customMessage || null;
+      if (settings.sharedByName !== undefined) updateFields['settings.sharedByName'] = settings.sharedByName || null;
+      if (settings.logoUrl !== undefined) updateFields['settings.logoUrl'] = settings.logoUrl || null;
+    }
+
+    // ── Top-level fields sent directly by ShareLinkDrawer ─────
+    // These are sent at the root of the body, not inside settings,
+    // because the frontend sends them separately from the settings
+    // object. All were previously ignored — fixed here.
+    const {
+      requireEmail,
+      password,
+      expiresIn,
+      enableWatermark,
+      watermarkText,
+      watermarkPosition,
+      requireNDA,
+      ndaAgreementId,
+      ndaUrl,
+      linkType,
+      allowedDomain,
+    } = body;
+
+    if (requireEmail !== undefined) updateFields.requireEmail = requireEmail ?? false;
+    if (password !== undefined) updateFields.password = password || null;
+    if (enableWatermark !== undefined) updateFields.enableWatermark = enableWatermark ?? false;
+    if (watermarkText !== undefined) updateFields.watermarkText = watermarkText || null;
+    if (watermarkPosition !== undefined) updateFields.watermarkPosition = watermarkPosition || 'diagonal';
+    if (requireNDA !== undefined) updateFields.requireNDA = requireNDA ?? false;
+    if (ndaAgreementId !== undefined) updateFields.ndaAgreementId = ndaAgreementId || null;
+    if (ndaUrl !== undefined) updateFields.ndaUrl = ndaUrl || null;
+    if (linkType !== undefined) updateFields.linkType = linkType || 'public';
+    if (allowedDomain !== undefined) updateFields.allowedDomain = allowedDomain || null;
+
+    // ── Handle expiresIn → expiresAt conversion ───────────────
+    // Frontend sends expiresIn as a number of days or 'never'.
+    // Database stores expiresAt as a Date or null.
+    if (expiresIn !== undefined) {
+      if (expiresIn === 'never' || expiresIn === 0 || expiresIn === '0') {
+        updateFields.expiresAt = null;
+      } else {
+        const days = parseInt(expiresIn.toString(), 10);
+        if (!isNaN(days) && days > 0) {
+          const expiry = new Date();
+          expiry.setDate(expiry.getDate() + days);
+          updateFields.expiresAt = expiry;
+        }
+      }
     }
 
     await db.collection('shares').updateOne(

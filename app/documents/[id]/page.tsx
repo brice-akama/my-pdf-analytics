@@ -24,6 +24,7 @@ import SuccessDialog    from "./components/SuccessDialog";
 import ActivityTab      from "./components/ActivityTab";
 import SignaturesTab    from "./components/SignaturesTab";
 import DriveImportDrawer from "./components/DriveImportDrawer";
+import UseTemplateDrawer from "./components/UseTemplateDrawer";
 import PageInfoTooltip  from "@/components/PageInfoTooltip";
 
 import { FileText, LinkIcon, Loader2, Mail , Video } from "lucide-react";
@@ -110,6 +111,7 @@ export default function DocumentPage() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showDriveFilesDialog, setShowDriveFilesDialog] = useState(false);
   const [showThumbnailDialog, setShowThumbnailDialog] = useState(false);
+  const [showUseTemplateDrawer, setShowUseTemplateDrawer] = useState(false);   
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean; title: string; message: string;
     onConfirm: () => void; danger?: boolean;
@@ -562,6 +564,21 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
       {/* Tabs */}
       <DocumentTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
+      {/* Save as client copy — same doc, isolated analytics per company */}
+{!doc.isTemplate && (
+  <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 flex justify-end">
+    <Button
+      onClick={() => setShowUseTemplateDrawer(true)}
+      variant="outline"
+      size="sm"
+      className="gap-2 border-purple-200 text-purple-700 hover:bg-purple-50"
+    >
+      <FileText className="h-4 w-4" />
+      Track for another company
+    </Button>
+  </div>
+)}
+
       {/* Tab content */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
 
@@ -847,6 +864,16 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
   docId={String(params.id)}
   videos={documentVideos}
   onVideosChange={setDocumentVideos}
+/>
+<UseTemplateDrawer
+  templateId={String(params.id)}
+  templateName={doc.originalFilename || doc.filename}
+  open={showUseTemplateDrawer}
+  onClose={() => setShowUseTemplateDrawer(false)}
+  onCreated={(newDoc) => {
+    setShowUseTemplateDrawer(false);
+    router.push(`/documents/${newDoc._id}`);
+  }}
 />
     </div>
   );
