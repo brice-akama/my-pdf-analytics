@@ -705,6 +705,7 @@ if (!hasAccess) {
 }
 
 // ✅ PATCH - Update share link settings
+// ✅ PATCH - Update share link settings
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -718,7 +719,8 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await request.json();
     console.log('📨 Request body:', body);
-    const { shareId, active, settings } = body;
+
+    const { shareId, active, reason } = body;
 
     if (!shareId) {
       return NextResponse.json({ error: 'Share ID required' }, { status: 400 });
@@ -732,7 +734,7 @@ export async function PATCH(
     });
 
     if (!share) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Only the document owner can perform this action',
         code: 'NOT_OWNER'
       }, { status: 403 })
@@ -747,56 +749,81 @@ export async function PATCH(
       if (!active) {
         updateFields.deactivatedAt = new Date();
         updateFields.deactivatedBy = user.id;
-        updateFields.deactivationReason = body.reason || 'Manually deactivated';
+        updateFields.deactivationReason = reason || 'Manually deactivated';
       }
     }
 
-    if (settings) {
-      if (settings.allowDownload !== undefined) updateFields['settings.allowDownload'] = settings.allowDownload;
-      if (settings.allowPrint !== undefined) updateFields['settings.allowPrint'] = settings.allowPrint;
-      if (settings.notifyOnView !== undefined) updateFields['settings.notifyOnView'] = settings.notifyOnView;
-      if (settings.notifyOnDownload !== undefined) updateFields['settings.notifyOnDownload'] = settings.notifyOnDownload;
-      if (settings.allowForwarding !== undefined) updateFields['settings.allowForwarding'] = settings.allowForwarding;
-      if (settings.selfDestruct !== undefined) updateFields['settings.selfDestruct'] = settings.selfDestruct;
-      if (settings.downloadLimit !== undefined) updateFields['settings.downloadLimit'] = settings.downloadLimit ?? null;
-      if (settings.viewLimit !== undefined) updateFields['settings.viewLimit'] = settings.viewLimit ?? null;
-      if (settings.customMessage !== undefined) updateFields['settings.customMessage'] = settings.customMessage || null;
-      if (settings.sharedByName !== undefined) updateFields['settings.sharedByName'] = settings.sharedByName || null;
-      if (settings.logoUrl !== undefined) updateFields['settings.logoUrl'] = settings.logoUrl || null;
-    }
-
-    // ── Top-level fields sent directly by ShareLinkDrawer ─────
-    // These are sent at the root of the body, not inside settings,
-    // because the frontend sends them separately from the settings
-    // object. All were previously ignored — fixed here.
+    // ── Every setting the frontend sends lives at the ROOT of the ──
+    // request body (see ShareLinkDrawer.tsx handleSubmit) — there is
+    // no nested `settings` object coming from the client. The real
+    // document schema (built in POST, read in GET) nests all of
+    // these under `settings.*`, so every write below targets that
+    // nested path to actually match what GET reads back.
     const {
       requireEmail,
-      password,
-      expiresIn,
+      allowDownload,
+      allowPrint,
+      notifyOnView,
       enableWatermark,
       watermarkText,
       watermarkPosition,
       requireNDA,
       ndaAgreementId,
       ndaUrl,
+      allowForwarding,
+      notifyOnDownload,
+      downloadLimit,
+      viewLimit,
+      selfDestruct,
+      customMessage,
+      sharedByName,
+      logoUrl,
       linkType,
       allowedDomain,
+      expiresIn,
+      password,
     } = body;
 
-    if (requireEmail !== undefined) updateFields.requireEmail = requireEmail ?? false;
-    if (password !== undefined) updateFields.password = password || null;
-    if (enableWatermark !== undefined) updateFields.enableWatermark = enableWatermark ?? false;
-    if (watermarkText !== undefined) updateFields.watermarkText = watermarkText || null;
-    if (watermarkPosition !== undefined) updateFields.watermarkPosition = watermarkPosition || 'diagonal';
-    if (requireNDA !== undefined) updateFields.requireNDA = requireNDA ?? false;
-    if (ndaAgreementId !== undefined) updateFields.ndaAgreementId = ndaAgreementId || null;
-    if (ndaUrl !== undefined) updateFields.ndaUrl = ndaUrl || null;
-    if (linkType !== undefined) updateFields.linkType = linkType || 'public';
-    if (allowedDomain !== undefined) updateFields.allowedDomain = allowedDomain || null;
+    if (requireEmail !== undefined) updateFields['settings.requireEmail'] = requireEmail ?? false;
+    if (allowDownload !== undefined) updateFields['settings.allowDownload'] = allowDownload ?? true;
+    if (allowPrint !== undefined) updateFields['settings.allowPrint'] = allowPrint ?? true;
+    if (notifyOnView !== undefined) updateFields['settings.notifyOnView'] = notifyOnView ?? true;
+    if (enableWatermark !== undefined) updateFields['settings.enableWatermark'] = enableWatermark ?? false;
+    if (watermarkText !== undefined) updateFields['settings.watermarkText'] = watermarkText || null;
+    if (watermarkPosition !== undefined) updateFields['settings.watermarkPosition'] = watermarkPosition || 'bottom';
+    if (requireNDA !== undefined) updateFields['settings.requireNDA'] = requireNDA ?? false;
+    if (ndaAgreementId !== undefined) updateFields['settings.ndaAgreementId'] = ndaAgreementId || null;
+    if (ndaUrl !== undefined) updateFields['settings.ndaUrl'] = ndaUrl || null;
+    if (allowForwarding !== undefined) updateFields['settings.allowForwarding'] = allowForwarding ?? true;
+    if (notifyOnDownload !== undefined) updateFields['settings.notifyOnDownload'] = notifyOnDownload ?? false;
+    if (downloadLimit !== undefined) updateFields['settings.downloadLimit'] = downloadLimit ?? null;
+    if (viewLimit !== undefined) {
+      // POST writes the same value to both settings.viewLimit and
+      // settings.maxViews (maxViewsReached in GET checks maxViews) —
+      // keep both in sync on edit too.
+      updateFields['settings.viewLimit'] = viewLimit ?? null;
+      updateFields['settings.maxViews'] = viewLimit ?? null;
+    }
+    if (selfDestruct !== undefined) updateFields['settings.selfDestruct'] = selfDestruct ?? false;
+    if (customMessage !== undefined) updateFields['settings.customMessage'] = customMessage || null;
+    if (sharedByName !== undefined) updateFields['settings.sharedByName'] = sharedByName || null;
+    if (logoUrl !== undefined) updateFields['settings.logoUrl'] = logoUrl || null;
+    if (linkType !== undefined) updateFields['settings.linkType'] = linkType || 'public';
+    if (allowedDomain !== undefined) updateFields['settings.allowedDomain'] = allowedDomain || null;
 
-    // ── Handle expiresIn → expiresAt conversion ───────────────
-    // Frontend sends expiresIn as a number of days or 'never'.
-    // Database stores expiresAt as a Date or null.
+    // ── Password — only touch it if a NEW password was actually typed ──
+    // GET never returns the plaintext password back to the client (only
+    // hasPassword: true/false), so shareSettings.password is blank on
+    // every edit unless the rep retypes one. Previously this meant every
+    // edit silently wiped out an existing password by sending null.
+    // Only write password/hasPassword when a non-empty string arrives,
+    // and hash it the same way POST does — never store it raw.
+    if (password) {
+      updateFields.password = await bcrypt.hash(password, 10);
+      updateFields['settings.hasPassword'] = true;
+    }
+
+    // ── expiresIn → expiresAt conversion (top-level field, unchanged) ──
     if (expiresIn !== undefined) {
       if (expiresIn === 'never' || expiresIn === 0 || expiresIn === '0') {
         updateFields.expiresAt = null;
