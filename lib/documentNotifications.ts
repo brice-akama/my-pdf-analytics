@@ -397,7 +397,6 @@ export async function sendLinkExpiredEmail({
 // ════════════════════════════════════════════════════════════════
 // TRIGGER 5 — DAILY DIGEST
 // ════════════════════════════════════════════════════════════════
-
 // ════════════════════════════════════════════════════════════════
 // TRIGGER 5 — DAILY DIGEST
 // ════════════════════════════════════════════════════════════════
@@ -423,10 +422,12 @@ export async function sendDailyDigestEmail({
 }) {
   if (totalViewsToday === 0) return;
 
-  const subject = `👁 ${totalViewsToday} view${totalViewsToday !== 1 ? 's' : ''} across your documents today`;
-  const previewText = `${totalUniqueViewersToday} unique viewer${totalUniqueViewersToday !== 1 ? 's' : ''} today`;
+  // Wording deliberately avoids "today" — the window this covers is a
+  // rolling ~24h since the rep's last digest, not a calendar day, so
+  // "today" can be misleading (e.g. includes yesterday afternoon).
+  const subject = `👁 ${totalViewsToday} view${totalViewsToday !== 1 ? 's' : ''} across your documents`;
+  const previewText = `${totalUniqueViewersToday} unique viewer${totalUniqueViewersToday !== 1 ? 's' : ''} recently`;
   const dashboardUrl = 'https://docmetrics.io/dashboard';
-  const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const activeDocs = documents.filter(d => d.viewsToday > 0).slice(0, 5);
   const topViewCount = Math.max(...activeDocs.map(d => d.viewsToday), 1);
@@ -454,8 +455,8 @@ export async function sendDailyDigestEmail({
   }).join('');
 
   const content = `
-    <p class="title">👋 Daily summary</p>
-    <p class="meta">${dateStr}</p>
+    <p class="title">👋 Recent activity</p>
+    <p class="meta">Since your last summary</p>
 
     <div class="stats">
       <div class="stat">
