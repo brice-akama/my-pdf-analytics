@@ -398,6 +398,10 @@ export async function sendLinkExpiredEmail({
 // TRIGGER 5 — DAILY DIGEST
 // ════════════════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════════════════
+// TRIGGER 5 — DAILY DIGEST
+// ════════════════════════════════════════════════════════════════
+
 export async function sendDailyDigestEmail({
   ownerEmail,
   ownerName,
@@ -419,48 +423,54 @@ export async function sendDailyDigestEmail({
 }) {
   if (totalViewsToday === 0) return;
 
-  const subject = `${totalViewsToday} view${totalViewsToday !== 1 ? 's' : ''} across your documents today`;
+  const subject = `👁 ${totalViewsToday} view${totalViewsToday !== 1 ? 's' : ''} across your documents today`;
   const previewText = `${totalUniqueViewersToday} unique viewer${totalUniqueViewersToday !== 1 ? 's' : ''} today`;
   const dashboardUrl = 'https://docmetrics.io/dashboard';
   const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const activeDocs = documents.filter(d => d.viewsToday > 0).slice(0, 5);
+  const topViewCount = Math.max(...activeDocs.map(d => d.viewsToday), 1);
 
-  const docsHtml = activeDocs.map(d => `
-    <tr>
-      <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:13px;color:#0f172a;font-weight:500;">${d.name}</td>
-      <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:13px;color:#0f172a;font-weight:700;text-align:right;">${d.viewsToday}</td>
-      <td style="padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:12px;color:#94a3b8;text-align:right;">${formatTime(d.avgTimeSeconds)} avg</td>
-    </tr>
-  `).join('');
+  // Fake bar chart via table-cell width — real SVG/canvas charts get
+  // stripped by Outlook and other email clients, so a colored div at
+  // a % width inside a fixed-width track is the reliable approach.
+  const docsHtml = activeDocs.map((d, i) => {
+    const pct = Math.max(6, Math.round((d.viewsToday / topViewCount) * 100));
+    const isTop = i === 0 && activeDocs.length > 1;
+    return `
+      <div class="bar-row" style="margin-bottom:14px;">
+        <div class="bar-label" style="align-items:baseline;">
+          <span style="display:flex;align-items:center;gap:6px;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            ${isTop ? '🔥 ' : '📄 '}${d.name}
+          </span>
+          <strong>${d.viewsToday} view${d.viewsToday !== 1 ? 's' : ''}</strong>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;${isTop ? 'background:#7c3aed;' : ''}"></div></div>
+        <div style="margin-top:4px;font-size:11px;color:#94a3b8;">
+          ⏱ ${formatTime(d.avgTimeSeconds)} avg${d.topViewer ? ` &nbsp;·&nbsp; 👤 ${d.topViewer}` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
 
   const content = `
-    <p class="title">Daily summary</p>
+    <p class="title">👋 Daily summary</p>
     <p class="meta">${dateStr}</p>
 
     <div class="stats">
       <div class="stat">
-        <span class="stat-n">${totalViewsToday}</span>
+        <span class="stat-n">👁 ${totalViewsToday}</span>
         <span class="stat-l">Views</span>
       </div>
       <div class="stat">
-        <span class="stat-n">${totalUniqueViewersToday}</span>
+        <span class="stat-n">👥 ${totalUniqueViewersToday}</span>
         <span class="stat-l">Unique viewers</span>
       </div>
     </div>
 
     ${activeDocs.length > 0 ? `
-      <p class="section-head">Documents</p>
-      <table style="width:100%;border-collapse:collapse;">
-        <thead>
-          <tr>
-            <th style="font-size:10px;font-weight:600;color:#94a3b8;text-align:left;padding-bottom:8px;text-transform:uppercase;letter-spacing:0.8px;">Name</th>
-            <th style="font-size:10px;font-weight:600;color:#94a3b8;text-align:right;padding-bottom:8px;text-transform:uppercase;letter-spacing:0.8px;">Views</th>
-            <th style="font-size:10px;font-weight:600;color:#94a3b8;text-align:right;padding-bottom:8px;text-transform:uppercase;letter-spacing:0.8px;">Avg time</th>
-          </tr>
-        </thead>
-        <tbody>${docsHtml}</tbody>
-      </table>
+      <p class="section-head">Documents with activity</p>
+      ${docsHtml}
     ` : ''}
 
     <div class="cta"><a href="${dashboardUrl}">Open dashboard</a></div>

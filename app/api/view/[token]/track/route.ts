@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { notifyDocumentView } from '@/lib/notifications';
+import { checkAndSendDailyDigests } from '@/lib/dailyDigest';
 import {
   detectSignals,
   shouldFireBehavioral,
@@ -946,6 +947,11 @@ if (share.userId) {
 
         // ── BACKGROUND: check for silent deals while someone else is active ──
         checkSilentDeals(db).catch(() => {});
+
+        // ── BACKGROUND: daily digest sweep — piggybacks on this traffic, ──
+// no cron. Fire-and-forget; failures are fully silent and never
+// affect the tracking response.
+checkAndSendDailyDigests(db).catch(() => {});
 
         // ── Create follow up cadence for this viewer ──────────
         // Only on first session — revisits do not create a new cadence

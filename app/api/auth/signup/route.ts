@@ -239,6 +239,13 @@ export async function POST(request: NextRequest) {
       // would get very slow as a user accumulates hundreds of files.
       totalStorageUsedBytes: 0,
 
+      // ── Daily digest fields ─────────────────────────────────────────
+// digestEnabled: opt-out toggle for later, defaults on.
+// lastDigestSentAt: null means "never sent" — checkAndSendDailyDigests
+// treats that as immediately due.
+digestEnabled: true,
+lastDigestSentAt: null,
+
       email_verified: isOAuthSignup ? true : false,
       created_at: now,
       updated_at: now,

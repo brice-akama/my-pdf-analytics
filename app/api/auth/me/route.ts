@@ -40,6 +40,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { dbPromise } from '@/app/api/lib/mongodb'
+import { checkAndSendDailyDigests } from '@/lib/dailyDigest';
 import {
   getPlanLimits,
   getStoragePercentage,
@@ -392,6 +393,13 @@ export async function GET(req: NextRequest) {
     }
 
     console.log('✅ Returning user data')
+
+    // Fire-and-forget — never awaited, never allowed to slow down or
+// break this response. Second trigger point alongside document
+// views, so a rep loading their own dashboard also sweeps for
+// anyone in the system who's due a digest.
+checkAndSendDailyDigests(db).catch(() => {})
+
     return NextResponse.json(
       { success: true, authenticated: true, user: userData },
       { status: 200 }
