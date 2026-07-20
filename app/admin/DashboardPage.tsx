@@ -562,7 +562,12 @@ export default function DashboardPage() {
                     <div style={{ fontSize: 11, color: '#94A3B8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
                   </div>
                   <span style={styles.badge(u.plan)}>{pc.label}</span>
-                  <span style={{ fontSize: 10, color: '#CBD5E1', marginLeft: 8, whiteSpace: 'nowrap' }}>{timeAgo(u.createdAt)}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: 8, minWidth: 78 }}>
+                    <span style={{ fontSize: 10, color: '#CBD5E1', whiteSpace: 'nowrap' }}>Joined {timeAgo(u.createdAt)}</span>
+                    <span style={{ fontSize: 10, color: u.lastLoginAt ? '#94A3B8' : '#CBD5E1', whiteSpace: 'nowrap' }}>
+                      {u.lastLoginAt ? `Login ${timeAgo(u.lastLoginAt)}` : 'Never logged in'}
+                    </span>
+                  </div>
                 </div>
               )
             })}

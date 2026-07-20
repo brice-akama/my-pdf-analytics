@@ -163,22 +163,45 @@ db.collection('signature_requests').countDocuments({ status: { $in: ['pending', 
     ])
 
     // ── Enrich top uploaders with user emails ──────────────────
+   // ── Enrich EVERY userId reference with email — top uploaders, ──
+    // most-viewed docs, and the full document list all need it, so
+    // gather every distinct userId across all three and resolve them
+    // in one query instead of three separate lookups.
     const { ObjectId } = await import('mongodb')
-    const uploaderIds = topUploaders.map(u => u._id).filter(Boolean)
-    const uploaderUsers = uploaderIds.length > 0
+    const allUserIds = new Set<string>()
+    topUploaders.forEach(u => { if (u._id) allUserIds.add(u._id) })
+    topByViews.forEach(d => { if (d.userId) allUserIds.add(d.userId) })
+    documentList.forEach(d => { if (d.userId) allUserIds.add(d.userId) })
+
+   const userIdList = Array.from(allUserIds)
+
+    // Only well-formed ObjectId strings can be used in the _id $in clause;
+    // everything else (including malformed strings) falls through to the
+    // string-based `id` $in clause below.
+    const userObjectIds: import('mongodb').ObjectId[] = []
+    for (const id of userIdList) {
+      if (ObjectId.isValid(id)) userObjectIds.push(new ObjectId(id))
+    }
+
+    const resolvedUsers = userIdList.length > 0
       ? await db.collection('users').find(
           {
             $or: [
-              { _id: { $in: uploaderIds.map(id => { try { return new ObjectId(id) } catch { return id } }) } },
-              { id: { $in: uploaderIds } },
+              { _id: { $in: userObjectIds } },
+              { id: { $in: userIdList } },
             ],
           },
           { projection: { email: 1, 'profile.fullName': 1, 'profile.avatarUrl': 1 } }
         ).toArray()
       : []
+      
+    // Keyed by the string form of userId — matches how documents.userId
+    // is stored (user._id.toString()) throughout the rest of the app.
+    const userMap: Record<string, any> = {}
+    for (const u of resolvedUsers) userMap[u._id.toString()] = u
 
-    const uploaderMap: Record<string, any> = {}
-    for (const u of uploaderUsers) uploaderMap[u._id.toString()] = u
+    const emailFor = (userId: string | undefined) =>
+      (userId && userMap[userId]?.email) || 'Unknown'
 
     // ── Zero-fill sparkline gaps ───────────────────────────────
     function fillSparkline(raw: any[]) {
@@ -214,16 +237,17 @@ db.collection('signature_requests').countDocuments({ status: { $in: ['pending', 
         count: f.count,
       })),
       topDocuments: topByViews.map(doc => ({
-        id:        doc._id.toString(),
-        name:      doc.name || 'Untitled',
-        views:     doc.views || 0,
-        downloads: doc.downloads || 0,
-        userId:    doc.userId,
-        createdAt: doc.createdAt,
-        sizeKB:    parseFloat(((doc.size || 0) / 1024).toFixed(1)),
+        id:            doc._id.toString(),
+        name:          doc.name || 'Untitled',
+        views:         doc.views || 0,
+        downloads:     doc.downloads || 0,
+        userId:        doc.userId,
+        uploaderEmail: emailFor(doc.userId),
+        createdAt:     doc.createdAt,
+        sizeKB:        parseFloat(((doc.size || 0) / 1024).toFixed(1)),
       })),
       topUploaders: topUploaders.map(u => {
-        const info = uploaderMap[u._id] || {}
+        const info = userMap[u._id] || {}
         return {
           userId:        u._id,
           email:         info.email || 'Unknown',
@@ -233,18 +257,19 @@ db.collection('signature_requests').countDocuments({ status: { $in: ['pending', 
           totalViews:    u.totalViews || 0,
         }
       }),
-      documents: {
+     documents: {
         data: documentList.map(doc => ({
-          id:        doc._id.toString(),
-          name:      doc.originalFilename || doc.filename || 'Untitled',
-          userId:    doc.userId,
-          size:      doc.size || 0,
-          sizeKB:    parseFloat(((doc.size || 0) / 1024).toFixed(2)),
-          views:     doc.tracking?.views || 0,
-          downloads: doc.tracking?.downloads || 0,
-          mimeType:  doc.mimeType || doc.originalFormat || null,
-          createdAt: doc.createdAt,
-          updatedAt: doc.updatedAt,
+          id:            doc._id.toString(),
+          name:          doc.originalFilename || doc.filename || 'Untitled',
+          userId:        doc.userId,
+          uploaderEmail: emailFor(doc.userId),
+          size:          doc.size || 0,
+          sizeKB:        parseFloat(((doc.size || 0) / 1024).toFixed(2)),
+          views:         doc.tracking?.views || 0,
+          downloads:     doc.tracking?.downloads || 0,
+          mimeType:      doc.mimeType || doc.originalFormat || null,
+          createdAt:     doc.createdAt,
+          updatedAt:     doc.updatedAt,
         })),
         total:      documentListTotal,
         page,

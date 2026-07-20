@@ -35,6 +35,7 @@ interface AnalyticsData {
     name: string
     views: number
     downloads: number
+    uploaderEmail: string
     userId: string
     createdAt: string
     sizeKB: number
@@ -52,6 +53,7 @@ interface AnalyticsData {
       id: string
       name: string
       userId: string
+      uploaderEmail: string
       sizeKB: number
       views: number
       downloads: number
@@ -391,6 +393,7 @@ export default function DocumentAnalytics() {
           <thead>
             <tr>
               <th style={s.th}>Filename</th>
+              <th style={s.th}>Uploaded by</th>
               <th style={s.th}>Type</th>
               <th style={s.th}>Size</th>
               <th style={s.th}>Views</th>
@@ -408,6 +411,7 @@ export default function DocumentAnalytics() {
             {!loading && (data?.documents.data || []).map(doc => (
               <tr key={doc.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                 <td style={{ ...s.td, fontWeight: 500, color: '#1E293B', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</td>
+                <td style={{ ...s.td, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.uploaderEmail}</td>
                 <td style={{ ...s.td, fontFamily: 'monospace', fontSize: 11, color: '#94A3B8', textTransform: 'uppercase' }}>{(doc.mimeType || 'unknown').replace('application/', '').replace('image/', '').slice(0, 10)}</td>
                 <td style={s.td}>{doc.sizeKB} KB</td>
                 <td style={{ ...s.td, fontWeight: doc.views > 0 ? 600 : 400, color: doc.views > 0 ? '#4338CA' : '#CBD5E1' }}>{doc.views}</td>

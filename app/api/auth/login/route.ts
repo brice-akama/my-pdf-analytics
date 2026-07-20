@@ -126,6 +126,18 @@ if (!password || typeof password !== 'string') {
 
     console.log('✅ Password valid. Generating JWT...');
 
+    // Record this login on the user document — this is what the admin
+    // dashboard's "last login" reads. Wrapped so a write failure here
+    // never blocks the actual login.
+    try {
+      await users.updateOne(
+        { _id: user._id },
+        { $set: { lastLoginAt: new Date() } }
+      );
+    } catch (err) {
+      console.error('⚠️ Failed to update lastLoginAt (non-blocking):', err);
+    }
+
     const token = jwt.sign(
       { userId: user._id.toString(), email: user.email },
       JWT_SECRET,
