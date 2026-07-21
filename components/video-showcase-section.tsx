@@ -7,8 +7,8 @@ import Link from "next/link"
 const VIDEOS = [
   {
     id: "tracking",
-    title: "Know Whether Your Deal Is Moving",
-description: "See every re-read per prospect across sessions, whether engagement is accelerating or fading, and what the silence after sending probably means.",
+    title: "Understand Proposal Engagement",
+description: "Track proposal views across sessions, repeat visits, and page engagement so you know how buyers interact with your proposal over time.",
     src: "/videos/tracking-demo.mp4",
     poster: "/assets/doc-tracking.png",
     href: "/features/analytics",
@@ -16,15 +16,15 @@ description: "See every re-read per prospect across sessions, whether engagement
   {
     id: "analytics",
    title: "Turn Silence Into A Signal",
-description: "Know the difference between a prospect who is gone and one who is quietly building an internal case. Follow up with the right message at the right moment.",
+description: "Use repeat engagement, new stakeholder activity, and document interactions to decide when it's worth following up.",
     src: "/videos/analytics-demo.mp4",
     poster: "/assets/doc2-tracking.png",
     href: "/features/analytics",
   },
   {
     id: "dataroom",
-    title: "Secure Data Rooms",
-    description: "Create a branded space for investors or clients. Control access, track every view, and collect signatures — all in one place.",
+    title: "Secure Proposal Sharing",
+    description: "Share proposals securely with branded links, passwords, NDAs, expiration dates, and complete activity tracking.",
     src: "/videos/dataroom-demo.mp4",
     poster: "/assets/feature-tracking.png",
     href: "/solutions/enterprise",
@@ -153,11 +153,11 @@ export function VideoShowcaseSection() {
           {/* Header */}
           <div className="mb-12 text-center">
             <h2 className="text-3xl sm:text-4xl font-semibold text-slate-900 leading-tight">
-              Built for teams who need to{" "}
-              <span className="text-[#0284c7]">close deals faster</span>
+              See what buyers do{" "}
+              <span className="text-[#0284c7]">after you hit send.</span>
             </h2>
             <p className="mt-4 text-base text-slate-500 max-w-xl mx-auto">
-              Watch how teams use DocMetrics to track documents, manage data rooms and close deals faster.
+             Watch how sales teams use DocMetrics to understand proposal engagement, discover buying signals, and follow up with better timing.
             </p>
           </div>
 

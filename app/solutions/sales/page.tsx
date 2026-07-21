@@ -12,9 +12,9 @@ import { FAQAccordion } from "@/components/faq-accordion";
 
 // ── METADATA ──────────────────────────────────────────────────
 export const metadata: Metadata = {
-  title: "DocMetrics for Sales Teams — Know When Your Prospect Is Paying Attention",
+  title: "DocMetrics for Sales Teams — See How Prospects Engage With Your Proposal",
   description:
-    "Real-time alerts when prospects open your proposals, page-by-page reading analytics, automatic lead scoring, and e-signatures — all in one platform. Stop guessing. Start closing.",
+    "Track proposal opens, page-by-page engagement, repeat visits, stakeholder activity, and e-signatures. Give your sales team measurable engagement signals to follow up with confidence.",
   alternates: {
     canonical: "https://docmetrics.io/solutions/sales",
   },
@@ -217,8 +217,8 @@ export default function SalesTeamsPage(): JSX.Element {
               For Sales Teams
             </p>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-slate-900 leading-tight mb-5">
-              Know exactly when your prospect{" "}
-              <span className="text-sky-600">is paying attention.</span>
+              Understand proposal engagement{" "}
+              <span className="text-sky-600">before your next follow-up.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
               DocMetrics gives sales teams real-time visibility into how prospects engage with proposals — not just who opened it, but where they hesitated, what they re-read, and when a deal starts going cold before the prospect goes quiet.
@@ -272,7 +272,7 @@ export default function SalesTeamsPage(): JSX.Element {
               {
                 title: "No visibility after sending",
                 description:
-                  "Once you hit send you lose all visibility. You have no idea if your prospect even opened the document, let alone which pages they read.",
+                  "Once you hit send you lose all visibility. You know when the proposal was sent, but not what happened after, let alone which pages they read.",
               },
               {
                 title: "Wrong follow-up timing",
@@ -322,7 +322,7 @@ export default function SalesTeamsPage(): JSX.Element {
       <FeatureBlock
         step="2"
         label="Page Analytics"
-        title="See which pages your prospect actually cares about."
+        title="See where prospects spend the most time in your proposal."
         description="DocMetrics tracks time spent on every page of every document you share. If a prospect spends six minutes on your pricing section but skips the technical specs entirely, you know exactly what kind of conversation to have on your follow-up call."
         bullets={[
           "Per-page bar chart showing exact reading time for every visitor",
@@ -339,14 +339,14 @@ export default function SalesTeamsPage(): JSX.Element {
        <FeatureBlock
   step="3"
   label="Deal Intelligence"
-  title="Know where your deal got uncertain before they go quiet."
-  description="DocMetrics detects hesitation signals inside your document — pages re-read multiple times, pricing sections revisited, video walkthroughs replayed. When a prospect goes silent, you already know where they got stuck and what to address in your follow-up."
+  title="Spot engagement patterns before your next follow-up."
+  description="DocMetrics highlights engagement signals such as repeated page views, pricing revisits, and video replays that may indicate areas worth discussing during follow-up."
   bullets={[
-    "See which pages were re-read — hesitation always leaves a signal",
+    "See which pages were viewed multiple times.",
     "Know when a prospect revisited your pricing section multiple times",
-    "Video replay detection — if they rewatched it, they needed more clarity",
-    "Dead deal scoring tells you when a deal is going cold before they ghost you",
-    "Push alerts tell you what happened and exactly when to follow up",
+    "Video replay detection shows which explanations prospects watched more than once.",
+    "See when document engagement slows so your team knows which deals may need attention.",
+    "Receive alerts when new engagement happens so you can decide when to follow up.",
   ]}
   imageSrc="/assets/illustrations/deal-intelligence.png"
   imageAlt="Deal intelligence hesitation signals and uncertainty detection"
@@ -360,7 +360,7 @@ export default function SalesTeamsPage(): JSX.Element {
         description="DocMetrics automatically scores every prospect based on their engagement — time spent reading, number of visits, pages reviewed, downloads, and whether they shared the document with others. Hot leads rise to the top so you always know where to focus first."
         bullets={[
           "Automatic engagement score calculated from visits, time, and actions",
-          "Hot, warm, and cold classification so you prioritize the right leads",
+          "Engagement score based on document activity so you prioritize the right leads",
           "See the full engagement history for every prospect in one view",
           "Stop chasing prospects who opened once and never returned",
           "Focus your energy where buying intent is actually high",

@@ -138,7 +138,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
               <span className="text-sky-600">after you send.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
-               Every document you share becomes a live data source. See who read it, where they hesitated, when a deal starts going cold — and exactly what to do next.
+              Every document you share becomes a source of buyer engagement signals. See who opened it, which pages they returned to, whether new stakeholders joined, and how engagement changes over time so you can make better follow-up decisions.
             </p>
             <Link
               href="/signup"
@@ -192,7 +192,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
 
         <ScreenshotBlock
           title="Reading time tells you how long. This tells you if they understood."
-          description="For every page that has a video walkthrough recorded, you see two bars per visitor — their reading time and how much of your explanation they watched. If someone watched your page 4 walkthrough three times you know that page needs a conversation. If they marked every page as clear and answered ready to move forward on the deal intent question, you know the timing is right to close."
+          description="For every page that has a video walkthrough recorded, you see two bars per visitor — their reading time and how much of your explanation they watched. If someone watched your page 4 walkthrough three times you know that page needs a conversation. If they marked every page as clear and answered ready to move forward on the deal intent question, you have additional context before deciding your next conversation."
           imageSrc="/assets/understanding-bars.png"
           imageAlt="Document understanding analytics with video walkthrough completion"
         />
@@ -200,8 +200,8 @@ export default function DocumentAnalyticsPage(): JSX.Element {
         <SectionLabel>Deal intelligence</SectionLabel>
 
 <ScreenshotBlock
-  title="Know where your deal got uncertain before they go quiet."
-  description="When a prospect re-reads the same page multiple times, jumps back to your pricing section, or returns to your document days later without responding — something is making them hesitate. DocMetrics surfaces these signals automatically. You see a dead deal score, the specific pages that caused uncertainty, and a recommended action so you know exactly when to follow up and what to say."
+  title="Spot engagement patterns that deserve a follow-up."
+  description="DocMetrics highlights engagement patterns such as repeated visits, multiple stakeholders viewing the same document, or prospects returning to pricing and commercial pages. These signals help sales teams identify deals that may deserve attention and decide where to focus their follow-up."
   imageSrc="/assets/illustrations/deal-intelligence.png"
   imageAlt="Deal intelligence showing hesitation signals re-reads and dead deal scoring"
   reverse
@@ -211,7 +211,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
 
         <VideoBlock
           title="Know the moment someone opens your document."
-          description="The instant a recipient opens your share link you receive a notification — in your dashboard, by email, and in Slack if connected. The notification includes their email, which document they opened, and what time. If they are viewing right now a live indicator appears on your dashboard. You always know when to follow up and you never have to guess whether they have seen it yet."
+          description="The instant a recipient opens your share link you receive a notification — in your dashboard, by email, and in Slack if connected. The notification includes their email, which document they opened, and what time. If they are viewing right now a live indicator appears on your dashboard. You'll know as soon as someone engages with your document and you never have to guess whether they have seen it yet."
           videoSrc="/videos/analytics-demo.mp4"
           posterSrc="/assets/doc2-tracking.png"
           reverse
@@ -230,7 +230,7 @@ export default function DocumentAnalyticsPage(): JSX.Element {
 
         <ScreenshotBlock
           title="Your most engaged contacts, always at the top."
-          description="Your dashboard shows the contacts who have spent the most time across all your documents in the last 30 days — ranked by visits, total time, and number of documents viewed. Below that you see your top documents by views, your most recent visits in real time, and your hottest visitors by engagement score. Everything you need to know about what is happening across your entire document library, without digging."
+          description="Your dashboard shows the contacts who have spent the most time across all your documents in the last 30 days — ranked by visits, total time, and number of documents viewed. Below that you see your top documents by views, your most recent visits in real time, and your most engaged visitors by engagement score. A single view of document engagement across your pipeline."
           imageSrc="/assets/dashboard.png"
           imageAlt="DocMetrics dashboard overview showing engaged contacts and document activity"
           reverse

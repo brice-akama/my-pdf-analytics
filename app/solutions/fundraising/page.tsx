@@ -222,9 +222,7 @@ export default function FundraisingPage(): JSX.Element {
               <span className="text-sky-600">are serious about your deal.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
-              DocMetrics gives founders and finance professionals real-time
-              visibility into how investors engage with pitch decks, financial
-              models, and due diligence materials. Stop guessing who is serious. Know where they hesitated, what made them uncertain, and exactly when to follow up before they go quiet.
+             See exactly how investors engage with your pitch deck, financials, and data room—so you know who to follow up with, when to reach out, and what concerns to address before the conversation goes cold.
             </p>
             <Button
               size="lg"
@@ -370,7 +368,7 @@ export default function FundraisingPage(): JSX.Element {
       <FeatureBlock
         step="5"
         label="Secure Sharing"
-        title="Full control over who accesses your confidential materials."
+        title="Share sensitive fundraising documents without losing control."
         description="Your pitch deck contains sensitive financial projections, strategic plans, and proprietary information. DocMetrics gives you complete control over every document you share. Password protect, require email verification, restrict to specific domains, set expiry dates, and block downloads — all before you send."
         bullets={[
           "Require email verification before any investor can view your deck",

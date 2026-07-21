@@ -6,7 +6,7 @@ import { Plus, Minus } from "lucide-react"
 const FAQS = [
   {
     question: "How is this different from DocuSign or PandaDoc?",
-answer: "DocuSign and PandaDoc handle signatures. DocMetrics handles everything that happens before the signature — whether the deal is gaining momentum, who is really involved, what the silence after sending means, and what to do next. We do signatures too, but the intelligence layer is what sets us apart. You know exactly why someone signed, stalled, or declined.",
+answer: "DocuSign and PandaDoc focus on sending documents and collecting signatures. DocMetrics helps you understand what happens before the signature by showing document engagement, repeat visits, page-level activity, stakeholder involvement, and other measurable signals that help sales teams make better follow-up decisions.We do signatures too, but the intelligence layer is what sets us apart. You know exactly why someone signed, stalled, or declined.",
   },
   {
     question: "Do my recipients need to create an account to view documents?",
@@ -16,7 +16,7 @@ answer: "DocuSign and PandaDoc handle signatures. DocMetrics handles everything 
   {
     question: "How do I know when someone opens my document?",
     answer:
-      "The moment a recipient opens your document you receive a real-time notification by email, in-app, and in Slack if connected. Your dashboard updates instantly showing who opened it, which pages they read, how long they spent on each page, and exactly where they stopped.",
+      "When a recipient opens your document, you'll receive a real-time notification. Your dashboard shows when the document was viewed, which pages were visited, how long each page was viewed, and other engagement activity so you can decide the right next step.",
   },
   {
     question: "What is a Space or Data Room?",
@@ -36,7 +36,7 @@ answer: "DocuSign and PandaDoc handle signatures. DocMetrics handles everything 
   {
     question: "Can I use this for investor fundraising?",
     answer:
-      "Yes. Share your pitch deck and see which slides held attention, who spent the most time on financials, and whether they forwarded it to a partner. The deal intent question at the end of the document tells you exactly where each investor stands — ready to move forward, need more information, or discussing with their team.",
+      "Yes. Share your pitch deck and see which slides held attention, who spent the most time on financials, and whether they forwarded it to a partner. You can also ask investors a short feedback question at the end of the document to understand whether they're interested, need more information, or are still evaluating the opportunity.",
   },
   {
     question: "Does it work with Google Drive or OneDrive?",
@@ -46,7 +46,7 @@ answer: "DocuSign and PandaDoc handle signatures. DocMetrics handles everything 
   {
     question: "Can I collect e-signatures and track reading at the same time?",
     answer:
-      "Yes. Every signature request tracks page-by-page reading time, video walkthrough completion, and page clarity reactions — so you know exactly how much the signer understood before they signed or declined. If someone declines, you can see which page they were on and how long they spent before making that decision.",
+      "Yes. You can see how the signer engaged with the document before signing—including reading activity, page-level engagement, video walkthrough completion, and clarity feedback where available.If someone declines, you can see which page they were on and how long they spent before making that decision.",
   },
   {
     question: "Is my document data secure?",

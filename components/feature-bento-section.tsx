@@ -7,10 +7,10 @@ import { BarChart2, Database, Users } from "lucide-react"
 const CARDS = [
   {
     id: "analytics",
-    tag: "Deal Movement Intelligence",
+    tag: "Proposal Intelligence",
     icon: BarChart2,
-    heading: "Know whether your deal is moving or going cold.",
-    description: "See every re-read, every hesitation, and whether your prospect is progressing deeper into your proposal or getting stuck — all in real time.",
+    heading: "See how buyers engage after you hit send.",
+    description: "Track proposal views, page engagement, repeat visits, and new stakeholder activity so your team can make better follow-up decisions.",
     // sky blue family — brand.primary
     cardBg:   "bg-[#e0f2fe]",
     iconBg:   "bg-[#bae6fd]",
@@ -21,11 +21,11 @@ const CARDS = [
   },
   {
     id: "datarooms",
-    tag: "Data Rooms",
+    tag: "Secure Sharing",
     icon: Database,
-    heading: "Create professional data rooms in one click.",
+    heading: "Share proposals with complete control.",
     description:
-      "Organise your documents into secure, branded spaces. Share with investors, clients or partners — with full control over who sees what.",
+      "Protect every proposal with passwords, NDAs, expiration dates, branded links, and detailed activity tracking.",
     // purple family — brand.secondary
     cardBg:   "bg-[#f3e8ff]",
     iconBg:   "bg-[#e9d5ff]",
@@ -36,11 +36,11 @@ const CARDS = [
   },
   {
     id: "collaboration",
-    tag: "Team Collaboration",
+    tag: "Real-Time Alerts",
     icon: Users,
-    heading: "Keep your whole team perfectly in sync.",
+    heading: "Know when buyers come back.",
     description:
-      "Invite teammates, assign roles and manage permissions. Everyone sees the same data — no more confusion over who has access to what.",
+      "Receive instant notifications when buyers reopen your proposal or new stakeholders engage, so you can follow up at the right moment.",
     // slightly deeper sky — still brand.primary family
     cardBg:   "bg-[#f0f9ff]",
     iconBg:   "bg-[#bae6fd]",

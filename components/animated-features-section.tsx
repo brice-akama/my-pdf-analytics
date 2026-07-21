@@ -5,23 +5,27 @@ import { useState, useRef } from "react";
 
 const features = [
   {
-    title: "Board Meetings",
-    description: "Share board materials securely. Know who read the agenda before the meeting starts.",
+    title: "Send Secure Proposals",
+    description:
+      "Share proposals with branded links, passwords, NDAs, expiration dates, and download controls.",
     image: "/assets/board-meetings.webp",
   },
   {
-    title: "Investor Relations",
-    description: "Send your pitch deck and know exactly which slides investors spent time on.",
+    title: "Track Buyer Engagement",
+    description:
+      "See when buyers open your proposal, which pages they read, and how long they spend on each section.",
     image: "/assets/team-photo.webp",
   },
   {
-    title: "Client Portals",
-    description: "Branded document rooms for every client. Collect files, signatures, and feedback in one place.",
+    title: "Discover New Stakeholders",
+    description:
+      "Know when your proposal is viewed by additional people, helping you spot buying committee activity.",
     image: "/assets/client-portals.webp",
   },
   {
-    title: "Mergers & Acquisitions",
-    description: "Secure data rooms with NDA gating, role-based access, and full audit trails for every document.",
+    title: "Follow Up with Confidence",
+    description:
+      "Use engagement insights, notifications, and signatures to make better follow-up decisions.",
     image: "/assets/mergers-acquisitions.webp",
   },
 ];
@@ -52,11 +56,10 @@ export function AnimatedFeaturesSection() {
       <div className="container mx-auto max-w-7xl px-4">
         <div className="mx-auto max-w-3xl text-center mb-10">
           <h2 className="mb-4 text-2xl font-normal tracking-tight text-slate-900 sm:text-4xl lg:text-4xl">
-            Full visibility across every deal
+           Everything your sales team needs after hitting send
           </h2>
           <p className="text-base text-slate-600 sm:text-lg">
-            From the first proposal to the final signature — DocMetrics tells you
-            whether your deal is moving, who is really involved, and what to do next.
+            From the moment you send a proposal to the final signature, see how buyers engage, discover new stakeholders, and follow up with better timing.
           </p>
         </div>
 

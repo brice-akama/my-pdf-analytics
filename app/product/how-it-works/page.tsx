@@ -178,7 +178,7 @@ export default function HowItWorksPage(): JSX.Element {
               <span className="text-sky-600">in minutes.</span>
             </h1>
             <p className="text-base sm:text-lg text-slate-500 leading-relaxed mb-8 max-w-lg">
-             DocMetrics turns every document you share into a live data source. See who read it, where they hesitated, when a deal starts going cold — and exactly when to follow up.
+            DocMetrics turns every document you share into measurable engagement signals. See who opened it, what they spent time reading, how engagement changes over time, and use those insights to make better follow-up decisions.
             </p>
             <Button
               size="lg"
@@ -261,14 +261,14 @@ export default function HowItWorksPage(): JSX.Element {
       <StepBlock
   step="4"
   label="Deal Intelligence"
-  title="Know where your deal got uncertain before they go quiet."
-  description="DocMetrics detects hesitation signals automatically — pages re-read multiple times, pricing sections revisited, engagement dropping across return visits. When a prospect goes silent you already know where they got stuck and what to address."
+  title="Spot engagement patterns before your next follow-up."
+  description="DocMetrics highlights patterns like repeat page views, pricing revisits, stakeholder activity, and changing engagement over time. These signals help you decide how and when to follow up."
   bullets={[
-    "Re-read detection flags pages that caused hesitation or doubt",
-    "Dead deal scoring tells you when a deal is going cold before they ghost you",
-    "Return visit patterns show when a prospect is still evaluating vs moved on",
-    "Push alerts tell you exactly when to follow up and what to address",
-    "Not just what happened — what it means for your deal",
+    "Identify pages prospects return to multiple times",
+    "See when document engagement slows or stops",
+    "Track return visits over time to understand ongoing engagement",
+    "Get notified when new engagement happens after the initial send",
+    "Use engagement data alongside your CRM and sales process to make better decisions",
   ]}
   imageSrc="/assets/illustrations/deal-intelligence.png"
   imageAlt="Deal intelligence showing hesitation signals and uncertainty detection"
@@ -277,7 +277,7 @@ export default function HowItWorksPage(): JSX.Element {
       <StepBlock
         step="5"
         label="Understand"
-        title="Know if they actually understood what they read."
+        title="Help prospects understand complex documents."
         description="Reading time tells you how long they stayed. DocMetrics goes further — record a short video walkthrough for any page. Prospects watch your explanation without leaving the document and you see exactly how much they understood."
         bullets={[
           "Record a 60-second video explanation for any page",

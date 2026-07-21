@@ -13,7 +13,7 @@ import { FAQAccordion } from "@/components/faq-accordion";
 export const metadata: Metadata = {
   title: "Client Portals — A Secure Branded Space for Every Client",
   description:
-    "Share documents, track engagement, collect e-signatures, gather files, and manage client communication — all in one branded portal. No account required for clients.",
+"Create secure branded client portals where you can share documents, track client engagement, collect e-signatures, request files, and manage communication in one place.",
   alternates: {
     canonical: "https://docmetrics.io/solutions/enterprise",
   },
@@ -71,7 +71,7 @@ const FAQS = [
   {
     question: "Can I track whether a client actually read what I sent them?",
     answer:
-      "Yes. DocMetrics tracks time spent on every page of every document inside your portal. You see exactly who read what, how long they spent, and whether they came back for a second look.",
+      "Yes. DocMetrics shows document opens, page-by-page viewing activity, reading time, and return visits so you have visibility into how clients engaged with what you shared.",
   },
   {
     question: "Is there an audit log so I can prove what was shared and when?",
@@ -311,7 +311,7 @@ export default function ClientPortalsPage(): JSX.Element {
         step="1"
         label="Spaces"
         title="Create a dedicated portal for every client."
-        description="A Space is a secure branded environment where you organize all documents for one client relationship. Invite your client with one link, assign their access level, and everything they need is in one place. You see every interaction across every document inside."
+        description="A Space is a secure branded environment where you organize all documents for one client relationship. Invite your client with one link, assign their access level, and everything they need is in one place. You see how clients engage with every document inside the space."
         bullets={[
           "Create a branded space with your logo, colors, and welcome message",
           "Organize documents into folders — proposals, contracts, briefs, deliverables",
@@ -327,7 +327,7 @@ export default function ClientPortalsPage(): JSX.Element {
         step="2"
         label="Document Tracking"
         title="Know exactly what your client read and when."
-        description="The moment a client opens a document, DocMetrics notifies you. A page-by-page breakdown shows exactly how long they spent on each section, which pages they skipped, and whether they came back for a second look. You always know where they are in the process — and where they got stuck."
+        description="The moment a client opens a document, DocMetrics notifies you. A page-by-page breakdown shows exactly how long they spent on each section, which pages they skipped, and whether they came back for a second look. You can see which documents they opened, which pages they spent time on, and which sections they revisited so you have better context before following up."
         bullets={[
           "Instant notification the moment a client opens any document",
           "Per-page reading time so you know which sections held their attention",
@@ -343,14 +343,14 @@ export default function ClientPortalsPage(): JSX.Element {
       <FeatureBlock
   step="3"
   label="Engagement Intelligence"
-  title="Know when a client is stuck before they tell you."
-  description="When a client re-reads the same section multiple times or keeps returning to a specific page without moving forward, something is blocking them. DocMetrics surfaces these signals automatically so you can reach out at exactly the right moment with exactly the right answer."
+  title="Spot engagement patterns before your next follow-up."
+  description="DocMetrics highlights engagement patterns such as repeated page views, return visits, and document activity over time so you have more context before following up"
   bullets={[
-    "Re-read detection shows which sections caused hesitation",
+    "Detect when clients revisit the same pages multiple times",
     "Return visit alerts tell you when a client comes back days later",
-    "Dead deal scoring flags client relationships that have gone cold",
-    "Push alerts tell you when to follow up and what to address",
-    "Know before your client has to ask — remove blockers before they become problems",
+    "Engagement trends help you identify documents that haven't received activity recently",
+    "Receive notifications when new document activity happens",
+    "Use engagement insights to prepare more relevant conversations",
   ]}
   imageSrc="/assets/illustrations/deal-intelligence.png"
   imageAlt="Client engagement intelligence showing hesitation signals and re-reads"

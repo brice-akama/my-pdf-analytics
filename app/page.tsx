@@ -8,16 +8,16 @@ import { FAQSection } from "@/components/faq-section";
 
 // ── HOMEPAGE METADATA ─────────────────────────────────────────
 export const metadata: Metadata = {
-  title: "Stop Guessing. Know Exactly When Deals Move",
+  title: "Know What Buyers Do After You Hit Send | DocMetrics",
   description:
-    "Not just who opened it — what it meant. See every re-read, every hesitation, and know the moment your deal goes cold.",
+  "Understand how buyers engage with your proposals after you hit send. Track views, page engagement, stakeholder activity, and follow up with confidence.",
   alternates: {
     canonical: "https://docmetrics.io",
   },
   openGraph: {
-    title: "DocMetrics — Know Exactly When Deals Move",
+    title: "Proposal Intelligence for B2B Sales Teams | DocMetrics",
     description:
-      " Not just who opened it — what it meant. See every re-read, every hesitation, and know the moment your deal goes cold.",
+      "See who opened your proposal, what they engaged with, when new stakeholders appear, and turn buyer engagement into smarter sales follow-ups.",
     url: "https://docmetrics.io",
     siteName: "DocMetrics",
     type: "website",
@@ -55,7 +55,7 @@ const softwareSchema = {
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
   description:
-    "Not just who opened it — what it meant. See every re-read, every hesitation, and know the moment your deal goes cold.",
+    "Understand how buyers engage with your proposals after you hit send. Track views, page engagement, stakeholder activity, and follow up with confidence.",
   offers: {
     "@type": "Offer",
     price: "0",
@@ -106,7 +106,7 @@ const faqSchema = {
       name: "Can I collect e-signatures and track reading at the same time?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Yes. Every signature request tracks page-by-page reading time, video walkthrough completion, and page clarity reactions — so you know exactly how much the signer understood before they signed or declined.",
+        text: "Yes. Every signature request tracks page-by-page reading time, video walkthrough completion, and page clarity reactions — so you understand how they engaged with the document before signing or declining.",
       },
     },
     {
@@ -122,7 +122,7 @@ const faqSchema = {
       name: "Can I use this for investor fundraising?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Yes. Share your pitch deck and see which slides held attention, who spent the most time on financials, and whether they forwarded it to a partner. The deal intent question at the end tells you exactly where each investor stands.",
+        text: "Yes. Share your pitch deck and see which slides held attention, who spent the most time on financials, and whether they forwarded it to a partner. The deal intent question gives investors an easy way to share where they are in their evaluation process.",
       },
     },
     {
