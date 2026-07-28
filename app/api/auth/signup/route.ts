@@ -52,6 +52,7 @@ import {
 
 import { notifyInviterOfAcceptance } from '@/lib/emails/teamEmails'
 import { sendWelcomeEmail } from '@/lib/emailService.welcome'
+import { createSampleDocumentForUser } from '@/lib/sampleDocument'
 
 export async function POST(request: NextRequest) {
   try {
@@ -346,6 +347,14 @@ lastDigestSentAt: null,
     }).catch((emailError) => {
       console.error('⚠️ Failed to send welcome email (non-blocking):', emailError)
     })
+
+    // Sample document — fire and forget, so the dashboard isn't empty
+    // on first load. Never blocks signup; failures are silent.
+    createSampleDocumentForUser(db, {
+      userId: insertedUserId,
+      plan: userDoc.plan,
+      organizationId,
+    }).catch((err) => console.error(' Sample document creation failed (non-blocking):', err))
 
     // Sign a 7-day JWT and set it as an httpOnly cookie
     const token = jwt.sign(

@@ -36,6 +36,7 @@ type DocumentType = {
   createdAt: string; notes?: string; thumbnail?: string;
   isTemplate?: boolean; originalFilename?: string;
   originalFormat?: string; mimeType?: string; ownerEmail?: string;
+  isSample?: boolean;
 };
 type Recipient = { name: string; email: string; role?: string; color?: string };
 type SignatureField = {
@@ -560,6 +561,18 @@ const [documentVideos, setDocumentVideos] = useState<any[]>([])
         router={router}
         formatTimeAgo={formatTimeAgo}
       />
+
+      {/* Sample document banner — only shown on the auto-created demo copy */}
+      {doc.isSample && (
+        <div className="bg-amber-50 border-b border-amber-200 px-3 sm:px-6 lg:px-8 py-3">
+          <div className="max-w-7xl mx-auto flex items-center gap-2.5">
+            <FileText className="h-4 w-4 text-amber-600 flex-shrink-0" />
+            <p className="text-sm text-amber-900">
+              <strong>This is a sample document</strong> — try creating a link below and opening it yourself to see real analytics in action.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <DocumentTabs activeTab={activeTab} onTabChange={setActiveTab} />

@@ -1,3 +1,5 @@
+
+//app/dashbaord/page.tsx
 "use client"
 
 import { useState, useRef, useEffect } from "react"
@@ -317,6 +319,7 @@ const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
 const [uploadMessage, setUploadMessage] = useState('')
 const [isDragging, setIsDragging] = useState(false)
 const fileInputRef = useRef<HTMLInputElement>(null)
+const [loadingSampleDoc, setLoadingSampleDoc] = useState(false)
 const [showSettingsDialog, setShowSettingsDialog] = useState(false)
 const [showBillingDialog, setShowBillingDialog] = useState(false)
 const [showTeamDialog, setShowTeamDialog] = useState(false)
@@ -2588,7 +2591,24 @@ useEffect(() => {
   return () => clearInterval(interval)
 }, [])
 
-// Handle file upload
+const handleUseSampleDocument = async () => {
+  setLoadingSampleDoc(true)
+  try {
+    const res = await fetch('/api/documents/sample', { credentials: 'include' })
+    const data = await res.json()
+    if (res.ok && data.success) {
+      router.push(`/documents/${data.documentId}`)
+    } else {
+      toast.error(data.error || 'Sample document is not available right now')
+    }
+  } catch {
+    toast.error('Network error')
+  } finally {
+    setLoadingSampleDoc(false)
+  }
+}
+
+
 // Handle file upload
 const handleFileUpload = async (file: File) => {
   if (!file) return;
@@ -2805,7 +2825,17 @@ case 'dashboard':
        
     </div>
 
-    {/* Upload Button Only - No Share Button */}
+    {/* Upload + Sample document buttons */}
+    <div className="flex items-center gap-2 w-full sm:w-auto">
+    <Button
+      variant="outline"
+      onClick={handleUseSampleDocument}
+      disabled={loadingSampleDoc}
+      className="gap-2 w-full sm:w-auto"
+    >
+      {loadingSampleDoc ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+      Use sample document
+    </Button>
     <DropdownMenu>
   <DropdownMenuTrigger asChild>
     <Button className="gap-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 w-full sm:w-auto">
@@ -2892,8 +2922,9 @@ case 'dashboard':
         <p className="font-medium">Manage Integrations</p>
       </div>
     </DropdownMenuItem>
-  </DropdownMenuContent>
+ </DropdownMenuContent>
 </DropdownMenu>
+    </div>
   </div>
 
   {/* Hidden File Input */}

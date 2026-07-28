@@ -52,6 +52,7 @@ import { ObjectId } from 'mongodb'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { notifyInviterOfAcceptance } from '@/lib/emails/teamEmails'
+import { createSampleDocumentForUser } from '@/lib/sampleDocument'
 
 // PHASE 2 FIX: Import from the isolated module, NOT from '@/lib/emailService'.
 // The original emailService.ts pulls in ESM-only dependencies that crash the
@@ -283,6 +284,13 @@ async function createGoogleUser(profile: {
   sendWelcomeEmail({ recipientName: firstName, recipientEmail: email }).catch(
     (err) => console.error('⚠️ Welcome email failed (non-blocking):', err)
   )
+
+  // Sample document — same fire-and-forget pattern as the email signup route
+  createSampleDocumentForUser(db, {
+    userId: insertedUserId,
+    plan: userDoc.plan,
+    organizationId,
+  }).catch((err) => console.error('⚠️ Sample document creation failed (non-blocking):', err))
 
   console.log(`✅ Google signup complete for: ${email}`)
   return { userId: insertedUserId, email, isNew: true }
