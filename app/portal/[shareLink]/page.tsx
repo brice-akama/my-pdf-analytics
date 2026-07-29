@@ -680,6 +680,7 @@ export default function PortalPage() {
   const [downloadingId, setDownloadingId]       = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen]           = useState(true)
   const [viewingDoc, setViewingDoc]             = useState<Doc | null>(null)
+  const [unreadDocIds, setUnreadDocIds] = useState<Set<string>>(new Set())
 
   useEffect(() => { fetchPortalData() }, [shareLink])
 
@@ -794,6 +795,35 @@ export default function PortalPage() {
     } catch { setOtpError('Connection error. Please try again.') }
     finally { setOtpVerifying(false) }
   }
+
+  useEffect(() => {
+  if (step !== 'docs' || !visitorEmail) return
+  const fetchUnread = async () => {
+    try {
+      const url = new URL(`/api/portal/${shareLink}/unread`, window.location.origin)
+      url.searchParams.set('email', visitorEmail)
+      const res = await fetch(url.toString(), { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) setUnreadDocIds(new Set(data.unreadDocumentIds))
+      }
+    } catch { /* silent */ }
+  }
+  fetchUnread()
+  const interval = setInterval(fetchUnread, 15000)
+  return () => clearInterval(interval)
+}, [step, visitorEmail, shareLink])
+
+const markThreadRead = async (documentId: string) => {
+  setUnreadDocIds(prev => { const next = new Set(prev); next.delete(documentId); return next })
+  try {
+    await fetch(`/api/portal/${shareLink}/comments/mark-read`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: visitorEmail, documentId }),
+    })
+  } catch { /* silent */ }
+}
 
   // ── Gate handlers ─────────────────────────────────────────────────────────────
   const handleVerify = async (e: React.FormEvent) => {
@@ -1340,22 +1370,32 @@ export default function PortalPage() {
           Download
         </button>
       )}
-      {spaceData.allowQA && (
+     {spaceData.allowQA && (
         <button
-          onClick={() => setOpenComments(prev => { const next = new Set(prev); next.has(doc.id) ? next.delete(doc.id) : next.add(doc.id); return next })}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg transition-all ${isCommentOpen ? 'bg-gray-900 text-white border-gray-900' : 'text-gray-700 border-gray-200 bg-white hover:border-gray-400'}`}>
+          onClick={() => {
+            const opening = !isCommentOpen
+            setOpenComments(prev => { const next = new Set(prev); next.has(doc.id) ? next.delete(doc.id) : next.add(doc.id); return next })
+            if (opening && unreadDocIds.has(doc.id)) markThreadRead(doc.id)
+          }}
+          className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg transition-all ${isCommentOpen ? 'bg-gray-900 text-white border-gray-900' : 'text-gray-700 border-gray-200 bg-white hover:border-gray-400'}`}>
           <MessageSquare className="h-3.5 w-3.5" /> Q&A
+          {unreadDocIds.has(doc.id) && (
+            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white" />
+          )}
         </button>
       )}
     </div>
 
     {/* Mobile 3-dot button — hidden on desktop */}
-    <button
+   <button
       onClick={() => setDocMenuOpen(doc.id)}
-      className="md:hidden p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-all flex-shrink-0">
+      className="md:hidden relative p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-all flex-shrink-0">
       <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
         <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
       </svg>
+      {unreadDocIds.has(doc.id) && (
+        <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white" />
+      )}
     </button>
   </div>
 
@@ -1455,13 +1495,15 @@ export default function PortalPage() {
               </button>
             )}
 
-            {spaceData.allowQA && (
+           {spaceData.allowQA && (
               <button
                 onClick={() => {
+                  const opening = !isCommentOpenForMenu
                   setOpenComments(prev => { const next = new Set(prev); next.has(menuDoc.id) ? next.delete(menuDoc.id) : next.add(menuDoc.id); return next })
+                  if (opening && unreadDocIds.has(menuDoc.id)) markThreadRead(menuDoc.id)
                   setDocMenuOpen(null)
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium rounded-xl transition-all ${
+                className={`relative w-full flex items-center gap-3 px-4 py-3.5 text-sm font-medium rounded-xl transition-all ${
                   isCommentOpenForMenu ? 'bg-gray-900 text-white' : 'text-gray-800 bg-gray-50 hover:bg-gray-100'
                 }`}>
                 <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 border ${
@@ -1470,6 +1512,9 @@ export default function PortalPage() {
                   <MessageSquare className={`h-4 w-4 ${isCommentOpenForMenu ? 'text-white' : 'text-gray-600'}`} />
                 </div>
                 {isCommentOpenForMenu ? 'Close Q&A' : 'Ask a Question'}
+                {unreadDocIds.has(menuDoc.id) && (
+                  <span className="absolute top-3 right-4 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white" />
+                )}
               </button>
             )}
 
