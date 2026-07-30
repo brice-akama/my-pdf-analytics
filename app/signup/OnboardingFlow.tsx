@@ -66,6 +66,7 @@ export default function OnboardingFlow() {
   })
   const [loading, setLoading] = useState(false)
   const [signupError, setSignupError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{ firstName?: string; email?: string; password?: string }>({})
 
   const trialInfo = useMemo(() => {
     const today = new Date()
@@ -80,10 +81,22 @@ export default function OnboardingFlow() {
     }
   }, [])
 
-  const handleGetStarted = (e: React.FormEvent) => {
-    e.preventDefault()
-    setStep(2)
-  }
+ const validateStep1 = () => {
+  const errors: { firstName?: string; email?: string; password?: string } = {}
+  if (!formData.firstName.trim()) errors.firstName = 'First name is required'
+  if (!formData.email.trim()) errors.email = 'Email is required'
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) errors.email = 'Enter a valid email address'
+  if (!formData.password) errors.password = 'Password is required'
+  else if (formData.password.length < 8) errors.password = 'Password must be at least 8 characters'
+  setFieldErrors(errors)
+  return Object.keys(errors).length === 0
+}
+
+const handleGetStarted = (e: React.FormEvent) => {
+  e.preventDefault()
+  if (!validateStep1()) return
+  setStep(2)
+}
 
   const handleIndustryNext = () => {
     if (selectedIndustry) setStep(3)
@@ -315,13 +328,14 @@ export default function OnboardingFlow() {
                       <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
                         First Name
                       </label>
-                      <Input
+                    <Input
                         type="text"
                         placeholder="Jane"
                         value={formData.firstName}
-                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                        className="h-11 border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                        onChange={(e) => { setFormData({ ...formData, firstName: e.target.value }); setFieldErrors(prev => ({ ...prev, firstName: undefined })) }}
+                        className={`h-11 border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent ${fieldErrors.firstName ? 'border-red-300' : ''}`}
                       />
+                      {fieldErrors.firstName && <p className="text-xs text-red-600 mt-1.5">{fieldErrors.firstName}</p>}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
@@ -339,25 +353,26 @@ export default function OnboardingFlow() {
                       <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
                         Email Address
                       </label>
-                      <Input
+                    <Input
                         type="email"
                         placeholder="you@company.com"
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="h-11 border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                        onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setFieldErrors(prev => ({ ...prev, email: undefined })) }}
+                        className={`h-11 border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent ${fieldErrors.email ? 'border-red-300' : ''}`}
                       />
+                      {fieldErrors.email && <p className="text-xs text-red-600 mt-1.5">{fieldErrors.email}</p>}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
                         Password
                       </label>
                       <div className="relative">
-                        <Input
+                       <Input
                           type={showPassword ? 'text' : 'password'}
                           placeholder="Create a password"
                           value={formData.password}
-                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                          className="h-11 pr-11 border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                          onChange={(e) => { setFormData({ ...formData, password: e.target.value }); setFieldErrors(prev => ({ ...prev, password: undefined })) }}
+                          className={`h-11 pr-11 border-slate-200 focus:ring-2 focus:ring-sky-500 focus:border-transparent ${fieldErrors.password ? 'border-red-300' : ''}`}
                         />
                         <button
                           type="button"
@@ -367,6 +382,7 @@ export default function OnboardingFlow() {
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
+                      {fieldErrors.password && <p className="text-xs text-red-600 mt-1.5">{fieldErrors.password}</p>}
                     </div>
 
                     <Button
