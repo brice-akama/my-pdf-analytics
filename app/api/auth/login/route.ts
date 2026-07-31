@@ -39,19 +39,8 @@ export async function POST(request: NextRequest) {
 
     console.log('🌍 Client Info:', { clientIP, userAgent });
 
-    // 🔒 Rate limit login attempts — 10 per IP per hour. Wrapped so a bug
-    // in checkRateLimit itself can NEVER block a real login — fail-open.
-    try {
-      const rateLimitExceeded = await Promise.resolve(checkRateLimit(`login:${clientIP}`, 10, 3600000));
-      if (rateLimitExceeded) {
-        return NextResponse.json(
-          { error: 'Too many login attempts. Please try again later.', code: 'RATE_LIMITED' },
-          { status: 429 }
-        );
-      }
-    } catch (err) {
-      console.error('⚠️ Rate limit check failed (non-blocking):', err);
-    }
+    // Rate limiting - TEMPORARILY DISABLED
+    // const rateLimitExceeded = await Promise.resolve(checkRateLimit(`login:${clientIP}`, 5, 3600000));
 
     const body = await request.json().catch((err) => {
       console.error('❌ Failed to parse request body:', err);
