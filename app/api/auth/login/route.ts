@@ -39,8 +39,19 @@ export async function POST(request: NextRequest) {
 
     console.log('🌍 Client Info:', { clientIP, userAgent });
 
-    // Rate limiting - TEMPORARILY DISABLED
-    // const rateLimitExceeded = await Promise.resolve(checkRateLimit(`login:${clientIP}`, 5, 3600000));
+    // 🔒 Rate limit login attempts — 10 per IP per hour. Wrapped so a bug
+    // in checkRateLimit itself can NEVER block a real login — fail-open.
+    try {
+      const rateLimitExceeded = await Promise.resolve(checkRateLimit(`login:${clientIP}`, 10, 3600000));
+      if (rateLimitExceeded) {
+        return NextResponse.json(
+          { error: 'Too many login attempts. Please try again later.', code: 'RATE_LIMITED' },
+          { status: 429 }
+        );
+      }
+    } catch (err) {
+      console.error('⚠️ Rate limit check failed (non-blocking):', err);
+    }
 
     const body = await request.json().catch((err) => {
       console.error('❌ Failed to parse request body:', err);
@@ -58,6 +69,23 @@ export async function POST(request: NextRequest) {
     console.log('📦 Raw request body:', body);
 
     const { email, password } = body;
+
+// 🔒 Reject non-string types outright — blocks NoSQL injection payloads
+// like { "email": { "$ne": null } } that bypass string-based sanitization
+if (typeof email !== 'string' || typeof password !== 'string') {
+  return NextResponse.json(
+    { error: 'Invalid request format', code: 'INVALID_TYPE' },
+    { status: 400 }
+  );
+}
+
+// 🔒 Cap length before hitting bcrypt — avoids oversized payloads
+if (email.length > 254 || password.length > 200) {
+  return NextResponse.json(
+    { error: 'Invalid request', code: 'INPUT_TOO_LONG' },
+    { status: 400 }
+  );
+}
 
 // ✅ Only sanitize email, NOT password
 const sanitizedEmail = sanitizeInput(email || '').toLowerCase();
