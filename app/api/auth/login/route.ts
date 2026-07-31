@@ -70,23 +70,6 @@ export async function POST(request: NextRequest) {
 
     const { email, password } = body;
 
-// 🔒 Reject non-string types outright — blocks NoSQL injection payloads
-// like { "email": { "$ne": null } } that bypass string-based sanitization
-if (typeof email !== 'string' || typeof password !== 'string') {
-  return NextResponse.json(
-    { error: 'Invalid request format', code: 'INVALID_TYPE' },
-    { status: 400 }
-  );
-}
-
-// 🔒 Cap length before hitting bcrypt — avoids oversized payloads
-if (email.length > 254 || password.length > 200) {
-  return NextResponse.json(
-    { error: 'Invalid request', code: 'INPUT_TOO_LONG' },
-    { status: 400 }
-  );
-}
-
 // ✅ Only sanitize email, NOT password
 const sanitizedEmail = sanitizeInput(email || '').toLowerCase();
 
