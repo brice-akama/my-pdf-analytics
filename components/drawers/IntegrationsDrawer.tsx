@@ -1,3 +1,5 @@
+//components/drawers/IntegrationsDrawer.tsx
+
 "use client"
 
 import { Button } from "@/components/ui/button"

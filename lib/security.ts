@@ -32,13 +32,9 @@ export function isValidEmail(email: string): boolean {
  * - At least one number
  */
 export function isValidPassword(password: string): boolean {
-  if (password.length < 8 || password.length > 128) return false
-  
-  const hasUpperCase = /[A-Z]/.test(password)
-  const hasLowerCase = /[a-z]/.test(password)
-  const hasNumber = /[0-9]/.test(password)
-  
-  return hasUpperCase && hasLowerCase && hasNumber
+  // Length only — no uppercase/lowercase/number requirement.
+  // Reduces signup friction; 8 characters is still a reasonable floor.
+  return password.length >= 8 && password.length <= 128
 }
 
 /**
@@ -49,8 +45,12 @@ export function isValidPassword(password: string): boolean {
 export function isValidName(name: string): boolean {
   if (!name || name.length < 1 || name.length > 100) return false
   
-  // Allow letters (any language), spaces, hyphens, apostrophes
-  const nameRegex = /^[\p{L}\s'\-]+$/u
+  // Allow letters (any language), spaces, hyphens, apostrophes, periods.
+  // Periods cover common valid name formats — initials ("Nelson W."),
+  // abbreviated titles ("Jr."), etc. Still blocks anything with real
+  // injection risk (<, >, {, }, ;, quotes, etc.) — only the character
+  // set actually used in real names is allowed.
+  const nameRegex = /^[\p{L}\s'\-.]+$/u
   return nameRegex.test(name)
 }
 

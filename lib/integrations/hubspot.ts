@@ -1,4 +1,5 @@
- import { dbPromise } from "@/app/api/lib/mongodb";
+//app/integrations/hubspot.ts
+import { dbPromise } from "@/app/api/lib/mongodb";
 
 // Auto-refresh token if expired
 export async function getValidHubSpotToken(userId: string): Promise<string> {
