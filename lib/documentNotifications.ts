@@ -491,14 +491,20 @@ export async function sendDailyDigestEmail({
 
 export async function hasNotificationBeenSent(
   type: string,
-  sessionId: string,
-  documentId: string
+  viewerId: string,
+  documentId: string,
+  cooldownMinutes: number = 10
 ): Promise<boolean> {
   const db = await dbPromise;
+  // Dedup on viewerId (stable per person) within a short cooldown window —
+  // not sessionId, which is randomly regenerated on every page load/refresh
+  // and would treat a link-scanner prefetch or a simple reload as a new event.
+  const cutoff = new Date(Date.now() - cooldownMinutes * 60 * 1000);
   const existing = await db.collection('notification_log').findOne({
     type,
-    sessionId,
+    viewerId,
     documentId,
+    sentAt: { $gte: cutoff },
   });
   return !!existing;
 }
@@ -806,13 +812,13 @@ export async function sendSpaceDealInsightEmail({
 
 export async function markNotificationSent(
   type: string,
-  sessionId: string,
+  viewerId: string,
   documentId: string
 ) {
   const db = await dbPromise;
   await db.collection('notification_log').insertOne({
     type,
-    sessionId,
+    viewerId,
     documentId,
     sentAt: new Date(),
   });

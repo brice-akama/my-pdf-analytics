@@ -356,7 +356,7 @@ export async function POST(
 
         // ── NOTIFICATION: Document Completed (email) ──────────────
         if (isLastPage && share.userId) {
-          const alreadySentCompleted = await hasNotificationBeenSent('completed', currentSessionId, documentId);
+          const alreadySentCompleted = await hasNotificationBeenSent('completed', viewerId, documentId);
 
           if (!alreadySentCompleted) {
             const owner = await getOwnerEmail(share.userId, db);
@@ -396,7 +396,7 @@ export async function POST(
                 intentLevel,
               }).catch(err => console.error('📧 Completed email error:', err));
 
-              await markNotificationSent('completed', currentSessionId, documentId);
+              await markNotificationSent('completed', viewerId, documentId);
             }
           }
         }
@@ -654,11 +654,17 @@ case 'presence_ping': {
 
       // ── SESSION START ──────────────────────────────────────────
       case 'session_start': {
-        // ── Detect revisit BEFORE creating new session ────────────
+// ── Detect revisit BEFORE creating new session ────────────
+        // Only counts as a genuine revisit if the earlier session started
+        // more than 10 minutes ago — a scanner prefetch or a quick reload
+        // seconds after the real open would otherwise get flagged as a
+        // "revisit" and send a second, false notification.
+        const revisitCutoff = new Date(Date.now() - 10 * 60 * 1000);
         const previousSession = await db.collection('analytics_sessions').findOne({
           documentId,
           viewerId,
           sessionId: { $ne: currentSessionId },
+          startedAt: { $lt: revisitCutoff },
         });
         const isRevisit = !!previousSession;
 
@@ -767,7 +773,7 @@ case 'presence_ping': {
 
         // ── NOTIFICATION: Document Opened ───────────────────────
   // Only fire once per session and only if owner has email
-  const alreadySent = await hasNotificationBeenSent('opened', currentSessionId, documentId);
+  const alreadySent = await hasNotificationBeenSent('opened', viewerId, documentId);
   
   if (!alreadySent && share.userId) {
     const owner = await getOwnerEmail(share.userId, db);
@@ -799,13 +805,13 @@ case 'presence_ping': {
       }).catch(err => console.error('📧 Opened email error:', err));
 
       // Mark as sent so we don't send again for this session
-      await markNotificationSent('opened', currentSessionId, documentId);
+      await markNotificationSent('opened', viewerId, documentId);
     }
   }
 
   // ── NOTIFICATION: Revisit ───────────────────────────────
   if (isRevisit && share.userId) {
-    const alreadySentRevisit = await hasNotificationBeenSent('revisit', currentSessionId, documentId);
+    const alreadySentRevisit = await hasNotificationBeenSent('revisit', viewerId, documentId);
 
     if (!alreadySentRevisit) {
       const owner = await getOwnerEmail(share.userId, db);
@@ -841,7 +847,7 @@ case 'presence_ping': {
           location: location || undefined,
         }).catch(err => console.error('📧 Revisit email error:', err));
 
-        await markNotificationSent('revisit', currentSessionId, documentId);
+        await markNotificationSent('revisit', viewerId, documentId);
       }
     }
   }
