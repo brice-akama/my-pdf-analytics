@@ -10,14 +10,14 @@ import { FAQSection } from "@/components/faq-section";
 export const metadata: Metadata = {
   title: "Know What Buyers Do After You Hit Send | DocMetrics",
   description:
-  "Understand how buyers engage with your proposals after you hit send. Track views, page engagement, stakeholder activity, and follow up with confidence.",
+  "Know what happens after you send a proposal. See buyer engagement, internal stakeholder activity, and real buying signals so every follow-up is based on evidence instead of guesswork.",
   alternates: {
     canonical: "https://docmetrics.io",
   },
   openGraph: {
-    title: "Proposal Intelligence for B2B Sales Teams | DocMetrics",
+    title: "Know What Buyers Do After You Hit Send | DocMetrics",
     description:
-      "See who opened your proposal, what they engaged with, when new stakeholders appear, and turn buyer engagement into smarter sales follow-ups.",
+      "Know when buyers revisit your proposal, share it internally, and involve new stakeholders—so every follow-up is guided by real buying signals.",
     url: "https://docmetrics.io",
     siteName: "DocMetrics",
     type: "website",
@@ -55,7 +55,7 @@ const softwareSchema = {
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
   description:
-    "Understand how buyers engage with your proposals after you hit send. Track views, page engagement, stakeholder activity, and follow up with confidence.",
+    "Know when buyers revisit your proposal, share it internally, and involve new stakeholders—so every follow-up is guided by real buying signals.",
   offers: {
     "@type": "Offer",
     price: "0",

@@ -5,27 +5,27 @@ import { useState, useRef } from "react";
 
 const features = [
   {
-    title: "Send Secure Proposals",
+    title: "Share proposals with confidence",
     description:
       "Share proposals with branded links, passwords, NDAs, expiration dates, and download controls.",
     image: "/assets/board-meetings.webp",
   },
   {
-    title: "Track Buyer Engagement",
+    title: "Know when buyers are serious",
     description:
-      "See when buyers open your proposal, which pages they read, and how long they spend on each section.",
+      "See repeat visits, time spent, and renewed interest so you know when to re-engage.",
     image: "/assets/team-photo.webp",
   },
   {
-    title: "Discover New Stakeholders",
+    title: "See your deal gaining momentum",
     description:
-      "Know when your proposal is viewed by additional people, helping you spot buying committee activity.",
+      "Know when proposals are shared internally and new stakeholders start reviewing them.",
     image: "/assets/client-portals.webp",
   },
   {
-    title: "Follow Up with Confidence",
+    title: "Stop chasing the wrong deals",
     description:
-      "Use engagement insights, notifications, and signatures to make better follow-up decisions.",
+      "Follow up when buying signals are strongest instead of relying on gut feeling.",
     image: "/assets/mergers-acquisitions.webp",
   },
 ];
@@ -56,10 +56,10 @@ export function AnimatedFeaturesSection() {
       <div className="container mx-auto max-w-7xl px-4">
         <div className="mx-auto max-w-3xl text-center mb-10">
           <h2 className="mb-4 text-2xl font-normal tracking-tight text-slate-900 sm:text-4xl lg:text-4xl">
-           Everything your sales team needs after hitting send
+           Know what's happening after every proposal
           </h2>
           <p className="text-base text-slate-600 sm:text-lg">
-            From the moment you send a proposal to the final signature, see how buyers engage, discover new stakeholders, and follow up with better timing.
+            Stop relying on guesswork. See when buyers re-engage, documents circulate internally, and new decision-makers enter the deal—so every follow-up has a reason.
           </p>
         </div>
 

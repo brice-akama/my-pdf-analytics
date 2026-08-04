@@ -15,15 +15,15 @@ export function HeroSection() {
 
           {/* Main Heading */}
           <h1 className="mb-6 text-2xl sm:text-3xl md:text-3xl lg:text-3xl xl:text-4xl font-semibold tracking-tight leading-tight md:leading-[1.1] text-slate-900 text-left md:text-center">
-  Post-proposal{" "}
+  Stop guessing after{" "}
   <span className="text-blue-600">
-    intelligence for sales teams
+    you send proposals
   </span>
 </h1>   
 
           {/* Subtitle */}
           <p className="mb-10 text-lg sm:text-xl md:text-2xl text-slate-600 max-w-2xl text-left md:text-center md:mx-auto">
-           Track repeat views, stakeholder activity, and document sharing so you can make better follow-up decisions after sending a proposal.
+           See when proposals are revisited, shared internally, and viewed by new stakeholders so every follow-up is based on real buying signals instead of guesswork.
 
           </p>
 

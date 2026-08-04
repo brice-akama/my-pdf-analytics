@@ -10,7 +10,7 @@ const CARDS = [
     tag: "Proposal Intelligence",
     icon: BarChart2,
     heading: "See how buyers engage after you hit send.",
-    description: "Track proposal views, page engagement, repeat visits, and new stakeholder activity so your team can make better follow-up decisions.",
+    description: "Know when buyers are paying attention. See repeat visits, proposal engagement, and new stakeholder activity so every follow-up is based on real buying signals—not guesswork.",
     // sky blue family — brand.primary
     cardBg:   "bg-[#e0f2fe]",
     iconBg:   "bg-[#bae6fd]",
@@ -25,7 +25,7 @@ const CARDS = [
     icon: Database,
     heading: "Share proposals with complete control.",
     description:
-      "Protect every proposal with passwords, NDAs, expiration dates, branded links, and detailed activity tracking.",
+      "Protect every proposal with passwords, NDAs, expiration dates, branded links, and detailed activity tracking—all without creating friction for your buyers.",
     // purple family — brand.secondary
     cardBg:   "bg-[#f3e8ff]",
     iconBg:   "bg-[#e9d5ff]",
@@ -40,7 +40,7 @@ const CARDS = [
     icon: Users,
     heading: "Know when buyers come back.",
     description:
-      "Receive instant notifications when buyers reopen your proposal or new stakeholders engage, so you can follow up at the right moment.",
+      "Get notified when buyers revisit your proposal or new stakeholders join the review—so you know exactly when it's time to reach out.",
     // slightly deeper sky — still brand.primary family
     cardBg:   "bg-[#f0f9ff]",
     iconBg:   "bg-[#bae6fd]",

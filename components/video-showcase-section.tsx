@@ -7,8 +7,8 @@ import Link from "next/link"
 const VIDEOS = [
   {
     id: "tracking",
-    title: "Understand Proposal Engagement",
-description: "Track proposal views across sessions, repeat visits, and page engagement so you know how buyers interact with your proposal over time.",
+    title: "Know when buyers are paying attention",
+description: "See repeat visits, page engagement, and returning viewers so you know when interest is building—not fading.",
     src: "/videos/tracking-demo.mp4",
     poster: "/assets/doc-tracking.png",
     href: "/features/analytics",
@@ -16,15 +16,15 @@ description: "Track proposal views across sessions, repeat visits, and page enga
   {
     id: "analytics",
    title: "Turn Silence Into A Signal",
-description: "Use repeat engagement, new stakeholder activity, and document interactions to decide when it's worth following up.",
+description: "See when proposals are revisited, shared internally, or viewed by new stakeholders so you know whether the deal is progressing before anyone replies.",
     src: "/videos/analytics-demo.mp4",
     poster: "/assets/doc2-tracking.png",
     href: "/features/analytics",
   },
   {
     id: "dataroom",
-    title: "Secure Proposal Sharing",
-    description: "Share proposals securely with branded links, passwords, NDAs, expiration dates, and complete activity tracking.",
+    title: "Share proposals professionally",
+    description: "Protect every proposal with branded links, passwords, NDAs, and expiration controls while keeping complete visibility into buyer activity.",
     src: "/videos/dataroom-demo.mp4",
     poster: "/assets/feature-tracking.png",
     href: "/solutions/enterprise",
@@ -157,7 +157,7 @@ export function VideoShowcaseSection() {
               <span className="text-[#0284c7]">after you hit send.</span>
             </h2>
             <p className="mt-4 text-base text-slate-500 max-w-xl mx-auto">
-             Watch how sales teams use DocMetrics to understand proposal engagement, discover buying signals, and follow up with better timing.
+             Watch how DocMetrics helps sales teams understand buyer intent, uncover hidden buying committee activity, and follow up with confidence instead of guesswork.
             </p>
           </div>
 
