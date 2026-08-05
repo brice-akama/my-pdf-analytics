@@ -47,14 +47,15 @@ const FIELD_TYPES: { type: SignatureField["type"]; label: string; icon: React.Re
   },
 ];
 
-function getFieldDimensions(type: string): { width: string; height: string } {
+function getFieldDimensions(type: string): { width: number; height: number } {
   switch (type) {
-    case "signature":  return { width: "140px", height: "50px" };
-    case "dropdown":   return { width: "180px", height: "36px" };
-    case "radio":      return { width: "160px", height: "auto" };
-    case "text":       return { width: "120px", height: "36px" };
-    case "attachment": return { width: "150px", height: "36px" };
-    default:           return { width: "120px", height: "32px" };
+    case "signature":  return { width: 110, height: 38 };
+    case "checkbox":   return { width: 20,  height: 20 };   // ✅ was missing — fell to default (120x32)
+    case "dropdown":   return { width: 150, height: 30 };
+    case "text":       return { width: 95,  height: 28 };
+    case "attachment": return { width: 125, height: 30 };
+    case "radio":      return { width: 140, height: 74 };   // base size for default 3 options — see note below
+    default:           return { width: 100, height: 28 };
   }
 }
 
@@ -418,33 +419,39 @@ function PDFCanvas({
 
   // ── Drop: screen coords → natural PDF coords ────────────────────────────────
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const fieldType = e.dataTransfer.getData("fieldType") as SignatureField["type"];
-    if (!fieldType) return;
+  e.preventDefault();
+  const fieldType = e.dataTransfer.getData("fieldType") as SignatureField["type"];
+  if (!fieldType) return;
 
-    const container = document.getElementById("pdf-natural-container");
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
+  const container = document.getElementById("pdf-natural-container");
+  if (!container) return;
+  const rect = container.getBoundingClientRect();
 
-    const naturalX = (e.clientX - rect.left) / pdfScale;
-    const naturalY = (e.clientY - rect.top)  / pdfScale;
+  const naturalX = (e.clientX - rect.left) / pdfScale;
+  const naturalY = (e.clientY - rect.top)  / pdfScale;
 
-    const pageNumber = Math.max(1, Math.floor(naturalY / PAGE_H_PX) + 1);
-    const yPercent   = ((naturalY % PAGE_H_PX) / PAGE_H_PX) * 100;
-    const xPercent   = (naturalX / PDF_NATURAL_W) * 100;
+  const pageNumber = Math.max(1, Math.floor(naturalY / PAGE_H_PX) + 1);
+  const yPercent   = ((naturalY % PAGE_H_PX) / PAGE_H_PX) * 100;
+  const xPercent   = (naturalX / PDF_NATURAL_W) * 100;
 
-    const newField: SignatureField = {
-  id: Date.now(), type: fieldType, x: xPercent, y: yPercent, page: pageNumber, recipientIndex: activeRecipientIndex,
-      label: fieldType === "checkbox" ? "Check this box" : fieldType === "dropdown" ? "Select an option" : fieldType === "radio" ? "Choose one option" : "",
-      defaultChecked: false,
-      attachmentLabel: fieldType === "attachment" ? "Upload Required Document" : undefined,
-      attachmentType:  fieldType === "attachment" ? "supporting_document" : undefined,
-      isRequired:      fieldType === "attachment" ? true : false,
-      options: (fieldType === "dropdown" || fieldType === "radio") ? ["Option 1", "Option 2", "Option 3"] : undefined,
-    };
+  // ✅ Persist the exact pixel size shown on screen, so pdfGenerator.ts
+  // draws the field at the same size instead of guessing its own defaults.
+  const dims = getFieldDimensions(fieldType);
 
-    setSignatureRequest((prev) => ({ ...prev, signatureFields: [...prev.signatureFields, newField] }));
+  const newField: SignatureField = {
+    id: Date.now(), type: fieldType, x: xPercent, y: yPercent, page: pageNumber, recipientIndex: activeRecipientIndex,
+    width: dims.width,
+    height: dims.height,
+    label: fieldType === "checkbox" ? "Check this box" : fieldType === "dropdown" ? "Select an option" : fieldType === "radio" ? "Choose one option" : "",
+    defaultChecked: false,
+    attachmentLabel: fieldType === "attachment" ? "Upload Required Document" : undefined,
+    attachmentType:  fieldType === "attachment" ? "supporting_document" : undefined,
+    isRequired:      fieldType === "attachment" ? true : false,
+    options: (fieldType === "dropdown" || fieldType === "radio") ? ["Option 1", "Option 2", "Option 3"] : undefined,
   };
+
+  setSignatureRequest((prev) => ({ ...prev, signatureFields: [...prev.signatureFields, newField] }));
+};
 
   return (
     // wrapperRef measures width for scaling — this div does NOT scroll
