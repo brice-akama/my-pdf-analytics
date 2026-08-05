@@ -23,6 +23,9 @@ const solutions = [
     href: "/solutions/fundraising",
     description: "Track investor engagement with pitch decks and term sheets",
   },
+  { title: "Sales Managers", href: "/solutions/sales-managers", description: "Pipeline-wide engagement visibility to spot stalling deals and coach reps with real data" },
+
+{ title: "Consultants", href: "/solutions/consultants", description: "See when clients read your proposals and reports so you follow up at the right moment" },
   {
     title: "Client Portals",
     href: "/solutions/enterprise",

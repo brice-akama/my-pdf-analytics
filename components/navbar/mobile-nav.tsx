@@ -119,6 +119,14 @@ export function MobileNav() {
                   >
                      Fundraising
                   </Link>
+                  <Link 
+                  
+                  href="/solutions/sales-managers"
+                  className="py-2 text-sm text-muted-foreground hover:text-foreground"
+                    onClick={() => setOpen(false)}
+                    >Sales Managers</Link>
+
+<Link href="/solutions/consultants" className="py-2 text-sm text-muted-foreground hover:text-foreground" onClick={() => setOpen(false)}>Consultants</Link>
                   <Link
                     href="/solutions/enterprise"
                     className="py-2 text-sm text-muted-foreground hover:text-foreground"
