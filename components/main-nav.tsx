@@ -27,6 +27,8 @@ const features = [
 const solutions = [
   { title: "Sales Teams",   href: "/solutions/sales",       description: "Close more deals with proposal tracking and engagement insights" },
   { title: "Fundraising",   href: "/solutions/fundraising",  description: "Track investor engagement with pitch decks and term sheets" },
+  { title: "Sales Managers", href: "/solutions/sales-managers", description: "Pipeline-wide engagement visibility to spot stalling deals and coach reps with real data" },
+{ title: "Consultants", href: "/solutions/consultants", description: "See when clients read your proposals and reports so you follow up at the right moment" },
   { title: "Client Portals", href: "/solutions/enterprise", description: "Secure document sharing with advanced analytics and controls" },
 ];
 
