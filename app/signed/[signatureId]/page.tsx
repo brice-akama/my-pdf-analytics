@@ -9,7 +9,15 @@ import {
 
 // ── Constants (must match editor + sign page + pdfGenerator) ──────────────
 const PDF_NATURAL_W = 794;
-const PAGE_H_PX     = 297 * 3.78; // 1122px
+const PAGE_H_PX     = 297 * 3.78; // 1122px — fallback only
+
+function getPageTopOffset(pageNum: number, heights: number[]): number {
+  let offset = 0;
+  for (let i = 0; i < pageNum - 1; i++) {
+    offset += heights[i] ?? PAGE_H_PX;
+  }
+  return offset;
+}
 
 export default function SignedDocumentPage() {
   const params      = useParams();
@@ -37,6 +45,7 @@ export default function SignedDocumentPage() {
 
   // ── Sidebar thumbnails ─────────────────────────────────────────────────────
   const [thumbs,      setThumbs]      = useState<string[]>([]);
+   const [pageHeights, setPageHeights] = useState<number[]>([]);
 
   // ── Mobile sidebar ─────────────────────────────────────────────────────────
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -58,6 +67,12 @@ export default function SignedDocumentPage() {
         setDocumentData(info);
         setSignatureFields(info.signatureFields || []);
         setSignatures(info.signatures || {});
+
+        const dims = info.document?.pageDimensions || [];
+        if (dims.length > 0) {
+          const heights = dims.map((d: any) => (PDF_NATURAL_W / d.widthPt) * d.heightPt);
+          setPageHeights(heights);
+        }
 
         const att = await attRes.json();
         if (att.success) setAttachments(att.attachments || []);
@@ -116,12 +131,17 @@ export default function SignedDocumentPage() {
       const canvas = pdfCanvasRef.current!;
 
       // Reset canvas to force clean context
+      const totalHeight = pageHeights.length > 0
+        ? pageHeights.reduce((s, h) => s + h, 0)
+        : PAGE_H_PX * pages;
+
+      // Reset canvas to force clean context
       canvas.width        = 1;
       canvas.height       = 1;
       canvas.width        = PDF_NATURAL_W * dpr;
-      canvas.height       = PAGE_H_PX * pages * dpr;
+      canvas.height       = totalHeight * dpr;
       canvas.style.width  = `${PDF_NATURAL_W}px`;
-      canvas.style.height = `${PAGE_H_PX * pages}px`;
+      canvas.style.height = `${totalHeight}px`;
 
       const ctx = canvas.getContext('2d', { alpha: false })!;
       ctx.imageSmoothingEnabled = true;
@@ -135,8 +155,8 @@ export default function SignedDocumentPage() {
         const natural = page.getViewport({ scale: 1 });
         const scale   = (PDF_NATURAL_W / natural.width) * dpr;
 
-        ctx.save();
-        ctx.translate(0, (p - 1) * PAGE_H_PX * dpr);
+       ctx.save();
+        ctx.translate(0, getPageTopOffset(p, pageHeights) * dpr);
 
         const task = page.render({
           canvasContext: ctx,
@@ -203,7 +223,7 @@ export default function SignedDocumentPage() {
         renderTaskRef.current = null;
       }
     };
-  }, [pdfUrl]);
+  }, [pdfUrl, pageHeights]);
 
   // ── Scale on resize or zoom change ────────────────────────────────────────
   useEffect(() => {
@@ -220,14 +240,21 @@ export default function SignedDocumentPage() {
 
   // ── Scroll tracking ────────────────────────────────────────────────────────
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const st   = (e.target as HTMLDivElement).scrollTop;
-    const page = Math.floor(st / (PAGE_H_PX * pdfScale)) + 1;
+    const st = (e.target as HTMLDivElement).scrollTop / pdfScale;
+    let page = 1;
+    let cumulative = 0;
+    for (let i = 0; i < totalPages; i++) {
+      const h = pageHeights[i] ?? PAGE_H_PX;
+      if (st < cumulative + h) { page = i + 1; break; }
+      cumulative += h;
+      page = i + 2;
+    }
     setCurrentPage(Math.min(Math.max(page, 1), totalPages));
   };
 
   const scrollToPage = (page: number) => {
     document.getElementById('pdf-view-scroll')
-      ?.scrollTo({ top: (page - 1) * PAGE_H_PX * pdfScale, behavior: 'smooth' });
+      ?.scrollTo({ top: getPageTopOffset(page, pageHeights) * pdfScale, behavior: 'smooth' });
     setCurrentPage(page);
     setSidebarOpen(false);
   };
@@ -516,7 +543,9 @@ export default function SignedDocumentPage() {
                 className="relative mx-auto"
                 style={{
                   width:        pdfReady ? PDF_NATURAL_W * pdfScale : 0,
-                  height:       pdfReady ? PAGE_H_PX * totalPages * pdfScale : 0,
+                  height:       pdfReady ? (pageHeights.length > 0
+                    ? pageHeights.reduce((s, h) => s + h, 0)
+                    : PAGE_H_PX * totalPages) * pdfScale : 0,
                   background:   '#fff',
                   boxShadow:    pdfReady ? '0 8px 48px rgba(0,0,0,0.6)' : 'none',
                   borderRadius: 3,
@@ -527,7 +556,9 @@ export default function SignedDocumentPage() {
                 {/* Inner natural-size container — CSS scaled */}
                 <div style={{
                   width:           PDF_NATURAL_W,
-                  height:          PAGE_H_PX * totalPages,
+                  height:          pageHeights.length > 0
+                    ? pageHeights.reduce((s, h) => s + h, 0)
+                    : PAGE_H_PX * totalPages,
                   transform:       `scale(${pdfScale})`,
                   transformOrigin: 'top left',
                   position:        'absolute',
@@ -543,7 +574,7 @@ export default function SignedDocumentPage() {
                   {Array.from({ length: totalPages - 1 }, (_, i) => (
                     <div key={i} style={{
                       position:   'absolute',
-                      top:        PAGE_H_PX * (i + 1),
+                      top:        getPageTopOffset(i + 2, pageHeights),
                       left: 0, right: 0,
                       height:     2,
                       background: 'rgba(99,102,241,0.15)',
@@ -556,7 +587,8 @@ export default function SignedDocumentPage() {
                     {signatureFields.map((field: any) => {
                       const sig = signatures[String(field.id)];
                       if (!sig) return null;
-                      const topPx = ((field.page - 1) * PAGE_H_PX) + (field.y / 100 * PAGE_H_PX);
+                      const currentPageH = pageHeights[field.page - 1] ?? PAGE_H_PX;
+                      const topPx = getPageTopOffset(field.page, pageHeights) + (field.y / 100) * currentPageH;
                       const W = field.width  ?? (field.type === 'signature' ? 150 : field.type === 'checkbox' ? 24 : 120);
                       const H = field.height ?? (field.type === 'signature' ? 45  : field.type === 'checkbox' ? 24 : 32);
                       return (
@@ -568,15 +600,25 @@ export default function SignedDocumentPage() {
                           transform: 'translate(-50%, 0)',
                           zIndex:    10,
                         }}>
-                          <div className="h-full flex items-center justify-center p-1">
+                         <div className="h-full flex items-center justify-center p-1" style={{ overflow: 'visible' }}>
                             {field.type === 'signature' && sig.data && (
                               <img src={sig.data} alt="Signature"
                                 className="max-h-full max-w-full object-contain"
                                 style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.12))' }} />
                             )}
-                            {(field.type === 'date' || field.type === 'text') && (
-                              <p className="text-xs font-medium text-slate-900 text-center leading-tight">{sig.data}</p>
-                            )}
+                           {(field.type === 'date' || field.type === 'text') && (
+  <p
+    className="text-slate-900 text-center font-medium leading-tight break-words"
+    style={{
+      fontSize: sig.data && sig.data.length > 20 ? '9px' : '11px',
+      whiteSpace: 'normal',
+      wordBreak: 'break-word',
+      overflow: 'visible',
+    }}
+  >
+    {sig.data}
+  </p>
+)}
                             {field.type === 'checkbox' && (
                               <div className="flex items-center justify-center w-full h-full">
                                 {sig.data === 'true'

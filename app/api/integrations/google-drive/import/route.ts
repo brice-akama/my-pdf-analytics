@@ -228,6 +228,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 9: Process PDF (metadata + text extraction in parallel) ───────
+    // ── Step 9: Process PDF (metadata + text extraction in parallel) ───────
     console.log("⚙️ [GDRIVE IMPORT] Processing PDF...");
     const [metadata, extractedText] = await Promise.all([
       extractMetadata(buffer, "pdf"),
@@ -237,6 +238,20 @@ export async function POST(request: NextRequest) {
     const scannedPdf = !extractedText || extractedText.trim().length < 30;
     const summary = generateSummary(extractedText);
     console.log("✅ [GDRIVE IMPORT] PDF processed:", { pages: metadata.pageCount, words: metadata.wordCount });
+
+    // ── Step 9.5: Extract REAL per-page dimensions (SignNow-style canonical source) ──
+    let pageDimensions: { pageNumber: number; widthPt: number; heightPt: number }[] = [];
+    try {
+      const { PDFDocument } = await import("pdf-lib");
+      const pdfDocForDims = await PDFDocument.load(buffer);
+      pageDimensions = pdfDocForDims.getPages().map((p, idx) => {
+        const { width, height } = p.getSize();
+        return { pageNumber: idx + 1, widthPt: width, heightPt: height };
+      });
+      console.log("✅ [GDRIVE IMPORT] Page dimensions extracted:", pageDimensions.length, "pages");
+    } catch (err) {
+      console.error("⚠️ [GDRIVE IMPORT] Failed to extract page dimensions:", err);
+    }
 
     // ── Step 10: Upload to Cloudinary + analyze in parallel ────────────────
     console.log("☁️ [GDRIVE IMPORT] Uploading to Cloudinary & analyzing...");
@@ -305,6 +320,7 @@ export async function POST(request: NextRequest) {
                 numPages: metadata.pageCount,
                 wordCount: metadata.wordCount,
                 charCount: metadata.charCount,
+                 pageDimensions,
                 summary,
                 scannedPdf,
                 source: "google_drive",
@@ -411,6 +427,7 @@ export async function POST(request: NextRequest) {
       numPages: metadata.pageCount,
       wordCount: metadata.wordCount,
       charCount: metadata.charCount,
+      pageDimensions,
       summary,
       scannedPdf,
       source: "google_drive",

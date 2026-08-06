@@ -16,6 +16,79 @@ cloudinary.v2.config({
 const EDITOR_W_PX = 794;
 const EDITOR_H_PX = 297 * 3.78; // 1122px per page
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER: draw text that wraps within a field box, shrinking font if needed,
+// and vertically/horizontally centering the resulting block.
+// ─────────────────────────────────────────────────────────────────────────────
+function drawWrappedText(
+  page: PDFPage,
+  text: string,
+  font: PDFFont,
+  x: number,
+  y: number,
+  boxWidth: number,
+  boxHeight: number,
+  baseFontSize: number
+) {
+  const PADDING = 3;
+  const usableWidth = Math.max(boxWidth - PADDING * 2, 10);
+
+  // Try progressively smaller font sizes until the text fits within boxHeight
+  let fontSize = baseFontSize;
+  let lines: string[] = [];
+  const MIN_FONT_SIZE = baseFontSize * 0.55;
+
+  while (fontSize >= MIN_FONT_SIZE) {
+    lines = wrapTextToLines(text, font, fontSize, usableWidth);
+    const lineHeight = fontSize * 1.15;
+    const totalHeight = lines.length * lineHeight;
+    if (totalHeight <= boxHeight - PADDING * 2 || fontSize <= MIN_FONT_SIZE) break;
+    fontSize -= 0.5;
+  }
+
+  const lineHeight = fontSize * 1.15;
+  const totalHeight = lines.length * lineHeight;
+  let startY = y + boxHeight / 2 + totalHeight / 2 - fontSize * 0.85;
+
+  for (const line of lines) {
+    const lineWidth = font.widthOfTextAtSize(line, fontSize);
+    const lineX = x + (boxWidth - lineWidth) / 2;
+    page.drawText(line, {
+      x: lineX,
+      y: startY,
+      size: fontSize,
+      font,
+      color: rgb(0, 0, 0),
+    });
+    startY -= lineHeight;
+  }
+}
+
+// Splits text into lines that each fit within maxWidth at the given font size
+function wrapTextToLines(text: string, font: PDFFont, fontSize: number, maxWidth: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [''];
+
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+
+    if (testWidth <= maxWidth || !currentLine) {
+      currentLine = testLine;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+
+  return lines;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: draw a field onto a PDF page with correct coordinate conversion
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,29 +145,14 @@ const y = height - yFromTopPt - fieldHeightPt;
   }
 
   // ── DATE FIELD ─────────────────────────────────────────────────────────────
+  // ── DATE FIELD ─────────────────────────────────────────────────────────────
   if (field.type === 'date' && signedField.dateValue) {
-    const fontSize = 9 * scaleY;
-    const textWidth = font.widthOfTextAtSize(signedField.dateValue, fontSize);
-    page.drawText(signedField.dateValue, {
-      x: x + (fieldWidthPt - textWidth) / 2,
-      y: y + fieldHeightPt / 2 - fontSize / 2,
-      size: fontSize,
-      font,
-      color: rgb(0, 0, 0),
-    });
+    drawWrappedText(page, signedField.dateValue, font, x, y, fieldWidthPt, fieldHeightPt, 9 * scaleY);
   }
 
   // ── TEXT FIELD ─────────────────────────────────────────────────────────────
   if (field.type === 'text' && signedField.textValue) {
-    const fontSize = 9 * scaleY;
-    const textWidth = font.widthOfTextAtSize(signedField.textValue, fontSize);
-    page.drawText(signedField.textValue, {
-      x: x + (fieldWidthPt - textWidth) / 2,
-      y: y + fieldHeightPt / 2 - fontSize / 2,
-      size: fontSize,
-      font,
-      color: rgb(0, 0, 0),
-    });
+    drawWrappedText(page, signedField.textValue, font, x, y, fieldWidthPt, fieldHeightPt, 9 * scaleY);
   }
 
   // ── CHECKBOX FIELD ─────────────────────────────────────────────────────────
@@ -134,18 +192,11 @@ const y = height - yFromTopPt - fieldHeightPt;
   }
 
   // ── DROPDOWN FIELD ─────────────────────────────────────────────────────────
+  // ── DROPDOWN FIELD ─────────────────────────────────────────────────────────
   if (field.type === 'dropdown' && signedField.textValue) {
-    const fontSize = 9 * scaleY;
-    const textWidth = font.widthOfTextAtSize(signedField.textValue, fontSize);
-    page.drawText(signedField.textValue, {
-      x: x + (fieldWidthPt - textWidth) / 2,
-      y: y + fieldHeightPt / 2 - fontSize / 2,
-      size: fontSize,
-      font,
-      color: rgb(0, 0, 0),
-    });
+    drawWrappedText(page, signedField.textValue, font, x, y, fieldWidthPt, fieldHeightPt, 9 * scaleY);
   }
-
+  
   // ── RADIO BUTTON FIELD ─────────────────────────────────────────────────────
   if (field.type === 'radio' && signedField.textValue) {
     const selectedValue = signedField.textValue;

@@ -79,6 +79,7 @@ export async function GET(
       document: {
         filename: document.originalFilename || document.filename,
         numPages: document.numPages,
+         pageDimensions: document.pageDimensions || [],
       },
       progress: {
         signed:     signedCount,

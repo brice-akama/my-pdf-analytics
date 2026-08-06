@@ -229,6 +229,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 9: Process PDF (metadata + text extraction in parallel) ───────
+   // ── Step 9: Process PDF (metadata + text extraction in parallel) ───────
     console.log("⚙️ [ONEDRIVE IMPORT] Processing PDF...");
     const [metadata, extractedText] = await Promise.all([
       extractMetadata(buffer, "pdf"),
@@ -238,6 +239,20 @@ export async function POST(request: NextRequest) {
     const scannedPdf = !extractedText || extractedText.trim().length < 30;
     const summary = generateSummary(extractedText);
     console.log("✅ [ONEDRIVE IMPORT] PDF processed:", { pages: metadata.pageCount, words: metadata.wordCount });
+
+    // ── Step 9.5: Extract REAL per-page dimensions (SignNow-style canonical source) ──
+    let pageDimensions: { pageNumber: number; widthPt: number; heightPt: number }[] = [];
+    try {
+      const { PDFDocument } = await import("pdf-lib");
+      const pdfDocForDims = await PDFDocument.load(buffer);
+      pageDimensions = pdfDocForDims.getPages().map((p, idx) => {
+        const { width, height } = p.getSize();
+        return { pageNumber: idx + 1, widthPt: width, heightPt: height };
+      });
+      console.log("✅ [ONEDRIVE IMPORT] Page dimensions extracted:", pageDimensions.length, "pages");
+    } catch (err) {
+      console.error("⚠️ [ONEDRIVE IMPORT] Failed to extract page dimensions:", err);
+    }
 
     // ── Step 10: Upload to Cloudinary + analyze in parallel ────────────────
     console.log("☁️ [ONEDRIVE IMPORT] Uploading to Cloudinary & analyzing...");
@@ -307,6 +322,7 @@ export async function POST(request: NextRequest) {
                 wordCount: metadata.wordCount,
                 charCount: metadata.charCount,
                 summary,
+                pageDimensions,
                 scannedPdf,
                 source: "onedrive",
                 oneDriveFileId: fileId,
@@ -413,6 +429,7 @@ export async function POST(request: NextRequest) {
       wordCount: metadata.wordCount,
       charCount: metadata.charCount,
       summary,
+      pageDimensions,
       scannedPdf,
       source: "onedrive",
       oneDriveFileId: fileId,
