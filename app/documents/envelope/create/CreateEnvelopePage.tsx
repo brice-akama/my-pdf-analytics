@@ -17,7 +17,15 @@ import { EmailAutocomplete } from "@/components/ui/EmailAutocomplete";
 import { toast } from "sonner";
 
 const PDF_NATURAL_W = 794;
-const PAGE_H_PX     = 297 * 3.78; // 1122px — must match editor + sign page
+const PAGE_H_PX     = 297 * 3.78; // 1122px — fallback only
+
+function getPageTopOffset(pageNum: number, heights: number[]): number {
+  let offset = 0;
+  for (let i = 0; i < pageNum - 1; i++) {
+    offset += heights[i] ?? PAGE_H_PX;
+  }
+  return offset;
+}
 
 interface Document {
   _id: string;
@@ -76,6 +84,7 @@ export default function CreateEnvelopePage() {
   const [sending, setSending] = useState(false);
   const [allDocuments, setAllDocuments] = useState<Document[]>([]);
   const [selectedDocs, setSelectedDocs] = useState<Document[]>([]);
+  const [pageHeightsByDoc, setPageHeightsByDoc] = useState<Record<string, number[]>>({});
   const [recipients, setRecipients] = useState<Recipient[]>([{ name: "", email: "", role: "" }]);
   const [signatureFields, setSignatureFields] = useState<SignatureField[]>([]);
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
@@ -96,6 +105,7 @@ export default function CreateEnvelopePage() {
   const [activeRecipientIndex, setActiveRecipientIndex] = useState(0);
   const renderTaskRef = useRef<any>(null);
   const currentDocument = selectedDocs[currentDocIndex] || null;
+  const currentPageHeights = currentDocument ? (pageHeightsByDoc[currentDocument._id] || []) : [];
 
 
   
@@ -132,14 +142,18 @@ useEffect(() => { fetchDocuments(); }, []);
 
       const dpr    = window.devicePixelRatio || 1;
       const canvas = pdfCanvasRef.current!;
+      const heightsForThisDoc = pageHeightsByDoc[docId] || [];
+      const totalHeight = heightsForThisDoc.length > 0
+        ? heightsForThisDoc.reduce((s, h) => s + h, 0)
+        : PAGE_H_PX * pages;
 
       // Fully reset canvas dimensions to force a clean context
       canvas.width        = 1;
       canvas.height       = 1;
       canvas.width        = PDF_NATURAL_W * dpr;
-      canvas.height       = PAGE_H_PX * pages * dpr;
+      canvas.height       = totalHeight * dpr;
       canvas.style.width  = `${PDF_NATURAL_W}px`;
-      canvas.style.height = `${PAGE_H_PX * pages}px`;
+      canvas.style.height = `${totalHeight}px`;
 
       const ctx = canvas.getContext('2d', { alpha: false })!;
       ctx.imageSmoothingEnabled = true;
@@ -153,7 +167,7 @@ useEffect(() => { fetchDocuments(); }, []);
         const scale   = (PDF_NATURAL_W / natural.width) * dpr;
 
         ctx.save();
-        ctx.translate(0, (p - 1) * PAGE_H_PX * dpr);
+        ctx.translate(0, getPageTopOffset(p, heightsForThisDoc) * dpr);
 
         const task = page.render({
           canvasContext: ctx,
@@ -195,7 +209,7 @@ useEffect(() => { fetchDocuments(); }, []);
         renderTaskRef.current = null;
       }
     };
-  }, [currentDocument?._id, pdfUrls]);
+  }, [currentDocument?._id, pdfUrls, pageHeightsByDoc]);
 
   // ── Scale on resize ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -250,11 +264,22 @@ useEffect(() => { fetchDocuments(); }, []);
         if (docs.length > 0) {
           setSelectedDocs(docs);
           setAllDocuments(docs);
+
+          const heightsMap: Record<string, number[]> = {};
+          docs.forEach((d: any) => {
+            const dims = d.pageDimensions || [];
+            if (dims.length > 0) {
+              heightsMap[d._id] = dims.map((dim: any) => (PDF_NATURAL_W / dim.widthPt) * dim.heightPt);
+            }
+          });
+          setPageHeightsByDoc(heightsMap);
+
           setStep(1);
           setLoading(false);
           return;
         }
       }
+
       const res = await fetch(`/api/documents?page=1&limit=50&sortBy=createdAt&sortOrder=-1`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
@@ -324,7 +349,16 @@ useEffect(() => { fetchDocuments(); }, []);
         setUploadStatus('success');
         setUploadMessage(`Uploaded ${file.name}`);
         await fetchDocuments();
-        if (data.document?._id) setSelectedDocs(prev => [...prev, data.document]);
+        if (data.document?._id) {
+          setSelectedDocs(prev => [...prev, data.document]);
+          const dims = data.document.pageDimensions || [];
+          if (dims.length > 0) {
+            setPageHeightsByDoc(prev => ({
+              ...prev,
+              [data.document._id]: dims.map((d: any) => (PDF_NATURAL_W / d.widthPt) * d.heightPt),
+            }));
+          }
+        }
         setTimeout(() => { setUploadStatus('idle'); setUploadMessage(''); }, 3000);
       } else {
         setUploadStatus('error');
@@ -395,6 +429,21 @@ if (!res.ok || !data.success) {
     }
   };
 
+  const getPageFromOffsetEnvelope = (naturalY: number, heights: number[]): { page: number; yPercent: number } => {
+    let cumulative = 0;
+    for (let i = 0; i < heights.length; i++) {
+      const h = heights[i] ?? PAGE_H_PX;
+      if (naturalY < cumulative + h) {
+        return { page: i + 1, yPercent: Math.max(0, ((naturalY - cumulative) / h) * 100) };
+      }
+      cumulative += h;
+    }
+    const lastH = heights[heights.length - 1] ?? PAGE_H_PX;
+    const extraPages = Math.floor((naturalY - cumulative) / lastH);
+    const remainder  = (naturalY - cumulative) % lastH;
+    return { page: heights.length + extraPages + 1, yPercent: (remainder / lastH) * 100 };
+  };
+
   const handleDropField = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const fieldType  = e.dataTransfer.getData("fieldType") as SignatureField["type"];
@@ -405,9 +454,8 @@ if (!res.ok || !data.success) {
     const naturalX = (e.clientX - rect.left) / pdfScale;
     const naturalY = (e.clientY - rect.top)  / pdfScale;
 
-    const pageNumber = Math.max(1, Math.floor(naturalY / PAGE_H_PX) + 1);
-    const yPercent   = ((naturalY % PAGE_H_PX) / PAGE_H_PX) * 100;
-    const xPercent   = (naturalX / PDF_NATURAL_W) * 100;
+    const { page: pageNumber, yPercent } = getPageFromOffsetEnvelope(naturalY, currentPageHeights);
+    const xPercent = (naturalX / PDF_NATURAL_W) * 100;
 
     const newField: SignatureField = {
       id:              Date.now(),
@@ -430,7 +478,7 @@ if (!res.ok || !data.success) {
     saveToHistory(updated);
   };
 
-  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField) => {
+ const handleDragEnd = (e: React.DragEvent<HTMLDivElement>, field: SignatureField) => {
     const container = document.getElementById("pdf-natural-container-envelope");
     if (!container || !currentDocument) return;
 
@@ -438,9 +486,8 @@ if (!res.ok || !data.success) {
     const naturalX = (e.clientX - rect.left) / pdfScale;
     const naturalY = (e.clientY - rect.top)  / pdfScale;
 
-    const pageNumber = Math.max(1, Math.floor(naturalY / PAGE_H_PX) + 1);
-    const yPercent   = ((naturalY % PAGE_H_PX) / PAGE_H_PX) * 100;
-    const xPercent   = (naturalX / PDF_NATURAL_W) * 100;
+    const { page: pageNumber, yPercent } = getPageFromOffsetEnvelope(naturalY, currentPageHeights);
+    const xPercent = (naturalX / PDF_NATURAL_W) * 100;
 
     const updated = signatureFields.map(f =>
       f.id === field.id ? { ...f, x: xPercent, y: yPercent, page: pageNumber } : f
@@ -871,7 +918,9 @@ if (!res.ok || !data.success) {
                       className="relative mx-auto"
                       style={{
                         width:        pdfReady ? PDF_NATURAL_W * pdfScale : 0,
-                        height:       pdfReady ? PAGE_H_PX * totalPages * pdfScale : 0,
+                        height:       pdfReady ? (currentPageHeights.length > 0
+                          ? currentPageHeights.reduce((s, h) => s + h, 0)
+                          : PAGE_H_PX * totalPages) * pdfScale : 0,
                         background:   '#fff',
                         boxShadow:    pdfReady ? '0 8px 48px rgba(0,0,0,0.55)' : 'none',
                         borderRadius: 3,
@@ -886,7 +935,9 @@ if (!res.ok || !data.success) {
                         id="pdf-natural-container-envelope"
                         style={{
                           width:           PDF_NATURAL_W,
-                          height:          PAGE_H_PX * totalPages,
+                          height:          currentPageHeights.length > 0
+                            ? currentPageHeights.reduce((s, h) => s + h, 0)
+                            : PAGE_H_PX * totalPages,
                           transform:       `scale(${pdfScale})`,
                           transformOrigin: 'top left',
                           position:        'absolute',
@@ -903,7 +954,7 @@ if (!res.ok || !data.success) {
                         {Array.from({ length: totalPages - 1 }, (_, i) => (
                           <div key={i} style={{
                             position: 'absolute',
-                            top:      PAGE_H_PX * (i + 1),
+                            top:      getPageTopOffset(i + 2, currentPageHeights),
                             left: 0, right: 0, height: 2,
                             background: 'rgba(99,102,241,0.2)',
                             zIndex: 5,
@@ -914,7 +965,8 @@ if (!res.ok || !data.success) {
                         {signatureFields
                           .filter(f => f.documentId === currentDocument._id)
                           .map(field => {
-                            const topPx     = ((field.page - 1) * PAGE_H_PX) + (field.y / 100 * PAGE_H_PX);
+                            const currentPageH = currentPageHeights[field.page - 1] ?? PAGE_H_PX;
+                            const topPx = getPageTopOffset(field.page, currentPageHeights) + (field.y / 100) * currentPageH;
                             const recipient = validRecipients[field.recipientIndex];
                             const color     = recipient?.color || '#7c3aed';
                             const isActive  = field.recipientIndex === activeRecipientIndex;

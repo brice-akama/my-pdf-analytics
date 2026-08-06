@@ -1,3 +1,5 @@
+//app/api/envelop/[uniquwId]/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { dbPromise } from "@/app/api/lib/mongodb";
 import { ObjectId } from "mongodb";
@@ -70,11 +72,12 @@ export async function GET(
       success: true,
       envelope: {
         envelopeId: envelope.envelopeId,
-        documents: envelope.documents.map((envDoc: any) => {
+       documents: envelope.documents.map((envDoc: any) => {
           const fullDoc = documents.find(d => d._id.toString() === envDoc.documentId.toString());
           return {
             ...envDoc,
             cloudinaryPdfUrl: fullDoc?.cloudinaryPdfUrl,
+            pageDimensions: envDoc.pageDimensions || fullDoc?.pageDimensions || [],
           };
         }),
         recipient: recipient,

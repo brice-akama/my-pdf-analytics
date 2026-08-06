@@ -54,7 +54,7 @@ export default function EnvelopeSigningPage() {
   const [signatures, setSignatures] = useState<Record<string, any>>({});
   const [signedDocuments, setSignedDocuments] = useState<SignedDocument[]>([]);
   const [pdfUrls, setPdfUrls] = useState<Record<string, string>>({});
-
+  const [pageHeightsByDoc, setPageHeightsByDoc] = useState<Record<string, number[]>>({});
   const [activeField, setActiveField] = useState<SignatureField | null>(null);
   const [activeTextField, setActiveTextField] = useState<SignatureField | null>(null);
   const [textFieldInput, setTextFieldInput] = useState('');
@@ -79,7 +79,15 @@ const [typedSignature, setTypedSignature] = useState('');
    const [showSidebar, setShowSidebar] = useState(true);
 
   const PDF_NATURAL_W  = 794;
-  const PAGE_H_PX      = 297 * 3.78;
+  const PAGE_H_PX      = 297 * 3.78; // fallback only
+
+  function getPageTopOffset(pageNum: number, heights: number[]): number {
+    let offset = 0;
+    for (let i = 0; i < pageNum - 1; i++) {
+      offset += heights[i] ?? PAGE_H_PX;
+    }
+    return offset;
+  }
   const pdfCanvasRef   = useRef<HTMLCanvasElement>(null);
   const pdfWrapperRef  = useRef<HTMLDivElement>(null);
   const renderTaskRef  = useRef<any>(null);
@@ -87,6 +95,7 @@ const [typedSignature, setTypedSignature] = useState('');
   const [pdfReady,     setPdfReady]     = useState(false);
   const [totalPages,   setTotalPages]   = useState(1);
    const currentDocument = documents[currentDocIndex];
+   const currentPageHeights = currentDocument ? (pageHeightsByDoc[currentDocument.documentId] || []) : [];
 
   useEffect(() => {
     fetchEnvelope();
@@ -120,12 +129,17 @@ const [typedSignature, setTypedSignature] = useState('');
 
       const dpr    = window.devicePixelRatio || 1;
       const canvas = pdfCanvasRef.current!;
+      const heightsForThisDoc = pageHeightsByDoc[docId] || [];
+      const totalHeight = heightsForThisDoc.length > 0
+        ? heightsForThisDoc.reduce((s, h) => s + h, 0)
+        : PAGE_H_PX * pages;
+
       canvas.width        = 1;
       canvas.height       = 1;
       canvas.width        = PDF_NATURAL_W * dpr;
-      canvas.height       = PAGE_H_PX * pages * dpr;
+      canvas.height       = totalHeight * dpr;
       canvas.style.width  = `${PDF_NATURAL_W}px`;
-      canvas.style.height = `${PAGE_H_PX * pages}px`;
+      canvas.style.height = `${totalHeight}px`;
 
       const ctx = canvas.getContext('2d', { alpha: false })!;
       ctx.imageSmoothingEnabled = true;
@@ -137,7 +151,7 @@ const [typedSignature, setTypedSignature] = useState('');
         const natural = page.getViewport({ scale: 1 });
         const scale   = (PDF_NATURAL_W / natural.width) * dpr;
         ctx.save();
-        ctx.translate(0, (p - 1) * PAGE_H_PX * dpr);
+        ctx.translate(0, getPageTopOffset(p, heightsForThisDoc) * dpr);
         const task = page.render({
           canvasContext: ctx,
           viewport: page.getViewport({ scale }),
@@ -174,7 +188,7 @@ const [typedSignature, setTypedSignature] = useState('');
         renderTaskRef.current = null;
       }
     };
-  }, [currentDocument?.documentId, pdfUrls]);
+  }, [currentDocument?.documentId, pdfUrls, pageHeightsByDoc]);
 
   // ── Scale on resize ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -201,6 +215,15 @@ const [typedSignature, setTypedSignature] = useState('');
       setEnvelope(data.envelope);
       setDocuments(data.envelope.documents);
       setAllSignatureFields(data.envelope.signatureFields);
+
+      const heightsMap: Record<string, number[]> = {};
+      (data.envelope.documents || []).forEach((d: any) => {
+        const dims = d.pageDimensions || [];
+        if (dims.length > 0) {
+          heightsMap[d.documentId] = dims.map((dim: any) => (PDF_NATURAL_W / dim.widthPt) * dim.heightPt);
+        }
+      });
+      setPageHeightsByDoc(heightsMap);
        // Fetch real owner email same way normal sign page does
 const ownerRes = await fetch(`/api/envelope/${uniqueId}/owner-info`);
 if (ownerRes.ok) {
@@ -960,11 +983,13 @@ if (completed) {
 
               {/* Outer scaled clip box */}
               {pdfUrls[currentDocument?.documentId] && (
-                <div
+               <div
                   className="relative mx-auto"
                   style={{
                     width:        pdfReady ? PDF_NATURAL_W * pdfScale : 0,
-                    height:       pdfReady ? PAGE_H_PX * totalPages * pdfScale : 0,
+                    height:       pdfReady ? (currentPageHeights.length > 0
+                      ? currentPageHeights.reduce((s, h) => s + h, 0)
+                      : PAGE_H_PX * totalPages) * pdfScale : 0,
                     background:   '#fff',
                     boxShadow:    pdfReady ? '0 8px 48px rgba(0,0,0,0.55)' : 'none',
                     borderRadius: 4,
@@ -976,7 +1001,9 @@ if (completed) {
                   <div
                     style={{
                       width:           PDF_NATURAL_W,
-                      height:          PAGE_H_PX * totalPages,
+                      height:          currentPageHeights.length > 0
+                        ? currentPageHeights.reduce((s, h) => s + h, 0)
+                        : PAGE_H_PX * totalPages,
                       transform:       `scale(${pdfScale})`,
                       transformOrigin: 'top left',
                       position:        'absolute',
@@ -991,10 +1018,10 @@ if (completed) {
                     />
 
                     {/* Page dividers */}
-                    {Array.from({ length: totalPages - 1 }, (_, i) => (
+                   {Array.from({ length: totalPages - 1 }, (_, i) => (
                       <div key={i} style={{
                         position: 'absolute',
-                        top:      PAGE_H_PX * (i + 1),
+                        top:      getPageTopOffset(i + 2, currentPageHeights),
                         left: 0, right: 0, height: 2,
                         background: 'rgba(99,102,241,0.2)',
                         zIndex: 5,
@@ -1004,7 +1031,8 @@ if (completed) {
                     {/* Field overlays */}
                     {currentDocFields.map(field => {
                       const isFilled  = !!signatures[field.id];
-                      const topPx     = ((field.page - 1) * PAGE_H_PX) + (field.y / 100 * PAGE_H_PX);
+                      const currentPageH = currentPageHeights[field.page - 1] ?? PAGE_H_PX;
+                      const topPx = getPageTopOffset(field.page, currentPageHeights) + (field.y / 100) * currentPageH;
                       const W = field.width  ?? (field.type === 'signature' ? 140 : field.type === 'checkbox' ? 24 : 120);
                       const H = field.height ?? (field.type === 'signature' ? 50  : field.type === 'checkbox' ? 24 : 32);
 

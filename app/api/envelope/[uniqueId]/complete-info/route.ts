@@ -64,6 +64,7 @@ export async function GET(
           documentId: d.documentId,
           filename:   d.filename,
           numPages:   d.numPages || null,
+          pageDimensions: d.pageDimensions || [],
         })),
         recipients:      safeRecipients,
         signatureFields: envelope.signatureFields || [],

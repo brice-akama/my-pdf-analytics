@@ -70,6 +70,7 @@ type DocumentType = {
   _id: string;
   filename: string;
   isTemplate: boolean;
+  pageDimensions?: { pageNumber: number; widthPt: number; heightPt: number }[];
   templateConfig?: {
     signatureFields: any[];
     recipients: any[];
@@ -77,7 +78,15 @@ type DocumentType = {
 };
 
 const PDF_NATURAL_W = 794;
-const PAGE_H_PX     = 297 * 3.78; // 1122px — must match editor + sign page
+const PAGE_H_PX     = 297 * 3.78; // 1122px — fallback only
+
+function getPageTopOffset(pageNum: number, heights: number[]): number {
+  let offset = 0;
+  for (let i = 0; i < pageNum - 1; i++) {
+    offset += heights[i] ?? PAGE_H_PX;
+  }
+  return offset;
+}
 
 function RecipientSearch({
   recipients,
@@ -143,6 +152,7 @@ const pdfCanvasRef  = useRef<HTMLCanvasElement>(null);
   const [pdfReady,   setPdfReady]   = useState(false);
   const [doc, setDoc] = useState<DocumentType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pageHeights, setPageHeights] = useState<number[]>([]);
   const [step, setStep] = useState(1);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvText, setCsvText] = useState("");
@@ -274,6 +284,12 @@ const clearDraft = useCallback(() => {
         if (data.success) {
           setDoc(data.document);
 
+          const dims = data.document?.pageDimensions || [];
+          if (dims.length > 0) {
+            const heights = dims.map((d: any) => (PDF_NATURAL_W / d.widthPt) * d.heightPt);
+            setPageHeights(heights);
+          }
+
           // Check if document is a template
           if (!data.document.isTemplate) {
             alert(
@@ -313,12 +329,16 @@ const pdf = await pdfjsLib.getDocument(`/api/documents/${doc._id}/file?serve=blo
       const pages = pdf.numPages;
       setPdfPages(pages);
 
-      const dpr    = window.devicePixelRatio || 1;
+     const dpr    = window.devicePixelRatio || 1;
       const canvas = pdfCanvasRef.current!;
+      const totalHeight = pageHeights.length > 0
+        ? pageHeights.reduce((s, h) => s + h, 0)
+        : PAGE_H_PX * pages;
+
       canvas.width        = PDF_NATURAL_W * dpr;
-      canvas.height       = PAGE_H_PX * pages * dpr;
+      canvas.height       = totalHeight * dpr;
       canvas.style.width  = `${PDF_NATURAL_W}px`;
-      canvas.style.height = `${PAGE_H_PX * pages}px`;
+      canvas.style.height = `${totalHeight}px`;
 
       const ctx = canvas.getContext('2d', { alpha: false })!;
       ctx.imageSmoothingEnabled = true;
@@ -329,7 +349,7 @@ const pdf = await pdfjsLib.getDocument(`/api/documents/${doc._id}/file?serve=blo
         const natural = page.getViewport({ scale: 1 });
         const scale   = (PDF_NATURAL_W / natural.width) * dpr;
         ctx.save();
-        ctx.translate(0, (p - 1) * PAGE_H_PX * dpr);
+        ctx.translate(0, getPageTopOffset(p, pageHeights) * dpr);
         await page.render({ canvasContext: ctx, viewport: page.getViewport({ scale }), intent: 'display' }).promise;
         ctx.restore();
       }
@@ -344,7 +364,7 @@ const pdf = await pdfjsLib.getDocument(`/api/documents/${doc._id}/file?serve=blo
     };
 
     render().catch(console.error);
-  }, [step, doc]);
+  }, [step, doc, pageHeights]);
 
   // ── Keep scale updated on resize ──────────────────────────────────────────
   useEffect(() => {
@@ -1263,7 +1283,9 @@ Bob Wilson,bob@company.com,Designer`
           className="relative mx-auto"
           style={{
             width:        pdfReady ? PDF_NATURAL_W * pdfScale : 0,
-            height:       pdfReady ? PAGE_H_PX * pdfPages * pdfScale : 0,
+            height:       pdfReady ? (pageHeights.length > 0
+              ? pageHeights.reduce((s, h) => s + h, 0)
+              : PAGE_H_PX * pdfPages) * pdfScale : 0,
             background:   '#fff',
             boxShadow:    pdfReady ? '0 8px 48px rgba(0,0,0,0.55)' : 'none',
             borderRadius: 3,
@@ -1275,9 +1297,11 @@ Bob Wilson,bob@company.com,Designer`
           }}
         >
           {/* Natural-size inner container — CSS scaled */}
-          <div style={{
+         <div style={{
             width:           PDF_NATURAL_W,
-            height:          PAGE_H_PX * pdfPages,
+            height:          pageHeights.length > 0
+              ? pageHeights.reduce((s, h) => s + h, 0)
+              : PAGE_H_PX * pdfPages,
             transform:       `scale(${pdfScale})`,
             transformOrigin: 'top left',
             position:        'absolute',
@@ -1290,10 +1314,10 @@ Bob Wilson,bob@company.com,Designer`
             />
 
             {/* Page dividers */}
-            {Array.from({ length: pdfPages - 1 }, (_, i) => (
+           {Array.from({ length: pdfPages - 1 }, (_, i) => (
               <div key={i} style={{
                 position:   'absolute',
-                top:        PAGE_H_PX * (i + 1),
+                top:        getPageTopOffset(i + 2, pageHeights),
                 left: 0, right: 0,
                 height:     2,
                 background: 'rgba(99,102,241,0.2)',
@@ -1304,7 +1328,8 @@ Bob Wilson,bob@company.com,Designer`
             {/* Field overlays */}
             <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
               {templateConfig?.signatureFields?.map((field: any, idx: number) => {
-                const topPx = ((field.page - 1) * PAGE_H_PX) + (field.y / 100 * PAGE_H_PX);
+                const currentPageH = pageHeights[field.page - 1] ?? PAGE_H_PX;
+                const topPx = getPageTopOffset(field.page, pageHeights) + (field.y / 100) * currentPageH;
                 const W = field.width  ?? (field.type === 'signature' ? 150 : field.type === 'checkbox' ? 24 : 120);
                 const H = field.height ?? (field.type === 'signature' ? 45  : field.type === 'checkbox' ? 24 : 32);
                 const templateRecipient = templateConfig.recipients?.[field.recipientIndex];
@@ -2045,19 +2070,23 @@ Bob Wilson,bob@company.com,Designer`
               <div
                 id="bulk-preview-container"
                 className="relative"
-                style={{
+               style={{
                   minHeight: `${
-                    297 * ((doc?.numPages || 1) * 3.78)
+                    pageHeights.length > 0
+                      ? pageHeights.reduce((s, h) => s + h, 0)
+                      : 297 * ((doc?.numPages || 1) * 3.78)
                   }px`,
                 }}
               >
                 {/* PDF Embed */}
-                <embed
+               <embed
                   src={`/api/documents/${params.id}/file?serve=blob#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
                   type="application/pdf"
                   className="w-full border-0"
                   style={{
-                    height: `${297 * ((doc?.numPages || 1) * 3.78)}px`,
+                    height: `${pageHeights.length > 0
+                      ? pageHeights.reduce((s, h) => s + h, 0)
+                      : 297 * ((doc?.numPages || 1) * 3.78)}px`,
                     display: "block",
                     pointerEvents: "none",
                   }}
@@ -2066,9 +2095,9 @@ Bob Wilson,bob@company.com,Designer`
                 {/* Signature Field Overlays */}
                 <div className="absolute inset-0 pointer-events-none">
                   {templateConfig?.signatureFields?.map((field: any, idx: number) => {
-                    const pageHeight = 297 * 3.78;
+                    const currentPageH = pageHeights[field.page - 1] ?? (297 * 3.78);
                     const topPosition =
-                      (field.page - 1) * pageHeight + (field.y / 100) * pageHeight;
+                      getPageTopOffset(field.page, pageHeights) + (field.y / 100) * currentPageH;
                     const templateRecipient = templateConfig.recipients?.[field.recipientIndex];
                         const csvRecipient = recipients[field.recipientIndex];
                         const displayName = csvRecipient?.name || templateRecipient?.name || `Recipient ${field.recipientIndex + 1}`;

@@ -84,6 +84,7 @@ if (!hasFeature(plan, "bulkSend")) {
       filename: doc.originalFilename || doc.filename,
       order: index + 1,
       numPages: doc.numPages || 1,
+      pageDimensions: doc.pageDimensions || [],
     }));
 
     // Create envelope

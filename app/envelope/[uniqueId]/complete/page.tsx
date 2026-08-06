@@ -9,7 +9,15 @@ import {
 } from 'lucide-react';
 
 const PDF_NATURAL_W = 794;
-const PAGE_H_PX     = 297 * 3.78; // 1122px
+const PAGE_H_PX     = 297 * 3.78; // fallback only
+
+function getPageTopOffset(pageNum: number, heights: number[]): number {
+  let offset = 0;
+  for (let i = 0; i < pageNum - 1; i++) {
+    offset += heights[i] ?? PAGE_H_PX;
+  }
+  return offset;
+}
 
 export default function EnvelopeCompletePage() {
   const params   = useParams();
@@ -29,6 +37,7 @@ export default function EnvelopeCompletePage() {
 
   // ── Multi-doc state ──────────────────────────────────────────────────────────
   const [documents,     setDocuments]     = useState<any[]>([]);
+  const [pageHeightsByDoc, setPageHeightsByDoc] = useState<Record<string, number[]>>({});
   const [currentDocIdx, setCurrentDocIdx] = useState(0);
   const [pdfUrls,       setPdfUrls]       = useState<Record<string, string>>({});
   
@@ -44,8 +53,9 @@ export default function EnvelopeCompletePage() {
   const [pdfReady,    setPdfReady]    = useState(false);
   const [thumbs,      setThumbs]      = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
+  
   const currentDoc = documents[currentDocIdx];
+  const currentPageHeights = currentDoc ? (pageHeightsByDoc[currentDoc.documentId] || []) : [];
 
   // ── Fetch envelope data ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -58,6 +68,15 @@ export default function EnvelopeCompletePage() {
         setEnvelope(data.envelope);
         setRecipient(data.recipient);
         setDocuments(data.envelope.documents || []);
+
+        const heightsMap: Record<string, number[]> = {};
+        (data.envelope.documents || []).forEach((d: any) => {
+          const dims = d.pageDimensions || [];
+          if (dims.length > 0) {
+            heightsMap[d.documentId] = dims.map((dim: any) => (PDF_NATURAL_W / dim.widthPt) * dim.heightPt);
+          }
+        });
+        setPageHeightsByDoc(heightsMap);
 
         // ── Build sigsMap for ALL docs at once ───────────────────────────────
         // recipient.signedDocuments = [{ documentId, signedFields: [...] }, ...]
@@ -122,11 +141,16 @@ export default function EnvelopeCompletePage() {
 
       const dpr    = window.devicePixelRatio || 1;
       const canvas = pdfCanvasRef.current!;
+      const heightsForThisDoc = pageHeightsByDoc[docId] || [];
+      const totalHeight = heightsForThisDoc.length > 0
+        ? heightsForThisDoc.reduce((s, h) => s + h, 0)
+        : PAGE_H_PX * pages;
+
       canvas.width        = 1; canvas.height = 1;
       canvas.width        = PDF_NATURAL_W * dpr;
-      canvas.height       = PAGE_H_PX * pages * dpr;
+      canvas.height       = totalHeight * dpr;
       canvas.style.width  = `${PDF_NATURAL_W}px`;
-      canvas.style.height = `${PAGE_H_PX * pages}px`;
+      canvas.style.height = `${totalHeight}px`;
 
       const ctx = canvas.getContext('2d', { alpha: false })!;
       ctx.imageSmoothingEnabled = true;
@@ -138,7 +162,7 @@ export default function EnvelopeCompletePage() {
         const natural = page.getViewport({ scale: 1 });
         const scale   = (PDF_NATURAL_W / natural.width) * dpr;
         ctx.save();
-        ctx.translate(0, (p - 1) * PAGE_H_PX * dpr);
+        ctx.translate(0, getPageTopOffset(p, heightsForThisDoc) * dpr);
         const task = page.render({ canvasContext: ctx, viewport: page.getViewport({ scale }), intent: 'display' });
         renderTaskRef.current = task;
         try { await task.promise; } catch (err: any) {
@@ -181,7 +205,7 @@ export default function EnvelopeCompletePage() {
       cancelled = true;
       if (renderTaskRef.current) { try { renderTaskRef.current.cancel(); } catch (_) {} renderTaskRef.current = null; }
     };
-  }, [currentDoc?.documentId, pdfUrls]);
+  }, [currentDoc?.documentId, pdfUrls, pageHeightsByDoc]);
 
   // ── Scale on resize / zoom ───────────────────────────────────────────────────
   useEffect(() => {
@@ -198,14 +222,20 @@ export default function EnvelopeCompletePage() {
 
   // ── Scroll tracking ──────────────────────────────────────────────────────────
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const st   = (e.target as HTMLDivElement).scrollTop;
-    const page = Math.floor(st / (PAGE_H_PX * pdfScale)) + 1;
+    const st = (e.target as HTMLDivElement).scrollTop / pdfScale;
+    let page = 1, cumulative = 0;
+    for (let i = 0; i < totalPages; i++) {
+      const h = currentPageHeights[i] ?? PAGE_H_PX;
+      if (st < cumulative + h) { page = i + 1; break; }
+      cumulative += h;
+      page = i + 2;
+    }
     setCurrentPage(Math.min(Math.max(page, 1), totalPages));
   };
 
   const scrollToPage = (page: number) => {
     document.getElementById('env-pdf-scroll')
-      ?.scrollTo({ top: (page - 1) * PAGE_H_PX * pdfScale, behavior: 'smooth' });
+      ?.scrollTo({ top: getPageTopOffset(page, currentPageHeights) * pdfScale, behavior: 'smooth' });
     setCurrentPage(page);
     setSidebarOpen(false);
   };
@@ -507,7 +537,9 @@ export default function EnvelopeCompletePage() {
                 className="relative mx-auto"
                 style={{
                   width:        pdfReady ? PDF_NATURAL_W * pdfScale : 0,
-                  height:       pdfReady ? PAGE_H_PX * totalPages * pdfScale : 0,
+                  height:       pdfReady ? (currentPageHeights.length > 0
+                    ? currentPageHeights.reduce((s, h) => s + h, 0)
+                    : PAGE_H_PX * totalPages) * pdfScale : 0,
                   background:   '#fff',
                   boxShadow:    pdfReady ? '0 8px 48px rgba(0,0,0,0.6)' : 'none',
                   borderRadius: 3,
@@ -517,7 +549,9 @@ export default function EnvelopeCompletePage() {
               >
                 <div style={{
                   width:           PDF_NATURAL_W,
-                  height:          PAGE_H_PX * totalPages,
+                  height:          currentPageHeights.length > 0
+                    ? currentPageHeights.reduce((s, h) => s + h, 0)
+                    : PAGE_H_PX * totalPages,
                   transform:       `scale(${pdfScale})`,
                   transformOrigin: 'top left',
                   position:        'absolute',
@@ -528,7 +562,7 @@ export default function EnvelopeCompletePage() {
                   {/* Page dividers */}
                   {Array.from({ length: totalPages - 1 }, (_, i) => (
                     <div key={i} style={{
-                      position: 'absolute', top: PAGE_H_PX * (i + 1),
+                      position: 'absolute', top: getPageTopOffset(i + 2, currentPageHeights),
                       left: 0, right: 0, height: 2,
                       background: 'rgba(99,102,241,0.15)', zIndex: 5,
                     }} />
@@ -548,7 +582,8 @@ export default function EnvelopeCompletePage() {
                         const sig     = docSigs[String(field.id)];
                         if (!sig) return null;
 
-                        const topPx = ((field.page - 1) * PAGE_H_PX) + (field.y / 100 * PAGE_H_PX);
+                        const currentPageH = currentPageHeights[field.page - 1] ?? PAGE_H_PX;
+                        const topPx = getPageTopOffset(field.page, currentPageHeights) + (field.y / 100) * currentPageH;
                         const W = field.width  ?? (field.type === 'signature' ? 140 : field.type === 'checkbox' ? 24 : field.type === 'dropdown' ? 180 : 120);
                         const H = field.height ?? (field.type === 'signature' ? 50  : field.type === 'checkbox' ? 24 : field.type === 'dropdown' ? 36  : 32);
 
