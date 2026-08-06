@@ -110,6 +110,7 @@ export async function GET(
         numPages: document.numPages,
         wordCount: document.wordCount,
         charCount: document.charCount,
+        pageDimensions: document.pageDimensions || [], 
         summary: document.summary,
         isTemplate: document.isTemplate || false,
         isSample: document.isSample || false,
