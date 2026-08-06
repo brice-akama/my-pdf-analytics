@@ -116,12 +116,12 @@ const y = height - yFromTopPt - fieldHeightPt;
   // ── DATE FIELD ─────────────────────────────────────────────────────────────
  // ── DATE FIELD ─────────────────────────────────────────────────────────────
   if (field.type === 'date' && signedField.dateValue) {
-    drawSingleLineText(page, signedField.dateValue, font, x, y, fieldWidthPt, fieldHeightPt, 9 * scaleY);
+    drawSingleLineText(page, signedField.dateValue, boldFont, x, y, fieldWidthPt, fieldHeightPt, 12 * scaleY);
   }
 
   // ── TEXT FIELD ─────────────────────────────────────────────────────────────
   if (field.type === 'text' && signedField.textValue) {
-    drawSingleLineText(page, signedField.textValue, font, x, y, fieldWidthPt, fieldHeightPt, 9 * scaleY);
+    drawSingleLineText(page, signedField.textValue, boldFont, x, y, fieldWidthPt, fieldHeightPt, 12 * scaleY);
   }
 
   // ── CHECKBOX FIELD ─────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ const y = height - yFromTopPt - fieldHeightPt;
   // ── DROPDOWN FIELD ─────────────────────────────────────────────────────────
   // ── DROPDOWN FIELD ─────────────────────────────────────────────────────────
   if (field.type === 'dropdown' && signedField.textValue) {
-    drawSingleLineText(page, signedField.textValue, font, x, y, fieldWidthPt, fieldHeightPt, 9 * scaleY);
+    drawSingleLineText(page, signedField.textValue, boldFont, x, y, fieldWidthPt, fieldHeightPt, 12 * scaleY);
   }
 
   // ── RADIO BUTTON FIELD ─────────────────────────────────────────────────────
