@@ -1990,20 +1990,22 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
                   const topPx     = ((field.page - 1) * PAGE_H) + (field.y / 100 * PAGE_H);
 
                   // Field box sizes — same defaults as generator
-                  // Field box sizes — matches pdfGenerator.ts's fallback EXACTLY, so any
-// field somehow still missing width/height renders the same size here
-// as it will in the final downloaded PDF. New fields placed after the
-// handleDrop fix always carry real width/height and never hit this.
+                 // Field box sizes — same defaults as generator
 const W = field.width  ?? (
-  field.type === 'signature' ? 150 :
-  field.type === 'checkbox'  ? 24  :
-  120
+  field.type === 'signature'  ? 150 :
+  field.type === 'checkbox'   ? 24  :
+  field.type === 'attachment' ? 150 :
+  field.type === 'dropdown'   ? 180 :
+  field.type === 'radio'      ? 150 : 120
 );
 const H = field.height ?? (
-  field.type === 'signature' ? 45 :
-  field.type === 'checkbox'  ? 24 :
-  32
+  field.type === 'signature'  ? 45 :
+  field.type === 'checkbox'   ? 24 :
+  field.type === 'attachment' ? 40 :
+  field.type === 'dropdown'   ? 35 :
+  field.type === 'radio'      ? 'auto' as any : 32
 );
+
                   return (
                     <div
                       key={field.id}
