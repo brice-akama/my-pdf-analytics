@@ -254,7 +254,7 @@ if (isFirstView && ip && ip !== "Unknown") {
             stats: [
               { label: "Recipient", value: recipientName },
               { label: "Visit #", value: String(viewCount) },
-              { label: "Time", value: new Date().toLocaleTimeString() },
+             { label: "Time (UTC)", value: new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' }) },
             ],
             color: isFirstView ? "#7c3aed" : "#0ea5e9",
           })
@@ -277,7 +277,7 @@ if (isFirstView && ip && ip !== "Unknown") {
             { type: "divider" },
             {
               type: "context",
-              elements: [{ type: "mrkdwn", text: `📅 ${new Date().toLocaleString()} · 🌐 ${ip}` }],
+              elements: [{ type: "mrkdwn", text: `📅 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC · 🌐 ${ip}` }],
             },
           ],
         }).catch(() => {});
@@ -513,6 +513,7 @@ if (ownerId) {
       const pagesViewed = (signatureRequest.pagesViewed || []).length;
 
       // ── Gmail ──
+      // ── Gmail ──
       if (ownerEmail) {
         sendGmailNotification(
           ownerEmail,
@@ -522,8 +523,8 @@ if (ownerId) {
             subtitle: `${recipientName} (${recipientEmail}) has completed signing "${documentName}".`,
             stats: [
               { label: "Signer", value: recipientName },
-              { label: "Time Reading", value: formatDuration(totalTime) },
-              { label: "Pages Viewed", value: String(pagesViewed) },
+              { label: "Email", value: recipientEmail },
+              { label: "Signed (UTC)", value: new Date().toLocaleTimeString('en-US', { timeZone: 'UTC' }) },
             ],
             color: "#22c55e",
           })
@@ -558,6 +559,7 @@ if (ownerId) {
 }
 
       // ── Slack ──
+      // ── Slack ──
       if (ownerId) {
         sendSlackNotification({
           userId: ownerId,
@@ -567,13 +569,13 @@ if (ownerId) {
               type: "section",
               text: {
                 type: "mrkdwn",
-                text: `✅ *Document Signed!*\n*${recipientName}* (${recipientEmail}) has signed *${documentName}*\n⏱️ Time reading: *${formatDuration(totalTime)}* · 📄 Pages viewed: *${pagesViewed}*`,
+                text: `✅ *Document Signed!*\n*${recipientName}* (${recipientEmail}) has signed *${documentName}*`,
               },
             },
             { type: "divider" },
             {
               type: "context",
-              elements: [{ type: "mrkdwn", text: `🕐 Signed at ${new Date().toLocaleString()}` }],
+              elements: [{ type: "mrkdwn", text: `🕐 Signed at ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC` }],
             },
           ],
         }).catch(() => {});

@@ -606,19 +606,19 @@ export default function SignedDocumentPage() {
                                 className="max-h-full max-w-full object-contain"
                                 style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.12))' }} />
                             )}
-                           {(field.type === 'date' || field.type === 'text') && (
-  <p
-    className="text-slate-900 text-center font-medium leading-tight break-words"
-    style={{
-      fontSize: sig.data && sig.data.length > 20 ? '9px' : '11px',
-      whiteSpace: 'normal',
-      wordBreak: 'break-word',
-      overflow: 'visible',
-    }}
-  >
-    {sig.data}
-  </p>
-)}
+                          
+  {(field.type === 'date' || field.type === 'text') && (
+                              <p
+                                className="font-medium text-slate-900 text-center leading-tight px-1 whitespace-normal sm:whitespace-nowrap"
+                                style={{
+                                  fontSize: sig.data?.length > 25 ? '9px' : '11px',
+                                  overflow: 'visible',
+                                }}
+                              >
+                                {sig.data}
+                              </p>
+                            )}
+
                             {field.type === 'checkbox' && (
                               <div className="flex items-center justify-center w-full h-full">
                                 {sig.data === 'true'
@@ -627,7 +627,7 @@ export default function SignedDocumentPage() {
                               </div>
                             )}
                             {(field.type === 'dropdown' || field.type === 'radio') && (
-                              <p className="text-xs font-medium text-slate-900 text-center truncate px-1">{sig.data}</p>
+                              <p className="font-medium text-slate-900 text-center leading-tight px-1 whitespace-normal sm:whitespace-nowrap">{sig.data}</p>
                             )}
                           </div>
                         </div>

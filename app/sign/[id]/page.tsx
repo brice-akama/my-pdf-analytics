@@ -2070,8 +2070,14 @@ const H = field.height ?? (
                                 {signatures[field.id].data}
                               </p>
                             )}
-                            {field.type === 'text' && (
-                              <p className="text-xs font-medium text-slate-900 text-center px-1 leading-tight">
+                           {field.type === 'text' && (
+                              <p
+                                className="font-medium text-slate-900 text-center leading-tight px-1 whitespace-normal sm:whitespace-nowrap"
+                                style={{
+                                  fontSize: signatures[field.id].data?.length > 25 ? '9px' : '11px',
+                                  overflow: 'visible',
+                                }}
+                              >
                                 {signatures[field.id].data}
                               </p>
                             )}
