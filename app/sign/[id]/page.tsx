@@ -567,6 +567,12 @@ if (signatureRequest.status === 'cancelled') {
   return;
 }
 
+
+//   CHECK IF ALREADY SIGNED — redirect to read-only signed viewer
+if (signatureRequest.status === 'signed') {
+  router.push(`/signed/${signatureId}`);
+  return;
+}
   
 
 
@@ -732,15 +738,8 @@ useEffect(() => {
   if (!signatureId || !pdfUrl) return;
 
   // 1. Track initial view
-  // 1. Track initial view — fetch client IP first so geo lookup works
-(async () => {
-  let clientIp = null
-  try {
-    const ipRes = await fetch('https://api.ipify.org?format=json')
-    const ipData = await ipRes.json()
-    clientIp = ipData.ip
-  } catch { /* non-critical */ }
-
+ // 1. Track initial view — fire immediately, no blocking external calls.
+  // Server already gets the real IP from x-forwarded-for / x-real-ip headers.
   fetch(`/api/signature/${signatureId}/track`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -748,10 +747,8 @@ useEffect(() => {
       action:    'viewed',
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,
-      clientIp,              // ← send IP from client
     }),
   }).catch(() => {})
-})()
 
   // 2. Track time on unload
   const startTime = Date.now();
@@ -1993,21 +1990,20 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
                   const topPx     = ((field.page - 1) * PAGE_H) + (field.y / 100 * PAGE_H);
 
                   // Field box sizes — same defaults as generator
-                  const W = field.width  ?? (
-                    field.type === 'signature'  ? 150 :
-                    field.type === 'checkbox'   ? 24  :
-                    field.type === 'attachment' ? 150 :
-                    field.type === 'dropdown'   ? 180 :
-                    field.type === 'radio'      ? 150 : 120
-                  );
-                  const H = field.height ?? (
-                    field.type === 'signature'  ? 45 :
-                    field.type === 'checkbox'   ? 24 :
-                    field.type === 'attachment' ? 40 :
-                    field.type === 'dropdown'   ? 35 :
-                    field.type === 'radio'      ? 'auto' as any : 32
-                  );
-
+                  // Field box sizes — matches pdfGenerator.ts's fallback EXACTLY, so any
+// field somehow still missing width/height renders the same size here
+// as it will in the final downloaded PDF. New fields placed after the
+// handleDrop fix always carry real width/height and never hit this.
+const W = field.width  ?? (
+  field.type === 'signature' ? 150 :
+  field.type === 'checkbox'  ? 24  :
+  120
+);
+const H = field.height ?? (
+  field.type === 'signature' ? 45 :
+  field.type === 'checkbox'  ? 24 :
+  32
+);
                   return (
                     <div
                       key={field.id}
