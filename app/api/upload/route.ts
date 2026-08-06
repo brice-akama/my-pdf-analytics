@@ -213,12 +213,30 @@ if (!isStorageAvailable(plan, storageUsedBytes, buffer.length)) {
 }
 
     //  STEP 1: Convert to PDF + Extract Metadata in PARALLEL
+    //  STEP 1: Convert to PDF + Extract Metadata in PARALLEL
     const [pdfBuffer, metadata] = await Promise.all([
       fileType !== 'pdf'
         ? convertToPdf(buffer, fileType, file.name)
         : Promise.resolve(buffer),
       extractMetadata(buffer, fileType),
     ]);
+
+    //  STEP 1.5: Extract REAL per-page dimensions (SignNow-style canonical source)
+    // This is the single source of truth for field positioning across
+    // editor, sign page, and final PDF generation. Fast — just reads
+    // the PDF's page tree, no rendering involved.
+    let pageDimensions: { pageNumber: number; widthPt: number; heightPt: number }[] = [];
+    try {
+      const { PDFDocument } = await import('pdf-lib');
+      const pdfDocForDims = await PDFDocument.load(pdfBuffer);
+      pageDimensions = pdfDocForDims.getPages().map((p, idx) => {
+        const { width, height } = p.getSize();
+        return { pageNumber: idx + 1, widthPt: width, heightPt: height };
+      });
+    } catch (err) {
+      console.error('⚠️ Failed to extract page dimensions:', err);
+      // Non-fatal — editor/sign page will fall back to A4 default if empty
+    }
 
     // ✅ STEP 2: Extract text + Upload BOTH files to Cloudinary in PARALLEL
     // No need to wait for text before starting uploads — they're independent
@@ -297,6 +315,7 @@ if (!isStorageAvailable(plan, storageUsedBytes, buffer.length)) {
               numPages: metadata.pageCount,
               wordCount: metadata.wordCount,
               charCount: metadata.charCount,
+              pageDimensions,
               summary,
               scannedPdf,
               analytics: pendingAnalytics,
@@ -364,6 +383,7 @@ plan: plan,
       wordCount: metadata.wordCount,
       charCount: metadata.charCount,
       summary,
+       pageDimensions,
       scannedPdf,
       analytics: pendingAnalytics,
       tracking: {
