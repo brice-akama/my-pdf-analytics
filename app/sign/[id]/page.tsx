@@ -192,8 +192,8 @@ useEffect(() => {
     }
   };
 
-  renderPDF().catch(console.error);
-}, [pdfUrl, PDF_NATURAL_W]);
+ renderPDF().catch(console.error);
+}, [pdfUrl, PDF_NATURAL_W, pageHeights]);
 
 useEffect(() => {
   const recalc = () => {
