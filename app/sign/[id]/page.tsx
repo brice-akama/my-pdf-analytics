@@ -142,6 +142,7 @@ const [sigActiveVideo, setSigActiveVideo] = useState<{ url: string; page: number
 const [sigVideoBouncing, setSigVideoBouncing] = useState(false)
 const [sigVideoDismissed, setSigVideoDismissed] = useState(false)
 const [sigCurrentPage, setSigCurrentPage] = useState(1)
+const [pageHeights, setPageHeights] = useState<number[]>([]);
 
 
 useEffect(() => {
@@ -160,16 +161,18 @@ useEffect(() => {
     // High DPR = crisp on retina, CSS scale handles visual size
     const RENDER_SCALE = (PDF_NATURAL_W / 794) * dpr;
 
-    const canvas = pdfCanvasRef.current!;
-    const PAGE_H = 297 * 3.78;
+   const canvas = pdfCanvasRef.current!;
+    const totalHeight = pageHeights.length > 0
+      ? pageHeights.reduce((sum, h) => sum + h, 0)
+      : 297 * 3.78 * totalPages; // fallback
 
     // Canvas pixel buffer = full resolution (crisp)
     canvas.width  = PDF_NATURAL_W * dpr;
-    canvas.height = PAGE_H * totalPages * dpr;
+    canvas.height = totalHeight * dpr;
 
     // CSS display = natural size (CSS transform will scale it down)
     canvas.style.width  = `${PDF_NATURAL_W}px`;
-    canvas.style.height = `${PAGE_H * totalPages}px`;
+    canvas.style.height = `${totalHeight}px`;
 
     const ctx = canvas.getContext('2d', { alpha: false })!;
     ctx.imageSmoothingEnabled  = true;
@@ -180,7 +183,7 @@ useEffect(() => {
       const natural = page.getViewport({ scale: 1 });
       const scale   = (PDF_NATURAL_W / natural.width) * dpr;
       const vp      = page.getViewport({ scale });
-      const offsetY = (pageNum - 1) * PAGE_H * dpr;
+      const offsetY = getPageTopOffset(pageNum, pageHeights) * dpr;
 
       ctx.save();
       ctx.translate(0, offsetY);
@@ -303,15 +306,23 @@ useEffect(() => {
 }, [signatures, fieldValues, signatureId, completed]);
 
 
-
+// Cumulative top offset (in natural px) for a given page number, using real per-page heights.
+const getPageTopOffset = (pageNum: number, heights: number[]): number => {
+  const fallback = 297 * 3.78; // A4 fallback while heights haven't loaded yet
+  let offset = 0;
+  for (let i = 0; i < pageNum - 1; i++) {
+    offset += heights[i] ?? fallback;
+  }
+  return offset;
+};
 
 // Helper function to scroll to a specific field
 const scrollToField = (fieldId: string) => {
   const field = signatureFields.find(f => f.id === fieldId);
   if (!field) return;
   
-  const pageHeight = 297 * 3.78; // mm to pixels
-  const topPosition = ((field.page - 1) * pageHeight) + (field.y / 100 * pageHeight);
+  const currentPageH = pageHeights[field.page - 1] ?? (297 * 3.78);
+  const topPosition = getPageTopOffset(field.page, pageHeights) + (field.y / 100) * currentPageH;
   
   window.scrollTo({
     top: topPosition - 100, // 100px offset for sticky header
@@ -664,6 +675,13 @@ if (signatureRequest.status === 'declined') {
           index: signatureRequest.recipientIndex,
         });
         setSignatureFields(signatureRequest.signatureFields || []);
+
+        // Compute real per-page heights from stored pageDimensions
+        const dims = signatureRequest.document?.pageDimensions || [];
+        if (dims.length > 0) {
+          const heights = dims.map((d: any) => (PDF_NATURAL_W / d.widthPt) * d.heightPt);
+          setPageHeights(heights);
+        }
 
         const pdfRes = await fetch(`/api/signature/${signatureId}/file`);
         if (pdfRes.ok) {
@@ -1938,11 +1956,13 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
       Outer box: sized to SCALED dimensions — prevents overflow 
       pdfScale < 1 on mobile, = 1 on desktop
     */}
-    <div
+   <div
       className="relative mx-auto bg-white rounded-lg shadow-2xl overflow-hidden"
       style={{
         width:  PDF_NATURAL_W * pdfScale,
-        height: 297 * 3.78 * (document?.numPages ?? 1) * pdfScale,
+        height: (pageHeights.length > 0
+          ? pageHeights.reduce((s, h) => s + h, 0)
+          : 297 * 3.78 * (document?.numPages ?? 1)) * pdfScale,
       }}
     >
       {pdfUrl ? (
@@ -1953,10 +1973,12 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
             Both canvas + field overlays share this transform
             so fields stay pixel-perfect on every screen size.
           */}
-          <div
+         <div
             style={{
               width:           PDF_NATURAL_W,
-              height:          297 * 3.78 * (document?.numPages ?? 1),
+              height:          pageHeights.length > 0
+                ? pageHeights.reduce((s, h) => s + h, 0)
+                : 297 * 3.78 * (document?.numPages ?? 1),
               transform:       `scale(${pdfScale})`,
               transformOrigin: 'top left',
               position:        'absolute',
@@ -1985,9 +2007,8 @@ if (signatureRequest?.accessCodeRequired && !accessCodeVerified) {
                   const isMyField = field.recipientIndex === recipient?.index;
                   const isVisible = isFieldVisible(field);
 
-                  // Same constants as editor & generator
-                  const PAGE_H    = 297 * 3.78; // 1122px
-                  const topPx     = ((field.page - 1) * PAGE_H) + (field.y / 100 * PAGE_H);
+                  const currentPageH = pageHeights[field.page - 1] ?? (297 * 3.78);
+                  const topPx = getPageTopOffset(field.page, pageHeights) + (field.y / 100) * currentPageH;
 
                   // Field box sizes — same defaults as generator
                  // Field box sizes — same defaults as generator

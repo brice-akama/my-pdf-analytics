@@ -7,6 +7,7 @@ export type DocumentType = {
   filename: string;
   numPages: number;
   isTemplate?: boolean;
+  pageDimensions?: { pageNumber: number; widthPt: number; heightPt: number }[];
 };
 
 export type Recipient = {

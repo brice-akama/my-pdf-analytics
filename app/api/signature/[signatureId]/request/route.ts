@@ -170,6 +170,7 @@ if (signatureRequest.scheduledSendDate) {
           filename: document.originalFilename || document.filename,
           numPages: document.numPages || 1,
           cloudinaryPdfUrl: document.cloudinaryPdfUrl,
+           pageDimensions: document.pageDimensions || [],
         },
       },
     });

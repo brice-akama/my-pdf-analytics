@@ -8,7 +8,33 @@ import EditDrawer from "./EditDrawer";
 
 // ── Coordinate constants (must match sign page + pdfGenerator) ────────────────
 const PDF_NATURAL_W = 794;
-const PAGE_H_PX     = 297 * 3.78; // 1122px
+const PAGE_H_PX     = 297 * 3.78; // 1122px — fallback only, used while real heights aren't loaded yet
+
+// Cumulative top offset (natural px) for a page, given real per-page heights
+function getPageTopOffset(pageNum: number, heights: number[]): number {
+  let offset = 0;
+  for (let i = 0; i < pageNum - 1; i++) {
+    offset += heights[i] ?? PAGE_H_PX;
+  }
+  return offset;
+}
+
+// Reverse lookup: given a cumulative Y pixel position, find which page + % within it
+function getPageFromOffset(naturalY: number, heights: number[]): { page: number; yPercent: number } {
+  let cumulative = 0;
+  for (let i = 0; i < heights.length; i++) {
+    const h = heights[i] ?? PAGE_H_PX;
+    if (naturalY < cumulative + h) {
+      return { page: i + 1, yPercent: Math.max(0, ((naturalY - cumulative) / h) * 100) };
+    }
+    cumulative += h;
+  }
+  // Beyond known pages (or heights not loaded) — fall back to fixed-height math
+  const lastH = heights[heights.length - 1] ?? PAGE_H_PX;
+  const extraPages = Math.floor((naturalY - cumulative) / lastH);
+  const remainder  = (naturalY - cumulative) % lastH;
+  return { page: heights.length + extraPages + 1, yPercent: (remainder / lastH) * 100 };
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -188,8 +214,8 @@ function FieldSidebar({
 
 // ─── Field Overlay ────────────────────────────────────────────────────────────
 
-function FieldOverlay({
-  field, pdfScale, recipients, signatureRequest, setSignatureRequest, setEditingFieldLogic, setEditingLabelField, activeRecipientIndex,
+ function FieldOverlay({
+  field, pdfScale, recipients, signatureRequest, setSignatureRequest, setEditingFieldLogic, setEditingLabelField, activeRecipientIndex, pageHeights,
 }: {
   field: SignatureField;
   pdfScale: number;
@@ -199,9 +225,11 @@ function FieldOverlay({
   setEditingFieldLogic: (f: SignatureField | null) => void;
   setEditingLabelField: (f: SignatureField | null) => void;
   activeRecipientIndex: number;
+  pageHeights: number[];
 }) {
   // Positioned inside the NATURAL 794px space — CSS transform handles scaling
-  const topPosition = (field.page - 1) * PAGE_H_PX + (field.y / 100) * PAGE_H_PX;
+  const currentPageH = pageHeights[field.page - 1] ?? PAGE_H_PX;
+  const topPosition = getPageTopOffset(field.page, pageHeights) + (field.y / 100) * currentPageH;
   const recipient   = recipients[field.recipientIndex];
   const dims        = getFieldDimensions(field.type);
   const isActiveRecipient = field.recipientIndex === activeRecipientIndex;
@@ -221,9 +249,8 @@ function FieldOverlay({
     const naturalX = (e.clientX - rect.left) / pdfScale;
     const naturalY = (e.clientY - rect.top)  / pdfScale;
 
-    const pageNumber = Math.max(1, Math.floor(naturalY / PAGE_H_PX) + 1);
-    const yPercent   = ((naturalY % PAGE_H_PX) / PAGE_H_PX) * 100;
-    const xPercent   = (naturalX / PDF_NATURAL_W) * 100;
+    const { page: pageNumber, yPercent } = getPageFromOffset(naturalY, pageHeights);
+    const xPercent = (naturalX / PDF_NATURAL_W) * 100;
 
     updateFields(signatureRequest.signatureFields.map((f) =>
       f.id === field.id ? { ...f, x: xPercent, y: yPercent, page: pageNumber } : f
@@ -357,6 +384,16 @@ function PDFCanvas({
   const [pdfScale,   setPdfScale]   = useState(1);
   const [totalPages, setTotalPages] = useState(doc.numPages || 1);
   const [pdfReady,   setPdfReady]   = useState(false);
+  const [pageHeights, setPageHeights] = useState<number[]>([]);
+
+  // Load real per-page heights from stored dimensions (fast — no pdf.js needed)
+  useEffect(() => {
+    const dims = doc.pageDimensions;
+    if (dims && dims.length > 0) {
+      const heights = dims.map((d: any) => (PDF_NATURAL_W / d.widthPt) * d.heightPt);
+      setPageHeights(heights);
+    }
+  }, [doc]);
 
   // ── Render PDF into canvas ──────────────────────────────────────────────────
   useEffect(() => {
@@ -375,10 +412,14 @@ function PDFCanvas({
 
       const dpr    = window.devicePixelRatio || 1;
       const canvas = canvasRef.current!;
+      const totalHeight = pageHeights.length > 0
+        ? pageHeights.reduce((sum, h) => sum + h, 0)
+        : PAGE_H_PX * pages; // fallback
+
       canvas.width        = PDF_NATURAL_W * dpr;
-      canvas.height       = PAGE_H_PX * pages * dpr;
+      canvas.height       = totalHeight * dpr;
       canvas.style.width  = `${PDF_NATURAL_W}px`;
-      canvas.style.height = `${PAGE_H_PX * pages}px`;
+      canvas.style.height = `${totalHeight}px`;
 
       const ctx = canvas.getContext('2d', { alpha: false })!;
       ctx.imageSmoothingEnabled = true;
@@ -391,7 +432,7 @@ function PDFCanvas({
         const scale   = (PDF_NATURAL_W / natural.width) * dpr;
         const vp      = page.getViewport({ scale });
         ctx.save();
-        ctx.translate(0, (p - 1) * PAGE_H_PX * dpr);
+        ctx.translate(0, getPageTopOffset(p, pageHeights) * dpr);
         await page.render({ canvasContext: ctx, viewport: vp, intent: 'display' }).promise;
         ctx.restore();
       }
@@ -399,10 +440,10 @@ function PDFCanvas({
       if (!cancelled) setPdfReady(true);
     };
 
-    setPdfReady(false);
+   setPdfReady(false);
     render().catch(console.error);
     return () => { cancelled = true; };
-  }, [pdfUrl]);
+  }, [pdfUrl, pageHeights]);
 
   // ── Scale canvas to fit wrapper width ──────────────────────────────────────
   useEffect(() => {
@@ -430,9 +471,8 @@ function PDFCanvas({
   const naturalX = (e.clientX - rect.left) / pdfScale;
   const naturalY = (e.clientY - rect.top)  / pdfScale;
 
-  const pageNumber = Math.max(1, Math.floor(naturalY / PAGE_H_PX) + 1);
-  const yPercent   = ((naturalY % PAGE_H_PX) / PAGE_H_PX) * 100;
-  const xPercent   = (naturalX / PDF_NATURAL_W) * 100;
+  const { page: pageNumber, yPercent } = getPageFromOffset(naturalY, pageHeights);
+  const xPercent = (naturalX / PDF_NATURAL_W) * 100;
 
   // ✅ Persist the exact pixel size shown on screen, so pdfGenerator.ts
   // draws the field at the same size instead of guessing its own defaults.
@@ -468,11 +508,13 @@ function PDFCanvas({
       )}
 
       {/* Outer clipping box — exact scaled size */}
-      <div
+     <div
         className="relative mx-auto"
         style={{
           width:        PDF_NATURAL_W * pdfScale,
-          height:       PAGE_H_PX * totalPages * pdfScale,
+          height:       (pageHeights.length > 0
+            ? pageHeights.reduce((s, h) => s + h, 0)
+            : PAGE_H_PX * totalPages) * pdfScale,
           overflow:     'hidden',
           display:      pdfReady ? 'block' : 'none',
           borderRadius: 4,
@@ -486,7 +528,9 @@ function PDFCanvas({
           id="pdf-natural-container"
           style={{
             width:           PDF_NATURAL_W,
-            height:          PAGE_H_PX * totalPages,
+            height:          pageHeights.length > 0
+              ? pageHeights.reduce((s, h) => s + h, 0)
+              : PAGE_H_PX * totalPages,
             transform:       `scale(${pdfScale})`,
             transformOrigin: 'top left',
             position:        'absolute',
@@ -499,7 +543,7 @@ function PDFCanvas({
           {/* Page dividers */}
           {Array.from({ length: totalPages - 1 }, (_, i) => (
             <div key={i} style={{
-              position: 'absolute', top: PAGE_H_PX * (i + 1),
+              position: 'absolute', top: getPageTopOffset(i + 2, pageHeights),
               left: 0, right: 0, height: 2,
               background: 'rgba(147,51,234,0.15)', zIndex: 5,
             }} />
@@ -517,6 +561,7 @@ function PDFCanvas({
               setEditingFieldLogic={setEditingFieldLogic}
               setEditingLabelField={setEditingLabelField}
               activeRecipientIndex={activeRecipientIndex}
+              pageHeights={pageHeights}
             />
           ))}
         </div>
