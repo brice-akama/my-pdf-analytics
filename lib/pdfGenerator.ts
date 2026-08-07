@@ -294,7 +294,12 @@ async function addCertificatePage(
 
   // ── RIGHT: fields grid ────────────────────────────────────────────────────
   const signedCount = signatureRequests.filter(r => r.status === 'signed').length;
-  const completedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const completedTimestamps = signatureRequests
+  .filter(r => r.status === 'signed' && r.signedAt)
+  .map(r => new Date(r.signedAt).getTime());
+const completedDate = completedTimestamps.length
+  ? new Date(Math.max(...completedTimestamps)).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  : 'N/A';
 
   drawField(page1, 'Document ID', documentId, RIGHT_X, ry); ry -= 28;
   drawField(page1, 'Original Checksum', documentHash.substring(0, 40), RIGHT_X, ry); ry -= 28;
