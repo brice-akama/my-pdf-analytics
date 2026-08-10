@@ -661,6 +661,56 @@ export async function sendDealInsightEmail({
 
 }
 
+
+
+
+// ════════════════════════════════════════════════════════════════
+// TRIGGER 6 — NEW HUBSPOT STAKEHOLDER (viewer not in CRM yet)
+// ════════════════════════════════════════════════════════════════
+export async function sendNewStakeholderEmail({
+  ownerEmail,
+  viewerEmail,
+  documentName,
+  documentId,
+  wasAutoAdded,
+}: {
+  ownerEmail: string;
+  viewerEmail: string;
+  documentName: string;
+  documentId: string;
+  wasAutoAdded: boolean;
+}) {
+  const subject = `New stakeholder — ${viewerEmail} isn't in your HubSpot yet`;
+  const previewText = wasAutoAdded
+    ? `${viewerEmail} was added to HubSpot automatically`
+    : `${viewerEmail} opened your document but isn't a HubSpot contact`;
+  const docUrl = `https://docmetrics.io/documents/${documentId}`;
+
+  const content = `
+    <p class="title">🆕 New stakeholder detected</p>
+    <p class="meta"><strong>${viewerEmail}</strong> just opened <strong>${documentName}</strong> — they aren't in your HubSpot yet.</p>
+
+    ${wasAutoAdded ? `
+      <div style="padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin:16px 0;">
+        <p style="margin:0;font-size:13px;color:#166534;">✓ Added to HubSpot automatically, based on your integration settings.</p>
+      </div>
+    ` : `
+      <div style="padding:12px 16px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;margin:16px 0;">
+        <p style="margin:0;font-size:13px;color:#92400e;">Not added automatically — auto-add is off in your HubSpot settings. You can add them from the document page.</p>
+      </div>
+    `}
+
+    <div class="cta"><a href="${docUrl}">View document & add contact</a></div>
+  `;
+
+  return sendEmail({
+    to: ownerEmail,
+    subject,
+    html: emailShell(content, previewText),
+    from: 'DocMetrics <noreply@docmetrics.io>',
+  });
+}
+
 export async function sendSpaceDealInsightEmail({
   ownerEmail,
   ownerName,

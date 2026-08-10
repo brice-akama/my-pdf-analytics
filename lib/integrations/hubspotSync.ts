@@ -65,11 +65,45 @@ async function findHubSpotContact(
         }),
       }
     );
-    if (!ok) return null;
+  if (!ok) return null;
     return data.results?.[0]?.id || null;
   } catch {
     return null;
   }
+}
+
+// ── Create a new HubSpot contact ──────────────────────────────────
+async function createHubSpotContact(token: string, email: string): Promise<string | null> {
+  try {
+    const { ok, data } = await safeFetch(
+      'https://api.hubapi.com/crm/v3/objects/contacts',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ properties: { email } }),
+      }
+    );
+    if (!ok) return null;
+    return data?.id || null;
+  } catch {
+    return null;
+  }
+}
+
+// ── Find existing contact, or create one if autoCreate is on ──────
+async function findOrCreateHubSpotContact(
+  token: string,
+  email: string,
+  autoCreate: boolean
+): Promise<{ contactId: string | null; isNew: boolean }> {
+  const existingId = await findHubSpotContact(token, email);
+  if (existingId) return { contactId: existingId, isNew: false };
+  if (!autoCreate) return { contactId: null, isNew: false };
+  const newId = await createHubSpotContact(token, email);
+  return { contactId: newId, isNew: !!newId };
 }
 
 // ── Update contact properties ─────────────────────────────────────
@@ -243,7 +277,31 @@ export async function syncDocumentOpenedToHubSpot({
 
   try {
     const token = await getValidHubSpotToken(userId);
-    const contactId = await findHubSpotContact(token, viewerEmail);
+
+    const db = await dbPromise;
+    const integration = await db.collection('integrations').findOne({
+      userId, provider: 'hubspot', isActive: true,
+    });
+    const autoCreate = integration?.autoCreateContacts === true;
+
+    const { contactId, isNew } = await findOrCreateHubSpotContact(token, viewerEmail, autoCreate);
+
+    // Rep never had this person in their HubSpot — let them know
+    // either way, whether we auto-added them or they need to add manually.
+    if (!contactId || isNew) {
+      const ownerProfile = await db.collection('profiles').findOne({ user_id: userId });
+      if (ownerProfile?.email) {
+        const { sendNewStakeholderEmail } = await import('@/lib/documentNotifications');
+        sendNewStakeholderEmail({
+          ownerEmail: ownerProfile.email,
+          viewerEmail,
+          documentName,
+          documentId,
+          wasAutoAdded: isNew,
+        }).catch(err => console.error('[HubSpot] New stakeholder email failed:', err));
+      }
+    }
+
     if (!contactId) return { success: false, reason: 'contact_not_in_hubspot' };
 
     const locationStr = [location?.city, location?.country].filter(Boolean).join(', ') || 'Unknown';

@@ -2,8 +2,10 @@
 
 "use client"
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
+import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import {
   DropdownMenu,
@@ -109,8 +111,38 @@ export default function IntegrationsDrawer({
   onOpenTeamsChannelPicker,
   fetchTeamsChannels,
   onOpenZapierSetup,
-  onOpenIntegrationRequest,
+ onOpenIntegrationRequest,
 }: Props) {
+  const [autoCreateContacts, setAutoCreateContacts] = useState(false)
+  const [loadingAutoCreate, setLoadingAutoCreate] = useState(false)
+
+  useEffect(() => {
+    if (!open || !hubspotStatus.connected) return
+    fetch('/api/integrations/hubspot/settings', { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => { if (data.success) setAutoCreateContacts(data.autoCreateContacts) })
+      .catch(() => {})
+  }, [open, hubspotStatus.connected])
+
+  const handleToggleAutoCreate = async (checked: boolean) => {
+    setLoadingAutoCreate(true)
+    setAutoCreateContacts(checked)
+    try {
+      const res = await fetch('/api/integrations/hubspot/settings', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoCreateContacts: checked }),
+      })
+      if (!res.ok) { setAutoCreateContacts(!checked); toast.error('Failed to update setting') }
+    } catch {
+      setAutoCreateContacts(!checked)
+      toast.error('Network error')
+    } finally {
+      setLoadingAutoCreate(false)
+    }
+  }
+
   return (
     <AnimatePresence>
       {open && (
@@ -407,11 +439,24 @@ export default function IntegrationsDrawer({
                           <Button size="sm" variant="outline" onClick={onConnectHubSpot}>Connect</Button>
                         )}
                       </div>
-                      <h4 className="font-bold text-slate-900 mb-1">HubSpot</h4>
+                    <h4 className="font-bold text-slate-900 mb-1">HubSpot</h4>
                       <p className="text-sm text-slate-600">Sync contacts and track deals</p>
                       {hubspotStatus.connected && hubspotStatus.portalId && (
                         <div className="mt-3 p-2 bg-orange-50 rounded-lg border border-orange-200">
                           <p className="text-xs text-orange-900">✓ Portal ID: <span className="font-semibold">{hubspotStatus.portalId}</span></p>
+                        </div>
+                      )}
+                      {hubspotStatus.connected && (
+                        <div className="mt-3 flex items-center justify-between p-2 border border-slate-200 rounded-lg">
+                          <div className="pr-2">
+                            <p className="text-xs font-semibold text-slate-800">Auto-create new contacts</p>
+                            <p className="text-xs text-slate-500">Add unknown viewers to HubSpot automatically</p>
+                          </div>
+                          <Switch
+                            checked={autoCreateContacts}
+                            disabled={loadingAutoCreate}
+                            onCheckedChange={handleToggleAutoCreate}
+                          />
                         </div>
                       )}
                     </div>
