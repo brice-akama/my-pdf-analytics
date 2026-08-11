@@ -176,10 +176,11 @@ if (email && notifyEvents.includes(event)) {
           console.log('⚠️ HubSpot skipped — owner has no active HubSpot integration');
         } else {
           console.log('📤 Sending to HubSpot — contact:', email, '| space:', space.name, '| event:', finalEvent);
-          const result = await syncPortalEventToHubSpot({
+         const result = await syncPortalEventToHubSpot({
             userId:       ownerId,
             visitorEmail: email,
             spaceName:    space.name,
+            spaceId:      space._id.toString(),
             event:        finalEvent,
             documentName: documentName || undefined,
             isRevisit,

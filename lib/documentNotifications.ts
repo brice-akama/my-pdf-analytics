@@ -860,6 +860,89 @@ export async function sendSpaceDealInsightEmail({
   return { success: true };
 }
 
+
+
+
+
+
+export async function sendNewSpaceStakeholderEmail({
+
+  ownerEmail,
+
+  viewerEmail,
+
+  spaceName,
+
+  spaceId,
+
+  wasAutoAdded,
+
+}: {
+
+  ownerEmail: string;
+
+  viewerEmail: string;
+
+  spaceName: string;
+
+  spaceId: string;
+
+  wasAutoAdded: boolean;
+
+}) {
+
+  const subject = `New stakeholder — ${viewerEmail} isn't in your HubSpot yet`;
+
+  const previewText = wasAutoAdded
+
+    ? `${viewerEmail} was added to HubSpot automatically`
+
+    : `${viewerEmail} opened your space but isn't a HubSpot contact`;
+
+  const spaceUrl = `https://docmetrics.io/spaces/${spaceId}`;
+
+  const content = `
+
+    <p class="title">🆕 New stakeholder detected</p>
+
+    <p class="meta"><strong>${viewerEmail}</strong> just opened <strong>${spaceName}</strong> — they aren't in your HubSpot yet.</p>
+
+    ${wasAutoAdded ? `
+
+      <div style="padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin:16px 0;">
+
+        <p style="margin:0;font-size:13px;color:#166534;">✓ Added to HubSpot automatically, based on your integration settings.</p>
+
+      </div>
+
+    ` : `
+
+      <div style="padding:12px 16px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;margin:16px 0;">
+
+        <p style="margin:0;font-size:13px;color:#92400e;">Not added automatically — auto-add is off in your HubSpot settings. You can add them from the space page.</p>
+
+      </div>
+
+    `}
+
+    <div class="cta"><a href="${spaceUrl}">View space & add contact</a></div>
+
+  `;
+
+  return sendEmail({
+
+    to: ownerEmail,
+
+    subject,
+
+    html: emailShell(content, previewText),
+
+    from: 'DocMetrics <noreply@docmetrics.io>',
+
+  });
+
+}
+
 export async function markNotificationSent(
   type: string,
   viewerId: string,

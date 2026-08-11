@@ -472,6 +472,7 @@ export async function syncPortalEventToHubSpot({
   userId,
   visitorEmail,
   spaceName,
+  spaceId,
   event,
   documentName,
   isRevisit,
@@ -480,6 +481,7 @@ export async function syncPortalEventToHubSpot({
   userId: string;
   visitorEmail: string;
   spaceName: string;
+  spaceId: string;
   event: 'document_open' | 'revisit' | 'document_view' | 'download' | 'portal_enter';
   documentName?: string;
   isRevisit?: boolean;
@@ -489,7 +491,31 @@ export async function syncPortalEventToHubSpot({
 
   try {
     const token = await getValidHubSpotToken(userId);
-    const contactId = await findHubSpotContact(token, visitorEmail);
+
+    const db = await dbPromise;
+    const integration = await db.collection('integrations').findOne({
+      userId, provider: 'hubspot', isActive: true,
+    });
+    const autoCreate = integration?.autoCreateContacts === true;
+
+    const { contactId, isNew } = await findOrCreateHubSpotContact(token, visitorEmail, autoCreate);
+
+    // Owner never had this visitor in their HubSpot — let them know
+    // either way, whether we auto-added them or they need to add manually.
+    if (!contactId || isNew) {
+      const ownerProfile = await db.collection('profiles').findOne({ user_id: userId });
+      if (ownerProfile?.email) {
+        const { sendNewSpaceStakeholderEmail } = await import('@/lib/documentNotifications');
+        sendNewSpaceStakeholderEmail({
+          ownerEmail: ownerProfile.email,
+          viewerEmail: visitorEmail,
+          spaceName,
+          spaceId,
+          wasAutoAdded: isNew,
+        }).catch(err => console.error('[HubSpot] New space stakeholder email failed:', err));
+      }
+    }
+
     if (!contactId) return { success: false, reason: 'contact_not_in_hubspot' };
 
     const normalised = event === 'portal_enter' ? 'document_open' : event;

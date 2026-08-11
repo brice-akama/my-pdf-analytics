@@ -774,19 +774,32 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
       Object.entries(deviceCounts).map(([k, v]) => [k, totalViews ? Math.round((v / totalViews) * 100) : 0])
     );
 
-    const locationMap = new Map<string, { count: number; countryCode?: string; cities: Set<string> }>();
+  // FIX: previously used a Set for cities, which only preserved city
+    // NAMES with no counts, then sliced to the first 3 by insertion order
+    // (not by traffic). Now each city's view count is tracked with a Map,
+    // so topCities is genuinely ranked by views and not silently capped
+    // to whichever 3 cities happened to be seen first.
+    // Field names (country, topCities) kept identical on purpose — the
+    // frontend reads locations[].country and locations[].topCities as an
+    // array of strings, so no frontend changes are needed for this fix.
+    const locationMap = new Map<string, { count: number; countryCode?: string; cityCounts: Map<string, number> }>();
     allSessions.forEach((s: any) => {
       const country = s.location?.country || 'Unknown';
-      const existing = locationMap.get(country) || { count: 0, countryCode: s.location?.countryCode, cities: new Set() };
+      const existing = locationMap.get(country) || { count: 0, countryCode: s.location?.countryCode, cityCounts: new Map() };
       existing.count++;
-      if (s.location?.city) existing.cities.add(s.location.city);
+      if (s.location?.city) {
+        existing.cityCounts.set(s.location.city, (existing.cityCounts.get(s.location.city) || 0) + 1);
+      }
       locationMap.set(country, existing);
     });
     if (locationMap.size === 0) {
       oldViews.forEach((v: any) => {
         const country = v.country || 'Unknown';
-        const existing = locationMap.get(country) || { count: 0, cities: new Set() };
+        const existing = locationMap.get(country) || { count: 0, cityCounts: new Map() };
         existing.count++;
+        if (v.city) {
+          existing.cityCounts.set(v.city, (existing.cityCounts.get(v.city) || 0) + 1);
+        }
         locationMap.set(country, existing);
       });
     }
@@ -795,7 +808,12 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
         country, countryCode: data.countryCode,
         views: data.count,
         percentage: totalViews ? Math.round((data.count / totalViews) * 100) : 0,
-        topCities: Array.from(data.cities).slice(0, 3),
+        // topCities: still an array of city name strings, same as before —
+        // now genuinely the top cities BY VIEW COUNT, not just first-seen.
+        topCities: Array.from(data.cityCounts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .map(([city]) => city)
+          .slice(0, 3),
       }))
       .sort((a, b) => b.views - a.views).slice(0, 8);
 
