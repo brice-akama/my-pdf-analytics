@@ -24,7 +24,7 @@ const FAQS = [
   {
     question: "I need help with my account or billing — who do I contact?",
     answer:
-      "Email billing@docmetrics.io directly or use the contact form and select Billing as the subject. Include your account email so we can look up your account quickly.",
+      "Email support@docmetrics.io directly or use the contact form and select Billing as the subject. Include your account email so we can look up your account quickly.",
   },
   {
     question: "I am a journalist or researcher — who should I contact?",
@@ -336,8 +336,8 @@ export default function ContactClient() {
               <div className="space-y-4">
                 {[
                   { department: "General Support",      email: "support@docmetrics.io",  description: "Questions, help, and account issues"             },
-                  { department: "Billing",               email: "billing@docmetrics.io",  description: "Subscriptions, invoices, and payments"           },
-                  { department: "Security",              email: "security@docmetrics.io", description: "Vulnerability reports and security concerns"     },
+                  { department: "Billing",               email: "support@docmetrics.io",  description: "Subscriptions, invoices, and payments"           },
+                  { department: "Security",              email: "support@docmetrics.io", description: "Vulnerability reports and security concerns"     },
                   { department: "Privacy",               email: "support@docmetrics.io",  description: "Data requests and privacy questions"             },
                   { department: "Sales & Partnerships",  email: "hello@docmetrics.io",    description: "Sales enquiries, partnerships, and press"        },
                 ].map((item) => (
