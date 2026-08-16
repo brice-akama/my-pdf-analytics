@@ -143,7 +143,19 @@ const file = formData.get('file') as File
 if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
 const fileType = SUPPORTED_FORMATS[file.type as keyof typeof SUPPORTED_FORMATS]
-if (!fileType) return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 })
+if (!fileType) {
+  return NextResponse.json(
+    {
+      error: 'This file type isn\'t supported. You can upload PDF, Word (.doc, .docx), Excel (.xls, .xlsx), PowerPoint (.ppt, .pptx), images (.jpg, .png, .gif, .webp), or text/HTML/Markdown files — we\'ll automatically convert non-PDF files for you.',
+      code: 'UNSUPPORTED_FILE_TYPE',
+      supportedFormats: [
+        'PDF', 'Word (.doc, .docx)', 'Excel (.xls, .xlsx)', 'PowerPoint (.ppt, .pptx)',
+        'Images (.jpg, .png, .gif, .webp)', 'Text (.txt, .html, .md)',
+      ],
+    },
+    { status: 400 }
+  )
+}
 
 const bytes = await file.arrayBuffer()
 const buffer = Buffer.from(bytes)

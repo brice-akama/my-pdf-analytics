@@ -169,6 +169,41 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await downloadRes.arrayBuffer());
     console.log(`✅ [ONEDRIVE IMPORT] Downloaded ${buffer.length} bytes`);
 
+    // ── Validate file type before processing ────────────────────────────
+    const SUPPORTED_IMPORT_TYPES = new Set([
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/vnd.ms-powerpoint',
+      'text/plain',
+      'text/html',
+      'text/markdown',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+    ]);
+
+    const importedContentType = downloadRes.headers.get('content-type')?.split(';')[0].trim() || '';
+
+    if (!SUPPORTED_IMPORT_TYPES.has(importedContentType)) {
+      console.log('❌ [ONEDRIVE IMPORT] Unsupported file type:', importedContentType);
+      return NextResponse.json(
+        {
+          error: 'This file type isn\'t supported. You can import PDF, Word (.doc, .docx), Excel (.xls, .xlsx), PowerPoint (.ppt, .pptx), images (.jpg, .png, .gif, .webp), or text/HTML/Markdown files — we\'ll automatically convert non-PDF files for you.',
+          code: 'UNSUPPORTED_FILE_TYPE',
+          supportedFormats: [
+            'PDF', 'Word (.doc, .docx)', 'Excel (.xls, .xlsx)', 'PowerPoint (.ppt, .pptx)',
+            'Images (.jpg, .png, .gif, .webp)', 'Text (.txt, .html, .md)',
+          ],
+        },
+        { status: 400 }
+      );
+    }
+
     // ── Step 7: Enforce per-file size limit ────────────────────────────────
     // Each plan has a different ceiling. Free = 10MB, Starter = 100MB, etc.
     // We check this after downloading because we need the actual byte size.
@@ -229,11 +264,35 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 9: Process PDF (metadata + text extraction in parallel) ───────
-   // ── Step 9: Process PDF (metadata + text extraction in parallel) ───────
-    console.log("⚙️ [ONEDRIVE IMPORT] Processing PDF...");
+   // ── Step 9: Convert to PDF if needed (matches upload/route.ts) ─────────
+    const IMPORT_TYPE_TO_EXT: Record<string, string> = {
+      'application/pdf': 'pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'application/msword': 'doc',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+      'application/vnd.ms-excel': 'xls',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+      'application/vnd.ms-powerpoint': 'ppt',
+      'text/plain': 'txt',
+      'text/html': 'html',
+      'text/markdown': 'md',
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+    };
+    const importFileType = IMPORT_TYPE_TO_EXT[importedContentType] || 'pdf';
+
+    console.log("⚙️ [ONEDRIVE IMPORT] Converting + processing...");
+    const { convertToPdf } = await import('@/lib/document-processor');
+    const pdfBuffer = importFileType !== 'pdf'
+      ? await convertToPdf(buffer, importFileType, fileName)
+      : buffer;
+
+    // ── Step 9b: Process PDF (metadata + text extraction in parallel) ──────
     const [metadata, extractedText] = await Promise.all([
-      extractMetadata(buffer, "pdf"),
-      extractTextFromPdf(buffer),
+      extractMetadata(pdfBuffer, "pdf"),
+      extractTextFromPdf(pdfBuffer),
     ]);
 
     const scannedPdf = !extractedText || extractedText.trim().length < 30;
@@ -244,7 +303,7 @@ export async function POST(request: NextRequest) {
     let pageDimensions: { pageNumber: number; widthPt: number; heightPt: number }[] = [];
     try {
       const { PDFDocument } = await import("pdf-lib");
-      const pdfDocForDims = await PDFDocument.load(buffer);
+      const pdfDocForDims = await PDFDocument.load(pdfBuffer);
       pageDimensions = pdfDocForDims.getPages().map((p, idx) => {
         const { width, height } = p.getSize();
         return { pageNumber: idx + 1, widthPt: width, heightPt: height };
@@ -260,7 +319,7 @@ export async function POST(request: NextRequest) {
 
     const [analysis, pdfUrl] = await Promise.all([
       analyzeDocument(extractedText, plan),
-      uploadToCloudinary(buffer, fileName, folder),
+      uploadToCloudinary(pdfBuffer, fileName, folder),
     ]);
 
     console.log("✅ [ONEDRIVE IMPORT] Cloudinary upload complete:", pdfUrl);
@@ -314,7 +373,7 @@ export async function POST(request: NextRequest) {
                 originalFormat: "pdf",
                 mimeType: "application/pdf",
                 size: buffer.length,
-                pdfSize: buffer.length,
+                pdfSize: pdfBuffer.length,
                 cloudinaryOriginalUrl: pdfUrl,
                 cloudinaryPdfUrl: pdfUrl,
                 extractedText: extractedText.substring(0, 10000),
@@ -421,7 +480,7 @@ export async function POST(request: NextRequest) {
       originalFormat: "pdf",
       mimeType: "application/pdf",
       size: buffer.length,
-      pdfSize: buffer.length,
+      pdfSize: pdfBuffer.length,
       cloudinaryOriginalUrl: pdfUrl,
       cloudinaryPdfUrl: pdfUrl,
       extractedText: extractedText.substring(0, 10000),
