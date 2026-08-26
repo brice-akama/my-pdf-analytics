@@ -42,16 +42,26 @@ export function isValidPassword(password: string): boolean {
  * - 1-100 characters
  * - Letters, spaces, hyphens, apostrophes only
  */
+/**
+ * Validate person name (first name, last name)
+ * - 1-100 characters, letters/spaces/hyphens/apostrophes/periods only
+ */
 export function isValidName(name: string): boolean {
   if (!name || name.length < 1 || name.length > 100) return false
-  
-  // Allow letters (any language), spaces, hyphens, apostrophes, periods.
-  // Periods cover common valid name formats — initials ("Nelson W."),
-  // abbreviated titles ("Jr."), etc. Still blocks anything with real
-  // injection risk (<, >, {, }, ;, quotes, etc.) — only the character
-  // set actually used in real names is allowed.
   const nameRegex = /^[\p{L}\s'\-.]+$/u
   return nameRegex.test(name)
+}
+
+/**
+ * Validate company name — deliberately more permissive than isValidName.
+ * Real company names contain &, commas, numbers, parentheses, slashes.
+ * Still blocks actual injection risk chars (<, >, {, }, ;, quotes, backticks).
+ * - 1-150 characters
+ */
+export function isValidCompanyName(name: string): boolean {
+  if (!name || name.length < 1 || name.length > 150) return false
+  const companyRegex = /^[\p{L}\p{N}\s&.,'\-()/]+$/u
+  return companyRegex.test(name)
 }
 
 /**

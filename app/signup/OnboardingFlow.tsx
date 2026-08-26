@@ -58,6 +58,7 @@ export default function OnboardingFlow() {
   const [selectedCompanySize, setSelectedCompanySize] = useState<string>('')
   const [selectedUseCases, setSelectedUseCases] = useState<string[]>([])
   const searchParams = useSearchParams()
+  const [checkingEmail, setCheckingEmail] = useState(false)
   const [formData, setFormData] = useState<SignupFormData>({
     firstName: '',
     companyName: '',
@@ -82,19 +83,39 @@ export default function OnboardingFlow() {
   }, [])
 
  const validateStep1 = () => {
-  const errors: { firstName?: string; email?: string; password?: string } = {}
+  const errors: { firstName?: string; email?: string; password?: string; companyName?: string } = {}
   if (!formData.firstName.trim()) errors.firstName = 'First name is required'
   if (!formData.email.trim()) errors.email = 'Email is required'
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) errors.email = 'Enter a valid email address'
   if (!formData.password) errors.password = 'Password is required'
   else if (formData.password.length < 8) errors.password = 'Password must be at least 8 characters'
+  if (formData.companyName && !/^[\p{L}\p{N}\s&.,'\-()/]+$/u.test(formData.companyName))
+    errors.companyName = "Company name can't contain symbols like < > { } ; or quotes"
   setFieldErrors(errors)
   return Object.keys(errors).length === 0
 }
 
-const handleGetStarted = (e: React.FormEvent) => {
+const handleGetStarted = async (e: React.FormEvent) => {
   e.preventDefault()
   if (!validateStep1()) return
+
+  setCheckingEmail(true)
+  try {
+    const res = await fetch('/api/auth/check-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: formData.email.trim().toLowerCase() }),
+    })
+    const data = await res.json()
+    if (res.ok && data.available === false) {
+      setFieldErrors(prev => ({ ...prev, email: 'An account with this email already exists. Try signing in instead.' }))
+      setCheckingEmail(false)
+      return
+    }
+  } catch {
+    // fail open — network error here shouldn't trap the user on step 1
+  }
+  setCheckingEmail(false)
   setStep(2)
 }
 
@@ -207,12 +228,21 @@ const handleGetStarted = (e: React.FormEvent) => {
         body: JSON.stringify(payload),
         credentials: 'include',
       })
-      const data = await res.json()
-      if (!res.ok) {
-        setSignupError(data?.error || 'Signup failed')
-        setLoading(false)
-        return
-      }
+     const data = await res.json()
+if (!res.ok) {
+  const step1Fields = ['firstName', 'email', 'password', 'companyName']
+  const badField = data?.invalidFields?.[0] || (data?.missingFields?.[0] ? { field: data.missingFields[0], reason: `${data.missingFields[0]} is required` } : null)
+  if (badField && step1Fields.includes(badField.field)) {
+    setFieldErrors(prev => ({ ...prev, [badField.field]: badField.reason }))
+    setStep(1)
+    setSignupError(`Please fix your ${badField.field} before continuing.`)
+  } else {
+    setSignupError(data?.error || badField?.reason || 'Signup failed')
+  }
+  setLoading(false)
+  return
+}
+
       await new Promise((resolve) => setTimeout(resolve, 100))
       const pendingTeamInvite = sessionStorage.getItem('pendingTeamInvite')
       if (pendingTeamInvite) {
@@ -385,13 +415,23 @@ const handleGetStarted = (e: React.FormEvent) => {
                       {fieldErrors.password && <p className="text-xs text-red-600 mt-1.5">{fieldErrors.password}</p>}
                     </div>
 
-                    <Button
-                      onClick={handleGetStarted}
-                      className="w-full h-11 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl transition-colors"
-                    >
-                      Get Started
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
+                   <Button
+  onClick={handleGetStarted}
+  disabled={checkingEmail}
+  className="w-full h-11 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-xl disabled:opacity-60 transition-colors"
+>
+  {checkingEmail ? (
+    <div className="flex items-center gap-2">
+      <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      Checking...
+    </div>
+  ) : (
+    <>
+      Get Started
+      <ArrowRight className="w-4 h-4 ml-2" />
+    </>
+  )}
+</Button>
 
                     <div className="relative my-2">
                       <div className="absolute inset-0 flex items-center">

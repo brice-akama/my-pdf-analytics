@@ -45,6 +45,7 @@ import {
   isValidEmail,
   isValidPassword,
   isValidName,
+  isValidCompanyName,
   getClientIP,
   getUserAgent,
   checkRateLimit,
@@ -132,8 +133,8 @@ export async function POST(request: NextRequest) {
     else if (!isValidEmail(sanitizedEmail))
       invalidFields.push({ field: 'email', reason: 'Invalid email address' })
 
-    if (sanitizedCompanyName && !isValidName(sanitizedCompanyName))
-      invalidFields.push({ field: 'companyName', reason: 'Invalid company name' })
+    if (sanitizedCompanyName && !isValidCompanyName(sanitizedCompanyName))
+  invalidFields.push({ field: 'companyName', reason: 'Company name contains characters we can\'t accept — please remove symbols like < > { } ; or quotes' })
 
     if (!isOAuthSignup) {
       if (!password) missingFields.push('password')
@@ -146,8 +147,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (invalidFields.length) {
-      return NextResponse.json({ error: 'Invalid field values', invalidFields }, { status: 400 })
-    }
+  return NextResponse.json(
+    { error: invalidFields[0].reason, invalidFields },
+    { status: 400 }
+  )
+}
 
     const fullName = `${sanitizedFirstName}${sanitizedLastName ? ' ' + sanitizedLastName : ''}`.trim()
 
