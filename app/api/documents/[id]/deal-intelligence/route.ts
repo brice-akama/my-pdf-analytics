@@ -10,6 +10,96 @@ import { notifyDealInsight, isSlackConnected } from '@/lib/integrations/slack';
 import { syncDealInsightToHubSpot, isHubSpotConnected } from '@/lib/integrations/hubspotSync';
 import { sendTeamsNotification } from '@/app/api/integrations/teams/notify/route';
 
+
+// ── Sharing velocity helpers — cluster detection + ongoing arrivals ──
+function formatGap(ms: number): string {
+  const hours = ms / (1000 * 60 * 60);
+  if (hours < 24) {
+    const h = Math.max(1, Math.round(hours));
+    return `${h} hour${h !== 1 ? 's' : ''}`;
+  }
+  const days = Math.round(hours / 24);
+  return `${days} day${days !== 1 ? 's' : ''}`;
+}
+
+type SharingVelocityResult = {
+  hasCluster: boolean;
+  clusterSize: number;
+  clusterWindowLabel: string | null;
+  postClusterArrivals: { gapLabel: string }[];
+  fallbackGaps: { gapLabel: string }[];
+  narrative: string | null;
+};
+
+
+function computeSharingVelocity(sortedTimestamps: number[]): SharingVelocityResult {
+  const WINDOW_MS = 72 * 60 * 60 * 1000; // 72-hour cluster window
+
+  const empty: SharingVelocityResult = {
+    hasCluster: false,
+    clusterSize: 0,
+    clusterWindowLabel: null,
+    postClusterArrivals: [],
+    fallbackGaps: [],
+    narrative: null,
+  };
+
+  try {
+    if (!sortedTimestamps || sortedTimestamps.length < 2) return empty;
+
+    let bestStart = 0;
+    let bestEnd = 0;
+    for (let i = 0; i < sortedTimestamps.length; i++) {
+      let j = i;
+      while (
+        j + 1 < sortedTimestamps.length &&
+        sortedTimestamps[j + 1] - sortedTimestamps[i] <= WINDOW_MS
+      ) {
+        j++;
+      }
+      if (j - i > bestEnd - bestStart) {
+        bestStart = i;
+        bestEnd = j;
+      }
+    }
+     const clusterSize = bestEnd - bestStart + 1;
+
+    if (clusterSize < 2) {
+      const fallbackGaps = sortedTimestamps.slice(1).map((t, idx) => ({
+        gapLabel: formatGap(t - sortedTimestamps[idx]),
+      }));
+      const narrative = fallbackGaps.length > 0
+        ? `Viewers have opened this one at a time, spaced ${fallbackGaps.map(g => g.gapLabel).join(', then ')} apart — no tight cluster yet.`
+        : null;
+      return { ...empty, fallbackGaps, narrative };
+    }
+     const clusterWindowMs = sortedTimestamps[bestEnd] - sortedTimestamps[bestStart];
+    const clusterWindowLabel = formatGap(clusterWindowMs);
+
+    const postClusterTimestamps = sortedTimestamps.slice(bestEnd + 1);
+    const postClusterArrivals = postClusterTimestamps.map((t, idx) => {
+      const prevTime = idx === 0 ? sortedTimestamps[bestEnd] : postClusterTimestamps[idx - 1];
+      return { gapLabel: formatGap(t - prevTime) };
+    });
+
+    let narrative = `${clusterSize} people opened this within ${clusterWindowLabel}.`;
+    postClusterArrivals.forEach((arrival, idx) => {
+      narrative += ` ${idx === 0 ? 'A new person' : 'Another new person'} opened it ${arrival.gapLabel} after that${idx === 0 ? ' cluster' : ''}.`;
+    });
+
+    return {
+      hasCluster: true,
+      clusterSize,
+      clusterWindowLabel,
+      postClusterArrivals,
+      fallbackGaps: [],
+      narrative,
+    };
+  } catch {
+    return empty;
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -522,6 +612,20 @@ const domainViewerMap = docSessions
         : sharedLinkMultiViewerDI ? 'link_only'
         : 'none';
 
+        const domainEmailsDI = domainViewerMap[prospectDomain] || [];
+const domainFirstSeenTimesDI = domainEmailsDI
+  .map((e: string) => {
+    const viewerSessions = docSessions.filter((s: any) => s.email === e);
+    const times = viewerSessions
+      .map((s: any) => new Date(s.startedAt).getTime())
+      .filter((t: number) => !isNaN(t) && t > 0);
+    return times.length > 0 ? Math.min(...times) : null;
+  })
+  .filter((t): t is number => t !== null)
+  .sort((a, b) => a - b);
+
+const sharingVelocityDI = computeSharingVelocity(domainFirstSeenTimesDI);
+
       // Score secondary viewer engagement quality
       const primaryEmail = summaries[0]?.viewerEmail;
       const secondaryEmails = (domainViewerMap[prospectDomain] || [])
@@ -573,7 +677,7 @@ if (committeeGrowing && hasHighQualitySecondary && hotCount >= 1) {
   dealLevelSummary = {
     state: 'advancing',
     label: 'Deal Advancing',
-    summary: `${groupLabelDI} have opened this proposal and at least one secondary stakeholder is engaging deeply.${groupCaveatDI} Engagement quality across the group is high.`,
+    summary: `${groupLabelDI} have opened this proposal and at least one secondary stakeholder is engaging deeply.${groupCaveatDI}${sharingVelocityDI.narrative ? ' ' + sharingVelocityDI.narrative : ''} Engagement quality across the group is high.`,
     recommendedAction: `Signal detected (${committeeConfidence === 'link_only' ? 'medium' : 'high'} confidence): Multiple stakeholders are actively reading this. Depending on your relationship with your original contact, this may be a natural moment to check in about whether there are questions on their side you could help address — framed around being helpful rather than checking on progress. Your read on timing will matter more than the data alone.`,
     confidence: committeeConfidence === 'link_only' ? 'medium' : 'high',
     totalViewers: summaries.length,

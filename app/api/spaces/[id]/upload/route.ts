@@ -243,9 +243,27 @@ if (!file) {
       }, { status: 400 });
     }
 
-    const pdfBuffer = fileType !== 'pdf'
+       const pdfBuffer = fileType !== 'pdf'
       ? await convertToPdf(buffer, fileType, file.name)
       : buffer;
+
+    // ── Extract REAL per-page dimensions (SignNow-style canonical source) ──
+    // Same pattern as upload/route.ts, Google Drive import, and OneDrive
+    // import — this is the single source of truth for field positioning
+    // across editor, sign page, and final PDF generation. Fast — just
+    // reads the PDF's page tree, no rendering involved.
+    let pageDimensions: { pageNumber: number; widthPt: number; heightPt: number }[] = [];
+    try {
+      const { PDFDocument } = await import('pdf-lib');
+      const pdfDocForDims = await PDFDocument.load(pdfBuffer);
+      pageDimensions = pdfDocForDims.getPages().map((p, idx) => {
+        const { width, height } = p.getSize();
+        return { pageNumber: idx + 1, widthPt: width, heightPt: height };
+      });
+    } catch (err) {
+      console.error('⚠️ [SPACE UPLOAD] Failed to extract page dimensions:', err);
+      // Non-fatal — editor/sign page will fall back to A4 default if empty
+    }
 
     const extractedText = await extractTextFromPdf(pdfBuffer);
     const analysis = await analyzeDocument(extractedText, user.plan);
@@ -281,6 +299,7 @@ if (!file) {
       wordCount: metadata.wordCount,
       charCount: metadata.charCount,
       summary,
+      pageDimensions, 
       scannedPdf,
       belongsToSpace: true,
       spaceId: spaceId,

@@ -183,6 +183,114 @@ const committeeConfidence: 'domain_confirmed' | 'link_only' | 'none' =
   : sharedLinkMultiViewer ? 'link_only'
   : 'none';
 
+  // ── Committee sharing velocity — cluster detection + ongoing arrivals ──
+function formatGap(ms: number): string {
+  const hours = ms / (1000 * 60 * 60);
+  if (hours < 24) {
+    const h = Math.max(1, Math.round(hours));
+    return `${h} hour${h !== 1 ? 's' : ''}`;
+  }
+  const days = Math.round(hours / 24);
+  return `${days} day${days !== 1 ? 's' : ''}`;
+}
+
+type SharingVelocityResult = {
+  hasCluster: boolean;
+  clusterSize: number;
+  clusterWindowLabel: string | null;
+  postClusterArrivals: { gapLabel: string }[];
+  fallbackGaps: { gapLabel: string }[];
+  narrative: string | null;
+};
+
+function computeSharingVelocity(sortedTimestamps: number[]): SharingVelocityResult {
+  const WINDOW_MS = 72 * 60 * 60 * 1000; // 72-hour cluster window
+
+  const empty: SharingVelocityResult = {
+    hasCluster: false,
+    clusterSize: 0,
+    clusterWindowLabel: null,
+    postClusterArrivals: [],
+    fallbackGaps: [],
+    narrative: null,
+  };
+
+  try {
+    if (!sortedTimestamps || sortedTimestamps.length < 2) return empty;
+
+    // Find the largest cluster where every member falls within 72h of the first member of that cluster
+    let bestStart = 0;
+    let bestEnd = 0;
+    for (let i = 0; i < sortedTimestamps.length; i++) {
+      let j = i;
+      while (
+        j + 1 < sortedTimestamps.length &&
+        sortedTimestamps[j + 1] - sortedTimestamps[i] <= WINDOW_MS
+      ) {
+        j++;
+      }
+      if (j - i > bestEnd - bestStart) {
+        bestStart = i;
+        bestEnd = j;
+      }
+    }
+
+    const clusterSize = bestEnd - bestStart + 1;
+
+    // ── No real cluster (max group size is 1) — report individual gaps instead ──
+    if (clusterSize < 2) {
+      const fallbackGaps = sortedTimestamps.slice(1).map((t, idx) => ({
+        gapLabel: formatGap(t - sortedTimestamps[idx]),
+      }));
+      const narrative = fallbackGaps.length > 0
+        ? `Viewers have opened this one at a time, spaced ${fallbackGaps.map(g => g.gapLabel).join(', then ')} apart — no tight cluster yet.`
+        : null;
+      return { ...empty, fallbackGaps, narrative };
+    }
+
+    // ── Cluster found — report its size, then any arrivals after it ──
+    const clusterWindowMs = sortedTimestamps[bestEnd] - sortedTimestamps[bestStart];
+    const clusterWindowLabel = formatGap(clusterWindowMs);
+
+    const postClusterTimestamps = sortedTimestamps.slice(bestEnd + 1);
+    const postClusterArrivals = postClusterTimestamps.map((t, idx) => {
+      const prevTime = idx === 0 ? sortedTimestamps[bestEnd] : postClusterTimestamps[idx - 1];
+      return { gapLabel: formatGap(t - prevTime) };
+    });
+
+    let narrative = `${clusterSize} people opened this within ${clusterWindowLabel}.`;
+    postClusterArrivals.forEach((arrival, idx) => {
+      narrative += ` ${idx === 0 ? 'A new person' : 'Another new person'} opened it ${arrival.gapLabel} after that${idx === 0 ? ' cluster' : ''}.`;
+    });
+
+    return {
+      hasCluster: true,
+      clusterSize,
+      clusterWindowLabel,
+      postClusterArrivals,
+      fallbackGaps: [],
+      narrative,
+    };
+  } catch {
+    // Never let a velocity bug affect the rest of analytics
+    return empty;
+  }
+}
+
+const domainEmails = uniqueDomainViewers[prospectDomain] || [];
+const domainFirstSeenTimes = domainEmails
+  .map((e: string) => {
+    const viewerSessions = allSessions.filter((s: any) => s.email === e);
+    const times = viewerSessions
+      .map((s: any) => new Date(s.startedAt).getTime())
+      .filter((t: number) => !isNaN(t) && t > 0);
+    return times.length > 0 ? Math.min(...times) : null;
+  })
+  .filter((t): t is number => t !== null)
+  .sort((a, b) => a - b);
+
+const sharingVelocity = computeSharingVelocity(domainFirstSeenTimes);
+
 // ── Secondary viewer engagement quality scoring ───────────────
 // Izzy insight: a viewer spending 8 minutes on pricing is
 // categorically different from one who opens for 12 seconds.
@@ -235,9 +343,11 @@ const hasMediumQualitySecondaryViewer = secondaryViewerEngagement.some(
 );
 
 // Build recommended action based on committee size AND engagement quality
+const velocityNote = sharingVelocity.narrative ? ` ${sharingVelocity.narrative}` : '';
+
 const recommendedAction = committeeConfidence === 'domain_confirmed'
   ? hasHighQualitySecondaryViewer
-    ? `Signal detected (high confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal and at least one secondary viewer spent significant time engaging with specific sections. This is not a passive forward. Someone beyond your original contact is actively evaluating this. Ask your champion who else is now involved and what each person cares about most before sending any follow up.`
+    ? `Signal detected (high confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal and at least one secondary viewer spent significant time engaging with specific sections.${velocityNote} This is not a passive forward. Someone beyond your original contact is actively evaluating this. Ask your champion who else is now involved and what each person cares about most before sending any follow up.`
     : hasMediumQualitySecondaryViewer
     ? `Signal detected (high confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal. Secondary viewers show moderate engagement. The proposal is circulating internally but evaluation depth varies. Consider asking your champion who else is involved before following up.`
     : `Signal detected (medium confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal but secondary viewers opened briefly. This may be a passive forward rather than active internal evaluation. Monitor for return visits from secondary viewers before acting.`
@@ -288,6 +398,7 @@ const recommendedAction = committeeConfidence === 'domain_confirmed'
           committeeGrowing: committeeGrowingFinal,
 committeeSize: committeeSizeFinal,
 committeeConfidence,
+committeeSharingVelocity: sharingVelocity, // { hasCluster, clusterSize, clusterWindowLabel, postClusterArrivals, narrative }
 recommendedAction,
           completionRate,
           downloads,
@@ -648,6 +759,30 @@ recommendedAction,
           .filter(([, v]) => v.count >= 3)
           .map(([viewerId, v]) => ({ viewerId, email: v.email, visitCount: v.count }))
           .sort((a, b) => b.visitCount - a.visitCount);
+      })(),
+
+      // ── NEW: revisit velocity — how tightly clustered a viewer's own return visits are ──
+      revisitVelocity: (() => {
+        try {
+          const byViewer = new Map<string, number[]>();
+          allSessions.forEach((s: any) => {
+            const t = new Date(s.startedAt).getTime();
+            if (isNaN(t)) return;
+            if (!byViewer.has(s.viewerId)) byViewer.set(s.viewerId, []);
+            byViewer.get(s.viewerId)!.push(t);
+          });
+
+          const results: { viewerId: string; email: string | null; velocity: SharingVelocityResult }[] = [];
+          byViewer.forEach((times, viewerId) => {
+            if (times.length < 2) return;
+            const sorted = [...times].sort((a, b) => a - b);
+            const email = allSessions.find((s: any) => s.viewerId === viewerId)?.email || null;
+            results.push({ viewerId, email, velocity: computeSharingVelocity(sorted) });
+          });
+          return results;
+        } catch {
+          return [];
+        }
       })(),
     };
 
