@@ -385,6 +385,7 @@ export default function PerformanceTab({
     prospectDomain={analytics.prospectDomain || 'the prospect company'}
     secondaryViewerEngagement={analytics.secondaryViewerEngagement || []}
     hasHighQualitySecondaryViewer={analytics.hasHighQualitySecondaryViewer || false}
+     committeeSharingVelocity={analytics.committeeSharingVelocity} 
     daysSinceLastActivity={(() => {
       if (!analytics.lastViewed) return 0;
       return Math.floor(

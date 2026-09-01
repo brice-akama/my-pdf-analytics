@@ -37,6 +37,27 @@ function formatAgo(date: Date): string {
   return `${Math.floor(secs / 86400)} days ago`;
 }
 
+function formatSmartDate(date: Date): string {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+
+  // Recent — relative time, easy to scan
+  if (secs < 60) return "Just now";
+  if (secs < 3600) return `${Math.floor(secs / 60)} minutes ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)} hours ago`;
+
+  // Older than a day — exact date and time
+  const datePart = date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  const timePart = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${datePart} at ${timePart}`;
+}
+
 function formatTime(seconds: number): string {
   if (!seconds || seconds < 0) return "0m 0s";
   const mins = Math.floor(seconds / 60);
@@ -450,7 +471,7 @@ const [pageReactions, setPageReactions] = useState<any[]>([])
               visits: s.tracking?.views || 0,
               totalTime: formatTime(s.tracking?.totalTimeSpent || 0),
               lastViewed: s.tracking?.lastViewedAt
-                ? formatAgo(new Date(s.tracking.lastViewedAt))
+                ? formatSmartDate(new Date(s.tracking.lastViewedAt))
                 : null,
               completion: `${Math.round(
                 ((s.tracking?.views || 0) / Math.max(1, doc.numPages)) * 100
@@ -1101,9 +1122,9 @@ const completion = viewerPageVideo?.maxCompletion || 0;
                     {fp.pagesViewed} pages · {fp.totalTime}
                   </p>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-[11px] text-slate-400">
-                    Last seen {formatAgo(new Date(fp.lastSeen))}
+                <div className="text-right flex-shrink-0 max-w-[140px] sm:max-w-none">
+  <p className="text-[11px] text-slate-400 whitespace-normal sm:whitespace-nowrap">
+                   Last seen {formatSmartDate(new Date(fp.lastSeen))}
                   </p>
                   {fp.sessionCount >= 2 && (
                     <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">

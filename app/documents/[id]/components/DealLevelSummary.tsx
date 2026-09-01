@@ -36,6 +36,16 @@ type DealLevelSummaryProps = {
     quietViewer: { email: string; daysSinceLastActivity: number; sessionCount: number } | null;
     stillActiveViewers: { email: string }[];
   };
+
+   // ── NEW: velocity data computed on the backend ──
+  committeeSharingVelocity?: {
+    hasCluster: boolean;
+    clusterSize: number;
+    clusterWindowLabel: string | null;
+    postClusterArrivals: { gapLabel: string }[];
+    fallbackGaps: { gapLabel: string }[];
+    narrative: string | null;
+  };
 };
 
 type EvidenceItem = {
@@ -105,7 +115,13 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
     hasHighQualitySecondaryViewer = false,
     daysSinceLastActivity,
     disappearingViewer,
+    committeeSharingVelocity,
   } = props;
+
+  // ── Velocity note — only meaningful when there's a committee to describe ──
+  const velocityNote = committeeSharingVelocity?.narrative
+    ? ` ${committeeSharingVelocity.narrative}`
+    : '';
 
   // Build the disappearing-viewer sentence once, used wherever it
   // applies below — only meaningful when committeeGrowing is true,
@@ -290,6 +306,7 @@ whatHappened:
   (committeeConfidence === 'link_only'
     ? ` Their email addresses don't share a company domain, so this may be a personal email being used for business, or the document being shared outside the original company.`
     : '') +
+    velocityNote +
   deepReaderDetail +
   noiseNote +
   disappearingNote +
@@ -366,6 +383,7 @@ whatHappened:
   (committeeConfidence === 'link_only'
     ? `Their email addresses don't share a company domain, so this may be a personal email or the link forwarded outside the original company. `
     : '') +
+    velocityNote +
   (engagementBreakdown
     ? `Across the secondary viewers: ${engagementBreakdown}.`
     : '') +
