@@ -46,6 +46,23 @@ type DealLevelSummaryProps = {
     fallbackGaps: { gapLabel: string }[];
     narrative: string | null;
   };
+
+  weekOverWeek?: { thisWeekViews: number; lastWeekViews: number; trend: 'increasing' | 'decreasing' | 'flat' } | null;
+reawakening?: {
+  narrative: string;
+  daysSilent: number;
+  page: number | null;
+  reReadCount: number;
+  stakeholderCount: number;
+} | null;
+
+newViewerSignal?: {
+  strength: 'medium' | 'strong';
+  narrative: string;
+  email: string | null;
+  daysBetweenVisits: number | null;
+} | null;
+recommendationNote?: string | null;
 };
 
 type EvidenceItem = {
@@ -116,6 +133,9 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
     daysSinceLastActivity,
     disappearingViewer,
     committeeSharingVelocity,
+    reawakening,
+    newViewerSignal,
+recommendationNote,
   } = props;
 
   // ── Velocity note — only meaningful when there's a committee to describe ──
@@ -281,6 +301,64 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
   // — Acknowledge the rep knows the relationship better than the data does.
   // — Be specific about what the data actually shows. No filler.
   // ════════════════════════════════════════════════════════════════
+
+  // ── STATE 0: REAWAKENING ─────────────────────────────────────────
+// Takes priority over all other states — a fresh return after
+// silence is more actionable right now than an ongoing steady state.
+if (reawakening) {
+  return {
+    state: 'advancing', // reuses existing visual treatment; safe fallback if 'reawakening' isn't in your DealPulse union type
+    label: 'Deal Re-Engaging',
+    color: 'text-green-700',
+    bgColor: 'bg-green-50',
+    borderColor: 'border-green-200',
+    icon: <TrendingUp className="h-4 w-4 text-green-600" />,
+
+    whatHappened: reawakening.narrative,
+
+    whatItMeans:
+      `A return after ${reawakening.daysSilent} days of silence, focused on a specific section, is one of the clearer re-engagement patterns DocMetrics can observe. ` +
+      `It suggests something specific on that page prompted the return, rather than a general check back in.`,
+
+    recommendedAction:
+      `Signal detected (medium confidence): This is a good moment to lead with material relevant to what they just revisited, rather than a generic check-in. ` +
+      `Your knowledge of what's on that page should guide what you send.`,
+
+    confidence: 'medium',
+    evidence,
+  };
+}
+
+// ── STATE 0B: NEW VIEWER SIGNAL ──────────────────────────────────
+// Sits below reawakening (which needs 3 combined signals) but above
+// the general committee-growing states, since this is a more specific,
+// more recent observation about one particular person's behavior.
+if (!reawakening && newViewerSignal) {
+  const isStrong = newViewerSignal.strength === 'strong';
+
+  return {
+    state: isStrong ? 'advancing' : 'evaluating',
+    label: isStrong ? 'New Viewer Returned' : 'New Viewer Appeared',
+    color: isStrong ? 'text-green-700' : 'text-blue-700',
+    bgColor: isStrong ? 'bg-green-50' : 'bg-blue-50',
+    borderColor: isStrong ? 'border-green-200' : 'border-blue-200',
+    icon: isStrong
+      ? <TrendingUp className="h-4 w-4 text-green-600" />
+      : <Users className="h-4 w-4 text-blue-600" />,
+
+    whatHappened: newViewerSignal.narrative,
+
+    whatItMeans: isStrong
+      ? `A new person returning after their first visit is a pattern DocMetrics sometimes sees ahead of renewed internal discussion, though it does not confirm what is happening on their side.`
+      : `A single new viewer, on its own, is common and does not always signal a shift. It becomes more meaningful if they return.`,
+
+    recommendedAction: recommendationNote
+      || `This is an observation about document activity only. What it means for this specific relationship is something only you would know.`,
+
+    confidence: isStrong ? 'medium' : 'low',
+    evidence,
+  };
+}
 
   // ── STATE 1: ADVANCING ───────────────────────────────────────────
   // Committee growing + deep secondary engagement + hot primary

@@ -386,6 +386,10 @@ export default function PerformanceTab({
     secondaryViewerEngagement={analytics.secondaryViewerEngagement || []}
     hasHighQualitySecondaryViewer={analytics.hasHighQualitySecondaryViewer || false}
      committeeSharingVelocity={analytics.committeeSharingVelocity} 
+     weekOverWeek={analytics.weekOverWeek}        
+reawakening={analytics.reawakening}
+newViewerSignal={analytics.newViewerSignal}     
+recommendationNote={analytics.recommendationNote} 
     daysSinceLastActivity={(() => {
       if (!analytics.lastViewed) return 0;
       return Math.floor(

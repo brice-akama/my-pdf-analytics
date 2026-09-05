@@ -291,15 +291,169 @@ const domainFirstSeenTimes = domainEmails
 
 const sharingVelocity = computeSharingVelocity(domainFirstSeenTimes);
 
+const primaryViewerEmail = allSessions
+
+  .filter((s: any) => s.email)
+
+  .sort((a: any, b: any) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())[0]?.email || null;
+
+// ── Week-over-week comparison — only meaningful once a deal has enough history ──
+let weekOverWeek: { thisWeekViews: number; lastWeekViews: number; trend: 'increasing' | 'decreasing' | 'flat' } | null = null;
+
+try {
+  const validTimes = allSessions
+    .map((s: any) => new Date(s.startedAt).getTime())
+    .filter((t: number) => !isNaN(t) && t > 0);
+
+  if (validTimes.length > 0) {
+    const firstSessionTime = Math.min(...validTimes);
+    const daysSinceFirstSession = Math.floor((Date.now() - firstSessionTime) / (1000 * 60 * 60 * 24));
+
+    if (daysSinceFirstSession >= 7) {
+      const now = Date.now();
+      const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+      const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
+
+      const thisWeekViews = validTimes.filter((t: number) => t >= sevenDaysAgo).length;
+      const lastWeekViews = validTimes.filter((t: number) => t >= fourteenDaysAgo && t < sevenDaysAgo).length;
+
+      const trend = thisWeekViews > lastWeekViews ? 'increasing'
+        : thisWeekViews < lastWeekViews ? 'decreasing'
+        : 'flat';
+
+      weekOverWeek = { thisWeekViews, lastWeekViews, trend };
+    }
+  }
+} catch {
+  weekOverWeek = null;
+}
+
+// ── Reawakening detector — silence, then a return, on a specific section ──
+// Self-contained: computes its own "top re-read page" from analyticsLogs,
+// which is already fetched earlier in this route. Does not depend on
+// any variable defined later in the file (recipientPageTracking, dealInsight).
+let reawakening: {
+  narrative: string;
+  daysSilent: number;
+  page: number | null;
+  reReadCount: number;
+  stakeholderCount: number;
+} | null = null;
+
+try {
+  const validSessionTimes = allSessions
+    .map((s: any) => new Date(s.startedAt).getTime())
+    .filter((t: number) => !isNaN(t) && t > 0)
+    .sort((a: number, b: number) => a - b);
+
+  if (validSessionTimes.length >= 2) {
+    const mostRecent = validSessionTimes[validSessionTimes.length - 1];
+    const secondMostRecent = validSessionTimes[validSessionTimes.length - 2];
+    const gapDays = Math.floor((mostRecent - secondMostRecent) / (1000 * 60 * 60 * 24));
+
+    if (gapDays >= 7) {
+      // Build a top-level "which page gets re-read the most" from page_view logs,
+      // grouped by page number, counting distinct sessions per page.
+      const pageSessionMap = new Map<number, Set<string>>();
+      analyticsLogs
+        .filter((l: any) => l.action === 'page_view' && l.pageNumber)
+        .forEach((l: any) => {
+          if (!pageSessionMap.has(l.pageNumber)) pageSessionMap.set(l.pageNumber, new Set());
+          if (l.sessionId) pageSessionMap.get(l.pageNumber)!.add(l.sessionId);
+        });
+
+      const reReadCandidates = Array.from(pageSessionMap.entries())
+        .map(([page, sessions]) => ({ page, count: sessions.size }))
+        .filter(p => p.count >= 2)
+        .sort((a, b) => b.count - a.count);
+
+      const topReReadPage = reReadCandidates[0] || null;
+
+      if (topReReadPage) {
+        const stakeholderCount = committeeSizeFinal || 1;
+        reawakening = {
+          narrative: `Deal re-engaging: page ${topReReadPage.page} revisited ${topReReadPage.count} time${topReReadPage.count > 1 ? 's' : ''} by ${stakeholderCount} stakeholder${stakeholderCount > 1 ? 's' : ''} after ${gapDays} days of inactivity.`,
+          daysSilent: gapDays,
+          page: topReReadPage.page,
+          reReadCount: topReReadPage.count,
+          stakeholderCount,
+        };
+      }
+    }
+  }
+} catch {
+  reawakening = null;
+}
+
+
+// ── New-viewer return signal — medium (appeared once) vs strong (appeared, then returned after quiet) ──
+// Distinct from `reawakening`: this tracks a SPECIFIC new person's own return pattern,
+// not the whole document going quiet. Lighter weight — only needs 2 signals, not 3.
+let newViewerSignal: {
+  strength: 'medium' | 'strong';
+  narrative: string;
+  email: string | null;
+  daysBetweenVisits: number | null;
+} | null = null;
+
+try {
+  // Identify the most recently arrived new viewer (by domain, excluding the primary/original viewer)
+  const domainEmailsForNewViewer = uniqueDomainViewers[prospectDomain] || [];
+  const nonPrimaryEmails = domainEmailsForNewViewer.filter((e: string) => e !== primaryViewerEmail);
+
+  if (nonPrimaryEmails.length > 0) {
+    // Most recently-arrived secondary viewer = the one whose first session started latest
+    let mostRecentNewViewer: { email: string; firstSeen: number; sessionTimes: number[] } | null = null;
+
+    for (const email of nonPrimaryEmails) {
+      const viewerSessions = allSessions
+        .filter((s: any) => s.email === email)
+        .map((s: any) => new Date(s.startedAt).getTime())
+        .filter((t: number) => !isNaN(t) && t > 0)
+        .sort((a: number, b: number) => a - b);
+
+      if (viewerSessions.length === 0) continue;
+      const firstSeen = viewerSessions[0];
+
+      if (!mostRecentNewViewer || firstSeen > mostRecentNewViewer.firstSeen) {
+        mostRecentNewViewer = { email, firstSeen, sessionTimes: viewerSessions };
+      }
+    }
+
+    if (mostRecentNewViewer) {
+      if (mostRecentNewViewer.sessionTimes.length === 1) {
+        // ── MEDIUM: appeared once, no return yet ──
+        newViewerSignal = {
+          strength: 'medium',
+          narrative: `DocMetrics observed a new viewer, ${mostRecentNewViewer.email}, opening this document for the first time.`,
+          email: mostRecentNewViewer.email,
+          daysBetweenVisits: null,
+        };
+      } else {
+        // ── STRONG: appeared, then returned — check the gap before their return ──
+        const [first, second] = mostRecentNewViewer.sessionTimes;
+        const gapDays = Math.floor((second - first) / (1000 * 60 * 60 * 24));
+
+        newViewerSignal = {
+          strength: 'strong',
+          narrative: `DocMetrics observed a new viewer, ${mostRecentNewViewer.email}, open this document and then return again ${gapDays} day${gapDays !== 1 ? 's' : ''} later.`,
+          email: mostRecentNewViewer.email,
+          daysBetweenVisits: gapDays,
+        };
+      }
+    }
+  }
+} catch {
+  newViewerSignal = null;
+}
+
 // ── Secondary viewer engagement quality scoring ───────────────
 // Izzy insight: a viewer spending 8 minutes on pricing is
 // categorically different from one who opens for 12 seconds.
 // We score each secondary viewer by time spent to separate
 // passive opens from active evaluation.
 
-const primaryViewerEmail = allSessions
-  .filter((s: any) => s.email)
-  .sort((a: any, b: any) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())[0]?.email || null;
+
 
 const secondaryViewerEngagement = committeeGrowing
   ? await Promise.all(
@@ -398,6 +552,9 @@ const recommendedAction = committeeConfidence === 'domain_confirmed'
           committeeGrowing: committeeGrowingFinal,
 committeeSize: committeeSizeFinal,
 committeeConfidence,
+weekOverWeek,       
+reawakening, 
+newViewerSignal,
 committeeSharingVelocity: sharingVelocity, // { hasCluster, clusterSize, clusterWindowLabel, postClusterArrivals, narrative }
 recommendedAction,
           completionRate,
@@ -1343,11 +1500,15 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
             ),
         })),
 
-        committeeGrowing: committeeGrowingFinal,
+               committeeGrowing: committeeGrowingFinal,
         committeeSize: committeeSizeFinal,
         committeeConfidence,
         prospectDomain,
         recommendedAction,
+        committeeSharingVelocity: sharingVelocity,
+        weekOverWeek,
+        reawakening,
+        newViewerSignal,
         secondaryViewerEngagement,
         hasHighQualitySecondaryViewer,
         disappearingViewer,
