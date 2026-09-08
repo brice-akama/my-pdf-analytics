@@ -95,6 +95,8 @@ const [pageReactions, setPageReactions] = useState<Record<number, 'clear' | 'con
 const [showEndQuestion, setShowEndQuestion] = useState(false)
 const [endQuestionAnswer, setEndQuestionAnswer] = useState<string | null>(null)
 const [endQuestionSubmitted, setEndQuestionSubmitted] = useState(false)
+const [pdfDocProxy, setPdfDocProxy] = useState<any>(null);
+const [pageAspectRatio, setPageAspectRatio] = useState<number>(1100 / 850);
   const [brandingInfo, setBrandingInfo] = useState<{
     sharedByName?: string | null;
     logoUrl?: string | null;
@@ -110,6 +112,24 @@ const [endQuestionSubmitted, setEndQuestionSubmitted] = useState(false)
   // Derived: display name — always falls back to DocMetrics
   const displayName = brandingInfo?.sharedByName || BRAND_NAME;
   const displayLogo = brandingInfo?.logoUrl || null;
+
+
+
+  useEffect(() => {
+  if (!shareData?.document?.pdfUrl) return;
+  let cancelled = false;
+  (async () => {
+    try {
+      const pdfjsLib = await import('pdfjs-dist');
+      const loadingTask = pdfjsLib.getDocument(shareData.document!.pdfUrl!);
+      const pdf = await loadingTask.promise;
+      if (!cancelled) setPdfDocProxy(pdf);
+    } catch (err) {
+      // Silent — every LazyPage falls back to its own safe default
+    }
+  })();
+  return () => { cancelled = true; };
+}, [shareData?.document?.pdfUrl]);
 
   // Fetch video walkthroughs for this document
 useEffect(() => {
@@ -1583,6 +1603,7 @@ const handleEndQuestion = async (answer: string) => {
       onVisible={p => setCurrentPage(p)}
       zoomScale={zoomScale}
       containerWidth={containerWidth}
+      pdfDocProxy={pdfDocProxy}
       sessionId={sessionId}
       email={email}
       onScrolled={p => trackEvent('scroll', { page: p, scrollDepth: 100 })}
@@ -1781,13 +1802,14 @@ function ContactPopover({ brandingInfo, displayName, email, token, sessionId, on
 }
 
 // ─── LazyPage ─────────────────────────────────────────────────────────────────
-function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, watermark, containerWidth, sessionId, email, onScrolled , onReaction, reaction }: {
+function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, watermark, containerWidth, sessionId, email, onScrolled ,  pdfDocProxy, onReaction, reaction }: {
   pageNum: number;
   token: string;
   scrollContainer: React.RefObject<HTMLDivElement | null>;
   onVisible: (page: number) => void;
   zoomScale: number;
-  containerWidth: number;   // ✅ NEW
+  containerWidth: number;   
+  pdfDocProxy: any | null;
   sessionId: string;
   email: string;
   onScrolled: (page: number) => void;
@@ -1796,19 +1818,37 @@ function LazyPage({ pageNum, token, scrollContainer, onVisible, zoomScale, water
   reaction?: 'clear' | 'confused';
 }) {
   // Base page dimensions (standard A4 at 96dpi)
-  const BASE_WIDTH = 850;
-  const BASE_HEIGHT = 1100;
-  const ASPECT_RATIO = BASE_HEIGHT / BASE_WIDTH;
+   const BASE_WIDTH = 850;
+  const [isVisible, setIsVisible] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState<number>(1100 / 850);
+  const ASPECT_RATIO = aspectRatio; // this page's own real shape, independent of every other page
 
   // ✅ Page fills container width, never exceeds BASE_WIDTH, zoom scales on top
   const fitWidth = Math.min(containerWidth, BASE_WIDTH);
   const pageWidth = Math.round(fitWidth * zoomScale);
   const pageHeight = Math.round(fitWidth * ASPECT_RATIO * zoomScale);
-  const [isVisible, setIsVisible] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [scrolledFully, setScrolledFully] = useState(false);
   const divRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+
+  useEffect(() => {
+  if (!pdfDocProxy) return;
+  let cancelled = false;
+  (async () => {
+    try {
+      const page = await pdfDocProxy.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1 });
+      if (!cancelled && viewport.width > 0 && viewport.height > 0) {
+        setAspectRatio(viewport.height / viewport.width);
+      }
+    } catch {
+      // Silent — this page just keeps the safe default
+    }
+  })();
+  return () => { cancelled = true; };
+}, [pdfDocProxy, pageNum]);
 
   useEffect(() => {
     if (!divRef.current) return;
