@@ -33,6 +33,7 @@ export default function PreviewDrawerContent({ doc, previewData, onClose, onNavi
   const [pdfReady,  setPdfReady]  = useState(false)
   const [pdfPages,  setPdfPages]  = useState(numPages)
   const [pdfUrl,    setPdfUrl]    = useState<string | null>(null)
+  const [pageHeights, setPageHeights] = useState<number[]>([]) 
 
   // ── Fetch PDF blob ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -69,41 +70,58 @@ export default function PreviewDrawerContent({ doc, previewData, onClose, onNavi
       const pdf    = await pdfjsLib.getDocument(pdfUrl).promise
       if (cancelled) return
 
-      const pages  = pdf.numPages
-      setPdfPages(pages)
+     const pages  = pdf.numPages
+setPdfPages(pages)
 
-      const dpr    = window.devicePixelRatio || 1
-      const canvas = pdfCanvasRef.current!
-      canvas.width        = 1; canvas.height = 1
-      canvas.width        = PDF_NATURAL_W * dpr
-      canvas.height       = PAGE_H_PX * pages * dpr
-      canvas.style.width  = `${PDF_NATURAL_W}px`
-      canvas.style.height = `${PAGE_H_PX * pages}px`
+// ── Pass 1: measure each page's real height first ──
+const pageObjs: any[] = []
+const heightsCss: number[] = []
+for (let p = 1; p <= pages; p++) {
+  if (cancelled) return
+  const page    = await pdf.getPage(p)
+  const natural = page.getViewport({ scale: 1 })
+  const renderScale = PDF_NATURAL_W / natural.width // css-space scale, no dpr yet
+  pageObjs.push({ page, renderScale })
+  heightsCss.push(natural.height * renderScale)
+}
+if (cancelled) return
+setPageHeights(heightsCss)
 
-      const ctx = canvas.getContext('2d', { alpha: false })!
-      ctx.imageSmoothingEnabled = true
-      ctx.imageSmoothingQuality = 'high'
+const totalHeightCss = heightsCss.reduce((a, b) => a + b, 0)
+const dpr    = window.devicePixelRatio || 1
+const canvas = pdfCanvasRef.current!
+canvas.width        = 1; canvas.height = 1
+canvas.width        = PDF_NATURAL_W * dpr
+canvas.height       = totalHeightCss * dpr
+canvas.style.width  = `${PDF_NATURAL_W}px`
+canvas.style.height = `${totalHeightCss}px`
 
-      for (let p = 1; p <= pages; p++) {
-        if (cancelled) return
-        const page    = await pdf.getPage(p)
-        const natural = page.getViewport({ scale: 1 })
-        const scale   = (PDF_NATURAL_W / natural.width) * dpr
-        ctx.save()
-        ctx.translate(0, (p - 1) * PAGE_H_PX * dpr)
-        const task = page.render({
-          canvasContext: ctx,
-          viewport:      page.getViewport({ scale }),
-          intent:        'display',
-        })
-        renderTaskRef.current = task
-        try { await task.promise } catch (err: any) {
-          ctx.restore()
-          if (err?.name === 'RenderingCancelledException') return
-          throw err
-        }
-        ctx.restore()
-      }
+const ctx = canvas.getContext('2d', { alpha: false })!
+ctx.imageSmoothingEnabled = true
+ctx.imageSmoothingQuality = 'high'
+
+// ── Pass 2: render each page at its own correct height offset ──
+let offsetCss = 0
+for (let i = 0; i < pageObjs.length; i++) {
+  if (cancelled) return
+  const { page, renderScale } = pageObjs[i]
+  const scale = renderScale * dpr
+  ctx.save()
+  ctx.translate(0, offsetCss * dpr)
+  const task = page.render({
+    canvasContext: ctx,
+    viewport:      page.getViewport({ scale }),
+    intent:        'display',
+  })
+  renderTaskRef.current = task
+  try { await task.promise } catch (err: any) {
+    ctx.restore()
+    if (err?.name === 'RenderingCancelledException') return
+    throw err
+  }
+  ctx.restore()
+  offsetCss += heightsCss[i]
+}
 
       if (cancelled) return
       if (pdfWrapperRef.current) {
@@ -150,6 +168,18 @@ export default function PreviewDrawerContent({ doc, previewData, onClose, onNavi
       window.URL.revokeObjectURL(url); document.body.removeChild(a)
     } catch { alert("Failed to download") }
   }
+
+  // ── Real per-page heights, with a safe fallback before they're known ─
+const effectiveHeights = pageHeights.length === pdfPages
+  ? pageHeights
+  : Array(pdfPages).fill(PAGE_H_PX) // identical to today's behavior until real heights are measured
+
+const pagePrefix: number[] = []
+{
+  let acc = 0
+  for (const h of effectiveHeights) { pagePrefix.push(acc); acc += h }
+}
+const totalPdfHeight = effectiveHeights.reduce((a, b) => a + b, 0)
 
   return (
     <div className="h-full flex flex-col sm:flex-row">
@@ -267,7 +297,7 @@ export default function PreviewDrawerContent({ doc, previewData, onClose, onNavi
               className="relative mx-auto"
               style={{
                 width:        pdfReady ? PDF_NATURAL_W * pdfScale : 0,
-                height:       pdfReady ? PAGE_H_PX * pdfPages * pdfScale : 0,
+                height:       pdfReady ? totalPdfHeight * pdfScale : 0,
                 background:   '#fff',
                 boxShadow:    pdfReady ? '0 4px 24px rgba(0,0,0,0.18)' : 'none',
                 borderRadius: 4,
@@ -278,7 +308,7 @@ export default function PreviewDrawerContent({ doc, previewData, onClose, onNavi
               {/* Inner natural-size container — CSS scaled */}
               <div style={{
                 width:           PDF_NATURAL_W,
-                height:          PAGE_H_PX * pdfPages,
+                height:          totalPdfHeight,
                 transform:       `scale(${pdfScale})`,
                 transformOrigin: 'top left',
                 position:        'absolute',
@@ -292,9 +322,9 @@ export default function PreviewDrawerContent({ doc, previewData, onClose, onNavi
 
                 {/* Page dividers */}
                 {Array.from({ length: pdfPages - 1 }, (_, i) => (
-                  <div key={i} style={{
-                    position:   'absolute',
-                    top:        PAGE_H_PX * (i + 1),
+  <div key={i} style={{
+    position:   'absolute',
+    top:        pagePrefix[i + 1] ?? 0,
                     left: 0, right: 0,
                     height:     2,
                     background: 'rgba(99,102,241,0.15)',
@@ -309,7 +339,9 @@ export default function PreviewDrawerContent({ doc, previewData, onClose, onNavi
                 ─────────────────────────────────────────────────────────── */}
                 <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
                   {previewData?.signatureFields.map((field, i) => {
-                    const topPx     = ((field.page - 1) * PAGE_H_PX) + (field.y / 100 * PAGE_H_PX)
+                    const pageIdx = field.page - 1
+const thisPageHeight = effectiveHeights[pageIdx] ?? PAGE_H_PX
+const topPx = (pagePrefix[pageIdx] ?? 0) + (field.y / 100 * thisPageHeight)
                     const W = field.width  ?? (field.type === 'signature' ? 140 : field.type === 'checkbox' ? 24 : field.type === 'dropdown' ? 180 : 120)
                     const H = field.height ?? (field.type === 'signature' ? 50  : field.type === 'checkbox' ? 24 : field.type === 'dropdown' ? 36  : 32)
 
