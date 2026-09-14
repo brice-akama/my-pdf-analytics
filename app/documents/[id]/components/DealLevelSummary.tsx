@@ -314,7 +314,7 @@ if (reawakening) {
     borderColor: 'border-green-200',
     icon: <TrendingUp className="h-4 w-4 text-green-600" />,
 
-    whatHappened: reawakening.narrative,
+    whatHappened: reawakening.narrative + (newViewerSignal ? ` ${newViewerSignal.narrative}` : ''),
 
     whatItMeans:
       `A return after ${reawakening.daysSilent} days of silence, focused on a specific section, is one of the clearer re-engagement patterns DocMetrics can observe. ` +
@@ -333,7 +333,12 @@ if (reawakening) {
 // Sits below reawakening (which needs 3 combined signals) but above
 // the general committee-growing states, since this is a more specific,
 // more recent observation about one particular person's behavior.
-if (!reawakening && newViewerSignal) {
+//
+// Alex's insight: these are two SEPARATE triggers, not one combined
+// signal — a deal can have committee growth without a silence-return,
+// or vice versa. When both happen to fire at once, show both instead
+// of letting one silently suppress the other.
+if (newViewerSignal) {
   const isStrong = newViewerSignal.strength === 'strong';
 
   return {
