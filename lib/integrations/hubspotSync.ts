@@ -586,6 +586,8 @@ export async function syncDealInsightToHubSpot({
     const token = await getValidHubSpotToken(userId);
     const contactId = await findHubSpotContact(token, viewerEmail);
     if (!contactId) return { success: false, reason: 'contact_not_in_hubspot' };
+    // ← find or create the deal, same as SYNC 6 does
+    const dealId = await findOrCreateDeal(token, contactId, documentName);
 
     const skippedText = skippedPages.length > 0
       ? `Pages skipped: ${skippedPages.join(', ')}`
@@ -613,7 +615,15 @@ export async function syncDealInsightToHubSpot({
       docmetrics_deal_status:   trigger === 'gone_silent' ? 'Going Cold' : 'Active',
     });
 
-    return { success: true, contactId };
+    //  also write the insight onto the deal itself, if one was found/created
+    if (dealId) {
+      await updateDealProperties(token, dealId, {
+        docmetrics_last_insight:  narrativeOverride || noteBody,
+        docmetrics_deal_status:   trigger === 'gone_silent' ? 'Going Cold' : 'Active',
+      });
+    }
+
+   return { success: true, contactId, dealId };
   } catch {
     return { success: false, error: 'silent_failure' };
   }
@@ -656,6 +666,7 @@ export async function syncSpaceDealInsightToHubSpot({
     const token = await getValidHubSpotToken(userId);
     const contactId = await findHubSpotContact(token, viewerEmail);
     if (!contactId) return { success: false, reason: 'contact_not_in_hubspot' };
+    const dealId = await findOrCreateDeal(token, contactId, documentName);
 
     const skippedText = skippedPages.length > 0
       ? `Pages skipped: ${skippedPages.join(', ')}`
@@ -677,17 +688,26 @@ export async function syncSpaceDealInsightToHubSpot({
       `Analytics: ${process.env.NEXT_PUBLIC_APP_URL}/spaces/${documentId}`,
     ].filter(Boolean).join('\n');
 
-    await createContactNote(token, contactId, noteBody, new Date());
+      await createContactNote(token, contactId, noteBody, new Date());
     await updateContactProperties(token, contactId, {
       docmetrics_last_document: documentName,
       docmetrics_deal_status:   trigger === 'gone_silent' ? 'Going Cold' : 'Active',
     });
 
-    return { success: true, contactId };
+    if (dealId) {
+      await updateDealProperties(token, dealId, {
+        docmetrics_last_insight: narrativeOverride || noteBody,
+        docmetrics_deal_status:  trigger === 'gone_silent' ? 'Going Cold' : 'Active',
+      });
+    }
+
+    return { success: true, contactId, dealId };
   } catch {
     return { success: false, error: 'silent_failure' };
   }
 }
+
+
 
 // ════════════════════════════════════════════════════════════════
 // SYNC 6 — Deal Intelligence Write-Back ← NEW

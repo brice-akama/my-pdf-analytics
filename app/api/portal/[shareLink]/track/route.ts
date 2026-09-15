@@ -286,6 +286,11 @@ if (email && notifyEvents.includes(event)) {
         runFollowUpCadenceJob().catch(() => {});
       }).catch(() => {});
 
+      // ── BACKGROUND: check for silent space visitors while someone else is active ──
+      import('@/lib/checkSilentSpaces').then(({ checkSilentSpaces }) => {
+        checkSilentSpaces(db).catch(() => {});
+      }).catch(() => {});
+
       // ── Fire deal intelligence to HubSpot silently ──────────────
       // ── Fire REAL deal intelligence — only when something MEANINGFULLY
       // CHANGED (committee just formed, momentum just accelerated, or

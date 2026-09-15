@@ -613,7 +613,7 @@ export async function isSlackConnected(userId: string): Promise<boolean> {
       userId,
       provider: 'slack',
       isActive: true,
-      'metadata.channelId': { $exists: true },
+      'metadata.channelId': { $exists: true, $ne: null },
     });
     return !!integration;
   } catch {

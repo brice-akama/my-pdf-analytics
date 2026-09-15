@@ -531,6 +531,16 @@ useEffect(() => {
   }
 }, [])
 
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('integration') === 'slack' && params.get('status') === 'connected') {
+    toast.success('Slack connected! Now pick a channel.')
+    setShowIntegrationsDialog(true)
+    setTimeout(() => handleBrowseSlackChannels(), 300)
+    window.history.replaceState({}, '', '/dashboard')
+  }
+}, [])
+
 // Handlers
 const fetchTeamsChannels = async () => {
   setLoadingTeamsChannels(true)

@@ -35,6 +35,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    // Try to auto-select a default channel so novice users
+// get working notifications immediately, no extra step required
+let defaultChannelId = null;
+let defaultChannelName = null;
+
+try {
+  const channelsRes = await fetch(
+    'https://slack.com/api/conversations.list?types=public_channel&limit=50',
+    { headers: { Authorization: `Bearer ${tokenData.access_token}` } }
+  );
+  const channelsData = await channelsRes.json();
+
+  if (channelsData.ok && channelsData.channels?.length > 0) {
+    // Prefer general if it exists, otherwise just take the first channel
+    const general = channelsData.channels.find((c: any) => c.name === 'general');
+    const chosen = general || channelsData.channels[0];
+    defaultChannelId = chosen.id;
+    defaultChannelName = chosen.name;
+  }
+} catch {
+  // If this fails, channelId stays null — user falls back to manual picker
+}
+
     const db = await dbPromise;
     await db.collection("integrations").updateOne(
       { userId: state, provider: "slack" },
@@ -48,8 +71,8 @@ export async function GET(request: NextRequest) {
             teamName: tokenData.team.name,
             botUserId: tokenData.bot_user_id,
             scope: tokenData.scope,
-            channelId: null,
-            channelName: null,
+            channelId: defaultChannelId,
+            channelName: defaultChannelName,
           },
           isActive: true,
           updatedAt: new Date(),
