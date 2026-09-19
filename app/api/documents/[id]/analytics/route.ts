@@ -8,7 +8,7 @@ import { checkAccess } from '@/lib/checkAccess';
 import { getAnalyticsLevel } from '@/lib/planLimits';
 
 
- 
+
 
 export async function GET(
   request: NextRequest,
@@ -71,7 +71,7 @@ export async function GET(
       if (v.viewerEmail) uniqueViewerEmails.add(v.viewerEmail);
       else if (v.viewerId) uniqueViewerEmails.add(v.viewerId);
     });
-    
+
     analyticsLogs.forEach((l: any) => {
       if (l.email) uniqueViewerEmails.add(l.email);
       else if (l.viewerId) uniqueViewerEmails.add(l.viewerId);
@@ -82,43 +82,43 @@ export async function GET(
     });
 
     // ── Anonymous fingerprint grouping ───────────────────────────────
-// Group sessions that share the same viewerId — same device across
-// sessions — so anonymous viewers appear as one person, not many.
-const anonFingerprintMap = new Map<string, {
-  viewerId: string
-  sessionCount: number
-  firstSeen: Date
-  lastSeen: Date
-  pagesViewed: Set<number>
-  totalTime: number
-}>();
+    // Group sessions that share the same viewerId — same device across
+    // sessions — so anonymous viewers appear as one person, not many.
+    const anonFingerprintMap = new Map<string, {
+      viewerId: string
+      sessionCount: number
+      firstSeen: Date
+      lastSeen: Date
+      pagesViewed: Set<number>
+      totalTime: number
+    }>();
 
-for (const session of allSessions) {
-  if (session.email) continue; // identified — skip
-  const vid = session.viewerId;
-  if (!vid) continue;
+    for (const session of allSessions) {
+      if (session.email) continue; // identified — skip
+      const vid = session.viewerId;
+      if (!vid) continue;
 
-  const existing = anonFingerprintMap.get(vid);
-  const sessionStart = new Date(session.startedAt);
-  const sessionEnd = session.endedAt ? new Date(session.endedAt) : sessionStart;
+      const existing = anonFingerprintMap.get(vid);
+      const sessionStart = new Date(session.startedAt);
+      const sessionEnd = session.endedAt ? new Date(session.endedAt) : sessionStart;
 
-  if (!existing) {
-    anonFingerprintMap.set(vid, {
-      viewerId: vid,
-      sessionCount: 1,
-      firstSeen: sessionStart,
-      lastSeen: sessionEnd,
-      pagesViewed: new Set(session.pagesViewed || []),
-      totalTime: session.duration || 0,
-    });
-  } else {
-    existing.sessionCount++;
-    existing.totalTime += session.duration || 0;
-    (session.pagesViewed || []).forEach((p: number) => existing.pagesViewed.add(p));
-    if (sessionStart < existing.firstSeen) existing.firstSeen = sessionStart;
-    if (sessionEnd > existing.lastSeen) existing.lastSeen = sessionEnd;
-  }
-}
+      if (!existing) {
+        anonFingerprintMap.set(vid, {
+          viewerId: vid,
+          sessionCount: 1,
+          firstSeen: sessionStart,
+          lastSeen: sessionEnd,
+          pagesViewed: new Set(session.pagesViewed || []),
+          totalTime: session.duration || 0,
+        });
+      } else {
+        existing.sessionCount++;
+        existing.totalTime += session.duration || 0;
+        (session.pagesViewed || []).forEach((p: number) => existing.pagesViewed.add(p));
+        if (sessionStart < existing.firstSeen) existing.firstSeen = sessionStart;
+        if (sessionEnd > existing.lastSeen) existing.lastSeen = sessionEnd;
+      }
+    }
 
     const uniqueViewers = Math.max(
       tracking.uniqueVisitors?.length || 0,
@@ -126,388 +126,440 @@ for (const session of allSessions) {
     );
 
     // ── Buying committee growth detection ─────────────────────────
-// ── Free email providers are not buying committees ────────────
-const FREE_EMAIL_DOMAINS = new Set([
-  'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
-  'icloud.com', 'me.com', 'aol.com', 'protonmail.com',
-  'mail.com', 'live.com', 'msn.com', 'googlemail.com',
-]);
+    // ── Free email providers are not buying committees ────────────
+    const FREE_EMAIL_DOMAINS = new Set([
+      'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+      'icloud.com', 'me.com', 'aol.com', 'protonmail.com',
+      'mail.com', 'live.com', 'msn.com', 'googlemail.com',
+    ]);
 
-const uniqueDomainViewers = allSessions
-  .filter((s: any) => s.email)
-  .reduce((acc: Record<string, string[]>, s: any) => {
-    const domain = s.email?.split('@')[1];
-    // Skip free providers — they are individuals not organisations
-    if (!domain || FREE_EMAIL_DOMAINS.has(domain.toLowerCase())) return acc;
-    if (!acc[domain]) acc[domain] = [];
-    if (!acc[domain].includes(s.email)) acc[domain].push(s.email);
-    return acc;
-  }, {});
+    const uniqueDomainViewers = allSessions
+      .filter((s: any) => s.email)
+      .reduce((acc: Record<string, string[]>, s: any) => {
+        const domain = s.email?.split('@')[1];
+        // Skip free providers — they are individuals not organisations
+        if (!domain || FREE_EMAIL_DOMAINS.has(domain.toLowerCase())) return acc;
+        if (!acc[domain]) acc[domain] = [];
+        if (!acc[domain].includes(s.email)) acc[domain].push(s.email);
+        return acc;
+      }, {});
 
-const committeeSize = Math.max(
-  ...Object.values(uniqueDomainViewers).map((v: any) => v.length),
-  1
-);
-const committeeGrowing = committeeSize >= 2;
-const prospectDomain = Object.keys(uniqueDomainViewers)[0] || 'the prospect company';
+    const committeeSize = Math.max(
+      ...Object.values(uniqueDomainViewers).map((v: any) => v.length),
+      1
+    );
+    const committeeGrowing = committeeSize >= 2;
+    const prospectDomain = Object.keys(uniqueDomainViewers)[0] || 'the prospect company';
 
-// ── Fallback committee detection — for free email providers ───
-// Domain matching misses cases where someone forwards a share link
-// to a personal Gmail/Outlook address. If 2+ distinct identified
-// viewers used the SAME share link, that is still internal sharing —
-// it just cannot be confirmed as the same company by domain alone.
-const identifiedEmailsByShare = new Map<string, Set<string>>();
-allSessions.forEach((s: any) => {
-  if (!s.email || !s.shareToken) return;
-  if (!identifiedEmailsByShare.has(s.shareToken)) {
-    identifiedEmailsByShare.set(s.shareToken, new Set());
-  }
-  identifiedEmailsByShare.get(s.shareToken)!.add(s.email);
-});
-
-const maxSharedLinkViewers = Math.max(
-  ...Array.from(identifiedEmailsByShare.values()).map(set => set.size),
-  0
-);
-
-// True if multiple distinct people opened the SAME link, even on free email
-const sharedLinkMultiViewer = maxSharedLinkViewers >= 2;
-
-// Final committee signal — domain match OR same-link multi-viewer
-const committeeSizeFinal = Math.max(committeeSize, maxSharedLinkViewers);
-const committeeGrowingFinal = committeeGrowing || sharedLinkMultiViewer;
-
-// Distinguish HOW we know — domain-confirmed vs link-only
-const committeeConfidence: 'domain_confirmed' | 'link_only' | 'none' =
-  committeeGrowing ? 'domain_confirmed'
-  : sharedLinkMultiViewer ? 'link_only'
-  : 'none';
-
-  // ── Committee sharing velocity — cluster detection + ongoing arrivals ──
-function formatGap(ms: number): string {
-  const hours = ms / (1000 * 60 * 60);
-  if (hours < 24) {
-    const h = Math.max(1, Math.round(hours));
-    return `${h} hour${h !== 1 ? 's' : ''}`;
-  }
-  const days = Math.round(hours / 24);
-  return `${days} day${days !== 1 ? 's' : ''}`;
-}
-
-type SharingVelocityResult = {
-  hasCluster: boolean;
-  clusterSize: number;
-  clusterWindowLabel: string | null;
-  postClusterArrivals: { gapLabel: string }[];
-  fallbackGaps: { gapLabel: string }[];
-  narrative: string | null;
-};
-
-function computeSharingVelocity(sortedTimestamps: number[]): SharingVelocityResult {
-  const WINDOW_MS = 72 * 60 * 60 * 1000; // 72-hour cluster window
-
-  const empty: SharingVelocityResult = {
-    hasCluster: false,
-    clusterSize: 0,
-    clusterWindowLabel: null,
-    postClusterArrivals: [],
-    fallbackGaps: [],
-    narrative: null,
-  };
-
-  try {
-    if (!sortedTimestamps || sortedTimestamps.length < 2) return empty;
-
-    // Find the largest cluster where every member falls within 72h of the first member of that cluster
-    let bestStart = 0;
-    let bestEnd = 0;
-    for (let i = 0; i < sortedTimestamps.length; i++) {
-      let j = i;
-      while (
-        j + 1 < sortedTimestamps.length &&
-        sortedTimestamps[j + 1] - sortedTimestamps[i] <= WINDOW_MS
-      ) {
-        j++;
+    // ── Fallback committee detection — for free email providers ───
+    // Domain matching misses cases where someone forwards a share link
+    // to a personal Gmail/Outlook address. If 2+ distinct identified
+    // viewers used the SAME share link, that is still internal sharing —
+    // it just cannot be confirmed as the same company by domain alone.
+    const identifiedEmailsByShare = new Map<string, Set<string>>();
+    allSessions.forEach((s: any) => {
+      if (!s.email || !s.shareToken) return;
+      if (!identifiedEmailsByShare.has(s.shareToken)) {
+        identifiedEmailsByShare.set(s.shareToken, new Set());
       }
-      if (j - i > bestEnd - bestStart) {
-        bestStart = i;
-        bestEnd = j;
-      }
-    }
-
-    const clusterSize = bestEnd - bestStart + 1;
-
-    // ── No real cluster (max group size is 1) — report individual gaps instead ──
-    if (clusterSize < 2) {
-      const fallbackGaps = sortedTimestamps.slice(1).map((t, idx) => ({
-        gapLabel: formatGap(t - sortedTimestamps[idx]),
-      }));
-      const narrative = fallbackGaps.length > 0
-        ? `Viewers have opened this one at a time, spaced ${fallbackGaps.map(g => g.gapLabel).join(', then ')} apart — no tight cluster yet.`
-        : null;
-      return { ...empty, fallbackGaps, narrative };
-    }
-
-    // ── Cluster found — report its size, then any arrivals after it ──
-    const clusterWindowMs = sortedTimestamps[bestEnd] - sortedTimestamps[bestStart];
-    const clusterWindowLabel = formatGap(clusterWindowMs);
-
-    const postClusterTimestamps = sortedTimestamps.slice(bestEnd + 1);
-    const postClusterArrivals = postClusterTimestamps.map((t, idx) => {
-      const prevTime = idx === 0 ? sortedTimestamps[bestEnd] : postClusterTimestamps[idx - 1];
-      return { gapLabel: formatGap(t - prevTime) };
+      identifiedEmailsByShare.get(s.shareToken)!.add(s.email);
     });
 
-    let narrative = `${clusterSize} people opened this within ${clusterWindowLabel}.`;
-    postClusterArrivals.forEach((arrival, idx) => {
-      narrative += ` ${idx === 0 ? 'A new person' : 'Another new person'} opened it ${arrival.gapLabel} after that${idx === 0 ? ' cluster' : ''}.`;
-    });
+    const maxSharedLinkViewers = Math.max(
+      ...Array.from(identifiedEmailsByShare.values()).map(set => set.size),
+      0
+    );
 
-    return {
-      hasCluster: true,
-      clusterSize,
-      clusterWindowLabel,
-      postClusterArrivals,
-      fallbackGaps: [],
-      narrative,
+    // True if multiple distinct people opened the SAME link, even on free email
+    const sharedLinkMultiViewer = maxSharedLinkViewers >= 2;
+
+    // Final committee signal — domain match OR same-link multi-viewer
+    const committeeSizeFinal = Math.max(committeeSize, maxSharedLinkViewers);
+    const committeeGrowingFinal = committeeGrowing || sharedLinkMultiViewer;
+
+    // Distinguish HOW we know — domain-confirmed vs link-only
+    const committeeConfidence: 'domain_confirmed' | 'link_only' | 'none' =
+      committeeGrowing ? 'domain_confirmed'
+        : sharedLinkMultiViewer ? 'link_only'
+          : 'none';
+
+    // ── Committee sharing velocity — cluster detection + ongoing arrivals ──
+    function formatGap(ms: number): string {
+      const hours = ms / (1000 * 60 * 60);
+      if (hours < 24) {
+        const h = Math.max(1, Math.round(hours));
+        return `${h} hour${h !== 1 ? 's' : ''}`;
+      }
+      const days = Math.round(hours / 24);
+      return `${days} day${days !== 1 ? 's' : ''}`;
+    }
+
+    type SharingVelocityResult = {
+      hasCluster: boolean;
+      clusterSize: number;
+      clusterWindowLabel: string | null;
+      postClusterArrivals: { gapLabel: string }[];
+      fallbackGaps: { gapLabel: string }[];
+      narrative: string | null;
     };
-  } catch {
-    // Never let a velocity bug affect the rest of analytics
-    return empty;
-  }
-}
 
-const domainEmails = uniqueDomainViewers[prospectDomain] || [];
-const domainFirstSeenTimes = domainEmails
-  .map((e: string) => {
-    const viewerSessions = allSessions.filter((s: any) => s.email === e);
-    const times = viewerSessions
-      .map((s: any) => new Date(s.startedAt).getTime())
-      .filter((t: number) => !isNaN(t) && t > 0);
-    return times.length > 0 ? Math.min(...times) : null;
-  })
-  .filter((t): t is number => t !== null)
-  .sort((a, b) => a - b);
+    function computeSharingVelocity(sortedTimestamps: number[]): SharingVelocityResult {
+      const WINDOW_MS = 72 * 60 * 60 * 1000; // 72-hour cluster window
 
-const sharingVelocity = computeSharingVelocity(domainFirstSeenTimes);
+      const empty: SharingVelocityResult = {
+        hasCluster: false,
+        clusterSize: 0,
+        clusterWindowLabel: null,
+        postClusterArrivals: [],
+        fallbackGaps: [],
+        narrative: null,
+      };
 
-const primaryViewerEmail = allSessions
+      try {
+        if (!sortedTimestamps || sortedTimestamps.length < 2) return empty;
 
-  .filter((s: any) => s.email)
+        // Find the largest cluster where every member falls within 72h of the first member of that cluster
+        let bestStart = 0;
+        let bestEnd = 0;
+        for (let i = 0; i < sortedTimestamps.length; i++) {
+          let j = i;
+          while (
+            j + 1 < sortedTimestamps.length &&
+            sortedTimestamps[j + 1] - sortedTimestamps[i] <= WINDOW_MS
+          ) {
+            j++;
+          }
+          if (j - i > bestEnd - bestStart) {
+            bestStart = i;
+            bestEnd = j;
+          }
+        }
 
-  .sort((a: any, b: any) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())[0]?.email || null;
+        const clusterSize = bestEnd - bestStart + 1;
 
-// ── Week-over-week comparison — only meaningful once a deal has enough history ──
-let weekOverWeek: { thisWeekViews: number; lastWeekViews: number; trend: 'increasing' | 'decreasing' | 'flat' } | null = null;
+        // ── No real cluster (max group size is 1) — report individual gaps instead ──
+        if (clusterSize < 2) {
+          const fallbackGaps = sortedTimestamps.slice(1).map((t, idx) => ({
+            gapLabel: formatGap(t - sortedTimestamps[idx]),
+          }));
+          const narrative = fallbackGaps.length > 0
+            ? `Viewers have opened this one at a time, spaced ${fallbackGaps.map(g => g.gapLabel).join(', then ')} apart — no tight cluster yet.`
+            : null;
+          return { ...empty, fallbackGaps, narrative };
+        }
 
-try {
-  const validTimes = allSessions
-    .map((s: any) => new Date(s.startedAt).getTime())
-    .filter((t: number) => !isNaN(t) && t > 0);
+        // ── Cluster found — report its size, then any arrivals after it ──
+        const clusterWindowMs = sortedTimestamps[bestEnd] - sortedTimestamps[bestStart];
+        const clusterWindowLabel = formatGap(clusterWindowMs);
 
-  if (validTimes.length > 0) {
-    const firstSessionTime = Math.min(...validTimes);
-    const daysSinceFirstSession = Math.floor((Date.now() - firstSessionTime) / (1000 * 60 * 60 * 24));
-
-    if (daysSinceFirstSession >= 7) {
-      const now = Date.now();
-      const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
-      const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
-
-      const thisWeekViews = validTimes.filter((t: number) => t >= sevenDaysAgo).length;
-      const lastWeekViews = validTimes.filter((t: number) => t >= fourteenDaysAgo && t < sevenDaysAgo).length;
-
-      const trend = thisWeekViews > lastWeekViews ? 'increasing'
-        : thisWeekViews < lastWeekViews ? 'decreasing'
-        : 'flat';
-
-      weekOverWeek = { thisWeekViews, lastWeekViews, trend };
-    }
-  }
-} catch {
-  weekOverWeek = null;
-}
-
-// ── Reawakening detector — silence, then a return, on a specific section ──
-// Self-contained: computes its own "top re-read page" from analyticsLogs,
-// which is already fetched earlier in this route. Does not depend on
-// any variable defined later in the file (recipientPageTracking, dealInsight).
-let reawakening: {
-  narrative: string;
-  daysSilent: number;
-  page: number | null;
-  reReadCount: number;
-  stakeholderCount: number;
-} | null = null;
-
-try {
-  const validSessionTimes = allSessions
-    .map((s: any) => new Date(s.startedAt).getTime())
-    .filter((t: number) => !isNaN(t) && t > 0)
-    .sort((a: number, b: number) => a - b);
-
-  if (validSessionTimes.length >= 2) {
-    const mostRecent = validSessionTimes[validSessionTimes.length - 1];
-    const secondMostRecent = validSessionTimes[validSessionTimes.length - 2];
-    const gapDays = Math.floor((mostRecent - secondMostRecent) / (1000 * 60 * 60 * 24));
-
-    if (gapDays >= 7) {
-      // Build a top-level "which page gets re-read the most" from page_view logs,
-      // grouped by page number, counting distinct sessions per page.
-      const pageSessionMap = new Map<number, Set<string>>();
-      analyticsLogs
-        .filter((l: any) => l.action === 'page_view' && l.pageNumber)
-        .forEach((l: any) => {
-          if (!pageSessionMap.has(l.pageNumber)) pageSessionMap.set(l.pageNumber, new Set());
-          if (l.sessionId) pageSessionMap.get(l.pageNumber)!.add(l.sessionId);
+        const postClusterTimestamps = sortedTimestamps.slice(bestEnd + 1);
+        const postClusterArrivals = postClusterTimestamps.map((t, idx) => {
+          const prevTime = idx === 0 ? sortedTimestamps[bestEnd] : postClusterTimestamps[idx - 1];
+          return { gapLabel: formatGap(t - prevTime) };
         });
 
-      const reReadCandidates = Array.from(pageSessionMap.entries())
-        .map(([page, sessions]) => ({ page, count: sessions.size }))
-        .filter(p => p.count >= 2)
-        .sort((a, b) => b.count - a.count);
+        let narrative = `${clusterSize} people opened this within ${clusterWindowLabel}.`;
+        postClusterArrivals.forEach((arrival, idx) => {
+          narrative += ` ${idx === 0 ? 'A new person' : 'Another new person'} opened it ${arrival.gapLabel} after that${idx === 0 ? ' cluster' : ''}.`;
+        });
 
-      const topReReadPage = reReadCandidates[0] || null;
-
-      if (topReReadPage) {
-        const stakeholderCount = committeeSizeFinal || 1;
-        reawakening = {
-          narrative: `Deal re-engaging: page ${topReReadPage.page} revisited ${topReReadPage.count} time${topReReadPage.count > 1 ? 's' : ''} by ${stakeholderCount} stakeholder${stakeholderCount > 1 ? 's' : ''} after ${gapDays} days of inactivity.`,
-          daysSilent: gapDays,
-          page: topReReadPage.page,
-          reReadCount: topReReadPage.count,
-          stakeholderCount,
+        return {
+          hasCluster: true,
+          clusterSize,
+          clusterWindowLabel,
+          postClusterArrivals,
+          fallbackGaps: [],
+          narrative,
         };
+      } catch {
+        // Never let a velocity bug affect the rest of analytics
+        return empty;
       }
     }
-  }
-} catch {
-  reawakening = null;
-}
 
+    const domainEmails = uniqueDomainViewers[prospectDomain] || [];
+    const domainFirstSeenTimes = domainEmails
+      .map((e: string) => {
+        const viewerSessions = allSessions.filter((s: any) => s.email === e);
+        const times = viewerSessions
+          .map((s: any) => new Date(s.startedAt).getTime())
+          .filter((t: number) => !isNaN(t) && t > 0);
+        return times.length > 0 ? Math.min(...times) : null;
+      })
+      .filter((t): t is number => t !== null)
+      .sort((a, b) => a - b);
 
-// ── New-viewer return signal — medium (appeared once) vs strong (appeared, then returned after quiet) ──
-// Distinct from `reawakening`: this tracks a SPECIFIC new person's own return pattern,
-// not the whole document going quiet. Lighter weight — only needs 2 signals, not 3.
-let newViewerSignal: {
-  strength: 'medium' | 'strong';
-  narrative: string;
-  email: string | null;
-  daysBetweenVisits: number | null;
-} | null = null;
+    const sharingVelocity = computeSharingVelocity(domainFirstSeenTimes);
 
-try {
-  // Identify the most recently arrived new viewer (by domain, excluding the primary/original viewer)
-  const domainEmailsForNewViewer = uniqueDomainViewers[prospectDomain] || [];
-  const nonPrimaryEmails = domainEmailsForNewViewer.filter((e: string) => e !== primaryViewerEmail);
+    const primaryViewerEmail = allSessions
 
-  if (nonPrimaryEmails.length > 0) {
-    // Most recently-arrived secondary viewer = the one whose first session started latest
-    let mostRecentNewViewer: { email: string; firstSeen: number; sessionTimes: number[] } | null = null;
+      .filter((s: any) => s.email)
 
-    for (const email of nonPrimaryEmails) {
-      const viewerSessions = allSessions
-        .filter((s: any) => s.email === email)
+      .sort((a: any, b: any) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())[0]?.email || null;
+
+    // ── Week-over-week comparison — only meaningful once a deal has enough history ──
+    let weekOverWeek: { thisWeekViews: number; lastWeekViews: number; trend: 'increasing' | 'decreasing' | 'flat' } | null = null;
+
+    try {
+      const validTimes = allSessions
+        .map((s: any) => new Date(s.startedAt).getTime())
+        .filter((t: number) => !isNaN(t) && t > 0);
+
+      if (validTimes.length > 0) {
+        const firstSessionTime = Math.min(...validTimes);
+        const daysSinceFirstSession = Math.floor((Date.now() - firstSessionTime) / (1000 * 60 * 60 * 24));
+
+        if (daysSinceFirstSession >= 7) {
+          const now = Date.now();
+          const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+          const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000;
+
+          const thisWeekViews = validTimes.filter((t: number) => t >= sevenDaysAgo).length;
+          const lastWeekViews = validTimes.filter((t: number) => t >= fourteenDaysAgo && t < sevenDaysAgo).length;
+
+          const trend = thisWeekViews > lastWeekViews ? 'increasing'
+            : thisWeekViews < lastWeekViews ? 'decreasing'
+              : 'flat';
+
+          weekOverWeek = { thisWeekViews, lastWeekViews, trend };
+        }
+      }
+    } catch {
+      weekOverWeek = null;
+    }
+
+    // ── Reawakening detector — silence, then a return, on a specific section ──
+    // Self-contained: computes its own "top re-read page" from analyticsLogs,
+    // which is already fetched earlier in this route. Does not depend on
+    // any variable defined later in the file (recipientPageTracking, dealInsight).
+    let reawakening: {
+      narrative: string;
+      daysSilent: number;
+      page: number | null;
+      reReadCount: number;
+      stakeholderCount: number;
+    } | null = null;
+
+    try {
+      const validSessionTimes = allSessions
         .map((s: any) => new Date(s.startedAt).getTime())
         .filter((t: number) => !isNaN(t) && t > 0)
         .sort((a: number, b: number) => a - b);
 
-      if (viewerSessions.length === 0) continue;
-      const firstSeen = viewerSessions[0];
+      if (validSessionTimes.length >= 2) {
+        const mostRecent = validSessionTimes[validSessionTimes.length - 1];
+        const secondMostRecent = validSessionTimes[validSessionTimes.length - 2];
+        const gapDays = Math.floor((mostRecent - secondMostRecent) / (1000 * 60 * 60 * 24));
 
-      if (!mostRecentNewViewer || firstSeen > mostRecentNewViewer.firstSeen) {
-        mostRecentNewViewer = { email, firstSeen, sessionTimes: viewerSessions };
+        if (gapDays >= 7) {
+          // Build a top-level "which page gets re-read the most" from page_view logs,
+          // grouped by page number, counting distinct sessions per page.
+          const pageSessionMap = new Map<number, Set<string>>();
+          analyticsLogs
+            .filter((l: any) => l.action === 'page_view' && l.pageNumber)
+            .forEach((l: any) => {
+              if (!pageSessionMap.has(l.pageNumber)) pageSessionMap.set(l.pageNumber, new Set());
+              if (l.sessionId) pageSessionMap.get(l.pageNumber)!.add(l.sessionId);
+            });
+
+          const reReadCandidates = Array.from(pageSessionMap.entries())
+            .map(([page, sessions]) => ({ page, count: sessions.size }))
+            .filter(p => p.count >= 2)
+            .sort((a, b) => b.count - a.count);
+
+          const topReReadPage = reReadCandidates[0] || null;
+
+          if (topReReadPage) {
+            const stakeholderCount = committeeSizeFinal || 1;
+            reawakening = {
+              narrative: `Deal re-engaging: page ${topReReadPage.page} revisited ${topReReadPage.count} time${topReReadPage.count > 1 ? 's' : ''} by ${stakeholderCount} stakeholder${stakeholderCount > 1 ? 's' : ''} after ${gapDays} days of inactivity.`,
+              daysSilent: gapDays,
+              page: topReReadPage.page,
+              reReadCount: topReReadPage.count,
+              stakeholderCount,
+            };
+          }
+        }
       }
+    } catch {
+      reawakening = null;
     }
 
-    if (mostRecentNewViewer) {
-      if (mostRecentNewViewer.sessionTimes.length === 1) {
-        // ── MEDIUM: appeared once, no return yet ──
-        newViewerSignal = {
-          strength: 'medium',
-          narrative: `DocMetrics observed a new viewer, ${mostRecentNewViewer.email}, opening this document for the first time.`,
-          email: mostRecentNewViewer.email,
-          daysBetweenVisits: null,
-        };
-      } else {
-        // ── STRONG: appeared, then returned — check the gap before their return ──
-        const [first, second] = mostRecentNewViewer.sessionTimes;
-        const gapDays = Math.floor((second - first) / (1000 * 60 * 60 * 24));
 
-        newViewerSignal = {
-          strength: 'strong',
-          narrative: `DocMetrics observed a new viewer, ${mostRecentNewViewer.email}, open this document and then return again ${gapDays} day${gapDays !== 1 ? 's' : ''} later.`,
-          email: mostRecentNewViewer.email,
-          daysBetweenVisits: gapDays,
-        };
+    // ── New-viewer return signal — medium (appeared once) vs strong (appeared, then returned after quiet) ──
+    // Distinct from `reawakening`: this tracks a SPECIFIC new person's own return pattern,
+    // not the whole document going quiet. Lighter weight — only needs 2 signals, not 3.
+    let newViewerSignal: {
+      strength: 'medium' | 'strong';
+      narrative: string;
+      email: string | null;
+      daysBetweenVisits: number | null;
+    } | null = null;
+
+    try {
+      // Identify the most recently arrived new viewer (by domain, excluding the primary/original viewer)
+      const domainEmailsForNewViewer = uniqueDomainViewers[prospectDomain] || [];
+      const nonPrimaryEmails = domainEmailsForNewViewer.filter((e: string) => e !== primaryViewerEmail);
+
+      if (nonPrimaryEmails.length > 0) {
+        // Most recently-arrived secondary viewer = the one whose first session started latest
+        let mostRecentNewViewer: { email: string; firstSeen: number; sessionTimes: number[] } | null = null;
+
+        for (const email of nonPrimaryEmails) {
+          const viewerSessions = allSessions
+            .filter((s: any) => s.email === email)
+            .map((s: any) => new Date(s.startedAt).getTime())
+            .filter((t: number) => !isNaN(t) && t > 0)
+            .sort((a: number, b: number) => a - b);
+
+          if (viewerSessions.length === 0) continue;
+          const firstSeen = viewerSessions[0];
+
+          if (!mostRecentNewViewer || firstSeen > mostRecentNewViewer.firstSeen) {
+            mostRecentNewViewer = { email, firstSeen, sessionTimes: viewerSessions };
+          }
+        }
+
+        if (mostRecentNewViewer) {
+          if (mostRecentNewViewer.sessionTimes.length === 1) {
+            // ── MEDIUM: appeared once, no return yet ──
+            newViewerSignal = {
+              strength: 'medium',
+              narrative: `DocMetrics observed a new viewer, ${mostRecentNewViewer.email}, opening this document for the first time.`,
+              email: mostRecentNewViewer.email,
+              daysBetweenVisits: null,
+            };
+          } else {
+            // ── STRONG: appeared, then returned — check the gap before their return ──
+            const [first, second] = mostRecentNewViewer.sessionTimes;
+            const gapDays = Math.floor((second - first) / (1000 * 60 * 60 * 24));
+
+            newViewerSignal = {
+              strength: 'strong',
+              narrative: `DocMetrics observed a new viewer, ${mostRecentNewViewer.email}, open this document and then return again ${gapDays} day${gapDays !== 1 ? 's' : ''} later.`,
+              email: mostRecentNewViewer.email,
+              daysBetweenVisits: gapDays,
+            };
+          }
+        }
       }
+    } catch {
+      newViewerSignal = null;
     }
-  }
-} catch {
-  newViewerSignal = null;
-}
 
-// ── Secondary viewer engagement quality scoring ───────────────
-// Izzy insight: a viewer spending 8 minutes on pricing is
-// categorically different from one who opens for 12 seconds.
-// We score each secondary viewer by time spent to separate
-// passive opens from active evaluation.
+    // ── Active driver — the most engaged viewer among the committee, by recency + depth ──
+    // Language rule: never say "internally" or imply process knowledge we don't have —
+    // only state what the data shows: engagement level and last activity date.
+    let activeDriver: {
+      email: string;
+      narrative: string;
+      totalTimeSeconds: number;
+      daysSinceLastActivity: number;
+    } | null = null;
 
+    try {
+      const domainEmailsForDriver = uniqueDomainViewers[prospectDomain] || [];
 
+      if (domainEmailsForDriver.length >= 2) {
+        const candidates = domainEmailsForDriver.map((email: string) => {
+          const viewerSessions = allSessions.filter((s: any) => s.email === email);
+          const viewerLogs = analyticsLogs.filter((l: any) => l.email === email && l.action === 'page_view');
+          const totalTimeSeconds = viewerLogs.reduce((sum: number, l: any) => sum + (l.viewTime || 0), 0);
 
-const secondaryViewerEngagement = committeeGrowing
-  ? await Promise.all(
-      (uniqueDomainViewers[prospectDomain] || [])
-        .filter((email: string) => email !== primaryViewerEmail)
-        .map(async (email: string) => {
-          const viewerLogs = await db.collection('analytics_logs').find({
-            documentId: id,
-            action: 'page_view',
-            email,
-          }).toArray();
+          const sessionTimes = viewerSessions
+            .map((s: any) => new Date(s.startedAt).getTime())
+            .filter((t: number) => !isNaN(t) && t > 0);
 
-          const totalTime = viewerLogs.reduce(
-            (sum: number, l: any) => sum + (l.viewTime || 0), 0
-          );
+          const lastActivityTime = sessionTimes.length > 0 ? Math.max(...sessionTimes) : null;
+          const daysSinceLastActivity = lastActivityTime
+            ? Math.floor((Date.now() - lastActivityTime) / (1000 * 60 * 60 * 24))
+            : null;
 
-          const pagesViewed = new Set(viewerLogs.map((l: any) => l.pageNumber)).size;
+          return { email, totalTimeSeconds, daysSinceLastActivity };
+        }).filter(c => c.daysSinceLastActivity !== null);
 
-          const engagementQuality = totalTime >= 300
-            ? 'high'
-            : totalTime >= 60
-            ? 'medium'
-            : 'low';
+        if (candidates.length > 0) {
+          const topDriver = candidates.sort((a, b) => b.totalTimeSeconds - a.totalTimeSeconds)[0];
 
-          return {
-            email,
-            totalTimeSeconds: totalTime,
-            pagesViewed,
-            engagementQuality,
+          const narrative = topDriver.daysSinceLastActivity! <= 1
+            ? `${topDriver.email} is the most engaged viewer on this document, with activity as recently as today.`
+            : `${topDriver.email} has been the most engaged viewer, though the most recent activity from anyone was ${topDriver.daysSinceLastActivity} day${topDriver.daysSinceLastActivity !== 1 ? 's' : ''} ago.`;
+
+          activeDriver = {
+            email: topDriver.email,
+            narrative,
+            totalTimeSeconds: topDriver.totalTimeSeconds,
+            daysSinceLastActivity: topDriver.daysSinceLastActivity!,
           };
-        })
-    )
-  : [];
+        }
+      }
+    } catch {
+      activeDriver = null;
+    }
 
-const hasHighQualitySecondaryViewer = secondaryViewerEngagement.some(
-  (v: any) => v.engagementQuality === 'high'
-);
 
-const hasMediumQualitySecondaryViewer = secondaryViewerEngagement.some(
-  (v: any) => v.engagementQuality === 'medium'
-);
 
-// Build recommended action based on committee size AND engagement quality
-const velocityNote = sharingVelocity.narrative ? ` ${sharingVelocity.narrative}` : '';
+    // ── Secondary viewer engagement quality scoring ───────────────
+    // Izzy insight: a viewer spending 8 minutes on pricing is
+    // categorically different from one who opens for 12 seconds.
+    // We score each secondary viewer by time spent to separate
+    // passive opens from active evaluation.
 
-const recommendedAction = committeeConfidence === 'domain_confirmed'
-  ? hasHighQualitySecondaryViewer
-    ? `Signal detected (high confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal and at least one secondary viewer spent significant time engaging with specific sections.${velocityNote} This is not a passive forward. Someone beyond your original contact is actively evaluating this. Ask your champion who else is now involved and what each person cares about most before sending any follow up.`
-    : hasMediumQualitySecondaryViewer
-    ? `Signal detected (high confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal. Secondary viewers show moderate engagement. The proposal is circulating internally but evaluation depth varies. Consider asking your champion who else is involved before following up.`
-    : `Signal detected (medium confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal but secondary viewers opened briefly. This may be a passive forward rather than active internal evaluation. Monitor for return visits from secondary viewers before acting.`
-  : committeeConfidence === 'link_only'
-  ? `Signal detected (medium confidence): ${committeeSizeFinal} different people have opened this document using the same share link. Their email addresses do not share a company domain, so this may be a personal email being used for business, or the link being forwarded outside the original company. Either way, more than one person is now looking at this document. Asking your contact who else has seen it may clarify the picture.`
-  : `Signal detected (low confidence): Engagement from a single viewer only. No internal sharing detected yet. Context-based follow up may be appropriate depending on your sales stage.`;
+
+
+    const secondaryViewerEngagement = committeeGrowing
+      ? await Promise.all(
+        (uniqueDomainViewers[prospectDomain] || [])
+          .filter((email: string) => email !== primaryViewerEmail)
+          .map(async (email: string) => {
+            const viewerLogs = await db.collection('analytics_logs').find({
+              documentId: id,
+              action: 'page_view',
+              email,
+            }).toArray();
+
+            const totalTime = viewerLogs.reduce(
+              (sum: number, l: any) => sum + (l.viewTime || 0), 0
+            );
+
+            const pagesViewed = new Set(viewerLogs.map((l: any) => l.pageNumber)).size;
+
+            const engagementQuality = totalTime >= 300
+              ? 'high'
+              : totalTime >= 60
+                ? 'medium'
+                : 'low';
+
+            return {
+              email,
+              totalTimeSeconds: totalTime,
+              pagesViewed,
+              engagementQuality,
+            };
+          })
+      )
+      : [];
+
+    const hasHighQualitySecondaryViewer = secondaryViewerEngagement.some(
+      (v: any) => v.engagementQuality === 'high'
+    );
+
+    const hasMediumQualitySecondaryViewer = secondaryViewerEngagement.some(
+      (v: any) => v.engagementQuality === 'medium'
+    );
+
+    // Build recommended action based on committee size AND engagement quality
+    const velocityNote = sharingVelocity.narrative ? ` ${sharingVelocity.narrative}` : '';
+
+    const recommendedAction = committeeConfidence === 'domain_confirmed'
+      ? hasHighQualitySecondaryViewer
+        ? `Signal detected (high confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal and at least one secondary viewer spent significant time engaging with specific sections.${velocityNote} This is not a passive forward. Someone beyond your original contact is actively evaluating this. Ask your champion who else is now involved and what each person cares about most before sending any follow up.`
+        : hasMediumQualitySecondaryViewer
+          ? `Signal detected (high confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal. Secondary viewers show moderate engagement. The proposal is circulating internally but evaluation depth varies. Consider asking your champion who else is involved before following up.`
+          : `Signal detected (medium confidence): ${committeeSizeFinal} people from ${prospectDomain} have opened your proposal but secondary viewers opened briefly. This may be a passive forward rather than active internal evaluation. Monitor for return visits from secondary viewers before acting.`
+      : committeeConfidence === 'link_only'
+        ? `Signal detected (medium confidence): ${committeeSizeFinal} different people have opened this document using the same share link. Their email addresses do not share a company domain, so this may be a personal email being used for business, or the link being forwarded outside the original company. Either way, more than one person is now looking at this document. Asking your contact who else has seen it may clarify the picture.`
+        : `Signal detected (low confidence): Engagement from a single viewer only. No internal sharing detected yet. Context-based follow up may be appropriate depending on your sales stage.`;
 
     const shares = await db.collection('shares')
       .find({ documentId })
@@ -550,13 +602,15 @@ const recommendedAction = committeeConfidence === 'domain_confirmed'
           totalViews,
           uniqueViewers,
           committeeGrowing: committeeGrowingFinal,
-committeeSize: committeeSizeFinal,
-committeeConfidence,
-weekOverWeek,       
-reawakening, 
-newViewerSignal,
-committeeSharingVelocity: sharingVelocity, // { hasCluster, clusterSize, clusterWindowLabel, postClusterArrivals, narrative }
-recommendedAction,
+          committeeSize: committeeSizeFinal,
+          committeeConfidence,
+          weekOverWeek,
+          reawakening,
+          newViewerSignal,
+          committeeSharingVelocity: sharingVelocity,
+          activeDriver,
+          recommendedAction,
+
           completionRate,
           downloads,
           shares: totalShares,
@@ -608,7 +662,7 @@ recommendedAction,
 
     // ── FULL / ADVANCED plan — compute everything ─────────────────
     // From here down is identical to your original code.
-     
+
 
     const totalTimeFromOldViews = oldViews.reduce(
       (sum: number, v: any) => sum + (v.timeSpent || 0), 0
@@ -620,12 +674,12 @@ recommendedAction,
     const sessionsWithDuration = allSessions.filter((s: any) => s.duration > 0);
     const avgTimePerSession = sessionsWithDuration.length > 0
       ? Math.round(
-          sessionsWithDuration.reduce((sum: number, s: any) => sum + s.duration, 0)
-          / sessionsWithDuration.length
-        )
+        sessionsWithDuration.reduce((sum: number, s: any) => sum + s.duration, 0)
+        / sessionsWithDuration.length
+      )
       : totalTimeFromLogs > 0
-      ? Math.round(totalTimeFromLogs / Math.max(allSessions.length, 1))
-      : Math.round(totalTimeFromOldViews / (oldViews.length || 1));
+        ? Math.round(totalTimeFromLogs / Math.max(allSessions.length, 1))
+        : Math.round(totalTimeFromOldViews / (oldViews.length || 1));
 
     const allPageTimeLogs = await db.collection('analytics_logs').find({
       documentId: id,
@@ -648,9 +702,9 @@ recommendedAction,
 
     const avgTotalTimePerViewer = viewerTotalTimes.size > 0
       ? Math.round(
-          Array.from(viewerTotalTimes.values()).reduce((a, b) => a + b, 0)
-          / viewerTotalTimes.size
-        )
+        Array.from(viewerTotalTimes.values()).reduce((a, b) => a + b, 0)
+        / viewerTotalTimes.size
+      )
       : avgTimePerSession;
 
     const averageTimeSeconds = avgTimePerSession;
@@ -677,58 +731,58 @@ recommendedAction,
 
     const today = new Date();
     const viewsByDate = Array.from({ length: 30 }, (_, i) => {
-  const date = new Date(today);
-  date.setDate(today.getDate() - (29 - i));
-  const start = new Date(date.setHours(0, 0, 0, 0));
-  const end = new Date(date.setHours(23, 59, 59, 999));
+      const date = new Date(today);
+      date.setDate(today.getDate() - (29 - i));
+      const start = new Date(date.setHours(0, 0, 0, 0));
+      const end = new Date(date.setHours(23, 59, 59, 999));
 
-  const oldViewsCount = oldViews.filter((v: any) => {
-    const viewedAt = new Date(v.viewedAt);
-    return viewedAt >= start && viewedAt <= end;
-  }).length;
+      const oldViewsCount = oldViews.filter((v: any) => {
+        const viewedAt = new Date(v.viewedAt);
+        return viewedAt >= start && viewedAt <= end;
+      }).length;
 
-  const newLogsCount = analyticsLogs.filter((l: any) => {
-    const logTime = new Date(l.timestamp);
-    return logTime >= start && logTime <= end && l.action === 'document_viewed';
-  }).length;
+      const newLogsCount = analyticsLogs.filter((l: any) => {
+        const logTime = new Date(l.timestamp);
+        return logTime >= start && logTime <= end && l.action === 'document_viewed';
+      }).length;
 
-  // Get sessions for this day to extract country and total time
-  const daySessions = allSessions.filter((s: any) => {
-    const startedAt = new Date(s.startedAt);
-    return startedAt >= start && startedAt <= end;
-  });
+      // Get sessions for this day to extract country and total time
+      const daySessions = allSessions.filter((s: any) => {
+        const startedAt = new Date(s.startedAt);
+        return startedAt >= start && startedAt <= end;
+      });
 
-  // Top country for this day
-  const countryCount = new Map<string, number>();
-  daySessions.forEach((s: any) => {
-    const country = s.location?.country || null;
-    if (country) countryCount.set(country, (countryCount.get(country) || 0) + 1);
-  });
-  const topCountry = countryCount.size > 0
-    ? [...countryCount.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([country]) => country)
-        .join(', ')
-    : null;
+      // Top country for this day
+      const countryCount = new Map<string, number>();
+      daySessions.forEach((s: any) => {
+        const country = s.location?.country || null;
+        if (country) countryCount.set(country, (countryCount.get(country) || 0) + 1);
+      });
+      const topCountry = countryCount.size > 0
+        ? [...countryCount.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([country]) => country)
+          .join(', ')
+        : null;
 
- // Total time spent that day — use analytics_logs page_view viewTime
-  // because session.duration is often 0 when session_end does not fire
-  const dayPageLogs = analyticsLogs.filter((l: any) => {
-    const logTime = new Date(l.timestamp);
-    return logTime >= start && logTime <= end && l.action === 'page_view';
-  });
-  const totalTimeSeconds = dayPageLogs.reduce(
-    (sum: number, l: any) => sum + (l.viewTime || 0), 0
-  );
+      // Total time spent that day — use analytics_logs page_view viewTime
+      // because session.duration is often 0 when session_end does not fire
+      const dayPageLogs = analyticsLogs.filter((l: any) => {
+        const logTime = new Date(l.timestamp);
+        return logTime >= start && logTime <= end && l.action === 'page_view';
+      });
+      const totalTimeSeconds = dayPageLogs.reduce(
+        (sum: number, l: any) => sum + (l.viewTime || 0), 0
+      );
 
-  return {
-    date: `${date.getMonth() + 1}/${date.getDate()}`,
-    views: Math.max(oldViewsCount, newLogsCount),
-    topCountry,
-    totalTimeSeconds,
-  };
-});
+      return {
+        date: `${date.getMonth() + 1}/${date.getDate()}`,
+        views: Math.max(oldViewsCount, newLogsCount),
+        topCountry,
+        totalTimeSeconds,
+      };
+    });
 
     const pageEngagement = await Promise.all(
       Array.from({ length: document.numPages }, async (_, i) => {
@@ -870,7 +924,7 @@ recommendedAction,
       })
     );
 
-  // ── Disappearing-viewer detection — compares viewers against ──
+    // ── Disappearing-viewer detection — compares viewers against ──
     // each other, not just their own history. Needs the full set
     // of recipientPageTracking results, so it runs right after
     // that's computed.
@@ -878,8 +932,8 @@ recommendedAction,
 
     const firstViewerEmail = recipientPageTracking.length > 0
       ? [...recipientPageTracking].sort(
-          (a, b) => new Date(a.firstOpened || 0).getTime() - new Date(b.firstOpened || 0).getTime()
-        )[0]?.recipientEmail
+        (a, b) => new Date(a.firstOpened || 0).getTime() - new Date(b.firstOpened || 0).getTime()
+      )[0]?.recipientEmail
       : null;
 
     const viewerSnapshots = recipientPageTracking
@@ -903,8 +957,8 @@ recommendedAction,
       firstTimeVisits: allSessions.filter((s: any) => !s.isRevisit).length,
       avgVisitsPerViewer: allSessions.length > 0
         ? parseFloat((allSessions.length /
-            Math.max(new Set(allSessions.map((s: any) => s.viewerId)).size, 1)
-          ).toFixed(1))
+          Math.max(new Set(allSessions.map((s: any) => s.viewerId)).size, 1)
+        ).toFixed(1))
         : 0,
       highFrequencyViewers: (() => {
         const counts = new Map<string, { count: number; email: string | null }>();
@@ -1004,8 +1058,8 @@ recommendedAction,
     const engagedRecipients = recipientPageTracking.filter(r => !r.bounced && !r.neverOpened);
     const avgEngagementTime = engagedRecipients.length > 0
       ? formatTime(Math.round(
-          engagedRecipients.reduce((sum, r) => sum + r.totalTimeSeconds, 0) / engagedRecipients.length
-        ))
+        engagedRecipients.reduce((sum, r) => sum + r.totalTimeSeconds, 0) / engagedRecipients.length
+      ))
       : '0m 0s';
     const bounceAnalytics = {
       totalRecipients: totalTrackedRecipients,
@@ -1041,11 +1095,11 @@ recommendedAction,
       if (viewerEmails.length === 0) {
         const uniqueIds = share.tracking?.uniqueViewers || [];
         for (const viewerId of uniqueIds) {
-           const fingerprintData = anonFingerprintMap.get(viewerId);
-const sessionLabel = fingerprintData && fingerprintData.sessionCount > 1
-  ? `${fingerprintData.sessionCount} sessions`
-  : '1 session';
-const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
+          const fingerprintData = anonFingerprintMap.get(viewerId);
+          const sessionLabel = fingerprintData && fingerprintData.sessionCount > 1
+            ? `${fingerprintData.sessionCount} sessions`
+            : '1 session';
+          const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
           const timeSpent = share.tracking?.timeSpentByViewer?.[viewerId] || 0;
           if (!viewerEmailMap.has(anonKey)) {
             viewerEmailMap.set(anonKey, { email: anonKey, views: 1, lastViewed: share.tracking?.lastViewedAt || new Date(), totalTime: timeSpent, shares: [share.shareToken] });
@@ -1066,7 +1120,7 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
       Object.entries(deviceCounts).map(([k, v]) => [k, totalViews ? Math.round((v / totalViews) * 100) : 0])
     );
 
-  // FIX: previously used a Set for cities, which only preserved city
+    // FIX: previously used a Set for cities, which only preserved city
     // NAMES with no counts, then sliced to the first 3 by insertion order
     // (not by traffic). Now each city's view count is tracked with a Map,
     // so topCities is genuinely ranked by views and not silently capped
@@ -1295,7 +1349,7 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
       ? await db.collection('nda_acceptances').find({ documentId: id }).sort({ timestamp: -1 }).toArray()
       : []
 
-    
+
     return NextResponse.json({
       success: true,
       analyticsLevel,
@@ -1313,146 +1367,146 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
         eSignature: eSignatureAnalytics, signatureFriction,
         declineReasons, declinePatterns, intentData, reminderEffectiveness,
         deadDeal,
-        
-       dealInsight: await (async () => {
-  // Build per-viewer, per-session re-read signals
-  // A "re-read" = same viewer visited same page across 2+ distinct sessions
-  const allViewerInsights: any[] = [];
 
-  for (const recipient of recipientPageTracking) {
-    if (recipient.neverOpened) continue;
-    const isAnon = recipient.recipientEmail.startsWith('Anonymous');
-    const emailKey = isAnon ? null : recipient.recipientEmail;
-    const viewerIdKey = isAnon
-      ? recipient.recipientEmail.match(/Anonymous \(([^)]+)\)/)?.[1] || null
-      : null;
+        dealInsight: await (async () => {
+          // Build per-viewer, per-session re-read signals
+          // A "re-read" = same viewer visited same page across 2+ distinct sessions
+          const allViewerInsights: any[] = [];
 
-    // Count page visits per page across ALL sessions for this viewer
-    const viewerPageLogs = await db.collection('analytics_logs').find({
-      documentId: id,
-      action: 'page_view',
-      ...(emailKey ? { email: emailKey } : { viewerId: viewerIdKey }),
-    }).toArray();
+          for (const recipient of recipientPageTracking) {
+            if (recipient.neverOpened) continue;
+            const isAnon = recipient.recipientEmail.startsWith('Anonymous');
+            const emailKey = isAnon ? null : recipient.recipientEmail;
+            const viewerIdKey = isAnon
+              ? recipient.recipientEmail.match(/Anonymous \(([^)]+)\)/)?.[1] || null
+              : null;
 
-    // Group by page, count distinct sessions
-    const pageSessionMap = new Map<number, Set<string>>();
-    viewerPageLogs.forEach((log: any) => {
-      const p = log.pageNumber;
-      if (!pageSessionMap.has(p)) pageSessionMap.set(p, new Set());
-      if (log.sessionId) pageSessionMap.get(p)!.add(log.sessionId);
-    });
+            // Count page visits per page across ALL sessions for this viewer
+            const viewerPageLogs = await db.collection('analytics_logs').find({
+              documentId: id,
+              action: 'page_view',
+              ...(emailKey ? { email: emailKey } : { viewerId: viewerIdKey }),
+            }).toArray();
 
-    const reReadPages: { page: number; count: number }[] = [];
-    pageSessionMap.forEach((sessions, pageNum) => {
-      if (sessions.size >= 2) {
-        reReadPages.push({ page: pageNum, count: sessions.size });
-      }
-    });
-    reReadPages.sort((a, b) => b.count - a.count);
+            // Group by page, count distinct sessions
+            const pageSessionMap = new Map<number, Set<string>>();
+            viewerPageLogs.forEach((log: any) => {
+              const p = log.pageNumber;
+              if (!pageSessionMap.has(p)) pageSessionMap.set(p, new Set());
+              if (log.sessionId) pageSessionMap.get(p)!.add(log.sessionId);
+            });
 
-    // Video replays for this viewer
-    const viewerVideoLogs = await db.collection('analytics_logs').find({
-      documentId: id,
-      action: 'video_replayed',
-      ...(emailKey ? { email: emailKey } : {}),
-    }).toArray();
+            const reReadPages: { page: number; count: number }[] = [];
+            pageSessionMap.forEach((sessions, pageNum) => {
+              if (sessions.size >= 2) {
+                reReadPages.push({ page: pageNum, count: sessions.size });
+              }
+            });
+            reReadPages.sort((a, b) => b.count - a.count);
 
-    const videoPageMap = new Map<number, number>();
-    viewerVideoLogs.forEach((log: any) => {
-      videoPageMap.set(log.pageNumber, (videoPageMap.get(log.pageNumber) || 0) + 1);
-    });
-    const videoReplays = Array.from(videoPageMap.entries())
-      .filter(([, count]) => count >= 1)
-      .map(([page, count]) => ({ page, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 3);
+            // Video replays for this viewer
+            const viewerVideoLogs = await db.collection('analytics_logs').find({
+              documentId: id,
+              action: 'video_replayed',
+              ...(emailKey ? { email: emailKey } : {}),
+            }).toArray();
 
-    if (reReadPages.length === 0 && videoReplays.length === 0) continue;
+            const videoPageMap = new Map<number, number>();
+            viewerVideoLogs.forEach((log: any) => {
+              videoPageMap.set(log.pageNumber, (videoPageMap.get(log.pageNumber) || 0) + 1);
+            });
+            const videoReplays = Array.from(videoPageMap.entries())
+              .filter(([, count]) => count >= 1)
+              .map(([page, count]) => ({ page, count }))
+              .sort((a, b) => b.count - a.count)
+              .slice(0, 3);
 
-    // Build narrative for this specific viewer
-    // Build narrative using the shared single-source-of-truth function
-    // so dashboard, email, Slack, HubSpot, and Teams all describe
-    // the same viewer the same way. Pure function — cannot throw.
-    const { buildViewerNarrative } = await import('@/lib/buildViewerNarrative');
-    const narrative = buildViewerNarrative({
-      viewerLabel: recipient.recipientEmail,
-      totalPages: document.numPages || 1,
-      reReadPages,
-      videoReplays,
-    });
+            if (reReadPages.length === 0 && videoReplays.length === 0) continue;
 
-    allViewerInsights.push({
-      viewerEmail: recipient.recipientEmail,
-      narrative,
-      reReadPages: reReadPages,
-      videoReplays,
-      backNavigations: [],
-      engagementDropping: false,
-      neverForwarded: false,
-      totalTimeSeconds: recipient.totalTimeSeconds,
-    });
-  }
+            // Build narrative for this specific viewer
+            // Build narrative using the shared single-source-of-truth function
+            // so dashboard, email, Slack, HubSpot, and Teams all describe
+            // the same viewer the same way. Pure function — cannot throw.
+            const { buildViewerNarrative } = await import('@/lib/buildViewerNarrative');
+            const narrative = buildViewerNarrative({
+              viewerLabel: recipient.recipientEmail,
+              totalPages: document.numPages || 1,
+              reReadPages,
+              videoReplays,
+            });
 
-  if (allViewerInsights.length === 0) return null;
+            allViewerInsights.push({
+              viewerEmail: recipient.recipientEmail,
+              narrative,
+              reReadPages: reReadPages,
+              videoReplays,
+              backNavigations: [],
+              engagementDropping: false,
+              neverForwarded: false,
+              totalTimeSeconds: recipient.totalTimeSeconds,
+            });
+          }
 
-  // Sort by most engaged viewer first
-  // Sort by most engaged viewer first
-  allViewerInsights.sort((a, b) => b.totalTimeSeconds - a.totalTimeSeconds);
+          if (allViewerInsights.length === 0) return null;
 
-  const topInsight = allViewerInsights[0];
+          // Sort by most engaged viewer first
+          // Sort by most engaged viewer first
+          allViewerInsights.sort((a, b) => b.totalTimeSeconds - a.totalTimeSeconds);
 
-  // ── Fire deal intelligence to HubSpot silently ────────────────
-  if (topInsight) {
-    const { syncDealIntelligenceToHubSpot, isHubSpotConnected } = await import('@/lib/integrations/hubspotSync');
-    const hubspotConnected = await isHubSpotConnected(document.userId).catch(() => false);
+          const topInsight = allViewerInsights[0];
 
-    if (hubspotConnected && topInsight.viewerEmail && !topInsight.viewerEmail.startsWith('Anonymous')) {
-      const reReadCount = topInsight.reReadPages?.reduce(
-        (sum: number, p: any) => sum + (p.count || 0), 0
-      ) || 0;
+          // ── Fire deal intelligence to HubSpot silently ────────────────
+          if (topInsight) {
+            const { syncDealIntelligenceToHubSpot, isHubSpotConnected } = await import('@/lib/integrations/hubspotSync');
+            const hubspotConnected = await isHubSpotConnected(document.userId).catch(() => false);
 
-      const lastSignal = topInsight.reReadPages?.length > 0
-        ? `Page ${topInsight.reReadPages[0].page} re-read ${topInsight.reReadPages[0].count} times`
-        : topInsight.videoReplays?.length > 0
-        ? `Video on page ${topInsight.videoReplays[0].page} replayed`
-        : 'Engaged viewer detected';
+            if (hubspotConnected && topInsight.viewerEmail && !topInsight.viewerEmail.startsWith('Anonymous')) {
+              const reReadCount = topInsight.reReadPages?.reduce(
+                (sum: number, p: any) => sum + (p.count || 0), 0
+              ) || 0;
 
-      const momentumScore = Math.min(100,
-        (reReadCount * 15) +
-        (topInsight.videoReplays?.length > 0 ? 20 : 0) +
-        (topInsight.totalTimeSeconds > 300 ? 30 : topInsight.totalTimeSeconds > 120 ? 15 : 5)
-      );
+              const lastSignal = topInsight.reReadPages?.length > 0
+                ? `Page ${topInsight.reReadPages[0].page} re-read ${topInsight.reReadPages[0].count} times`
+                : topInsight.videoReplays?.length > 0
+                  ? `Video on page ${topInsight.videoReplays[0].page} replayed`
+                  : 'Engaged viewer detected';
 
-      const engagementState = momentumScore >= 65 ? 'accelerating'
-        : momentumScore >= 35 ? 'holding'
-        : momentumScore >= 15 ? 'fading'
-        : 'stalled';
+              const momentumScore = Math.min(100,
+                (reReadCount * 15) +
+                (topInsight.videoReplays?.length > 0 ? 20 : 0) +
+                (topInsight.totalTimeSeconds > 300 ? 30 : topInsight.totalTimeSeconds > 120 ? 15 : 5)
+              );
 
-      syncDealIntelligenceToHubSpot({
-        userId: document.userId,
-        viewerEmail: topInsight.viewerEmail,
-        documentName: document.originalFilename || 'Document',
-        documentId: document._id.toString(),
-        momentumScore,
-        engagementState,
-        lastSignal,
-        recommendedAction: topInsight.narrative || 'Follow up based on engagement signals.',
-        internalSharing: false,
-        daysSinceLastActivity: 0,
-        reReadCount,
-        isSpace: false,
-      }).catch(() => {});
-    }
-  }
+              const engagementState = momentumScore >= 65 ? 'accelerating'
+                : momentumScore >= 35 ? 'holding'
+                  : momentumScore >= 15 ? 'fading'
+                    : 'stalled';
 
-  // Return ALL viewer insights so frontend can show each one
-  return {
-    viewers: allViewerInsights,
-    
-    // Keep top-level fields for backward compat with single-viewer display
-    ...topInsight,
-  };
-})(),
+              syncDealIntelligenceToHubSpot({
+                userId: document.userId,
+                viewerEmail: topInsight.viewerEmail,
+                documentName: document.originalFilename || 'Document',
+                documentId: document._id.toString(),
+                momentumScore,
+                engagementState,
+                lastSignal,
+                recommendedAction: topInsight.narrative || 'Follow up based on engagement signals.',
+                internalSharing: false,
+                daysSinceLastActivity: 0,
+                reReadCount,
+                isSpace: false,
+              }).catch(() => { });
+            }
+          }
+
+          // Return ALL viewer insights so frontend can show each one
+          return {
+            viewers: allViewerInsights,
+
+            // Keep top-level fields for backward compat with single-viewer display
+            ...topInsight,
+          };
+        })(),
         ndaAcceptances, videoStats, viewerVideoStats,
         clarityByPage, dealIntentResponses, intentSummary, heatmapByPage,
         contentQuality: {
@@ -1500,7 +1554,7 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
             ),
         })),
 
-               committeeGrowing: committeeGrowingFinal,
+        committeeGrowing: committeeGrowingFinal,
         committeeSize: committeeSizeFinal,
         committeeConfidence,
         prospectDomain,
@@ -1509,6 +1563,7 @@ const anonKey = `Anonymous (${viewerId.substring(0, 8)}) · ${sessionLabel}`;
         weekOverWeek,
         reawakening,
         newViewerSignal,
+        activeDriver,
         secondaryViewerEngagement,
         hasHighQualitySecondaryViewer,
         disappearingViewer,
@@ -1620,7 +1675,7 @@ export async function POST(
       { _id: new ObjectId(id) },
       { $set: { tracking } }
     );
-    
+
 
     // Detailed log — now includes email and scrollDepth
     if (['view', 'page_view'].includes(action)) {

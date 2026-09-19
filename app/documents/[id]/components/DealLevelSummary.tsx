@@ -63,6 +63,12 @@ newViewerSignal?: {
   daysBetweenVisits: number | null;
 } | null;
 recommendationNote?: string | null;
+activeDriver?: {
+  email: string;
+  narrative: string;
+  totalTimeSeconds: number;
+  daysSinceLastActivity: number;
+} | null;
 };
 
 type EvidenceItem = {
@@ -136,12 +142,14 @@ function computeDealPulse(props: DealLevelSummaryProps): DealPulse {
     reawakening,
     newViewerSignal,
 recommendationNote,
+activeDriver,
   } = props;
 
   // ── Velocity note — only meaningful when there's a committee to describe ──
   const velocityNote = committeeSharingVelocity?.narrative
     ? ` ${committeeSharingVelocity.narrative}`
     : '';
+    const activeDriverNote = activeDriver?.narrative ? ` ${activeDriver.narrative}` : '';
 
   // Build the disappearing-viewer sentence once, used wherever it
   // applies below — only meaningful when committeeGrowing is true,
@@ -390,6 +398,7 @@ whatHappened:
     ? ` Their email addresses don't share a company domain, so this may be a personal email being used for business, or the document being shared outside the original company.`
     : '') +
     velocityNote +
+    activeDriverNote +
   deepReaderDetail +
   noiseNote +
   disappearingNote +

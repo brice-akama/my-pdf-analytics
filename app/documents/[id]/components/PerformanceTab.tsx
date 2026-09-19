@@ -390,6 +390,7 @@ export default function PerformanceTab({
 reawakening={analytics.reawakening}
 newViewerSignal={analytics.newViewerSignal}     
 recommendationNote={analytics.recommendationNote} 
+activeDriver={analytics.activeDriver}
     daysSinceLastActivity={(() => {
       if (!analytics.lastViewed) return 0;
       return Math.floor(
