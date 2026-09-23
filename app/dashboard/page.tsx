@@ -135,6 +135,7 @@ import UploadAgreementSheet from "@/components/drawers/UploadAgreementSheet"
 import CreateFileRequestSheet from "@/components/drawers/CreateFileRequestSheet"
 import TeamsChannelSheet from "@/components/drawers/TeamsChannelSheet"
 import TrialBanner from "@/components/dashboard/TrialBanner"
+import { uploadDocument } from "@/lib/uploadDirect"
 
 type UserType = {
   email: string
@@ -2694,6 +2695,35 @@ const handleDrop = (e: React.DragEvent) => {
   }
 }
 
+// Files over 4MB can't go through a Vercel function (~4.5MB body limit),
+// so they use the direct-to-Cloudinary flow. Smaller files use your existing route unchanged.
+const LARGE_FILE_THRESHOLD = 4 * 1024 * 1024
+
+const uploadOneFile = async (
+  file: File,
+  onProgress?: (pct: number) => void
+): Promise<{ ok: boolean; data: any }> => {
+  if (file.size > LARGE_FILE_THRESHOLD) {
+    try {
+      const data = await uploadDocument(file, onProgress)
+      return { ok: true, data }
+    } catch (err: any) {
+      return { ok: false, data: { error: err?.message || 'Upload failed' } }
+    }
+  }
+
+  // Small files: exactly the same request as before
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData,
+    credentials: 'include',
+  })
+  const data = await res.json()
+  return { ok: !!(res.ok && data.success), data }
+}
+
 const handleMultipleFileUpload = async (files: File[]) => {
   // Filter only PDFs
   const pdfFiles = files.filter(f => f.type === 'application/pdf')
@@ -2714,17 +2744,11 @@ const handleMultipleFileUpload = async (files: File[]) => {
     setUploadStatus('uploading')
     setUploadMessage(`Uploading ${file.name}...`)
 
-    const formData = new FormData()
-    formData.append('file', file)
-
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      })
-      const data = await res.json()
-      if (res.ok && data.success) {
+       try {
+      const { ok, data } = await uploadOneFile(file, (pct) =>
+        setUploadMessage(`Uploading ${file.name}... ${pct}%`)
+      )
+      if (ok) {
         setUploadStatus('success')
         setUploadMessage(`Successfully uploaded ${file.name}`)
         router.push(`/documents/${data.documentId}`)
@@ -2754,17 +2778,11 @@ const handleMultipleFileUpload = async (files: File[]) => {
     const file = pdfFiles[i]
     setUploadMessage(`Uploading ${i + 1} of ${pdfFiles.length} — ${file.name}`)
 
-    const formData = new FormData()
-    formData.append('file', file)
-
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      })
-      const data = await res.json()
-      if (res.ok && data.success) {
+        try {
+      const { ok, data } = await uploadOneFile(file, (pct) =>
+        setUploadMessage(`Uploading ${i + 1} of ${pdfFiles.length} — ${file.name} (${pct}%)`)
+      )
+      if (ok) {
         successCount++
       } else {
         failCount++
