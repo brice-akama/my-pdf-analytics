@@ -91,6 +91,7 @@ import PageInfoTooltip from "@/components/PageInfoTooltip"
 import { DiligenceTab } from "./components/DiligenceTab"
 import { RequestFilesDrawer } from "@/components/RequestFilesDrawer"
 import { PdfViewerDrawer } from "@/components/PdfViewerDrawer"
+import { uploadDocument } from "@/lib/uploadDirect"
 
 // Role Badge Component
 const RoleBadge = ({ role }: { role: string }) => {
@@ -1127,6 +1128,21 @@ const openPdfDrawer = (doc: DocumentType) => {
   setShowPdfDrawer(true)
 }
 
+// Files over 4MB can't go through a Vercel function (~4.5MB body limit),
+// so they use the direct-to-Cloudinary flow. Smaller files use the existing route unchanged.
+const LARGE_FILE_THRESHOLD = 4 * 1024 * 1024
+const MAX_FILE_BYTES = 10 * 1024 * 1024 // per-file limit on the current Cloudinary plan
+
+const tooLargeMessage = (file: File) =>
+  `${file.name} is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Files over 10 MB aren't supported yet. Please compress it and try again.`
+
+const uploadLargeToSpace = (file: File, onProgress?: (pct: number) => void) =>
+  uploadDocument(file, onProgress, {
+    completeUrl: `/api/spaces/${params.id}/upload/complete`,
+    extraBody: { folderId: selectedFolder || null },
+    forSpace: true,
+  })
+
 
 const handleMultipleUpload = async (files: File[]) => {
   // Single file — use existing flow with status messages
@@ -1147,6 +1163,29 @@ const handleMultipleUpload = async (files: File[]) => {
     setUploadProgress(prev => prev.map((p, idx) =>
       idx === i ? { ...p, status: 'uploading' } : p
     ))
+
+        if (file.size > MAX_FILE_BYTES) {
+      allOk = false
+      setUploadProgress(prev => prev.map((p, idx) =>
+        idx === i ? { ...p, status: 'error', message: tooLargeMessage(file) } : p
+      ))
+      continue
+    }
+
+    if (file.size > LARGE_FILE_THRESHOLD) {
+      try {
+        await uploadLargeToSpace(file)
+        setUploadProgress(prev => prev.map((p, idx) =>
+          idx === i ? { ...p, status: 'done' } : p
+        ))
+      } catch (err: any) {
+        allOk = false
+        setUploadProgress(prev => prev.map((p, idx) =>
+          idx === i ? { ...p, status: 'error', message: err?.message || 'Failed' } : p
+        ))
+      }
+      continue
+    }
 
     const formData = new FormData()
     formData.append('file', file)
@@ -1515,6 +1554,34 @@ const handleFileUpload = async (file: File, isNDADocument = false) => {
 
   setUploadStatus('uploading')
   setUploadMessage(`Uploading ${file.name}...`)
+
+    if (file.size > MAX_FILE_BYTES) {
+    setUploadStatus('error')
+    setUploadMessage(tooLargeMessage(file))
+    setTimeout(() => setUploadStatus('idle'), 4000)
+    return
+  }
+
+  if (file.size > LARGE_FILE_THRESHOLD) {
+    try {
+      await uploadLargeToSpace(file, (pct) =>
+        setUploadMessage(`Uploading ${file.name}... ${pct}%`)
+      )
+      setUploadStatus('success')
+      setUploadMessage(`${file.name} uploaded successfully!`)
+      fetchSpace()
+      setTimeout(() => {
+        setUploadStatus('idle')
+        setUploadMessage('')
+        setShowUploadDialog(false)
+      }, 2000)
+    } catch (err: any) {
+      setUploadStatus('error')
+      setUploadMessage(err?.message || 'Upload failed. Please try again.')
+      setTimeout(() => setUploadStatus('idle'), 4000)
+    }
+    return
+  }
 
   const formData = new FormData()
   formData.append('file', file)

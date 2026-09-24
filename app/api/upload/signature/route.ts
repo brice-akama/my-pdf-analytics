@@ -41,10 +41,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-    const { filename, mimeType, fileSize } = body as {
+       const { filename, mimeType, fileSize, forSpace } = body as {
       filename: string
       mimeType: string
       fileSize: number
+      forSpace?: boolean
     }
 
     // ── Step 3: Validate file type ────────────────────────────────────────
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 6: Enforce document count limit ───────────────────────────────
-    if (limits.maxDocuments !== -1) {
+        if (limits.maxDocuments !== -1 && !forSpace) {
       const db = await dbPromise
       const existingCount = await db.collection('documents').countDocuments({
         userId: user._id.toString(),

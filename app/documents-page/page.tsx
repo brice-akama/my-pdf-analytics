@@ -318,11 +318,23 @@ export default function DocumentsPage() {
   // Files over 4MB can't go through a Vercel function (~4.5MB body limit),
 // so they use the direct-to-Cloudinary flow. Smaller files use the existing route unchanged.
 const LARGE_FILE_THRESHOLD = 4 * 1024 * 1024
+const MAX_FILE_BYTES = 10 * 1024 * 1024 // storage limit on the current Cloudinary plan
 
 const uploadOneFile = async (
   file: File,
   onProgress?: (pct: number) => void
 ): Promise<{ ok: boolean; data: any }> => {
+
+    if (file.size > MAX_FILE_BYTES) {
+    const mb = (file.size / (1024 * 1024)).toFixed(1)
+    return {
+      ok: false,
+      data: {
+        error: `This file is ${mb} MB. Files over 10 MB aren't supported yet. Please compress it and try again.`,
+      },
+    }
+  }
+  
   if (file.size > LARGE_FILE_THRESHOLD) {
     try {
       const data = await uploadDocument(file, onProgress)

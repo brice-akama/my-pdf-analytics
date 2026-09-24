@@ -1,34 +1,45 @@
 // FILE: lib/uploadDirect.ts
 //
 // Client-side (browser) helper for the 3-step direct upload flow:
-//   1. POST /api/upload/signature   → get signed Cloudinary params
-//   2. XHR POST straight to Cloudinary → upload the real file bytes.
-//      This step never touches our Vercel functions, so file size is only
-//      limited by Cloudinary's own ceiling, not Vercel's ~4.5MB body cap.
-//   3. POST /api/upload/complete    → hand off the resulting URL so the
+//   1. POST /api/upload/signature   -> get signed Cloudinary params
+//   2. XHR POST straight to Cloudinary -> upload the real file bytes
+//      (never touches our Vercel functions, so Vercel's ~4.5MB body cap
+//      does not apply)
+//   3. POST <completeUrl>           -> hand off the resulting URL so the
 //      server can download, convert, extract and save it.
 //
-// Usage (in a 'use client' component):
+// By default step 3 goes to /api/upload/complete (normal documents).
+// For Spaces, pass completeUrl = `/api/spaces/${id}/upload/complete`.
 //
-//   import { uploadDocument, UploadError } from '@/lib/uploadDirect'
+// Usage:
+//   const result = await uploadDocument(file, (pct) => setProgress(pct))
 //
-//   try {
-//     const result = await uploadDocument(file, (pct) => setProgress(pct))
-//   } catch (err) {
-//     if (err instanceof UploadError && err.code === 'FILE_TOO_LARGE') { ... }
-//   }
+//   // Spaces:
+//   const result = await uploadDocument(file, onProgress, {
+//     completeUrl: `/api/spaces/${spaceId}/upload/complete`,
+//     extraBody: { folderId },
+//     forSpace: true,
+//   })
 
 export interface UploadProgressCallback {
   (percent: number): void
+}
+
+export interface UploadOptions {
+  // Where to send the "file is on Cloudinary, please process it" request
+  completeUrl?: string
+  // Extra JSON fields for the complete route (e.g. { folderId })
+  extraBody?: Record<string, any>
+  // Space uploads are not counted against the document-count limit
+  // (same as the old space upload route)
+  forSpace?: boolean
 }
 
 export interface UploadResult {
   success: boolean
   documentId: string
   filename: string
-  format: string
   numPages: number
-  wordCount: number
   size: number
   cloudinaryOriginalUrl: string
   cloudinaryPdfUrl: string
@@ -56,7 +67,13 @@ interface SignaturePayload {
   fileType: string
 }
 
-async function getSignature(file: File): Promise<SignaturePayload> {
+interface CloudinaryResult {
+  secure_url: string
+  public_id: string
+  resource_type: string
+}
+
+async function getSignature(file: File, forSpace = false): Promise<SignaturePayload> {
   const res = await fetch('/api/upload/signature', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -64,6 +81,7 @@ async function getSignature(file: File): Promise<SignaturePayload> {
       filename: file.name,
       mimeType: file.type,
       fileSize: file.size,
+      forSpace,
     }),
   })
 
@@ -75,12 +93,12 @@ async function getSignature(file: File): Promise<SignaturePayload> {
 }
 
 // Uploads directly to Cloudinary using XHR (not fetch) so we get real
-// upload progress events — fetch has no progress API for request bodies.
+// upload progress events.
 function uploadToCloudinaryDirect(
   file: File,
   sig: SignaturePayload,
   onProgress?: UploadProgressCallback
-): Promise<{ secure_url: string; public_id: string; resource_type: string }> {
+): Promise<CloudinaryResult> {
   return new Promise((resolve, reject) => {
     const formData = new FormData()
     formData.append('file', file)
@@ -104,15 +122,15 @@ function uploadToCloudinaryDirect(
         try {
           const result = JSON.parse(xhr.responseText)
           resolve({
-  secure_url: result.secure_url,
-  public_id: result.public_id,
-  resource_type: result.resource_type,
-})
+            secure_url: result.secure_url,
+            public_id: result.public_id,
+            resource_type: result.resource_type,
+          })
         } catch {
           reject(new UploadError('Cloudinary returned an unreadable response'))
         }
       } else {
-                let msg = `Upload to storage failed (${xhr.status})`
+        let msg = `Upload to storage failed (${xhr.status})`
         try {
           msg = JSON.parse(xhr.responseText)?.error?.message || msg
         } catch {}
@@ -128,17 +146,20 @@ function uploadToCloudinaryDirect(
 
 async function completeUpload(
   file: File,
-  cloudinaryResult: { secure_url: string; public_id: string; resource_type: string }
+  cloudinaryResult: CloudinaryResult,
+  options: UploadOptions
 ): Promise<UploadResult> {
-  const res = await fetch('/api/upload/complete', {
+  const res = await fetch(options.completeUrl || '/api/upload/complete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      // extra fields first, so they can never override the standard ones below
+      ...(options.extraBody || {}),
       originalUrl: cloudinaryResult.secure_url,
       publicId: cloudinaryResult.public_id,
       filename: file.name,
       mimeType: file.type,
-       resourceType: cloudinaryResult.resource_type,
+      resourceType: cloudinaryResult.resource_type,
     }),
   })
 
@@ -151,9 +172,10 @@ async function completeUpload(
 
 export async function uploadDocument(
   file: File,
-  onProgress?: UploadProgressCallback
+  onProgress?: UploadProgressCallback,
+  options: UploadOptions = {}
 ): Promise<UploadResult> {
-  const sig = await getSignature(file)
+  const sig = await getSignature(file, !!options.forSpace)
   const cloudinaryResult = await uploadToCloudinaryDirect(file, sig, onProgress)
-  return completeUpload(file, cloudinaryResult)
+  return completeUpload(file, cloudinaryResult, options)
 }
