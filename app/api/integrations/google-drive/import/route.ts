@@ -5,11 +5,14 @@ import { extractTextFromPdf, extractMetadata, analyzeDocument } from "@/lib/docu
 import cloudinary from "cloudinary";
 import streamifier from "streamifier";
 import { checkAccess } from "@/lib/checkAccess";
+import { MAX_STORAGE_FILE_BYTES, tooLargeForStorage } from "@/lib/uploadConstants";
 import {
   isFileSizeAllowed,
   isStorageAvailable,
   hasFeature,
 } from "@/lib/planLimits";
+
+export const maxDuration = 300;
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_NAME,
@@ -165,6 +168,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+        // Reject over-limit files BEFORE reading the whole body into memory
+    const declaredLength = Number(fileResponse.headers.get("content-length") || 0);
+    if (declaredLength > MAX_STORAGE_FILE_BYTES) {
+      return NextResponse.json(tooLargeForStorage(declaredLength), { status: 413 });
+    }
+
     const buffer = Buffer.from(await fileResponse.arrayBuffer());
     console.log(`✅ [GDRIVE IMPORT] Downloaded ${buffer.length} bytes`);
 
@@ -218,6 +227,11 @@ export async function POST(request: NextRequest) {
         },
         { status: 413 }
       );
+    }
+
+        // ── Per-file limit of the current Cloudinary plan (checked on the real size) ──
+    if (buffer.length > MAX_STORAGE_FILE_BYTES) {
+      return NextResponse.json(tooLargeForStorage(buffer.length), { status: 413 });
     }
 
     // ── Step 8: Enforce total storage limit ───────────────────────────────

@@ -25,6 +25,7 @@ import {
 } from '@/lib/document-processor'
 import { preExtractAllPages } from '@/lib/preExtractPages'
 import { checkAccess } from '@/lib/checkAccess'
+import { ObjectId } from 'mongodb'
 import { isStorageAvailable, isFileSizeAllowed } from '@/lib/planLimits'
 import { SUPPORTED_FORMATS } from '@/lib/uploadConstants'
  
@@ -166,12 +167,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-   const { originalUrl, publicId, filename, mimeType, resourceType } = body as {
+   const { originalUrl, publicId, filename, mimeType, resourceType, documentId } = body as {
   originalUrl: string
   publicId: string
   filename: string
   mimeType: string
   resourceType?: string
+  documentId?: string
 }
 
 // Security: only accept files inside THIS user's folder on OUR Cloudinary account
@@ -304,12 +306,34 @@ cleanupResourceType = resourceType === 'raw' ? 'raw' : 'image'
     }
 
     // ── STEP 6: Check existing doc + DB write ──────────────────────────────
-    const existingDoc = await db.collection('documents').findOne({
-      originalFilename: filename,
-      userId: user._id.toString(),
-      organizationId,
-      archived: { $ne: true },
-    })
+       // If the browser says WHICH document this is a new version of, use that.
+    // Otherwise fall back to matching by file name (the old behaviour).
+    let existingDoc: any
+    if (documentId) {
+      let docObjectId: ObjectId | null = null
+      try { docObjectId = new ObjectId(documentId) } catch {}
+      existingDoc = docObjectId
+        ? await db.collection('documents').findOne({
+            _id: docObjectId,
+            userId: user._id.toString(),
+            archived: { $ne: true },
+          })
+        : null
+      if (!existingDoc) {
+        await destroyAsset(publicId, cleanupResourceType)
+        return NextResponse.json(
+          { error: 'Document not found', code: 'DOCUMENT_NOT_FOUND' },
+          { status: 404 }
+        )
+      }
+    } else {
+      existingDoc = await db.collection('documents').findOne({
+        originalFilename: filename,
+        userId: user._id.toString(),
+        organizationId,
+        archived: { $ne: true },
+      })
+    }
 
     if (existingDoc) {
       console.log('📦 Existing document found - creating new version')

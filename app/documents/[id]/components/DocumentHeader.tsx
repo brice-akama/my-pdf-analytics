@@ -13,6 +13,8 @@ import {
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { uploadDocument } from "@/lib/uploadDirect";
+import { MAX_STORAGE_FILE_BYTES } from "@/lib/uploadConstants";
 
 type DocumentType = {
   _id: string;
@@ -205,18 +207,34 @@ export default function DocumentHeader({
               id="upload-new-version-input"
               accept=".pdf"
               className="hidden"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
+                           onChange={async (e) => {
+                const input = e.target;
+                const file = input.files?.[0];
                 if (!file) return;
+
+                if (file.size > MAX_STORAGE_FILE_BYTES) {
+                  toast.error(
+                    `This file is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Files over 10 MB aren't supported yet. Please compress it and try again.`
+                  );
+                  input.value = "";
+                  return;
+                }
+
                 const renamedFile = new File([file], doc.filename, { type: file.type });
-                const formData = new FormData();
-                formData.append("file", renamedFile);
+                const toastId = toast.loading("Uploading new version...");
                 try {
-                  const res = await fetch("/api/upload", { method: "POST", credentials: "include", body: formData });
-                  if (res.ok) { toast.success("New version uploaded!"); onRefreshDocument(); }
-                  else toast.error("Failed to upload version");
-                } catch { toast.error("Upload failed"); }
-                e.target.value = "";
+                  // Tell the server exactly WHICH document this is a new version of
+                  await uploadDocument(
+                    renamedFile,
+                    (pct) => toast.loading(`Uploading new version... ${pct}%`, { id: toastId }),
+                    { extraBody: { documentId: doc._id } }
+                  );
+                  toast.success("New version uploaded!", { id: toastId });
+                  onRefreshDocument();
+                } catch (err: any) {
+                  toast.error(err?.message || "Upload failed", { id: toastId });
+                }
+                input.value = "";
               }}
             />
 

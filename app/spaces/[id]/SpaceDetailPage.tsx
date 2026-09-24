@@ -1051,6 +1051,7 @@ const handleImportMultipleDriveFiles = async () => {
         successCount++
       } else {
         failCount++
+        toast.error(`${file.name} not imported`, { description: importData.error })
       }
     } catch {
       failCount++

@@ -1096,7 +1096,8 @@ const handleImportMultipleOneDriveFiles = async () => {
         successCount++
       } else {
         failCount++
-        console.error(`Failed to import ${file.name}:`, data.error)
+               console.error(`Failed to import ${file.name}:`, data.error)
+        toast.error(`${file.name} not imported`, { description: data.error })
       }
     } catch {
       failCount++
@@ -2713,7 +2714,7 @@ const uploadOneFile = async (
       },
     }
   }
-  
+
   if (file.size > LARGE_FILE_THRESHOLD) {
     try {
       const data = await uploadDocument(file, onProgress)

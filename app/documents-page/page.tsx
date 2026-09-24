@@ -334,7 +334,7 @@ const uploadOneFile = async (
       },
     }
   }
-  
+
   if (file.size > LARGE_FILE_THRESHOLD) {
     try {
       const data = await uploadDocument(file, onProgress)
@@ -586,7 +586,12 @@ const uploadOneFile = async (
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fileId: file.id, fileName: file.name })
         })
-        if (res.ok) successCount++
+               if (res.ok) {
+          successCount++
+        } else {
+          const errData = await res.json().catch(() => ({}))
+          toast.error(`${file.name} not imported`, { description: errData.error })
+        }
       } catch { /* continue */ }
     }
     setImportingFiles(false)
@@ -610,7 +615,12 @@ const uploadOneFile = async (
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fileId: file.id, fileName: file.name })
         })
-        if (res.ok) successCount++
+                if (res.ok) {
+          successCount++
+        } else {
+          const errData = await res.json().catch(() => ({}))
+          toast.error(`${file.name} not imported`, { description: errData.error })
+        }
       } catch { /* continue */ }
     }
     setImportingFiles(false)

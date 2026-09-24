@@ -21,3 +21,17 @@ export const SUPPORTED_FORMATS = {
 } as const
 
 export type SupportedMimeType = keyof typeof SUPPORTED_FORMATS
+
+
+// Per-file limit of the CURRENT Cloudinary plan (free plan = 10,485,760 bytes).
+// Change this ONE number when you move to bigger storage.
+export const MAX_STORAGE_FILE_BYTES = 10 * 1024 * 1024
+
+export function tooLargeForStorage(bytes: number) {
+  const mb = (bytes / (1024 * 1024)).toFixed(1)
+  return {
+    error: `This file is ${mb} MB. Files over 10 MB aren't supported yet. Please compress it and try again.`,
+    code: 'FILE_TOO_LARGE',
+    limitBytes: MAX_STORAGE_FILE_BYTES,
+  }
+}
