@@ -144,12 +144,7 @@ async function completeUpload(
 
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-        throw new UploadError(
-      (data.error || 'Could not finish processing the document') +
-        (data.details ? ` (${data.details})` : ''),
-      data.code,
-      res.status
-    )
+    throw new UploadError(data.error || 'Could not finish processing the document', data.code, res.status)
   }
   return data as UploadResult
 }

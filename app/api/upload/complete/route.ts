@@ -112,13 +112,28 @@ function generateSummary(text: string) {
 // Downloads the original file back from Cloudinary so it can be converted.
 // This is a server → Cloudinary outbound request, not subject to the
 // Vercel inbound body-size limit that caused the original 29MB/57MB failures.
-async function downloadOriginal(url: string): Promise<Buffer> {
-  const res = await fetch(url)
+async function downloadOriginal(
+  url: string,
+  publicId: string,
+  resourceType: string,
+  fileType: string
+): Promise<Buffer> {
+  let res: Response
+  if (fileType === 'pdf') {
+    // Authenticated download through Cloudinary's API instead of the public URL
+    const signedUrl = cloudinary.v2.utils.private_download_url(publicId, 'pdf', {
+      resource_type: resourceType === 'raw' ? 'raw' : 'image',
+      type: 'upload',
+      expires_at: Math.floor(Date.now() / 1000) + 300,
+    })
+    res = await fetch(signedUrl)
+  } else {
+    res = await fetch(url)
+  }
   if (!res.ok) {
     throw new Error(`Failed to download original file from storage (${res.status})`)
   }
-  const arrayBuffer = await res.arrayBuffer()
-  return Buffer.from(arrayBuffer)
+  return Buffer.from(await res.arrayBuffer())
 }
 
 const destroyAsset = (id: string, type: string) =>
@@ -183,7 +198,7 @@ cleanupResourceType = resourceType === 'raw' ? 'raw' : 'image'
     // /api/upload/signature only checked the size the CLIENT CLAIMED.
     // Now that the file actually exists, verify against the real byte
     // count before doing any paid work (conversion, DB writes, storage).
-    const buffer = await downloadOriginal(originalUrl)
+    const buffer = await downloadOriginal(originalUrl, publicId, cleanupResourceType, fileType)
 
     if (!isFileSizeAllowed(plan, buffer.length)) {
     await destroyAsset(publicId, cleanupResourceType)
