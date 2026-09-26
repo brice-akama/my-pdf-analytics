@@ -1145,6 +1145,15 @@ const uploadLargeToSpace = (file: File, onProgress?: (pct: number) => void) =>
   })
 
 
+  const uploadHugeToSpace = async (file: File, onProgress?: (pct: number) => void) => {
+  const { uploadLargeDocument } = await import('@/lib/uploadLarge')
+  return uploadLargeDocument(file, onProgress, {
+    spaceId: params.id as string,
+    folderId: selectedFolder || null,
+  })
+}
+
+
 const handleMultipleUpload = async (files: File[]) => {
   // Single file — use existing flow with status messages
   if (files.length === 1) {
@@ -1161,15 +1170,22 @@ const handleMultipleUpload = async (files: File[]) => {
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
 
-    setUploadProgress(prev => prev.map((p, idx) =>
+       setUploadProgress(prev => prev.map((p, idx) =>
       idx === i ? { ...p, status: 'uploading' } : p
     ))
 
-        if (file.size > MAX_FILE_BYTES) {
-      allOk = false
-      setUploadProgress(prev => prev.map((p, idx) =>
-        idx === i ? { ...p, status: 'error', message: tooLargeMessage(file) } : p
-      ))
+    if (file.size > MAX_FILE_BYTES) {
+      try {
+        await uploadHugeToSpace(file)
+        setUploadProgress(prev => prev.map((p, idx) =>
+          idx === i ? { ...p, status: 'done' } : p
+        ))
+      } catch (err: any) {
+        allOk = false
+        setUploadProgress(prev => prev.map((p, idx) =>
+          idx === i ? { ...p, status: 'error', message: err?.message || tooLargeMessage(file) } : p
+        ))
+      }
       continue
     }
 
@@ -1553,13 +1569,25 @@ const handleAddDomain = () => {
 const handleFileUpload = async (file: File, isNDADocument = false) => {
   if (!file) return
 
-  setUploadStatus('uploading')
+    setUploadStatus('uploading')
   setUploadMessage(`Uploading ${file.name}...`)
 
-    if (file.size > MAX_FILE_BYTES) {
-    setUploadStatus('error')
-    setUploadMessage(tooLargeMessage(file))
-    setTimeout(() => setUploadStatus('idle'), 4000)
+  if (file.size > MAX_FILE_BYTES) {
+    try {
+      await uploadHugeToSpace(file, (pct) => setUploadMessage(`Uploading ${file.name}... ${pct}%`))
+      setUploadStatus('success')
+      setUploadMessage(`${file.name} uploaded successfully!`)
+      fetchSpace()
+      setTimeout(() => {
+        setUploadStatus('idle')
+        setUploadMessage('')
+        setShowUploadDialog(false)
+      }, 2000)
+    } catch (err: any) {
+      setUploadStatus('error')
+      setUploadMessage(err?.message || tooLargeMessage(file))
+      setTimeout(() => setUploadStatus('idle'), 4000)
+    }
     return
   }
 

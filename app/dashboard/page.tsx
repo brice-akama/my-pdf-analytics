@@ -2705,13 +2705,13 @@ const uploadOneFile = async (
   file: File,
   onProgress?: (pct: number) => void
 ): Promise<{ ok: boolean; data: any }> => {
-    if (file.size > MAX_FILE_BYTES) {
-    const mb = (file.size / (1024 * 1024)).toFixed(1)
-    return {
-      ok: false,
-      data: {
-        error: `This file is ${mb} MB. Files over 10 MB aren't supported yet. Please compress it and try again.`,
-      },
+     if (file.size > MAX_FILE_BYTES) {
+    const { uploadLargeDocument } = await import('@/lib/uploadLarge')
+    try {
+      const data = await uploadLargeDocument(file, onProgress)
+      return { ok: true, data }
+    } catch (err: any) {
+      return { ok: false, data: { error: err?.message || 'Upload failed' } }
     }
   }
 

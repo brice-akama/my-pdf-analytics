@@ -212,23 +212,23 @@ export default function DocumentHeader({
                 const file = input.files?.[0];
                 if (!file) return;
 
-                if (file.size > MAX_STORAGE_FILE_BYTES) {
-                  toast.error(
-                    `This file is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Files over 10 MB aren't supported yet. Please compress it and try again.`
-                  );
-                  input.value = "";
-                  return;
-                }
-
-                const renamedFile = new File([file], doc.filename, { type: file.type });
+                                const renamedFile = new File([file], doc.filename, { type: file.type });
                 const toastId = toast.loading("Uploading new version...");
                 try {
-                  // Tell the server exactly WHICH document this is a new version of
-                  await uploadDocument(
-                    renamedFile,
-                    (pct) => toast.loading(`Uploading new version... ${pct}%`, { id: toastId }),
-                    { extraBody: { documentId: doc._id } }
-                  );
+                  if (file.size > MAX_STORAGE_FILE_BYTES) {
+                    const { uploadLargeDocument } = await import("@/lib/uploadLarge");
+                    await uploadLargeDocument(
+                      renamedFile,
+                      (pct) => toast.loading(`Uploading new version... ${pct}%`, { id: toastId }),
+                      { documentId: doc._id }
+                    );
+                  } else {
+                    await uploadDocument(
+                      renamedFile,
+                      (pct) => toast.loading(`Uploading new version... ${pct}%`, { id: toastId }),
+                      { extraBody: { documentId: doc._id } }
+                    );
+                  }
                   toast.success("New version uploaded!", { id: toastId });
                   onRefreshDocument();
                 } catch (err: any) {
