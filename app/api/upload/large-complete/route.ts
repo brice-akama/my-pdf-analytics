@@ -136,17 +136,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
+        let storedUrl: string
+    let storedInR2 = false
+
     if (finalBuffer.length > CLOUDINARY_MAX_BYTES) {
-      return NextResponse.json(
-        {
-          error:
-            imagesProcessed === 0
-              ? "This file is over 10MB and doesn't have compressible photos we can shrink automatically (it's likely text or vector-heavy). Please compress it yourself and try again."
-              : `This file is still ${(finalBuffer.length / (1024 * 1024)).toFixed(1)}MB after compression. Please compress it further and try again.`,
-          code: 'FILE_TOO_LARGE_AFTER_COMPRESSION',
-        },
-        { status: 413 }
+      // Too big for Cloudinary even after compression — keep it in R2
+      // permanently instead of rejecting it. This is the same file that
+      // was already sitting in R2's scratch folder; we just stop deleting
+      // it and give it a permanent public URL.
+      const { PutObjectCommand } = await import('@aws-sdk/client-s3')
+      const permanentKey = `documents/${user._id.toString()}/${crypto.randomUUID()}.pdf`
+      await r2.send(
+        new PutObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: permanentKey,
+          Body: finalBuffer,
+          ContentType: 'application/pdf',
+        })
       )
+      storedUrl = `${process.env.R2_PUBLIC_URL}/${permanentKey}`
+      storedInR2 = true
+      // Don't delete this one at the end — it's the permanent copy now
+      r2Key = undefined
+    } else {
+      const cloudinaryFolder = `users/${user._id.toString()}/documents`
+      const cloudinaryPublicId =
+        filename.replace(/\.[^/.]+$/, '') + '_' + crypto.randomBytes(8).toString('hex')
+      storedUrl = await uploadToCloudinary(finalBuffer, cloudinaryPublicId, cloudinaryFolder)
     }
 
     // Re-check plan storage with the REAL (final) size
@@ -163,11 +179,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Upload the (now under-limit) PDF to Cloudinary
-    const cloudinaryFolder = `users/${user._id.toString()}/documents`
-    const cloudinaryPublicId =
-      filename.replace(/\.[^/.]+$/, '') + '_' + crypto.randomBytes(8).toString('hex')
-    const cloudinaryUrl = await uploadToCloudinary(finalBuffer, cloudinaryPublicId, cloudinaryFolder)
+    
 
     // Same document pipeline as the rest of your app
     let pageDimensions: { pageNumber: number; widthPt: number; heightPt: number }[] = []
@@ -230,9 +242,9 @@ export async function POST(request: NextRequest) {
       originalFormat: 'pdf',
       mimeType: 'application/pdf',
       size: finalBuffer.length,
-      pdfSize: finalBuffer.length,
-      cloudinaryOriginalUrl: cloudinaryUrl,
-      cloudinaryPdfUrl: cloudinaryUrl,
+            pdfSize: finalBuffer.length,
+      cloudinaryOriginalUrl: storedUrl,
+      cloudinaryPdfUrl: storedUrl,
       extractedText: extractedText.substring(0, 10000),
       numPages: metadata.pageCount,
       wordCount: metadata.wordCount,
@@ -282,9 +294,11 @@ export async function POST(request: NextRequest) {
       )
 
            runBackgroundAnalysis(existingDoc._id.toString(), extractedText, plan, db).catch(console.error)
-      preExtractAllPages(cloudinaryUrl, existingDoc._id.toString()).catch(err =>
-        console.error('Pre-extraction error:', err)
-      )
+      if (!storedInR2) {
+        preExtractAllPages(storedUrl, existingDoc._id.toString()).catch(err =>
+          console.error('Pre-extraction error:', err)
+        )
+      }
 
       if (spaceId) {
         const { ObjectId } = await import('mongodb')
@@ -369,10 +383,12 @@ export async function POST(request: NextRequest) {
       { $inc: { totalStorageUsedBytes: finalBuffer.length } }
     )
 
-        runBackgroundAnalysis(result.insertedId.toString(), extractedText, plan, db).catch(console.error)
-    preExtractAllPages(cloudinaryUrl, result.insertedId.toString()).catch(err =>
-      console.error('Pre-extraction error:', err)
-    )
+           runBackgroundAnalysis(result.insertedId.toString(), extractedText, plan, db).catch(console.error)
+    if (!storedInR2) {
+      preExtractAllPages(storedUrl, result.insertedId.toString()).catch(err =>
+        console.error('Pre-extraction error:', err)
+      )
+    }
 
     if (spaceId) {
       const { ObjectId } = await import('mongodb')
