@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../../../lib/mongodb';
 import cloudinary from 'cloudinary';
 import { PDFDocument, rgb, StandardFonts, RotationTypes } from 'pdf-lib';
+import { isR2Url, fetchR2Bytes } from '@/lib/documentSource';
 
 // Configure Cloudinary
 cloudinary.v2.config({
@@ -44,15 +45,18 @@ export async function POST(
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    // Fetch PDF from Cloudinary
-    const pdfResponse = await fetch(document.cloudinaryPdfUrl);
-    if (!pdfResponse.ok) {
-      return NextResponse.json({ error: 'Failed to fetch PDF' }, { status: 500 });
+        let pdfBytes: ArrayBuffer;
+    if (isR2Url(document.cloudinaryPdfUrl)) {
+      pdfBytes = await fetchR2Bytes(document.cloudinaryPdfUrl);
+    } else {
+      const pdfResponse = await fetch(document.cloudinaryPdfUrl);
+      if (!pdfResponse.ok) {
+        return NextResponse.json({ error: 'Failed to fetch PDF' }, { status: 500 });
+      }
+      pdfBytes = await pdfResponse.arrayBuffer();
     }
 
-    let pdfBytes = await pdfResponse.arrayBuffer();
-
-    // ⭐ Apply watermark if enabled
+    //  Apply watermark if enabled
     if (share.settings?.enableWatermark) {
       pdfBytes = await addWatermarkToPdf(
         pdfBytes,
@@ -148,6 +152,64 @@ export async function GET(
       return NextResponse.json({ 
         error: 'Printing is not allowed for this document' 
       }, { status: 403 });
+    }
+
+        // ── R2-hosted large PDFs: read straight from R2 (no Cloudinary) ──
+    if (isR2Url(document.cloudinaryPdfUrl)) {
+      try {
+        let r2Bytes = await fetchR2Bytes(document.cloudinaryPdfUrl);
+        const lastViewerEmail =
+          share.tracking?.viewerEmails?.[share.tracking.viewerEmails.length - 1] || null;
+
+        if (share.settings?.enableWatermark) {
+          r2Bytes = await addWatermarkToPdf(
+            r2Bytes,
+            lastViewerEmail || 'Confidential Document',
+            share.settings.watermarkPosition || 'bottom',
+            share.settings.watermarkText || null
+          );
+        }
+
+        await db.collection('shares').updateOne(
+          { _id: share._id },
+          {
+            $inc: { 'tracking.fileViews': 1 },
+            $set: { updatedAt: new Date(), 'tracking.lastViewedAt': new Date() },
+          }
+        ).catch(err => console.error('Failed to track file view:', err));
+
+        if (action === 'print') {
+          await db.collection('shares').updateOne(
+            { _id: share._id },
+            {
+              $inc: { 'tracking.prints': 1 },
+              $push: {
+                'tracking.printEvents': {
+                  timestamp: new Date(),
+                  allowed: true,
+                  viewerEmail: lastViewerEmail,
+                },
+              } as any,
+            }
+          ).catch(err => console.error('Failed to track print:', err));
+        }
+
+        return new NextResponse(r2Bytes, {
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `inline; filename="${document.originalFilename}"`,
+            'Content-Length': r2Bytes.byteLength.toString(),
+            'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+            'X-Content-Type-Options': 'nosniff',
+          },
+        });
+      } catch (error) {
+        console.error('❌ Failed to serve R2 file:', error);
+        return NextResponse.json({
+          error: 'Failed to serve file',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        }, { status: 500 });
+      }
     }
 
     try {

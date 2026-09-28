@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import cloudinary from 'cloudinary';
+import { isR2Url, fetchR2Bytes } from '@/lib/documentSource';
 
 // Configure Cloudinary
 cloudinary.v2.config({
@@ -85,6 +86,28 @@ export async function POST(
       userAgent: request.headers.get('user-agent'),
       ip,
     }).catch(err => console.error('Failed to log download:', err));
+
+        // ── R2-hosted large PDFs ─────────────────────────────────────
+    if (isR2Url(document.cloudinaryPdfUrl)) {
+      try {
+        const r2Bytes = await fetchR2Bytes(document.cloudinaryPdfUrl);
+        return new NextResponse(r2Bytes, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="${document.originalFilename}"`,
+            'Content-Length': r2Bytes.byteLength.toString(),
+            'Cache-Control': 'private, no-cache',
+          },
+        });
+      } catch (error) {
+        console.error('❌ R2 download error:', error);
+        return NextResponse.json({
+          error: 'Failed to download file',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        }, { status: 500 });
+      }
+    }
 
     try {
       // ✅ Extract public_id from Cloudinary URL

@@ -657,6 +657,7 @@ const ndaAcceptanceRecord = {
         filename: document.originalFilename,
         format: document.originalFormat,
         numPages: document.numPages,
+        pageDimensions: document.pageDimensions || [],
         pdfUrl,
         previewUrls: [],
       },

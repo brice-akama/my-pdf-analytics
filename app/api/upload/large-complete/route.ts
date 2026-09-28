@@ -12,13 +12,13 @@
 //      compress it themselves - same as before this feature existed
 //   5. always deletes the R2 scratch file when done, success or failure
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse , after } from 'next/server'
 import crypto from 'crypto'
 import streamifier from 'streamifier'
 import cloudinary from 'cloudinary'
 import { dbPromise } from '../../lib/mongodb'
 import { extractTextFromPdf, extractMetadata } from '@/lib/document-processor'
-import { preExtractAllPages } from '@/lib/preExtractPages'
+import { preExtractAllPages , preExtractAllPagesFromBuffer } from '@/lib/preExtractPages'
 import { checkAccess } from '@/lib/checkAccess'
 import { isStorageAvailable } from '@/lib/planLimits'
 import { r2, deleteR2Object } from '@/lib/r2Client'
@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
 
         let storedUrl: string
     let storedInR2 = false
+        let permanentKey: string | null = null
 
     if (finalBuffer.length > CLOUDINARY_MAX_BYTES) {
       // Too big for Cloudinary even after compression — keep it in R2
@@ -145,7 +146,7 @@ export async function POST(request: NextRequest) {
       // was already sitting in R2's scratch folder; we just stop deleting
       // it and give it a permanent public URL.
       const { PutObjectCommand } = await import('@aws-sdk/client-s3')
-      const permanentKey = `documents/${user._id.toString()}/${crypto.randomUUID()}.pdf`
+        permanentKey = `documents/${user._id.toString()}/${crypto.randomUUID()}.pdf`
       await r2.send(
         new PutObjectCommand({
           Bucket: process.env.R2_BUCKET_NAME,
@@ -168,6 +169,7 @@ export async function POST(request: NextRequest) {
     // Re-check plan storage with the REAL (final) size
     const storageUsedBytes: number = user.totalStorageUsedBytes ?? 0
     if (!isStorageAvailable(plan, storageUsedBytes, finalBuffer.length)) {
+              if (storedInR2 && permanentKey) await deleteR2Object(permanentKey)
       const usedMB = Math.round(storageUsedBytes / (1024 * 1024))
       const limitMB = Math.round(limits.storageLimitBytes / (1024 * 1024))
       return NextResponse.json(
@@ -253,6 +255,8 @@ export async function POST(request: NextRequest) {
       summary,
       scannedPdf,
       wasCompressed: original.length > CLOUDINARY_MAX_BYTES,
+            storage: storedInR2 ? 'r2' : 'cloudinary',
+      r2Key: storedInR2 ? permanentKey : null,
     }
 
     if (existingDoc) {
@@ -294,7 +298,12 @@ export async function POST(request: NextRequest) {
       )
 
            runBackgroundAnalysis(existingDoc._id.toString(), extractedText, plan, db).catch(console.error)
-      if (!storedInR2) {
+                  if (storedInR2) {
+        const pagesDocId = existingDoc._id.toString()
+        after(async () => {
+          await preExtractAllPagesFromBuffer(finalBuffer, pagesDocId)
+        })
+      } else {
         preExtractAllPages(storedUrl, existingDoc._id.toString()).catch(err =>
           console.error('Pre-extraction error:', err)
         )
@@ -384,7 +393,12 @@ export async function POST(request: NextRequest) {
     )
 
            runBackgroundAnalysis(result.insertedId.toString(), extractedText, plan, db).catch(console.error)
-    if (!storedInR2) {
+        if (storedInR2) {
+      const pagesDocId = result.insertedId.toString()
+      after(async () => {
+        await preExtractAllPagesFromBuffer(finalBuffer, pagesDocId)
+      })
+    } else {
       preExtractAllPages(storedUrl, result.insertedId.toString()).catch(err =>
         console.error('Pre-extraction error:', err)
       )
