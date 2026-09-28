@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../../../lib/mongodb';
 import cloudinary from 'cloudinary';
 import { PDFDocument, rgb, StandardFonts, RotationTypes } from 'pdf-lib';
-import { isR2Url, fetchR2Bytes } from '@/lib/documentSource';
+import { isR2Url, fetchR2Bytes, bytesToStream } from '@/lib/documentSource';
 
 // Configure Cloudinary
 cloudinary.v2.config({
@@ -194,11 +194,11 @@ export async function GET(
           ).catch(err => console.error('Failed to track print:', err));
         }
 
-        return new NextResponse(r2Bytes, {
+        new NextResponse(bytesToStream(r2Bytes), {
           headers: {
             'Content-Type': 'application/pdf',
             'Content-Disposition': `inline; filename="${document.originalFilename}"`,
-            'Content-Length': r2Bytes.byteLength.toString(),
+            
             'Cache-Control': 'private, no-cache, no-store, must-revalidate',
             'X-Content-Type-Options': 'nosniff',
           },

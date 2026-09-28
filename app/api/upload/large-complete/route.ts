@@ -122,6 +122,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid file reference' }, { status: 400 })
     }
 
+        // ── Space upload: same permission rules as /api/spaces/[id]/upload ──
+    if (spaceId) {
+      const { ObjectId } = await import('mongodb')
+      const spaceObjectId = ObjectId.isValid(spaceId) ? new ObjectId(spaceId) : null
+      const space = spaceObjectId
+        ? await db.collection('spaces').findOne({ _id: spaceObjectId })
+        : null
+      if (!space) {
+        return NextResponse.json({ error: 'Space not found' }, { status: 404 })
+      }
+
+      const uid = user._id.toString()
+      let canUploadToSpace = space.userId === uid
+      if (!canUploadToSpace) {
+        const member = space.members?.find(
+          (m: any) => m.email === user.email || m.userId === uid
+        )
+        canUploadToSpace = !!member && ['editor', 'admin', 'owner'].includes(member.role)
+      }
+      if (!canUploadToSpace) {
+        return NextResponse.json(
+          { error: 'You do not have permission to upload files to this space.' },
+          { status: 403 }
+        )
+      }
+
+      if (folderId) {
+        const folder = ObjectId.isValid(folderId)
+          ? await db.collection('space_folders').findOne({ _id: new ObjectId(folderId), spaceId })
+          : null
+        if (!folder) {
+          return NextResponse.json({ error: 'Folder not found in this space' }, { status: 404 })
+        }
+      }
+    }
+
     // Download the original from R2 and try to compress it
     const original = await downloadFromR2(r2Key)
 
@@ -231,7 +267,7 @@ export async function POST(request: NextRequest) {
       if (!existingDoc) {
         return NextResponse.json({ error: 'Document not found' }, { status: 404 })
       }
-    } else {
+       } else if (!spaceId) {
       existingDoc = await db.collection('documents').findOne({
         originalFilename: filename,
         userId: user._id.toString(),
@@ -358,7 +394,7 @@ export async function POST(request: NextRequest) {
       organizationId,
       version: 1,
       originalFilename: filename,
-      visibility: 'personal',
+            ...(spaceId ? {} : { visibility: 'personal' }),
       ...commonFields,
       analytics: pendingAnalytics,
       tracking: {
@@ -374,7 +410,8 @@ export async function POST(request: NextRequest) {
       sharedWith: [],
       shareLinks: [],
       tags: [],
-      folder: null,
+            folder: spaceId ? (folderId || null) : null,
+      ...(spaceId ? { belongsToSpace: true, spaceId } : {}),
       starred: false,
       archived: false,
       dealOutcome: null,

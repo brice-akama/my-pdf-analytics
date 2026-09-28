@@ -4,7 +4,7 @@ import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import cloudinary from 'cloudinary';
-import { isR2Url, fetchR2Bytes } from '@/lib/documentSource';
+import { isR2Url, fetchR2Bytes, bytesToStream } from '@/lib/documentSource';
 
 // Configure Cloudinary
 cloudinary.v2.config({
@@ -174,11 +174,11 @@ console.log('✅ Access granted:', {
       if (serve === 'blob') {
         try {
           const r2Bytes = await fetchR2Bytes(fileUrl);
-          return new NextResponse(r2Bytes, {
+          return new NextResponse(bytesToStream(r2Bytes), {
             headers: {
               'Content-Type': 'application/pdf',
               'Content-Disposition': `${action === 'download' ? 'attachment' : 'inline'}; filename="${filename}"`,
-              'Content-Length': r2Bytes.byteLength.toString(),
+              
               'Cache-Control': 'private, max-age=3600',
             },
           });

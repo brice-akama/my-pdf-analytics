@@ -5,6 +5,7 @@ import { verifyUserFromRequest } from '@/lib/auth';
 import { checkFolderAccess } from '@/lib/folderPermissions';
 import { ObjectId } from 'mongodb';
 import cloudinary from 'cloudinary';
+import { isR2Url, streamR2 } from '@/lib/documentSource';
 
 // Configure Cloudinary
 cloudinary.v2.config({
@@ -124,6 +125,38 @@ export async function GET(
     }
 
     console.log('✅ Document found:', document.originalFilename);
+
+        // ── R2-hosted large PDFs: stream straight from R2 ──
+    if (isR2Url(document.cloudinaryPdfUrl)) {
+      db.collection('documents').updateOne(
+        { _id: new ObjectId(fileId) },
+        {
+          $inc: { 'tracking.downloads': 1 },
+          $set: { 'tracking.lastDownloaded': new Date() },
+          $addToSet: { 'tracking.uniqueVisitors': user.id }
+        }
+      ).catch(err => console.error('Failed to update download count:', err));
+
+      if (document.folder) {
+        db.collection('folder_permissions').updateOne(
+          { folderId: document.folder, spaceId, grantedTo: user.email.toLowerCase() },
+          { $set: { lastAccessed: new Date() } }
+        ).catch(err => console.error('Failed to update folder permission:', err));
+      }
+
+      try {
+        return new NextResponse(await streamR2(document.cloudinaryPdfUrl), {
+          headers: {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="${document.originalFilename || 'document.pdf'}"`,
+            'Cache-Control': 'private, max-age=3600',
+          },
+        });
+      } catch (error) {
+        console.error('❌ R2 download error:', error);
+        return NextResponse.json({ error: 'Failed to fetch file' }, { status: 500 });
+      }
+    }
 
     // Extract public_id from Cloudinary URL
     const fileUrl = document.cloudinaryPdfUrl;

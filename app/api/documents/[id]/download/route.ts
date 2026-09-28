@@ -5,7 +5,7 @@ import { verifyUserFromRequest } from "@/lib/auth";
 import { notifyDocumentDownload } from "@/lib/notifications";
 import { ObjectId } from "mongodb";
 import cloudinary from 'cloudinary';
-import { isR2Url, fetchR2Bytes } from '@/lib/documentSource';
+import { isR2Url, fetchR2Bytes, bytesToStream } from '@/lib/documentSource';
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_NAME,
@@ -140,11 +140,13 @@ export async function GET(
       } as any
     );
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(isR2Url(pdfUrl) ? bytesToStream(pdfBuffer) : pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${document.originalFilename}"`,
-        'Content-Length': pdfBuffer.byteLength.toString(),
+        ...(isR2Url(pdfUrl)
+  ? {}
+  : { 'Content-Length': pdfBuffer.byteLength.toString() }),
       },
     });
 

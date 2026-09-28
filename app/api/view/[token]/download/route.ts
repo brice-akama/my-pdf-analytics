@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import cloudinary from 'cloudinary';
-import { isR2Url, fetchR2Bytes } from '@/lib/documentSource';
+import { isR2Url, fetchR2Bytes, bytesToStream } from '@/lib/documentSource';
 
 // Configure Cloudinary
 cloudinary.v2.config({
@@ -91,12 +91,12 @@ export async function POST(
     if (isR2Url(document.cloudinaryPdfUrl)) {
       try {
         const r2Bytes = await fetchR2Bytes(document.cloudinaryPdfUrl);
-        return new NextResponse(r2Bytes, {
+        return new NextResponse(bytesToStream(r2Bytes), {
           status: 200,
           headers: {
             'Content-Type': 'application/pdf',
             'Content-Disposition': `attachment; filename="${document.originalFilename}"`,
-            'Content-Length': r2Bytes.byteLength.toString(),
+             
             'Cache-Control': 'private, no-cache',
           },
         });
