@@ -5,6 +5,7 @@ import { verifyUserFromRequest } from "@/lib/auth";
 import { notifyDocumentDownload } from "@/lib/notifications";
 import { ObjectId } from "mongodb";
 import cloudinary from 'cloudinary';
+import { isR2Url, fetchR2Bytes, bytesToStream } from '@/lib/documentSource';
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_NAME,
@@ -64,38 +65,45 @@ export async function GET(
     console.log('📥 Downloading document:', document.originalFilename);
 
     // Extract public_id from URL
-    const urlMatch = pdfUrl.match(/\/upload\/(.+?)\.pdf/);
-    if (!urlMatch) {
-      return NextResponse.json(
-        { error: "Invalid PDF URL" },
-        { status: 500 }
-      );
-    }
+        let pdfBuffer: ArrayBuffer;
 
-    const publicId = urlMatch[1];
-
-    // Generate authenticated download URL
-    const authenticatedUrl = cloudinary.v2.utils.private_download_url(
-      publicId,
-      'pdf',
-      {
-        resource_type: 'image',
-        type: 'upload',
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
+    if (isR2Url(pdfUrl)) {
+      pdfBuffer = await fetchR2Bytes(pdfUrl);
+    } else {
+      // Extract public_id from URL
+      const urlMatch = pdfUrl.match(/\/upload\/(.+?)\.pdf/);
+      if (!urlMatch) {
+        return NextResponse.json(
+          { error: "Invalid PDF URL" },
+          { status: 500 }
+        );
       }
-    );
 
-    // Fetch the PDF
-    const pdfResponse = await fetch(authenticatedUrl);
+      const publicId = urlMatch[1];
 
-    if (!pdfResponse.ok) {
-      return NextResponse.json(
-        { error: "Failed to retrieve document" },
-        { status: 500 }
+      // Generate authenticated download URL
+      const authenticatedUrl = cloudinary.v2.utils.private_download_url(
+        publicId,
+        'pdf',
+        {
+          resource_type: 'image',
+          type: 'upload',
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+        }
       );
-    }
 
-    const pdfBuffer = await pdfResponse.arrayBuffer();
+      // Fetch the PDF
+      const pdfResponse = await fetch(authenticatedUrl);
+
+      if (!pdfResponse.ok) {
+        return NextResponse.json(
+          { error: "Failed to retrieve document" },
+          { status: 500 }
+        );
+      }
+
+      pdfBuffer = await pdfResponse.arrayBuffer();
+    }
 
     // ✅✅✅ SEND DOWNLOAD NOTIFICATION (only if not the owner)
     if (document.userId !== user.id) {
@@ -132,11 +140,13 @@ export async function GET(
       } as any
     );
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(isR2Url(pdfUrl) ? bytesToStream(pdfBuffer) : pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${document.originalFilename}"`,
-        'Content-Length': pdfBuffer.byteLength.toString(),
+        ...(isR2Url(pdfUrl)
+  ? {}
+  : { 'Content-Length': pdfBuffer.byteLength.toString() }),
       },
     });
 

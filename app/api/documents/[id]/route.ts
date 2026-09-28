@@ -117,6 +117,7 @@ export async function GET(
         scannedPdf: document.scannedPdf,
         cloudinaryOriginalUrl: document.cloudinaryOriginalUrl,
         cloudinaryPdfUrl: document.cloudinaryPdfUrl,
+                storage: document.storage || 'cloudinary',
         extractedText: document.extractedText,
         notes: document.notes || "",
         ownerEmail: user.email || "",

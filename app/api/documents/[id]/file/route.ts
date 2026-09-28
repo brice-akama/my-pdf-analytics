@@ -4,6 +4,7 @@ import { dbPromise } from '@/app/api/lib/mongodb';
 import { verifyUserFromRequest } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import cloudinary from 'cloudinary';
+import { isR2Url, fetchR2Bytes, bytesToStream } from '@/lib/documentSource';
 
 // Configure Cloudinary
 cloudinary.v2.config({
@@ -167,6 +168,48 @@ console.log('✅ Access granted:', {
         ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip'),
       })
       .catch((err) => console.error('Failed to log analytics:', err));
+
+          // ── R2-hosted large PDFs ─────────────────────────────────────
+    if (isR2Url(fileUrl)) {
+      if (serve === 'blob') {
+        try {
+          const r2Bytes = await fetchR2Bytes(fileUrl);
+          return new NextResponse(bytesToStream(r2Bytes), {
+            headers: {
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': `${action === 'download' ? 'attachment' : 'inline'}; filename="${filename}"`,
+              
+              'Cache-Control': 'private, max-age=3600',
+            },
+          });
+        } catch (error) {
+          console.error('❌ Failed to fetch R2 PDF:', error);
+          return NextResponse.json({
+            error: 'Failed to fetch file',
+            details: error instanceof Error ? error.message : 'Unknown error',
+          }, { status: 500 });
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        fileUrl, // public R2 URL
+        filename,
+        format: document.originalFormat,
+        mimeType: document.mimeType,
+        size: format === 'original' ? document.size : document.pdfSize,
+        numPages: document.numPages,
+        currentPage: page ? parseInt(page) : 1,
+        contentDisposition: action === 'download' ? 'attachment' : 'inline',
+        documentInfo: {
+          id: document._id.toString(),
+          originalFilename: document.originalFilename,
+          originalFormat: document.originalFormat,
+          createdAt: document.createdAt,
+          updatedAt: document.updatedAt,
+        },
+      });
+    }
 
     // If serve=blob, use authenticated download
     if (serve === 'blob') {

@@ -17,6 +17,7 @@ interface ShareData {
     format: string;
     numPages: number;
     pdfUrl?: string;
+    pageDimensions?: { pageNumber: number; widthPt: number; heightPt: number }[];
     previewUrls?: string[];
   };
   settings?: {
@@ -115,22 +116,37 @@ const [pageAspectRatio, setPageAspectRatio] = useState<number>(1100 / 850);
 
 
 
-  useEffect(() => {
-  if (!shareData?.document?.pdfUrl) return;
-  let cancelled = false;
-  (async () => {
-    try {
-      const pdfjsLib = await import('pdfjs-dist');
-      const loadingTask = pdfjsLib.getDocument(shareData.document!.pdfUrl!);
-      const pdf = await loadingTask.promise;
-      if (!cancelled) setPdfDocProxy(pdf);
-    } catch (err) {
-      // Silent — every LazyPage falls back to its own safe default
-    }
-  })();
-  return () => { cancelled = true; };
-}, [shareData?.document?.pdfUrl]);
+    useEffect(() => {
+    if (!shareData?.document?.pdfUrl) return;
 
+    // Fast path: use the page sizes already stored in MongoDB, so the browser
+    // doesn't have to download the whole PDF just to read page shapes.
+    const dims = shareData.document.pageDimensions;
+    if (dims && dims.length > 0) {
+      setPdfDocProxy({
+        getPage: async (n: number) => {
+          const d = dims.find(x => x.pageNumber === n);
+          if (!d) throw new Error('No stored dimensions for page');
+          return { getViewport: () => ({ width: d.widthPt, height: d.heightPt }) };
+        },
+      });
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        const loadingTask = pdfjsLib.getDocument(shareData.document!.pdfUrl!);
+        const pdf = await loadingTask.promise;
+        if (!cancelled) setPdfDocProxy(pdf);
+      } catch (err) {
+        // Silent — every LazyPage falls back to its own safe default
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [shareData?.document?.pdfUrl]);
+  
   // Fetch video walkthroughs for this document
 useEffect(() => {
   const fetchVideos = async () => {

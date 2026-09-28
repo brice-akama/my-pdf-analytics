@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '@/app/api/lib/mongodb';
 import { v2 as cloudinary } from 'cloudinary';
 import { PDFDocument } from 'pdf-lib';
+import { isR2Url, fetchR2Bytes } from '@/lib/documentSource';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_NAME,
@@ -11,7 +12,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_SECRET_KEY,
 });
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 // ── Shared in-memory page cache ──────────────────────────────────
 const pageCache = new Map<string, { bytes: Buffer; cachedAt: number }>();
@@ -92,33 +93,41 @@ export async function GET(
     }
 
     // ── 4. Extract page from full PDF ────────────────────────────
+        // ── 4. Extract page from full PDF ────────────────────────────
     const fileUrl = document.cloudinaryPdfUrl;
-    const urlParts = fileUrl.split('/upload/');
-    if (urlParts.length < 2) {
-      return NextResponse.json({ error: 'Invalid PDF URL format' }, { status: 400 });
+    let pdfBytes: ArrayBuffer;
+
+    if (isR2Url(fileUrl)) {
+      // Large PDF stored in R2: read it directly via the S3 API
+      pdfBytes = await fetchR2Bytes(fileUrl);
+    } else {
+      const urlParts = fileUrl.split('/upload/');
+      if (urlParts.length < 2) {
+        return NextResponse.json({ error: 'Invalid PDF URL format' }, { status: 400 });
+      }
+
+      const pathParts = urlParts[1].split('/');
+      pathParts.shift(); // remove version (v1234567890)
+      const publicId = decodeURIComponent(pathParts.join('/').replace('.pdf', ''));
+
+      const signedUrl = cloudinary.utils.private_download_url(publicId, 'pdf', {
+        resource_type: 'image',
+        type: 'upload',
+        attachment: false,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+      });
+
+      // Fetch full PDF with hard 20s timeout
+      const pdfResponse = await fetch(signedUrl, {
+        signal: AbortSignal.timeout(20000),
+      });
+
+      if (!pdfResponse.ok) {
+        return NextResponse.json({ error: 'Failed to fetch PDF from Cloudinary' }, { status: 500 });
+      }
+
+      pdfBytes = await pdfResponse.arrayBuffer();
     }
-
-    const pathParts = urlParts[1].split('/');
-    pathParts.shift(); // remove version (v1234567890)
-    const publicId = decodeURIComponent(pathParts.join('/').replace('.pdf', ''));
-
-    const signedUrl = cloudinary.utils.private_download_url(publicId, 'pdf', {
-      resource_type: 'image',
-      type: 'upload',
-      attachment: false,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
-    });
-
-    // Fetch full PDF with hard 20s timeout
-    const pdfResponse = await fetch(signedUrl, {
-      signal: AbortSignal.timeout(20000),
-    });
-
-    if (!pdfResponse.ok) {
-      return NextResponse.json({ error: 'Failed to fetch PDF from Cloudinary' }, { status: 500 });
-    }
-
-    const pdfBytes = await pdfResponse.arrayBuffer();
 
     // Extract single page
     const fullPdf = await PDFDocument.load(pdfBytes);

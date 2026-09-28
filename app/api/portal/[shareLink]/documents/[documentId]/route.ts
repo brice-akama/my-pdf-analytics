@@ -5,6 +5,9 @@ import { dbPromise } from '@/app/api/lib/mongodb'
 import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib'
 import { ObjectId } from 'mongodb'
 import cloudinary from 'cloudinary'
+import { isR2Url, fetchR2Bytes, streamR2, bytesToStream } from '@/lib/documentSource'
+
+
 
 // ── Configure Cloudinary (same as your other routes) ─────────────────────────
 cloudinary.v2.config({
@@ -12,6 +15,8 @@ cloudinary.v2.config({
   api_key:    process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_SECRET_KEY,
 })
+
+export const maxDuration = 60
 
 // ── Extract public_id from any Cloudinary URL ─────────────────────────────────
 // Handles both /image/upload/ and /raw/upload/, with or without version segment
@@ -194,6 +199,39 @@ export async function GET(
     const pdfUrl = doc.cloudinaryPdfUrl || doc.fileUrl
     console.log('🔗 Raw Cloudinary URL:', pdfUrl)
     if (!pdfUrl) return NextResponse.json({ error: 'No PDF URL for this document' }, { status: 404 })
+
+          // ── R2-hosted large PDFs: streamed (Vercel rejects buffered responses over 4.5 MB) ──
+    if (isR2Url(pdfUrl)) {
+      try {
+        if (isDownload) {
+          const visitorEmail =
+            request.nextUrl.searchParams.get('email') ||
+            request.cookies.get('visitor_email')?.value ||
+            'confidential'
+          const stampTime = new Date().toLocaleString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+          })
+          const r2Raw = new Uint8Array(await fetchR2Bytes(pdfUrl))
+          const r2Stamped = await stampWatermark(r2Raw, visitorEmail, stampTime)
+          return new NextResponse(bytesToStream(r2Stamped), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/pdf',
+              'Content-Disposition': `attachment; filename="${encodeURIComponent(doc.name || 'document')}.pdf"`,
+              'Cache-Control': 'no-store',
+            },
+          })
+        }
+        return new NextResponse(await streamR2(pdfUrl), {
+          status: 200,
+          headers: { 'Content-Type': 'application/pdf', 'Cache-Control': 'private, max-age=300' },
+        })
+      } catch (err) {
+        console.error('❌ R2 portal document error:', err)
+        return NextResponse.json({ error: 'Server error' }, { status: 500 })
+      }
+    }
 
     // 4. Fetch bytes using Cloudinary signed URL
     const rawBytes = await fetchPdfBytesFromCloudinary(pdfUrl)

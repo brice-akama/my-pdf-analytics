@@ -120,3 +120,75 @@ export async function preExtractAllPages(
     console.error('❌ Pre-extraction failed:', error);
   }
 }
+
+
+// ─────────────────────────────────────────────────────────────────
+// NEW: same page-cache logic, but takes the PDF bytes directly.
+// Used for large PDFs stored in R2 (no Cloudinary source URL exists).
+// Pages still get cached in Cloudinary as tiny raw files, so the
+// viewer keeps reading them exactly the same way.
+// ─────────────────────────────────────────────────────────────────
+export async function preExtractAllPagesFromBuffer(
+  pdfBuffer: Buffer,
+  documentId: string
+): Promise<void> {
+  console.log(`🚀 Pre-extracting pages (from buffer) for document: ${documentId}`);
+
+  try {
+    const fullPdf = await PDFDocument.load(pdfBuffer);
+    const totalPages = fullPdf.getPageCount();
+    console.log(`📄 PDF has ${totalPages} pages — extracting all...`);
+
+    const BATCH_SIZE = 3;
+
+    for (let batchStart = 1; batchStart <= totalPages; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, totalPages);
+      const batch = Array.from(
+        { length: batchEnd - batchStart + 1 },
+        (_, i) => batchStart + i
+      );
+
+      await Promise.all(
+        batch.map(async (pageNum) => {
+          const cachedPagePublicId = `docmetrics/pages/${documentId}/page_${pageNum}`;
+
+          try {
+            await cloudinary.api.resource(cachedPagePublicId, { resource_type: 'raw' });
+            console.log(`⏭️ Page ${pageNum} already cached — skipping`);
+            return;
+          } catch {
+            // not cached yet
+          }
+
+          try {
+            const singlePagePdf = await PDFDocument.create();
+            const [copiedPage] = await singlePagePdf.copyPages(fullPdf, [pageNum - 1]);
+            singlePagePdf.addPage(copiedPage);
+            const buffer = Buffer.from(await singlePagePdf.save());
+
+            await new Promise<void>((resolve, reject) => {
+              cloudinary.uploader.upload_stream(
+                { public_id: cachedPagePublicId, resource_type: 'raw', overwrite: false },
+                (error) => {
+                  if (error) {
+                    console.error(`⚠️ Failed to cache page ${pageNum}:`, error.message);
+                    reject(error);
+                  } else {
+                    console.log(`✅ Page ${pageNum}/${totalPages} cached`);
+                    resolve();
+                  }
+                }
+              ).end(buffer);
+            });
+          } catch (err) {
+            console.error(`❌ Error extracting page ${pageNum}:`, err);
+          }
+        })
+      );
+    }
+
+    console.log(`🎉 Pre-extraction (buffer) complete for document: ${documentId}`);
+  } catch (error) {
+    console.error('❌ Pre-extraction (buffer) failed:', error);
+  }
+}

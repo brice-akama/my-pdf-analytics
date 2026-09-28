@@ -12,13 +12,13 @@
 //      compress it themselves - same as before this feature existed
 //   5. always deletes the R2 scratch file when done, success or failure
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse , after } from 'next/server'
 import crypto from 'crypto'
 import streamifier from 'streamifier'
 import cloudinary from 'cloudinary'
 import { dbPromise } from '../../lib/mongodb'
 import { extractTextFromPdf, extractMetadata } from '@/lib/document-processor'
-import { preExtractAllPages } from '@/lib/preExtractPages'
+import { preExtractAllPages , preExtractAllPagesFromBuffer } from '@/lib/preExtractPages'
 import { checkAccess } from '@/lib/checkAccess'
 import { isStorageAvailable } from '@/lib/planLimits'
 import { r2, deleteR2Object } from '@/lib/r2Client'
@@ -122,6 +122,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid file reference' }, { status: 400 })
     }
 
+        // ── Space upload: same permission rules as /api/spaces/[id]/upload ──
+    if (spaceId) {
+      const { ObjectId } = await import('mongodb')
+      const spaceObjectId = ObjectId.isValid(spaceId) ? new ObjectId(spaceId) : null
+      const space = spaceObjectId
+        ? await db.collection('spaces').findOne({ _id: spaceObjectId })
+        : null
+      if (!space) {
+        return NextResponse.json({ error: 'Space not found' }, { status: 404 })
+      }
+
+      const uid = user._id.toString()
+      let canUploadToSpace = space.userId === uid
+      if (!canUploadToSpace) {
+        const member = space.members?.find(
+          (m: any) => m.email === user.email || m.userId === uid
+        )
+        canUploadToSpace = !!member && ['editor', 'admin', 'owner'].includes(member.role)
+      }
+      if (!canUploadToSpace) {
+        return NextResponse.json(
+          { error: 'You do not have permission to upload files to this space.' },
+          { status: 403 }
+        )
+      }
+
+      if (folderId) {
+        const folder = ObjectId.isValid(folderId)
+          ? await db.collection('space_folders').findOne({ _id: new ObjectId(folderId), spaceId })
+          : null
+        if (!folder) {
+          return NextResponse.json({ error: 'Folder not found in this space' }, { status: 404 })
+        }
+      }
+    }
+
     // Download the original from R2 and try to compress it
     const original = await downloadFromR2(r2Key)
 
@@ -138,6 +174,7 @@ export async function POST(request: NextRequest) {
 
         let storedUrl: string
     let storedInR2 = false
+        let permanentKey: string | null = null
 
     if (finalBuffer.length > CLOUDINARY_MAX_BYTES) {
       // Too big for Cloudinary even after compression — keep it in R2
@@ -145,7 +182,7 @@ export async function POST(request: NextRequest) {
       // was already sitting in R2's scratch folder; we just stop deleting
       // it and give it a permanent public URL.
       const { PutObjectCommand } = await import('@aws-sdk/client-s3')
-      const permanentKey = `documents/${user._id.toString()}/${crypto.randomUUID()}.pdf`
+        permanentKey = `documents/${user._id.toString()}/${crypto.randomUUID()}.pdf`
       await r2.send(
         new PutObjectCommand({
           Bucket: process.env.R2_BUCKET_NAME,
@@ -168,6 +205,7 @@ export async function POST(request: NextRequest) {
     // Re-check plan storage with the REAL (final) size
     const storageUsedBytes: number = user.totalStorageUsedBytes ?? 0
     if (!isStorageAvailable(plan, storageUsedBytes, finalBuffer.length)) {
+              if (storedInR2 && permanentKey) await deleteR2Object(permanentKey)
       const usedMB = Math.round(storageUsedBytes / (1024 * 1024))
       const limitMB = Math.round(limits.storageLimitBytes / (1024 * 1024))
       return NextResponse.json(
@@ -229,7 +267,7 @@ export async function POST(request: NextRequest) {
       if (!existingDoc) {
         return NextResponse.json({ error: 'Document not found' }, { status: 404 })
       }
-    } else {
+       } else if (!spaceId) {
       existingDoc = await db.collection('documents').findOne({
         originalFilename: filename,
         userId: user._id.toString(),
@@ -253,6 +291,8 @@ export async function POST(request: NextRequest) {
       summary,
       scannedPdf,
       wasCompressed: original.length > CLOUDINARY_MAX_BYTES,
+            storage: storedInR2 ? 'r2' : 'cloudinary',
+      r2Key: storedInR2 ? permanentKey : null,
     }
 
     if (existingDoc) {
@@ -294,7 +334,12 @@ export async function POST(request: NextRequest) {
       )
 
            runBackgroundAnalysis(existingDoc._id.toString(), extractedText, plan, db).catch(console.error)
-      if (!storedInR2) {
+                  if (storedInR2) {
+        const pagesDocId = existingDoc._id.toString()
+        after(async () => {
+          await preExtractAllPagesFromBuffer(finalBuffer, pagesDocId)
+        })
+      } else {
         preExtractAllPages(storedUrl, existingDoc._id.toString()).catch(err =>
           console.error('Pre-extraction error:', err)
         )
@@ -349,7 +394,7 @@ export async function POST(request: NextRequest) {
       organizationId,
       version: 1,
       originalFilename: filename,
-      visibility: 'personal',
+            ...(spaceId ? {} : { visibility: 'personal' }),
       ...commonFields,
       analytics: pendingAnalytics,
       tracking: {
@@ -365,7 +410,8 @@ export async function POST(request: NextRequest) {
       sharedWith: [],
       shareLinks: [],
       tags: [],
-      folder: null,
+            folder: spaceId ? (folderId || null) : null,
+      ...(spaceId ? { belongsToSpace: true, spaceId } : {}),
       starred: false,
       archived: false,
       dealOutcome: null,
@@ -384,7 +430,12 @@ export async function POST(request: NextRequest) {
     )
 
            runBackgroundAnalysis(result.insertedId.toString(), extractedText, plan, db).catch(console.error)
-    if (!storedInR2) {
+        if (storedInR2) {
+      const pagesDocId = result.insertedId.toString()
+      after(async () => {
+        await preExtractAllPagesFromBuffer(finalBuffer, pagesDocId)
+      })
+    } else {
       preExtractAllPages(storedUrl, result.insertedId.toString()).catch(err =>
         console.error('Pre-extraction error:', err)
       )
