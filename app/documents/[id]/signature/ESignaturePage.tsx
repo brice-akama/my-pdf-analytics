@@ -120,6 +120,7 @@ export default function ESignaturePage() {
   const [editingFieldLogic,    setEditingFieldLogic]    = useState<SignatureField | null>(null);
   const [editingLabelField,    setEditingLabelField]    = useState<SignatureField | null>(null);
   const [showAccessCode,       setShowAccessCode]       = useState(false);
+    const [tooLargeForSigning, setTooLargeForSigning] = useState(false);
 
   // ── Generated links after send ─────────────────────────────────────────
   const [generatedLinks, setGeneratedLinks] = useState<
@@ -255,6 +256,11 @@ export default function ESignaturePage() {
         const data = await res.json();
         if (data.success) {
           setDoc(data.document);
+          // Large PDFs (stored in R2) can't go through e-signature yet
+          const docSizeBytes = data.document.pdfSize || data.document.size || 0;
+          if (docSizeBytes > 10 * 1024 * 1024) {
+            setTooLargeForSigning(true);
+          }
 
           const isEditingRealTemplate = mode === "edit";
 
@@ -594,6 +600,26 @@ if (data.code === 'ESIGNATURE_LIMIT_REACHED') {
         <div className="text-center">
           <h2 className="text-2xl font-bold text-slate-900 mb-4">Document not found</h2>
           <Button onClick={() => router.push("/dashboard")}>Back to Dashboard</Button>
+        </div>
+      </div>
+    );
+  }
+
+    if (tooLargeForSigning) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-white">
+        <div className="max-w-md text-center">
+          <div className="h-14 w-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
+            <FileSignature className="h-7 w-7 text-amber-600" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">
+            This document is too large for e-signature
+          </h2>
+          <p className="text-sm text-slate-600 mb-6">
+            Documents over 10 MB can be shared and tracked, but can&apos;t be sent for
+            signature yet. Compress the PDF to under 10 MB and upload it again to send it for signing.
+          </p>
+          <Button onClick={() => router.push(`/documents/${doc._id}`)}>Back to document</Button>
         </div>
       </div>
     );

@@ -1,10 +1,12 @@
 // app/api/integrations/google-drive/import/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse , after } from "next/server";
 import { dbPromise } from "../../../lib/mongodb";
 import { extractTextFromPdf, extractMetadata, analyzeDocument } from "@/lib/document-processor";
 import cloudinary from "cloudinary";
 import streamifier from "streamifier";
 import { checkAccess } from "@/lib/checkAccess";
+import { storeProcessedPdf } from "@/lib/storeProcessedPdf";
+import { preExtractAllPagesFromBuffer } from "@/lib/preExtractPages";
 import { MAX_STORAGE_FILE_BYTES, tooLargeForStorage } from "@/lib/uploadConstants";
 import {
   isFileSizeAllowed,
@@ -168,10 +170,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-        // Reject over-limit files BEFORE reading the whole body into memory
+               // Reject over-limit files BEFORE reading the whole body into memory —
+    // gate on the PLAN's limit, not Cloudinary's cap. Large PDFs get
+    // compressed and, if still large, stored permanently in R2.
     const declaredLength = Number(fileResponse.headers.get("content-length") || 0);
-    if (declaredLength > MAX_STORAGE_FILE_BYTES) {
-      return NextResponse.json(tooLargeForStorage(declaredLength), { status: 413 });
+    if (declaredLength > limits.maxFileSizeBytes) {
+      const limitMB = Math.round(limits.maxFileSizeBytes / (1024 * 1024));
+      return NextResponse.json(
+        {
+          error: `File too large for your ${plan} plan. Maximum file size is ${limitMB}MB.`,
+          code: "FILE_TOO_LARGE",
+          limitBytes: limits.maxFileSizeBytes,
+          plan,
+        },
+        { status: 413 }
+      );
     }
 
     const buffer = Buffer.from(await fileResponse.arrayBuffer());
@@ -229,10 +242,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-        // ── Per-file limit of the current Cloudinary plan (checked on the real size) ──
-    if (buffer.length > MAX_STORAGE_FILE_BYTES) {
-      return NextResponse.json(tooLargeForStorage(buffer.length), { status: 413 });
-    }
+      
 
     // ── Step 8: Enforce total storage limit ───────────────────────────────
     // totalStorageUsedBytes is a running total kept accurate by $inc on every
@@ -328,16 +338,23 @@ export async function POST(request: NextRequest) {
       console.error("⚠️ [GDRIVE IMPORT] Failed to extract page dimensions:", err);
     }
 
-    // ── Step 10: Upload to Cloudinary + analyze in parallel ────────────────
-    console.log("☁️ [GDRIVE IMPORT] Uploading to Cloudinary & analyzing...");
+       // ── Step 10: Store the PDF (Cloudinary if it fits, R2 if still large) ──
+    console.log("☁️ [GDRIVE IMPORT] Storing PDF & analyzing...");
     const folder = `users/${user._id.toString()}/documents`;
 
-    const [analysis, pdfUrl] = await Promise.all([
+    const [analysis, stored] = await Promise.all([
       analyzeDocument(extractedText, plan),
-      uploadToCloudinary(pdfBuffer, fileName, folder),
+      storeProcessedPdf(pdfBuffer, user._id.toString(), fileName, folder),
     ]);
 
-    console.log("✅ [GDRIVE IMPORT] Cloudinary upload complete:", pdfUrl);
+    const pdfUrl = stored.storedUrl;
+    const finalPdfBuffer = stored.finalBuffer;
+
+    console.log(
+      stored.storedInR2
+        ? `✅ [GDRIVE IMPORT] Stored in R2: ${pdfUrl}`
+        : `✅ [GDRIVE IMPORT] Cloudinary upload complete: ${pdfUrl}`
+    );
 
     // ── Step 11: VERSION UPDATE — existing doc with same filename ──────────
     if (existingDocForStorageCheck) {
@@ -388,7 +405,7 @@ export async function POST(request: NextRequest) {
                 originalFormat: "pdf",
                 mimeType: "application/pdf",
                 size: buffer.length,
-                pdfSize: pdfBuffer.length,
+                pdfSize: finalPdfBuffer.length,
                 cloudinaryOriginalUrl: pdfUrl,
                 cloudinaryPdfUrl: pdfUrl,
                 extractedText: extractedText.substring(0, 10000),
@@ -398,6 +415,8 @@ export async function POST(request: NextRequest) {
                  pageDimensions,
                 summary,
                 scannedPdf,
+                storage: stored.storedInR2 ? 'r2' : 'cloudinary',
+                r2Key: stored.storedInR2 ? stored.r2Key : null,
                 source: "google_drive",
                 googleDriveFileId: fileId,
                 analytics: {
@@ -440,6 +459,13 @@ export async function POST(request: NextRequest) {
         // Negative → user freed space (increment with a negative value = decrement).
         // Zero     → identical size, skip the write entirely.
         // We use $inc so concurrent requests never race-overwrite each other.
+                if (stored.storedInR2) {
+          const pagesDocId = existingDoc._id.toString();
+          after(async () => {
+            await preExtractAllPagesFromBuffer(finalPdfBuffer, pagesDocId);
+          });
+        }
+
         if (storageDelta !== 0) {
           await db.collection("users").updateOne(
             { _id: user._id },
@@ -495,7 +521,7 @@ export async function POST(request: NextRequest) {
       originalFormat: "pdf",
       mimeType: "application/pdf",
      size: buffer.length,
-      pdfSize: pdfBuffer.length,
+      pdfSize: finalPdfBuffer.length,
       cloudinaryOriginalUrl: pdfUrl,
       cloudinaryPdfUrl: pdfUrl,
       extractedText: extractedText.substring(0, 10000),
@@ -505,6 +531,8 @@ export async function POST(request: NextRequest) {
       pageDimensions,
       summary,
       scannedPdf,
+      storage: stored.storedInR2 ? 'r2' : 'cloudinary',
+      r2Key: stored.storedInR2 ? stored.r2Key : null,
       source: "google_drive",
       googleDriveFileId: fileId,
       analytics: {
@@ -548,6 +576,14 @@ export async function POST(request: NextRequest) {
 
     const result = await db.collection("documents").insertOne(document);
     console.log("✅ [GDRIVE IMPORT] Document inserted:", result.insertedId.toString());
+
+    
+    if (stored.storedInR2) {
+      const pagesDocId = result.insertedId.toString();
+      after(async () => {
+        await preExtractAllPagesFromBuffer(finalPdfBuffer, pagesDocId);
+      });
+    }
 
     // ── Storage increment ──────────────────────────────────────────────────
     // New document — always increment by the full file size.
