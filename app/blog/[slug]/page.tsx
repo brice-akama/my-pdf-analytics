@@ -1,82 +1,87 @@
-
-//app/blog/[slug]/page.tsx
-import { getBlogPost } from "./fetchBlog";
+// app/blog/[slug]/page.tsx
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { getBlogPost, getBlogPosts, stripHtml } from "./fetchBlog";
 import BlogDetails from "./BlogDetails";
-import { Metadata } from "next";
+import { FreeTools } from "@/components/free-tools";
 
-//  Type for route params
-type Props = {
-  params: Promise<{ slug: string }>; // params is now async
-};
+type Props = { params: Promise<{ slug: string }> };
 
-//  Optional revalidation (you can keep or remove)
 export const revalidate = 60;
 
-//  Generate metadata for SEO and social sharing
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  //  Unwrap params first
-  const resolvedParams = await params;
-
-  if (!resolvedParams?.slug) {
-    console.warn(" generateMetadata called without a slug");
-    return {};
+// Pre-render every known post at build time (new posts render on first request).
+export async function generateStaticParams() {
+  try {
+    const posts = await getBlogPosts();
+    return posts.map((p) => ({ slug: p.slug }));
+  } catch {
+    return [];
   }
+}
 
-  //  Fetch post safely
-  const post = await getBlogPost(resolvedParams.slug).catch((err) => {
-    console.error(" Failed to fetch post in generateMetadata:", err);
-    return null;
-  });
-
-  if (!post) return {};
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getBlogPost(slug);
+  if (!post) return { robots: { index: false } };
 
   const title = post.metaTitle || post.title;
-  const description = post.metaDescription || post.title;
-  const imageUrl = post.imageUrl;
-  const ogImageUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/blog/og?title=${encodeURIComponent(
-    title
-  )}`;
-  const image = imageUrl || ogImageUrl;
-  const canonicalUrl = `https://docmetrics.io/blog/${resolvedParams.slug}`;
+  const description =
+    post.metaDescription || stripHtml(post.content).slice(0, 155) || post.title;
+  const canonicalUrl = `https://docmetrics.io/blog/${slug}`;
+  const image =
+    post.imageUrl ||
+    `${process.env.NEXT_PUBLIC_API_URL}/api/blog/og?title=${encodeURIComponent(title)}`;
 
   return {
+    // Must be YOUR site, not the API host (the old code pointed this at the API URL).
+    metadataBase: new URL("https://docmetrics.io"),
     title,
     description,
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title,
       description,
       url: canonicalUrl,
-      images: [{ url: image }],
+      siteName: "DocMetrics",
       type: "article",
+      publishedTime: post.createdAt,
+      images: [{ url: image }],
     },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [image],
-    },
-    alternates: {
-      canonical: canonicalUrl,
-    },
-    metadataBase: new URL(process.env.NEXT_PUBLIC_API_URL || "https://docmetrics.io"),
+    twitter: { card: "summary_large_image", title, description, images: [image] },
   };
 }
 
-//  Page rendering logic
 export default async function Page({ params }: Props) {
-  const resolvedParams = await params; //  same fix here
+  const { slug } = await params;
+  const post = await getBlogPost(slug);
 
-  if (!resolvedParams?.slug) {
-    console.error(" Page rendered without a slug param");
-    return <div>Invalid blog URL</div>;
-  }
+  // Real 404 status instead of "Post not found" with HTTP 200 (a soft 404 Google ignores).
+  if (!post) notFound();
 
-  const post = await getBlogPost(resolvedParams.slug).catch((err) => {
-    console.error(" Failed to fetch blog post in Page:", err);
-    return null;
-  });
+  const url = `https://docmetrics.io/blog/${slug}`;
+  const articleSchema = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.metaTitle || post.title,
+    description: post.metaDescription || undefined,
+    image: post.imageUrl || undefined,
+    datePublished: post.createdAt,
+    dateModified: post.createdAt,
+    mainEntityOfPage: url,
+    author: { "@type": "Organization", name: "DocMetrics", url: "https://docmetrics.io" },
+    publisher: { "@type": "Organization", name: "DocMetrics", url: "https://docmetrics.io" },
+  };
 
-  if (!post) return <div>Post not found</div>;
-
-  return <BlogDetails post={post} />;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+      />
+      <BlogDetails post={post} />
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 pb-20">
+        <FreeTools heading="Put this into practice with our free tools" />
+      </div>
+    </>
+  );
 }

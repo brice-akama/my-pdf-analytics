@@ -1,157 +1,61 @@
+// app/sitemap.ts
 import type { MetadataRoute } from "next";
+import { getBlogPosts, type BlogPost } from "@/app/blog/[slug]/fetchBlog";
 
+const BASE = "https://docmetrics.io";
 
-async function getBlogSlugs(): Promise<string[]> {
+async function getPosts(): Promise<BlogPost[]> {
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/blog?limit=100`,
-      { cache: "no-store" }
-    )
-    if (!res.ok) return []
-    const data = await res.json()
-    const posts = data?.data?.posts || []
-    return posts.map((p: { slug: string }) => p.slug).filter(Boolean)
-  } catch {
-    return []
+    const posts = await getBlogPosts();
+    if (posts.length === 0) console.error("[sitemap] API returned 0 blog posts");
+    return posts;
+  } catch (e) {
+    console.error("[sitemap] blog fetch failed:", e);
+    return [];
   }
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const posts = await getPosts();
 
-  const blogSlugs = await getBlogSlugs()
+  const newestPost = posts
+    .map((p) => new Date(p.updatedAt ?? p.createdAt ?? 0).getTime() || 0)
+    .reduce((a, b) => Math.max(a, b), 0);
 
-  const staticPages: MetadataRoute.Sitemap = [
-    
-    
-    {
-      url: "https://docmetrics.io",
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 1.0,
-    },
-    {
-      url: "https://docmetrics.io/blog",
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.9,
-    },
-    {
-      url:  "https://docmetrics.io/proposal-grader",
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.9,
-    },
+  // Update these dates ONLY when the page content really changes.
+  const pages: { path: string; date: Date; priority: number }[] = [
+    { path: "", date: new Date("2026-10-02"), priority: 1.0 },
+    { path: "/blog", date: newestPost ? new Date(newestPost) : new Date("2026-10-02"), priority: 0.9 },
+    { path: "/proposal-grader", date: new Date("2026-10-02"), priority: 0.9 },
+    { path: "/silence-checker", date: new Date("2026-10-02"), priority: 0.9 },
+    { path: "/blog/best-practices", date: new Date("2026-09-01"), priority: 0.7 },
+    { path: "/pricing", date: new Date("2026-09-01"), priority: 0.8 },
+    { path: "/product/how-it-works", date: new Date("2026-09-01"), priority: 0.8 },
+    { path: "/product/security", date: new Date("2026-09-01"), priority: 0.7 },
+    { path: "/product/demo", date: new Date("2026-09-01"), priority: 0.7 },
+    { path: "/features/analytics", date: new Date("2026-09-01"), priority: 0.8 },
+    { path: "/solutions/sales", date: new Date("2026-09-01"), priority: 0.8 },
+    { path: "/solutions/enterprise", date: new Date("2026-09-01"), priority: 0.7 },
+    { path: "/solutions/fundraising", date: new Date("2026-09-01"), priority: 0.7 },
+    { path: "/about", date: new Date("2026-09-01"), priority: 0.5 },
+    { path: "/contact", date: new Date("2026-09-01"), priority: 0.5 },
+    { path: "/help", date: new Date("2026-09-01"), priority: 0.5 },
+    { path: "/security", date: new Date("2026-09-01"), priority: 0.5 },
+    { path: "/privacy", date: new Date("2026-05-01"), priority: 0.2 },
+    { path: "/terms", date: new Date("2026-05-01"), priority: 0.2 },
+    { path: "/cookies", date: new Date("2026-05-01"), priority: 0.2 },
+  ];
 
-    {
-      url:  "https://docmetrics.io/silence-checker",
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.9,
-    },
-
-    {
-      url: "https://docmetrics.io/pricing",
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: "https://docmetrics.io/contact",
-      lastModified: new Date(),
-      changeFrequency: "monthly",
+  return [
+    ...pages.map((p) => ({
+      url: `${BASE}${p.path}`,
+      lastModified: p.date,
+      priority: p.priority,
+    })),
+    ...posts.map((p) => ({
+      url: `${BASE}/blog/${p.slug}`,
+      lastModified: new Date(p.updatedAt ?? p.createdAt ?? "2026-09-01"),
       priority: 0.7,
-    },
-    {
-  url: "https://docmetrics.io/product/how-it-works",
-  lastModified: new Date(),
-  changeFrequency: "monthly",
-  priority: 0.8,
-},
-{
-  url: "https://docmetrics.io/product/security",
-  lastModified: new Date(),
-  changeFrequency: "monthly",
-  priority: 0.8,
-},
-{
-  url: "https://docmetrics.io/product/demo",
-  lastModified: new Date(),
-  changeFrequency: "monthly",
-  priority: 0.8,
-},
-{
-  url: "https://docmetrics.io/features/analytics",
-  lastModified: new Date(),
-  changeFrequency: "monthly",
-  priority: 0.8,
-},
-{
-  url: "https://docmetrics.io/solutions/sales",
-  lastModified: new Date(),
-  changeFrequency: "monthly",
-  priority: 0.8,
-},
-{
-  url: "https://docmetrics.io/solutions/enterprise",
-  lastModified: new Date(),
-  changeFrequency: "monthly",
-  priority: 0.8,
-},
-{
-  url: "https://docmetrics.io/solutions/fundraising",
-  lastModified: new Date(),
-  changeFrequency: "monthly",
-  priority: 0.8,
-},
-{
-  url: "https://docmetrics.io/blog/best-practices",
-  lastModified: new Date(),
-  changeFrequency: "monthly",
-  priority: 0.7,
-},
-
-   
-    {
-      url: "https://docmetrics.io/privacy",
-      lastModified: new Date(),
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-      url: "https://docmetrics.io/terms",
-      lastModified: new Date(),
-      changeFrequency: "yearly",
-      priority: 0.3,
-    },
-    {
-  url: "https://docmetrics.io/about",
-  lastModified: new Date(),
-  changeFrequency: "monthly",
-  priority: 0.7,
-},
-{
-  url: "https://docmetrics.io/help",
-  lastModified: new Date(),
-  changeFrequency: "monthly",
-  priority: 0.7,
-},
-{
-      url: "https://docmetrics.io/security",
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    { url: "https://docmetrics.io/cookies", lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
-  ]
-
-  const blogPages: MetadataRoute.Sitemap = blogSlugs.map((slug) => ({
-    url: `https://docmetrics.io/blog/${slug}`,
-    lastModified: new Date(),
-    changeFrequency: "monthly" as const,
-    priority: 0.7,
-  }))
-
-  return [...staticPages, ...blogPages]
+    })),
+  ];
 }
-
-   

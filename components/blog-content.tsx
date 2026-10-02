@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Calendar, ArrowRight } from "lucide-react"
 import { toast } from "sonner"
@@ -19,19 +19,38 @@ interface BlogPost {
   updatedAt: string
 }
 
-export function BlogContent() {
-  const [posts, setPosts] = useState<BlogPost[]>([])
-  const [popularPosts, setPopularPosts] = useState<BlogPost[]>([])
-  const [loading, setLoading] = useState(true)
+const POSTS_PER_PAGE = 6
+
+// CHANGED: accepts the first page of posts from the server, so the HTML Google
+// receives already contains the post links (instead of "Loading posts...").
+export function BlogContent({
+  initialPosts = [],
+  initialTotal = 0,
+}: {
+  initialPosts?: BlogPost[]
+  initialTotal?: number
+}) {
+  const [posts, setPosts] = useState<BlogPost[]>(initialPosts)
+  const [popularPosts, setPopularPosts] = useState<BlogPost[]>(initialPosts.slice(0, 4))
+  const [loading, setLoading] = useState(initialPosts.length === 0)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const postsPerPage = 6
+  const [totalPages, setTotalPages] = useState(
+    Math.max(1, Math.ceil((initialTotal || initialPosts.length) / POSTS_PER_PAGE))
+  )
+  const postsPerPage = POSTS_PER_PAGE
   const [newsletterEmail, setNewsletterEmail] = useState("")
   const [newsletterLoading, setNewsletterLoading] = useState(false)
 
+  // CHANGED: skip the very first browser fetch when the server already gave us page 1
+  const skipFirstFetch = useRef(initialPosts.length > 0)
+
   // Fetch paginated posts when page changes
   useEffect(() => {
+    if (currentPage === 1 && skipFirstFetch.current) {
+      skipFirstFetch.current = false
+      return
+    }
     const fetchPosts = async () => {
       setLoading(true)
       try {
@@ -52,10 +71,11 @@ export function BlogContent() {
       }
     }
     fetchPosts()
-  }, [currentPage])
+  }, [currentPage, postsPerPage])
 
-  // Fetch popular posts once on mount
+  // Fetch popular posts once on mount (CHANGED: skipped when the server already provided them)
   useEffect(() => {
+    if (popularPosts.length > 0) return
     const fetchPopular = async () => {
       try {
         const res = await fetch(`/api/blog?limit=4&page=1`)
@@ -67,6 +87,7 @@ export function BlogContent() {
       } catch {}
     }
     fetchPopular()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleNewsletterSubmit = async () => {
@@ -104,11 +125,13 @@ export function BlogContent() {
     }
   }
 
+  // CHANGED: timeZone "UTC" so server and browser print the same date (no hydration mismatch)
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
+      timeZone: "UTC",
     })
   }
 
@@ -199,12 +222,13 @@ export function BlogContent() {
           {remainingPosts.length > 0 && (
             <div className="grid sm:grid-cols-2 gap-8">
               {remainingPosts.map((post) => (
-                <Link key={post._id} href={`/blog/${post.slug}`} className="group block">
+                <Link key={post._id ?? post.slug} href={`/blog/${post.slug}`} className="group block">
                   <article className="border border-slate-200 rounded-2xl overflow-hidden hover:border-sky-200 transition-colors h-full flex flex-col">
                     <div className="relative overflow-hidden h-44">
                       <img
                         src={post.imageUrl}
                         alt={post.title}
+                        loading="lazy"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>
@@ -284,7 +308,7 @@ export function BlogContent() {
             <div className="divide-y divide-slate-100">
               {popularPosts.map((post, index) => (
                 <Link
-                  key={post._id}
+                  key={post._id ?? post.slug}
                   href={`/blog/${post.slug}`}
                   className="group flex items-start gap-4 px-5 py-4 hover:bg-slate-50 transition-colors"
                 >

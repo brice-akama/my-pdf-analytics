@@ -1,6 +1,11 @@
 // app/blog/[slug]/BlogDetails.tsx
 'use client'
-import parse from 'html-react-parser'
+import parse, {
+  domToReact,
+  Element,
+  type DOMNode,
+  type HTMLReactParserOptions,
+} from 'html-react-parser'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -106,29 +111,39 @@ const [newsletterLoading, setNewsletterLoading] = useState(false)
 
   const AnchorTag = 'a' as const
 
-const parseOptions = {
-  replace: (domNode: any) => {
-    if (domNode.type === 'tag' && domNode.name === 'img') {
+const parseOptions: HTMLReactParserOptions = {
+  replace: (node) => {
+    if (!(node instanceof Element)) return
+
+    if (node.name === 'img') {
       return (
         <img
-          src={domNode.attribs.src}
-          alt={domNode.attribs.alt || ''}
+          src={node.attribs.src}
+          alt={node.attribs.alt || ''}
+          loading="lazy"
           className="w-full h-auto rounded-xl my-8"
         />
       )
     }
-    if (domNode.type === 'tag' && domNode.name === 'a') {
-      const href = domNode.attribs?.href || '#'
-      const text = domNode.children?.[0]?.data ?? ''
+
+    if (node.name === 'a') {
+      const href = node.attribs?.href || '#'
+      const cls = 'text-sky-600 hover:underline font-medium'
+      const children = domToReact(node.children as DOMNode[], parseOptions)
+      const isInternal =
+        href.startsWith('/') || href.startsWith('https://docmetrics.io')
+
+      if (isInternal) {
+        return (
+          <Link href={href.replace('https://docmetrics.io', '') || '/'} className={cls}>
+            {children}
+          </Link>
+        )
+      }
       return (
-        <AnchorTag
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sky-600 hover:underline font-medium"
-        >
-          {text}
-        </AnchorTag>
+        <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
+          {children}
+        </a>
       )
     }
   },
@@ -185,10 +200,11 @@ const parseOptions = {
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
               <Calendar className="h-3.5 w-3.5" />
               {new Date(post.createdAt).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  timeZone: 'UTC',
+})}
             </div>
             <div className="flex items-center gap-1.5 text-xs text-slate-400">
               <Clock className="h-3.5 w-3.5" />
@@ -358,7 +374,7 @@ const parseOptions = {
                     Go to homepage
                   </Link>
                   <Link
-                    href="/register"
+                    href="/signup"
                     className="flex items-center gap-2 px-5 py-3.5 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
                   >
                     <ArrowRight className="h-3.5 w-3.5 text-slate-400" />

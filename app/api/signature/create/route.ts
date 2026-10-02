@@ -151,6 +151,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
+        // Large PDFs (stored in R2, not Cloudinary) can't go through e-signature yet.
+    const docSizeBytes = document.pdfSize || document.size || 0;
+    if (docSizeBytes > 10 * 1024 * 1024) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "This document is too large for e-signature. Compress it to under 10MB and upload it again to send it for signing.",
+          code: "DOCUMENT_TOO_LARGE_FOR_SIGNING",
+        },
+        { status: 413 }
+      )
+    }
+
     // ── Step 5: Create signature requests (unchanged logic) ───────
     const signatureRequests = [];
     const emailPromises     = [];

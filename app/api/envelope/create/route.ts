@@ -71,6 +71,21 @@ if (!hasFeature(plan, "bulkSend")) {
       );
     }
 
+        // Large PDFs (stored in R2, not Cloudinary) can't go through e-signature yet.
+    const oversizedDoc = documents.find(
+      (doc) => (doc.pdfSize || doc.size || 0) > 10 * 1024 * 1024
+    );
+    if (oversizedDoc) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `"${oversizedDoc.originalFilename || oversizedDoc.filename}" is too large for e-signature. Compress it to under 10MB and re-upload, or remove it from this envelope.`,
+          code: "DOCUMENT_TOO_LARGE_FOR_SIGNING",
+        },
+        { status: 413 }
+      );
+    }
+
     // Calculate expiration
     let expiresAt = null;
     if (expirationDays && expirationDays !== 'never') {

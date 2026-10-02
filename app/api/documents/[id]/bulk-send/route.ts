@@ -87,6 +87,19 @@ if (!hasFeature(plan, "bulkSend")) {
       );
     }
 
+        // Large PDFs (stored in R2, not Cloudinary) can't go through e-signature yet.
+    const docSizeBytes = document.pdfSize || document.size || 0;
+    if (docSizeBytes > 10 * 1024 * 1024) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "This document is too large for bulk send. Compress it to under 10MB and re-upload before sending it for signature.",
+          code: "DOCUMENT_TOO_LARGE_FOR_SIGNING",
+        },
+        { status: 413 }
+      );
+    }
+
     const userDoc = await db.collection("users").findOne({
        _id: user._id,
     });

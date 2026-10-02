@@ -1,78 +1,78 @@
 // app/blog/[slug]/fetchBlog.ts
-import 'server-only';
-import { Metadata } from 'next';
+import "server-only";
+import { cache } from "react";
 
-interface BlogPost {
+export interface BlogPost {
+  _id?: string;
+  slug: string;
   title: string;
   content: string;
   createdAt: string;
+  updatedAt?: string;
   imageUrl?: string;
   metaTitle?: string;
   metaDescription?: string;
+  author?: string;
+  category?: string;
 }
 
-// Generate metadata for this post
-export async function generateMetadata(
-  { params }: { params: { slug: string } }
-): Promise<Metadata> {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/blog?slug=${params.slug}`,
-    { cache: 'no-store' }
-  );
+const API = process.env.NEXT_PUBLIC_API_URL || "https://docmetrics.io";
 
-  if (!res.ok) return {};
+// The list endpoint returns { data: [...posts], total } (that is what BlogContent reads).
+// We also accept { data: { posts: [...] } } so either shape works.
+async function fetchPage(page: number, limit: number) {
+  const res = await fetch(`${API}/api/blog?limit=${limit}&page=${page}`, {
+    next: { revalidate: 60 },
+  });
+  if (!res.ok) throw new Error(`Blog list API error ${res.status}`);
 
-  const data = await res.json();
-  const post: BlogPost = data.data;
-
-  if (!post) return {};
-
-  const title = post.metaTitle || post.title;
-  const description = post.metaDescription || post.title;
-  const imageUrl = post.imageUrl;
-  const fullUrl = `${process.env.NEXT_PUBLIC_API_URL}/blog/${params.slug}`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      url: fullUrl,
-      images: imageUrl ? [{ url: imageUrl }] : undefined,
-      type: 'article',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: imageUrl ? [imageUrl] : undefined,
-    },
-    metadataBase: new URL(process.env.NEXT_PUBLIC_API_URL!),
-  };
+  const json = await res.json();
+  const d = json?.data;
+  const posts: BlogPost[] = Array.isArray(d) ? d : Array.isArray(d?.posts) ? d.posts : [];
+  const total: number =
+    typeof json?.total === "number" ? json.total : typeof d?.total === "number" ? d.total : posts.length;
+  return { posts, total };
 }
 
-export async function getBlogPost(slug: string) {
-  console.log("Fetching post with slug:", slug);
+// One page of posts (used by /blog for the first server-rendered batch).
+export const getBlogPage = cache(async (page = 1, limit = 6) => fetchPage(page, limit));
 
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/blog?slug=${slug}`,
-    { next: { revalidate: 60 } }
-  );
+// ALL posts (used by the sitemap and generateStaticParams). Pages through the API
+// and de-duplicates by slug, so it is safe even if the API caps `limit`.
+export const getBlogPosts = cache(async (): Promise<BlogPost[]> => {
+  const bySlug = new Map<string, BlogPost>();
+  let total = Infinity;
 
-  if (!res.ok) {
-    throw new Error("Failed to fetch blog post");
+  for (let page = 1; page <= 30 && bySlug.size < total; page++) {
+    const r = await fetchPage(page, 50);
+    const before = bySlug.size;
+    for (const p of r.posts) if (p?.slug) bySlug.set(p.slug, p);
+    total = r.total;
+    if (bySlug.size === before) break; // no new posts → stop
   }
+  return [...bySlug.values()];
+});
 
-  const data = await res.json();
+// Returns null ONLY for a real 404 so the page can call notFound().
+// Other failures throw, so Google gets an error and retries instead of a soft 404.
+export const getBlogPost = cache(async (slug: string): Promise<BlogPost | null> => {
+  const res = await fetch(`${API}/api/blog?slug=${encodeURIComponent(slug)}`, {
+    next: { revalidate: 60 },
+  });
 
-  // ✅ unwrap the actual post from the response
-  const post = data?.data?.post;
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Blog API error ${res.status} for slug "${slug}"`);
 
-  if (!post) {
-    console.error(" No post found in API response:", data);
-    return null;
-  }
+  const json = await res.json();
+  const d = json?.data;
+  const post = d?.post ?? (d && !Array.isArray(d) && d.title ? d : null);
+  return post ? { ...post, slug } : null;
+});
 
-  return post; //  return the post directly, not the wrapper object
+export function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
