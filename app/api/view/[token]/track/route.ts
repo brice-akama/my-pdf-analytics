@@ -984,10 +984,22 @@ checkAndSendDailyDigests(db).catch(() => {});
       }
 
       // ── SESSION END ───────────────────────────────────────────
-      case 'session_end': {
+           case 'session_end': {
         const duration = timeSpent && !isNaN(timeSpent)
-          ? Math.min(parseInt(timeSpent), 7200) // cap at 2 hours
+          ? Math.min(parseInt(timeSpent), 7200)
           : 0;
+
+        // ── Fatigue check — has the owner been ignoring recent alerts on this doc? ──
+        let ownerIsFatigued = false;
+        try {
+          const fatigueDoc = await db.collection('documents').findOne(
+            { _id: share.documentId },
+            { projection: { 'tracking.notificationCountSinceLastOwnerView': 1 } }
+          );
+          ownerIsFatigued = (fatigueDoc?.tracking?.notificationCountSinceLastOwnerView || 0) >= 3;
+        } catch {
+          ownerIsFatigued = false; // fail open — never silently hide a real signal due to a check error
+        }
 
         await db.collection('analytics_sessions').updateOne(
           { sessionId: currentSessionId },
@@ -1071,23 +1083,33 @@ const narrative = buildNarrative({
               const ownerProfile = await db.collection('profiles')
                 .findOne({ user_id: share.userId });
 
-              await fireToAllChannels({
-                db,
-                userId: share.userId,
-                ownerProfile,
-                payload: {
-                  documentName: insightDoc.originalFilename || 'Your document',
-                  documentId,
-                  viewerEmail,
-                  slowestPage: signals.slowestPage,
-                  slowestPageTime: signals.slowestPageTime,
-                  avgPageTime: signals.avgPageTime,
-                  skippedPages: signals.skippedPages,
-                  totalPages: insightDoc.numPages,
-                  trigger: 'session_end' as const,
-                },
-                narrative,
-              });
+                           const { hasMilestoneFired, markMilestoneFired } = await import('@/lib/notificationMilestones');
+              const alreadyFired = await hasMilestoneFired(db, 'deal_insight', documentId, viewerEmail);
+
+              if (!alreadyFired) {
+                await fireToAllChannels({
+                  db,
+                  userId: share.userId,
+                  ownerProfile,
+                  payload: {
+                    documentName: insightDoc.originalFilename || 'Your document',
+                    documentId,
+                    viewerEmail,
+                    slowestPage: signals.slowestPage,
+                    slowestPageTime: signals.slowestPageTime,
+                    avgPageTime: signals.avgPageTime,
+                    skippedPages: signals.skippedPages,
+                    totalPages: insightDoc.numPages,
+                    trigger: 'session_end' as const,
+                  },
+                  narrative,
+                });
+                await markMilestoneFired(db, 'deal_insight', documentId, viewerEmail);
+                await db.collection('documents').updateOne(
+                  { _id: share.documentId },
+                  { $inc: { 'tracking.notificationCountSinceLastOwnerView': 1 } }
+                ).catch(() => {});
+              }
 
             } catch (err) {
               // Silent failure — shows in Vercel logs only

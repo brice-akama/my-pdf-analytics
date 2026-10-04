@@ -133,6 +133,23 @@ export async function GET(
       'mail.com', 'live.com', 'msn.com', 'googlemail.com',
     ]);
 
+    // ── Functional mailbox heuristic — cheap signal for role, no enrichment API ──
+const FUNCTIONAL_MAILBOX_PATTERNS: Record<string, string> = {
+  legal: 'Legal', procurement: 'Procurement', finance: 'Finance',
+  security: 'Security', compliance: 'Compliance', accounting: 'Accounting',
+  it: 'IT', purchasing: 'Purchasing',
+};
+
+function detectFunctionalMailbox(email: string): string | null {
+  const localPart = email.split('@')[0]?.toLowerCase() || '';
+  for (const [pattern, label] of Object.entries(FUNCTIONAL_MAILBOX_PATTERNS)) {
+    if (localPart === pattern || localPart.startsWith(`${pattern}.`) || localPart.startsWith(`${pattern}-`)) {
+      return label;
+    }
+  }
+  return null;
+}
+
     const uniqueDomainViewers = allSessions
       .filter((s: any) => s.email)
       .reduce((acc: Record<string, string[]>, s: any) => {
@@ -434,12 +451,15 @@ export async function GET(
             const [first, second] = mostRecentNewViewer.sessionTimes;
             const gapDays = Math.floor((second - first) / (1000 * 60 * 60 * 24));
 
-            newViewerSignal = {
-              strength: 'strong',
-              narrative: `DocMetrics observed a new viewer, ${mostRecentNewViewer.email}, open this document and then return again ${gapDays} day${gapDays !== 1 ? 's' : ''} later.`,
-              email: mostRecentNewViewer.email,
-              daysBetweenVisits: gapDays,
-            };
+                   const functionalLabel = detectFunctionalMailbox(mostRecentNewViewer.email);
+        const functionalNote = functionalLabel ? ` This address appears to route to ${functionalLabel}.` : '';
+
+        newViewerSignal = {
+          strength: 'strong',
+          narrative: `DocMetrics observed a new viewer, ${mostRecentNewViewer.email}, open this document and then return again ${gapDays} day${gapDays !== 1 ? 's' : ''} later.${functionalNote}`,
+          email: mostRecentNewViewer.email,
+          daysBetweenVisits: gapDays,
+        };
           }
         }
       }
@@ -1165,6 +1185,32 @@ export async function GET(
 
     const signatureRequests = await db.collection('signature_requests')
       .find({ documentId: id }).toArray();
+          // ── Never-opened flag — a named recipient who was sent this but hasn't opened it ──
+    // Scoped to signature requests, since that's where we have a known recipient
+    // identity before any open happens (anonymous share links have no identity to flag).
+    let neverOpenedAlert: {
+      email: string;
+      daysSinceSent: number;
+      narrative: string;
+    }[] = [];
+
+    try {
+      const NEVER_OPENED_THRESHOLD_DAYS = 5;
+      neverOpenedAlert = signatureRequests
+        .filter((sr: any) => !sr.firstViewedAt && sr.createdAt)
+        .map((sr: any) => {
+          const daysSinceSent = Math.floor((Date.now() - new Date(sr.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+          return { email: sr.recipientEmail, daysSinceSent, sr };
+        })
+        .filter((r: any) => r.daysSinceSent >= NEVER_OPENED_THRESHOLD_DAYS)
+        .map((r: any) => ({
+          email: r.email,
+          daysSinceSent: r.daysSinceSent,
+          narrative: `${r.email} has not opened this document, sent ${r.daysSinceSent} days ago.`,
+        }));
+    } catch {
+      neverOpenedAlert = [];
+    }
     const totalRecipients = signatureRequests.length;
     const completedRecipients = signatureRequests.filter(sr => sr.status === 'completed');
     const completedCount = completedRecipients.length;
@@ -1365,6 +1411,7 @@ export async function GET(
         bounceAnalytics, revisitData, intentScores, realTimeViewers,
         liveViewerCount: realTimeViewers.length, devices, locations,
         eSignature: eSignatureAnalytics, signatureFriction,
+        neverOpenedAlert,
         declineReasons, declinePatterns, intentData, reminderEffectiveness,
         deadDeal,
 

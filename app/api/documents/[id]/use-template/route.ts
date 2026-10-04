@@ -103,6 +103,9 @@ export async function POST(
       charCount: source.charCount,
       summary: source.summary || null,
       scannedPdf: source.scannedPdf || false,
+      pageDimensions: source.pageDimensions || [],
+      storage: source.storage || 'cloudinary',
+      r2Key: source.r2Key || null,
       analytics: {
         views: 0,
         uniqueVisitors: [],

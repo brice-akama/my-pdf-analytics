@@ -87,6 +87,9 @@ export async function POST(
       charCount: document.charCount,
       summary: document.summary || null,
       scannedPdf: document.scannedPdf || false,
+      pageDimensions: document.pageDimensions || [],
+      storage: document.storage || 'cloudinary',
+      r2Key: document.r2Key || null,
       analytics: {
         views: 0,
         uniqueVisitors: [],

@@ -123,6 +123,18 @@ export async function POST(
     const body = await request.json();
     const { viewerData, forceRegenerate = false } = body;
 
+    // ── Fatigue check — has the owner been ignoring recent alerts on this doc? ──
+    let ownerIsFatigued = false;
+    try {
+      const fatigueDoc = await db.collection('documents').findOne(
+        { _id: new ObjectId(id) },
+        { projection: { 'tracking.notificationCountSinceLastOwnerView': 1 } }
+      );
+      ownerIsFatigued = (fatigueDoc?.tracking?.notificationCountSinceLastOwnerView || 0) >= 3;
+    } catch {
+      ownerIsFatigued = false; // fail open — never silently hide a real signal due to a check error
+    }
+
     if (!viewerData || !Array.isArray(viewerData) || viewerData.length === 0) {
       return NextResponse.json({ summaries: [] });
     }
@@ -432,7 +444,7 @@ The data alone cannot distinguish between these.`;
         { upsert: true }
       );
 
-      summaries.push({
+            summaries.push({
         viewerEmail: email,
         summary,
         recommendation,
@@ -440,6 +452,32 @@ The data alone cannot distinguish between these.`;
         momentumState: signals.momentumState || 'holding',
         cached: false,
       });
+
+      // ── Per-viewer notification dedup + fatigue guard ──────────
+      // This ONLY gates the outbound alert (email/Slack/Teams/HubSpot).
+      // `summaries.push` above already ran — the dashboard and API
+      // response always carry the full, fresh buyer signal regardless
+      // of whether a notification fires. Keyed by session count, so
+      // genuinely new activity (a new session) always gets a fresh
+      // key and still notifies — this only blocks re-firing for the
+      // exact same stale activity level (e.g. cache expiring with
+      // nothing new having happened in between).
+      const viewerMilestoneKey = `${email}_${lastSessionCount}`;
+      let skipViewerNotification = false;
+      try {
+        const { hasMilestoneFired } = await import('@/lib/notificationMilestones');
+        const alreadyNotifiedForThisActivity = await hasMilestoneFired(db, 'deal_insight', id, viewerMilestoneKey);
+        const fatigueDoc = await db.collection('documents').findOne(
+          { _id: new ObjectId(id) },
+          { projection: { 'tracking.notificationCountSinceLastOwnerView': 1 } }
+        );
+        const ownerIsFatiguedForViewer = (fatigueDoc?.tracking?.notificationCountSinceLastOwnerView || 0) >= 3;
+        skipViewerNotification = alreadyNotifiedForThisActivity || ownerIsFatiguedForViewer;
+      } catch {
+        skipViewerNotification = false; // fail open — never silently hide a real buyer signal
+      }
+
+      if (skipViewerNotification) continue;
 
       // ── Fire notifications — all silent failures ──────────────
       // Get owner profile for email
@@ -528,6 +566,7 @@ isHubSpotConnected(access.userId)
   );
 
 // Teams
+// Teams
 sendTeamsNotification({
   userId: access.userId,
   event: 'deal_insight',
@@ -538,6 +577,13 @@ sendTeamsNotification({
 }).catch(err =>
   console.error('[DealIntelligence] Teams silent fail:', err)
 );
+
+      const { markMilestoneFired } = await import('@/lib/notificationMilestones');
+      await markMilestoneFired(db, 'deal_insight', id, viewerMilestoneKey);
+      await db.collection('documents').updateOne(
+        { _id: new ObjectId(id) },
+        { $inc: { 'tracking.notificationCountSinceLastOwnerView': 1 } }
+      ).catch(() => {});
     }
 
    // ── Compute deal level summary from all viewer summaries ──────
@@ -755,9 +801,13 @@ if (committeeGrowing && hasHighQualitySecondary && hotCount >= 1) {
       // there's an actual committee signal (2+ people) — domain
       // confirmed OR link-only (e.g. Gmail/Outlook viewers sharing
       // the same link). A single viewer doesn't warrant this notification.
-      if (dealLevelSummary && committeeGrowing) {
+            if (dealLevelSummary && committeeGrowing) {
         (async () => {
           try {
+            const { hasMilestoneFired, markMilestoneFired } = await import('@/lib/notificationMilestones');
+            const sizeKey = String(committeeSize);
+            const alreadyFiredForThisSize = await hasMilestoneFired(db, 'committee_growth', id, sizeKey);
+            if (alreadyFiredForThisSize || ownerIsFatigued) return; // already told the rep about this exact committee size
             const dlOwnerProfile = await db.collection('profiles').findOne({
               user_id: access.userId,
             });
@@ -836,6 +886,11 @@ if (committeeGrowing && hasHighQualitySecondary && hotCount >= 1) {
               extraInfo: dlNarrative,
             }).catch(err => console.error('[DealLevelSummary] Teams silent fail:', err));
 
+                              await markMilestoneFired(db, 'committee_growth', id, sizeKey);
+                     await db.collection('documents').updateOne(
+                       { _id: new ObjectId(id) },
+                       { $inc: { 'tracking.notificationCountSinceLastOwnerView': 1 } }
+                     ).catch(() => {});
           } catch (err) {
             console.error('[DealLevelSummary] outer silent fail:', err);
           }

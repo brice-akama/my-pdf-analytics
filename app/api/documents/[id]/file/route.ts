@@ -93,6 +93,14 @@ if (!hasAccess) {
   }, { status: 403 });
 }
 
+// ── Fatigue reset — owner actually looked at the doc, so alerts can resume ──
+if (isOwner) {
+  db.collection('documents').updateOne(
+    { _id: documentId },
+    { $set: { 'tracking.notificationCountSinceLastOwnerView': 0 } }
+  ).catch(() => {});
+}
+
 console.log('✅ Access granted:', {
   isOwner,
   hasSignatureRequest: !!hasSignatureRequest,
