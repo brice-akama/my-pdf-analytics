@@ -3,6 +3,7 @@
 import type { Metadata } from "next";
 import React, { JSX } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 
 // ── METADATA ──────────────────────────────────────────────────
@@ -32,6 +33,16 @@ export const metadata: Metadata = {
   },
 };
 
+// ── FOUNDER DETAILS (edit here) ───────────────────────────────
+const FOUNDER = {
+  name: "Brice Ekuka",
+  role: "Founder, DocMetrics",
+  location: "Cameroon",
+  email: "founder@docmetrics.io",
+  linkedin: "https://www.linkedin.com/in/brice-ekuka-368288389",
+  photo: "/founder.jpeg", // put your photo at: public/founder.jpeg
+};
+
 // ── JSON-LD ───────────────────────────────────────────────────
 const organizationSchema = {
   "@context": "https://schema.org",
@@ -41,12 +52,33 @@ const organizationSchema = {
   logo: "https://docmetrics.io/logo.png",
   description:
     "DocMetrics is a document intelligence platform that gives sales teams, founders, recruiters, and professionals real-time visibility into how their documents are read, shared, and acted upon.",
+  founder: {
+    "@type": "Person",
+    name: FOUNDER.name,
+    url: FOUNDER.linkedin,
+  },
   contactPoint: {
     "@type": "ContactPoint",
     email: "support@docmetrics.io",
     contactType: "customer support",
   },
-  sameAs: [],
+  sameAs: ["https://x.com/DocMetricsIO", FOUNDER.linkedin],
+};
+
+const founderSchema = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: FOUNDER.name,
+  jobTitle: "Founder",
+  email: FOUNDER.email,
+  image: `https://docmetrics.io${FOUNDER.photo}`,
+  url: "https://docmetrics.io/about",
+  worksFor: {
+    "@type": "Organization",
+    name: "DocMetrics",
+    url: "https://docmetrics.io",
+  },
+  sameAs: [FOUNDER.linkedin],
 };
 
 const faqSchema = {
@@ -122,6 +154,10 @@ export default function AboutPage(): JSX.Element {
       />
       <script
         type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(founderSchema) }}
+      />
+      <script
+        type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
       <script
@@ -148,6 +184,58 @@ export default function AboutPage(): JSX.Element {
       {/* ── CONTENT ── */}
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16">
         <div className="space-y-12">
+
+          {/* Founder */}
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-900 mb-6">
+              Meet the Founder
+            </h2>
+            <div className="border border-slate-200 rounded-xl p-6 sm:p-8 flex flex-col sm:flex-row gap-6 sm:gap-8 items-start">
+              <Image
+                src={FOUNDER.photo}
+                alt={`${FOUNDER.name}, founder of DocMetrics`}
+                width={160}
+                height={160}
+                className="h-32 w-32 sm:h-40 sm:w-40 rounded-2xl object-cover shrink-0 border border-slate-200"
+              />
+              <div>
+                <p className="text-lg font-semibold text-slate-900">
+                  {FOUNDER.name}
+                </p>
+                <p className="text-sm text-slate-500 mb-4">
+                  {FOUNDER.role} · Based in {FOUNDER.location}
+                </p>
+                <p className="text-base text-slate-600 leading-relaxed mb-4">
+                 Hi, I’m Brice, the  founder of DocMetrics. I started building DocMetrics after noticing how little visibility salespeople have after sending a proposal. You can see that a document was opened, but that alone does not tell you whether the buyer is seriously reviewing it, who else is involved, or whether anything has changed since you sent it.
+
+I built DocMetrics to give salespeople better visibility into what happens after they hit send. It helps them see meaningful changes in buyer engagement, such as repeat visits, deeper engagement, new stakeholders, and interest in specific parts of a proposal, so they have better context when deciding what to do next.
+                </p>
+                <p className="text-base text-slate-600 leading-relaxed mb-5">
+                  I am building DocMetrics myself, and I personally read every message that comes in. If something is not working or you have an idea for a feature, you can reach me directly. When you hear back from DocMetrics, you are hearing from me.
+                </p>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 text-sm">
+                  <a
+                    href={`mailto:${FOUNDER.email}`}
+                    className="inline-flex items-center gap-2 font-medium text-sky-600 hover:text-sky-700 transition-colors"
+                  >
+                    {FOUNDER.email}
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                  <a
+                    href={FOUNDER.linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer me"
+                    className="inline-flex items-center gap-2 font-medium text-sky-600 hover:text-sky-700 transition-colors"
+                  >
+                    LinkedIn
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100" />
 
           {/* Mission */}
           <div>
@@ -201,10 +289,10 @@ export default function AboutPage(): JSX.Element {
                     "Know the instant someone opens your document. See their name, location, device, and time of visit. Track every return visit and get notified when a prospect is reading right now.",
                 },
                 {
-  title: "Deal Intelligence",
-  description:
-    "See where prospects hesitated, which pages they re-read, and when a deal starts going cold before they go quiet. Not just engagement data — a signal for what to do next.",
-},
+                  title: "Deal Intelligence",
+                  description:
+                    "See where prospects hesitated, which pages they re-read, and when a deal starts going cold before they go quiet. Not just engagement data — a signal for what to do next.",
+                },
                 {
                   title: "Page-by-Page Analytics",
                   description:
