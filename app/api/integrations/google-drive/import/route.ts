@@ -459,12 +459,10 @@ export async function POST(request: NextRequest) {
         // Negative → user freed space (increment with a negative value = decrement).
         // Zero     → identical size, skip the write entirely.
         // We use $inc so concurrent requests never race-overwrite each other.
-                if (stored.storedInR2) {
-          const pagesDocId = existingDoc._id.toString();
-          after(async () => {
-            await preExtractAllPagesFromBuffer(finalPdfBuffer, pagesDocId);
-          });
-        }
+           const pagesDocId = existingDoc._id.toString();
+        after(async () => {
+          await preExtractAllPagesFromBuffer(finalPdfBuffer, pagesDocId, newVersion);
+        });
 
         if (storageDelta !== 0) {
           await db.collection("users").updateOne(
@@ -578,12 +576,10 @@ export async function POST(request: NextRequest) {
     console.log("✅ [GDRIVE IMPORT] Document inserted:", result.insertedId.toString());
 
     
-    if (stored.storedInR2) {
-      const pagesDocId = result.insertedId.toString();
-      after(async () => {
-        await preExtractAllPagesFromBuffer(finalPdfBuffer, pagesDocId);
-      });
-    }
+    const pagesDocId = result.insertedId.toString();
+    after(async () => {
+      await preExtractAllPagesFromBuffer(finalPdfBuffer, pagesDocId, 1);
+    });
 
     // ── Storage increment ──────────────────────────────────────────────────
     // New document — always increment by the full file size.

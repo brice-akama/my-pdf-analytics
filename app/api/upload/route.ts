@@ -1,5 +1,5 @@
 // app/api/upload/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { dbPromise } from '../lib/mongodb';
 import {
   convertToPdf,
@@ -8,7 +8,7 @@ import {
 } from '@/lib/document-processor';
 import cloudinary from 'cloudinary';
 import streamifier from 'streamifier';
-import { preExtractAllPages } from '@/lib/preExtractPages';
+import { preExtractAllPagesFromBuffer } from '@/lib/preExtractPages';
 import { checkAccess } from '@/lib/checkAccess'
 import {
   getPlanLimits,
@@ -348,9 +348,11 @@ if (!isStorageAvailable(plan, storageUsedBytes, buffer.length)) {
 
       // ✅ Fire-and-forget — never await these
       runBackgroundAnalysis(existingDoc._id.toString(), extractedText, plan, db).catch(console.error);
-      preExtractAllPages(pdfUrl, existingDoc._id.toString()).catch(err =>
-        console.error('Pre-extraction error:', err)
-      );
+      const pagesDocId = existingDoc._id.toString();
+      const pagesVersion = (existingDoc.version || 1) + 1;
+      after(async () => {
+        await preExtractAllPagesFromBuffer(pdfBuffer, pagesDocId, pagesVersion);
+      });
 
       return NextResponse.json({
         success: true,
@@ -434,9 +436,10 @@ await db.collection('users').updateOne(
 
     // ✅ Fire-and-forget — never await these
     runBackgroundAnalysis(result.insertedId.toString(), extractedText, plan, db).catch(console.error);
-    preExtractAllPages(pdfUrl, result.insertedId.toString()).catch(err =>
-      console.error('Pre-extraction error:', err)
-    );
+     const pagesDocId = result.insertedId.toString();
+    after(async () => {
+      await preExtractAllPagesFromBuffer(pdfBuffer, pagesDocId, 1);
+    });
 
     return NextResponse.json({
       success: true,

@@ -5,6 +5,7 @@ import { dbPromise } from '@/app/api/lib/mongodb';
 import { v2 as cloudinary } from 'cloudinary';
 import { PDFDocument } from 'pdf-lib';
 import { isR2Url, fetchR2Bytes } from '@/lib/documentSource';
+import { pageCachePublicId } from '@/lib/pageCachePath';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_NAME,
@@ -45,7 +46,8 @@ export async function GET(
     const documentId = share.documentId.toString();
 
     // ── 2. Check in-memory cache ─────────────────────────────────
-    const cacheKey = `${documentId}-${pageNum}`;
+     const docVersion = document.version || 1;
+    const cacheKey = `${documentId}-v${docVersion}-${pageNum}`;
     const cached = pageCache.get(cacheKey);
     if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
       console.log(`⚡ Memory cache HIT: ${cacheKey}`);
@@ -60,7 +62,7 @@ export async function GET(
     }
 
     // ── 3. Check Cloudinary page cache ───────────────────────────
-    const cachedPagePublicId = `docmetrics/pages/${documentId}/page_${pageNum}`;
+    const cachedPagePublicId = pageCachePublicId(documentId, docVersion, pageNum);
 
     try {
       const cachedUrl = cloudinary.url(cachedPagePublicId, {

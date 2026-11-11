@@ -334,16 +334,11 @@ export async function POST(request: NextRequest) {
       )
 
            runBackgroundAnalysis(existingDoc._id.toString(), extractedText, plan, db).catch(console.error)
-                  if (storedInR2) {
-        const pagesDocId = existingDoc._id.toString()
-        after(async () => {
-          await preExtractAllPagesFromBuffer(finalBuffer, pagesDocId)
-        })
-      } else {
-        preExtractAllPages(storedUrl, existingDoc._id.toString()).catch(err =>
-          console.error('Pre-extraction error:', err)
-        )
-      }
+                const pagesDocId = existingDoc._id.toString()
+      const pagesVersion = (existingDoc.version || 1) + 1
+      after(async () => {
+        await preExtractAllPagesFromBuffer(finalBuffer, pagesDocId, pagesVersion)
+      })
 
       if (spaceId) {
         const { ObjectId } = await import('mongodb')
@@ -430,16 +425,10 @@ export async function POST(request: NextRequest) {
     )
 
            runBackgroundAnalysis(result.insertedId.toString(), extractedText, plan, db).catch(console.error)
-        if (storedInR2) {
-      const pagesDocId = result.insertedId.toString()
-      after(async () => {
-        await preExtractAllPagesFromBuffer(finalBuffer, pagesDocId)
-      })
-    } else {
-      preExtractAllPages(storedUrl, result.insertedId.toString()).catch(err =>
-        console.error('Pre-extraction error:', err)
-      )
-    }
+       const pagesDocId = result.insertedId.toString()
+    after(async () => {
+      await preExtractAllPagesFromBuffer(finalBuffer, pagesDocId, 1)
+    })
 
     if (spaceId) {
       const { ObjectId } = await import('mongodb')

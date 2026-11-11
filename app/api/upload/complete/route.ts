@@ -15,7 +15,7 @@
 // runs the same PDF-conversion / text-extraction / DB pipeline the old
 // single-step /api/upload route used to run inline.
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse , after } from 'next/server'
 import cloudinary from 'cloudinary'
 import { dbPromise } from '../../lib/mongodb'
 import {
@@ -23,7 +23,7 @@ import {
   extractTextFromPdf,
   extractMetadata,
 } from '@/lib/document-processor'
-import { preExtractAllPages } from '@/lib/preExtractPages'
+import { preExtractAllPagesFromBuffer } from '@/lib/preExtractPages'
 import { checkAccess } from '@/lib/checkAccess'
 import { ObjectId } from 'mongodb'
 import { isStorageAvailable, isFileSizeAllowed } from '@/lib/planLimits'
@@ -403,9 +403,11 @@ cleanupResourceType = resourceType === 'raw' ? 'raw' : 'image'
       )
 
       runBackgroundAnalysis(existingDoc._id.toString(), extractedText, plan, db).catch(console.error)
-      preExtractAllPages(pdfUrl, existingDoc._id.toString()).catch(err =>
-        console.error('Pre-extraction error:', err)
-      )
+     const pagesDocId = existingDoc._id.toString()
+      const pagesVersion = (existingDoc.version || 1) + 1
+      after(async () => {
+        await preExtractAllPagesFromBuffer(pdfBuffer, pagesDocId, pagesVersion)
+      })
 
       return NextResponse.json({
         success: true,
@@ -485,9 +487,10 @@ cleanupResourceType = resourceType === 'raw' ? 'raw' : 'image'
     )
 
     runBackgroundAnalysis(result.insertedId.toString(), extractedText, plan, db).catch(console.error)
-    preExtractAllPages(pdfUrl, result.insertedId.toString()).catch(err =>
-      console.error('Pre-extraction error:', err)
-    )
+    const pagesDocId = result.insertedId.toString()
+    after(async () => {
+      await preExtractAllPagesFromBuffer(pdfBuffer, pagesDocId, 1)
+    })
 
     return NextResponse.json({
       success: true,
